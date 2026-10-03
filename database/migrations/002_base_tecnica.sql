@@ -131,6 +131,12 @@ create table if not exists diagnostico (
   analises_dia    integer,
   -- resumo: quantos achados de cada gravidade
   resumo          jsonb not null default '{}'::jsonb,
+  -- ── o que o usuário leva na mão ──
+  -- Mermaid gerado a partir dos dados: topologia fisica dos equipamentos
+  diagrama_topologia text,
+  -- Mermaid: o caminho do quadro ate o alerta, so com as camadas ativas
+  -- neste projeto — nao o fluxo generico
+  diagrama_fluxo     text,
   gerado_em       timestamptz not null default now()
 );
 create index if not exists diagnostico_levantamento_idx on diagnostico (levantamento_id, gerado_em desc);
@@ -160,6 +166,37 @@ create table if not exists diagnostico_item (
   ordem           integer not null default 0
 );
 create index if not exists diagnostico_item_idx on diagnostico_item (diagnostico_id, gravidade, ordem);
+
+-- A ficha que o instalador leva para a loja. Uma linha por ponto de camera,
+-- com os numeros ja calculados: nao e "monte a camera ali", e "a 62 cm do
+-- tampo, inclinada 45 graus, lente em 6 mm, enquadrando 52 cm".
+create table if not exists diagnostico_ponto (
+  id              uuid primary key default gen_random_uuid(),
+  diagnostico_id  uuid not null references diagnostico(id) on delete cascade,
+  setor           text not null,
+  ponto           text not null,
+  -- o que vai ser verificado ali, para o instalador entender o enquadramento
+  regras          text[],
+  equipamento_id  uuid references equipamento(id) on delete set null,
+  novo            boolean not null default false,   -- comprar ou reaproveitar
+  -- geometria calculada
+  altura_cm       numeric(6,1),
+  angulo_graus    numeric(5,1),
+  distancia_cm    numeric(6,1),
+  lente_mm        numeric(5,2),
+  largura_cena_cm numeric(6,1),
+  -- o numero que decide se a regra funciona
+  px_por_cm_esperado numeric(6,2),
+  px_por_cm_requerido numeric(6,2),
+  -- preenchido na instalacao, medindo com objeto de referencia no quadro
+  px_por_cm_medido   numeric(6,2),
+  medido_em          timestamptz,
+  -- iluminacao, quando a regra exigir
+  iluminacao      text,
+  observacao      text,
+  ordem           integer not null default 0
+);
+create index if not exists diagnostico_ponto_idx on diagnostico_ponto (diagnostico_id, ordem);
 
 -- =====================================================================
 -- SEED — a pesquisa de 01 a 03/10/2026 vira dado consultável

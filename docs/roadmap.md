@@ -252,6 +252,65 @@ de a loja anunciar 2 MP.
 
 ---
 
+## Motor de dimensionamento — o que o usuário recebe
+
+A pesquisa de mercado virou dado consultável na migration 002. A partir do que o
+usuário quer analisar e do que já tem, o sistema monta a estrutura recomendada e
+aponta o que está fora do padrão — **para menos**, que inviabiliza, e **para
+mais**, que é dinheiro parado.
+
+### As três pontas que se comparam
+
+| Ponta | De onde vem |
+|---|---|
+| **Requerido** | `requisito_uso`, derivado das regras que ele quer |
+| **Declarado** | o formulário: `levantamento_item.specs_declaradas` |
+| **Detectado** | o agente, medindo na instalação: `specs_detectadas` |
+
+Divergência entre declarado e detectado também vira alerta — é comum o cliente
+achar que tem 4 MP e ter 720p.
+
+### Sondas de diagnóstico — medir, não ler ficha
+
+O agente não confia em datasheet. Ele mede o que a câmera devolve de verdade:
+
+| Sonda | Método | O que revela |
+|---|---|---|
+| Resolução real | `ffprobe` no stream | Pega "anunciado 2 MP, é 720p" |
+| ⭐ **Detalhe real × nominal** | energia de alta frequência por FFT ou variância do Laplaciano | **Detecta 1080N mesmo quando o stream declara 1920×1080** — imagem esticada não tem alta frequência |
+| Foco | variância do Laplaciano na zona | A lente está focada no plano de trabalho? |
+| Ruído | desvio padrão em área uniforme | Sensor fraco ou luz insuficiente |
+| Faixa dinâmica | histograma, pixels em 0 e em 255 | O WDR dá conta da cena? |
+| Cor ou infravermelho | saturação média | Se cai para preto e branco, **toda regra de cor morre à noite** |
+| FPS real | contagem de quadros recebidos | Ficha e entrega raramente batem |
+| ⭐ **px/cm real** | objeto de referência de tamanho conhecido no quadro | Fecha a conta óptica com **medição**, não teoria |
+| Decode do PC | decodificar N streams e medir CPU | Capacidade real, não tabela |
+| Gravador | CGI/ONVIF: modelo, resolução configurada, `eventManager` responde? | Confirma o perfil antes de depender dele |
+
+A sonda de **px/cm** merece destaque: com uma folha A4 apoiada na bancada, o
+sistema mede quantos pixels os 21 cm ocupam e devolve o px/cm real. Toda a
+especificação óptica — lente de 3 a 8,5 mm, 12,8 px/cm para montagem — deixa de
+ser cálculo e vira medição de trinta segundos.
+
+### O pacote de entrega
+
+Ao fechar o diagnóstico, o usuário leva cinco coisas:
+
+1. **Lista de materiais** com link de loja brasileira e custo
+2. **Achados** por gravidade — atende, atende com limitação, não atende,
+   superdimensionado, divergente — cada um com o upgrade indicado e qual regra
+   fica comprometida
+3. ⭐ **Diagrama de topologia** — como os equipamentos se ligam fisicamente,
+   marcando o que já existe e o que é compra. Mermaid gerado dos dados
+4. ⭐ **Diagrama de funcionamento** — o caminho do quadro até o alerta, **só com
+   as camadas ativas naquele projeto**, não o fluxo genérico
+5. ⭐ **Ficha de instalação por ponto** — `diagnostico_ponto`. Não é "monte a
+   câmera ali", é *"a 62 cm do tampo, inclinada 45°, lente em 6 mm, enquadrando
+   52 cm, px/cm esperado 31"*. E o campo `px_por_cm_medido` fecha o laço na
+   instalação
+
+---
+
 ## Dependências externas
 
 | O que | De quem | Bloqueia |
