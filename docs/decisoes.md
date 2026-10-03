@@ -146,3 +146,64 @@ regra nunca chegam à nuvem. O texto se sustenta.
 
 **Revisão adiada** para quando a v1 estiver rodando e houver base medida para
 detalhar a proposta com número em vez de promessa.
+
+---
+
+## 03/10/2026 · Câmera da montagem em dois tempos — revisão
+
+**Decisão anterior:** câmera IP 4 MP dedicada ligada direto no PC, R$ 1.534 com
+instalação, para a estação de montagem.
+
+**O que mudou:** refazendo a conta de pixel por centímetro, uma **analógica de
+5 MP em close empata opticamente** com a IP de 4 MP.
+
+| | IP 4 MP | Analógica 5 MP em close |
+|---|---|---|
+| Pixels horizontais | 2688 | 2592 |
+| Px/cm enquadrando 40 cm | 67 | 65 |
+| No modelo, após resize para 640 | 16 px/cm | 16 px/cm |
+| Custo com instalação | R$ 1.534 | **≈ R$ 400** |
+
+**Decisão nova — testar em dois tempos:**
+
+1. **Primeiro** a analógica 5 MP em close mais barra de LED, por ~R$ 400,
+   ocupando um dos 7 canais livres do MHDX 3116-C.
+2. **Só se** o framerate pelo gravador não sustentar a sequência, subir para a
+   IP ligada direto no agente.
+
+**Por quê:** a diferença real entre as duas não é óptica, é **taxa de quadros**.
+A montagem precisa de 2 a 5 quadros por segundo durante 20 a 40 segundos, e o
+main-stream do MHDX é 1080p a 15 FPS compartilhados entre 16 canais, dentro de
+96 Mbps de throughput. Se sustentar, economiza R$ 1.100 por estação — e com 4
+estações no horizonte, R$ 4.400. Se não sustentar, descobre-se medindo, não
+discutindo.
+
+**O que NÃO muda:** o gabarito continua obrigatório e idêntico nas quatro
+estações, e a barra de LED continua sendo requisito, não acessório — luz
+constante é pré-requisito do classificador treinado.
+
+### Por que câmera dedicada, e por que a do setor não serve
+
+Registrado porque a pergunta vai voltar. **Não é megapixel, é pixel por
+centímetro no objeto** — e isso depende muito mais da distância que do sensor:
+
+| | Setor · 2 MP | Setor · 4 MP | Dedicada em close |
+|---|---|---|---|
+| Largura enquadrada | 350 cm | 350 cm | 40 cm |
+| Px/cm no modelo | 2,8 | 3,8 | **16** |
+| Picles de 3 cm | **8 px** | 11 px | **48 px** |
+| Fatia de queijo de 10 cm | 28 px | 38 px | 160 px |
+
+Subir de 2 para 4 MP na câmera do setor leva o picles de 8 para 11 pixels — não
+resolve. Uma câmera de R$ 2.769 na parede perde para uma de R$ 173 a meio metro.
+
+Mais quatro fatores: **oclusão** (a do setor vê de lado, o corpo do montador
+tapa; a dedicada vê por cima do ombro), **taxa de quadros** (as outras regras
+pegam um quadro; montagem é sequência), **luz** (ambiente de cozinha tem sombra
+e reflexo variáveis, e luz constante é pré-requisito do classificador) e
+**estabilidade** (o classificador aprende a cena; cinco graus de desvio degradam
+em silêncio).
+
+**E o inverso também vale:** para todas as outras regras — touca, bancada limpa,
+fila, presença, fechamento — a câmera do setor basta, porque o objeto é grande e
+um quadro só responde. A montagem é a única que pede câmera própria.
