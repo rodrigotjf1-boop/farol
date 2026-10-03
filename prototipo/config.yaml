@@ -1,0 +1,154 @@
+# =====================================================================
+# Monitor de Visão — Configuração (v3, organizado por SETORES)
+# Loja: Mister Burguer  |  DVR Motorola MTD161L0013 (TVT)
+# =====================================================================
+
+intervalo_segundos: 300          # ciclo entre verificações (300 = 5 min)
+modelo_ia: claude-sonnet-4-6
+anexar_snapshot_no_evento: true  # envia a imagem junto no evento p/ o Regem
+emitir_sempre: false             # true = manda também as conformidades
+
+loja:
+  id: "loja-01"
+  nome: "Mister Burguer"
+
+dvr:
+  ip: 192.168.1.130
+  porta: 554
+  usuario: monitor
+  senha: r2d23cpo
+  url_rtsp_template: "rtsp://{usuario}:{senha}@{ip}:{porta}/chID={canal}&streamType=sub"
+
+n8n:
+  webhook_url: "COLE_AQUI_A_URL_DO_WEBHOOK_N8N"
+  header_auth: "Authorization"
+  token: ""
+  timeout: 20
+
+telegram:
+  ativo: false
+  bot_token: ""
+  chat_id: ""
+
+# =====================================================================
+# SETORES
+# ---------------------------------------------------------------------
+# Cada setor = uma área física = um canal do DVR.
+# >>> AJUSTE O NÚMERO DO CANAL de cada setor conforme sua loja. <<<
+# (Você disse que sabe todos — troque os "canal:" abaixo pelos reais.)
+#
+# Cada setor tem uma lista de "verificacoes". Campos de cada verificação:
+#   nome              rótulo curto do que é checado
+#   criterio          o que é "conforme", em linguagem natural
+#   janela_horario    "HH:MM-HH:MM" (opcional; sem isso, verifica sempre)
+#   urgencia          sugestão p/ o Regem: baixa | media | alta
+#   confianca_minima  só emite se a IA tiver ao menos essa confiança (0-1)
+#   ativa             true/false — liga/desliga a verificação
+#
+# Prioridade escolhida: 1) Limpeza  2) Porções  3) Fila  4) EPI
+# As verificações de limpeza vêm ativas; as demais deixei prontas
+# porém algumas desativadas p/ você ligar aos poucos após calibrar.
+# =====================================================================
+setores:
+
+  - setor: "Chapa / Grelha"
+    canal: 5                       # confirmado: Câmera2 = cozinha/chapa
+    verificacoes:
+      # -- PRIORIDADE 1: LIMPEZA (checada em horário-chave) --
+      - nome: "Chapa limpa no fechamento"
+        criterio: >
+          Verifique o estado da chapa/grelha. Conforme = superfície limpa,
+          sem acúmulo visível de gordura, restos carbonizados ou sujeira.
+          Nao conforme = sujeira/acúmulo evidente. Se a chapa estiver em
+          uso com alimentos no momento, responda indeterminado.
+        #janela_horario: "15:00-17:59"
+        urgencia: "media"
+        confianca_minima: 0.7
+        ativa: true
+      # -- PRIORIDADE 4: EPI --
+      - nome: "EPI na chapa"
+        criterio: >
+          Verifique se TODAS as pessoas na área da chapa estão com touca/rede
+          de cabelo E luvas. Nao conforme = alguém sem touca ou manipulando
+          alimento sem luva. Área vazia = indeterminado.
+        #janela_horario: "11:00-23:00"
+        urgencia: "alta"
+        confianca_minima: 0.75
+        ativa: true
+
+  - setor: "Fritadeira / Batata"
+    canal: 3                       # <-- troque pelo canal real
+    verificacoes:
+      # -- PRIORIDADE 2: PORÇÕES --
+      - nome: "Excesso de batata no cesto"
+        criterio: >
+          Avalie o nível de batatas no cesto da fritadeira. Conforme = nível
+          normal, dentro do cesto. Nao conforme = cesto visivelmente cheio
+          demais, transbordando ou muito acima da borda. É uma avaliação
+          visual aproximada de exagero, não medição exata. Cesto vazio ou
+          fora de quadro = indeterminado.
+        janela_horario: "11:00-23:00"
+        urgencia: "baixa"
+        confianca_minima: 0.7
+        ativa: true
+      - nome: "Cesto abandonado na fritadeira"
+        criterio: >
+          Verifique se há cesto de batata submerso/fritando sem ninguém por
+          perto por tempo prolongado (risco de queima). Conforme = sem cesto
+          esquecido ou alguém presente operando. Nao conforme = cesto na
+          fritadeira aparentemente abandonado.
+        urgencia: "media"
+        confianca_minima: 0.7
+        ativa: false                # ligue depois de calibrar o setor
+
+  - setor: "Bancada de Montagem"
+    canal: 11                       # <-- troque pelo canal real
+    verificacoes:
+      # -- PRIORIDADE 1: LIMPEZA --
+      - nome: "Bancada limpa e organizada"
+        criterio: >
+          Verifique se a bancada de montagem está limpa e organizada: sem
+          restos de comida espalhados, sem embalagens/insumos fora do lugar,
+          superfície visivelmente limpa. Nao conforme = sujeira ou
+          desorganização evidente.
+        janela_horario: "14:30-15:00"
+        urgencia: "media"
+        confianca_minima: 0.7
+        ativa: true
+
+  - setor: "Balcão / Atendimento"
+    canal: 15                       # <-- troque pelo canal real
+    verificacoes:
+      # -- PRIORIDADE 3: FILA --
+      - nome: "Fila grande no balcão"
+        criterio: >
+          Conte os clientes aguardando na fila do balcão. Conforme = 4 ou
+          menos. Nao conforme = 5 ou mais clientes aguardando (indica
+          necessidade de reforço no atendimento).
+        janela_horario: "18:00-22:00"
+        urgencia: "media"
+        confianca_minima: 0.7
+        ativa: true
+
+  - setor: "Estoque / Produção"
+    canal: 6                       # <-- troque pelo canal real
+    verificacoes:
+      # -- PRIORIDADE 1: LIMPEZA / ORGANIZAÇÃO --
+      - nome: "Estoque organizado no fim do turno"
+        criterio: >
+          Verifique se a área de estoque/produção está organizada e limpa:
+          sem caixas/insumos jogados no chão fora do lugar, sem sujeira
+          evidente, corredores livres. Nao conforme = desorganização ou
+          sujeira evidente.
+        janela_horario: "23:00-23:59"
+        urgencia: "baixa"
+        confianca_minima: 0.7
+        ativa: true
+
+
+# =====================================================================
+# DICA DE TESTE (fumaça): para validar o circuito ponta a ponta primeiro,
+# você pode temporariamente deixar UMA verificação simples ativa no canal 2
+# sem janela_horario e com emitir_sempre: true no topo — assim dispara um
+# evento a cada ciclo e você confirma que o payload chega no n8n.
+# =====================================================================
