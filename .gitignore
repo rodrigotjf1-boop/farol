@@ -17,3 +17,5 @@ ffmpeg-*.tar.xz
 *.db
 .DS_Store
 Thumbs.db
+agent/saida-teste/
+agent/saida/
