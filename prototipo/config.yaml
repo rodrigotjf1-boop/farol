@@ -16,7 +16,7 @@ dvr:
   ip: 192.168.1.130
   porta: 554
   usuario: monitor
-  senha: r2d23cpo
+  senha: "DEFINIR_NO_COFRE_DO_AGENTE"   # nunca commitar segredo
   url_rtsp_template: "rtsp://{usuario}:{senha}@{ip}:{porta}/chID={canal}&streamType=sub"
 
 n8n:
