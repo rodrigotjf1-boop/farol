@@ -29,11 +29,22 @@ muda o rumo no meio.
 - `docs/licencas.md` — as sete armadilhas que inviabilizam produto revendido
 - Protótipo preservado em `prototipo/` como referência histórica
 
-### A1 — o que falta
+### A1 — fechado em 04/10/2026
 
-- Supabase do Farol: projeto novo ou reaproveitado (**depende do dono**)
-- `farol-api` e `farol-web` vazios no EasyPanel, com CI verde
+- **Banco no ar:** Postgres 17 + pgvector 0.8.7 na VPS própria, serviço
+  `farol-db`. Supabase foi descartado — o Farol grava série temporal de evento e
+  embedding, e a VPS já paga tem folga de sobra.
+- **`farol-api` no ar** (`17e788b`): Fastify, `/saude` informando a última
+  migration aplicada, e o runner `api/scripts/migrar.mjs`.
+- **Migrations 001 e 002 aplicadas** por `npm run migrar` dentro do contêiner.
+  Migration passa a viajar pelo deploy, nunca por paste; ver `decisoes.md` 04/10.
+
+### A1 — o que ainda falta
+
+- `farol-web` no EasyPanel
+- CI do repo (`npm ci && npm run build` em `api/`)
 - Domínios `api.monitorfarol.com.br` e `app.monitorfarol.com.br`
+- `pg_dump` diário agendado — o backup da VPS é **semanal**
 
 ---
 

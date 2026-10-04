@@ -207,3 +207,39 @@ em silêncio).
 **E o inverso também vale:** para todas as outras regras — touca, bancada limpa,
 fila, presença, fechamento — a câmera do setor basta, porque o objeto é grande e
 um quadro só responde. A montagem é a única que pede câmera própria.
+
+## 04/10/2026 · Migration viaja pelo deploy, não pela área de transferência
+
+**Decisão:** o `farol-api` carrega `database/migrations` dentro da própria
+imagem, e aplicar é `npm run migrar` no console do serviço. O banco do Farol
+**não fica exposto na internet** e nenhuma credencial sai do painel.
+
+**O que foi descartado, e por quê:**
+
+| Caminho | Por que não |
+|---|---|
+| Colar o SQL no console do Postgres | Foi tentado. O terminal do navegador travou duas vezes com 16 KB, e um paste truncado aplica meia estrutura em silêncio |
+| Expor a porta 5432 e aplicar de fora | Superfície permanente de ataque para resolver um incômodo de dez minutos. A 5432 é varrida o dia inteiro |
+| MCP de Postgres | Não evita a exposição: o MCP roda na máquina do operador, não na VPS. Só muda onde o segredo é digitado |
+
+**Por quê:** o problema nunca foi falta de acesso, era o SQL viajar por fora do
+git. Com a migration dentro da imagem, "o deploy subiu" e "o banco está na
+versão certa" deixam de ser a mesma aposta — o `/saude` responde as duas.
+
+**Como o runner se protege** (`api/scripts/migrar.mjs`):
+
+- **Checksum por arquivo** em `farol_migracao`. Migration já aplicada que muda
+  de conteúdo faz o runner **recusar**, em vez de seguir com o banco na versão
+  velha e o repo mostrando a nova — erro que só aparece quando quebra.
+- **Normaliza CRLF no checksum**, senão o mesmo arquivo teria impressão digital
+  diferente entre o Windows e o contêiner.
+- **Advisory lock com `Client` dedicado, nunca `Pool`:** lock de sessão só vale
+  na mesma conexão, e um pool pode devolver outra no meio.
+- **Uma transação por arquivo:** se a 003 falha, a 002 continua valendo.
+- **Mora em `api/scripts/`**, não junto das migrations, porque precisa do `pg` —
+  resolver módulo a partir de uma pasta sem `node_modules` acima não funciona.
+  Acha a pasta subindo, então vale no contêiner (`/app/database`) e na máquina.
+
+**Detalhe de montagem:** o contexto de build é a **raiz do repo**, não `api/` —
+é o que permite o `COPY database ./database`. No EasyPanel isso é *Build Path*
+`/` na aba Source e `api/Dockerfile` na aba Build.
