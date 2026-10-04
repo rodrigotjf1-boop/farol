@@ -7,11 +7,32 @@ on:
 
 jobs:
   api:
-    name: api (node)
+    name: api (node + postgres)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: api
+
+    # Postgres de verdade, com pgvector, porque SQL em string não se
+    # confere lendo. O join desta API atravessa quatro tabelas e a coluna
+    # que eu supus que existia não existia — foi o banco que disse.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: farol
+          POSTGRES_PASSWORD: farol
+          POSTGRES_DB: farol
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U farol"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgres://farol:farol@localhost:5432/farol
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,6 +42,13 @@ jobs:
           cache-dependency-path: api/package-lock.json
       - run: npm ci
       - run: npm run build
+
+      # Aplica as migrations pelo MESMO runner que roda em produção. Assim
+      # o caminho de migration é exercitado a cada push, em vez de só na
+      # hora do deploy.
+      - run: npm run migrar
+
+      - run: npm test
 
   agente:
     name: agente (python)

@@ -12,23 +12,21 @@
 // =====================================================================
 
 import Fastify from 'fastify';
-import pg from 'pg';
+
+import { pool } from './db.js';
+import { rotasDeEventos } from './rotas/eventos.js';
 
 const VERSAO = process.env.APP_VERSION ?? '0.1.0';
 const PORTA = Number(process.env.PORT ?? 3000);
 
-// Pool pequeno: a API ainda faz pouca coisa, e conexão ociosa contra o
-// Postgres custa memória do lado do servidor.
-const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 5,
-  idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 5_000,
-});
-
 const app = Fastify({
   logger: { level: process.env.LOG_LEVEL ?? 'info' },
+  // O agente manda lote; 500 eventos com embedding passam folgado do
+  // padrão de 1 MB do Fastify.
+  bodyLimit: 32 * 1024 * 1024,
 });
+
+rotasDeEventos(app, pool);
 
 app.get('/', async () => ({
   servico: 'farol-api',
