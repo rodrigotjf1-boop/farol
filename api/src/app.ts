@@ -8,6 +8,7 @@ import type pg from 'pg';
 
 import { rotasDeAgentes } from './rotas/agentes.js';
 import { rotasDeEventos } from './rotas/eventos.js';
+import { rotasDeLojas } from './rotas/lojas.js';
 
 export const VERSAO = process.env.APP_VERSION ?? '0.1.0';
 
@@ -65,6 +66,7 @@ export function criarApp(pool: pg.Pool, opcoes: { logger?: boolean } = {}): Fast
     }
   });
 
+  rotasDeLojas(app, pool);
   rotasDeAgentes(app, pool);
   rotasDeEventos(app, pool);
 
