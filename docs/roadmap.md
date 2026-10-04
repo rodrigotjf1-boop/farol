@@ -14,7 +14,7 @@ muda o rumo no meio.
 | Bloco | Estado |
 |---|---|
 | **A1 · Fundação e contrato** | ✅ feito |
-| **A2 · Agente** | ⬅️ aqui |
+| **A2 · Agente** | ⬅️ aqui — A2.1, A2.2 e A2.4 feitos; **A2.3 espera o DVR (06/10)** |
 | A3 · Console | — |
 | A4 · Inteligência avançada, MCP e DMS | — |
 | **Porta · v1 de pé** | — |
