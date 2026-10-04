@@ -19,3 +19,6 @@ ffmpeg-*.tar.xz
 Thumbs.db
 agent/saida-teste/
 agent/saida/
+
+# gerado por preparar.py — descartavel, a fonte da verdade e database/migrations/
+aplicar-no-banco/

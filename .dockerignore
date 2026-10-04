@@ -1,0 +1,23 @@
+# O contexto de build do farol-api é a raiz do repo, então o que não for
+# a API ou as migrations precisa ficar de fora — senão o ffmpeg de 11 MB e
+# os quadros de teste do protótipo sobem a cada deploy.
+.git
+.github
+**/node_modules
+**/dist
+**/__pycache__
+**/.venv
+**/*.pyc
+
+agent
+prototipo
+web
+mcp
+docs
+aplicar-no-banco
+
+*.tar.xz
+*.png
+*.jpg
+*.jpeg
+*.mp4
