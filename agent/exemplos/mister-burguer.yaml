@@ -1,0 +1,79 @@
+# Exemplo de configuração de ponto — Mister Burguer
+#
+# É o formato que o console vai gerar. Serve para rodar o laço completo
+# contra material gravado antes de o console existir:
+#
+#   farol-agent laco ../prototipo/testes --config exemplos/mister-burguer.yaml
+#
+# ⚠️ As regras aqui estão com `ativa: true` porque é um exemplo de teste.
+# Em loja de verdade regra nasce DESLIGADA e só liga depois de medida a
+# acurácia contra o conjunto de avaliação.
+
+ponto_id: canal11
+
+zonas:
+  bancada:
+    nome: Bancada de montagem
+    # Normalizado 0..1 sobre o quadro, nunca em pixels.
+    poligono: [[0.08, 0.30], [0.92, 0.30], [0.92, 0.95], [0.08, 0.95]]
+
+  passagem:
+    nome: Passagem para o salão
+    poligono: [[0.55, 0.10], [0.98, 0.10], [0.98, 0.60], [0.55, 0.60]]
+
+regras:
+  - id: bancada-limpa
+    nome: Bancada limpa entre pedidos
+    zona: bancada
+    tipo: estado
+    criterio: >-
+      A superfície de trabalho está livre de restos de alimento, embalagens
+      descartadas e utensílios sujos. Tábua e espátula fora de uso devem
+      estar guardadas, não largadas sobre a bancada.
+    criterio_versao: 1
+    prioridade: intermediaria
+    severidade: atencao
+    confianca_minima: 0.70
+    cooldown_min: 15
+    resolucao: r640
+    ativa: true
+    acoes: [registro, kds]
+    janelas:
+      - dias: [1, 2, 3, 4, 5, 6, 7]
+        hora_ini: "10:00"
+        hora_fim: "23:30"
+
+  - id: epi-touca
+    nome: Touca em uso na produção
+    zona: bancada
+    tipo: presenca
+    criterio: >-
+      Toda pessoa manipulando alimento na área está com touca cobrindo o
+      cabelo. Avalie apenas quem está manipulando; quem apenas passa pela
+      área não conta.
+    criterio_versao: 1
+    prioridade: intermediaria
+    severidade: critico
+    # Mais exigente: acusar falta de EPI errado gera atrito com a equipe,
+    # e atrito é o que faz a loja desligar o sistema.
+    confianca_minima: 0.85
+    cooldown_min: 30
+    resolucao: r640
+    ativa: true
+    acoes: [registro, kds]
+
+  - id: passagem-livre
+    nome: Passagem desobstruída
+    zona: passagem
+    tipo: estado
+    criterio: >-
+      O corredor de passagem está livre de caixas, engradados e sacos no
+      chão que impeçam a circulação.
+    criterio_versao: 1
+    prioridade: leve
+    severidade: info
+    confianca_minima: 0.75
+    cooldown_min: 60
+    resolucao: r384
+    ativa: true
+    acoes: [registro]

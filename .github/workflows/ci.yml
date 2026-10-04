@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    name: api (node)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  agente:
+    name: agente (python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest
+
+  imagem:
+    name: imagem docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # O contexto é a RAIZ do repo de propósito: a imagem leva
+      # database/migrations junto. Construir aqui pega quebra de Dockerfile
+      # antes do deploy, não depois — o EasyPanel faz auto-deploy da main.
+      - run: docker build -f api/Dockerfile -t farol-api:ci .

@@ -7,6 +7,9 @@ dependencies = [
     "opencv-python-headless>=4.10",
     "numpy>=1.26",
     "pyyaml>=6.0",
+    # Juiz de nuvem. MIT. O agente roda sem ele em modo simulado — a
+    # importação é tardia de propósito — mas julgar na nuvem exige.
+    "anthropic>=0.40",
 ]
 
 [project.scripts]
@@ -18,3 +21,11 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["farol_agent*"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["testes"]
+pythonpath = ["."]
+addopts = "-q"

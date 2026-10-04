@@ -1,26 +1,37 @@
 """CLI do agente.
 
-Na etapa A2.1 há dois comandos, e os dois servem para trabalhar sem a loja:
+Três comandos, e os três funcionam sem a loja:
 
     farol-agent sandbox    — processa uma pasta de quadros pelo pipeline
     farol-agent sondar     — mede a qualidade de uma imagem ou pasta
+    farol-agent laco       — roda o laço COMPLETO: gatilho → regra → fila →
+                             juiz → alerta, contra material gravado
 
 O `sondar` é o diagnóstico: diz se o detalhe real bate com a resolução
 declarada, se está focado, se caiu para infravermelho e se o WDR dá conta.
+
+O `laco` é o que permite afinar motor, limiar e janela de silêncio sem
+gastar nem ir ao restaurante — com `--simulado` (padrão) o veredito é
+determinístico por imagem, então duas versões do motor se comparam contra
+exatamente o mesmo material.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import cv2
 
+from farol_agent.config import ErroDeConfig, carregar
+from farol_agent.fila import Fila
 from farol_agent.fontes.sandbox import FonteSandbox
-from farol_agent.modelos import Frame, Regra, TipoRegra, Zona
+from farol_agent.modelos import EventoGatilho, Frame, Regra, TipoRegra, Zona
+from farol_agent.motor import MotorDeRegras
 from farol_agent.pipeline import dedupe, qualidade, recorte
 
 
@@ -143,6 +154,91 @@ def cmd_sondar(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_laco(args: argparse.Namespace) -> int:
+    """Laço completo contra material gravado: gatilho → fila → juiz → alerta."""
+    logging.basicConfig(
+        level=logging.INFO if args.verboso else logging.WARNING,
+        format="  [%(levelname)s] %(message)s",
+    )
+
+    try:
+        ponto_id, regras = carregar(args.config)
+    except ErroDeConfig as e:
+        print(f"\n  ERRO de configuração: {e}\n", file=sys.stderr)
+        return 1
+
+    ativas = [r for r in regras if r.ativa]
+    print(f"\nconfig: {len(regras)} regras, {len(ativas)} ativas · ponto {ponto_id}")
+    if not ativas:
+        print("\n  Nenhuma regra ativa. Regra nasce desligada de propósito —")
+        print("  marque `ativa: true` no YAML depois de medir a acurácia.\n")
+        return 1
+
+    if args.nuvem:
+        from farol_agent.juizes.nuvem import JuizNuvem
+        from farol_agent.juizes.base import ErroDoJuiz
+
+        try:
+            juiz = JuizNuvem()
+        except ErroDoJuiz as e:
+            print(f"\n  ERRO: {e}\n", file=sys.stderr)
+            return 1
+        print(f"juiz: nuvem ({juiz.modelo}, escala para {juiz.modelo_forte})")
+    else:
+        from farol_agent.juizes.simulado import JuizSimulado
+
+        juiz = JuizSimulado()
+        print("juiz: simulado (nenhuma chamada de API, nenhum custo)")
+
+    fonte = FonteSandbox(args.pasta, ponto_id=ponto_id, fps=args.fps)
+    fila = Fila(args.fila)
+    motor = MotorDeRegras(fila, regras, rajada=args.rajada, descartar=args.descartar)
+
+    print(f"material: {len(fonte)} quadros · "
+          f"{fonte.inicio:%d/%m %H:%M:%S} → {fonte.fim:%d/%m %H:%M:%S}")
+    print(f"gatilho a cada {args.intervalo}s\n")
+
+    enfileirados = silenciados = repetidos = 0
+    alertas_total = []
+    ts = fonte.inicio
+
+    while ts <= fonte.fim:
+        evento = EventoGatilho(ponto_id=ponto_id, ts=ts, origem="sandbox")
+        p = motor.preparar(evento, fonte)
+        enfileirados += len(p.enfileirados)
+        silenciados += len(p.em_silencio)
+        repetidos += len(p.repetidos)
+
+        # Julga no mesmo passo: no agente real a drenagem é outro laço, mas
+        # aqui interessa ver o alerta nascer junto da cena que o gerou.
+        for a in motor.processar(juiz, ts, limite=args.limite):
+            alertas_total.append(a)
+            print(
+                f"  🔔 {a.ts:%H:%M:%S}  [{a.severidade.value}] {a.regra_nome}"
+                f"  conf {a.confianca:.2f}"
+            )
+            print(f"       {a.motivo}")
+            print(f"       ações: {', '.join(a.acoes)}")
+
+        ts += timedelta(seconds=args.intervalo)
+
+    # Drena o que sobrou na fila depois do último gatilho.
+    for a in motor.processar(juiz, ts, limite=1000):
+        alertas_total.append(a)
+
+    resumo = fila.resumo()
+    custo = fila.custo_centavos(fonte.inicio - timedelta(days=1))
+
+    print(f"\n  enfileirados {enfileirados} · "
+          f"em silêncio {silenciados} · repetidos {repetidos}")
+    print(f"  fila: {resumo}")
+    print(f"  alertas: {len(alertas_total)}")
+    print(f"  custo estimado: R$ {custo / 100:.4f}\n")
+
+    fila.fechar()
+    return 0
+
+
 def _forcar_utf8() -> None:
     """O console do Windows usa cp1252 e engasga em acento, régua e emoji.
 
@@ -182,6 +278,22 @@ def main(argv: list[str] | None = None) -> int:
     d = sub.add_parser("sondar", help="mede a qualidade real de uma imagem ou pasta")
     d.add_argument("caminho")
     d.set_defaults(func=cmd_sondar)
+
+    l = sub.add_parser("laco", help="laço completo: gatilho → fila → juiz → alerta")
+    l.add_argument("pasta", help="pasta com os quadros gravados")
+    l.add_argument("--config", required=True, help="YAML com zonas e regras")
+    l.add_argument("--fila", default="./fila.db", help="banco SQLite da fila")
+    l.add_argument("--nuvem", action="store_true",
+                   help="julga de verdade pela API (CUSTA DINHEIRO)")
+    l.add_argument("--fps", type=float, default=1.0, help="taxa do material")
+    l.add_argument("--intervalo", type=float, default=30.0,
+                   help="segundos entre gatilhos simulados")
+    l.add_argument("--rajada", type=int, default=6)
+    l.add_argument("--descartar", type=int, default=2)
+    l.add_argument("--limite", type=int, default=10,
+                   help="itens julgados por passada")
+    l.add_argument("--verboso", action="store_true")
+    l.set_defaults(func=cmd_laco)
 
     args = p.parse_args(argv)
     return int(args.func(args))
