@@ -30,6 +30,7 @@ COPY --from=build /app/dist ./dist
 # roda daqui de dentro, contra o DATABASE_URL do ambiente do serviço —
 # sem expor porta de banco e sem segredo saindo do painel.
 COPY api/scripts ./scripts
+COPY api/exemplos ./exemplos
 COPY database ./database
 
 # Não roda como root. O usuário 'node' (uid 1000) já vem na imagem oficial.

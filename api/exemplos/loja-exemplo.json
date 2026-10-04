@@ -1,0 +1,54 @@
+{
+  "tenant": {
+    "nome": "Mister Burguer Steakhouse LTDA",
+    "documento": "00.000.000/0001-00",
+    "plano": "completo"
+  },
+  "loja": {
+    "nome": "Matriz",
+    "timezone": "America/Sao_Paulo",
+    "modoJulgamento": "nuvem",
+    "resolucaoPadrao": "r640"
+  },
+  "setores": [
+    {
+      "nome": "Cozinha",
+      "ordem": 1,
+      "pontos": [
+        {
+          "nome": "Montagem",
+          "origem": "dvr",
+          "fabricante": "intelbras",
+          "canal": 11,
+          "host": "192.168.1.50",
+          "porta": 554,
+          "usuario": "admin"
+        },
+        {
+          "nome": "Chapa",
+          "origem": "dvr",
+          "fabricante": "intelbras",
+          "canal": 5,
+          "host": "192.168.1.50",
+          "porta": 554,
+          "usuario": "admin"
+        }
+      ]
+    },
+    {
+      "nome": "Atendimento",
+      "ordem": 2,
+      "pontos": [
+        {
+          "nome": "Balcao",
+          "origem": "dvr",
+          "fabricante": "intelbras",
+          "canal": 1,
+          "host": "192.168.1.50",
+          "porta": 554,
+          "usuario": "admin"
+        }
+      ]
+    }
+  ]
+}

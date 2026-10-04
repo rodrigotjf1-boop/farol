@@ -10,7 +10,8 @@
     "dev": "tsx watch src/servidor.ts",
     "migrar": "node scripts/migrar.mjs",
     "migrar:conferir": "node scripts/migrar.mjs --conferir",
-    "test": "node --import tsx --test testes/*.test.ts"
+    "test": "node --import tsx --test testes/*.test.ts",
+    "provisionar": "node scripts/provisionar.mjs"
   },
   "dependencies": {
     "fastify": "^5.2.1",
