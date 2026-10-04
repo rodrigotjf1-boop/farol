@@ -240,6 +240,94 @@ def cmd_laco(args: argparse.Namespace) -> int:
     return 0
 
 
+def _senha_do_dvr(args: argparse.Namespace) -> str:
+    """Nunca pela linha de comando.
+
+    Senha em argumento aparece no histórico do shell e na lista de
+    processos — qualquer um na máquina a lê com `ps`. Vem do ambiente ou
+    de prompt que não ecoa.
+    """
+    import os
+    from getpass import getpass
+
+    senha = os.environ.get("FAROL_DVR_SENHA")
+    if senha:
+        return senha
+    return getpass(f"senha de {args.usuario}@{args.host}: ")
+
+
+def cmd_dvr(args: argparse.Namespace) -> int:
+    from farol_agent.dvr.dahua import ClienteDahua, ErroDoGravador
+    from farol_agent.dvr.descoberta import rede_local, varrer
+
+    if args.acao == "descobrir":
+        rede = args.rede or rede_local()
+        if not rede:
+            print("não descobri a rede desta máquina; informe com --rede", file=sys.stderr)
+            return 1
+        print(f"\nvarrendo {rede} … (porta 80, depois 554)\n")
+        achados = varrer(rede)
+        if not achados:
+            print("  nada respondeu na porta 80.")
+            print("  O DVR está ligado e no mesmo switch/roteador que este PC?\n")
+            return 1
+        for a in achados:
+            marca = "⇐ parece gravador" if a.parece_gravador else ""
+            rtsp = "rtsp:554 aberto" if a.rtsp else ""
+            print(f"  {a.host:<16} {str(a.realm or '')[:46]:<48} {rtsp:<17} {marca}")
+        print()
+        return 0
+
+    cliente = ClienteDahua(
+        args.host, args.usuario, _senha_do_dvr(args), porta=args.porta
+    )
+
+    try:
+        if args.acao == "info":
+            info = cliente.info()
+            print()
+            print(json.dumps(info, indent=2, ensure_ascii=False))
+            print()
+            canais = info.get("canais")
+            if canais:
+                print(f"  {canais} canais. URLs do main-stream:")
+                for c in range(1, min(canais, 4) + 1):
+                    print(f"    canal {c}: {cliente.url_rtsp_sem_segredo(c)}")
+                if canais > 4:
+                    print(f"    … e mais {canais - 4}")
+                print()
+            return 0
+
+        if args.acao == "rtsp":
+            print(cliente.url_rtsp(args.canal, sub=args.sub))
+            return 0
+
+        if args.acao == "eventos":
+            print(f"\nouvindo {args.host} · códigos=[{args.codigos}] · Ctrl+C para parar")
+            print("sem câmera ligada, espere VideoLoss em todos os canais\n")
+            n = 0
+            for e in cliente.eventos(args.codigos, keepalive=args.keepalive):
+                n += 1
+                extra = f"  {json.dumps(e.dados, ensure_ascii=False)}" if e.dados else ""
+                print(f"  [{n:>4}] {e.codigo:<22} {e.acao:<6} canal {e.canal:>2}{extra}")
+                if args.limite and n >= args.limite:
+                    break
+            print(f"\n  {n} eventos recebidos\n")
+            return 0
+
+    except ErroDoGravador as e:
+        print(f"\n  ERRO: {e}", file=sys.stderr)
+        if e.dica:
+            print(f"  {e.dica}", file=sys.stderr)
+        print(file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        print("\n  interrompido\n")
+        return 0
+
+    return 1
+
+
 def _forcar_utf8() -> None:
     """O console do Windows usa cp1252 e engasga em acento, régua e emoji.
 
@@ -295,6 +383,19 @@ def main(argv: list[str] | None = None) -> int:
                    help="itens julgados por passada")
     l.add_argument("--verboso", action="store_true")
     l.set_defaults(func=cmd_laco)
+
+    v = sub.add_parser("dvr", help="fala com o gravador: acha, identifica e ouve eventos")
+    v.add_argument("acao", choices=["descobrir", "info", "eventos", "rtsp"])
+    v.add_argument("--rede", help="faixa a varrer, ex. 192.168.1.0/24 (padrão: a desta máquina)")
+    v.add_argument("--host", help="IP do gravador")
+    v.add_argument("--porta", type=int, default=80)
+    v.add_argument("--usuario", default="admin")
+    v.add_argument("--canal", type=int, default=1)
+    v.add_argument("--sub", action="store_true", help="sub-stream em vez do main")
+    v.add_argument("--codigos", default="All", help="ex.: VideoMotion,VideoLoss")
+    v.add_argument("--keepalive", type=int, default=20)
+    v.add_argument("--limite", type=int, default=0, help="para após N eventos (0 = sem fim)")
+    v.set_defaults(func=cmd_dvr)
 
     args = p.parse_args(argv)
     return int(args.func(args))
