@@ -12,7 +12,7 @@
 // campo para escrever na loja do vizinho.
 // =====================================================================
 
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import type pg from 'pg';
 import type { Autor } from './db.js';
@@ -50,15 +50,20 @@ function extrairToken(cabecalho: string | undefined): string {
   return valor.trim();
 }
 
+export type AutorAgente = Autor & { estado: string; fingerprint: string };
+
 export async function autenticarAgente(
   pool: pg.Pool,
   cabecalho: string | undefined,
-): Promise<Autor> {
+  // A ativação é o único caminho que aceita um agente ainda 'novo' — é
+  // justamente onde ele deixa de ser novo. Todo o resto exige 'ativo'.
+  estadosAceitos: readonly string[] = ['ativo'],
+): Promise<AutorAgente> {
   const token = extrairToken(cabecalho);
   const hash = hashDoToken(token);
 
   const { rows } = await pool.query(
-    `select a.id, a.loja_id, a.estado, a.token_hash, l.tenant_id
+    `select a.id, a.loja_id, a.estado, a.token_hash, a.fingerprint, l.tenant_id
        from agente a
        join loja l on l.id = a.loja_id
       where a.token_hash = $1`,
@@ -72,7 +77,7 @@ export async function autenticarAgente(
     throw new ErroDeAuth(401, 'credencial_invalida', 'token inválido');
   }
 
-  if (agente.estado !== 'ativo') {
+  if (!estadosAceitos.includes(agente.estado)) {
     // Esta, sim, é específica: quem recebe é o dono do agente, e saber que
     // falta aprovar (e não que o token está errado) é a diferença entre
     // resolver em um minuto e abrir um chamado.
@@ -93,5 +98,32 @@ export async function autenticarAgente(
     agenteId: agente.id,
     lojaId: agente.loja_id,
     tenantId: agente.tenant_id,
+    estado: agente.estado,
+    fingerprint: agente.fingerprint,
   };
+}
+
+/** Credencial da DISTRIBUIÇÃO, não da loja.
+ *
+ * Provisionar agente é operação da Regem, não do lojista — o usuário
+ * nunca manuseia credencial de integração. Enquanto o console não tem
+ * login, a porta é um token de ambiente; quando tiver, esta função some e
+ * a autorização passa pelo perfil do usuário.
+ */
+export function exigirAdmin(cabecalho: string | undefined): void {
+  const esperado = process.env.FAROL_ADMIN_TOKEN;
+  if (!esperado) {
+    // Sem token configurado a rota fica FECHADA, não aberta. O padrão
+    // inseguro é o que vira incidente quando alguém esquece a variável.
+    throw new ErroDeAuth(503, 'admin_nao_configurado', 'FAROL_ADMIN_TOKEN ausente');
+  }
+  const recebido = (cabecalho ?? '').trim();
+  if (!recebido || !hashesIguais(hashDoToken(recebido), hashDoToken(esperado))) {
+    throw new ErroDeAuth(401, 'admin_invalido', 'credencial de distribuição inválida');
+  }
+}
+
+/** Token novo: 32 bytes de aleatoriedade real, em base64url. */
+export function gerarToken(): string {
+  return randomBytes(32).toString('base64url');
 }

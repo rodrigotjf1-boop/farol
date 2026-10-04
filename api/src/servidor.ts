@@ -1,81 +1,16 @@
 // =====================================================================
-// Farol · API do console
+// Farol · API do console — ponto de entrada
 // =====================================================================
-// Primeira versão enxuta de propósito. O que ela precisa fazer HOJE é
-// existir como serviço no EasyPanel, porque é o deploy dela que leva as
-// migrations para dentro do contêiner — é isso que tira o SQL da área de
-// transferência.
-//
-// O endpoint /saude segue o modelo do Liame: além de dizer que está de
-// pé, informa a ÚLTIMA MIGRATION aplicada. Sem isso, "o deploy subiu" e
-// "o banco está na versão certa" viram a mesma pergunta sem resposta.
+// Só sobe o servidor. Quem monta as rotas é `app.ts`, para o teste poder
+// construir a aplicação sem abrir porta.
 // =====================================================================
 
-import Fastify from 'fastify';
-
+import { criarApp } from './app.js';
 import { pool } from './db.js';
-import { rotasDeEventos } from './rotas/eventos.js';
 
-const VERSAO = process.env.APP_VERSION ?? '0.1.0';
 const PORTA = Number(process.env.PORT ?? 3000);
 
-const app = Fastify({
-  logger: { level: process.env.LOG_LEVEL ?? 'info' },
-  // O agente manda lote; 500 eventos com embedding passam folgado do
-  // padrão de 1 MB do Fastify.
-  bodyLimit: 32 * 1024 * 1024,
-});
-
-rotasDeEventos(app, pool);
-
-app.get('/', async () => ({
-  servico: 'farol-api',
-  versao: VERSAO,
-}));
-
-app.get('/saude', async (_req, resposta) => {
-  try {
-    const { rows } = await pool.query(
-      `select nome, aplicada_em
-         from farol_migracao
-        order by nome desc
-        limit 1`,
-    );
-    const ultima = rows[0];
-    return {
-      ok: true,
-      versao: VERSAO,
-      banco: 'ok',
-      ultimaMigracao: ultima?.nome ?? null,
-      aplicadaEm: ultima?.aplicada_em ?? null,
-    };
-  } catch (erro) {
-    const e = erro as { code?: string; message: string };
-
-    // Tabela ausente é o estado legítimo de banco novo: o serviço está de
-    // pé, só ainda não rodou `npm run migrar`. Dizer isso é diferente de
-    // "o banco caiu", e a distinção é o que evita caçar o problema errado.
-    if (e.code === '42P01') {
-      return {
-        ok: true,
-        versao: VERSAO,
-        banco: 'ok',
-        ultimaMigracao: null,
-        aviso: 'farol_migracao ainda não existe — rode: npm run migrar',
-      };
-    }
-
-    // Log com o MOTIVO, não só o status: 503 sem a causa não ajuda ninguém
-    // às duas da manhã.
-    app.log.error({ err: e, codigo: e.code }, 'falha ao consultar o banco em /saude');
-    return resposta.status(503).send({
-      ok: false,
-      versao: VERSAO,
-      banco: 'erro',
-      motivo: e.code ?? 'desconhecido',
-    });
-  }
-});
+const app = criarApp(pool);
 
 async function encerrar(sinal: string) {
   app.log.info(`${sinal} recebido, encerrando`);
