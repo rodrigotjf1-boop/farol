@@ -21,9 +21,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Iterator
 
-import cv2
-
 from farol_agent.fontes.base import FonteVideo
+from farol_agent import imagens
 from farol_agent.modelos import Frame
 
 # canal5_20260718_160119.jpg · 20260718_160119.png · qualquer coisa_AAAAMMDD_HHMMSS
@@ -79,7 +78,7 @@ class FonteSandbox(FonteVideo):
             return None
 
     def _ler(self, ts: datetime, caminho: Path) -> Frame | None:
-        imagem = cv2.imread(str(caminho))
+        imagem = imagens.ler(str(caminho))
         if imagem is None:
             return None
         return Frame(imagem=imagem, ts=ts, ponto_id=self.ponto_id, stream="main")

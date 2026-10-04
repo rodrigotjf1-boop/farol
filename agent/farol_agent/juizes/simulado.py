@@ -16,8 +16,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-import cv2
-
+from farol_agent import imagens
 from farol_agent.juizes.base import ErroDoJuiz
 from farol_agent.modelos import Resultado, Veredito, Via
 from farol_agent.pipeline import dedupe
@@ -46,7 +45,7 @@ class JuizSimulado:
         *,
         contexto: dict[str, Any] | None = None,
     ) -> Veredito:
-        img = cv2.imread(str(imagem))
+        img = imagens.ler(str(imagem))
         if img is None:
             raise ErroDoJuiz(f"não li a imagem {imagem}", recuperavel=False)
 

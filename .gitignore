@@ -22,3 +22,11 @@ agent/saida/
 
 # gerado por preparar.py — descartavel, a fonte da verdade e database/migrations/
 aplicar-no-banco/
+
+# registro interno de erros — fora do git
+ERROS-CONHECIDOS.md
+
+# fila e spool do agente (estado local, nunca versionado)
+spool/
+fila.db
+fila.db-*

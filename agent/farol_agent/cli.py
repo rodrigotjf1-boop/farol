@@ -32,6 +32,7 @@ from farol_agent.fila import Fila
 from farol_agent.fontes.sandbox import FonteSandbox
 from farol_agent.modelos import EventoGatilho, Frame, Regra, TipoRegra, Zona
 from farol_agent.motor import MotorDeRegras
+from farol_agent import imagens
 from farol_agent.pipeline import dedupe, qualidade, recorte
 
 
@@ -93,7 +94,7 @@ def cmd_sandbox(args: argparse.Namespace) -> int:
         f = recorte.redimensionar(f, args.lado_maior)
 
         nome = saida / f"{f.ts:%Y%m%d_%H%M%S}_{zona.id}.jpg"
-        cv2.imwrite(str(nome), f.imagem, [cv2.IMWRITE_JPEG_QUALITY, args.jpeg])
+        imagens.escrever(str(nome), f.imagem, [cv2.IMWRITE_JPEG_QUALITY, args.jpeg])
         enviados += 1
         print(
             f"  {f.ts:%H:%M:%S}  {f.largura}×{f.altura}  "
@@ -128,7 +129,7 @@ def cmd_sondar(args: argparse.Namespace) -> int:
     print("─" * 82)
 
     for arq in arquivos:
-        img = cv2.imread(str(arq))
+        img = imagens.ler(str(arq))
         if img is None:
             print(f"{arq.name:<34} {'ilegível':>11}")
             continue

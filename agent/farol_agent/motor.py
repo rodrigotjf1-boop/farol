@@ -36,6 +36,7 @@ import cv2
 
 from farol_agent.fila import Fila, ItemFila
 from farol_agent.fontes.base import FonteVideo
+from farol_agent import imagens
 from farol_agent.juizes.base import ErroDoJuiz, Juiz
 from farol_agent.modelos import (
     EventoGatilho,
@@ -189,7 +190,15 @@ class MotorDeRegras:
             self.fila.spool
             / f"{f.ts:%Y%m%d_%H%M%S}_{evento.ponto_id}_{regra.id}.jpg"
         )
-        cv2.imwrite(str(destino), f.imagem, [cv2.IMWRITE_JPEG_QUALITY, self.jpeg])
+        imagens.escrever(str(destino), f.imagem, [cv2.IMWRITE_JPEG_QUALITY, self.jpeg])
+
+        # A regra viaja no contexto porque é por ele que o seletor escolhe o
+        # juiz e que a comparação acha a base. O contexto da operação (o que
+        # o Regem sabe) vem por cima, mas não pode sobrescrever estes dois.
+        ctx: dict[str, Any] = dict(contexto or {})
+        ctx["regra_id"] = regra.id
+        if regra.base_id:
+            ctx["base_id"] = regra.base_id
 
         novo = self.fila.enfileirar(
             chave=chave,
@@ -201,7 +210,7 @@ class MotorDeRegras:
             criterio_versao=regra.criterio_versao,
             imagem_caminho=destino,
             capturado_em=f.ts,
-            contexto=contexto,
+            contexto=ctx,
         )
         if not novo:
             # Chave repetida que ainda não concluiu: a imagem recém-escrita
