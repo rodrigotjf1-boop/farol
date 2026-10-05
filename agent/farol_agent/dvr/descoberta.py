@@ -33,15 +33,18 @@ class Achado:
         return 554 in self.portas
 
     @property
-    def mac_aleatorio(self) -> bool:
-        """MAC sorteado pelo aparelho, não gravado de fábrica.
+    def mac_local(self) -> bool:
+        """MAC com o bit de "administrado localmente" ligado.
 
         Celular e notebook modernos sorteiam um MAC por rede, para não
-        serem rastreados. O sinal é o bit de "administrado localmente",
-        o segundo menos significativo do primeiro octeto.
+        serem rastreados, e é assim que se reconhece.
 
-        **Gravador não faz isso.** Então todo MAC aleatório é alguém de
-        passagem com o celular no bolso — e sai da lista de candidatos.
+        ⚠️ **Mas não é só celular.** Um MHDX 3116-C de fábrica veio com
+        `3a:b4:ca:…`, com o bit ligado — e a versão anterior deste código
+        o rotulava "celular/notebook", o que escondeu o gravador do dono
+        durante meia hora de procura. Ver ERR-003.
+
+        Serve para ORDENAR a lista, nunca para eliminar ninguém dela.
         """
         if not self.mac:
             return False
@@ -53,8 +56,13 @@ class Achado:
 
     @property
     def candidato(self) -> bool:
-        """Vale olhar como possível gravador?"""
-        return self.parece_gravador or not self.mac_aleatorio
+        """Todo aparelho é candidato.
+
+        Existe para deixar explícito que **nada se elimina**: o que a
+        descoberta faz é ordenar por probabilidade e deixar quem olha
+        decidir. Heurística que elimina candidato esconde a resposta.
+        """
+        return True
 
     @property
     def parece_gravador(self) -> bool:

@@ -254,40 +254,44 @@ def test_canal_zero_e_recusado():
         c.url_rtsp(0)
 
 
-# ───────────── MAC de fábrica × MAC sorteado pelo aparelho ─────────────
+# ───────── MAC universal × administrado localmente (só ordena) ─────────
 
 
-def test_mac_sorteado_e_reconhecido():
-    """Celular e notebook sorteiam MAC por rede; gravador não.
+def test_mac_local_e_reconhecido():
+    """Reconhece o bit, sem concluir que é celular.
 
-    Os quatro primeiros saíram de uma varredura real na rede de teste —
-    eram todos celular, e estavam poluindo a lista de candidatos a DVR.
+    `3a:b4:ca:…` era o MHDX 3116-C deste projeto — gravador de fábrica
+    com o bit ligado. Por isso o nome mudou de `mac_aleatorio` para
+    `mac_local`: descreve o que se mediu, não o que se supôs. ERR-003.
     """
     from farol_agent.dvr.descoberta import Achado
 
     for mac in ("4e:a6:62:62:80:27", "3e:43:a8:c6:19:7f",
                 "5a:6e:04:f6:5b:2e", "3a:b4:ca:e6:2f:95"):
-        assert Achado(host="x", mac=mac).mac_aleatorio, mac
+        assert Achado(host="x", mac=mac).mac_local, mac
 
 
-def test_mac_de_fabrica_e_reconhecido():
+def test_mac_universal_e_reconhecido():
     from farol_agent.dvr.descoberta import Achado
 
     for mac in ("9c:c8:e9:d6:5b:df", "b8:06:0d:12:57:e6",
                 "dc:03:98:2c:e3:a2", "28:6f:b9:26:ed:b0"):
-        assert not Achado(host="x", mac=mac).mac_aleatorio, mac
+        assert not Achado(host="x", mac=mac).mac_local, mac
 
 
-def test_sem_mac_nao_e_considerado_sorteado():
+def test_sem_mac_nao_e_considerado_local():
     from farol_agent.dvr.descoberta import Achado
 
-    assert not Achado(host="x", mac=None).mac_aleatorio
+    assert not Achado(host="x", mac=None).mac_local
 
 
-def test_porta_de_gravador_vence_o_mac_sorteado():
-    """Se tem 554 ou 37777 aberta, é candidato mesmo com MAC estranho —
-    o sinal forte ganha do fraco."""
+def test_nada_e_eliminado_da_lista():
+    """ERR-003: heurística que ELIMINA candidato esconde a resposta.
+
+    O gravador deste projeto tem MAC local e nenhuma porta aberta — seria
+    descartado duas vezes pela versão anterior, e foi.
+    """
     from farol_agent.dvr.descoberta import Achado
 
-    a = Achado(host="x", portas=(554,), mac="4e:a6:62:62:80:27")
-    assert a.candidato
+    assert Achado(host="x", portas=(), mac="3a:b4:ca:e6:2f:95").candidato
+    assert Achado(host="x", portas=(), mac=None).candidato

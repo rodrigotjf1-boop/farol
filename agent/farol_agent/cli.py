@@ -284,18 +284,18 @@ def cmd_dvr(args: argparse.Namespace) -> int:
             portas = ",".join(str(p) for p in a.portas) if a.portas else "nenhuma"
             if a.realm:
                 obs = str(a.realm)[:34]
-            elif a.mac_aleatorio:
-                obs = "MAC sorteado — celular/notebook"
+            elif a.mac_local:
+                obs = "MAC administrado localmente"
             else:
                 obs = "só responde a ARP"
             marca = "  ⇐ parece gravador" if a.parece_gravador else ""
             print(f"  {a.host:<16} {(a.mac or '—'):<19} {portas:<12} {obs}{marca}")
 
-        candidatos = [a for a in achados if a.candidato]
         print()
-        print(f"  {len(candidatos)} de {len(achados)} com MAC de fábrica — "
-              "só esses podem ser o gravador.")
-        print("  MAC sorteado é celular; gravador não sorteia MAC.")
+        print(f"  {len(achados)} aparelhos. TODOS podem ser o gravador — a lista")
+        print("  está ordenada por probabilidade, não filtrada.")
+        print("  'MAC administrado localmente' é comum em celular, MAS um MHDX")
+        print("  3116-C de fábrica também tem (ERR-003): não descarte por isso.")
         print()
         print("  TESTE DECISIVO: tire o cabo de rede do DVR, rode de novo, recoloque")
         print("  e rode outra vez. O IP que sumir e voltar é ele.\n")
