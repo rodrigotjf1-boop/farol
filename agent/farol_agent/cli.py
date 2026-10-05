@@ -272,18 +272,27 @@ def cmd_dvr(args: argparse.Namespace) -> int:
             print("  O DVR está ligado e no mesmo switch/roteador que este PC?\n")
             return 1
 
-        print(f"  {'IP':<16} {'MAC':<19} {'portas':<18} {'realm / observação'}")
+        print(f"  {'IP':<16} {'MAC':<19} {'portas':<12} {'observação'}")
         print("  " + "─" * 76)
         for a in achados:
             portas = ",".join(str(p) for p in a.portas) if a.portas else "nenhuma"
-            obs = a.realm or ("só responde a ARP" if not a.portas else "")
+            if a.realm:
+                obs = str(a.realm)[:34]
+            elif a.mac_aleatorio:
+                obs = "MAC sorteado — celular/notebook"
+            else:
+                obs = "só responde a ARP"
             marca = "  ⇐ parece gravador" if a.parece_gravador else ""
-            print(
-                f"  {a.host:<16} {(a.mac or '—'):<19} {portas:<18} {str(obs)[:40]}{marca}"
-            )
+            print(f"  {a.host:<16} {(a.mac or '—'):<19} {portas:<12} {obs}{marca}")
+
+        candidatos = [a for a in achados if a.candidato]
         print()
-        print("  Compare os MACs com a etiqueta do gravador: é o jeito mais direto")
-        print("  de achá-lo, mesmo que ele ainda não tenha porta nenhuma aberta.\n")
+        print(f"  {len(candidatos)} de {len(achados)} com MAC de fábrica — "
+              "só esses podem ser o gravador.")
+        print("  MAC sorteado é celular; gravador não sorteia MAC.")
+        print()
+        print("  TESTE DECISIVO: tire o cabo de rede do DVR, rode de novo, recoloque")
+        print("  e rode outra vez. O IP que sumir e voltar é ele.\n")
         return 0
 
     cliente = ClienteDahua(

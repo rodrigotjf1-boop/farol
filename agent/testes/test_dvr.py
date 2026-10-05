@@ -252,3 +252,42 @@ def test_canal_zero_e_recusado():
     c = ClienteDahua("10.0.0.9", "admin", "x")
     with pytest.raises(ValueError, match="canal"):
         c.url_rtsp(0)
+
+
+# ───────────── MAC de fábrica × MAC sorteado pelo aparelho ─────────────
+
+
+def test_mac_sorteado_e_reconhecido():
+    """Celular e notebook sorteiam MAC por rede; gravador não.
+
+    Os quatro primeiros saíram de uma varredura real na rede de teste —
+    eram todos celular, e estavam poluindo a lista de candidatos a DVR.
+    """
+    from farol_agent.dvr.descoberta import Achado
+
+    for mac in ("4e:a6:62:62:80:27", "3e:43:a8:c6:19:7f",
+                "5a:6e:04:f6:5b:2e", "3a:b4:ca:e6:2f:95"):
+        assert Achado(host="x", mac=mac).mac_aleatorio, mac
+
+
+def test_mac_de_fabrica_e_reconhecido():
+    from farol_agent.dvr.descoberta import Achado
+
+    for mac in ("9c:c8:e9:d6:5b:df", "b8:06:0d:12:57:e6",
+                "dc:03:98:2c:e3:a2", "28:6f:b9:26:ed:b0"):
+        assert not Achado(host="x", mac=mac).mac_aleatorio, mac
+
+
+def test_sem_mac_nao_e_considerado_sorteado():
+    from farol_agent.dvr.descoberta import Achado
+
+    assert not Achado(host="x", mac=None).mac_aleatorio
+
+
+def test_porta_de_gravador_vence_o_mac_sorteado():
+    """Se tem 554 ou 37777 aberta, é candidato mesmo com MAC estranho —
+    o sinal forte ganha do fraco."""
+    from farol_agent.dvr.descoberta import Achado
+
+    a = Achado(host="x", portas=(554,), mac="4e:a6:62:62:80:27")
+    assert a.candidato

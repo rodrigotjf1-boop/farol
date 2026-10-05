@@ -33,6 +33,30 @@ class Achado:
         return 554 in self.portas
 
     @property
+    def mac_aleatorio(self) -> bool:
+        """MAC sorteado pelo aparelho, não gravado de fábrica.
+
+        Celular e notebook modernos sorteiam um MAC por rede, para não
+        serem rastreados. O sinal é o bit de "administrado localmente",
+        o segundo menos significativo do primeiro octeto.
+
+        **Gravador não faz isso.** Então todo MAC aleatório é alguém de
+        passagem com o celular no bolso — e sai da lista de candidatos.
+        """
+        if not self.mac:
+            return False
+        try:
+            primeiro = int(self.mac.split(":")[0], 16)
+        except (ValueError, IndexError):
+            return False
+        return bool(primeiro & 0b10)
+
+    @property
+    def candidato(self) -> bool:
+        """Vale olhar como possível gravador?"""
+        return self.parece_gravador or not self.mac_aleatorio
+
+    @property
     def parece_gravador(self) -> bool:
         """Três sinais, qualquer um já levanta suspeita.
 
