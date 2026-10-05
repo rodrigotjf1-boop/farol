@@ -258,11 +258,11 @@ def test_canal_zero_e_recusado():
 
 
 def test_mac_local_e_reconhecido():
-    """Reconhece o bit, sem concluir que é celular.
+    """Reconhece o bit, sem concluir de quem é.
 
-    `3a:b4:ca:…` era o MHDX 3116-C deste projeto — gravador de fábrica
-    com o bit ligado. Por isso o nome mudou de `mac_aleatorio` para
-    `mac_local`: descreve o que se mediu, não o que se supôs. ERR-003.
+    O nome mudou de `mac_aleatorio` para `mac_local` porque o primeiro
+    carregava a conclusão ("é celular") e o segundo carrega a medida
+    ("o bit está ligado"). ERR-003.
     """
     from farol_agent.dvr.descoberta import Achado
 
@@ -288,8 +288,8 @@ def test_sem_mac_nao_e_considerado_local():
 def test_nada_e_eliminado_da_lista():
     """ERR-003: heurística que ELIMINA candidato esconde a resposta.
 
-    O gravador deste projeto tem MAC local e nenhuma porta aberta — seria
-    descartado duas vezes pela versão anterior, e foi.
+    Aparelho sem porta aberta e com MAC local era descartado duas vezes
+    pela versão anterior — e quem procurava nem ficava sabendo.
     """
     from farol_agent.dvr.descoberta import Achado
 

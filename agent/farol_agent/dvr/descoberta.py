@@ -39,10 +39,10 @@ class Achado:
         Celular e notebook modernos sorteiam um MAC por rede, para não
         serem rastreados, e é assim que se reconhece.
 
-        ⚠️ **Mas não é só celular.** Um MHDX 3116-C de fábrica veio com
-        `3a:b4:ca:…`, com o bit ligado — e a versão anterior deste código
-        o rotulava "celular/notebook", o que escondeu o gravador do dono
-        durante meia hora de procura. Ver ERR-003.
+        ⚠️ **Mas não é só celular, e eu não tenho como saber de cor quem
+        usa.** A versão anterior afirmava "gravador não sorteia MAC" e
+        removia esses aparelhos da lista — suposição minha, nunca
+        verificada, apresentada como fato. Ver ERR-003.
 
         Serve para ORDENAR a lista, nunca para eliminar ninguém dela.
         """
