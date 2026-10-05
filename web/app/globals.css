@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* O console é olhado de relance, numa cozinha, por alguém que está
+   fazendo outra coisa. Fundo escuro cansa menos em tela que fica ligada
+   o turno inteiro, e deixa o alerta saltar sem precisar piscar. */
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-farol-fundo text-farol-tinta antialiased;
+}
+
+/* Foco sempre visível: quem usa teclado precisa saber onde está, e numa
+   cozinha o mouse nem sempre é a opção. */
+:focus-visible {
+  @apply outline-none ring-2 ring-farol-facho ring-offset-2 ring-offset-farol-fundo;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

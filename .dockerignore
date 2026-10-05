@@ -5,13 +5,13 @@
 .github
 **/node_modules
 **/dist
+**/.next
 **/__pycache__
 **/.venv
 **/*.pyc
 
 agent
 prototipo
-web
 mcp
 docs
 aplicar-no-banco
