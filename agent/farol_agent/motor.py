@@ -76,6 +76,10 @@ class Preparo:
     em_silencio: list[str] = field(default_factory=list)
     repetidos: list[str] = field(default_factory=list)
     sem_quadro: list[str] = field(default_factory=list)
+    # Veio quadro, mas nao havia CENA nele (tela de sem-sinal, camera
+    # tampada, fluxo parado). Separado de `repetidos` de proposito: um
+    # diz "nada mudou", o outro diz "a camera parou de funcionar".
+    sem_cena: list[str] = field(default_factory=list)
 
 
 class MotorDeRegras:
@@ -98,6 +102,9 @@ class MotorDeRegras:
         self._dedup = dedupe.Deduplicador(
             limiar=limiar_dedupe, memoria_seg=memoria_dedupe_seg
         )
+        # Ultimo motivo por regra. O console le daqui para dizer QUAL
+        # camera parou, em vez de so mostrar silencio no painel.
+        self.sem_cena: dict[str, str] = {}
 
     # ──────────────────────── seleção de regras ────────────────────────
 
@@ -141,11 +148,17 @@ class MotorDeRegras:
                 preparo.em_silencio.append(regra.id)
                 continue
 
-            chave = self._processar_e_enfileirar(regra, evento, quadros, contexto)
-            if chave is None:
-                preparo.repetidos.append(regra.id)
-            else:
+            chave, motivo = self._processar_e_enfileirar(
+                regra, evento, quadros, contexto
+            )
+            if chave is not None:
                 preparo.enfileirados.append(regra.id)
+            elif motivo == "sem_cena":
+                preparo.sem_cena.append(regra.id)
+            elif motivo == "sem_quadro":
+                preparo.sem_quadro.append(regra.id)
+            else:
+                preparo.repetidos.append(regra.id)
 
         return preparo
 
@@ -155,23 +168,45 @@ class MotorDeRegras:
         evento: EventoGatilho,
         quadros: Sequence[Any],
         contexto: dict[str, Any] | None,
-    ) -> str | None:
+    ) -> tuple[str | None, str]:
+        """Devolve `(chave, motivo)`.
+
+        O motivo vem de dentro porque só aqui se sabe a diferença entre
+        "a cena não mudou" e "a câmera parou de funcionar" — e confundir
+        as duas faz o painel mostrar calmaria quando devia mostrar defeito.
+        """
         bbox = regra.zona.bbox(quadros[0].largura, quadros[0].altura)
         melhor = qualidade.melhor_quadro(
             list(quadros), descartar=self.descartar, zona_bbox=bbox
         )
         if melhor is None:
-            return None
+            return None, "sem_quadro"
 
         # A ordem importa: recorta, borra, deduplica, e só então reduz.
         # Reduzir antes jogaria fora o detalhe que se pagou na câmera.
         f = recorte.recortar_zona(melhor, regra.zona)
+
+        # Porta que não existia e custou descobrir: câmera sem sinal faz o
+        # gravador transmitir uma tela preta com logotipo e relógio. Ela
+        # atravessaria o pipeline inteiro e chegaria ao modelo, que seria
+        # perguntado se a bancada está limpa a respeito de um retângulo
+        # preto — custo real, resposta absurda, e um "não conforme" sobre
+        # nada viraria alerta para a cozinha.
+        utilizavel, porque = qualidade.cena_utilizavel(f.imagem)
+        if not utilizavel:
+            _log.info("regra=%s sem cena para julgar: %s", regra.id, porque)
+            self.sem_cena[regra.id] = porque
+            return None, "sem_cena"
+
         if regra.borrar_rosto:
             f, _ = recorte.borrar_rostos(f)
 
         chave_dedupe = f"{evento.ponto_id}:{regra.zona.id}:{regra.id}"
         if self._dedup.repetido(chave_dedupe, f.imagem, f.ts):
-            return None
+            # A cena voltou a ser julgavel: tirar daqui faz o painel parar
+            # de acusar defeito quando a camera voltou.
+            self.sem_cena.pop(regra.id, None)
+            return None, "repetido"
 
         f = recorte.redimensionar(f, regra.lado_maior)
         ph = dedupe.phash(f.imagem)
@@ -184,7 +219,8 @@ class MotorDeRegras:
         # veredito guardado ainda precisa passar pelas portas do alerta,
         # e isso acontece em `processar`.
         if self.fila.veredito_de(chave) is not None:
-            return None
+            self.sem_cena.pop(regra.id, None)
+            return None, "ja_julgado"
 
         destino = (
             self.fila.spool
@@ -216,8 +252,9 @@ class MotorDeRegras:
             # Chave repetida que ainda não concluiu: a imagem recém-escrita
             # não serve para nada e viraria lixo permanente no spool.
             destino.unlink(missing_ok=True)
-            return None
-        return chave
+            return None, "repetido"
+        self.sem_cena.pop(regra.id, None)
+        return chave, "ok"
 
     # ─────────────────────────── despacho ──────────────────────────────
 

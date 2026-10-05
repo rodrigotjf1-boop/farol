@@ -199,3 +199,93 @@ def test_erro_definitivo_nao_fica_martelando(fila, regra, fonte):
     prontos = fila.proximos(BASE + timedelta(hours=1))
     assert prontos == []
     assert juiz.chamadas == 1
+
+
+# ───────── a porta que a tela de "sem sinal" obrigou a existir ─────────
+
+
+def _preto(largura=640, altura=480):
+    """A tela que o MHDX transmite em canal sem câmera: preto absoluto."""
+    import numpy as np
+
+    return np.zeros((altura, largura, 3), dtype=np.uint8)
+
+
+class FonteDeTelaPreta:
+    """Fonte que só devolve a tela de sem-sinal do gravador."""
+
+    def __init__(self, ponto_id="ponto-teste"):
+        self.ponto_id = ponto_id
+
+    def quadro(self, ts, stream="main"):
+        from farol_agent.modelos import Frame
+
+        return Frame(imagem=_preto(), ts=ts, ponto_id=self.ponto_id)
+
+    def rajada(self, ts, quantidade=6, stream="main"):
+        from datetime import timedelta
+
+        from farol_agent.modelos import Frame
+
+        return [
+            Frame(
+                imagem=_preto(),
+                ts=ts + timedelta(milliseconds=200 * i),
+                ponto_id=self.ponto_id,
+            )
+            for i in range(quantidade)
+        ]
+
+    def intervalo(self, ini, fim, fps=2.0, stream="sub"):
+        return iter(())
+
+    def fechar(self):
+        pass
+
+
+def test_tela_de_sem_sinal_nao_chega_ao_juiz(fila, regra):
+    """Medido no MHDX em 05/10/2026: canal sem câmera transmite preto.
+
+    Sem esta porta, o modelo seria perguntado se a bancada está limpa a
+    respeito de um retângulo preto — custo real, resposta absurda, e um
+    "não conforme" sobre nada viraria alerta para a cozinha.
+    """
+    motor = MotorDeRegras(fila, [regra])
+    juiz = JuizFixo(Resultado.NAO_CONFORME, confianca=0.99)
+
+    alertas = _rodar(motor, FonteDeTelaPreta(), juiz, BASE)
+
+    assert alertas == []
+    assert juiz.chamadas == 0, "não pode ter pago para julgar tela preta"
+
+
+def test_sem_cena_e_distinto_de_repetido(fila, regra):
+    """Um diz "nada mudou", o outro diz "a câmera parou de funcionar".
+
+    Confundir os dois faz o painel mostrar calmaria quando devia mostrar
+    defeito — e é a loja que descobre, semanas depois.
+    """
+    from farol_agent.modelos import EventoGatilho
+
+    motor = MotorDeRegras(fila, [regra])
+    fonte = FonteDeTelaPreta()
+
+    p = motor.preparar(EventoGatilho(ponto_id=fonte.ponto_id, ts=BASE), fonte)
+
+    assert p.sem_cena == [regra.id]
+    assert p.repetidos == []
+    assert regra.id in motor.sem_cena
+    assert "preto" in motor.sem_cena[regra.id]
+
+
+def test_camera_que_volta_sai_da_lista_de_defeito(fila, regra, fonte):
+    """Senão o painel acusaria defeito para sempre depois do primeiro."""
+    from farol_agent.modelos import EventoGatilho
+
+    motor = MotorDeRegras(fila, [regra])
+
+    motor.preparar(EventoGatilho(ponto_id="ponto-teste", ts=BASE), FonteDeTelaPreta())
+    assert regra.id in motor.sem_cena
+
+    motor.preparar(EventoGatilho(ponto_id=fonte.ponto_id, ts=BASE), fonte)
+    assert regra.id not in motor.sem_cena

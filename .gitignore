@@ -30,3 +30,6 @@ ERROS-CONHECIDOS.md
 spool/
 fila.db
 fila.db-*
+
+# quadros capturados a mao pelo 'dvr quadro' (a amostra que fica esta em testes/amostras/)
+/agent/*.jpg

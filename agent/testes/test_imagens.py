@@ -86,3 +86,45 @@ def test_qualidade_jpeg_e_respeitada(tmp_path):
     imagens.escrever(baixa, ruido, [cv2.IMWRITE_JPEG_QUALITY, 30])
 
     assert baixa.stat().st_size < alta.stat().st_size
+
+
+# ───── a tela real do MHDX, capturada em 05/10/2026 (canal sem câmera) ─────
+
+
+def test_a_tela_de_sem_sinal_do_mhdx_e_recusada():
+    """Amostra real, não sintética: `testes/amostras/mhdx-sem-sinal.jpg`
+    saiu do canal 1 do gravador deste projeto, sem câmera ligada.
+
+    99,5% dos pixels em preto absoluto, saturação zero. É exatamente esse
+    quadro que chegaria ao modelo se uma câmera perdesse sinal em produção.
+    """
+    from pathlib import Path
+
+    from farol_agent.pipeline import qualidade
+
+    amostra = Path(__file__).parent / "amostras" / "mhdx-sem-sinal.jpg"
+    img = imagens.ler(amostra)
+    assert img is not None, "a amostra tem que estar no repo"
+
+    utilizavel, motivo = qualidade.cena_utilizavel(img)
+
+    assert not utilizavel
+    assert "preto" in motivo
+
+
+def test_detalhe_real_sozinho_NAO_pega_a_tela_de_sem_sinal():
+    """Documenta por que `cena_utilizavel` existe separada.
+
+    A tela de sem-sinal marcou detalhe 0,661 — MAIS ALTO que cena real,
+    porque o relógio e o logotipo sobre preto chapado são pura alta
+    frequência. Medida boa para uma coisa pode mentir para outra.
+    """
+    from pathlib import Path
+
+    from farol_agent.pipeline import qualidade
+
+    img = imagens.ler(Path(__file__).parent / "amostras" / "mhdx-sem-sinal.jpg")
+
+    assert qualidade.detalhe_real(img) > 0.3, (
+        "se isto cair, a lição mudou e vale reavaliar o limiar de detalhe"
+    )

@@ -87,6 +87,44 @@ def faixa_dinamica(imagem: np.ndarray) -> tuple[float, float]:
     )
 
 
+def cena_utilizavel(imagem: np.ndarray) -> tuple[bool, str]:
+    """A imagem contém uma CENA, ou é tela gerada pelo gravador?
+
+    Medido no MHDX 3116-C em 05/10/2026: canal sem câmera transmite uma
+    tela preta com o logotipo e o relógio. Ela tem **99,5% dos pixels
+    praticamente pretos** e saturação zero.
+
+    Sem esta porta, essa tela seguiria o pipeline inteiro e chegaria ao
+    modelo, que seria perguntado se a bancada está limpa a respeito de um
+    retângulo preto. Custa dinheiro e devolve absurdo — e, pior, um
+    "não conforme" sobre nada viraria alerta para a cozinha.
+
+    O veredito certo aqui é `nao_avaliavel`, e ele sai de graça.
+
+    ⚠️ `detalhe_real` **não** serve para isto: a tela de sem-sinal marcou
+    0,661, mais alto que cena real, porque o texto do relógio sobre preto
+    chapado é pura alta frequência. Medida boa para uma coisa pode mentir
+    para outra.
+    """
+    estourado, cortado = faixa_dinamica(imagem)
+
+    if cortado > 0.90:
+        # Cozinha escura ainda tem ruído de sensor; preto chapado em 90%
+        # da imagem é coisa gerada, não captada.
+        return False, f"{cortado:.0%} da imagem em preto absoluto — tela de 'sem sinal'"
+
+    if estourado > 0.90:
+        return False, f"{estourado:.0%} da imagem estourada — tela branca ou luz direta"
+
+    cinza = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY) if imagem.ndim == 3 else imagem
+    if float(cinza.std()) < 3.0:
+        # Imagem chapada de qualquer tom: câmera tampada, lente coberta,
+        # fluxo congelado num quadro liso.
+        return False, "imagem praticamente uniforme — câmera tampada ou fluxo parado"
+
+    return True, ""
+
+
 def melhor_quadro(
     quadros: list[Frame], descartar: int = 2, zona_bbox: tuple[int, int, int, int] | None = None
 ) -> Frame | None:
