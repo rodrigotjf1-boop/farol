@@ -325,6 +325,62 @@ def cmd_dvr(args: argparse.Namespace) -> int:
             print(cliente.url_rtsp(args.canal, sub=args.sub))
             return 0
 
+        if args.acao == "quadro":
+            # Captura um quadro de verdade pelo RTSP e mede. Em canal sem
+            # camera, muito gravador transmite uma tela de "sem sinal" —
+            # e isso basta para validar a captura inteira antes de a
+            # camera chegar.
+            from farol_agent import imagens
+            from farol_agent.fontes.rtsp import ErroDaFonte, FonteRTSP
+            from farol_agent.pipeline import qualidade
+
+            fonte = FonteRTSP(
+                f"canal{args.canal}",
+                cliente.url_rtsp(args.canal, sub=args.sub),
+                abrir_sub=False,
+            )
+            tipo = "sub" if args.sub else "main"
+            print(f"\nabrindo canal {args.canal} ({tipo}-stream) …")
+            try:
+                quadros = fonte.rajada(datetime.now(), quantidade=args.rajada)
+            except ErroDaFonte as e:
+                print(f"\n  ERRO: {e}", file=sys.stderr)
+                if e.dica:
+                    print(f"  {e.dica}", file=sys.stderr)
+                return 1
+            finally:
+                fonte.fechar()
+
+            if not quadros:
+                print("\n  abriu, mas nenhum quadro veio.")
+                print("  Canal sem câmera costuma ser isso: o gravador aceita a")
+                print("  conexão e não transmite nada.\n")
+                return 1
+
+            melhor = qualidade.melhor_quadro(quadros, descartar=min(2, len(quadros) - 1))
+            det = qualidade.detalhe_real(melhor.imagem)
+            sat = qualidade.saturacao_media(melhor.imagem)
+            est, cortado = qualidade.faixa_dinamica(melhor.imagem)
+
+            print(f"\n  {len(quadros)} quadros · escolhido o mais nítido")
+            print(f"  resolução : {melhor.largura}×{melhor.altura}")
+            print(f"  nitidez   : {melhor.nitidez:.1f}")
+            print(f"  detalhe   : {det:.3f}")
+            print(f"  saturação : {sat:.2f}")
+            print(f"  estourado : {est:.1%}   cortado: {cortado:.1%}")
+            if det < 0.08:
+                print("  ⚠️  detalhe baixo — imagem esticada (1080N?) ou tela fixa")
+            if sat < 0.05:
+                print("  ⚠️  sem cor — infravermelho, ou tela de 'sem sinal'")
+
+            if args.salvar:
+                if imagens.escrever(args.salvar, melhor.imagem):
+                    print(f"\n  salvo em {args.salvar}")
+                else:
+                    print(f"\n  não consegui salvar em {args.salvar}", file=sys.stderr)
+            print()
+            return 0
+
         if args.acao == "eventos":
             print(f"\nouvindo {args.host} · códigos=[{args.codigos}] · Ctrl+C para parar")
             print("o MHDX fecha a conexão a cada evento; religar é o normal aqui\n")
@@ -417,7 +473,7 @@ def main(argv: list[str] | None = None) -> int:
     l.set_defaults(func=cmd_laco)
 
     v = sub.add_parser("dvr", help="fala com o gravador: acha, identifica e ouve eventos")
-    v.add_argument("acao", choices=["descobrir", "info", "eventos", "rtsp"])
+    v.add_argument("acao", choices=["descobrir", "info", "eventos", "rtsp", "quadro"])
     v.add_argument("--rede", help="faixa a varrer, ex. 192.168.1.0/24 (padrão: a desta máquina)")
     v.add_argument("--limpar-arp", dest="limpar_arp", action="store_true",
                    help="esvazia o cache ARP antes de varrer (precisa de administrador)")
@@ -430,6 +486,8 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("--keepalive", type=int, default=20)
     v.add_argument("--limite", type=int, default=0, help="para após N eventos (0 = sem fim)")
     v.add_argument("--verboso", action="store_true", help="mostra cada religação")
+    v.add_argument("--rajada", type=int, default=6, help="quantos quadros capturar")
+    v.add_argument("--salvar", help="grava o melhor quadro neste arquivo")
     v.set_defaults(func=cmd_dvr)
 
     args = p.parse_args(argv)
