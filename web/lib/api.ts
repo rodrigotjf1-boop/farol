@@ -69,3 +69,54 @@ export const api = {
 
   eu: () => pedir<Eu>('/eu'),
 };
+
+export type Ponto = {
+  id: string;
+  nome: string;
+  origem: 'dvr' | 'ip';
+  fabricante: string | null;
+  canal: number | null;
+  host: string | null;
+  porta: number | null;
+  usuario: string | null;
+  ativo: boolean;
+};
+
+export type Setor = { id: string; nome: string; ordem: number; pontos: Ponto[] };
+
+export type LojaResumo = {
+  id: string;
+  nome: string;
+  timezone: string;
+  modo_julgamento: string;
+  resolucao_padrao: string;
+  ativa: boolean;
+  setores: number;
+  pontos: number;
+};
+
+export type Loja = Omit<LojaResumo, 'setores' | 'pontos'>;
+
+export const consoleApi = {
+  lojas: () => pedir<{ lojas: LojaResumo[] }>('/lojas'),
+
+  loja: (id: string) => pedir<{ loja: Loja; setores: Setor[] }>(`/lojas/${id}`),
+
+  criarSetor: (lojaId: string, nome: string, ordem?: number) =>
+    pedir<Setor>(`/lojas/${lojaId}/setores`, {
+      method: 'POST',
+      body: JSON.stringify({ nome, ordem }),
+    }),
+
+  criarPonto: (setorId: string, dados: Partial<Ponto>) =>
+    pedir<Ponto>(`/setores/${setorId}/pontos`, {
+      method: 'POST',
+      body: JSON.stringify(dados),
+    }),
+
+  editarPonto: (id: string, dados: Partial<Ponto>) =>
+    pedir<Ponto>(`/pontos/${id}`, { method: 'PATCH', body: JSON.stringify(dados) }),
+
+  desativarPonto: (id: string) =>
+    pedir<{ id: string; ativo: boolean }>(`/pontos/${id}`, { method: 'DELETE' }),
+};
