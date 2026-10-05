@@ -265,17 +265,25 @@ def cmd_dvr(args: argparse.Namespace) -> int:
         if not rede:
             print("não descobri a rede desta máquina; informe com --rede", file=sys.stderr)
             return 1
-        print(f"\nvarrendo {rede} … (porta 80, depois 554)\n")
+        print(f"\nvarrendo {rede} … (portas 80, 554 e 37777, depois a tabela ARP)\n")
         achados = varrer(rede)
         if not achados:
-            print("  nada respondeu na porta 80.")
+            print("  nada respondeu, nem a ARP.")
             print("  O DVR está ligado e no mesmo switch/roteador que este PC?\n")
             return 1
+
+        print(f"  {'IP':<16} {'MAC':<19} {'portas':<18} {'realm / observação'}")
+        print("  " + "─" * 76)
         for a in achados:
-            marca = "⇐ parece gravador" if a.parece_gravador else ""
-            rtsp = "rtsp:554 aberto" if a.rtsp else ""
-            print(f"  {a.host:<16} {str(a.realm or '')[:46]:<48} {rtsp:<17} {marca}")
+            portas = ",".join(str(p) for p in a.portas) if a.portas else "nenhuma"
+            obs = a.realm or ("só responde a ARP" if not a.portas else "")
+            marca = "  ⇐ parece gravador" if a.parece_gravador else ""
+            print(
+                f"  {a.host:<16} {(a.mac or '—'):<19} {portas:<18} {str(obs)[:40]}{marca}"
+            )
         print()
+        print("  Compare os MACs com a etiqueta do gravador: é o jeito mais direto")
+        print("  de achá-lo, mesmo que ele ainda não tenha porta nenhuma aberta.\n")
         return 0
 
     cliente = ClienteDahua(

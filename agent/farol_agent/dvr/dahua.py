@@ -210,6 +210,21 @@ class ClienteDahua:
         )
         resposta = self._abrir(caminho, tempo_limite=tempo_limite)
 
+        # Confere que é mesmo a transmissão de eventos antes de ler.
+        # Sem isto, apontar para o aparelho errado (ou para um nome que o
+        # DNS do roteador sequestra para uma página de busca) faz o laço
+        # ler HTML calado e terminar com "0 eventos" — e "0 eventos" é
+        # indistinguível de "ninguém se mexeu". Silêncio no lugar de erro
+        # é o modo de falha que este projeto não pode ter.
+        tipo = (resposta.headers.get("Content-Type") or "").lower()
+        if "multipart" not in tipo:
+            resposta.close()
+            raise ErroDoGravador(
+                f"{self.host} respondeu '{tipo or 'sem Content-Type'}' em vez de "
+                "multipart/x-mixed-replace",
+                dica="este endereço não é o gravador, ou o firmware não tem eventManager",
+            )
+
         with resposta:
             parte: list[str] = []
             while True:

@@ -20,9 +20,11 @@ from farol_agent.dvr.dahua import ClienteDahua, Evento, _json_completo, _montar
 class RespostaFalsa:
     """Finge o `multipart/x-mixed-replace` do gravador, linha a linha."""
 
-    def __init__(self, corpo: str) -> None:
+    def __init__(self, corpo: str, tipo: str = "multipart/x-mixed-replace; boundary=myboundary") -> None:
         self._linhas = [(l + "\r\n").encode() for l in corpo.split("\n")]
         self._i = 0
+        self.headers = {"Content-Type": tipo}
+        self.fechada = False
 
     def readline(self) -> bytes:
         if self._i >= len(self._linhas):
@@ -31,6 +33,9 @@ class RespostaFalsa:
         self._i += 1
         return linha
 
+    def close(self) -> None:
+        self.fechada = True
+
     def __enter__(self):
         return self
 
@@ -38,9 +43,13 @@ class RespostaFalsa:
         return False
 
 
-def cliente_com(corpo: str) -> ClienteDahua:
+def cliente_com(corpo: str, tipo: str | None = None) -> ClienteDahua:
     c = ClienteDahua("10.0.0.9", "admin", "s3nha")
-    c._abrir = lambda *a, **k: RespostaFalsa(corpo)  # type: ignore[method-assign]
+    resposta = (
+        RespostaFalsa(corpo) if tipo is None else RespostaFalsa(corpo, tipo)
+    )
+    c._abrir = lambda *a, **k: resposta  # type: ignore[method-assign]
+    c._ultima_resposta = resposta        # type: ignore[attr-defined]
     return c
 
 
@@ -172,6 +181,43 @@ def test_stop_e_start_sao_eventos_distintos():
 
 def test_transmissao_vazia_termina_sem_estourar():
     assert list(cliente_com("").eventos()) == []
+
+
+# ───────── a guarda contra "0 eventos" que era erro disfarçado ─────────
+
+
+def test_resposta_que_nao_e_multipart_estoura_em_vez_de_calar():
+    """Apontar para o aparelho errado tem que DOER.
+
+    Sem esta guarda, o laço lia o HTML de uma página qualquer, não achava
+    `Code=` em lugar nenhum e terminava com '0 eventos recebidos' — que é
+    indistinguível de 'ninguém se mexeu'. Aconteceu de verdade: um host
+    digitado errado foi sequestrado pelo DNS do roteador para uma página
+    de busca, e a sondagem relatou calmaria.
+    """
+    from farol_agent.dvr.dahua import ErroDoGravador
+
+    c = cliente_com("<html><body>não encontrado</body></html>", tipo="text/html")
+    with pytest.raises(ErroDoGravador, match="multipart"):
+        list(c.eventos())
+
+
+def test_resposta_sem_content_type_tambem_estoura():
+    from farol_agent.dvr.dahua import ErroDoGravador
+
+    c = cliente_com("qualquer coisa", tipo="")
+    with pytest.raises(ErroDoGravador, match="multipart"):
+        list(c.eventos())
+
+
+def test_a_conexao_errada_e_fechada():
+    """Deixar aberta vaza descritor a cada tentativa de diagnóstico."""
+    from farol_agent.dvr.dahua import ErroDoGravador
+
+    c = cliente_com("<html>", tipo="text/html")
+    with pytest.raises(ErroDoGravador):
+        list(c.eventos())
+    assert c._ultima_resposta.fechada  # type: ignore[attr-defined]
 
 
 # ──────────────────────────── URL RTSP ─────────────────────────────

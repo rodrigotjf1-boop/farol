@@ -24,14 +24,26 @@ from dataclasses import dataclass
 @dataclass
 class Achado:
     host: str
-    porta: int
+    portas: tuple[int, ...] = ()
     realm: str | None = None
-    rtsp: bool = False
+    mac: str | None = None
+
+    @property
+    def rtsp(self) -> bool:
+        return 554 in self.portas
 
     @property
     def parece_gravador(self) -> bool:
-        """Dahua e OEM põem 'Login to <modelo>' no realm do Digest."""
-        return bool(self.realm) and "login to" in (self.realm or "").lower()
+        """Três sinais, qualquer um já levanta suspeita.
+
+        O realm do Digest é o mais forte — Dahua e OEM põem
+        'Login to <modelo>' nele. Mas um gravador novo pode ter o HTTP
+        ainda fechado, e aí 554 (RTSP) ou 37777 (porta de serviço da
+        Dahua) são o que sobra.
+        """
+        if self.realm and "login to" in self.realm.lower():
+            return True
+        return 554 in self.portas or 37777 in self.portas
 
 
 def _porta_aberta(host: str, porta: int, tempo_limite: float) -> bool:
@@ -61,10 +73,56 @@ def _realm(host: str, porta: int, tempo_limite: float) -> str | None:
     return "responde sem exigir senha"
 
 
+def tabela_arp() -> dict[str, str]:
+    """IPs que responderam a ARP, com o MAC de cada um.
+
+    Vale mais que a varredura de portas quando o aparelho é novo: um DVR
+    recém-ligado, ainda sem inicializar, pode estar com **todas as portas
+    fechadas** e ainda assim responder a ARP. Ele aparece aqui e em mais
+    lugar nenhum.
+
+    E o MAC identifica: o da etiqueta do gravador bate com o da lista.
+
+    A própria varredura TCP já popula esta tabela de graça — falar com um
+    IP da rede local exige resolver o MAC antes, mesmo que a conexão seja
+    recusada depois.
+    """
+    import re
+    import subprocess
+
+    comandos = (["arp", "-a"], ["ip", "neigh"])
+    saida = ""
+    for cmd in comandos:
+        try:
+            saida = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=8, check=False
+            ).stdout
+            if saida.strip():
+                break
+        except (OSError, subprocess.SubprocessError):
+            continue
+
+    achados: dict[str, str] = {}
+    ip_re = re.compile(r"\b(\d{1,3}(?:\.\d{1,3}){3})\b")
+    mac_re = re.compile(r"\b([0-9a-fA-F]{2}(?:[:-][0-9a-fA-F]{2}){5})\b")
+    for linha in saida.splitlines():
+        ip = ip_re.search(linha)
+        mac = mac_re.search(linha)
+        if ip and mac:
+            m = mac.group(1).lower().replace("-", ":")
+            # Multicast e broadcast não são aparelho.
+            if m.startswith(("01:00:5e", "ff:ff:ff", "33:33")):
+                continue
+            achados[ip.group(1)] = m
+    return achados
+
+
 def varrer(
     rede: str,
     *,
-    portas: tuple[int, ...] = (80,),
+    # 37777 é a porta de serviço da Dahua: o gravador costuma atendê-la
+    # mesmo quando o HTTP está em outra porta ou desligado.
+    portas: tuple[int, ...] = (80, 554, 37777),
     tempo_limite: float = 0.4,
     paralelas: int = 64,
 ) -> list[Achado]:
@@ -78,19 +136,28 @@ def varrer(
 
     def examinar(ip) -> Achado | None:
         host = str(ip)
-        for porta in portas:
-            if not _porta_aberta(host, porta, tempo_limite):
-                continue
-            return Achado(
-                host=host,
-                porta=porta,
-                realm=_realm(host, porta, tempo_limite * 4),
-                rtsp=_porta_aberta(host, 554, tempo_limite),
-            )
-        return None
+        abertas = tuple(p for p in portas if _porta_aberta(host, p, tempo_limite))
+        if not abertas:
+            return None
+        # O realm só faz sentido na porta HTTP.
+        realm = _realm(host, 80, tempo_limite * 4) if 80 in abertas else None
+        return Achado(host=host, portas=abertas, realm=realm)
 
     with ThreadPoolExecutor(max_workers=paralelas) as piscina:
         resultados = [a for a in piscina.map(examinar, alvos) if a is not None]
+
+    # A varredura acima já resolveu o MAC de quem respondeu a ARP, mesmo
+    # dos que recusaram todas as portas. Esses não entraram na lista — e
+    # um gravador recém-ligado pode ser exatamente um deles.
+    arp = tabela_arp()
+    conhecidos = {a.host for a in resultados}
+    for a in resultados:
+        a.mac = arp.get(a.host)
+    for ip, mac in arp.items():
+        if ip not in conhecidos and ipaddress.ip_address(ip) in ipaddress.ip_network(
+            rede, strict=False
+        ):
+            resultados.append(Achado(host=ip, portas=(), mac=mac))
 
     # Gravador primeiro; o resto da rede depois, para conferência.
     resultados.sort(key=lambda a: (not a.parece_gravador, not a.rtsp, a.host))
