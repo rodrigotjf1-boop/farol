@@ -39,12 +39,20 @@ muda o rumo no meio.
 - **Migrations 001 e 002 aplicadas** por `npm run migrar` dentro do contêiner.
   Migration passa a viajar pelo deploy, nunca por paste; ver `decisoes.md` 04/10.
 
-### A1 — o que ainda falta
+### A1 — fechado em 05/10/2026
 
-- `farol-web` no EasyPanel
-- CI do repo (`npm ci && npm run build` em `api/`)
-- Domínios `api.monitorfarol.com.br` e `app.monitorfarol.com.br`
-- `pg_dump` diário agendado — o backup da VPS é **semanal**
+- **`farol-web` NO AR** em `app.monitorfarol.com.br`, com login funcionando.
+- **CI em quatro jobs**: api (com Postgres real), web, agente e as duas imagens.
+- **Backup diário** no Backblaze B2, conferido dentro do bucket.
+- O domínio `api.` **não é mais necessário**: o Next faz proxy da API pela rede
+  interna, então a API nunca é exposta à internet.
+
+### A1 — pendência conhecida
+
+- ⚠️ `app.monitorfarol.com.br` está com **Configuration Rule em `Full`** na
+  Cloudflare porque o Traefik não emitiu certificado para esse host. Contorno,
+  não estado final — ver ERR-007. Quando o certificado sair, apagar a regra e
+  voltar o host para `strict`.
 
 ---
 
