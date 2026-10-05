@@ -132,7 +132,7 @@ def test_le_varios_eventos_separados_por_fronteira():
         "Code=VideoLoss;action=Start;index=1\n"
         "--myboundary\n"
     )
-    eventos = list(cliente_com(corpo).eventos())
+    eventos = list(cliente_com(corpo).eventos(reconectar=False))
 
     assert [e.canal for e in eventos] == [1, 2]
     assert all(e.codigo == "VideoLoss" for e in eventos)
@@ -152,7 +152,7 @@ def test_heartbeat_entre_eventos_nao_atrapalha():
         "Code=VideoMotion;action=Start;index=7\n"
         "--myboundary\n"
     )
-    eventos = list(cliente_com(corpo).eventos())
+    eventos = list(cliente_com(corpo).eventos(reconectar=False))
 
     assert len(eventos) == 1
     assert eventos[0].canal == 8
@@ -166,7 +166,7 @@ def test_evento_sai_antes_da_proxima_fronteira():
         "\n"
         "Code=VideoMotion;action=Start;index=0\n"
     )
-    eventos = list(cliente_com(corpo).eventos())
+    eventos = list(cliente_com(corpo).eventos(reconectar=False))
     assert len(eventos) == 1, "o evento tem que sair sem a fronteira seguinte"
 
 
@@ -175,12 +175,12 @@ def test_stop_e_start_sao_eventos_distintos():
         "--b\n\nCode=VideoMotion;action=Start;index=0\n"
         "--b\n\nCode=VideoMotion;action=Stop;index=0\n--b\n"
     )
-    eventos = list(cliente_com(corpo).eventos())
+    eventos = list(cliente_com(corpo).eventos(reconectar=False))
     assert [e.acao for e in eventos] == ["Start", "Stop"]
 
 
 def test_transmissao_vazia_termina_sem_estourar():
-    assert list(cliente_com("").eventos()) == []
+    assert list(cliente_com("").eventos(reconectar=False)) == []
 
 
 # ───────── a guarda contra "0 eventos" que era erro disfarçado ─────────
@@ -199,7 +199,7 @@ def test_resposta_que_nao_e_multipart_estoura_em_vez_de_calar():
 
     c = cliente_com("<html><body>não encontrado</body></html>", tipo="text/html")
     with pytest.raises(ErroDoGravador, match="multipart"):
-        list(c.eventos())
+        list(c.eventos(reconectar=False))
 
 
 def test_resposta_sem_content_type_tambem_estoura():
@@ -207,7 +207,7 @@ def test_resposta_sem_content_type_tambem_estoura():
 
     c = cliente_com("qualquer coisa", tipo="")
     with pytest.raises(ErroDoGravador, match="multipart"):
-        list(c.eventos())
+        list(c.eventos(reconectar=False))
 
 
 def test_a_conexao_errada_e_fechada():
@@ -216,7 +216,7 @@ def test_a_conexao_errada_e_fechada():
 
     c = cliente_com("<html>", tipo="text/html")
     with pytest.raises(ErroDoGravador):
-        list(c.eventos())
+        list(c.eventos(reconectar=False))
     assert c._ultima_resposta.fechada  # type: ignore[attr-defined]
 
 
@@ -295,3 +295,56 @@ def test_nada_e_eliminado_da_lista():
 
     assert Achado(host="x", portas=(), mac="3a:b4:ca:e6:2f:95").candidato
     assert Achado(host="x", portas=(), mac=None).candidato
+
+
+# ───────── religação: o MHDX fecha a transmissão a cada evento ─────────
+
+
+def test_religa_e_continua_entregando():
+    """Medido no MHDX 3116-C (firmware 4.001.00IB000.0.T): o gravador
+    FECHA a conexão depois de entregar um evento.
+
+    Sem religar, o agente receberia o primeiro alerta do turno e ficaria
+    mudo o resto do dia — sem erro nenhum, que é o pior jeito de falhar.
+    """
+    corpo = "--b\n\nCode=VideoMotion;action=Start;index=0\n"
+    c = ClienteDahua("10.0.0.9", "admin", "s3nha")
+    c._abrir = lambda *a, **k: RespostaFalsa(corpo)  # type: ignore[method-assign]
+
+    colhidos = []
+    for e in c.eventos(reconectar=True):
+        colhidos.append(e)
+        if len(colhidos) == 3:
+            break
+
+    assert len(colhidos) == 3, "tem que continuar entregando depois de a conexão fechar"
+    assert all(e.codigo == "VideoMotion" for e in colhidos)
+
+
+def test_sem_religar_termina_na_primeira_conexao():
+    corpo = "--b\n\nCode=VideoMotion;action=Start;index=0\n"
+    c = ClienteDahua("10.0.0.9", "admin", "s3nha")
+    c._abrir = lambda *a, **k: RespostaFalsa(corpo)  # type: ignore[method-assign]
+
+    assert len(list(c.eventos(reconectar=False))) == 1
+
+
+def test_erro_recuperavel_nao_derruba_quem_religa():
+    """Gravador reiniciando devolve erro; o agente espera e volta."""
+    from farol_agent.dvr.dahua import ErroDoGravador
+
+    estado = {"n": 0}
+
+    def abrir(*a, **k):
+        estado["n"] += 1
+        if estado["n"] == 1:
+            raise ErroDoGravador("conexão recusada")
+        return RespostaFalsa("--b\n\nCode=VideoLoss;action=Start;index=2\n")
+
+    c = ClienteDahua("10.0.0.9", "admin", "s3nha")
+    c._abrir = abrir  # type: ignore[method-assign]
+
+    primeiro = next(iter(c.eventos(reconectar=True)))
+
+    assert primeiro.codigo == "VideoLoss"
+    assert estado["n"] >= 2, "tem que ter tentado de novo depois do erro"

@@ -26,6 +26,7 @@ import json
 import logging
 import re
 import socket
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -163,28 +164,56 @@ class ClienteDahua:
         return dados
 
     def quantidade_de_canais(self) -> int | None:
-        try:
-            r = self._pares(
-                self._texto("/cgi-bin/magicBox.cgi?action=getProductDefinition&name=MaxExtraStream")
-            )
-            _ = r  # só para confirmar que a CGI de definição responde
-        except ErroDoGravador:
-            pass
+        """Quantos canais de vídeo o gravador tem.
 
-        for caminho, chave in (
-            ("/cgi-bin/magicBox.cgi?action=getProductDefinition&name=VideoInChannels", None),
-            ("/cgi-bin/devVideoInput.cgi?action=getCollect", None),
-        ):
+        Três caminhos, porque nenhum funciona em todo firmware. O MHDX
+        3116-C (build 2025-12) ignora os dois primeiros e só responde pelo
+        terceiro — contar os títulos de canal, que existem desde sempre
+        porque é o que aparece na tela.
+        """
+        # 1 · a definição de produto, quando o firmware a expõe
+        for nome in ("VideoInChannel", "VideoInChannels"):
             try:
-                pares = self._pares(self._texto(caminho))
+                pares = self._pares(
+                    self._texto(
+                        f"/cgi-bin/magicBox.cgi?action=getProductDefinition&name={nome}"
+                    )
+                )
             except ErroDoGravador:
                 continue
-            for k, v in pares.items():
-                if "channel" in k.lower() or "VideoInChannels" in k:
-                    try:
-                        return int(v)
-                    except ValueError:
-                        continue
+            for v in pares.values():
+                if v.strip().isdigit():
+                    return int(v)
+
+        # 2 · a coleção de entradas de vídeo
+        try:
+            pares = self._pares(self._texto("/cgi-bin/devVideoInput.cgi?action=getCollect"))
+            indices = {
+                k.split("[", 1)[1].split("]", 1)[0]
+                for k in pares
+                if "[" in k and "]" in k
+            }
+            if indices:
+                return len(indices)
+        except (ErroDoGravador, IndexError):
+            pass
+
+        # 3 · contar os títulos de canal. É o que sobra, e é confiável:
+        # todo gravador tem nome para cada canal, porque mostra na tela.
+        try:
+            pares = self._pares(
+                self._texto("/cgi-bin/configManager.cgi?action=getConfig&name=ChannelTitle")
+            )
+            indices = {
+                k.split("[", 1)[1].split("]", 1)[0]
+                for k in pares
+                if k.startswith("table.ChannelTitle[") and "]" in k
+            }
+            if indices:
+                return len(indices)
+        except (ErroDoGravador, IndexError):
+            pass
+
         return None
 
     # ──────────────────────────── eventos ────────────────────────────
@@ -195,8 +224,51 @@ class ClienteDahua:
         *,
         keepalive: int = 20,
         tempo_limite: float = 120.0,
+        reconectar: bool = True,
+        ao_religar=None,
     ) -> Iterator[Evento]:
-        """Transmissão de eventos do gravador, um a um, enquanto durar.
+        """Eventos do gravador, religando sozinho quando a conexão cair.
+
+        O MHDX 3116-C **fecha a transmissão depois de entregar um evento**
+        — medido neste projeto, com firmware 4.001.00IB000.0.T. Um laço
+        que só lesse uma conexão receberia o primeiro alerta do dia e
+        ficaria mudo para sempre, sem erro nenhum.
+
+        Por isso a religação é o padrão, e não uma opção. O agente precisa
+        ficar ouvindo por turnos inteiros; conexão é detalhe de transporte,
+        e detalhe de transporte não pode virar alerta perdido.
+
+        A espera entre tentativas cresce até 15 s para não martelar um
+        gravador que esteja reiniciando.
+        """
+        espera = 1.0
+        while True:
+            houve_evento = False
+            try:
+                for e in self._eventos_de_uma_conexao(codigos, keepalive, tempo_limite):
+                    houve_evento = True
+                    espera = 1.0
+                    yield e
+            except ErroDoGravador as erro:
+                if not reconectar:
+                    raise
+                _log.warning("transmissão caiu (%s); religando em %.0fs", erro, espera)
+
+            if not reconectar:
+                return
+
+            if ao_religar is not None:
+                ao_religar(espera, houve_evento)
+            time.sleep(espera)
+            espera = min(espera * 2, 15.0)
+
+    def _eventos_de_uma_conexao(
+        self,
+        codigos: str,
+        keepalive: int,
+        tempo_limite: float,
+    ) -> Iterator[Evento]:
+        """Uma conexão só, do `attach` até ela fechar.
 
         A resposta é `multipart/x-mixed-replace`: o gravador mantém a
         conexão aberta e vai empurrando partes. Entre eventos ele manda

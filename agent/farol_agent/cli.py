@@ -327,9 +327,18 @@ def cmd_dvr(args: argparse.Namespace) -> int:
 
         if args.acao == "eventos":
             print(f"\nouvindo {args.host} · códigos=[{args.codigos}] · Ctrl+C para parar")
-            print("sem câmera ligada, espere VideoLoss em todos os canais\n")
+            print("o MHDX fecha a conexão a cada evento; religar é o normal aqui\n")
             n = 0
-            for e in cliente.eventos(args.codigos, keepalive=args.keepalive):
+
+            def religou(espera, houve_evento):
+                # Mostrar a religação é o que separa "está ouvindo e nada
+                # aconteceu" de "o caminho caiu" — as duas se parecem.
+                if args.verboso or not houve_evento:
+                    print(f"       … religando em {espera:.0f}s")
+
+            for e in cliente.eventos(
+                args.codigos, keepalive=args.keepalive, ao_religar=religou
+            ):
                 n += 1
                 extra = f"  {json.dumps(e.dados, ensure_ascii=False)}" if e.dados else ""
                 print(f"  [{n:>4}] {e.codigo:<22} {e.acao:<6} canal {e.canal:>2}{extra}")
@@ -420,6 +429,7 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("--codigos", default="All", help="ex.: VideoMotion,VideoLoss")
     v.add_argument("--keepalive", type=int, default=20)
     v.add_argument("--limite", type=int, default=0, help="para após N eventos (0 = sem fim)")
+    v.add_argument("--verboso", action="store_true", help="mostra cada religação")
     v.set_defaults(func=cmd_dvr)
 
     args = p.parse_args(argv)
