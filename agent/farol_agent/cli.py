@@ -325,6 +325,56 @@ def cmd_dvr(args: argparse.Namespace) -> int:
             print(cliente.url_rtsp(args.canal, sub=args.sub))
             return 0
 
+        if args.acao == "canais":
+            # Varre os canais e diz QUAIS têm câmera. Numa instalação,
+            # "em que canal ficou essa câmera?" é a primeira pergunta, e
+            # ela se responde medindo, não conferindo etiqueta de cabo.
+            from farol_agent.fontes.rtsp import ErroDaFonte, FonteRTSP
+            from farol_agent.pipeline import qualidade
+
+            total = args.ate or (cliente.quantidade_de_canais() or 16)
+            print(f"\nvarrendo canais 1 a {total} de {args.host} …")
+            print("(cada canal leva alguns segundos; canal vazio demora mais)\n")
+            print(f"  {'canal':>5}  {'resolução':>11}  {'detalhe':>8}  {'satur.':>7}  situação")
+            print("  " + "─" * 62)
+
+            com_camera = []
+            for canal in range(1, total + 1):
+                fonte = FonteRTSP(f"canal{canal}", cliente.url_rtsp(canal), abrir_sub=False)
+                try:
+                    quadros = fonte.rajada(datetime.now(), quantidade=3)
+                except ErroDaFonte:
+                    print(f"  {canal:>5}  {'—':>11}  {'—':>8}  {'—':>7}  não abriu")
+                    continue
+                finally:
+                    fonte.fechar()
+
+                if not quadros:
+                    print(f"  {canal:>5}  {'—':>11}  {'—':>8}  {'—':>7}  sem transmissão")
+                    continue
+
+                melhor = quadros[-1]
+                ok, porque = qualidade.cena_utilizavel(melhor.imagem)
+                det = qualidade.detalhe_real(melhor.imagem)
+                sat = qualidade.saturacao_media(melhor.imagem)
+                situacao = "CÂMERA" if ok else (porque[:34] or "sem cena")
+                if ok:
+                    com_camera.append(canal)
+                print(
+                    f"  {canal:>5}  {f'{melhor.largura}×{melhor.altura}':>11}  "
+                    f"{det:>8.3f}  {sat:>7.2f}  {situacao}"
+                )
+
+            print()
+            if com_camera:
+                lista = ", ".join(str(c) for c in com_camera)
+                print(f"  {len(com_camera)} canal(is) com imagem: {lista}")
+                print(f"\n  próximo: dvr quadro --host {args.host} "
+                      f"--canal {com_camera[0]} --salvar camera.jpg\n")
+            else:
+                print("  nenhum canal com imagem — só telas de 'sem sinal'.\n")
+            return 0
+
         if args.acao == "quadro":
             # Captura um quadro de verdade pelo RTSP e mede. Em canal sem
             # camera, muito gravador transmite uma tela de "sem sinal" —
@@ -473,7 +523,8 @@ def main(argv: list[str] | None = None) -> int:
     l.set_defaults(func=cmd_laco)
 
     v = sub.add_parser("dvr", help="fala com o gravador: acha, identifica e ouve eventos")
-    v.add_argument("acao", choices=["descobrir", "info", "eventos", "rtsp", "quadro"])
+    v.add_argument("acao",
+                   choices=["descobrir", "info", "eventos", "rtsp", "quadro", "canais"])
     v.add_argument("--rede", help="faixa a varrer, ex. 192.168.1.0/24 (padrão: a desta máquina)")
     v.add_argument("--limpar-arp", dest="limpar_arp", action="store_true",
                    help="esvazia o cache ARP antes de varrer (precisa de administrador)")
@@ -488,6 +539,7 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("--verboso", action="store_true", help="mostra cada religação")
     v.add_argument("--rajada", type=int, default=6, help="quantos quadros capturar")
     v.add_argument("--salvar", help="grava o melhor quadro neste arquivo")
+    v.add_argument("--ate", type=int, help="último canal a varrer (padrão: todos)")
     v.set_defaults(func=cmd_dvr)
 
     args = p.parse_args(argv)
