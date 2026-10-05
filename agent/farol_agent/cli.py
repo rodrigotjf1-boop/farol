@@ -258,13 +258,19 @@ def _senha_do_dvr(args: argparse.Namespace) -> str:
 
 def cmd_dvr(args: argparse.Namespace) -> int:
     from farol_agent.dvr.dahua import ClienteDahua, ErroDoGravador
-    from farol_agent.dvr.descoberta import rede_local, varrer
+    from farol_agent.dvr.descoberta import limpar_arp, rede_local, varrer
 
     if args.acao == "descobrir":
         rede = args.rede or rede_local()
         if not rede:
             print("não descobri a rede desta máquina; informe com --rede", file=sys.stderr)
             return 1
+        if args.limpar_arp:
+            if limpar_arp():
+                print("\ncache ARP esvaziado — a lista é o que responde AGORA")
+            else:
+                print("\nNÃO consegui esvaziar o cache ARP (precisa de administrador).")
+                print("A lista pode trazer aparelho que já saiu da rede.")
         print(f"\nvarrendo {rede} … (portas 80, 554 e 37777, depois a tabela ARP)\n")
         achados = varrer(rede)
         if not achados:
@@ -404,6 +410,8 @@ def main(argv: list[str] | None = None) -> int:
     v = sub.add_parser("dvr", help="fala com o gravador: acha, identifica e ouve eventos")
     v.add_argument("acao", choices=["descobrir", "info", "eventos", "rtsp"])
     v.add_argument("--rede", help="faixa a varrer, ex. 192.168.1.0/24 (padrão: a desta máquina)")
+    v.add_argument("--limpar-arp", dest="limpar_arp", action="store_true",
+                   help="esvazia o cache ARP antes de varrer (precisa de administrador)")
     v.add_argument("--host", help="IP do gravador")
     v.add_argument("--porta", type=int, default=80)
     v.add_argument("--usuario", default="admin")

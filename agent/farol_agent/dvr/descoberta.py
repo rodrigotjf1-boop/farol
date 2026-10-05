@@ -97,6 +97,32 @@ def _realm(host: str, porta: int, tempo_limite: float) -> str | None:
     return "responde sem exigir senha"
 
 
+def limpar_arp() -> bool:
+    """Esvazia o cache ARP do sistema. Exige administrador.
+
+    Sem isto, o teste de "tira o cabo e varre de novo" **não funciona**:
+    o Windows guarda a entrada por vários minutos depois de o aparelho
+    sumir, então ele continua na lista como se nada tivesse acontecido.
+    Foi exatamente o que aconteceu no primeiro teste em campo.
+    """
+    import subprocess
+
+    for cmd in (
+        ["netsh", "interface", "ip", "delete", "arpcache"],
+        ["arp", "-d", "*"],
+        ["ip", "-s", "-s", "neigh", "flush", "all"],
+    ):
+        try:
+            r = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=15, check=False
+            )
+            if r.returncode == 0:
+                return True
+        except (OSError, subprocess.SubprocessError):
+            continue
+    return False
+
+
 def tabela_arp() -> dict[str, str]:
     """IPs que responderam a ARP, com o MAC de cada um.
 
