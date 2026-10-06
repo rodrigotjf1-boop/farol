@@ -891,6 +891,41 @@ def cmd_servir(args: argparse.Namespace) -> int:
         print(f"\n{e}\n", file=sys.stderr)
         return 1
 
+    # Apresenta a máquina ANTES do laço: o heartbeat exige agente `ativo`,
+    # e um agente recém-provisionado nasce `novo`. Sem isto a primeira
+    # execução numa loja nova só produziria 403 sem dizer o que fazer.
+    from farol_agent.maquina import arquivo_ao_lado, fingerprint
+
+    impressao = fingerprint(arquivo_ao_lado(args.config))
+    try:
+        r = cliente.ativar(impressao, args.versao)
+        print(
+            "\nagente ativo"
+            + (" (já estava)" if r.get("jaEstavaAtivo") else " — primeira ativação")
+        )
+    except ErroDaNuvem as e:
+        print(f"\nnão consegui ativar: {e}", file=sys.stderr)
+        if e.status == 409:
+            # A trava funcionando. Dizer o que ela significa evita o
+            # diagnóstico errado — não é token inválido, é token de outra
+            # máquina.
+            print("  Este token já está preso a outro computador. Trocar de",
+                  file=sys.stderr)
+            print("  equipamento exige emitir um token novo no console da",
+                  file=sys.stderr)
+            print("  distribuição — é a trava que impede um token copiado de",
+                  file=sys.stderr)
+            print("  virar um segundo agente.\n", file=sys.stderr)
+        elif e.status == 401:
+            print("  O token em FAROL_AGENTE_TOKEN não confere.\n", file=sys.stderr)
+        else:
+            print("  Vou seguir mesmo assim: se já houve ativação antes, o",
+                  file=sys.stderr)
+            print("  agente trabalha com a configuração que tem em disco.\n",
+                  file=sys.stderr)
+        if e.status in (401, 409):
+            return 1
+
     sincronizador = Sincronizador(cliente, args.config, versao_app=args.versao)
 
     if sincronizador.config:
