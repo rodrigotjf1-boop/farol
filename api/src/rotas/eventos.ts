@@ -145,21 +145,30 @@ export async function gravarEventos(
         tenant_id, loja_id, agente_id, regra_id, zona_id, ocorrido_em,
         veredito, confianca, motivo, midia_url, modelo, via,
         tokens_entrada, tokens_saida, custo_centavos, latencia_ms,
-        prioridade, em_lote, embedding, idempotencia_key)
+        prioridade, em_lote, embedding, idempotencia_key,
+        criterio_versao, imagem_hash)
      select $1, $2, $3, e.regra_id, r.zona_id, e.ocorrido_em,
             e.veredito, e.confianca, e.motivo, e.midia_url, e.modelo, e.via,
             e.tokens_entrada, e.tokens_saida, e.custo_centavos, e.latencia_ms,
             e.prioridade, e.em_lote,
             case when e.embedding is null then null
                  else (e.embedding #>> '{}')::vector end,
-            e.idempotencia_key
+            e.idempotencia_key,
+            -- A regra e mutavel: sem a versao gravada NO EVENTO, um
+            -- veredito de ontem aponta para a redacao de hoje, e
+            -- "a versao 2 acerta mais que a 1?" fica sem resposta.
+            -- O coalesce com a regra cobre agente antigo que ainda nao
+            -- manda o campo.
+            coalesce(e.criterio_versao, r.criterio_versao),
+            e.imagem_hash
        from jsonb_to_recordset($4::jsonb) as e(
             idempotencia_key text, regra_id uuid,
             ocorrido_em timestamptz, veredito text, confianca numeric,
             motivo text, midia_url text, modelo text, via text,
             tokens_entrada integer, tokens_saida integer,
             custo_centavos numeric, latencia_ms integer,
-            prioridade text, em_lote boolean, embedding jsonb)
+            prioridade text, em_lote boolean, embedding jsonb,
+            criterio_versao integer, imagem_hash text)
        join regra r  on r.id = e.regra_id
        join zona  z  on z.id = r.zona_id
        join ponto p  on p.id = z.ponto_id
