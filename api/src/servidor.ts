@@ -97,12 +97,19 @@ if (!esquema.ok) {
 // custaria mais do que a idempotência que já existe por outro motivo.
 const INTERVALO_VIGIA_MS = 60_000;
 
+// Enquanto a migration do alerta não rodou, as tabelas do vigia não
+// existem. Dizer isso UMA vez e calar é obrigatório: um erro por minuto
+// até alguém abrir o console é a mesma enxurrada que afogou o log do
+// agente em 06/10 (ERR-014), e ela esconde a falha de verdade.
+let avisouTabelaFaltando = false;
+
 const vigia = setInterval(() => {
   // `void` com a promessa tratada DENTRO: uma rejeição aqui seria
   // unhandled e derrubaria o processo — e derrubar a API porque o aviso
   // falhou seria trocar um problema pequeno por um grande.
   void despacharAgentesCaidos(pool)
     .then((r) => {
+      avisouTabelaFaltando = false;
       if (r.criados > 0) {
         app.log.warn(
           { agentes: r.agentes, avisos: r.criados },
@@ -110,7 +117,21 @@ const vigia = setInterval(() => {
         );
       }
     })
-    .catch((e) => app.log.error(e, 'o vigia de agentes caídos falhou'));
+    .catch((e) => {
+      // 42P01 = undefined_table. Pelo CÓDIGO, nunca pela mensagem: o
+      // Postgres traduz o texto conforme o locale do servidor (ERR-017).
+      if ((e as { code?: string }).code === '42P01') {
+        if (!avisouTabelaFaltando) {
+          avisouTabelaFaltando = true;
+          app.log.warn(
+            'o vigia de agentes caídos está parado: falta rodar `npm run migrar`. ' +
+            'Enquanto isso, a queda de um agente NÃO é avisada.',
+          );
+        }
+        return;
+      }
+      app.log.error(e, 'o vigia de agentes caídos falhou');
+    });
 }, INTERVALO_VIGIA_MS);
 // Sem isto o contêiner não sai no SIGTERM e o orquestrador o mata à força.
 vigia.unref();
