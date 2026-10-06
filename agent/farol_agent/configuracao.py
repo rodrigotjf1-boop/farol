@@ -87,6 +87,10 @@ class ConfigDaLoja:
     loja_id: str
     loja_nome: str
     versao: int
+    # Decide qual juiz atende cada regra. `hibrido` é o padrão seguro:
+    # tenta local e cai para a nuvem só no que o desenho permite sair.
+    modo_julgamento: str = "hibrido"
+    resolucao_padrao: str = "r640"
     pontos: list[PontoConfig] = field(default_factory=list)
 
     def ponto(self, ponto_id: str) -> PontoConfig | None:
@@ -219,6 +223,8 @@ def de_json(dados: dict[str, Any]) -> ConfigDaLoja:
         loja_id=str(dados["loja"]["id"]),
         loja_nome=str(dados["loja"].get("nome") or ""),
         versao=int(dados.get("versao") or 0),
+        modo_julgamento=str(dados["loja"].get("modoJulgamento") or "hibrido"),
+        resolucao_padrao=str(dados["loja"].get("resolucaoPadrao") or "r640"),
         pontos=pontos,
     )
 

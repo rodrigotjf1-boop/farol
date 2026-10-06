@@ -14,6 +14,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 import numpy as np
+import pytest
 
 from farol_agent.auditoria import Auditoria
 from farol_agent.configuracao import de_json
@@ -268,3 +269,57 @@ def test_parar_fecha_as_fontes(tmp_path):
 
     assert fonte.fechada is True
     assert a.fontes == {}
+
+
+# ───────── o seletor protege o que nao pode sair da loja ─────────
+
+
+def test_regra_de_PRESENCA_nao_vai_para_a_nuvem(tmp_path, monkeypatch):
+    """E promessa do produto, nao preferencia.
+
+    E nao e so privacidade: a medicao de 05/10 mostrou o modelo de nuvem
+    lendo um mouse como controle remoto, duas vezes, com 95% de
+    confianca. Identificacao de objeto e trabalho de detector.
+    """
+    from farol_agent.juizes.base import ErroDoJuiz
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-" + "a" * 60)
+
+    d = resposta()
+    d["pontos"][0]["zonas"][0]["regras"][0]["tipo"] = "presenca"
+    config = de_json(d)
+
+    a = Auditoria(NuvemDeTeste(), str(tmp_path / "fila.db"),
+                  construir_fonte=lambda p: FonteBoa(p.id))
+    a.montar(config)
+
+    regra = config.regras[0]
+    with pytest.raises(ErroDoJuiz, match="binario ou local"):
+        a.juiz.seletor.para(regra)
+
+
+def test_regra_de_ESTADO_pode_ir_para_a_nuvem(tmp_path, monkeypatch):
+    # O contraste: `estado` e `acao` nao urgentes podem sair.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-" + "a" * 60)
+
+    config = config_com_regra()   # o tipo padrao da resposta e `estado`
+    a = Auditoria(NuvemDeTeste(), str(tmp_path / "fila.db"),
+                  construir_fonte=lambda p: FonteBoa(p.id))
+    a.montar(config)
+
+    juiz = a.juiz.seletor.para(config.regras[0])
+    assert juiz.nome == "nuvem"
+
+
+def test_o_modo_de_julgamento_desce_da_nuvem(tmp_path):
+    # Sem ele o agente teria que supor — e supor aqui significa mandar
+    # para fora o que o desenho promete manter dentro.
+    d = resposta()
+    d["loja"]["modoJulgamento"] = "local"
+    config = de_json(d)
+
+    assert config.modo_julgamento == "local"
+
+
+def test_sem_modo_declarado_o_padrao_e_hibrido(tmp_path):
+    assert de_json(resposta()).modo_julgamento == "hibrido"
