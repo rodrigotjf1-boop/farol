@@ -8,6 +8,7 @@
 import { criarApp } from './app.js';
 import { pool } from './db.js';
 import { conferirEsquema } from './preflight.js';
+import { despacharAgentesCaidos } from './despacho.js';
 
 const PORTA = Number(process.env.PORT ?? 3000);
 
@@ -61,6 +62,35 @@ if (!esquema.ok) {
 } else {
   app.log.info({ aplicadas: esquema.aplicadas }, 'esquema em dia');
 }
+
+// ─────────────── o vigia do vigia ───────────────
+// Agente sem bater não é só uma máquina parada: é uma loja que PAROU DE
+// SER AUDITADA enquanto o console segue mostrando a última tela verde.
+// Um produto de auditoria que fica cego sem avisar é pior que não ter
+// produto, porque alguém confiou.
+//
+// Roda em TODA réplica da API sem medo de duplicar: `envio.chave` é única
+// e o insert é `on conflict do nothing`. Coordenar réplicas por lock
+// custaria mais do que a idempotência que já existe por outro motivo.
+const INTERVALO_VIGIA_MS = 60_000;
+
+const vigia = setInterval(() => {
+  // `void` com a promessa tratada DENTRO: uma rejeição aqui seria
+  // unhandled e derrubaria o processo — e derrubar a API porque o aviso
+  // falhou seria trocar um problema pequeno por um grande.
+  void despacharAgentesCaidos(pool)
+    .then((r) => {
+      if (r.criados > 0) {
+        app.log.warn(
+          { agentes: r.agentes, avisos: r.criados },
+          'agente(s) sem bater: loja não está sendo auditada',
+        );
+      }
+    })
+    .catch((e) => app.log.error(e, 'o vigia de agentes caídos falhou'));
+}, INTERVALO_VIGIA_MS);
+// Sem isto o contêiner não sai no SIGTERM e o orquestrador o mata à força.
+vigia.unref();
 
 try {
   // 0.0.0.0 é obrigatório no contêiner: ouvindo só em localhost, o

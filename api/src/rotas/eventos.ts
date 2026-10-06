@@ -24,6 +24,7 @@ import type pg from 'pg';
 
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import type { Autor } from '../db.js';
+import { despacharEventos } from '../despacho.js';
 
 const VEREDITOS = new Set(['conforme', 'nao_conforme', 'nao_avaliavel']);
 const VIAS = new Set(['nuvem', 'local', 'comparacao', 'detector']);
@@ -247,7 +248,37 @@ export function rotasDeEventos(app: FastifyInstance, pool: pg.Pool): void {
       );
     }
 
+    // O aviso nasce aqui, DEPOIS de o evento estar gravado — e nunca
+    // dentro da mesma transação. O evento é o fato; o aviso é consequência
+    // dele. Se o despacho falhar, o fato continua registrado e um job
+    // posterior ainda pode avisar. Se fossem a mesma transação, uma falha
+    // na política apagaria o veredito — e o veredito não se recupera,
+    // porque a cena já passou.
+    let avisos = { criados: 0, sem_destino: 0 };
+    if (r.aceitos.length > 0) {
+      try {
+        const d = await despacharEventos(
+          pool, autor.tenantId, autor.lojaId, r.aceitos,
+        );
+        avisos = { criados: d.criados, sem_destino: d.sem_destino };
+        if (d.sem_destino > 0) {
+          // Loga o MOTIVO, não só a contagem: "não saiu" por veto e "não
+          // saiu" por falta de cadastro pedem ações opostas de quem lê.
+          req.log.info(
+            { loja: autor.lojaId, motivos: [...new Set(d.motivos)] },
+            'eventos sem destino de alerta',
+          );
+        }
+      } catch (e) {
+        req.log.error(
+          { erro: e instanceof Error ? e.message : String(e), loja: autor.lojaId },
+          'eventos gravados, mas o despacho do alerta falhou',
+        );
+      }
+    }
+
     return {
+      avisos: avisos.criados,
       aceitos: r.aceitos.length,
       repetidos: r.repetidos.length,
       recusados: r.recusados,

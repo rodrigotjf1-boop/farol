@@ -47,3 +47,4 @@ fila.db-*
 # UMA loja, que desce da nuvem e é diferente em cada uma.
 /agent/configuracao.json
 /agent/maquina.json
+web/tsconfig.tsbuildinfo

@@ -251,7 +251,12 @@ describe('configuração desce para o agente', { skip: !URL && 'sem DATABASE_URL
          values ($1,'segunda principal','[[0,0],[1,0],[1,1],[0,1]]'::jsonb, true)`,
         [pontoId],
       ),
-      /duplicate key|unique/i,
+      // Pelo CÓDIGO, não pela mensagem: o texto do Postgres é traduzido
+      // conforme o locale do servidor. Esta linha passava só porque a
+      // imagem do CI fala inglês — num Postgres em português a mensagem é
+      // "duplicar valor da chave" e o teste acusaria falha onde a
+      // restrição funcionou. `23505` é unique_violation no padrão SQL.
+      (e: unknown) => (e as { code?: string }).code === '23505',
     );
   });
 

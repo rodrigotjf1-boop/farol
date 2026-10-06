@@ -72,6 +72,12 @@ export default function DetalheLoja() {
             >
               Critérios de análise →
             </Link>
+            <Link
+              href={`/lojas/${id}/alertas`}
+              className="rounded-lg border border-farol-borda px-3 py-1.5 text-sm transition hover:border-farol-facho/50"
+            >
+              Alertas →
+            </Link>
           </div>
 
           <div className="mt-6">
