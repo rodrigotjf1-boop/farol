@@ -84,7 +84,15 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
     const st = await pool.query(
       `select st.id, st.nome, st.ordem,
               p.id as ponto_id, p.nome as ponto_nome, p.origem, p.fabricante,
-              p.canal, p.host, p.porta, p.usuario, p.ativo
+              p.canal, p.host, p.porta, p.usuario, p.ativo,
+              -- as zonas vem junto: a tela de regras precisa saber ONDE a
+              -- regra vai morar, e uma ida a mais ao servidor para isso
+              -- seria gasto a toa.
+              coalesce(
+                (select jsonb_agg(jsonb_build_object('id', z.id, 'nome', z.nome)
+                                  order by z.nome)
+                   from zona z where z.ponto_id = p.id),
+                '[]'::jsonb) as zonas
          from setor st
          left join ponto p on p.setor_id = st.id
         where st.loja_id = $1
@@ -108,6 +116,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
           porta: r.porta,
           usuario: r.usuario,
           ativo: r.ativo,
+          zonas: r.zonas ?? [],
         });
       }
     }
@@ -183,23 +192,44 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
       });
     }
 
-    const { rows } = await pool.query(
-      `insert into ponto (setor_id, nome, origem, fabricante, canal, host, porta, usuario)
-       select st.id, $2, $3, $4, $5, $6, coalesce($7, 554), $8
-         from setor st
-         join loja l on l.id = st.loja_id
-        where st.id = $1 and l.tenant_id = $9
-       returning id, nome, origem, fabricante, canal, host, porta, usuario, ativo`,
-      [
-        id, nome, origem,
-        corpo.fabricante ?? null, corpo.canal ?? null, corpo.host ?? null,
-        corpo.porta ?? null, corpo.usuario ?? null, s.tenantId,
-      ],
-    );
-    if (rows.length === 0) {
-      return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'setor não encontrado' });
+    // Ponto e zona nascem juntos, numa transacao so. Regra exige zona, e
+    // obrigar a desenhar um poligono antes de escrever o primeiro
+    // criterio travaria a instalacao por nada: o quadro inteiro ja e uma
+    // zona valida, e recortar vem depois, quando houver imagem para ver.
+    const cliente = await pool.connect();
+    try {
+      await cliente.query('begin');
+      const { rows } = await cliente.query(
+        `insert into ponto (setor_id, nome, origem, fabricante, canal, host, porta, usuario)
+         select st.id, $2, $3, $4, $5, $6, coalesce($7, 554), $8
+           from setor st
+           join loja l on l.id = st.loja_id
+          where st.id = $1 and l.tenant_id = $9
+         returning id, nome, origem, fabricante, canal, host, porta, usuario, ativo`,
+        [
+          id, nome, origem,
+          corpo.fabricante ?? null, corpo.canal ?? null, corpo.host ?? null,
+          corpo.porta ?? null, corpo.usuario ?? null, s.tenantId,
+        ],
+      );
+      if (rows.length === 0) {
+        await cliente.query('rollback');
+        return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'setor não encontrado' });
+      }
+      const z = await cliente.query(
+        `insert into zona (ponto_id, nome, poligono)
+         values ($1, 'Quadro inteiro', '[[0,0],[1,0],[1,1],[0,1]]'::jsonb)
+         returning id, nome, poligono`,
+        [rows[0].id],
+      );
+      await cliente.query('commit');
+      return resposta.status(201).send({ ...rows[0], zonas: [z.rows[0]] });
+    } catch (e) {
+      await cliente.query('rollback').catch(() => {});
+      throw e;
+    } finally {
+      cliente.release();
     }
-    return resposta.status(201).send(rows[0]);
   });
 
   app.patch('/v1/pontos/:id', async (req, resposta) => {
