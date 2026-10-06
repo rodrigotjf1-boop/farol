@@ -384,3 +384,199 @@ describe('preview do canal (Postgres real)', { skip: !URL && 'sem DATABASE_URL' 
     }
   });
 });
+
+describe('a área desenhada no preview', { skip: !URL && 'sem DATABASE_URL' }, () => {
+  let pool: pg.Pool;
+  let app: FastifyInstance;
+  let pontoId: string;
+  let zonaId: string;
+  let cookie: string;
+  let adminAntes: string | undefined;
+  const m2 = `teste-area-${randomUUID().slice(0, 8)}`;
+
+  before(async () => {
+    adminAntes = process.env.FAROL_ADMIN_TOKEN;
+    process.env.FAROL_ADMIN_TOKEN = ADMIN;
+    pool = new pg.Pool({ connectionString: URL });
+
+    const t = await pool.query('insert into tenant (nome) values ($1) returning id', [m2]);
+    const l = await pool.query(
+      'insert into loja (tenant_id, nome) values ($1,$2) returning id',
+      [t.rows[0].id, 'loja da área'],
+    );
+    const st = await pool.query(
+      'insert into setor (loja_id, nome) values ($1,$2) returning id',
+      [l.rows[0].id, 'cozinha'],
+    );
+    const p = await pool.query(
+      `insert into ponto (setor_id, nome, canal) values ($1,'bancada',1) returning id`,
+      [st.rows[0].id],
+    );
+    pontoId = p.rows[0].id;
+    const z = await pool.query(
+      `insert into zona (ponto_id, nome, poligono, principal)
+       values ($1,'Quadro inteiro','[[0,0],[1,0],[1,1],[0,1]]'::jsonb,true) returning id`,
+      [pontoId],
+    );
+    zonaId = z.rows[0].id;
+
+    app = criarApp(pool, { logger: false });
+    await app.ready();
+
+    const email = `area-${randomUUID().slice(0, 8)}@exemplo.com`;
+    await app.inject({
+      method: 'POST',
+      url: '/v1/distribuicao/usuarios',
+      headers: { 'x-farol-admin': ADMIN },
+      payload: { tenantId: t.rows[0].id, nome: 'D', email, senha: SENHA, nivel: 'presidente' },
+    });
+    const login = await app.inject({
+      method: 'POST', url: '/v1/sessao', payload: { email, senha: SENHA },
+    });
+    const bruto = login.headers['set-cookie'];
+    cookie = (Array.isArray(bruto) ? bruto[0]! : String(bruto)).split(';')[0]!;
+  });
+
+  after(async () => {
+    if (adminAntes === undefined) delete process.env.FAROL_ADMIN_TOKEN;
+    else process.env.FAROL_ADMIN_TOKEN = adminAntes;
+    await app?.close();
+    await pool?.query('delete from tenant where nome like $1', [`${m2}%`]);
+    await pool?.end();
+  });
+
+  const comoConsole = () => ({ cookie });
+
+  async function salvar(corpo: Record<string, unknown>) {
+    return app.inject({
+      method: 'PATCH',
+      url: `/v1/zonas/${zonaId}`,
+      headers: comoConsole(),
+      payload: corpo,
+    });
+  }
+
+  it('o canal volta com as zonas e os polígonos', async () => {
+    const r = await app.inject({
+      method: 'GET', url: `/v1/pontos/${pontoId}`, headers: comoConsole(),
+    });
+    assert.equal(r.statusCode, 200, r.body);
+    const d = r.json() as { ponto: { nome: string }; zonas: { principal: boolean }[] };
+    assert.equal(d.ponto.nome, 'bancada');
+    assert.equal(d.zonas[0].principal, true);
+  });
+
+  it('o GET do canal não traz os bytes do preview', async () => {
+    // Algumas centenas de kB junto de um JSON de texto, em toda abertura
+    // da tela, seria desperdício invisível até alguém medir.
+    const r = await app.inject({
+      method: 'GET', url: `/v1/pontos/${pontoId}`, headers: comoConsole(),
+    });
+    assert.ok(!('preview' in (r.json() as { ponto: object }).ponto));
+  });
+
+  it('salva o retângulo desenhado', async () => {
+    const r = await salvar({
+      poligono: [[0.15, 0.47], [0.85, 0.47], [0.85, 0.8], [0.15, 0.8]],
+      larguraCenaCm: 40,
+    });
+    assert.equal(r.statusCode, 200, r.body);
+    const z = r.json() as { poligono: number[][]; largura_cena_cm: string };
+    assert.deepEqual(z.poligono[0], [0.15, 0.47]);
+    assert.equal(Number(z.largura_cena_cm), 40);
+  });
+
+  it('apagar a largura é diferente de não mexer nela', async () => {
+    // Com `coalesce` puro não haveria como gravar nulo de propósito: a
+    // pessoa tiraria o número do campo e ele voltaria sozinho.
+    await salvar({ larguraCenaCm: 40 });
+    const r = await salvar({ larguraCenaCm: null });
+    assert.equal((r.json() as { largura_cena_cm: null }).largura_cena_cm, null);
+
+    await salvar({ larguraCenaCm: 55 });
+    const semMexer = await salvar({ nome: 'outro nome' });
+    assert.equal(Number((semMexer.json() as { largura_cena_cm: string }).largura_cena_cm), 55);
+  });
+
+  it('coordenada em pixel é recusada com a razão', async () => {
+    // Polígono inválido não dá erro visível: dá recorte errado, e o modelo
+    // responde com confiança sobre o lugar errado.
+    const r = await salvar({ poligono: [[0, 0], [1920, 0], [1920, 1080], [0, 1080]] });
+    assert.equal(r.statusCode, 422);
+    assert.match((r.json() as { mensagem: string }).mensagem, /fração do quadro/);
+  });
+
+  it('polígono degenerado é recusado', async () => {
+    for (const ruim of [
+      [[0, 0], [1, 1]],
+      'não é lista',
+      [[0, 0], [1, 0], ['a', 1]],
+      [[0, 0], [1, 0], [1, 1, 1]],
+    ]) {
+      const r = await salvar({ poligono: ruim });
+      assert.equal(r.statusCode, 422, JSON.stringify(ruim));
+    }
+  });
+
+  it('marcar outra zona como principal desmarca a anterior', async () => {
+    // O índice único recusaria duas; sem desmarcar antes, o usuário veria
+    // "erro ao salvar" sem entender por quê.
+    const outra = await pool.query(
+      `insert into zona (ponto_id, nome, poligono) 
+       values ($1,'zona fina','[[0.4,0.4],[0.6,0.4],[0.6,0.6],[0.4,0.6]]'::jsonb)
+       returning id`,
+      [pontoId],
+    );
+
+    const r = await app.inject({
+      method: 'PATCH',
+      url: `/v1/zonas/${outra.rows[0].id}`,
+      headers: comoConsole(),
+      payload: { principal: true },
+    });
+    assert.equal(r.statusCode, 200, r.body);
+
+    const { rows } = await pool.query(
+      'select id, principal from zona where ponto_id = $1 order by principal desc',
+      [pontoId],
+    );
+    assert.equal(rows.filter((z) => z.principal).length, 1);
+    assert.equal(rows[0].id, outra.rows[0].id);
+
+    await pool.query('delete from zona where id = $1', [outra.rows[0].id]);
+    await pool.query('update zona set principal = true where id = $1', [zonaId]);
+  });
+
+  it('zona de outro tenant é 404', async () => {
+    const t2 = await pool.query('insert into tenant (nome) values ($1) returning id', [
+      `${m2}-alheio`,
+    ]);
+    const l2 = await pool.query(
+      'insert into loja (tenant_id, nome) values ($1,$2) returning id',
+      [t2.rows[0].id, 'alheia'],
+    );
+    const st2 = await pool.query(
+      'insert into setor (loja_id, nome) values ($1,$2) returning id', [l2.rows[0].id, 's'],
+    );
+    const p2 = await pool.query(
+      `insert into ponto (setor_id, nome) values ($1,'x') returning id`, [st2.rows[0].id],
+    );
+    const z2 = await pool.query(
+      `insert into zona (ponto_id, nome, poligono)
+       values ($1,'z','[[0,0],[1,0],[1,1]]'::jsonb) returning id`, [p2.rows[0].id],
+    );
+
+    const r = await app.inject({
+      method: 'PATCH', url: `/v1/zonas/${z2.rows[0].id}`,
+      headers: comoConsole(), payload: { nome: 'invadida' },
+    });
+    assert.equal(r.statusCode, 404);
+  });
+
+  it('sem sessão não salva', async () => {
+    const r = await app.inject({
+      method: 'PATCH', url: `/v1/zonas/${zonaId}`, payload: { nome: 'x' },
+    });
+    assert.equal(r.statusCode, 401);
+  });
+});

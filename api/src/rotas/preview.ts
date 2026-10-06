@@ -193,6 +193,133 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
     };
   });
 
+  // ───────────── console: o canal, com as áreas que já tem ─────────────
+
+  app.get('/v1/pontos/:id', async (req, resposta) => {
+    const s = await sessaoDe(pool, req);
+    if (!s) {
+      return resposta.status(401).send({ erro: 'sem_sessao', mensagem: 'faça login' });
+    }
+    const { id } = req.params as { id: string };
+
+    // Sem `p.preview`: os bytes têm rota própria. Trazê-los aqui mandaria
+    // algumas centenas de kB junto de um JSON de texto, em toda abertura
+    // da tela.
+    const p = await pool.query(
+      `select p.id, p.nome, p.canal, p.host, p.fabricante, p.ativo,
+              p.sensor_pol, p.focal_mm, p.distancia_cm, p.resolucao_h,
+              p.largura_cena_cm, p.preview_largura, p.preview_altura, p.preview_em,
+              (p.preview is not null) as tem_preview,
+              st.id as setor_id, st.nome as setor_nome, st.loja_id
+         from ponto p
+         join setor st on st.id = p.setor_id
+         join loja  l  on l.id  = st.loja_id
+        where p.id = $1 and l.tenant_id = $2`,
+      [id, s.tenantId],
+    );
+    if (p.rowCount === 0) {
+      return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'ponto não encontrado' });
+    }
+
+    const z = await pool.query(
+      `select id, nome, poligono, principal, largura_cena_cm
+         from zona where ponto_id = $1 order by principal desc, nome`,
+      [id],
+    );
+
+    return { ponto: p.rows[0], zonas: z.rows };
+  });
+
+  // ───────────── console: salva a área desenhada no preview ─────────────
+
+  app.patch('/v1/zonas/:id', async (req, resposta) => {
+    const s = await sessaoDe(pool, req);
+    if (!s) {
+      return resposta.status(401).send({ erro: 'sem_sessao', mensagem: 'faça login' });
+    }
+
+    const { id } = req.params as { id: string };
+    const corpo = (req.body ?? {}) as {
+      nome?: string;
+      poligono?: unknown;
+      larguraCenaCm?: number | null;
+      principal?: boolean;
+    };
+
+    const z = await pool.query(
+      `select z.id, z.ponto_id
+         from zona z
+         join ponto p on p.id = z.ponto_id
+         join setor st on st.id = p.setor_id
+         join loja  l  on l.id  = st.loja_id
+        where z.id = $1 and l.tenant_id = $2`,
+      [id, s.tenantId],
+    );
+    if (z.rowCount === 0) {
+      return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'zona não encontrada' });
+    }
+
+    if (corpo.poligono !== undefined) {
+      const erro = validarPoligono(corpo.poligono);
+      if (erro) {
+        return resposta.status(422).send({ erro: 'poligono_invalido', mensagem: erro });
+      }
+    }
+    if (
+      corpo.larguraCenaCm !== undefined &&
+      corpo.larguraCenaCm !== null &&
+      !(Number(corpo.larguraCenaCm) > 0)
+    ) {
+      return resposta.status(422).send({
+        erro: 'largura_invalida',
+        mensagem: 'largura_cena_cm tem que ser maior que zero, ou nulo',
+      });
+    }
+
+    const cliente = await pool.connect();
+    try {
+      await cliente.query('begin');
+
+      // Um canal tem um corte principal, e o índice único recusa dois.
+      // Tirar o antigo ANTES de pôr o novo é o que impede o 23505 — a
+      // alternativa seria o usuário ver "erro ao salvar" ao marcar a
+      // segunda área como principal, sem entender por quê.
+      if (corpo.principal === true) {
+        await cliente.query(
+          `update zona set principal = false where ponto_id = $1 and id <> $2 and principal`,
+          [z.rows[0].ponto_id, id],
+        );
+      }
+
+      const r = await cliente.query(
+        `update zona
+            set nome = coalesce($2, nome),
+                poligono = coalesce($3::jsonb, poligono),
+                largura_cena_cm = case when $4::boolean then $5::numeric else largura_cena_cm end,
+                principal = coalesce($6::boolean, principal)
+          where id = $1
+        returning id, ponto_id, nome, poligono, principal, largura_cena_cm`,
+        [
+          id,
+          corpo.nome ?? null,
+          corpo.poligono === undefined ? null : JSON.stringify(corpo.poligono),
+          // `largura` separada do valor: sem isto não há como gravar NULL
+          // de propósito — `coalesce` trataria "apagar" como "não mexer".
+          corpo.larguraCenaCm !== undefined,
+          corpo.larguraCenaCm ?? null,
+          corpo.principal ?? null,
+        ],
+      );
+      await cliente.query('commit');
+      return r.rows[0];
+    } catch (e) {
+      await cliente.query('rollback').catch(() => {});
+      throw e;
+    } finally {
+      cliente.release();
+    }
+  });
+
   // ───────────────── agente: entrega o que capturou ─────────────────
 
   app.post('/v1/agentes/comandos/:id/resultado', async (req, resposta) => {
@@ -296,4 +423,36 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
 
     return { ok: true, bytes: bytes.length };
   });
+}
+
+/**
+ * O polígono é usado pelo agente para recortar antes de qualquer análise.
+ * Polígono inválido não dá erro visível: dá recorte errado, e aí o modelo
+ * responde com confiança sobre o lugar errado — a pior falha possível,
+ * porque parece que funciona.
+ *
+ * Por isso recusa aqui, onde ainda há um humano na frente da tela para
+ * ler a mensagem.
+ */
+function validarPoligono(valor: unknown): string | null {
+  if (!Array.isArray(valor)) return 'o polígono tem que ser uma lista de pontos';
+  if (valor.length < 3) return 'o polígono precisa de ao menos 3 pontos';
+  if (valor.length > 64) return 'o polígono tem pontos demais (máximo 64)';
+
+  for (const ponto of valor) {
+    if (!Array.isArray(ponto) || ponto.length !== 2) {
+      return 'cada ponto é um par [x, y]';
+    }
+    for (const c of ponto) {
+      if (typeof c !== 'number' || !Number.isFinite(c)) {
+        return 'as coordenadas têm que ser números';
+      }
+      // Fração do quadro, não pixel: assim o mesmo desenho vale se a
+      // resolução do canal mudar.
+      if (c < 0 || c > 1) {
+        return 'as coordenadas vão de 0 a 1 (fração do quadro), não em pixels';
+      }
+    }
+  }
+  return null;
 }
