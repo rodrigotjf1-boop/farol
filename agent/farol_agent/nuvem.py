@@ -63,7 +63,11 @@ class ClienteNuvem:
         return self._pedir("GET", "/v1/agentes/configuracao")
 
     def responder(
-        self, comando_id: str, *, url: str | None = None, erro: str | None = None
+        self,
+        comando_id: str,
+        *,
+        resultado: dict[str, Any] | None = None,
+        erro: str | None = None,
     ) -> dict[str, Any]:
         """Conta à nuvem o que aconteceu com um comando.
 
@@ -71,9 +75,11 @@ class ClienteNuvem:
         deixa a tela do console girando para sempre, e quem está lá não
         tem como saber se a câmera caiu ou se o agente nem recebeu.
         """
+        corpo = dict(resultado or {})
+        if erro is not None:
+            corpo["erro"] = erro
         return self._pedir(
-            "POST", f"/v1/agentes/comandos/{comando_id}/resultado",
-            {"url": url, "erro": erro},
+            "POST", f"/v1/agentes/comandos/{comando_id}/resultado", corpo
         )
 
     # ───────────────────────────── interno ─────────────────────────────

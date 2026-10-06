@@ -666,6 +666,28 @@ A tela **oferece o modo local quando alcança o agente** e cai no quadro
 fixo quando não alcança. Quem está em casa configura; quem está na loja vê
 ao vivo. Nenhum dos dois caminhos depende do outro.
 
+### Onde roda (definido pelo dono em 06/10/2026)
+
+**Na própria máquina do agente** — a que tem placa de vídeo, onde vão
+rodar as camadas de análise local. E **pelo sub-stream do DVR**, que é
+exatamente o que o sub-stream existe para fazer: resolução baixa, banda
+baixa, fluxo contínuo.
+
+Isso torna o item muito mais barato do que parecia, por dois motivos que
+já estão no código:
+
+**O quadro já está em memória.** `_LeitorContinuo` (`fontes/rtsp.py`) já
+drena o sub-stream numa thread e guarda o mais recente, para o pipeline de
+gatilho. Servir MJPEG a partir dele não abre nada novo — é entregar um
+quadro que já foi decodificado.
+
+**Uma conexão com o DVR, N espectadores.** Gravador tem limite de fluxos
+RTSP simultâneos; o MHDX não é exceção. Se cada navegador abrisse o
+próprio fluxo, três pessoas olhando esgotariam o gravador e **derrubariam
+a análise junto** — o pior modo de falha possível, porque a auditoria para
+por causa de alguém que só queria olhar. Servindo do quadro que o agente
+já tem, o número de espectadores não toca no DVR.
+
 ### O que precisa ser decidido
 
 1. **Como o navegador acha o agente.** O agente não tem nome na rede, e
