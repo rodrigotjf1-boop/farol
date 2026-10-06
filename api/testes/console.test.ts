@@ -289,3 +289,155 @@ describe('console: lojas, setores e pontos', { skip: !URL && 'sem DATABASE_URL' 
     assert.ok(r.json().lojas.length > 0);
   });
 });
+
+// ─────────── óptica do ponto e o diagnóstico de uso ───────────
+
+describe('diagnóstico de dimensionamento', { skip: !URL && 'sem DATABASE_URL' }, () => {
+  let pool2: pg.Pool;
+  let app2: FastifyInstance;
+  let adminAntes2: string | undefined;
+  let pontoId = '';
+  let cookie2 = '';
+  const marca2 = `teste-dim-${randomUUID().slice(0, 8)}`;
+
+  before(async () => {
+    adminAntes2 = process.env.FAROL_ADMIN_TOKEN;
+    process.env.FAROL_ADMIN_TOKEN = ADMIN;
+    pool2 = new pg.Pool({ connectionString: URL });
+    app2 = criarApp(pool2, { logger: false });
+    await app2.ready();
+
+    const loja = (
+      await app2.inject({
+        method: 'POST',
+        url: '/v1/distribuicao/lojas',
+        headers: { 'x-farol-admin': ADMIN },
+        payload: {
+          tenant: { nome: marca2 },
+          loja: { nome: 'M' },
+          setores: [{ nome: 'Cozinha' }],
+        },
+      })
+    ).json();
+
+    await app2.inject({
+      method: 'POST',
+      url: '/v1/distribuicao/usuarios',
+      headers: { 'x-farol-admin': ADMIN },
+      payload: {
+        tenantId: loja.tenantId, nome: 'D',
+        email: `d-${marca2}@e.com`, senha: SENHA, nivel: 'presidente',
+      },
+    });
+    const login = await app2.inject({
+      method: 'POST', url: '/v1/sessao',
+      payload: { email: `d-${marca2}@e.com`, senha: SENHA },
+    });
+    const b = login.headers['set-cookie'];
+    cookie2 = (Array.isArray(b) ? b[0]! : String(b)).split(';')[0]!;
+
+    const ponto = await app2.inject({
+      method: 'POST',
+      url: `/v1/setores/${loja.setores[0].id}/pontos`,
+      headers: { cookie: cookie2 },
+      payload: { nome: 'Montagem', origem: 'dvr', canal: 1 },
+    });
+    pontoId = ponto.json().id;
+  });
+
+  after(async () => {
+    if (adminAntes2 === undefined) delete process.env.FAROL_ADMIN_TOKEN;
+    else process.env.FAROL_ADMIN_TOKEN = adminAntes2;
+    await app2?.close();
+    await pool2?.query('delete from tenant where nome like $1', [`${marca2}%`]);
+    await pool2?.end();
+  });
+
+  it('sem óptica, DIZ O QUE FALTA em vez de supor', async () => {
+    // Número inventado aqui vira recomendação de compra errada no bolso
+    // do cliente.
+    const r = await app2.inject({
+      method: 'GET',
+      url: `/v1/pontos/${pontoId}/diagnostico`,
+      headers: { cookie: cookie2 },
+    });
+
+    assert.equal(r.statusCode, 200);
+    assert.equal(r.json().completo, false);
+    assert.ok(r.json().faltando.length > 0);
+    assert.match(r.json().faltando.join(' '), /focal|distancia|sensor/);
+  });
+
+  it('com a óptica da TWG medida em campo, calcula e recomenda', async () => {
+    const salvo = await app2.inject({
+      method: 'PATCH',
+      url: `/v1/pontos/${pontoId}`,
+      headers: { cookie: cookie2 },
+      payload: { sensorPol: '1/2.7"', focalMm: 2.8, distanciaCm: 60, resolucaoH: 1920 },
+    });
+    assert.equal(salvo.statusCode, 200, salvo.body);
+
+    const r = await app2.inject({
+      method: 'GET',
+      url: `/v1/pontos/${pontoId}/diagnostico`,
+      headers: { cookie: cookie2 },
+    });
+
+    assert.equal(r.json().completo, true);
+    const o = r.json().optica;
+    assert.ok(Math.abs(o.larguraCenaCm - 115.1) < 0.5, `deu ${o.larguraCenaCm}`);
+    assert.ok(Math.abs(o.pxPorCm - 16.69) < 0.1);
+    assert.equal(o.origem, 'calculada');
+    assert.match(String(o.ressalva), /distorce/);
+
+    // A zona nasce cobrindo o quadro inteiro: 115 cm.
+    const zona = r.json().zonas[0];
+    assert.ok(Math.abs(zona.larguraCm - 115.1) < 0.5);
+
+    const montagem = zona.usos.find((u: { variante: string }) => u.variante === 'montagem');
+    assert.ok(montagem);
+    // 12,8 × 115 = 1473 px → só r1080 atende, e a câmera dá 1920. Serve.
+    assert.equal(montagem.sustenta, true);
+    assert.equal(montagem.minima, 'r1080');
+
+    const estado = zona.usos.find(
+      (u: { tipo: string; variante: string | null }) =>
+        u.tipo === 'estado' && u.variante === null,
+    );
+    // 3 × 115 = 345 px → cabe no degrau mais barato.
+    assert.equal(estado.minima, 'r384');
+  });
+
+  it('medida com fita vence o cálculo pela óptica', async () => {
+    await app2.inject({
+      method: 'PATCH',
+      url: `/v1/pontos/${pontoId}`,
+      headers: { cookie: cookie2 },
+      payload: { larguraCenaCm: 130 },
+    });
+
+    const r = await app2.inject({
+      method: 'GET',
+      url: `/v1/pontos/${pontoId}/diagnostico`,
+      headers: { cookie: cookie2 },
+    });
+
+    assert.equal(r.json().optica.origem, 'medida');
+    assert.equal(r.json().optica.larguraCenaCm, 130);
+    assert.equal(r.json().optica.ressalva, null, 'medida não tem ressalva de distorção');
+  });
+
+  it('ponto de outro tenant é 404', async () => {
+    const r = await app2.inject({
+      method: 'GET',
+      url: `/v1/pontos/${randomUUID()}/diagnostico`,
+      headers: { cookie: cookie2 },
+    });
+    assert.equal(r.statusCode, 404);
+  });
+
+  it('sem sessão é 401', async () => {
+    const r = await app2.inject({ method: 'GET', url: `/v1/pontos/${pontoId}/diagnostico` });
+    assert.equal(r.statusCode, 401);
+  });
+});

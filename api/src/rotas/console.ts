@@ -267,6 +267,13 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
               porta      = coalesce($7, p.porta),
               usuario    = coalesce($8, p.usuario),
               ativo      = coalesce($9, p.ativo),
+              sensor_pol      = coalesce($11, p.sensor_pol),
+              focal_mm        = coalesce($12, p.focal_mm),
+              distancia_cm    = coalesce($13, p.distancia_cm),
+              resolucao_h     = coalesce($14, p.resolucao_h),
+              largura_cena_cm = coalesce($15, p.largura_cena_cm),
+              optica_medida_em = case when $15 is not null then now()
+                                      else p.optica_medida_em end,
               atualizado_em = now()
          from setor st, loja l
         where p.id = $1
@@ -274,7 +281,8 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
           and l.id = st.loja_id
           and l.tenant_id = $10
        returning p.id, p.nome, p.origem, p.fabricante, p.canal, p.host,
-                 p.porta, p.usuario, p.ativo`,
+                 p.porta, p.usuario, p.ativo, p.sensor_pol, p.focal_mm,
+                 p.distancia_cm, p.resolucao_h, p.largura_cena_cm`,
       [
         id,
         corpo.nome ?? null, corpo.origem ?? null, corpo.fabricante ?? null,
@@ -282,6 +290,8 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
         corpo.usuario ?? null,
         typeof corpo.ativo === 'boolean' ? corpo.ativo : null,
         s.tenantId,
+        corpo.sensorPol ?? null, corpo.focalMm ?? null, corpo.distanciaCm ?? null,
+        corpo.resolucaoH ?? null, corpo.larguraCenaCm ?? null,
       ],
     );
     if (rows.length === 0) {
