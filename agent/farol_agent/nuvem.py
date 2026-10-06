@@ -27,6 +27,20 @@ _log = logging.getLogger(__name__)
 
 TIMEOUT_PADRAO = 15.0
 
+# O agente se IDENTIFICA. Não é cortesia: `urllib` anuncia
+# `Python-urllib/3.x` por padrão, e a Cloudflare bloqueia essa assinatura
+# com **403 e corpo "error code: 1010"** — antes de o pedido chegar à API.
+#
+# O erro resultante aponta para o lugar errado: parece token recusado ou
+# agente não aprovado, e manda quem diagnostica mexer em credencial e
+# estado enquanto o problema está na borda. Em 06/10/2026 custou uma
+# investigação inteira (ERR-011).
+#
+# Sinal que desmascara: token FALSO devolvia o mesmo 403 que o token bom.
+# Quando credencial inválida e credencial válida dão o mesmo erro, o erro
+# não é sobre a credencial.
+USER_AGENT = "farol-agent/{versao} (+https://monitorfarol.com.br)"
+
 
 class ErroDaNuvem(Exception):
     """Falha ao falar com a nuvem.
@@ -44,7 +58,14 @@ class ErroDaNuvem(Exception):
 
 
 class ClienteNuvem:
-    def __init__(self, base_url: str, token: str, *, timeout: float = TIMEOUT_PADRAO):
+    def __init__(
+        self,
+        base_url: str,
+        token: str,
+        *,
+        timeout: float = TIMEOUT_PADRAO,
+        versao: str = "0",
+    ):
         if not base_url:
             raise ErroDaNuvem("endereço da nuvem não configurado", recuperavel=False)
         if not token:
@@ -52,6 +73,7 @@ class ClienteNuvem:
         self.base_url = base_url.rstrip("/")
         self._token = token
         self.timeout = timeout
+        self.user_agent = USER_AGENT.format(versao=versao)
 
     # ───────────────────────────── público ─────────────────────────────
 
@@ -111,6 +133,7 @@ class ClienteNuvem:
                 "authorization": f"Bearer {self._token}",
                 "content-type": "application/json",
                 "accept": "application/json",
+                "user-agent": self.user_agent,
             },
         )
 
@@ -123,6 +146,14 @@ class ClienteNuvem:
             # malformado — repetir só gasta.
             recuperavel = e.code >= 500 or e.code == 429
             detalhe = self._detalhe(e)
+            if e.code == 403 and not detalhe:
+                # 403 sem corpo JSON quase nunca é a API: ela sempre
+                # explica. É a borda (Cloudflare, WAF, proxy) barrando
+                # antes. Dizer isso evita horas procurando no lugar errado.
+                detalhe = (
+                    " — 403 sem resposta da API: provavelmente a borda "
+                    "(Cloudflare/WAF) barrou o pedido antes de chegar lá"
+                )
             raise ErroDaNuvem(
                 f"{e.code} em {caminho}{detalhe}", recuperavel=recuperavel, status=e.code
             ) from None

@@ -377,3 +377,77 @@ def test_o_token_nao_aparece_em_repr_nem_em_str():
 
     assert "sk-super-secreto-123" not in repr(c)
     assert "sk-super-secreto-123" not in str(c.__dict__.get("base_url", ""))
+
+
+# ───────── a borda barrando antes da API (ERR-011, 06/10/2026) ─────────
+
+
+def test_o_cliente_se_identifica():
+    """`urllib` anuncia `Python-urllib/3.x`, e a Cloudflare bloqueia essa
+    assinatura com 403 antes de o pedido chegar à API.
+
+    O erro resultante aponta para o lugar errado: parece token recusado ou
+    agente não aprovado, e manda quem diagnostica mexer em credencial e
+    estado enquanto o problema está na borda.
+    """
+    c = ClienteNuvem("https://api.exemplo", "tok", versao="1.2.3")
+
+    assert c.user_agent.startswith("farol-agent/1.2.3")
+    assert "urllib" not in c.user_agent.lower()
+    assert "python" not in c.user_agent.lower()
+
+
+def test_sem_versao_ainda_se_identifica():
+    c = ClienteNuvem("https://api.exemplo", "tok")
+    assert c.user_agent.startswith("farol-agent/")
+
+
+def test_403_sem_corpo_json_acusa_a_borda(monkeypatch):
+    """A API sempre explica o 403 dela. 403 mudo é de quem está na frente.
+
+    Dizer isso na mensagem é a diferença entre olhar o lugar certo e
+    passar a madrugada mexendo em token.
+    """
+    import io
+    import urllib.error
+
+    c = ClienteNuvem("https://api.exemplo", "tok")
+
+    def recusar(*a, **k):
+        raise urllib.error.HTTPError(
+            "https://api.exemplo/v1/agentes/ativar", 403, "Forbidden", {},
+            io.BytesIO(b"error code: 1010"),
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", recusar)
+
+    with pytest.raises(ErroDaNuvem) as capturado:
+        c.heartbeat()
+
+    assert "borda" in str(capturado.value)
+    assert "Cloudflare" in str(capturado.value)
+    assert capturado.value.status == 403
+
+
+def test_403_COM_mensagem_da_api_nao_culpa_a_borda(monkeypatch):
+    # O contraste: quando a API explica, a explicação dela é que vale.
+    import io
+    import json as _json
+    import urllib.error
+
+    c = ClienteNuvem("https://api.exemplo", "tok")
+    corpo = _json.dumps({"erro": "agente_inativo", "mensagem": "falta aprovar"}).encode()
+
+    def recusar(*a, **k):
+        raise urllib.error.HTTPError(
+            "https://api.exemplo/v1/agentes/heartbeat", 403, "Forbidden", {},
+            io.BytesIO(corpo),
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", recusar)
+
+    with pytest.raises(ErroDaNuvem) as capturado:
+        c.heartbeat()
+
+    assert "falta aprovar" in str(capturado.value)
+    assert "borda" not in str(capturado.value)
