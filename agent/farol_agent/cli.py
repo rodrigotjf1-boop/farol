@@ -886,7 +886,7 @@ def cmd_servir(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        cliente = ClienteNuvem(args.nuvem, token)
+        cliente = ClienteNuvem(args.nuvem, token, versao=args.versao or "0")
     except ErroDaNuvem as e:
         print(f"\n{e}\n", file=sys.stderr)
         return 1
