@@ -235,3 +235,30 @@ def rede_local() -> str | None:
     except OSError:
         return None
     return str(ipaddress.ip_network(f"{ip}/24", strict=False))
+
+
+def mac_de(host: str, *, tempo_limite: float = 2.0) -> str | None:
+    """O MAC deste host, se a máquina souber.
+
+    Endereço IP muda — o MHDX está em DHCP. MAC não. Guardar o MAC do
+    gravador é o que permite reencontrá-lo quando o endereço mudar, e é
+    também o que distingue "mudou de IP" de "é outro equipamento".
+
+    **Cutuca antes de perguntar.** A tabela ARP só conhece quem foi
+    conversado recentemente; num host que o sistema nunca tocou, ela vem
+    vazia. Uma conexão TCP de dois segundos resolve isso — e não importa
+    se ela é recusada: recusa também preenche a ARP, porque o pacote foi
+    e voltou.
+    """
+    import socket
+
+    s = socket.socket()
+    s.settimeout(tempo_limite)
+    try:
+        s.connect((host, 80))
+    except OSError:
+        pass   # recusado, filtrado, fechado — a ARP aprendeu do mesmo jeito
+    finally:
+        s.close()
+
+    return tabela_arp().get(host)

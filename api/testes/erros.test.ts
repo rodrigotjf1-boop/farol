@@ -117,3 +117,28 @@ describe('contrato de erro', () => {
     }
   });
 });
+
+describe('conferência de partida', () => {
+  it('acha a pasta de migrations a partir do código compilado', async () => {
+    const { acharMigrations } = await import('../src/preflight.js');
+    const pasta = acharMigrations();
+    assert.ok(pasta, 'sem a pasta, a conferência não tem com o que comparar');
+    // Sem regex: a barra do Windows e a do Linux divergem, e o teste
+    // precisa valer nos dois (aqui e no CI).
+    const normalizada = String(pasta).split('\\').join('/');
+    assert.ok(normalizada.endsWith('database/migrations'), normalizada);
+  });
+
+  it('banco inalcançável NÃO derruba o serviço', async () => {
+    // A rede pode voltar. Morrer aqui criaria laço de reinício, que
+    // esconde a causa atrás de um contêiner que nunca fica de pé.
+    const { conferirEsquema } = await import('../src/preflight.js');
+    const morto = new pg.Pool({ connectionString: 'postgres://x@127.0.0.1:1/x' });
+
+    const r = await conferirEsquema(morto);
+    assert.equal(r.ok, true);
+    assert.match(String((r as { motivo?: string }).motivo), /inalcançável|novo/);
+
+    await morto.end().catch(() => {});
+  });
+});

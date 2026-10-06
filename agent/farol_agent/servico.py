@@ -103,17 +103,36 @@ def capturar_quadro(ponto: PontoConfig) -> dict[str, Any]:
         if callable(fechar):
             fechar()
 
+    # O MAC vai junto porque ESTE é o momento em que o agente comprovou
+    # que falou com o gravador. Guardá-lo agora é o que permite
+    # reencontrá-lo quando o DHCP trocar o endereço — e distinguir "mudou
+    # de IP" de "é outro equipamento".
+    mac = None
+    if ponto.host:
+        try:
+            from farol_agent.dvr.descoberta import mac_de
+
+            mac = mac_de(ponto.host)
+        except Exception as e:  # noqa: BLE001
+            # Ler MAC é melhoria, não requisito: a captura já deu certo e
+            # não pode ser desfeita por causa disto.
+            _log.debug("não li o MAC de %s: %s", ponto.host, e)
+
     _log.info(
-        "preview do ponto %s: %dx%d, %d kB, %d ms%s",
+        "preview do ponto %s: %dx%d, %d kB, %d ms%s%s",
         ponto.nome, q.largura, q.altura, q.bytes // 1024, q.ms,
         ", rosto borrado" if q.rosto_borrado else "",
+        f", mac {mac}" if mac else "",
     )
-    return {
+    resultado = {
         "imagemBase64": q.imagem_base64,
         "tipo": q.tipo,
         "largura": q.largura,
         "altura": q.altura,
     }
+    if mac:
+        resultado["mac"] = mac
+    return resultado
 
 
 def atender(comando: dict[str, Any], sincronizador: Sincronizador) -> dict[str, Any]:
