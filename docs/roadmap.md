@@ -382,3 +382,39 @@ de `juizes/nuvem.py`** — nem preço, nem nome de modelo, nem formato de erro.
   não de cobrança.
 - Se a distribuição oferece uma conta própria como alternativa para quem não
   quer abrir conta de IA, e com que margem.
+
+### P2 · A chave sai da variável de ambiente e vai para um cofre
+
+**Decisão do dono em 05/10/2026:** nos testes a chave fica direto na variável
+`ANTHROPIC_API_KEY`; o cofre entra depois. Registrado para não virar o padrão
+por esquecimento.
+
+Já existe conta AWS usada para guardar segredos do Liame — mesmo modelo serve
+aqui, e é o que a documentação da Anthropic recomenda ("store API keys in a
+secrets manager, rotate them periodically").
+
+**Por que não é urgente agora:** a chave vive num notebook, presa a um
+workspace com teto de gasto, e com expiração. O estrago de um vazamento é
+limitado pelo teto e pela data.
+
+**Por que vira urgente na distribuição:** a chave passa a viver em PC de loja,
+máquina que a distribuição não controla fisicamente e onde qualquer um com
+acesso ao Windows lê a variável de ambiente. Nesse ponto ou ela está num cofre,
+ou é a chave do próprio lojista (P1) — e as duas coisas se resolvem juntas.
+
+**Federação de identidade está fora para o agente.** O Console a oferece no
+lugar da chave estática, e ela é melhor — token curto, rotação automática, nada
+guardado em variável de ambiente. Mas exige um provedor de identidade (AWS IAM,
+GCP, Azure, GitHub Actions, Kubernetes) emitindo o token, e o agente roda em PC
+de cozinha, onde não há nenhum e nunca haverá. O próprio aviso do Console diz:
+"ambientes sem um provedor de identidade ainda podem precisar de uma chave de
+API". Então o caminho do agente é **chave estática + cofre**, ou a chave do
+próprio lojista (P1). Se um dia a análise rodar do lado da nuvem numa máquina
+com identidade de plataforma, aí a federação volta à mesa — para aquele caminho,
+não para o da loja.
+
+**Quando mexer, decidir:** uma chave por loja ou uma para todas (uma para
+todas significa que um vazamento obriga a trocar em todas); se o agente busca
+no cofre ao subir ou recebe injetada; e como o agente sobrevive ao cofre fora
+do ar — a fila em disco já guarda o que não foi julgado, então a resposta
+provavelmente é "acumula e avisa", não "para".
