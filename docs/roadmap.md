@@ -505,6 +505,81 @@ conexão de pé 24h por loja para um caso que acontece na instalação, e some
 quando a internet oscila); abrir porta na loja (inaceitável — o produto
 promete não exigir mudança de rede).
 
+### A5.0 · A descida da configuração (pré-requisito, e está faltando)
+
+**Confirmado pelo dono em 06/10/2026: a configuração é feita na nuvem, no app,
+e desce para o agente usar.** O código já dizia isso — `config.py` abre com
+"no produto final a configuração desce do console" — mas **a descida não
+existe**. Hoje o agente lê as regras de um YAML local, e
+`GET /v1/lojas/:id/regras` é autenticada por sessão de console, não por token
+de agente.
+
+Sem isso, desenhar a área no app não chega ao agente, e o preview seria uma
+tela bonita que não muda o que a loja analisa.
+
+**Dois caminhos de descida, e eles são diferentes:**
+
+| | o que desce | quem inicia | como |
+|---|---|---|---|
+| **configuração** | regras, zonas, corte do canal, fotos de referência | o agente, quando quiser | `GET /v1/agentes/configuracao` com o token do agente |
+| **comando** | "capture um quadro agora" | a nuvem | resposta do `heartbeat` |
+
+A configuração **não precisa** do heartbeat: é o agente que pede, de dentro
+para fora, e NAT nenhum atrapalha. O que o heartbeat carrega é só
+`config_versao` — um inteiro. Igual, o agente não faz nada; diferente, ele
+puxa. Assim a configuração inteira não trafega a cada batida.
+
+Só o **comando** precisa do canal de volta, porque quem inicia é a nuvem e
+precisa chegar agora.
+
+**O agente nunca para por falta de descida.** Se a nuvem estiver fora, ele
+segue com a última configuração que tem, em disco. Regra de auditoria que para
+quando a internet oscila não serve a uma cozinha.
+
+### Quem corta, e de onde vem o corte
+
+**Quem corta é o AGENTE, na loja, antes de a imagem sair.** Não é detalhe de
+implementação — é a arquitetura de custo e de privacidade. Em `motor.py`, nesta
+ordem: `zona.bbox()` → `recortar_zona()` → `borrar_rostos()` → `redimensionar()`
+→ só então a imagem viaja.
+
+Se o corte acontecesse na nuvem, a loja subiria o quadro inteiro para jogar
+fora 60% depois de já ter pago por ele — e mandaria para fora cena que ninguém
+pediu: as outras mesas, o salão, quem está passando. **O que não é a área
+marcada nunca sai da loja.**
+
+**O corte pertence ao CANAL.** Cada canal (`ponto`) tem o seu, e ele vale para
+tudo que se analisa ali. Duas origens, nesta ordem de autoridade:
+
+1. **O usuário desenhou a região importante** → é esta, sempre. Prioridade 1.
+2. **Não desenhou** → o padrão do sistema: o quadro inteiro, que já nasce com o
+   ponto (`console.ts` cria a zona `Quadro inteiro` na mesma transação do
+   cadastro).
+
+**O sistema não adivinha recorte.** Um corte automático erraria calado,
+cortando justamente o que importa, e o veredito sairia confiante sobre o pedaço
+errado. O padrão é o quadro inteiro — e o diagnóstico **diz o que isso custa**:
+menos px/cm, mais token, menos confiança. Informar em vez de chutar.
+
+**Duas decisões diferentes, que não se misturam:**
+
+| decisão | de quem | o quê |
+|---|---|---|
+| **ONDE** | do usuário | a região do canal que importa |
+| **QUANTOS PIXELS** | do sistema | o degrau de envio (r384 … r1080) |
+
+O motor de dimensionamento une as duas: `px/cm no modelo = resolução_de_envio ÷
+largura_da_zona_cm`. É por isso que **marcar a área barateia sem perder
+precisão** — zona estreita sustenta o mesmo px/cm com envio menor.
+
+**Zonas finas continuam possíveis.** Uma câmera aberta pode cobrir chapa, pia e
+montagem; regra que precise mirar só um pedaço usa a zona dela. O corte do
+canal é o padrão de quem não mira nada específico — não uma trava.
+
+Na migration: `zona.principal boolean` marca qual é o corte do canal, mesmo
+padrão que `base_frame.principal` já usa. O desenho do usuário vira a principal;
+`Quadro inteiro` é a principal até existir desenho.
+
 ### Migration (próxima na sequência: **007**)
 
     comando_agente
@@ -544,3 +619,18 @@ evento nem fica no histórico — é descartável por natureza.
 4. Em cima da tela pronta: o diagnóstico por zona (já calculado em
    `GET /v1/pontos/:id/diagnostico`) aparece ao lado do desenho — *"esta área
    sustenta estado em r384; montagem não, aproxime 1,4×"*
+
+### P3 · Renomear o cadastro de teste para "Regem"
+
+Pedido do dono em 06/10/2026, **para o fim do processo**: onde está `teste1`,
+passar a ser **Regem**.
+
+É o cadastro criado no provisionamento inicial do console (tenant/loja de
+teste). Fica para depois de o produto estar implementado e testado, porque
+renomear antes só atrapalha quem está rastreando dado de teste no meio do
+desenvolvimento.
+
+**A confirmar quando chegar a vez:** qual registro carrega o nome — `tenant`,
+`loja`, ou os dois. São tabelas diferentes e o nome aparece em telas
+diferentes. Conferir pela leitura antes de escrever, e a troca é um `update`
+simples, sem migration.
