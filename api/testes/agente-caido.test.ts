@@ -153,3 +153,35 @@ describe('agente caído (Postgres real)', { skip: !URL && 'sem DATABASE_URL' }, 
     await pool.query('delete from agente where id = $1', [novo]);
   });
 });
+
+// ───────────── quando o vigia NÃO pode acusar: sem banco ─────────────
+
+describe('o vigia não acusa um silêncio que a própria API impôs', () => {
+  const MIN = 60_000;
+  const T0 = Date.parse('2026-10-06T12:00:00Z');
+
+  it('com a guarda de esquema recusando pedidos, não acusa ninguém', async () => {
+    // A guarda responde 503 a tudo — inclusive ao sinal de vida. Se o dono
+    // levar mais de cinco minutos entre o deploy e a migration, todo agente
+    // parece caído, e o motivo é a própria API.
+    const { vigiaPodeAcusar } = await import('../src/despacho.js');
+    const porta = { recusando: true, aceitaDesde: T0 - 60 * MIN };
+    assert.equal(vigiaPodeAcusar(porta, T0), false);
+  });
+
+  it('logo depois de voltar a aceitar, ainda espera os agentes aparecerem', async () => {
+    const { vigiaPodeAcusar } = await import('../src/despacho.js');
+    const porta = { recusando: false, aceitaDesde: T0 };
+    assert.equal(vigiaPodeAcusar(porta, T0 + 1 * MIN), false, 'um minuto não dá tempo de ninguém bater');
+    assert.equal(vigiaPodeAcusar(porta, T0 + 4 * MIN + 59_000), false);
+  });
+
+  it('passada a carência, volta a vigiar', async () => {
+    // A carência não pode virar cegueira: agente que caiu de verdade antes
+    // do deploy continua caído depois, e tem que ser acusado.
+    const { vigiaPodeAcusar } = await import('../src/despacho.js');
+    const porta = { recusando: false, aceitaDesde: T0 };
+    assert.equal(vigiaPodeAcusar(porta, T0 + 5 * MIN), true);
+    assert.equal(vigiaPodeAcusar(porta, T0 + 3 * 60 * MIN), true);
+  });
+});
