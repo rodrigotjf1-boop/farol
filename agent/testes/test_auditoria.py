@@ -562,3 +562,29 @@ def test_a_regra_SEM_JUIZ_nao_leva_as_OUTRAS_do_mesmo_ponto(tmp_path, monkeypatc
     assert "orfa-1" not in nomes
     assert len(nomes) == 1, "a regra servível continua de pé"
     assert list(a.fontes) == ["p1"], "o ponto segue aberto pela outra regra"
+
+
+def test_criterio_sem_juiz_em_varios_canais_avisa_UMA_vez(tmp_path, monkeypatch, caplog):
+    """A causa é uma só, então o aviso também.
+
+    O mesmo critério de presença em três canais apareceria três vezes no
+    log a cada vez que a configuração mudasse — a mesma enxurrada do
+    ERR-014, agora multiplicada pelo número de canais.
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-" + "a" * 60)
+
+    config = dois_canais(mesmo_criterio=True)
+    for ponto in config.pontos:
+        for regra in ponto.regras:
+            from farol_agent.modelos import TipoRegra
+            regra.tipo = TipoRegra.PRESENCA
+
+    a = Auditoria(NuvemDeTeste(), str(tmp_path / "fila.db"),
+                  construir_fonte=lambda p: FonteBoa(p.id))
+    with caplog.at_level("WARNING", logger="farol_agent.auditoria"):
+        a.montar(config)
+
+    avisos = [r.getMessage() for r in caplog.records if "não será capturada" in r.getMessage()]
+    assert len(avisos) == 1, avisos
+    assert "2 canal(is)" in avisos[0]
+    assert a.fontes == {}, "abriu câmera para um critério que ninguém pode julgar"

@@ -226,10 +226,17 @@ class Auditoria:
             except ErroDoJuiz as e:
                 orfas.append((r, str(e)))
 
+        # Um critério que vale em três canais aparece três vezes na lista.
+        # A causa é uma só, então o aviso também: uma linha por critério,
+        # dizendo em quantos canais ele ficou de fora.
+        por_criterio: dict[str, tuple] = {}
         for regra, motivo in orfas:
+            anterior = por_criterio.get(regra.id)
+            por_criterio[regra.id] = (regra, motivo, (anterior[2] if anterior else 0) + 1)
+        for regra, motivo, canais in por_criterio.values():
             _log.warning(
-                "regra %r (%s) não será capturada: %s",
-                regra.nome, regra.tipo.value, motivo,
+                "regra %r (%s) não será capturada em %d canal(is): %s",
+                regra.nome, regra.tipo.value, canais, motivo,
             )
         return servidas
 

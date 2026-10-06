@@ -160,8 +160,18 @@ describe('configuração desce para o agente', { skip: !URL && 'sem DATABASE_URL
   it('regra desligada não desce', async () => {
     // Regra que não deve ser avaliada não tem por que existir no agente.
     const r = await pool.query(
-      `insert into regra (zona_id, nome, tipo, criterio, ativa)
-       values ($1,'desligada','estado','não deveria descer', false) returning id`,
+      `with nova as (
+         insert into regra (loja_id, nome, tipo, criterio, ativa)
+         select st.loja_id, 'desligada', 'estado', 'não deveria descer', false
+           from zona z
+           join ponto p on p.id = z.ponto_id
+           join setor st on st.id = p.setor_id
+          where z.id = $1
+         returning id
+       ), alvo as (
+         insert into regra_alvo (regra_id, zona_id) select id, $1 from nova
+       )
+       select id from nova`,
       [zonaId],
     );
 
@@ -219,8 +229,18 @@ describe('configuração desce para o agente', { skip: !URL && 'sem DATABASE_URL
     const antes = (await heartbeat()).configVersao;
 
     const r = await pool.query(
-      `insert into regra (zona_id, nome, tipo, criterio, ativa)
-       values ($1,'nova','estado','critério', true) returning id`,
+      `with nova as (
+         insert into regra (loja_id, nome, tipo, criterio, ativa)
+         select st.loja_id, 'nova', 'estado', 'critério', true
+           from zona z
+           join ponto p on p.id = z.ponto_id
+           join setor st on st.id = p.setor_id
+          where z.id = $1
+         returning id
+       ), alvo as (
+         insert into regra_alvo (regra_id, zona_id) select id, $1 from nova
+       )
+       select id from nova`,
       [zonaId],
     );
     const depoisDeCriar = (await heartbeat()).configVersao;

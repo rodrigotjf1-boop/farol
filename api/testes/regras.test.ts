@@ -222,9 +222,13 @@ describe('regras (Postgres real)', { skip: !URL && 'sem DATABASE_URL' }, () => {
     assert.equal(r.statusCode, 200);
     const achada = r.json().regras.find((x: { nome: string }) => x.nome === `listagem-${marca}`);
     assert.ok(achada);
-    assert.equal(achada.ponto_nome, 'Montagem');
-    assert.equal(achada.canal, 1);
-    assert.equal(achada.setor_nome, 'Cozinha');
+    // O critério vem UMA vez, com a lista de onde vale — é o que a árvore
+    // de canais desenha.
+    assert.equal(achada.alvos.length, 1);
+    assert.equal(achada.alvos[0].ponto_nome, 'Montagem');
+    assert.equal(achada.alvos[0].canal, 1);
+    assert.equal(achada.alvos[0].setor_nome, 'Cozinha');
+    assert.equal(achada.alvos[0].zona_id, zonaId);
   });
 
   it('execução LÊ as regras mas não cria nem liga', async () => {

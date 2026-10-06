@@ -83,9 +83,32 @@ calado significa loja não auditada com console verde.
 | bloqueio | natureza |
 |---|---|
 | **A2.3 · detector local** não existe | regra de `presenca`, `contagem` e `comparacao` é 100% local por desenho; sem detector, o seletor recusa (corretamente) e a regra fica de fora da captura — ver ERR-014 |
-| migration 011 não está na nuvem | passo do dono, console do `farol-api` |
+| migration 012 não está na nuvem | passo do dono, console do `farol-api`, depois de mesclar o PR do critério em vários canais |
+| o agente em execução é anterior ao conserto do evento | atualizar e reiniciar no notebook — até lá **nenhum evento chega à nuvem** (ver abaixo) |
 | nenhum destino de alerta cadastrado | passo do dono, **Loja → Alertas** |
 | só um canal configurado | o alvo pede três |
+
+### ⚠️ O caminho do evento nunca tinha sido percorrido (06/10/2026)
+
+Ao preparar o critério em vários canais, o caminho "agente → evento gravado na
+nuvem" foi percorrido até o fim pela primeira vez — a única regra ligada em
+produção era de `presenca`, que não sai da loja. Estavam nele:
+
+| defeito | efeito | registro |
+|---|---|---|
+| o agente mandava `idempotencia_key`, a API esperava `idempotenciaKey` | **toda** subida de evento recusada com 422 | ERR-018 |
+| evento que não subia na hora era descartado com a variável | internet fora por um minuto = evento perdido | ERR-019 |
+| o motor aplicava cada critério a todos os canais | com 3 canais, 2/3 das análises sobre a imagem errada, e pagas | ERR-020 |
+| a API declarava `criterio_versao`/`imagem_hash` e não os copiava do corpo | a migration 010 nunca recebeu dado | ERR-021 |
+| hora do evento sem fuso | gravada três horas fora, sem erro | ERR-022 |
+
+Corrigidos no PR #32, com `contratos/evento-do-agente.json` lido pelos testes
+dos DOIS lados e uma prova ponta a ponta (cliente HTTP real do agente contra a
+API real): na `main`, 4 enfileirados e 0 entregues; no PR, 2 e 2.
+
+**A lição que fica no desenho:** cada lado era testado contra um dublê de si
+mesmo. Toda mensagem que atravessa a fronteira agente↔nuvem ganha um arquivo
+em `contratos/`, com um teste de cada lado lendo o mesmo arquivo.
 
 ### Histórico do que já não bloqueia
 
@@ -947,61 +970,73 @@ nenhum. Quem opera muda isso sem deploy.
 
 ---
 
-## A9 · Critério geral: um cadastro servindo vários canais (plano)
+## A9 · Um critério, vários canais — ✅ FEITO (06/10/2026, migration 012)
 
-**Pedido do dono (06/10/2026), e caiu fora desta consolidação na primeira
-passagem — registrado aqui para não se perder outra vez:** *"o critério geral é
-como se fosse um critério local, porém se forem muitos canais, ao invés de
-repetir, ele é cadastrado de forma a atender vários canais"*. E um segundo
-nível: um critério que atenda **setores selecionados**.
+**Pedido do dono (06/10/2026):** *"o critério geral é como se fosse um critério
+local, porém se forem muitos canais, ao invés de repetir, ele é cadastrado de
+forma a atender vários canais"*. E, na segunda rodada, **como**: uma árvore
+como a de um explorador de arquivos — o setor é a pasta, o canal é o que está
+dentro; marca-se o setor inteiro ou abre-se o setor e marca-se um canal só. Em
+cada canal, "+ critério"; cada critério aparece como um arquivo, com editar e
+tirar (sempre confirmando, e dizendo que a análise deixa de ser verificada
+naquele canal).
 
-Serve diretamente ao alvo de três canais: "a bancada está limpa" vale nos três,
-e cadastrar três vezes significa **editar três vezes** quando a redação mudar —
-e esquecer uma, o que é pior que não ter.
+> Vocabulário: o que o dono chama de **zona** é o `setor` do banco, e o
+> **canal** é o `ponto`. No banco, `zona` é a área desenhada dentro do canal.
+> A tela fala a língua do dono; o código, a do banco.
 
 ### O modelo
 
-Hoje `regra.zona_id` é uma zona só. O caminho de menor dano:
-
-| mudança | por quê |
+| o quê | como ficou |
 |---|---|
-| `regra.zona_id` passa a aceitar nulo | regra existente continua idêntica; nada a migrar |
-| nova `regra_alvo (regra_id, escopo, alvo_id)`, com escopo em `zona`/`ponto`/`setor`/`loja` | o alvo é um CONJUNTO, e os quatro níveis cobrem "este canal", "esta câmera", "a cozinha toda", "a loja toda" |
-| a descida **expande** no servidor | o agente já indexa tudo por zona; expandindo na API ele não muda **uma linha** |
+| `regra_alvo (regra_id, zona_id)` | o conjunto de áreas onde o critério vale — é exatamente o que a árvore mostra marcado |
+| `regra.loja_id` | o critério ganha dono direto; antes era derivado da zona, e com o conjunto podendo ficar vazio o dono sumiria |
+| `regra.zona_id` | legado, não se lê mais; fica preenchido só para o código anterior funcionar se for preciso voltar uma versão |
+| marcar um canal | grava a **área principal** dele (`zona.principal`); canal com mais de uma área abre um terceiro nível na árvore |
+| a descida para o agente | **expandida no servidor**: o mesmo critério desce debaixo de cada área, com o mesmo id — o agente não mudou para isso |
 
-Expandir no servidor é a decisão que importa: a alternativa — ensinar o agente a
-resolver escopo — colocaria a mesma lógica em dois lugares, em duas linguagens, e
-elas divergiriam na primeira correção feita só de um lado.
+### As três perguntas, respondidas pela árvore
 
-### A decisão difícil: de que zona é o evento?
+1. **Área dentro do canal** → a principal. Quem desenhou mais de uma área
+   escolhe abrindo o canal.
+2. **Canal novo entra sozinho?** → **não.** O conjunto é explícito: câmera
+   instalada depois aparece na árvore **desmarcada**, e o setor passa a mostrar
+   a caixa parcial ("2 de 3"). Herdar ligaria um critério num enquadramento que
+   ninguém conferiu. *Se o dono preferir herança, é uma coluna a mais em
+   `regra_alvo` — fica como decisão aberta, não como dívida.*
+3. **Exceção** → não precisa de recurso próprio: é não marcar o canal.
 
-`POST /v1/eventos` grava `zona_id` **a partir da regra**, e o comentário lá diz
-por quê: *"a regra já sabe a zona dela, e aceitar a do agente só criaria uma
-forma de divergirem"*. Para regra de uma zona, está certo.
+### O que a tela faz, e o que não faz
 
-Para regra geral, a zona é informação que **o agente tem e a regra não** — e aí
-o comentário deixa de valer. A saída não é confiar: é **aceitar `zonaId` do
-agente apenas quando a regra for geral, e validar na mesma consulta** que aquela
-zona resolve para um dos alvos da regra. Mesma cadeia de junções que hoje impede
-gravar evento contra regra de outra loja.
+- **Editar** muda em todos os canais (o formulário avisa em quantos).
+- **Tirar do canal** tira só daquele. A pergunta diz onde ele continua valendo.
+- **Tirar do último canal** não apaga o critério: ele é **desligado** e vai para
+  "Sem canal", com o histórico. Dali volta a qualquer canal. "Ligado" sem canal
+  nenhum seria a pior mentira que esta tela pode contar, e a API recusa.
+- **Não existe "apagar critério".** O histórico de vereditos aponta para ele.
+- **Ligar/desligar** vale para o critério inteiro, em todos os canais dele.
 
-Sem essa validação, um agente comprometido gravaria evento em qualquer zona da
-loja usando uma regra geral como passe.
+### O evento diz em qual canal foi — e não às cegas
 
-### Perguntas para o dono
+Com um critério em vários canais, só o agente sabe de qual veio o quadro. A API
+aceita `zonaId` do agente **apenas se for um dos canais do critério agora**:
 
-1. **Zona dentro de um alvo amplo.** Escolhendo "a cozinha toda", a regra vale no
-   *quadro inteiro* de cada canal, ou em cada zona desenhada? Proposta: quadro
-   inteiro, porque é o que existe sem ninguém desenhar nada — e quem quer
-   precisão desenha e escolhe as zonas.
-2. **Canal novo entra sozinho?** Instalando a quarta câmera na cozinha, a regra
-   geral passa a valer nela automaticamente? Proposta: **sim**, e é o principal
-   valor do recurso — mas **nasce desligada naquele canal**, pela mesma razão
-   que regra nasce desligada: ninguém mediu a acurácia naquele enquadramento.
-3. **Exceção.** Vale poder dizer "esta regra geral, menos no canal 7"? Custa uma
-   coluna (`excluido boolean` em `regra_alvo`) e evita o que sempre acontece: um
-   canal onde a regra não faz sentido obriga a abandonar o cadastro geral.
+| o agente mandou | resultado |
+|---|---|
+| zona que é canal do critério | gravado naquele canal |
+| zona que não é (o critério saiu de lá, ou é invenção) | recusado — volta em `recusados` para a fila do agente andar |
+| nada, e o critério vale num canal só | gravado naquele |
+| nada, e o critério vale em vários | gravado **sem** canal: é agente antigo, o veredito é verdadeiro e não se recupera |
 
+Sem a checagem, um critério geral seria passe para gravar evento em qualquer
+área da loja.
+
+### Conferido
+
+Navegador de verdade, do início ao fim: marcar o setor (3 canais), desmarcar um
+(caixa parcial, 2), criar, tirar com a pergunta (foco inicial em "Cancelar",
+Esc cancela), último canal indo para "Sem canal", editar abrindo com os canais
+atuais. Em 375 px a página tem 375 px — sem rolagem lateral.
 
 ---
 

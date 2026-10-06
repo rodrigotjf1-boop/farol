@@ -42,8 +42,9 @@ const MAX_POR_LOTE = 500;
 export type EventoEntrada = {
   idempotenciaKey: string;
   regraId: string;
-  // Em qual canal o critério foi verificado. Aceito e validado no formato;
-  // a zona gravada ainda vem da regra.
+  // Em qual canal o critério foi verificado. O critério pode valer em
+  // vários, e aí só o agente sabe de qual veio o quadro. Não é aceito às
+  // cegas: tem que ser um dos canais onde o critério vale AGORA.
   zonaId?: string | null;
   // Qual redação do critério produziu o veredito, e qual cena foi julgada.
   criterioVersao?: number | null;
@@ -146,6 +147,7 @@ export async function gravarEventos(
   const carga = eventos.map((e) => ({
     idempotencia_key: e.idempotenciaKey,
     regra_id: e.regraId,
+    zona_id: e.zonaId ?? null,
     ocorrido_em: e.ocorridoEm,
     veredito: e.veredito,
     confianca: e.confianca ?? null,
@@ -168,18 +170,27 @@ export async function gravarEventos(
     imagem_hash: e.imagemHash ? e.imagemHash.toLowerCase() : null,
   }));
 
-  // UMA instrução para N eventos. A corrente de joins é o que impede um
-  // agente de gravar evento contra regra de outra loja, e a checagem mora
-  // DENTRO da consulta — não numa validação que alguém pode esquecer de
-  // chamar antes.
+  // UMA instrução para N eventos. A junção com a regra é o que impede um
+  // agente de gravar evento contra critério de outra loja, e a checagem
+  // mora DENTRO da consulta — não numa validação que alguém pode esquecer
+  // de chamar antes.
   //
-  // São quatro tabelas porque a regra não guarda a loja: a cadeia real é
-  // regra → zona → ponto → setor → loja. São todas junções por chave
-  // primária, sobre tabelas de configuração (dezenas de linhas por loja),
-  // então o custo é desprezível perto do insert.
+  // ## De que canal é o evento
   //
-  // `zona_id` vem da REGRA, nunca do cliente: a regra já sabe a zona dela,
-  // e aceitar a do agente só criaria uma forma de divergirem.
+  // Enquanto cada critério valia numa área só, a zona vinha da regra e a
+  // do agente nem era lida. Com um critério valendo em vários canais, só o
+  // agente sabe de qual veio o quadro — mas aceitar o que ele manda sem
+  // conferir faria de um critério geral um passe para gravar evento em
+  // qualquer área da loja. Então:
+  //
+  //   · mandou a zona e ela é um dos canais do critério → vale;
+  //   · mandou a zona e ela NÃO é (o critério saiu daquele canal enquanto
+  //     o evento esperava, ou é invenção) → o evento não entra, e volta em
+  //     `recusados` para a fila do agente andar;
+  //   · não mandou, e o critério vale num canal só → é aquele;
+  //   · não mandou, e o critério vale em vários → entra SEM zona. É agente
+  //     de versão anterior: o veredito é verdadeiro e não se recupera, só
+  //     falta dizer onde. Recusar aqui jogaria fora o que dá para guardar.
   const inseridos = await pool.query<{ idempotencia_key: string }>(
     `insert into evento (
         tenant_id, loja_id, agente_id, regra_id, zona_id, ocorrido_em,
@@ -187,7 +198,7 @@ export async function gravarEventos(
         tokens_entrada, tokens_saida, custo_centavos, latencia_ms,
         prioridade, em_lote, embedding, idempotencia_key,
         criterio_versao, imagem_hash)
-     select $1, $2, $3, e.regra_id, r.zona_id, e.ocorrido_em,
+     select $1, $2, $3, e.regra_id, alvo.zona_id, e.ocorrido_em,
             e.veredito, e.confianca, e.motivo, e.midia_url, e.modelo, e.via,
             e.tokens_entrada, e.tokens_saida, e.custo_centavos, e.latencia_ms,
             e.prioridade, e.em_lote,
@@ -202,17 +213,25 @@ export async function gravarEventos(
             coalesce(e.criterio_versao, r.criterio_versao),
             e.imagem_hash
        from jsonb_to_recordset($4::jsonb) as e(
-            idempotencia_key text, regra_id uuid,
+            idempotencia_key text, regra_id uuid, zona_id uuid,
             ocorrido_em timestamptz, veredito text, confianca numeric,
             motivo text, midia_url text, modelo text, via text,
             tokens_entrada integer, tokens_saida integer,
             custo_centavos numeric, latencia_ms integer,
             prioridade text, em_lote boolean, embedding jsonb,
             criterio_versao integer, imagem_hash text)
-       join regra r  on r.id = e.regra_id
-       join zona  z  on z.id = r.zona_id
-       join ponto p  on p.id = z.ponto_id
-       join setor s  on s.id = p.setor_id and s.loja_id = $2
+       join regra r on r.id = e.regra_id and r.loja_id = $2
+       left join lateral (
+         select a.zona_id
+           from regra_alvo a
+          where a.regra_id = r.id
+            and (a.zona_id = e.zona_id
+                 or (e.zona_id is null
+                     and (select count(*) from regra_alvo u
+                           where u.regra_id = r.id) = 1))
+          limit 1
+       ) alvo on true
+      where alvo.zona_id is not null or e.zona_id is null
     on conflict (idempotencia_key) do nothing
       returning idempotencia_key`,
     [autor.tenantId, autor.lojaId, autor.agenteId, JSON.stringify(carga)],
