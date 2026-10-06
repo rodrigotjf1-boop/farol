@@ -41,11 +41,26 @@ async function pedir<T>(caminho: string, opcoes: RequestInit = {}): Promise<T> {
   }
 
   if (!r.ok) {
-    throw new ErroDaApi(
-      r.status,
-      String(corpo.erro ?? 'desconhecido'),
-      String(corpo.mensagem ?? 'não deu certo'),
-    );
+    // A API explica os erros dela em `mensagem`. Quando não há nenhuma, a
+    // resposta veio de outro lugar — o Fastify no 500, o proxy, a borda —
+    // e aí o código HTTP é a única pista que existe.
+    //
+    // Engolir isso num "não deu certo" deixa quem está na tela sem nada
+    // para contar e sem nada para procurar. Aconteceu em 06/10/2026: um
+    // 500 no pedido de preview virou três palavras na tela, e o
+    // diagnóstico teve que começar do zero.
+    //
+    // `message` em inglês é o campo do Fastify; quando ele vier, vale
+    // mais que o código sozinho.
+    const daApi = corpo.mensagem ? String(corpo.mensagem) : null;
+    const doFastify = corpo.message ? String(corpo.message) : null;
+    const mensagem =
+      daApi ??
+      (doFastify
+        ? `erro ${r.status}: ${doFastify}`
+        : `o servidor respondeu ${r.status} sem explicar o motivo`);
+
+    throw new ErroDaApi(r.status, String(corpo.erro ?? 'desconhecido'), mensagem);
   }
   return corpo as T;
 }
