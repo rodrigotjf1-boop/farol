@@ -634,3 +634,59 @@ desenvolvimento.
 `loja`, ou os dois. São tabelas diferentes e o nome aparece em telas
 diferentes. Conferir pela leitura antes de escrever, e a troca é um `update`
 simples, sem migration.
+
+---
+
+## A6 · Modo local: ver o canal ao vivo (plano — aguarda aprovação)
+
+Definição do dono em 06/10/2026: **a nuvem é administração de
+configuração.** Ver câmera ao vivo é outra coisa, e não deve passar por
+ela.
+
+### Por que não pela nuvem
+
+Vídeo contínuo subindo da loja é o oposto de tudo que o produto decidiu:
+custo de banda da loja, latência, e cena crua saindo o tempo todo quando a
+arquitetura inteira existe para que **só o recorte viaje**. Um minuto de
+MJPEG a 5 fps é mais tráfego que um dia de análises.
+
+### O desenho
+
+**Quando o usuário está NA loja, o navegador fala direto com o agente.** O
+agente serve o canal na rede local; a nuvem não vê o vídeo e não paga por
+ele. É o mesmo princípio dos apps satélites do Regem (KDS e Ponto falam por
+rede local), e pelo mesmo motivo.
+
+| | onde funciona | o que serve | quem paga |
+|---|---|---|---|
+| **nuvem** (feito) | de qualquer lugar | quadro fixo do canal, desenhar o corte, regras | caminho de dados, uma imagem |
+| **local** (A6) | só dentro da loja | canal ao vivo, procurar algo, conferir enquadramento | ninguém: não sai da loja |
+
+A tela **oferece o modo local quando alcança o agente** e cai no quadro
+fixo quando não alcança. Quem está em casa configura; quem está na loja vê
+ao vivo. Nenhum dos dois caminhos depende do outro.
+
+### O que precisa ser decidido
+
+1. **Como o navegador acha o agente.** O agente não tem nome na rede, e
+   mDNS não roda em navegador. Candidatos: o agente informa o IP local no
+   heartbeat e o console tenta; ou um endereço fixo configurado na
+   instalação. O primeiro é automático e falha sozinho; o segundo é chato
+   e previsível.
+2. **HTTPS.** Página servida em `https://` não busca `http://` da rede
+   local — o navegador bloqueia por conteúdo misto. É o obstáculo real
+   deste item, não o streaming.
+3. **Autenticação do fluxo local.** Câmera aberta na LAN da loja é
+   problema de segurança, não recurso. O agente tem que exigir credencial
+   também na rede local, e ela não pode ser a mesma do token da nuvem.
+4. **Formato.** MJPEG é trivial e pesado; WebRTC é leve e complexo.
+   Começar por MJPEG em resolução baixa, medir, e só então decidir se
+   vale WebRTC.
+
+### Liga com a busca
+
+O dono notou que isto ajuda a **busca**: marcar o local na hora de buscar
+filtra melhor. Ou seja, a mesma marcação de área que define o corte serve
+de filtro — "mostre as análises desta região, neste período". A área deixa
+de ser só configuração e vira dimensão de consulta. Entra no desenho da
+tela de busca (A7), ainda não escrita.
