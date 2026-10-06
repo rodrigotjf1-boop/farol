@@ -243,3 +243,65 @@ versão certa" deixam de ser a mesma aposta — o `/saude` responde as duas.
 **Detalhe de montagem:** o contexto de build é a **raiz do repo**, não `api/` —
 é o que permite o `COPY database ./database`. No EasyPanel isso é *Build Path*
 `/` na aba Source e `api/Dockerfile` na aba Build.
+
+## 05/10/2026 — Primeira medição de acurácia com câmera e juiz de verdade
+
+Seis análises contra a TWG no canal 1, recorte 640×170, Haiku 4.5, critério
+`"ha um controle remoto sobre a mesa branca"`. Verdade de campo conferida
+depois, olhando as imagens enviadas.
+
+| # | o que havia | veredito | confiança | certo? |
+|---|---|---|---|---|
+| 01 | só mouse e copo | conforme | 85% | ❌ falso positivo |
+| 02 | mão, mouse e copo | nao_conforme | 90% | ✓ certo, **motivo contradizia o veredito** |
+| 03 | copo e mouse | conforme | 95% | ❌ falso positivo |
+| 04 | controle na mesa | conforme | 95% | ✓ |
+| 05 | controle na mesa | conforme | 95% | ✓ |
+| 06 | controle na mesa | conforme | 95% | ✓ |
+
+**4 de 6.** Os dois erros são **falsos positivos confiantes**: o modelo leu o
+**mouse** como controle remoto, a 85% e 95% de confiança. E o acerto do 02 foi
+sorte — o `motivo` dizia "há um objeto escuro que corresponde a um controle
+remoto" enquanto o veredito dizia `nao_conforme`.
+
+### O que isto estabelece
+
+**1 · A confiança do modelo não detecta esta classe de erro.** O produto hoje
+se apoia em `confianca_minima` (0,70) e na cascata (`escalar_abaixo_de` 0,75),
+e as duas escalam quando a confiança está BAIXA. Um falso positivo a 95% passa
+pelas duas intocado. A cascata pega o que o modelo sabe que não sabe; não pega
+o que ele acha que sabe e errou.
+
+**2 · O critério era do tipo errado para este juiz, e a arquitetura já dizia
+isso.** "Há um controle remoto sobre a mesa" é regra de **`presenca`** —
+identificação de classe de objeto. O desenho do projeto já separa `presenca`,
+`contagem` e `comparacao` como **100% locais**, por detector, justamente porque
+VLM generalista erra classe de objeto parecido. A medição não contradiz o
+desenho: é a evidência que faltava para ele.
+
+**3 · Objeto parecido é o risco real na cozinha.** Mouse × controle remoto é o
+ensaio inofensivo de termômetro × caneta, frasco de sanitizante × frasco de
+molho, luva azul × pano azul. Toda regra que dependa de distinguir objeto
+semelhante vai para o detector, nunca para o juiz de nuvem.
+
+**4 · A resolução do envio provavelmente agravou.** O recorte saiu 640×170 e o
+objeto ocupava ~60×30 px. O teste rodou **sem `--largura-cm`**, então o motor
+de dimensionamento não tinha como avisar que a resolução estava abaixo do que
+a pergunta exigia. Medição às cegas: informar a óptica do ponto deixa de ser
+opcional antes de comparar modelos.
+
+### Custo medido (corrige a estimativa anterior)
+
+**1459 tokens de entrada, ~103 de saída, R$ 0,0107 por análise** — a 200
+análises/dia numa loja, **R$ 64/mês**. A estimativa que eu tinha feito antes
+(R$ 0,0037) estava **3× baixa**: medi só o texto do critério e ignorei as
+instruções de sistema, o esquema da ferramenta e o custo fixo do uso de
+ferramenta. Vale a regra: estimativa de custo se confere contra fatura, não
+contra contagem de caracteres.
+
+O cache de prompt está configurado (`cache_control` nas instruções), mas os
+seis custos saíram idênticos — ou seja, **não houve acerto de cache**. O
+provável é o piso mínimo de tokens para cache, que as instruções não alcançam.
+Não compensa perseguir agora: o ganho máximo seria sobre a fração fixa do
+prompt, e a decisão grande (detector local para `presenca`) tira essas
+chamadas da nuvem inteiramente.
