@@ -21,7 +21,7 @@ def test_o_modulo_importa():
     assert hasattr(cli, "main")
 
 
-@pytest.mark.parametrize("comando", ["sandbox", "sondar", "laco", "dvr"])
+@pytest.mark.parametrize("comando", ["sandbox", "sondar", "laco", "dvr", "analisar"])
 def test_cada_comando_esta_registrado_com_funcao(comando, monkeypatch):
     chamados = {}
 
@@ -50,6 +50,39 @@ def test_dvr_aceita_todas_as_acoes():
 def test_acao_desconhecida_do_dvr_e_recusada():
     with pytest.raises(SystemExit):
         cli.main(["dvr", "voar"])
+
+
+def test_analisar_declara_toda_opcao_que_le():
+    """Todo `args.X` lido por `cmd_analisar` tem que existir no parser.
+
+    Namespace do argparse só reclama em tempo de execução, e aí o erro
+    aparece na frente da câmera, no meio do teste de campo — com a senha
+    do gravador já digitada. Aqui aparece no CI.
+    """
+    import inspect
+    import re
+
+    lidos = set(re.findall(r"args\.([a-z_]+)", inspect.getsource(cli.cmd_analisar)))
+    lidos -= {"func", "comando"}
+
+    parser = inspect.getsource(cli.main)
+    # `--salvar-em` chega como `salvar_em` via dest; o parser declara os dois.
+    declarados = set(re.findall(r'"--([a-z-]+)"', parser)) | set(
+        re.findall(r'dest="([a-z_]+)"', parser)
+    )
+    declarados = {d.replace("-", "_") for d in declarados}
+
+    faltando = lidos - declarados
+    assert not faltando, f"cmd_analisar lê sem declarar: {sorted(faltando)}"
+
+
+def test_analisar_exige_host_e_criterio():
+    # Sem um dos dois o comando não tem o que fazer, e falhar no parser é
+    # melhor que falhar depois de pedir a senha do gravador.
+    for argumentos in (["analisar"], ["analisar", "--host", "10.0.0.1"]):
+        with pytest.raises(SystemExit) as saida:
+            cli.main(argumentos)
+        assert saida.value.code == 2, argumentos
 
 
 def test_comando_quadro_declara_as_opcoes_que_usa():

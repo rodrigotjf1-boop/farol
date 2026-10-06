@@ -30,7 +30,14 @@ import cv2
 from farol_agent.config import ErroDeConfig, carregar
 from farol_agent.fila import Fila
 from farol_agent.fontes.sandbox import FonteSandbox
-from farol_agent.modelos import EventoGatilho, Frame, Regra, TipoRegra, Zona
+from farol_agent.modelos import (
+    RESOLUCOES,
+    EventoGatilho,
+    Frame,
+    Regra,
+    TipoRegra,
+    Zona,
+)
 from farol_agent.motor import MotorDeRegras
 from farol_agent import imagens
 from farol_agent.pipeline import dedupe, qualidade, recorte
@@ -466,6 +473,214 @@ def cmd_dvr(args: argparse.Namespace) -> int:
     return 1
 
 
+def _area_para_zona(texto: str | None) -> tuple[Zona | None, float]:
+    """`--area x1,y1,x2,y2` em fração do quadro → zona retangular.
+
+    Sem `--area`, devolve `(None, _)`: o quadro inteiro vai ao modelo. É a
+    opção de análise completa — serve quando a cena toda é o objeto da
+    pergunta, e paga com menos detalhe por centímetro.
+
+    A margem vai a **zero** quando a área é explícita. Os 5% do padrão
+    existem para polígono desenhado a olho, onde a folga ajuda; um
+    retângulo que o usuário escolheu já é a resposta dele.
+    """
+    if not texto:
+        return None, 0.0
+
+    try:
+        partes = [float(x) for x in texto.split(",")]
+    except ValueError:
+        raise SystemExit("--area quer quatro números: x1,y1,x2,y2 (fração 0..1)")
+    if len(partes) != 4:
+        raise SystemExit("--area quer quatro números: x1,y1,x2,y2 (fração 0..1)")
+
+    x1, y1, x2, y2 = partes
+    if not all(0.0 <= v <= 1.0 for v in partes):
+        raise SystemExit("--area é em fração do quadro (0..1), não em pixels")
+    if x2 <= x1 or y2 <= y1:
+        raise SystemExit("--area precisa de x2 > x1 e y2 > y1")
+
+    return (
+        Zona(
+            id="area",
+            nome="área marcada",
+            poligono=[(x1, y1), (x2, y1), (x2, y2), (x1, y2)],
+        ),
+        0.0,
+    )
+
+
+def _mostrar_analise(i: int, r, marcou_area: bool) -> None:
+    """Uma linha de cabeçalho por análise, detalhes embaixo."""
+    v = r.veredito
+
+    if v is None:
+        print(f"  {i:02d} · ✗ {r.erro}")
+        if not r.cena_utilizavel:
+            print("       Isso não é falha do modelo: o canal não entregou cena.")
+            print("       Câmera ligada nesse canal? Lente tampada? Ambiente escuro?")
+        return
+
+    marca = {
+        "conforme": "✓",
+        "nao_conforme": "✗",
+        "nao_avaliavel": "?",
+    }.get(v.resultado.value, "·")
+    conf = f"{v.confianca:.0%}" if v.confianca is not None else "—"
+    print(f"  {i:02d} · {marca} {v.resultado.value}  confiança {conf}  {r.ms_total} ms")
+    if v.motivo:
+        print(f"       {v.motivo}")
+
+    detalhe = f"{r.enviado_largura}×{r.enviado_altura}, {r.enviado_bytes / 1024:.0f} kB"
+    if r.px_por_cm:
+        detalhe += f", {r.px_por_cm} px/cm no modelo"
+    print(f"       enviado: {detalhe}")
+
+    if v.tokens_entrada:
+        custo = f", R$ {v.custo_centavos / 100:.4f}" if v.custo_centavos else ""
+        print(f"       {v.modelo}: {v.tokens_entrada} entrada / "
+              f"{v.tokens_saida} saída{custo}")
+
+    # Confiança baixa não é só um número: é o gancho da recomendação de
+    # equipamento. Enquanto a tela não existe, o diagnóstico sai aqui — e
+    # sai apontando a causa medida, não "troque a câmera".
+    if v.confianca is not None and v.confianca < 0.70:
+        print("       ⚠ confiança abaixo de 70% — este veredito não se sustenta.")
+        if r.nitidez is not None and r.nitidez < 100:
+            print(f"         nitidez {r.nitidez:.0f} (baixa): foco ou sujeira na lente.")
+        if r.px_por_cm and r.px_por_cm < 3:
+            print(f"         {r.px_por_cm} px/cm é pouco até para estado. Aproxime a "
+                  "câmera, estreite a área ou suba o envio.")
+        if r.estourado and r.estourado > 0.15:
+            print(f"         {r.estourado:.0%} do quadro estourado: contraluz, "
+                  "precisa de WDR.")
+        if not marcou_area:
+            print("         Sem área marcada o detalhe se dilui no quadro todo — "
+                  "marcar a área costuma resolver sem trocar de câmera.")
+
+    for aviso in r.avisos:
+        print(f"       · {aviso}")
+
+
+def cmd_analisar(args: argparse.Namespace) -> int:
+    """Uma análise de verdade, do canal do gravador ao veredito.
+
+    É o comando que fecha a cadeia. Até aqui o laço rodava contra material
+    gravado e o gatilho se provava sozinho; este junta câmera ao vivo,
+    critério escrito à mão e juiz — e mostra **a imagem que foi enviada**,
+    porque veredito sem saber o que o modelo viu não se audita.
+    """
+    import time as relogio
+
+    from farol_agent.analise import analisar
+    from farol_agent.dvr.dahua import ClienteDahua, ErroDoGravador
+    from farol_agent.fontes.rtsp import ErroDaFonte, FonteRTSP
+
+    zona, margem = _area_para_zona(args.area)
+
+    if args.simulado:
+        from farol_agent.juizes.simulado import JuizSimulado
+
+        juiz = JuizSimulado()
+        print("\n⚠ juiz SIMULADO — veredito determinístico pela imagem, custo zero.")
+        print("  Prova a cadeia inteira. Para julgar de verdade, tire o --simulado.")
+    else:
+        from farol_agent.juizes.base import ErroDoJuiz
+        from farol_agent.juizes.nuvem import JuizNuvem
+
+        try:
+            juiz = JuizNuvem()
+        except ErroDoJuiz as e:
+            print(f"\nnão consegui preparar o juiz da nuvem: {e}\n", file=sys.stderr)
+            print("  A chave vem do ambiente, nunca da linha de comando", file=sys.stderr)
+            print("  (argumento aparece no histórico do shell e em `ps`):",
+                  file=sys.stderr)
+            print('    PowerShell:  $env:ANTHROPIC_API_KEY = "sk-ant-..."',
+                  file=sys.stderr)
+            print("  Ou rode com --simulado para provar a cadeia sem gastar.\n",
+                  file=sys.stderr)
+            return 1
+
+    try:
+        cliente = ClienteDahua(
+            args.host, usuario=args.usuario, senha=_senha_do_dvr(args), porta=args.porta
+        )
+        url = cliente.url_rtsp(args.canal, sub=args.sub)
+    except ErroDoGravador as e:
+        print(f"\nnão falei com o gravador: {e}", file=sys.stderr)
+        if e.dica:
+            print(f"  {e.dica}", file=sys.stderr)
+        print(file=sys.stderr)
+        return 1
+
+    fonte = FonteRTSP(f"canal{args.canal}", url, abrir_sub=False)
+
+    destino = Path(args.salvar_em)
+    destino.mkdir(parents=True, exist_ok=True)
+
+    print(f"\ncritério: {args.criterio}")
+    area = f"marcada {args.area}" if args.area else "quadro inteiro"
+    print(f"canal {args.canal} · envio {args.envio} · área: {area}")
+    if args.repetir > 1:
+        print(f"\n{args.repetir} análises a cada {args.intervalo:g}s — "
+              "mexa na frente da câmera entre elas.\n")
+    else:
+        print()
+
+    centavos = 0.0
+    falhas = 0
+    feitas = 0
+
+    try:
+        for i in range(1, args.repetir + 1):
+            arquivo = destino / f"analise-{datetime.now():%H%M%S}-{i:02d}.jpg"
+            try:
+                r = analisar(
+                    fonte,
+                    juiz,
+                    args.criterio,
+                    zona=zona,
+                    margem=margem,
+                    envio=args.envio,
+                    rajada=args.rajada,
+                    largura_zona_cm=args.largura_cm,
+                    salvar_em=arquivo,
+                )
+            except ErroDaFonte as e:
+                print(f"  {i:02d} · a fonte falhou: {e}")
+                if e.dica:
+                    print(f"       {e.dica}")
+                falhas += 1
+                break
+
+            feitas += 1
+            _mostrar_analise(i, r, bool(args.area))
+            if r.veredito and r.veredito.custo_centavos:
+                centavos += r.veredito.custo_centavos
+            if r.veredito is None:
+                falhas += 1
+
+            if i < args.repetir:
+                relogio.sleep(args.intervalo)
+    except KeyboardInterrupt:
+        print("\n  interrompido")
+
+    print()
+    if centavos and feitas:
+        media = centavos / 100 / feitas
+        print(f"custo de {feitas} análise(s): R$ {centavos / 100:.4f} "
+              f"(R$ {media:.4f} cada)")
+        # A conta que decide o produto: o preço de uma análise vezes o
+        # volume de um dia de loja.
+        print(f"  a 200 análises/dia numa loja: R$ {media * 200 * 30:.2f}/mês")
+    print(f"imagens enviadas em {destino.resolve()}")
+    print("  Abra-as: é exatamente o que o modelo viu. Veredito estranho quase")
+    print("  sempre se explica aí — área torta, quadro borrado ou objeto fora.")
+    print()
+
+    return 1 if feitas == 0 or falhas == feitas else 0
+
+
 def _forcar_utf8() -> None:
     """O console do Windows usa cp1252 e engasga em acento, régua e emoji.
 
@@ -541,6 +756,31 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("--salvar", help="grava o melhor quadro neste arquivo")
     v.add_argument("--ate", type=int, help="último canal a varrer (padrão: todos)")
     v.set_defaults(func=cmd_dvr)
+
+    a = sub.add_parser("analisar",
+                       help="análise real: canal do gravador → critério → veredito")
+    a.add_argument("--host", required=True, help="IP do gravador")
+    a.add_argument("--porta", type=int, default=80)
+    a.add_argument("--usuario", default="admin")
+    a.add_argument("--canal", type=int, default=1)
+    a.add_argument("--sub", action="store_true", help="sub-stream em vez do main")
+    a.add_argument("--criterio", required=True,
+                   help="a pergunta, em português, do jeito que se falaria a um gerente")
+    a.add_argument("--area", help="x1,y1,x2,y2 em fração do quadro (0..1). "
+                                  "Sem isto, analisa o quadro inteiro")
+    a.add_argument("--largura-cm", type=float, dest="largura_cm",
+                   help="quanto a ÁREA cobre no mundo real, em cm — habilita o px/cm")
+    a.add_argument("--envio", default="r640", choices=sorted(RESOLUCOES),
+                   help="degrau de envio (padrão r640)")
+    a.add_argument("--rajada", type=int, default=6, help="quadros capturados por análise")
+    a.add_argument("--repetir", type=int, default=1, help="quantas análises seguidas")
+    a.add_argument("--intervalo", type=float, default=4.0,
+                   help="segundos entre análises, para dar tempo de mexer na cena")
+    a.add_argument("--salvar-em", default="./analises", dest="salvar_em",
+                   help="pasta onde ficam as imagens ENVIADAS")
+    a.add_argument("--simulado", action="store_true",
+                   help="não chama a API: prova a cadeia sem gastar")
+    a.set_defaults(func=cmd_analisar)
 
     args = p.parse_args(argv)
     return int(args.func(args))
