@@ -55,6 +55,23 @@ class ClienteNuvem:
 
     # ───────────────────────────── público ─────────────────────────────
 
+    def ativar(self, fingerprint: str, versao: str | None = None) -> dict[str, Any]:
+        """Apresenta esta máquina à nuvem.
+
+        Chamada a cada partida, não só na primeira: a rota aceita
+        reativação com o MESMO fingerprint de propósito — o agente
+        reinicia, o serviço sobe de novo, a loja reinstala no mesmo PC.
+        Tratar isso como anomalia criaria chamado onde não há problema.
+
+        Com fingerprint DIFERENTE a nuvem recusa com 409, e é o certo:
+        token válido em máquina que não é a dele pode ser troca legítima
+        de equipamento ou pode ser clone, e quem decide é uma pessoa.
+        """
+        return self._pedir(
+            "POST", "/v1/agentes/ativar",
+            {"fingerprint": fingerprint, "versao": versao},
+        )
+
     def heartbeat(self, versao: str | None = None) -> dict[str, Any]:
         """Sinal de vida. Devolve `configVersao` e os comandos pendentes."""
         return self._pedir("POST", "/v1/agentes/heartbeat", {"versao": versao})

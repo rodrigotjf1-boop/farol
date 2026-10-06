@@ -303,3 +303,56 @@ def test_o_laco_sobrevive_a_defeito_interno(tmp_path, monkeypatch):
 
     monkeypatch.setattr(servico, "passo", explodir)
     servico.laco(s, ClienteDeTeste(), intervalo=0, voltas=3)  # não pode levantar
+
+
+# ────────────── a identidade da instalação (ativação) ──────────────
+
+
+def test_a_impressao_e_estavel_entre_execucoes(tmp_path):
+    """Se mudar, o agente não sobe mais.
+
+    A nuvem o trataria como máquina diferente e recusaria com 409 — e o
+    diagnóstico fica confuso justamente porque 'não mudei nada'.
+    """
+    from farol_agent.maquina import fingerprint
+
+    destino = tmp_path / "maquina.json"
+    primeira = fingerprint(destino)
+    assert fingerprint(destino) == primeira
+    assert fingerprint(destino) == primeira
+
+
+def test_instalacoes_diferentes_tem_impressoes_diferentes(tmp_path):
+    from farol_agent.maquina import fingerprint
+
+    a = fingerprint(tmp_path / "a" / "maquina.json")
+    b = fingerprint(tmp_path / "b" / "maquina.json")
+    assert a != b
+
+
+def test_a_impressao_mora_ao_lado_da_configuracao(tmp_path):
+    # Juntas de propósito: quem faz backup de uma leva a outra, e quem
+    # apaga a pasta entende por que precisou de token novo.
+    from farol_agent.maquina import arquivo_ao_lado
+
+    assert arquivo_ao_lado(tmp_path / "configuracao.json") == tmp_path / "maquina.json"
+
+
+def test_arquivo_corrompido_gera_outra_em_vez_de_estourar(tmp_path):
+    from farol_agent.maquina import fingerprint
+
+    destino = tmp_path / "maquina.json"
+    destino.write_text("{não é json", encoding="utf-8")
+
+    valor = fingerprint(destino)
+    assert len(valor) == 32
+    # e passa a ser estável de novo
+    assert fingerprint(destino) == valor
+
+
+def test_a_gravacao_e_atomica(tmp_path):
+    from farol_agent.maquina import fingerprint
+
+    destino = tmp_path / "maquina.json"
+    fingerprint(destino)
+    assert list(tmp_path.glob("*.tmp")) == []
