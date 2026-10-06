@@ -323,3 +323,56 @@ def test_o_modo_de_julgamento_desce_da_nuvem(tmp_path):
 
 def test_sem_modo_declarado_o_padrao_e_hibrido(tmp_path):
     assert de_json(resposta()).modo_julgamento == "hibrido"
+
+
+def test_regra_SEM_JUIZ_nao_e_capturada(tmp_path, monkeypatch):
+    """Capturar o que não se pode julgar é desperdício com consequência.
+
+    Visto em produção em 06/10: a regra de `presenca` ficou ligada antes
+    de o detector local existir. O seletor recusou — certo — mas o agente
+    seguiu capturando a cada ciclo. Em seis minutos: doze quadros lidos do
+    gravador, doze JPEGs em disco, doze itens na fila e doze linhas de
+    aviso idênticas. O log de uma semana ficaria ilegível, e é nele que se
+    procura a falha de verdade.
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-" + "a" * 60)
+
+    d = resposta()
+    d["pontos"][0]["zonas"][0]["regras"][0]["tipo"] = "presenca"
+
+    a = Auditoria(NuvemDeTeste(), str(tmp_path / "fila.db"),
+                  construir_fonte=lambda p: FonteBoa(p.id))
+    a.montar(de_json(d))
+
+    assert a.motor.regras == [], "enfileirou para uma regra sem juiz"
+    assert a.fontes == {}, "abriu a câmera só para descartar o quadro"
+
+    r = a.passo(datetime(2026, 10, 6, 12, 0, 0))
+    assert r["enfileirados"] == 0
+
+
+def test_a_regra_SEM_JUIZ_nao_leva_as_OUTRAS_do_mesmo_ponto(tmp_path, monkeypatch):
+    """A triagem é por regra, não por ponto.
+
+    Uma regra de `presenca` esperando o detector não pode calar a regra de
+    `estado` da mesma zona — senão ligar uma regra nova desligaria em
+    silêncio a auditoria que já funcionava.
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-" + "a" * 60)
+
+    d = resposta()
+    regras = d["pontos"][0]["zonas"][0]["regras"]
+    orfa = dict(regras[0])
+    orfa["id"] = "orfa-1"
+    orfa["tipo"] = "presenca"
+    orfa["nome"] = "Espátula no lugar"
+    regras.append(orfa)
+
+    a = Auditoria(NuvemDeTeste(), str(tmp_path / "fila.db"),
+                  construir_fonte=lambda p: FonteBoa(p.id))
+    a.montar(de_json(d))
+
+    nomes = [r.id for r in a.motor.regras]
+    assert "orfa-1" not in nomes
+    assert len(nomes) == 1, "a regra servível continua de pé"
+    assert list(a.fontes) == ["p1"], "o ponto segue aberto pela outra regra"

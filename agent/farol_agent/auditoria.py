@@ -141,7 +141,16 @@ class Auditoria:
         if config.versao == self.versao_montada:
             return
 
-        regras = config.regras
+        # O juiz vem primeiro: é ele que sabe dizer quais regras alguém
+        # consegue julgar.
+        if config.regras:
+            try:
+                self.juiz = self._construir_juiz(config)
+            except Exception as e:  # noqa: BLE001
+                self.ultimo_erro = str(e)
+                _log.error("sem juiz: %s", e)
+
+        regras = self._com_juiz(config)
         self.motor = MotorDeRegras(self.fila, regras)
 
         # Fontes só para pontos que têm regra: abrir câmera que ninguém
@@ -164,22 +173,49 @@ class Auditoria:
         self._fechar(self.fontes.values())
         self.fontes = novas
 
-        # O juiz se refaz a CADA versão, não só na primeira: ele carrega o
-        # mapa de regras e o modo de julgamento da loja, e os dois mudam.
-        # Guardar o juiz da primeira montagem faria regra nova ser julgada
-        # pelo mapa velho — e o seletor diria "regra não existe".
-        if regras:
-            try:
-                self.juiz = self._construir_juiz(config)
-            except Exception as e:  # noqa: BLE001
-                self.ultimo_erro = str(e)
-                _log.error("sem juiz: %s", e)
-
         self.versao_montada = config.versao
         _log.info(
             "auditoria montada: v%s · %d regra(s) em %d ponto(s)",
             config.versao, len(regras), len(self.fontes),
         )
+
+    def _com_juiz(self, config: ConfigDaLoja) -> list:
+        """Só as regras que ALGUÉM pode julgar.
+
+        Capturar para uma regra sem juiz é trabalho jogado fora com
+        consequência: cada ciclo grava um JPEG, enfileira um item e
+        produz uma linha de erro. Visto em produção em 06/10 — doze
+        capturas, doze arquivos e doze avisos idênticos em seis minutos,
+        todos dizendo a mesma coisa.
+
+        O certo é descobrir uma vez, na montagem, e dizer uma vez. A
+        regra continua ligada no console e volta a ser auditada no
+        instante em que o juiz dela existir — o agente remonta sozinho
+        quando a configuração muda.
+        """
+        if self.juiz is None:
+            return list(config.regras)
+
+        seletor = getattr(self.juiz, "seletor", None)
+        if seletor is None:
+            return list(config.regras)
+
+        from farol_agent.juizes.base import ErroDoJuiz
+
+        servidas, orfas = [], []
+        for r in config.regras:
+            try:
+                seletor.para(r)
+                servidas.append(r)
+            except ErroDoJuiz as e:
+                orfas.append((r, str(e)))
+
+        for regra, motivo in orfas:
+            _log.warning(
+                "regra %r (%s) não será capturada: %s",
+                regra.nome, regra.tipo.value, motivo,
+            )
+        return servidas
 
     @staticmethod
     def _fechar(fontes) -> None:
