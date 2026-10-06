@@ -9,6 +9,94 @@ muda o rumo no meio.
 
 ---
 
+## Onde estamos, e o alvo imediato (06/10/2026)
+
+### A tese do produto, dita pelo dono
+
+O Farol nasceu local, mas **análise de imagem tem variáveis demais e opções de
+equipamento demais** — e o que decide não é a técnica, é **quanto o cliente
+pode investir**.
+
+Então a lógica de funcionamento é uma só, e **as variações se adaptam ao
+equipamento**. Um cliente com R$ 20 mil e muitos canais e outro com um PC de
+escritório e três câmeras rodam o mesmo produto, com caminhos diferentes por
+dentro. O que o cliente não tiver, o sistema compensa — e o que ele precisar
+providenciar vira tutorial, não impedimento.
+
+O wizard é quem descobre qual caminho: intenção, estrutura do local, número de
+canais, **orçamento disponível** e **gasto mensal aceitável com API** quando a
+máquina não comporta modelo local grande.
+
+### O que o banco já antecipava
+
+Boa parte disso está no esquema desde a 001, e vale saber antes de projetar:
+
+| tabela | o que já tem |
+|---|---|
+| `levantamento` | `intencao`, `n_cameras`, `tem_internet_estavel`, `imagem_pode_sair`, `precisa_offline`, `precisa_busca` |
+| `levantamento_item` | **`specs_declaradas` × `specs_detectadas`** + `detectado_em` — o que o cliente diz ter contra o que a máquina confirmou |
+| `diagnostico` | `custo_implantacao`, `custo_mensal`, `modo_julgamento_sugerido`, `analises_dia`, e os dois diagramas |
+| `equipamento` + `equipamento_preco` | catálogo com preço |
+| `requisito_uso` | px/cm, fps, cor, WDR e quadros por análise, por tipo de regra |
+
+**Falta no `levantamento`:** `orcamento_disponivel` e `gasto_api_aceitavel` —
+as duas variáveis que o dono pôs no centro e que o esquema não previu.
+
+### Puxar dos equipamentos em vez de perguntar
+
+`specs_detectadas` existe porque **o que o cliente declara erra**. Ele não sabe
+se o canal entrega 1080p real ou 1080N esticado; não sabe a focal da lente; às
+vezes não sabe quantos canais o gravador tem.
+
+O agente já sabe medir quase tudo isso: `dvr info` (modelo e firmware),
+`dvr canais` (quantos existem de verdade), `sondar` (`detalhe_real` **distingue
+1080p nativo de 1080N esticado**). Falta ler as specs da **própria máquina** —
+CPU, RAM, GPU — que é o que decide se cabe modelo local.
+
+Medir vence perguntar, e o preview já provou isso: `resolucao_h` se preencheu
+sozinha com a largura do quadro capturado.
+
+### 🎯 O alvo imediato
+
+**Três canais rodando por mais de uma semana**, com os erros sendo coletados e
+lidos, para afinar o motor local e o da nuvem.
+
+Não é "mais funcionalidade". É **a mesma coisa funcionando por tempo
+suficiente para revelar o que uma tarde de teste esconde**: deriva, vazamento
+de memória, fila que cresce, câmera que cai de madrugada, regra que dispara
+demais.
+
+### 🔴 O que bloqueia esse alvo
+
+**`farol-agent servir` não roda o motor de análise.** Verificado em 06/10: ele
+sincroniza configuração e atende comandos, e só. O motor, a fila e o gatilho
+existem — e são testados — mas só no `laco`, que roda contra material gravado
+com gatilho simulado.
+
+Ou seja: hoje o agente **conversa com a nuvem e captura preview, mas não
+audita nada**. Ligar uma regra não faria diferença.
+
+Juntar as duas metades é o próximo trabalho, e é maior que as lacunas
+pequenas:
+
+1. O gatilho CGI real (`GatilhoCGI`, provado contra o MHDX) alimenta o motor
+2. O motor usa as regras que **desceram da nuvem**, não o YAML
+3. A fila persiste e o juiz julga
+4. O evento sobe para `POST /v1/eventos`
+5. Nada disso pode atrapalhar o heartbeat nem a captura de preview
+
+### Ordem acordada
+
+| # | o quê | por quê |
+|---|---|---|
+| 1 | lacunas pequenas: editar ponto, renomear zona, status do agente | removem atrito imediato e são rápidas |
+| 2 | `evento.criterio_versao` + `imagem_hash` | só é barato enquanto não há evento gravado |
+| 3 | **ligar o motor no `servir`** | é o que destrava o alvo de 3 canais |
+| 4 | A7 · alertas | transforma "o Farol viu" em "alguém soube" |
+| 5 | wizard com orçamento e auto-detecção | quando houver o que dimensionar |
+
+---
+
 ## Estado
 
 | Bloco | Estado |
@@ -712,6 +800,24 @@ filtra melhor. Ou seja, a mesma marcação de área que define o corte serve
 de filtro — "mostre as análises desta região, neste período". A área deixa
 de ser só configuração e vira dimensão de consulta. Entra no desenho da
 tela de busca (A7), ainda não escrita.
+
+### P5 · O wizard precisa de duas perguntas que o esquema não previu
+
+`levantamento` pergunta intenção, número de câmeras, internet, se a imagem pode
+sair, offline e busca. **Não pergunta quanto o cliente pode investir nem quanto
+aceita gastar por mês com API** — e são essas duas que decidem o caminho
+inteiro, segundo o próprio dono.
+
+Entram como `orcamento_disponivel` e `gasto_api_aceitavel`. Com elas, o
+`diagnostico` deixa de recomendar "o melhor" e passa a recomendar **o melhor
+que cabe** — que é outra coisa, e é a que faz o produto vender.
+
+Junto: **auto-detecção**. `levantamento_item` já separa `specs_declaradas` de
+`specs_detectadas` porque o que o cliente declara erra — ele não sabe se o
+canal entrega 1080p real ou 1080N esticado, nem a focal da lente. O agente já
+mede quase tudo (`dvr info`, `dvr canais`, `sondar` com `detalhe_real`); falta
+ler as specs da **própria máquina** (CPU, RAM, GPU), que é o que decide se cabe
+modelo local.
 
 ### P4 · O gravador da loja precisa de IP fixo
 
