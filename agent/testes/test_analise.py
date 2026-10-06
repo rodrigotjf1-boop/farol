@@ -277,3 +277,92 @@ def test_area_invalida_para_em_vez_de_recortar_errado(texto):
     # sobre o lugar errado. Melhor recusar.
     with pytest.raises(SystemExit):
         _area_para_zona(texto)
+
+
+# ───────────── o que o primeiro uso em campo ensinou (ERR-008) ─────────────
+
+
+def _analise_de_confianca_baixa(simulada: bool):
+    from farol_agent.analise import Analise
+    from farol_agent.modelos import Veredito, Via
+
+    return Analise(
+        veredito=Veredito(
+            resultado=Resultado.CONFORME,
+            confianca=0.63,
+            via=Via.LOCAL if simulada else Via.NUVEM,
+            modelo="x",
+        ),
+        enviado_largura=640,
+        enviado_altura=360,
+        enviado_bytes=31707,
+        nitidez=198.6,
+        ms_total=2028,
+    )
+
+
+def test_confianca_sorteada_pelo_simulador_nao_vira_conselho(capsys):
+    """O simulador SORTEIA a confiança entre 0,60 e 0,95 pelo hash da imagem.
+
+    No primeiro uso em campo o relatório saiu dizendo "confiança abaixo de
+    70% — este veredito não se sustenta" e recomendando marcar área, por
+    causa de um número inventado. Mandar alguém investigar equipamento com
+    base nisso queima a confiança no diagnóstico inteiro.
+    """
+    from farol_agent.cli import _mostrar_analise
+
+    _mostrar_analise(1, _analise_de_confianca_baixa(True), False, simulado=True)
+    saida = capsys.readouterr().out
+
+    assert "sorteada pelo simulador" in saida
+    assert "não se sustenta" not in saida
+    assert "marcar a área" not in saida
+
+
+def test_com_juiz_de_verdade_a_confianca_baixa_aponta_a_causa(capsys):
+    # O contraste: com juiz real o diagnóstico tem que sair, e apontando a
+    # causa medida — é o embrião da recomendação de equipamento.
+    from farol_agent.cli import _mostrar_analise
+
+    _mostrar_analise(1, _analise_de_confianca_baixa(False), False, simulado=False)
+    saida = capsys.readouterr().out
+
+    assert "não se sustenta" in saida
+    assert "marcar a área" in saida
+    assert "sorteada" not in saida
+
+
+def test_silenciador_do_opencv_devolve_o_nivel_de_log():
+    """Calar o WARNING não pode virar calar para sempre.
+
+    O aviso do YuNet ("Targets are not supported by the new graph engine")
+    caía no meio do relatório e parecia erro. Some só durante a criação do
+    detector — depois disso, aviso de FFMPEG no RTSP tem que voltar a
+    aparecer, que é onde ele ajuda.
+    """
+    from farol_agent.pipeline.recorte import _opencv_sem_aviso
+
+    try:
+        from cv2.utils import logging as cvlog
+    except ImportError:
+        pytest.skip("esta build do OpenCV não expõe cv2.utils.logging")
+
+    antes = cvlog.getLogLevel()
+    with _opencv_sem_aviso():
+        assert cvlog.getLogLevel() == cvlog.LOG_LEVEL_ERROR
+    assert cvlog.getLogLevel() == antes
+
+
+def test_silenciador_devolve_o_nivel_mesmo_com_excecao():
+    from farol_agent.pipeline.recorte import _opencv_sem_aviso
+
+    try:
+        from cv2.utils import logging as cvlog
+    except ImportError:
+        pytest.skip("esta build do OpenCV não expõe cv2.utils.logging")
+
+    antes = cvlog.getLogLevel()
+    with pytest.raises(ValueError):
+        with _opencv_sem_aviso():
+            raise ValueError("falha no meio da detecção")
+    assert cvlog.getLogLevel() == antes
