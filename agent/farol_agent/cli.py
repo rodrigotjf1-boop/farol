@@ -510,7 +510,7 @@ def _area_para_zona(texto: str | None) -> tuple[Zona | None, float]:
     )
 
 
-def _mostrar_analise(i: int, r, marcou_area: bool) -> None:
+def _mostrar_analise(i: int, r, marcou_area: bool, simulado: bool = False) -> None:
     """Uma linha de cabeçalho por análise, detalhes embaixo."""
     v = r.veredito
 
@@ -540,6 +540,16 @@ def _mostrar_analise(i: int, r, marcou_area: bool) -> None:
         custo = f", R$ {v.custo_centavos / 100:.4f}" if v.custo_centavos else ""
         print(f"       {v.modelo}: {v.tokens_entrada} entrada / "
               f"{v.tokens_saida} saída{custo}")
+
+    # O simulador SORTEIA a confiança a partir do hash da imagem
+    # (0,60 a 0,95). Diagnosticar essa oscilação como se fosse medida manda
+    # alguém investigar foco e contraluz por causa de um número inventado —
+    # aconteceu no primeiro uso em campo, 05/10/2026 (ERR-008).
+    if simulado:
+        print("       (a confiança acima é sorteada pelo simulador, não medida)")
+        for aviso in r.avisos:
+            print(f"       · {aviso}")
+        return
 
     # Confiança baixa não é só um número: é o gancho da recomendação de
     # equipamento. Enquanto a tela não existe, o diagnóstico sai aqui — e
@@ -654,7 +664,7 @@ def cmd_analisar(args: argparse.Namespace) -> int:
                 break
 
             feitas += 1
-            _mostrar_analise(i, r, bool(args.area))
+            _mostrar_analise(i, r, bool(args.area), simulado=args.simulado)
             if r.veredito and r.veredito.custo_centavos:
                 centavos += r.veredito.custo_centavos
             if r.veredito is None:

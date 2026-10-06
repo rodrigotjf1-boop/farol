@@ -33,3 +33,8 @@ fila.db-*
 
 # quadros capturados a mao pelo 'dvr quadro' (a amostra que fica esta em testes/amostras/)
 /agent/*.jpg
+
+# imagens ENVIADAS ao juiz pelo 'analisar'. Sao cena real de loja — e, no
+# desenvolvimento, da casa de quem testa: pessoas, rosto, rotina. Nunca
+# versionar. A amostra que a suite usa fica em agent/testes/amostras/.
+/agent/analises/

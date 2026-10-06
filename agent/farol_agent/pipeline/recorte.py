@@ -104,6 +104,7 @@ def lente_para_enquadrar(
 
 import logging
 import os
+from contextlib import contextmanager
 from pathlib import Path
 
 _log = logging.getLogger(__name__)
@@ -143,9 +144,10 @@ def _obter_detector():
             caminho = pasta / _MODELO_YUNET
             if caminho.is_file():
                 try:
-                    _detector = cv2.FaceDetectorYN_create(
-                        str(caminho), "", (320, 320), 0.6, 0.3, 5000
-                    )
+                    with _opencv_sem_aviso():
+                        _detector = cv2.FaceDetectorYN_create(
+                            str(caminho), "", (320, 320), 0.6, 0.3, 5000
+                        )
                     return _detector
                 except cv2.error:
                     pass
@@ -176,6 +178,45 @@ def _obter_detector():
     return None
 
 
+@contextmanager
+def _opencv_sem_aviso():
+    """Cala o WARNING do OpenCV durante a detecção de rosto.
+
+    O OpenCV 5 imprime, a cada detecção do YuNet:
+
+        [ WARN] … setPreferableTarget Targets are not supported by the
+        new graph engine for now
+
+    Não é falha — o detector funciona, e foi o que borrou o rosto na
+    primeira análise de campo. Mas a linha cai no meio do relatório e
+    parece erro para quem está lendo o veredito, o que custa confiança
+    justamente onde o produto precisa dela.
+
+    Só o nível WARNING some, e só durante a detecção: erro continua
+    visível, e os avisos do FFMPEG no RTSP continuam saindo.
+    """
+    try:
+        from cv2.utils import logging as cvlog
+    except (ImportError, AttributeError):
+        yield
+        return
+
+    try:
+        anterior = cvlog.getLogLevel()
+        cvlog.setLogLevel(cvlog.LOG_LEVEL_ERROR)
+    except (AttributeError, cv2.error):
+        yield
+        return
+
+    try:
+        yield
+    finally:
+        try:
+            cvlog.setLogLevel(anterior)
+        except (AttributeError, cv2.error):
+            pass
+
+
 def borrar_rostos(frame: Frame, fator: float = 0.08) -> tuple[Frame, bool]:
     """Borra rostos detectados. Mitigação de LGPD a custo zero.
 
@@ -195,24 +236,25 @@ def borrar_rostos(frame: Frame, fator: float = 0.08) -> tuple[Frame, bool]:
     caixas: list[tuple[int, int, int, int]] = []
 
     try:
-        if hasattr(det, "detect") and hasattr(det, "setInputSize"):
-            # YuNet
-            h, w = img.shape[:2]
-            det.setInputSize((w, h))
-            _, faces = det.detect(img)
-            if faces is not None:
+        with _opencv_sem_aviso():
+            if hasattr(det, "detect") and hasattr(det, "setInputSize"):
+                # YuNet
+                h, w = img.shape[:2]
+                det.setInputSize((w, h))
+                _, faces = det.detect(img)
+                if faces is not None:
+                    caixas = [
+                        (int(f[0]), int(f[1]), int(f[2]), int(f[3])) for f in faces
+                    ]
+            else:
+                # Haar
+                cinza = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 caixas = [
-                    (int(f[0]), int(f[1]), int(f[2]), int(f[3])) for f in faces
+                    (int(x), int(y), int(cw), int(ch))
+                    for x, y, cw, ch in det.detectMultiScale(
+                        cinza, scaleFactor=1.15, minNeighbors=4, minSize=(24, 24)
+                    )
                 ]
-        else:
-            # Haar
-            cinza = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            caixas = [
-                (int(x), int(y), int(cw), int(ch))
-                for x, y, cw, ch in det.detectMultiScale(
-                    cinza, scaleFactor=1.15, minNeighbors=4, minSize=(24, 24)
-                )
-            ]
     except cv2.error as e:
         _log.debug("detecção de rosto falhou neste quadro: %s", e)
         return frame, False
