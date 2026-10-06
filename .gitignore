@@ -39,3 +39,11 @@ fila.db-*
 # versionar. A amostra que a suite usa fica em agent/testes/amostras/.
 /agent/analises/
 /agent/gabarito*.json
+
+# Estado de execução do agente, por instalação. Nunca versionar:
+# `maquina.json` é a identidade que prende o token a ESTA máquina — no
+# repositório, toda instalação nasceria com a mesma, e a trava de
+# clone deixaria de existir. `configuracao.json` é a configuração de
+# UMA loja, que desce da nuvem e é diferente em cada uma.
+/agent/configuracao.json
+/agent/maquina.json
