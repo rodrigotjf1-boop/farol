@@ -206,7 +206,8 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
     // algumas centenas de kB junto de um JSON de texto, em toda abertura
     // da tela.
     const p = await pool.query(
-      `select p.id, p.nome, p.canal, p.host, p.fabricante, p.ativo,
+      `select p.id, p.nome, p.canal, p.host, p.porta, p.usuario,
+              p.fabricante, p.origem, p.ativo, p.mac, p.mac_visto_em,
               p.sensor_pol, p.focal_mm, p.distancia_cm, p.resolucao_h,
               p.largura_cena_cm, p.preview_largura, p.preview_altura, p.preview_em,
               (p.preview is not null) as tem_preview,

@@ -24,6 +24,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Shell } from '@/componentes/shell';
 import {
+  consoleApi,
   ErroDaApi,
   previewApi,
   type EstadoDoPreview,
@@ -72,6 +73,9 @@ export default function AreaDoCanal() {
   const [pedindo, setPedindo] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [selo, setSelo] = useState<string | null>(null);
+  const [nomeZona, setNomeZona] = useState('');
+  const [conexao, setConexao] = useState<Partial<PontoCompleto>>({});
+  const [salvandoConexao, setSalvandoConexao] = useState(false);
 
   const area = useRef<HTMLDivElement>(null);
   const arrastando = useRef<{ x: number; y: number } | null>(null);
@@ -85,6 +89,7 @@ export default function AreaDoCanal() {
         previewApi.estado(id),
       ]);
       setPonto(dados.ponto);
+      setConexao(dados.ponto);
       setZonas(dados.zonas);
       setEstado(est);
       setSelo(est.capturadoEm);
@@ -103,6 +108,7 @@ export default function AreaDoCanal() {
   useEffect(() => {
     if (!zona) return;
     setRetangulo(paraRetangulo(zona.poligono));
+    setNomeZona(zona.nome);
     setLarguraCm(zona.largura_cena_cm ? String(zona.largura_cena_cm) : '');
   }, [zonaId, zona]);
 
@@ -144,6 +150,7 @@ export default function AreaDoCanal() {
     setAviso(null);
     try {
       const atualizada = await previewApi.salvarArea(zona.id, {
+        nome: nomeZona.trim() || zona.nome,
         poligono: paraPoligono(retangulo),
         larguraCenaCm: larguraCm.trim() ? Number(larguraCm) : null,
       });
@@ -153,6 +160,28 @@ export default function AreaDoCanal() {
       setErro(e instanceof ErroDaApi ? e.message : 'não consegui salvar a área');
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function salvarConexao() {
+    setSalvandoConexao(true);
+    setErro(null);
+    setAviso(null);
+    try {
+      await consoleApi.editarPonto(id, {
+        nome: conexao.nome,
+        fabricante: conexao.fabricante,
+        canal: conexao.canal ? Number(conexao.canal) : null,
+        host: conexao.host,
+        porta: conexao.porta ? Number(conexao.porta) : null,
+        usuario: conexao.usuario,
+      } as Record<string, unknown>);
+      setAviso('conexão salva. O agente usa a nova na próxima batida.');
+      await carregar();
+    } catch (e) {
+      setErro(e instanceof ErroDaApi ? e.message : 'não consegui salvar a conexão');
+    } finally {
+      setSalvandoConexao(false);
     }
   }
 
@@ -359,6 +388,22 @@ export default function AreaDoCanal() {
                 </label>
               )}
 
+              <label className="mt-3 block text-sm">
+                <span className="text-farol-suave">Nome desta área</span>
+                <input
+                  value={nomeZona}
+                  onChange={(e) => setNomeZona(e.target.value)}
+                  placeholder="bancada de montagem"
+                  className="mt-1 w-full rounded-lg border border-farol-borda bg-transparent px-2 py-1.5"
+                />
+              </label>
+              {nomeZona.trim() === 'Quadro inteiro' && fracao < 0.95 && (
+                <p className="mt-1 text-xs text-farol-suave">
+                  A área já não é o quadro inteiro — vale trocar o nome, senão
+                  daqui a três meses alguém vai ler e acreditar.
+                </p>
+              )}
+
               <div className="mt-3 grid grid-cols-2 gap-2">
                 {(
                   [
@@ -472,6 +517,56 @@ export default function AreaDoCanal() {
                   Informe a largura real da área para ver o que ela sustenta.
                 </p>
               )}
+            </section>
+            <section className="rounded-xl border border-farol-borda bg-farol-painel p-4">
+              <h2 className="font-medium">Conexão</h2>
+              <p className="mt-1 text-xs text-farol-suave">
+                A senha não entra aqui — ela fica no cofre do agente, na loja.
+              </p>
+
+              <div className="mt-3 space-y-2">
+                {(
+                  [
+                    ['nome', 'nome', 'text'],
+                    ['fabricante', 'fabricante', 'text'],
+                    ['canal', 'canal', 'number'],
+                    ['host', 'endereço', 'text'],
+                    ['porta', 'porta', 'number'],
+                    ['usuario', 'usuário', 'text'],
+                  ] as const
+                ).map(([campo, rotulo, tipo]) => (
+                  <label key={campo} className="block text-sm">
+                    <span className="text-farol-suave">{rotulo}</span>
+                    <input
+                      type={tipo}
+                      value={String(conexao[campo] ?? '')}
+                      onChange={(e) =>
+                        setConexao((c) => ({ ...c, [campo]: e.target.value }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-farol-borda bg-transparent px-2 py-1.5"
+                    />
+                  </label>
+                ))}
+              </div>
+
+              {ponto?.mac && (
+                <p className="mt-3 text-xs text-farol-suave">
+                  MAC visto pelo agente:{' '}
+                  <span className="font-mono">{ponto.mac}</span>
+                  {ponto.mac_visto_em &&
+                    ` em ${new Date(ponto.mac_visto_em).toLocaleDateString('pt-BR')}`}
+                  . É o que permite reencontrar o gravador se o endereço mudar.
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={salvarConexao}
+                disabled={salvandoConexao}
+                className="mt-4 w-full rounded-lg border border-farol-borda px-3 py-2 text-sm transition hover:border-farol-facho/50 disabled:opacity-50"
+              >
+                {salvandoConexao ? 'salvando…' : 'Salvar conexão'}
+              </button>
             </section>
           </aside>
         </div>
