@@ -46,7 +46,8 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
     // ele já estaria em dia. O erro se esconderia até alguém conferir na
     // mão por que a loja analisa pela regra antiga.
     const l = await pool.query(
-      `select id, nome, config_versao from loja where id = $1`,
+      `select id, nome, config_versao, modo_julgamento, resolucao_padrao
+         from loja where id = $1`,
       [quem.lojaId],
     );
     if (l.rowCount === 0) {
@@ -131,7 +132,15 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
     }
 
     return {
-      loja: { id: l.rows[0].id, nome: l.rows[0].nome },
+      loja: {
+        id: l.rows[0].id,
+        nome: l.rows[0].nome,
+        // Decide QUAL juiz atende cada regra na loja. Sem isto o agente
+        // teria que supor, e supor aqui significa mandar para a nuvem o
+        // que o desenho promete manter dentro da loja.
+        modoJulgamento: l.rows[0].modo_julgamento,
+        resolucaoPadrao: l.rows[0].resolucao_padrao,
+      },
       versao: l.rows[0].config_versao,
       geradoEm: new Date().toISOString(),
       pontos: pontos.rows.map((p) => ({

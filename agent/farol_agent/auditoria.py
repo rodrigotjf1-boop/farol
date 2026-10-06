@@ -108,9 +108,33 @@ class Auditoria:
 
     @staticmethod
     def _juiz_padrao(config: ConfigDaLoja):
-        from farol_agent.juizes.nuvem import JuizNuvem
+        """O SELETOR, nunca um juiz direto.
 
-        return JuizNuvem()
+        Ligar `JuizNuvem` aqui furaria a proteção que o desenho tem: a
+        categoria da regra decide o juiz, e `presenca`, `contagem` e
+        `comparacao` **não podem sair da loja** — é promessa do produto,
+        não preferência.
+
+        E não é só privacidade: a medição de 05/10 mostrou o modelo de
+        nuvem lendo um mouse como controle remoto, duas vezes, com 95% de
+        confiança. Identificação de objeto é trabalho de detector.
+
+        O seletor levanta erro claro quando falta o juiz de uma
+        categoria, em vez de desviar para o que estiver à mão.
+        """
+        from farol_agent.juizes.nuvem import JuizNuvem
+        from farol_agent.juizes.seletor import JuizPorRegra, SeletorDeJuiz
+
+        nuvem = None
+        try:
+            nuvem = JuizNuvem()
+        except Exception as e:  # noqa: BLE001
+            # Sem chave, o seletor ainda serve: regra local continua
+            # atendida, e regra de nuvem falha dizendo o que falta.
+            _log.warning("juiz de nuvem indisponível: %s", e)
+
+        seletor = SeletorDeJuiz(config.modo_julgamento, nuvem=nuvem)
+        return JuizPorRegra(seletor, {r.id: r for r in config.regras})
 
     def montar(self, config: ConfigDaLoja) -> None:
         """(Re)constrói motor, juiz e fontes a partir da configuração."""
@@ -140,7 +164,11 @@ class Auditoria:
         self._fechar(self.fontes.values())
         self.fontes = novas
 
-        if regras and self.juiz is None:
+        # O juiz se refaz a CADA versão, não só na primeira: ele carrega o
+        # mapa de regras e o modo de julgamento da loja, e os dois mudam.
+        # Guardar o juiz da primeira montagem faria regra nova ser julgada
+        # pelo mapa velho — e o seletor diria "regra não existe".
+        if regras:
             try:
                 self.juiz = self._construir_juiz(config)
             except Exception as e:  # noqa: BLE001

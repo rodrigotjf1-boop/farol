@@ -33,13 +33,30 @@ const esquema = await conferirEsquema(pool);
 if (!esquema.ok) {
   app.log.fatal({ pendentes: esquema.pendentes }, 'esquema desatualizado');
   console.error(`
-  ERRO DE PARTIDA
+  ESQUEMA DESATUALIZADO
 
   ${esquema.mensagem}`);
-  await pool.end().catch(() => {});
-  process.exit(1);
-}
-if (esquema.motivo) {
+
+  // NÃO sair. Sair derrubaria o contêiner, o orquestrador reiniciaria em
+  // laço, e **o console do serviço deixaria de existir** — que é
+  // justamente de onde se roda `npm run migrar`. A guarda trancaria a
+  // porta por dentro, com a chave do lado de fora.
+  //
+  // Em vez disso o serviço sobe e RECUSA todo pedido com 503, dizendo o
+  // que falta. O contêiner fica de pé para o console funcionar, a
+  // verificação de saúde responde com clareza, e nenhuma requisição
+  // chega a tocar uma coluna que não existe.
+  app.addHook('onRequest', async (req, resposta) => {
+    if (req.url === '/saude' || req.url === '/') return;
+    await resposta.status(503).send({
+      erro: 'esquema_desatualizado',
+      mensagem:
+        'o banco está atrás do código. Rode `npm run migrar` no console ' +
+        'deste serviço. Nenhum pedido é atendido até lá.',
+      pendentes: esquema.pendentes,
+    });
+  });
+} else if (esquema.motivo) {
   app.log.warn({ motivo: esquema.motivo }, 'conferência de esquema pulada');
 } else {
   app.log.info({ aplicadas: esquema.aplicadas }, 'esquema em dia');
