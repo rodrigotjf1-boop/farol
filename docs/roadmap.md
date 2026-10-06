@@ -505,6 +505,37 @@ conexão de pé 24h por loja para um caso que acontece na instalação, e some
 quando a internet oscila); abrir porta na loja (inaceitável — o produto
 promete não exigir mudança de rede).
 
+### A5.0 · A descida da configuração (pré-requisito, e está faltando)
+
+**Confirmado pelo dono em 06/10/2026: a configuração é feita na nuvem, no app,
+e desce para o agente usar.** O código já dizia isso — `config.py` abre com
+"no produto final a configuração desce do console" — mas **a descida não
+existe**. Hoje o agente lê as regras de um YAML local, e
+`GET /v1/lojas/:id/regras` é autenticada por sessão de console, não por token
+de agente.
+
+Sem isso, desenhar a área no app não chega ao agente, e o preview seria uma
+tela bonita que não muda o que a loja analisa.
+
+**Dois caminhos de descida, e eles são diferentes:**
+
+| | o que desce | quem inicia | como |
+|---|---|---|---|
+| **configuração** | regras, zonas, corte do canal, fotos de referência | o agente, quando quiser | `GET /v1/agentes/configuracao` com o token do agente |
+| **comando** | "capture um quadro agora" | a nuvem | resposta do `heartbeat` |
+
+A configuração **não precisa** do heartbeat: é o agente que pede, de dentro
+para fora, e NAT nenhum atrapalha. O que o heartbeat carrega é só
+`config_versao` — um inteiro. Igual, o agente não faz nada; diferente, ele
+puxa. Assim a configuração inteira não trafega a cada batida.
+
+Só o **comando** precisa do canal de volta, porque quem inicia é a nuvem e
+precisa chegar agora.
+
+**O agente nunca para por falta de descida.** Se a nuvem estiver fora, ele
+segue com a última configuração que tem, em disco. Regra de auditoria que para
+quando a internet oscila não serve a uma cozinha.
+
 ### Quem corta, e de onde vem o corte
 
 **Quem corta é o AGENTE, na loja, antes de a imagem sair.** Não é detalhe de
