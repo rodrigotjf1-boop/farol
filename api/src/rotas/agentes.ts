@@ -168,9 +168,48 @@ export function rotasDeAgentes(app: FastifyInstance, pool: pg.Pool): void {
         where id = $1`,
       [quem.agenteId, corpo.versao ?? null],
     );
+    const l = await pool.query(`select config_versao from loja where id = $1`, [
+      quem.lojaId,
+    ]);
+
+    // Os comandos pendentes saem JÁ MARCADOS como entregues, na mesma
+    // instrução, com `skip locked`. Entregar e marcar em dois tempos faria
+    // dois heartbeats simultâneos — o agente reiniciando enquanto o antigo
+    // ainda responde — levarem o mesmo comando e capturarem duas vezes.
+    //
+    // Expirado nunca sai: um agente que ficou offline acorda horas depois,
+    // e a tela que pediu o quadro já foi fechada. Capturar ali seria
+    // produzir imagem de cena real que ninguém está esperando.
+    const comandos = await pool.query(
+      `update comando_agente
+          set estado = 'entregue', entregue_em = now()
+        where id in (
+          select id from comando_agente
+           where agente_id = $1 and estado = 'pendente' and expira_em > now()
+           order by criado_em
+           for update skip locked
+        )
+      returning id, tipo, ponto_id, parametros, expira_em`,
+      [quem.agenteId],
+    );
+
     // Devolve o relógio do servidor: é como o agente percebe que o PC da
     // loja está com a hora errada, que é a causa silenciosa de evento
     // chegando com horário impossível.
-    return { ok: true, agora: new Date().toISOString() };
+    return {
+      ok: true,
+      agora: new Date().toISOString(),
+      // Um inteiro, não a configuração. O agente compara com o que tem e
+      // só puxa `/v1/agentes/configuracao` quando difere — assim a
+      // configuração inteira não trafega a cada batida.
+      configVersao: l.rows[0]?.config_versao ?? null,
+      comandos: comandos.rows.map((c) => ({
+        id: c.id,
+        tipo: c.tipo,
+        pontoId: c.ponto_id,
+        parametros: c.parametros,
+        expiraEm: c.expira_em,
+      })),
+    };
   });
 }
