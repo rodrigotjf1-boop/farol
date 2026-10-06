@@ -85,6 +85,23 @@ CATALOGO: tuple[PerfilGravador, ...] = (
         evento_tipo="dahua_cgi",
         observacoes="Perfil genérico da linha Dahua e OEM (Intelbras, Amcrest).",
     ),
+    # Genérico Intelbras. A linha é OEM da Dahua e fala o mesmo dialeto —
+    # a ficha da MHDX acima registra isso. Sem este perfil,
+    # `achar("intelbras")` devolvia None para qualquer modelo fora da
+    # lista, e um Intelbras comum não abria canal nenhum: a instalação
+    # travaria por não ter o modelo cadastrado, que é exatamente o que o
+    # genérico existe para evitar.
+    PerfilGravador(
+        fabricante="intelbras",
+        modelo=None,
+        url_main_tpl=_DAHUA_MAIN,
+        url_sub_tpl=_DAHUA_SUB,
+        evento_tipo="dahua_cgi",
+        observacoes=(
+            "Genérico Intelbras, OEM da Dahua. Não verificado: ponto de partida, "
+            "e o console deve marcar como medido quando alguém sondar o aparelho."
+        ),
+    ),
     PerfilGravador(
         fabricante="hikvision",
         modelo=None,

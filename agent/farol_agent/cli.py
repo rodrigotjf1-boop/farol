@@ -863,6 +863,54 @@ def cmd_ensaio(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_servir(args: argparse.Namespace) -> int:
+    """Roda o agente contra a nuvem: configuração desce, comandos chegam.
+
+    É o modo de produção do agente. Fica batendo, puxa a configuração
+    quando ela muda e atende o que a nuvem pedir.
+    """
+    import os
+
+    from farol_agent.configuracao import Sincronizador
+    from farol_agent.nuvem import ClienteNuvem, ErroDaNuvem
+    from farol_agent.servico import laco
+
+    token = os.environ.get("FAROL_AGENTE_TOKEN", "")
+    if not token:
+        print("\nFAROL_AGENTE_TOKEN não está definida.", file=sys.stderr)
+        print("  O token é entregue uma vez, no provisionamento, e vive no",
+              file=sys.stderr)
+        print("  ambiente do agente — nunca na linha de comando, que aparece",
+              file=sys.stderr)
+        print("  no histórico do shell e na lista de processos.\n", file=sys.stderr)
+        return 1
+
+    try:
+        cliente = ClienteNuvem(args.nuvem, token)
+    except ErroDaNuvem as e:
+        print(f"\n{e}\n", file=sys.stderr)
+        return 1
+
+    sincronizador = Sincronizador(cliente, args.config, versao_app=args.versao)
+
+    if sincronizador.config:
+        c = sincronizador.config
+        print(f"\nconfiguração v{c.versao} em disco: {c.loja_nome} · "
+              f"{len(c.pontos)} ponto(s), {len(c.regras)} regra(s)")
+    else:
+        # Instalação nova, ou nuvem fora no primeiro boot. Não é falha: é
+        # estado, e o laço resolve sozinho na primeira batida que passar.
+        print("\nsem configuração local ainda — vou buscar na nuvem")
+
+    print(f"batendo em {args.nuvem} a cada {args.intervalo:g}s. Ctrl+C para parar.\n")
+
+    try:
+        laco(sincronizador, cliente, intervalo=args.intervalo, voltas=args.voltas)
+    except KeyboardInterrupt:
+        print("\n  parado\n")
+    return 0
+
+
 def _forcar_utf8() -> None:
     """O console do Windows usa cp1252 e engasga em acento, régua e emoji.
 
@@ -982,6 +1030,19 @@ def main(argv: list[str] | None = None) -> int:
                    help="JSON {arquivo: resultado} com o que era verdade — habilita "
                         "a acurácia")
     e.set_defaults(func=cmd_ensaio)
+
+    sv = sub.add_parser("servir",
+                        help="roda o agente contra a nuvem: config desce, comandos chegam")
+    sv.add_argument("--nuvem", required=True,
+                    help="endereço da API, ex. https://api.monitorfarol.com.br")
+    sv.add_argument("--config", default="./configuracao.json",
+                    help="onde guardar a configuração que desce (padrão ./configuracao.json)")
+    sv.add_argument("--intervalo", type=float, default=10.0,
+                    help="segundos entre batidas (padrão 10)")
+    sv.add_argument("--versao", help="versão do agente, para o console mostrar")
+    sv.add_argument("--voltas", type=int,
+                    help="para após N batidas (sem isto, roda até Ctrl+C)")
+    sv.set_defaults(func=cmd_servir)
 
     args = p.parse_args(argv)
     return int(args.func(args))
