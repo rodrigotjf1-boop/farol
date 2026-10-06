@@ -947,6 +947,64 @@ nenhum. Quem opera muda isso sem deploy.
 
 ---
 
+## A9 · Critério geral: um cadastro servindo vários canais (plano)
+
+**Pedido do dono (06/10/2026), e caiu fora desta consolidação na primeira
+passagem — registrado aqui para não se perder outra vez:** *"o critério geral é
+como se fosse um critério local, porém se forem muitos canais, ao invés de
+repetir, ele é cadastrado de forma a atender vários canais"*. E um segundo
+nível: um critério que atenda **setores selecionados**.
+
+Serve diretamente ao alvo de três canais: "a bancada está limpa" vale nos três,
+e cadastrar três vezes significa **editar três vezes** quando a redação mudar —
+e esquecer uma, o que é pior que não ter.
+
+### O modelo
+
+Hoje `regra.zona_id` é uma zona só. O caminho de menor dano:
+
+| mudança | por quê |
+|---|---|
+| `regra.zona_id` passa a aceitar nulo | regra existente continua idêntica; nada a migrar |
+| nova `regra_alvo (regra_id, escopo, alvo_id)`, com escopo em `zona`/`ponto`/`setor`/`loja` | o alvo é um CONJUNTO, e os quatro níveis cobrem "este canal", "esta câmera", "a cozinha toda", "a loja toda" |
+| a descida **expande** no servidor | o agente já indexa tudo por zona; expandindo na API ele não muda **uma linha** |
+
+Expandir no servidor é a decisão que importa: a alternativa — ensinar o agente a
+resolver escopo — colocaria a mesma lógica em dois lugares, em duas linguagens, e
+elas divergiriam na primeira correção feita só de um lado.
+
+### A decisão difícil: de que zona é o evento?
+
+`POST /v1/eventos` grava `zona_id` **a partir da regra**, e o comentário lá diz
+por quê: *"a regra já sabe a zona dela, e aceitar a do agente só criaria uma
+forma de divergirem"*. Para regra de uma zona, está certo.
+
+Para regra geral, a zona é informação que **o agente tem e a regra não** — e aí
+o comentário deixa de valer. A saída não é confiar: é **aceitar `zonaId` do
+agente apenas quando a regra for geral, e validar na mesma consulta** que aquela
+zona resolve para um dos alvos da regra. Mesma cadeia de junções que hoje impede
+gravar evento contra regra de outra loja.
+
+Sem essa validação, um agente comprometido gravaria evento em qualquer zona da
+loja usando uma regra geral como passe.
+
+### Perguntas para o dono
+
+1. **Zona dentro de um alvo amplo.** Escolhendo "a cozinha toda", a regra vale no
+   *quadro inteiro* de cada canal, ou em cada zona desenhada? Proposta: quadro
+   inteiro, porque é o que existe sem ninguém desenhar nada — e quem quer
+   precisão desenha e escolhe as zonas.
+2. **Canal novo entra sozinho?** Instalando a quarta câmera na cozinha, a regra
+   geral passa a valer nela automaticamente? Proposta: **sim**, e é o principal
+   valor do recurso — mas **nasce desligada naquele canal**, pela mesma razão
+   que regra nasce desligada: ninguém mediu a acurácia naquele enquadramento.
+3. **Exceção.** Vale poder dizer "esta regra geral, menos no canal 7"? Custa uma
+   coluna (`excluido boolean` em `regra_alvo`) e evita o que sempre acontece: um
+   canal onde a regra não faz sentido obriga a abandonar o cadastro geral.
+
+
+---
+
 ## A8 · Busca investigativa nas gravações (plano)
 
 **Definição do dono (06/10/2026):** não é monitoramento. É pergunta
