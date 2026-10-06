@@ -513,3 +513,63 @@ def test_erro_passageiro_nao_interrompe_o_laco(monkeypatch, tmp_path):
     ])
 
     assert chamadas["n"] == 4
+
+
+# ──────────── a chave não escolhe modelo; o código escolhe ────────────
+
+
+def test_cascata_desligada_nunca_consulta_o_modelo_forte(tmp_path, monkeypatch):
+    """`--so-haiku` trava o custo por análise.
+
+    A cascata melhora a acurácia do que veio inseguro, mas torna o custo
+    por análise variável — e o número que uma rede de lojas precisa para
+    orçar é o custo FIXO por análise. Quem opera decide qual quer.
+    """
+    from farol_agent.juizes.nuvem import JuizNuvem
+    from farol_agent.modelos import Resultado, Veredito, Via
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-" + "a" * 60)
+    pytest.importorskip("anthropic")
+
+    chamados: list[str] = []
+
+    def falso_chamar(self, modelo, b64, tipo, texto):
+        chamados.append(modelo)
+        # Confiança baixa: com cascata ligada, isto escalaria.
+        return Veredito(
+            resultado=Resultado.CONFORME, confianca=0.40, via=Via.NUVEM, modelo=modelo
+        )
+
+    monkeypatch.setattr(JuizNuvem, "_chamar", falso_chamar)
+    monkeypatch.setattr(
+        "farol_agent.juizes.nuvem._ler_imagem", lambda p: ("ZmFsc28=", "image/jpeg")
+    )
+
+    imagem = tmp_path / "x.jpg"
+    imagem.write_bytes(b"falso")
+
+    juiz = JuizNuvem(modelo_forte=None)
+    juiz.julgar(imagem, "critério")
+    assert len(chamados) == 1, "não podia ter reconsultado ninguém"
+
+    chamados.clear()
+    com_cascata = JuizNuvem()
+    com_cascata.julgar(imagem, "critério")
+    assert len(chamados) == 2, "com cascata, confiança 0,40 tem que escalar"
+    assert chamados[0] != chamados[1]
+
+
+def test_a_flag_so_haiku_existe_e_nasce_desligada():
+    # Nasce desligada porque a cascata é o comportamento que protege o
+    # veredito; desligá-la é escolha de quem opera, não padrão silencioso.
+    import argparse
+
+    from farol_agent import cli
+
+    p = argparse.ArgumentParser()
+    with pytest.raises(SystemExit):
+        cli.main(["analisar", "--ajuda-inexistente"])
+
+    fonte = __import__("inspect").getsource(cli.main)
+    assert "--so-haiku" in fonte
+    assert "so_haiku=False" in fonte

@@ -132,7 +132,9 @@ class JuizNuvem:
         *,
         chave: str | None = None,
         modelo: str = MODELO_BARATO,
-        modelo_forte: str = MODELO_FORTE,
+        # None desliga a cascata: todo veredito sai do modelo barato, com o
+        # custo previsível que uma rede de lojas precisa para orçar.
+        modelo_forte: str | None = MODELO_FORTE,
         escalar_abaixo_de: float = 0.75,
         dolar: float | None = None,
         timeout_seg: float = 30.0,

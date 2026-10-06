@@ -339,3 +339,46 @@ Ao fechar o diagnóstico, o usuário leva cinco coisas:
 | Câmeras de teste da montagem | compra | A4 — montagem |
 | Pedido chega ao KDS antes da montagem? | confirmar na operação | desenho do laço de montagem |
 | Distância do PC até a bancada | medir | decide se a USB entra |
+
+---
+
+## Pendências de fim de projeto
+
+> Entram **depois** do produto implementado e testado. Registradas aqui para
+> não serem reinventadas, e porque algumas condicionam decisões de desenho
+> que se tomam antes.
+
+### P1 · Cartão de integração de IA pelo próprio lojista (BYO)
+
+Na distribuição, o lojista conecta a **conta de IA dele** — Anthropic, OpenAI
+ou Gemini — por um cartão na tela de integrações, com **passo a passo** do
+provedor escolhido: onde criar a conta, onde gerar a chave, onde pôr o limite
+de gasto, e onde colar a chave no Farol.
+
+**Por que BYO e não a chave da distribuição:** o custo da análise escala com o
+número de câmeras e de regras, e é o único custo do produto que cresce por uso.
+Com a conta no nome do lojista, o teto de gasto é dele, a fatura é dele, e a
+distribuição não vira intermediária de um custo variável que não controla.
+Convive com o modo local (VLM no PC da loja), que custa zero por análise.
+
+**O que já está pronto para isto:** o protocolo `Juiz`
+(`agent/farol_agent/juizes/base.py`) recebe imagem + critério e devolve
+veredito; `JuizNuvem`, `JuizLocal`, `JuizComparacao` e `JuizSimulado` já
+convivem por trás dele. Um `JuizOpenAI` e um `JuizGemini` entram como irmãos,
+sem tocar no motor. **Nada escrito daqui até lá pode presumir Anthropic fora
+de `juizes/nuvem.py`** — nem preço, nem nome de modelo, nem formato de erro.
+
+**O que falta decidir quando chegar a vez:**
+
+- Onde a chave do lojista fica guardada. Ela é segredo **dele**, não da
+  distribuição — então vive no cofre do agente, na loja, e o console nunca a
+  recebe nem a mostra. Mesmo tratamento da senha do gravador.
+- Como o cartão prova que a chave funciona antes de salvar (uma análise de
+  teste contra um quadro guardado, com o custo mostrado na hora).
+- O que acontece quando a chave do lojista expira ou fica sem crédito: a fila
+  não pode encher calada. Alerta na tela e no painel da distribuição.
+- Tabela de preço por provedor para a estimativa de custo — hoje
+  `PRECO_USD_MTOK` só conhece os modelos da Anthropic, e é valor de referência,
+  não de cobrança.
+- Se a distribuição oferece uma conta própria como alternativa para quem não
+  quer abrir conta de IA, e com que margem.
