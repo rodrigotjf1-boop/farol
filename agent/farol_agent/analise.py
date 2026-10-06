@@ -78,6 +78,7 @@ def analisar(
     borrar_rosto: bool = True,
     largura_zona_cm: float | None = None,
     contexto: dict[str, Any] | None = None,
+    referencias: list[Path] | None = None,
     salvar_em: str | Path | None = None,
 ) -> Analise:
     """Roda a cadeia inteira e devolve o que deu."""
@@ -159,7 +160,9 @@ def analisar(
         r.enviado_bytes = temporario.stat().st_size
 
     try:
-        r.veredito = juiz.julgar(destino, criterio, contexto=contexto)
+        r.veredito = juiz.julgar(
+            destino, criterio, contexto=contexto, referencias=referencias
+        )
     except ErroDoJuiz as e:
         r.erro = str(e)
         r.recuperavel = e.recuperavel

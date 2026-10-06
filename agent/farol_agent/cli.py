@@ -38,6 +38,7 @@ from farol_agent.modelos import (
     TipoRegra,
     Zona,
 )
+from farol_agent.ensaio import MODELOS as ENSAIO_MODELOS
 from farol_agent.motor import MotorDeRegras
 from farol_agent import imagens
 from farol_agent.pipeline import dedupe, qualidade, recorte
@@ -729,6 +730,7 @@ def cmd_analisar(args: argparse.Namespace) -> int:
                     envio=args.envio,
                     rajada=args.rajada,
                     largura_zona_cm=args.largura_cm,
+                    referencias=[Path(r) for r in (args.referencia or [])] or None,
                     salvar_em=arquivo,
                 )
             except ErroDaFonte as e:
@@ -773,6 +775,92 @@ def cmd_analisar(args: argparse.Namespace) -> int:
     print()
 
     return 1 if feitas == 0 or falhas == feitas else 0
+
+
+def cmd_ensaio(args: argparse.Namespace) -> int:
+    """Rejulga imagens já capturadas, para comparar modelo e prompt.
+
+    Comparar contra a câmera ao vivo não responde nada: a cena muda entre
+    uma execução e outra, e não se sabe se a diferença veio do modelo ou
+    do que estava na mesa. Aqui o conjunto é fixo.
+    """
+    from farol_agent.ensaio import MODELOS, carregar_gabarito, imagens_de, rodar
+    from farol_agent.juizes.base import ErroDoJuiz
+    from farol_agent.juizes.nuvem import JuizNuvem
+
+    problema = _conferir_chave()
+    if problema:
+        print(f"\n{problema}.\n", file=sys.stderr)
+        _ensinar_a_chave()
+        return 1
+
+    try:
+        gabarito = carregar_gabarito(args.gabarito)
+    except (OSError, ValueError, json.JSONDecodeError) as e:
+        print(f"\ngabarito inválido: {e}\n", file=sys.stderr)
+        return 1
+
+    arquivos = imagens_de(args.pasta)
+    if not arquivos:
+        print(f"\nnenhuma imagem em {args.pasta}\n", file=sys.stderr)
+        return 1
+
+    referencias = [Path(r) for r in (args.referencia or [])]
+    for r in referencias:
+        if not r.is_file():
+            print(f"\nreferência não encontrada: {r}\n", file=sys.stderr)
+            return 1
+
+    modelo = MODELOS[args.modelo]
+    try:
+        # Sem cascata: o ensaio mede UM modelo. Deixar escalar misturaria
+        # dois modelos na mesma linha e a comparação perderia o sentido.
+        juiz = JuizNuvem(modelo=modelo, modelo_forte=None)
+    except ErroDoJuiz as e:
+        print(f"\n{e}\n", file=sys.stderr)
+        return 1
+
+    print(f"\nmodelo: {args.modelo} ({modelo})")
+    print(f"critério: {args.criterio}")
+    print(f"{len(arquivos)} imagens · {len(referencias)} referência(s)"
+          f"{' · com gabarito' if gabarito else ''}\n")
+
+    e = rodar(juiz, arquivos, args.criterio,
+              referencias=referencias or None, gabarito=gabarito)
+
+    for caso in e.casos:
+        if caso.veredito is None:
+            print(f"  {caso.arquivo.name:<28} ✗ {_erro_legivel(caso.erro)}")
+            continue
+        v = caso.veredito
+        conf = f"{v.confianca:.0%}" if v.confianca is not None else "—"
+        marca = {True: "✓", False: "✗", None: " "}[caso.acertou]
+        print(f"  {caso.arquivo.name:<28} {marca} {v.resultado.value:<14} {conf:>4}"
+              f"   {v.motivo or ''}"[:150])
+
+    print()
+    if e.acuracia is not None:
+        print(f"acurácia: {e.acertos}/{len(e.com_gabarito)} "
+              f"({e.acuracia:.0%})")
+        confiantes = e.erros_confiantes
+        if confiantes:
+            # O número que decide se dá para confiar no produto. Um erro a
+            # 95% passa pela cascata intocado, porque ela escala o que vem
+            # com confiança BAIXA.
+            print(f"⚠ {len(confiantes)} erro(s) com confiança ≥ 85% — "
+                  "a cascata NÃO pega esta classe:")
+            for c in confiantes:
+                print(f"    {c.arquivo.name}: disse {c.veredito.resultado.value}, "
+                      f"era {c.esperado.value}")
+    else:
+        print("sem gabarito: só os vereditos. Para medir acurácia, passe "
+              "--gabarito com o que era verdade em cada imagem.")
+
+    if e.centavos:
+        print(f"custo: R$ {e.centavos / 100:.4f} "
+              f"(R$ {e.centavos / 100 / len(e.casos):.4f} por imagem)")
+    print()
+    return 0
 
 
 def _forcar_utf8() -> None:
@@ -877,7 +965,23 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--so-haiku", dest="so_haiku", action="store_true",
                    help="desliga a cascata: nunca reconsulta o modelo forte, "
                         "custo por análise fica travado")
+    a.add_argument("--referencia", action="append",
+                   help="foto do objeto/padrão correto desta loja; pode repetir")
     a.set_defaults(func=cmd_analisar, so_haiku=False)
+
+    e = sub.add_parser("ensaio",
+                       help="rejulga imagens já capturadas: compara modelo e prompt")
+    e.add_argument("--pasta", required=True,
+                   help="pasta com as imagens (ou uma imagem só)")
+    e.add_argument("--criterio", required=True)
+    e.add_argument("--modelo", default="haiku", choices=sorted(ENSAIO_MODELOS),
+                   help="qual modelo julga (padrão haiku)")
+    e.add_argument("--referencia", action="append",
+                   help="foto do objeto/padrão correto desta loja; pode repetir")
+    e.add_argument("--gabarito",
+                   help="JSON {arquivo: resultado} com o que era verdade — habilita "
+                        "a acurácia")
+    e.set_defaults(func=cmd_ensaio)
 
     args = p.parse_args(argv)
     return int(args.func(args))

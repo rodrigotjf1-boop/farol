@@ -533,7 +533,7 @@ def test_cascata_desligada_nunca_consulta_o_modelo_forte(tmp_path, monkeypatch):
 
     chamados: list[str] = []
 
-    def falso_chamar(self, modelo, b64, tipo, texto):
+    def falso_chamar(self, modelo, b64, tipo, texto, refs=None):
         chamados.append(modelo)
         # Confiança baixa: com cascata ligada, isto escalaria.
         return Veredito(
@@ -573,3 +573,226 @@ def test_a_flag_so_haiku_existe_e_nasce_desligada():
     fonte = __import__("inspect").getsource(cli.main)
     assert "--so-haiku" in fonte
     assert "so_haiku=False" in fonte
+
+
+# ───────── referências e ensaio: medir em vez de achar (05/10/2026) ─────────
+
+
+def test_referencias_entram_antes_da_cena_e_rotuladas():
+    """A ordem e o rótulo não são enfeite.
+
+    Sem rótulo, o modelo não sabe qual imagem julgar e pode dar veredito
+    confiante sobre a foto de referência — erro silencioso, porque o
+    `motivo` descreveria uma cena que existe, só que a errada.
+    """
+    from farol_agent.juizes.nuvem import _conteudo
+
+    blocos = _conteudo("CENA", "image/jpeg", "critério",
+                       [("REF1", "image/jpeg"), ("REF2", "image/png")])
+
+    textos = [b["text"] for b in blocos if b["type"] == "text"]
+    imagens_b64 = [b["source"]["data"] for b in blocos if b["type"] == "image"]
+
+    # as referências vêm primeiro, a cena por último
+    assert imagens_b64 == ["REF1", "REF2", "CENA"]
+    assert "REFERÊNCIA" in textos[0]
+    assert "NÃO as julgue" in textos[0]
+    assert any("AGORA A CENA A AUDITAR" in x for x in textos)
+
+
+def test_bloco_de_referencia_e_cacheavel():
+    # As referências são fixas por regra e repetidas em toda análise dela:
+    # é o prefixo grande e estável que torna o cache vantajoso (0,1× a
+    # entrada). Sem elas o prefixo é pequeno demais e o cache não pega —
+    # foi o que a medição de 05/10 mostrou.
+    from farol_agent.juizes.nuvem import _conteudo
+
+    blocos = _conteudo("CENA", "image/jpeg", "c", [("R", "image/jpeg")])
+    marcados = [b for b in blocos if b.get("cache_control")]
+
+    assert len(marcados) == 1, "exatamente um marcador, no fim do bloco fixo"
+    # tudo depois do marcador varia por análise
+    corte = blocos.index(marcados[0])
+    assert all(b["type"] != "image" or b["source"]["data"] == "CENA"
+               for b in blocos[corte:])
+
+
+def test_sem_referencia_o_pedido_nao_muda():
+    # Quem não usa referência não pode pagar por bloco nenhum a mais.
+    from farol_agent.juizes.nuvem import _conteudo
+
+    blocos = _conteudo("CENA", "image/jpeg", "critério", None)
+    assert len(blocos) == 2
+    assert blocos[0]["type"] == "image"
+    assert blocos[1]["text"] == "critério"
+    assert not any(b.get("cache_control") for b in blocos)
+
+
+def test_custo_de_modelo_sem_preco_some_em_vez_de_virar_zero():
+    # Custo falso é pior que custo ausente: R$ 0,0000 num relatório de
+    # orçamento lê-se como "de graça".
+    from farol_agent.juizes.nuvem import JuizNuvem
+
+    class Uso:
+        input_tokens = 1000
+        cache_creation_input_tokens = 0
+        cache_read_input_tokens = 0
+        output_tokens = 100
+
+    custo = JuizNuvem._custo(object(), "modelo-que-nao-existe", Uso())
+    assert custo is None
+
+
+# ─────────────────────────── o banco de ensaio ───────────────────────────
+
+
+def _veredito(resultado, confianca):
+    from farol_agent.modelos import Veredito, Via
+
+    return Veredito(resultado=resultado, confianca=confianca, via=Via.NUVEM,
+                    modelo="x", custo_centavos=1.0)
+
+
+class JuizDeRoteiro:
+    """Devolve vereditos de uma lista, em ordem."""
+
+    nome = "roteiro"
+
+    def __init__(self, vereditos):
+        self.vereditos = list(vereditos)
+        self.referencias_vistas = None
+
+    def julgar(self, imagem, criterio, *, contexto=None, referencias=None):
+        self.referencias_vistas = referencias
+        return self.vereditos.pop(0)
+
+
+def test_ensaio_mede_acuracia_contra_o_gabarito(tmp_path):
+    from farol_agent.ensaio import rodar
+
+    arquivos = []
+    for i in range(3):
+        a = tmp_path / f"q{i}.jpg"
+        a.write_bytes(b"x")
+        arquivos.append(a)
+
+    juiz = JuizDeRoteiro([
+        _veredito(Resultado.CONFORME, 0.95),       # gabarito: nao_conforme → erra
+        _veredito(Resultado.NAO_CONFORME, 0.90),   # gabarito: nao_conforme → acerta
+        _veredito(Resultado.CONFORME, 0.95),       # gabarito: conforme     → acerta
+    ])
+    gabarito = {
+        "q0.jpg": Resultado.NAO_CONFORME,
+        "q1.jpg": Resultado.NAO_CONFORME,
+        "q2.jpg": Resultado.CONFORME,
+    }
+
+    e = rodar(juiz, arquivos, "critério", gabarito=gabarito)
+
+    assert e.acertos == 2
+    assert e.acuracia == pytest.approx(2 / 3)
+    assert e.centavos == 3.0
+
+
+def test_ensaio_separa_o_erro_CONFIANTE_do_erro_qualquer(tmp_path):
+    """O número que decide se dá para confiar no produto.
+
+    A cascata escala o que vem com confiança BAIXA — então um erro a 95%
+    passa por ela intocado. Contar esses à parte é o que impede de ler
+    "67% de acurácia" como se todos os erros fossem iguais.
+    """
+    from farol_agent.ensaio import rodar
+
+    arquivos = []
+    for i in range(2):
+        a = tmp_path / f"q{i}.jpg"
+        a.write_bytes(b"x")
+        arquivos.append(a)
+
+    juiz = JuizDeRoteiro([
+        _veredito(Resultado.CONFORME, 0.95),  # erra CONFIANTE
+        _veredito(Resultado.CONFORME, 0.40),  # erra, mas avisou que não sabia
+    ])
+    gabarito = {"q0.jpg": Resultado.NAO_CONFORME, "q1.jpg": Resultado.NAO_CONFORME}
+
+    e = rodar(juiz, arquivos, "c", gabarito=gabarito)
+
+    assert e.acertos == 0
+    assert len(e.erros_confiantes) == 1
+    assert e.erros_confiantes[0].arquivo.name == "q0.jpg"
+
+
+def test_ensaio_repassa_as_referencias_ao_juiz(tmp_path):
+    from farol_agent.ensaio import rodar
+
+    a = tmp_path / "q.jpg"
+    a.write_bytes(b"x")
+    ref = tmp_path / "espatula.jpg"
+    ref.write_bytes(b"x")
+
+    juiz = JuizDeRoteiro([_veredito(Resultado.CONFORME, 0.9)])
+    rodar(juiz, [a], "c", referencias=[ref])
+
+    assert juiz.referencias_vistas == [ref]
+
+
+def test_ensaio_para_na_falha_definitiva(tmp_path):
+    from farol_agent.ensaio import rodar
+
+    arquivos = []
+    for i in range(5):
+        x = tmp_path / f"q{i}.jpg"
+        x.write_bytes(b"x")
+        arquivos.append(x)
+
+    class JuizQueMorre:
+        nome = "morre"
+
+        def __init__(self):
+            self.chamadas = 0
+
+        def julgar(self, imagem, criterio, *, contexto=None, referencias=None):
+            self.chamadas += 1
+            raise ErroDoJuiz("401", recuperavel=False)
+
+    juiz = JuizQueMorre()
+    e = rodar(juiz, arquivos, "c")
+
+    assert juiz.chamadas == 1, "não adianta martelar chave recusada em 5 imagens"
+    assert len(e.casos) == 1
+
+
+def test_gabarito_com_resultado_invalido_e_recusado(tmp_path):
+    """Gabarito errado contamina toda conclusão tirada dele — e o estrago
+    só aparece depois de uma decisão de produto já tomada."""
+    from farol_agent.ensaio import carregar_gabarito
+
+    arquivo = tmp_path / "g.json"
+    arquivo.write_text('{"a.jpg": "mais ou menos"}', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="não é resultado válido"):
+        carregar_gabarito(arquivo)
+
+
+def test_gabarito_valido_vira_resultado(tmp_path):
+    from farol_agent.ensaio import carregar_gabarito
+
+    arquivo = tmp_path / "g.json"
+    arquivo.write_text('{"a.jpg": "conforme", "b.jpg": "nao_avaliavel"}',
+                       encoding="utf-8")
+
+    g = carregar_gabarito(arquivo)
+    assert g["a.jpg"] is Resultado.CONFORME
+    assert g["b.jpg"] is Resultado.NAO_AVALIAVEL
+
+
+def test_sem_gabarito_nao_inventa_acuracia(tmp_path):
+    from farol_agent.ensaio import carregar_gabarito, rodar
+
+    a = tmp_path / "q.jpg"
+    a.write_bytes(b"x")
+    e = rodar(JuizDeRoteiro([_veredito(Resultado.CONFORME, 0.9)]), [a], "c",
+              gabarito=carregar_gabarito(None))
+
+    assert e.acuracia is None
+    assert e.com_gabarito == []

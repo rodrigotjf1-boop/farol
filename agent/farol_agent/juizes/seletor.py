@@ -25,6 +25,8 @@ fosse configurável, um dia alguém configuraria errado.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import logging
 from typing import Any
 
@@ -107,7 +109,14 @@ class JuizPorRegra:
         self.seletor = seletor
         self.regras = regras
 
-    def julgar(self, imagem, criterio: str, *, contexto: dict[str, Any] | None = None) -> Veredito:
+    def julgar(
+        self,
+        imagem,
+        criterio: str,
+        *,
+        contexto: dict[str, Any] | None = None,
+        referencias: list[Path] | None = None,
+    ) -> Veredito:
         ctx = contexto or {}
         regra_id = ctx.get("regra_id")
         regra = self.regras.get(str(regra_id)) if regra_id else None

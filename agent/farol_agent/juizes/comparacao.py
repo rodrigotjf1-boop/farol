@@ -54,6 +54,7 @@ class JuizComparacao:
         criterio: str,
         *,
         contexto: dict[str, Any] | None = None,
+        referencias: list[Path] | None = None,
     ) -> Veredito:
         inicio = time.monotonic()
         base_id = (contexto or {}).get("base_id")

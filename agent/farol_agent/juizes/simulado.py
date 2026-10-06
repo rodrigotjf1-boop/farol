@@ -44,6 +44,7 @@ class JuizSimulado:
         criterio: str,
         *,
         contexto: dict[str, Any] | None = None,
+        referencias: list[Path] | None = None,
     ) -> Veredito:
         img = imagens.ler(str(imagem))
         if img is None:

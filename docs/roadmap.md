@@ -418,3 +418,58 @@ todas significa que um vazamento obriga a trocar em todas); se o agente busca
 no cofre ao subir ou recebe injetada; e como o agente sobrevive ao cofre fora
 do ar — a fila em disco já guarda o que não foi julgado, então a resposta
 provavelmente é "acumula e avisa", não "para".
+
+---
+
+## A3.5 · Fotos de referência no cadastro do critério
+
+Pedido do dono em 05/10/2026, e **a medição do mesmo dia é a justificativa**:
+o Haiku leu um mouse como controle remoto duas vezes, a 85% e 95%. O modelo
+decidiu pela aparência genérica porque não tinha a aparência DAQUELA loja.
+
+No cadastro do critério — "verificar se o colaborador usa a espátula
+regularmente" — o usuário anexa **uma ou mais fotos da espátula, de ângulos
+diferentes**. Elas servem a dois usos distintos, e confundi-los é erro:
+
+**Uso A · comparação por embedding (custo zero).** `JuizComparacao` já compara
+o quadro com os embeddings guardados e só chama modelo quando a cena não se
+parece com nada conhecido. É o caminho de `presenca`, `contagem` e
+`comparacao`, que por desenho **não vão à nuvem**.
+
+**Uso B · referência no pedido ao modelo (feito).** As fotos vão junto com o
+quadro, rotuladas, antes da cena a julgar. É o que ancora a identificação do
+objeto e é a resposta direta ao erro do mouse. Já implementado em
+`juizes/nuvem.py` (`_conteudo`) e exercitável por `--referencia` no `analisar`
+e no `ensaio`.
+
+### O que já existe (migration 001)
+
+| tabela | o que guarda |
+|---|---|
+| `base_conhecimento` | o item ou padrão: tipo `item` (ingrediente, **utensílio**) ou `padrao`, com `limiar` próprio |
+| `base_frame` | **N fotos por item**, cada uma com `embedding vector(768)` (SigLIP 2 ViT-B) e uma marcada `principal` |
+| `regra.base_id` | liga o critério ao item de referência |
+
+O modelo de dados do pedido **já está pronto**. Falta a tela, o upload, o
+cálculo do embedding e o `base_id` chegando ao juiz.
+
+### O que falta
+
+1. **Tela** no cadastro de regra: anexar fotos, marcar a principal, ver as que
+   já existem. Vários ângulos é o ponto — uma foto só ensina um ângulo.
+2. **Upload** para o storage, com as mesmas regras de LGPD das fotos de
+   ponto/vistoria (consentimento e expurgo). Foto de utensílio não tem pessoa,
+   mas a tela não pode depender disso: valida.
+3. **Embedding** no envio (SigLIP 2), gravado em `base_frame.embedding`.
+4. **Ligar `regra.base_id` ao juiz**: hoje `--referencia` é manual na linha de
+   comando; no agente as fotos vêm da regra.
+5. **Teto por regra.** Cada referência custa tokens em toda análise. Com
+   `cache_control` no bloco (já feito) a leitura cai a 0,1×, mas o teto
+   precisa existir — sugestão de partida: 3 a 5 fotos.
+
+### A medir quando estiver pronto
+
+Com `farol-agent ensaio` e as imagens já guardadas, a pergunta "referência
+melhora?" é empírica, não opinião: mesmo conjunto, mesmo critério, com e sem
+`--referencia`. E a pergunta "é o modelo barato?" também: `--modelo haiku`
+contra `--modelo sonnet` nas mesmas imagens.
