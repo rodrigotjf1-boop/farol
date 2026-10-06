@@ -38,3 +38,4 @@ fila.db-*
 # desenvolvimento, da casa de quem testa: pessoas, rosto, rotina. Nunca
 # versionar. A amostra que a suite usa fica em agent/testes/amostras/.
 /agent/analises/
+/agent/gabarito*.json
