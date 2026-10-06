@@ -611,10 +611,15 @@ describe('pedido sem corpo (ERR-012)', { skip: !URL && 'sem DATABASE_URL' }, () 
     assert.equal(r.statusCode, 401, r.body);
   });
 
-  it('POST com content-type json e corpo VAZIO é 400 — e é correto', async () => {
-    // Guarda do diagnóstico: este 400 vem do Fastify, não da aplicação, e
-    // o corpo dele NÃO tem `mensagem`. Era por isso que a tela mostrava
-    // texto genérico. O cliente é que não pode prometer JSON sem mandar.
+  it('POST com content-type json e corpo VAZIO é 400 — agora explicado', async () => {
+    // Este teste nasceu afirmando o formato VAZADO do Fastify
+    // (`FST_ERR_CTP_EMPTY_JSON_BODY`, sem `mensagem`), que era a causa de
+    // a tela mostrar texto genérico. Com `instalarTratamentoDeErros` o
+    // mesmo 400 passa a falar o contrato da casa — e o teste vira a
+    // guarda disso.
+    //
+    // O cliente continua não podendo prometer JSON sem mandar; o que
+    // mudou é que agora o servidor explica em pt-BR por quê.
     const r = await app.inject({
       method: 'POST',
       url: '/v1/pontos/00000000-0000-0000-0000-000000000000/preview',
@@ -622,8 +627,10 @@ describe('pedido sem corpo (ERR-012)', { skip: !URL && 'sem DATABASE_URL' }, () 
       payload: '',
     });
     assert.equal(r.statusCode, 400);
-    assert.equal((r.json() as { code: string }).code, 'FST_ERR_CTP_EMPTY_JSON_BODY');
-    assert.ok(!('mensagem' in (r.json() as object)), 'o 400 do Fastify não explica em pt-BR');
+
+    const corpo = r.json() as { erro: string; mensagem: string };
+    assert.equal(corpo.erro, 'corpo_invalido');
+    assert.match(corpo.mensagem, /content-type/);
   });
 
   it('DELETE sem corpo também atravessa', async () => {
