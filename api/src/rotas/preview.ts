@@ -339,6 +339,7 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       tipo?: string;
       largura?: number;
       altura?: number;
+      mac?: string;
       erro?: string;
     };
 
@@ -397,17 +398,27 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
     const cliente = await pool.connect();
     try {
       await cliente.query('begin');
+      // O MAC só é gravado quando vem: `coalesce` mantém o anterior em
+      // vez de apagá-lo quando o agente não conseguiu ler. Perder o MAC
+      // conhecido por causa de uma leitura falha seria trocar
+      // informação boa por nenhuma.
       await cliente.query(
         `update ponto
             set preview = $2, preview_tipo = $3,
                 preview_largura = $4, preview_altura = $5, preview_em = now(),
+                mac = coalesce($6, mac),
+                mac_visto_em = case when $6 is not null then now() else mac_visto_em end,
                 -- O quadro SABE a largura dele. Preenche resolucao_h
                 -- quando ninguém informou: medir vence perguntar, e o
                 -- diagnóstico deixa de pedir um número que o sistema
                 -- tinha como descobrir sozinho.
                 resolucao_h = coalesce(resolucao_h, $4)
           where id = $1`,
-        [c.rows[0].ponto_id, bytes, tipo, corpo.largura ?? null, corpo.altura ?? null],
+        [
+          c.rows[0].ponto_id, bytes, tipo,
+          corpo.largura ?? null, corpo.altura ?? null,
+          corpo.mac ? String(corpo.mac).toLowerCase().slice(0, 32) : null,
+        ],
       );
       await cliente.query(
         `update comando_agente set estado='concluido', concluido_em=now(), erro=null where id=$1`,

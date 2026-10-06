@@ -7,6 +7,7 @@
 
 import { criarApp } from './app.js';
 import { pool } from './db.js';
+import { conferirEsquema } from './preflight.js';
 
 const PORTA = Number(process.env.PORT ?? 3000);
 
@@ -23,6 +24,25 @@ async function encerrar(sinal: string) {
 
 for (const sinal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(sinal, () => void encerrar(sinal));
+}
+
+// Antes de abrir a porta: o esquema está em dia? Subir com o banco atrás
+// do código faz o serviço parecer saudável e quebrar em toda requisição
+// que tocar a coluna nova.
+const esquema = await conferirEsquema(pool);
+if (!esquema.ok) {
+  app.log.fatal({ pendentes: esquema.pendentes }, 'esquema desatualizado');
+  console.error(`
+  ERRO DE PARTIDA
+
+  ${esquema.mensagem}`);
+  await pool.end().catch(() => {});
+  process.exit(1);
+}
+if (esquema.motivo) {
+  app.log.warn({ motivo: esquema.motivo }, 'conferência de esquema pulada');
+} else {
+  app.log.info({ aplicadas: esquema.aplicadas }, 'esquema em dia');
 }
 
 try {
