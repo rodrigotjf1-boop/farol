@@ -84,7 +84,7 @@ class JuizFixo:
         self.erro = erro
         self.chamadas = 0
 
-    def julgar(self, imagem, criterio, *, contexto=None) -> Veredito:
+    def julgar(self, imagem, criterio, *, contexto=None, referencias=None) -> Veredito:
         self.chamadas += 1
         if self.erro:
             raise self.erro

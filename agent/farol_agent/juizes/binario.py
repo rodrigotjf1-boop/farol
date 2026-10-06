@@ -90,6 +90,7 @@ class JuizBinario:
         criterio: str,
         *,
         contexto: dict[str, Any] | None = None,
+        referencias: list[Path] | None = None,
     ) -> Veredito:
         """O critério da regra vira a pergunta."""
         ctx = contexto or {}

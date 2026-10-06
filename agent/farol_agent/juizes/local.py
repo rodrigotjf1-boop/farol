@@ -65,6 +65,7 @@ class JuizLocal:
         criterio: str,
         *,
         contexto: dict[str, Any] | None = None,
+        referencias: list[Path] | None = None,
     ) -> Veredito:
         inicio = time.monotonic()
         try:

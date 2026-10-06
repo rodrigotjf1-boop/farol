@@ -27,6 +27,7 @@ class Juiz(Protocol):
         criterio: str,
         *,
         contexto: dict[str, Any] | None = None,
+        referencias: list[Path] | None = None,
     ) -> Veredito:
         ...
 

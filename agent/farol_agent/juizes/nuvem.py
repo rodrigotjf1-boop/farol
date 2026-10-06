@@ -170,12 +170,14 @@ class JuizNuvem:
         criterio: str,
         *,
         contexto: dict[str, Any] | None = None,
+        referencias: list[Path] | None = None,
     ) -> Veredito:
         b64, tipo = _ler_imagem(imagem)
         texto = _montar_pedido(criterio, contexto)
+        refs = [_ler_imagem(r) for r in (referencias or [])]
 
         inicio = time.monotonic()
-        veredito = self._chamar(self.modelo, b64, tipo, texto)
+        veredito = self._chamar(self.modelo, b64, tipo, texto, refs)
 
         # Cascata: só escala o que veio inseguro, e nunca escala um
         # `nao_avaliavel` — se o barato não conseguiu ver, o caro também
@@ -185,7 +187,7 @@ class JuizNuvem:
             and veredito.resultado is not Resultado.NAO_AVALIAVEL
             and (veredito.confianca or 0.0) < self.escalar_abaixo_de
         ):
-            forte = self._chamar(self.modelo_forte, b64, tipo, texto)
+            forte = self._chamar(self.modelo_forte, b64, tipo, texto, refs)
             forte.custo_centavos = (veredito.custo_centavos or 0.0) + (
                 forte.custo_centavos or 0.0
             )
@@ -196,7 +198,14 @@ class JuizNuvem:
 
     # ───────────────────────────── interno ─────────────────────────────
 
-    def _chamar(self, modelo: str, b64: str, tipo: str, texto: str) -> Veredito:
+    def _chamar(
+        self,
+        modelo: str,
+        b64: str,
+        tipo: str,
+        texto: str,
+        refs: list[tuple[str, str]] | None = None,
+    ) -> Veredito:
         try:
             r = self._cliente.messages.create(
                 model=modelo,
@@ -211,20 +220,7 @@ class JuizNuvem:
                 tools=[FERRAMENTA],
                 tool_choice={"type": "tool", "name": "responder"},
                 messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": tipo,
-                                    "data": b64,
-                                },
-                            },
-                            {"type": "text", "text": texto},
-                        ],
-                    }
+                    {"role": "user", "content": _conteudo(b64, tipo, texto, refs)}
                 ],
             )
         except Exception as e:
@@ -265,7 +261,13 @@ class JuizNuvem:
     def _custo(self, modelo: str, uso: Any) -> float | None:
         if uso is None:
             return None
-        entrada_usd, saida_usd = PRECO_USD_MTOK.get(modelo, (0.0, 0.0))
+        preco = PRECO_USD_MTOK.get(modelo)
+        if preco is None:
+            # Modelo sem preço na tabela: devolver 0 seria dizer "de graça",
+            # e custo falso é pior que custo ausente — some do relatório em
+            # vez de mentir nele.
+            return None
+        entrada_usd, saida_usd = preco
 
         normais = getattr(uso, "input_tokens", 0) or 0
         escrita = getattr(uso, "cache_creation_input_tokens", 0) or 0
@@ -299,6 +301,67 @@ def _ler_imagem(caminho: Path) -> tuple[str, str]:
     if tipo is None:
         raise ErroDoJuiz(f"formato não suportado: {p.suffix}", recuperavel=False)
     return base64.standard_b64encode(dados).decode("ascii"), tipo
+
+
+def _imagem_bloco(b64: str, tipo: str) -> dict[str, Any]:
+    return {
+        "type": "image",
+        "source": {"type": "base64", "media_type": tipo, "data": b64},
+    }
+
+
+def _conteudo(
+    b64: str, tipo: str, texto: str, refs: list[tuple[str, str]] | None
+) -> list[dict[str, Any]]:
+    """Monta o conteúdo do pedido: referências, depois o quadro ao vivo.
+
+    As fotos de referência são o que a loja ensinou ao sistema sobre o
+    objeto — a espátula DAQUELA cozinha, de vários ângulos. Sem isso o
+    modelo decide pela aparência genérica, e aparência genérica confunde
+    objeto parecido: em 05/10/2026 ele leu um mouse como controle remoto
+    duas vezes, a 85% e 95% de confiança.
+
+    **A ordem importa.** As referências vêm primeiro e o quadro ao vivo
+    por último, com rótulos explícitos, para que o modelo não confunda
+    uma referência com a cena a julgar — o erro seria silencioso e daria
+    veredito confiante sobre a foto errada.
+
+    **O bloco de referência leva `cache_control`.** Ele é fixo por regra e
+    repetido em toda análise daquela regra, então é exatamente o tipo de
+    prefixo grande e estável que torna o cache de prompt vantajoso:
+    leitura de cache custa 0,1× a entrada. É também o que faltava para o
+    cache valer a pena — sem referências o prefixo fixo é pequeno demais
+    para o piso mínimo, e por isso não houve acerto de cache na medição.
+    """
+    conteudo: list[dict[str, Any]] = []
+
+    if refs:
+        conteudo.append(
+            {
+                "type": "text",
+                "text": (
+                    f"REFERÊNCIA — as {len(refs)} imagens a seguir mostram o "
+                    "objeto/padrão correto desta loja, de ângulos diferentes. "
+                    "Use-as para reconhecer o objeto. NÃO as julgue: elas não "
+                    "são a cena auditada."
+                ),
+            }
+        )
+        conteudo += [_imagem_bloco(rb, rt) for rb, rt in refs]
+        # O marcador do fim do bloco fixo. Tudo acima é igual em toda
+        # análise desta regra e pode ser lido do cache.
+        conteudo.append(
+            {
+                "type": "text",
+                "text": "FIM DAS REFERÊNCIAS.",
+                "cache_control": {"type": "ephemeral"},
+            }
+        )
+        conteudo.append({"type": "text", "text": "AGORA A CENA A AUDITAR:"})
+
+    conteudo.append(_imagem_bloco(b64, tipo))
+    conteudo.append({"type": "text", "text": texto})
+    return conteudo
 
 
 def _montar_pedido(criterio: str, contexto: dict[str, Any] | None) -> str:
