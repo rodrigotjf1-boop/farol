@@ -734,3 +734,113 @@ varrer a rede procurando aquele MAC e avisar *"o gravador mudou de
 **corrigir sozinho ou só avisar** fica para quando chegar a vez;
 corrigir sozinho é conveniente e é também como um equipamento trocado
 passa despercebido.
+
+---
+
+## A7 · Alertas: política no Farol, transporte fora (plano)
+
+**O Farol decide QUEM recebe O QUÊ; quem entrega é outro.**
+
+Reimplementar WhatsApp aqui significaria manter dois cadastros de número,
+duas filas de retentativa e descobrir sozinho os mesmos erros de template
+da Meta que o Regem já catalogou. Pior: amarraria um produto **revendável**
+a um provedor de mensageria.
+
+Então o Farol **publica** o alerta — webhook, e MCP quando existir — e o
+Regem ou o n8n entrega. Exceção: **o KDS**, que é integração direta
+Farol↔Regem e é onde o alerta vale mais, porque a cozinha já está olhando
+para aquela tela.
+
+### O que falta no banco
+
+| tabela | para quê |
+|---|---|
+| `destino` | quem recebe: tipo (`whatsapp`, `email`, `kds`, `webhook`), endereço, a quem pertence (loja ou tenant), ativo |
+| `politica_alerta` | por severidade × prioridade: enviar ou não, e para quais destinos |
+| `envio` | o que foi despachado, para quem, quando, e o resultado — sem isto não há como responder "o alerta chegou?" |
+
+A política que o dono descreveu vira linha de tabela, não `if` no código:
+urgente sempre; intermediário conforme o papel; leve com destino próprio ou
+nenhum. Quem opera muda isso sem deploy.
+
+### Decisões travadas desde já
+
+- **Nenhum número de telefone entra na regra.** A regra diz a severidade;
+  o destino é configuração separada. Misturar os dois faz cada regra nova
+  repetir o cadastro de quem avisar, e um número que muda vira caça ao
+  tesouro por trinta regras.
+- **`envio` registra o RESULTADO, não só a tentativa.** "Mandei" e
+  "chegou" são fatos diferentes, e a diferença entre eles é o que explica
+  um alerta que ninguém viu.
+
+---
+
+## A8 · Busca investigativa nas gravações (plano)
+
+**Definição do dono (06/10/2026):** não é monitoramento. É pergunta
+pontual, feita por uma pessoa, sobre algo que já passou e que **nenhum
+critério cobria** — "alguém pegou a sacola às 15h?".
+
+E, decisivo para o desenho: **não tem pressa.** A tela avisa que vai
+demorar X minutos e manda o resultado pelo mesmo caminho dos alertas.
+Isso muda tudo — o que seria inviável em tempo real fica confortável.
+
+### Por que força bruta está morta
+
+8 horas de um canal a 30 fps são 864 mil quadros. A R$ 0,0107 cada:
+**R$ 9.245 por busca.** Qualquer desenho que analise tudo morre aqui.
+
+### O funil, do mais barato ao mais caro
+
+1. **Já analisado?** Se o período cruza eventos julgados, a resposta sai
+   do `evento.embedding` — busca semântica sobre o que já existe. Custo
+   zero. É o que aquela coluna no esquema de 001 antecipava.
+2. **Índice de movimento do gravador.** Só os trechos com movimento são
+   candidatos. ⚠️ **Precisa de bancada:** o MHDX já nos surpreendeu três
+   vezes, e não se afirma o que a CGI dele faz sem testar.
+3. **Diferença de quadro na área marcada**, pelo sub-stream, em amostragem
+   grossa. Sem modelo, só aritmética de pixels. É aqui que marcar o lugar
+   na busca paga: a comparação ignora o resto da cena.
+4. **Detector local** nos candidatos (A2.3).
+5. **VLM** só nos finalistas — e **local**, não na nuvem.
+
+### Bissecção, não varredura
+
+Quando a pergunta é de **transição** — "quando o copo apareceu?" — não se
+varre: se bissecciona. Se às 14h não havia e às 18h havia, olha-se 16h.
+Oito horas viram ~13 análises em vez de milhares. E transição é a forma da
+maioria das perguntas reais: quando sujou, quando saiu, quando a fila
+começou.
+
+### Análise local: já existe
+
+`JuizLocal` está implementado — fala `chat/completions` (vLLM, Ollama,
+llama.cpp), só biblioteca padrão, raciocínio desligado de propósito. Falta
+**o servidor de modelo na máquina com GPU**, não o código.
+
+É o que torna a busca viável: milhares de quadros a custo de energia, não
+de token. Uma busca que custaria R$ 9 mil na nuvem custa o tempo da
+máquina.
+
+### Rodar nas sombras
+
+A busca é um **trabalho longo, de baixa prioridade, retomável**:
+
+- **Cede a vez à análise ao vivo, sempre.** Uma busca não pode atrasar um
+  alerta de agora. A regra que vale: trabalho de investigação só avança
+  quando não há nada da operação na fila.
+- **Retomável de verdade.** O PC de loja reinicia, cai luz, Windows
+  atualiza. A busca guarda até onde chegou e continua — senão sete
+  minutos perdidos viram "nunca mais uso isso".
+- **Janela própria.** Fora do horário de operação ela pode usar a máquina
+  inteira.
+- **Teto declarado.** A tela diz "isto vai analisar até N quadros" antes
+  de começar, e a busca para ao atingir o teto dizendo o que examinou. Sem
+  teto, uma pergunta mal feita come a madrugada.
+
+### O que o período de gravação impõe
+
+A tela pergunta ao gravador **o que ele realmente tem** antes de deixar
+escolher as datas. Buscar no que já foi sobrescrito devolve "não achei"
+quando a resposta certa é "isso não existe mais" — e as duas levam a
+decisões opostas.
