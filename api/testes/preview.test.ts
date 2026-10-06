@@ -580,3 +580,54 @@ describe('a área desenhada no preview', { skip: !URL && 'sem DATABASE_URL' }, (
     assert.equal(r.statusCode, 401);
   });
 });
+
+describe('pedido sem corpo (ERR-012)', { skip: !URL && 'sem DATABASE_URL' }, () => {
+  let pool: pg.Pool;
+  let app: FastifyInstance;
+
+  before(async () => {
+    pool = new pg.Pool({ connectionString: URL });
+    app = criarApp(pool, { logger: false });
+    await app.ready();
+  });
+
+  after(async () => {
+    await app?.close();
+    await pool?.end();
+  });
+
+  it('POST sem corpo e sem content-type chega na rota', async () => {
+    // O cliente do console manda POST vazio em "pedir preview", "sair" e
+    // "desativar ponto". Se a rota só funcionasse com corpo, as três
+    // quebrariam — e quebraram, em 06/10/2026, porque o cliente mandava
+    // `content-type: application/json` sem nada dentro.
+    //
+    // 401 aqui é o certo: significa que o pedido ATRAVESSOU o parser e
+    // chegou na checagem de sessão. 400 significaria que morreu antes.
+    const r = await app.inject({
+      method: 'POST',
+      url: '/v1/pontos/00000000-0000-0000-0000-000000000000/preview',
+    });
+    assert.equal(r.statusCode, 401, r.body);
+  });
+
+  it('POST com content-type json e corpo VAZIO é 400 — e é correto', async () => {
+    // Guarda do diagnóstico: este 400 vem do Fastify, não da aplicação, e
+    // o corpo dele NÃO tem `mensagem`. Era por isso que a tela mostrava
+    // texto genérico. O cliente é que não pode prometer JSON sem mandar.
+    const r = await app.inject({
+      method: 'POST',
+      url: '/v1/pontos/00000000-0000-0000-0000-000000000000/preview',
+      headers: { 'content-type': 'application/json' },
+      payload: '',
+    });
+    assert.equal(r.statusCode, 400);
+    assert.equal((r.json() as { code: string }).code, 'FST_ERR_CTP_EMPTY_JSON_BODY');
+    assert.ok(!('mensagem' in (r.json() as object)), 'o 400 do Fastify não explica em pt-BR');
+  });
+
+  it('DELETE sem corpo também atravessa', async () => {
+    const r = await app.inject({ method: 'DELETE', url: '/v1/sessao' });
+    assert.notEqual(r.statusCode, 400, r.body);
+  });
+});

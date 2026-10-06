@@ -19,10 +19,23 @@ export class ErroDaApi extends Error {
 async function pedir<T>(caminho: string, opcoes: RequestInit = {}): Promise<T> {
   let r: Response;
   try {
+    // `content-type: application/json` SÓ quando há corpo. O cabeçalho é
+    // uma promessa sobre o que vem; mandá-lo num pedido vazio faz o
+    // Fastify recusar com 400 FST_ERR_CTP_EMPTY_JSON_BODY — "Body cannot
+    // be empty when content-type is set to 'application/json'".
+    //
+    // E o 400 dele não tem o campo `mensagem`, então chegava à tela como
+    // texto genérico. Em 06/10/2026 isso derrubou três chamadas de uma
+    // vez — pedir preview, sair e desativar ponto —, e nenhuma dizia por
+    // quê.
+    const temCorpo = opcoes.body !== undefined && opcoes.body !== null;
     r = await fetch(`/api${caminho}`, {
       ...opcoes,
       credentials: 'same-origin',
-      headers: { 'content-type': 'application/json', ...(opcoes.headers ?? {}) },
+      headers: {
+        ...(temCorpo ? { 'content-type': 'application/json' } : {}),
+        ...(opcoes.headers ?? {}),
+      },
     });
   } catch {
     // Rede caída, servidor fora, DNS. A mensagem tem que distinguir isso
