@@ -473,3 +473,74 @@ Com `farol-agent ensaio` e as imagens já guardadas, a pergunta "referência
 melhora?" é empírica, não opinião: mesmo conjunto, mesmo critério, com e sem
 `--referencia`. E a pergunta "é o modelo barato?" também: `--modelo haiku`
 contra `--modelo sonnet` nas mesmas imagens.
+
+---
+
+## A5 · Preview do canal e marcação da área (plano — aguarda aprovação)
+
+Pedido do dono: no app web, ver o canal e **marcar a área principal de
+análise** com o mouse, em vez de digitar `--area 0.15,0.47,0.85,0.80`. É a
+peça que transforma o motor de dimensionamento em algo que o lojista usa.
+
+### O obstáculo, que não é de tela
+
+O agente só fala **de dentro para fora**: `ativar`, `heartbeat`, `eventos`.
+Ele vive atrás do NAT da loja e **o console não tem rota até ele**. Nenhuma
+tela resolve isso; é preciso um caminho de volta.
+
+**Caminho escolhido: comando pendente carregado pelo heartbeat.** O heartbeat
+já existe e já é autenticado pelo token do agente — então o canal de volta é
+a RESPOSTA dele, não uma conexão nova. Sem porta aberta na loja, sem túnel,
+sem exceção de firewall: continua tudo saindo de dentro.
+
+    console                 nuvem                      agente (loja)
+    "ver canal 1"  ──▶  grava comando pendente
+                                  ◀──────────  heartbeat (já acontece)
+                                  ──────────▶  "capture o ponto X"
+                                  ◀──────────  POST do quadro
+    mostra o quadro ◀───────┘
+
+**Alternativas descartadas:** WebSocket persistente agente→nuvem (mantém
+conexão de pé 24h por loja para um caso que acontece na instalação, e some
+quando a internet oscila); abrir porta na loja (inaceitável — o produto
+promete não exigir mudança de rede).
+
+### Migration (próxima na sequência: **007**)
+
+    comando_agente
+      id, agente_id, tipo ('capturar_quadro'), ponto_id,
+      parametros jsonb, estado ('pendente'|'entregue'|'concluido'|'expirado'),
+      resultado_url, criado_em, entregue_em, concluido_em, expira_em
+
+Comando **expira** (sugestão: 2 min). Sem isso, um agente que estava offline
+acorda horas depois e captura um quadro que ninguém mais espera.
+
+### Latência — a decisão que muda o trabalho
+
+O heartbeat de hoje decide quanto o preview demora. Três opções:
+
+| | como | espera | custo |
+|---|---|---|---|
+| **A** | heartbeat como está | até 1 intervalo | zero |
+| **B** | heartbeat encurta para 2 s enquanto a tela está aberta | ~2 s | tráfego só durante o uso |
+| **C** | long-poll: o heartbeat segura até 25 s quando não há comando | quase imediato | 1 conexão presa por loja |
+
+**Recomendo B.** O preview é usado na instalação e no ajuste de regra, não o
+dia inteiro; pagar conexão presa (C) por um caso raro é desenho caro. E (A)
+com intervalo longo faz o usuário achar que travou.
+
+### Privacidade — não é detalhe aqui
+
+O quadro de preview é cena real da loja, com pessoas. Então: **borrão de
+rosto antes de sair da loja** (`recorte.borrar_rostos`, já existe), expurgo
+por data como nas fotos de ponto/vistoria, e o quadro de preview **não** vira
+evento nem fica no histórico — é descartável por natureza.
+
+### Ordem
+
+1. Migration 007 + rota de comando + heartbeat devolvendo pendências
+2. Agente: atender `capturar_quadro`, borrar rosto, subir, confirmar
+3. Tela: preview + desenho do retângulo → grava `zona.poligono`
+4. Em cima da tela pronta: o diagnóstico por zona (já calculado em
+   `GET /v1/pontos/:id/diagnostico`) aparece ao lado do desenho — *"esta área
+   sustenta estado em r384; montagem não, aproxime 1,4×"*
