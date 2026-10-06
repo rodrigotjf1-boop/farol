@@ -259,12 +259,23 @@ describe('preview do canal (Postgres real)', { skip: !URL && 'sem DATABASE_URL' 
     await pool.query(`update agente set estado = 'ativo' where loja_id = $1`, [lojaId]);
   });
 
-  it('agente não grava imagem em comando que não é dele', async () => {
+  it('agente de OUTRA loja não grava imagem neste comando', async () => {
+    // A ameaça real: um token copiado de uma loja mandando imagem para o
+    // ponto de outra. O agente intruso nasce em loja própria de propósito
+    // — dois agentes na mesma loja são legítimos, e criá-lo aqui mudaria
+    // qual deles recebe os comandos seguintes.
+    const t2 = await pool.query('insert into tenant (nome) values ($1) returning id', [
+      `${marca}-intruso`,
+    ]);
+    const l2 = await pool.query(
+      'insert into loja (tenant_id, nome) values ($1,$2) returning id',
+      [t2.rows[0].id, 'loja do intruso'],
+    );
     const outro = await app.inject({
       method: 'POST',
       url: '/v1/distribuicao/agentes',
       headers: { 'x-farol-admin': ADMIN },
-      payload: { lojaId, nome: 'agente-intruso' },
+      payload: { lojaId: l2.rows[0].id, nome: 'agente-intruso' },
     });
     const tokenOutro = (outro.json() as { token: string }).token;
     await app.inject({
@@ -274,18 +285,27 @@ describe('preview do canal (Postgres real)', { skip: !URL && 'sem DATABASE_URL' 
       payload: { fingerprint: 'maquina-intrusa' },
     });
 
-    const pedido = await pedirPreview();
-    const { comandoId } = pedido.json() as { comandoId: string };
+    // O comando é criado direto para o agente DESTA loja: assim o teste
+    // não depende de qual agente a rota escolheria.
+    const meu = await pool.query(
+      `select id from agente where loja_id = $1 and nome = 'agente-prev'`,
+      [lojaId],
+    );
+    const c = await pool.query(
+      `insert into comando_agente (agente_id, tipo, ponto_id)
+       values ($1,'capturar_quadro',$2) returning id`,
+      [meu.rows[0].id, pontoId],
+    );
 
     const r = await app.inject({
       method: 'POST',
-      url: `/v1/agentes/comandos/${comandoId}/resultado`,
+      url: `/v1/agentes/comandos/${c.rows[0].id}/resultado`,
       headers: { authorization: `Bearer ${tokenOutro}` },
       payload: { imagemBase64: JPEG.toString('base64') },
     });
     assert.equal(r.statusCode, 404, 'token de outro agente não pode gravar aqui');
 
-    await pool.query(`delete from comando_agente where ponto_id = $1 and estado='pendente'`, [pontoId]);
+    await pool.query('delete from comando_agente where id = $1', [c.rows[0].id]);
   });
 
   it('tipo de arquivo fora da lista é recusado', async () => {
