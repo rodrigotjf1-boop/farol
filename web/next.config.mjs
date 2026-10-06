@@ -13,7 +13,16 @@
  *   3. **A API não precisa de domínio público.** Ela fica só na rede
  *      interna, e o que não está exposto não é atacado.
  */
-const API = process.env.FAROL_API_URL ?? 'http://farol-api';
+// A porta faz parte do padrão de propósito. A API escuta em 3000
+// (`servidor.ts`, `EXPOSE 3000` no Dockerfile), e `http://farol-api`
+// sozinho aponta para a 80 — porta onde ela NUNCA esteve.
+//
+// Um padrão que não pode funcionar é pior que padrão nenhum: em vez de
+// falhar na partida, o serviço sobe e cada requisição morre com
+// `ECONNREFUSED 10.0.6.4:80`, que chega ao usuário como "o servidor
+// respondeu algo inesperado". Aconteceu em 06/10/2026, e o console ficou
+// fora do ar sem ninguém ter mexido no console.
+const API = process.env.FAROL_API_URL ?? 'http://farol-api:3000';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
