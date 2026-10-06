@@ -6,6 +6,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
+import { instalarTratamentoDeErros } from './erros.js';
 import { rotasDeAgentes } from './rotas/agentes.js';
 import { rotasDoConsole } from './rotas/console.js';
 import { rotasDeConfiguracao } from './rotas/configuracao.js';
@@ -25,6 +26,10 @@ export function criarApp(pool: pg.Pool, opcoes: { logger?: boolean } = {}): Fast
     // do padrão de 1 MB do Fastify.
     bodyLimit: 32 * 1024 * 1024,
   });
+
+  // Antes das rotas: o que o Fastify produz sozinho tambem passa a
+  // falar o contrato da casa.
+  instalarTratamentoDeErros(app);
 
   app.get('/', async () => ({ servico: 'farol-api', versao: VERSAO }));
 
