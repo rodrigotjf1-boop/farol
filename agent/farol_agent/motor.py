@@ -59,6 +59,13 @@ class Alerta:
     ponto_id: str
     zona_id: str | None
     ts: datetime
+    # A chave de idempotência vem da FILA, não se inventa aqui: é ela que
+    # impede o mesmo evento de entrar duas vezes quando a subida falha e
+    # é retentada. Gerar outra na subida anularia a proteção.
+    chave: str
+    # Qual redação do critério produziu este veredito. A regra é mutável;
+    # sem isto, um evento de ontem aponta para a redação de hoje.
+    criterio_versao: int
     severidade: Severidade
     motivo: str | None
     confianca: float | None
@@ -327,6 +334,8 @@ class MotorDeRegras:
             ponto_id=item.ponto_id,
             zona_id=item.zona_id,
             ts=item.capturado_em,
+            chave=item.chave,
+            criterio_versao=item.criterio_versao,
             severidade=regra.severidade,
             motivo=veredito.motivo,
             confianca=veredito.confianca,

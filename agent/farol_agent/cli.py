@@ -949,10 +949,35 @@ def cmd_servir(args: argparse.Namespace) -> int:
 
     print(f"batendo em {args.nuvem} a cada {args.intervalo:g}s. Ctrl+C para parar.\n")
 
+    auditoria = None
+    if not args.sem_auditoria:
+        from farol_agent.auditoria import Auditoria
+
+        auditoria = Auditoria(
+            cliente, args.fila, intervalo_captura=args.intervalo_captura
+        )
+        if sincronizador.config:
+            auditoria.montar(sincronizador.config)
+        # Thread própria: um julgamento na nuvem leva segundos, e uma
+        # passada inteira pode levar minutos. No mesmo laço do heartbeat,
+        # o console veria o agente como CAÍDO enquanto ele trabalhava —
+        # o pior diagnóstico possível.
+        auditoria.iniciar()
+        print(f"auditoria ligada: captura a cada {args.intervalo_captura:g}s")
+
     try:
-        laco(sincronizador, cliente, intervalo=args.intervalo, voltas=args.voltas)
+        laco(
+            sincronizador,
+            cliente,
+            intervalo=args.intervalo,
+            voltas=args.voltas,
+            auditoria=auditoria,
+        )
     except KeyboardInterrupt:
         print("\n  parado\n")
+    finally:
+        if auditoria is not None:
+            auditoria.parar()
     return 0
 
 
@@ -1089,7 +1114,14 @@ def main(argv: list[str] | None = None) -> int:
                     help="para após N batidas (sem isto, roda até Ctrl+C)")
     sv.add_argument("--verboso", action="store_true",
                     help="mostra também o detalhe de cada requisição")
-    sv.set_defaults(func=cmd_servir)
+    sv.add_argument("--fila", default="./fila.db",
+                    help="banco SQLite da fila de análise (padrão ./fila.db)")
+    sv.add_argument("--intervalo-captura", type=float, default=30.0,
+                    dest="intervalo_captura",
+                    help="segundos entre capturas de cada canal (padrão 30)")
+    sv.add_argument("--sem-auditoria", dest="sem_auditoria", action="store_true",
+                    help="só sincroniza e atende comandos, sem analisar nada")
+    sv.set_defaults(func=cmd_servir, sem_auditoria=False)
 
     args = p.parse_args(argv)
     return int(args.func(args))

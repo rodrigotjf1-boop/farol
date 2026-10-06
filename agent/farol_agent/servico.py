@@ -169,9 +169,18 @@ def atender(comando: dict[str, Any], sincronizador: Sincronizador) -> dict[str, 
     return capturar_quadro(ponto)
 
 
-def passo(sincronizador: Sincronizador, cliente) -> int:
+def passo(sincronizador: Sincronizador, cliente, auditoria=None) -> int:
     """Uma volta do laço. Devolve quantos comandos foram atendidos."""
     comandos = sincronizador.bater()
+
+    # A auditoria se remonta sozinha quando a configuração muda: regra
+    # ligada, área redesenhada ou ponto novo passam a valer sem ninguém
+    # reiniciar o agente na loja.
+    if auditoria is not None and sincronizador.config is not None:
+        try:
+            auditoria.montar(sincronizador.config)
+        except Exception:  # noqa: BLE001
+            _log.exception("não consegui remontar a auditoria; sigo com a anterior")
 
     for comando in comandos:
         cid = str(comando.get("id"))
@@ -212,12 +221,13 @@ def laco(
     *,
     intervalo: float = INTERVALO_PADRAO,
     voltas: int | None = None,
+    auditoria=None,
 ) -> None:
     """Roda até pararem. `voltas` existe para o teste não rodar para sempre."""
     n = 0
     while voltas is None or n < voltas:
         try:
-            passo(sincronizador, cliente)
+            passo(sincronizador, cliente, auditoria)
         except Exception:  # noqa: BLE001
             # Último anteparo. Chegar aqui é defeito, mas um defeito não
             # pode deixar a loja sem auditoria até alguém reiniciar.
