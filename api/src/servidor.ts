@@ -46,13 +46,36 @@ if (!esquema.ok) {
   // que falta. O contêiner fica de pé para o console funcionar, a
   // verificação de saúde responde com clareza, e nenhuma requisição
   // chega a tocar uma coluna que não existe.
+  // A guarda SE CURA. Sem isto, migrar resolveria o banco e o processo
+  // continuaria recusando — com uma mensagem mandando rodar a migration
+  // que a pessoa acabou de rodar. O pior tipo de mensagem: a que está
+  // errada e parece certa.
+  //
+  // Reconfere no máximo a cada 10 s: o suficiente para o serviço voltar
+  // sozinho logo depois do `npm run migrar`, e raro o bastante para não
+  // consultar o banco a cada requisição.
+  let bloqueado = true;
+  let proximaConferencia = 0;
+
   app.addHook('onRequest', async (req, resposta) => {
     if (req.url === '/saude' || req.url === '/') return;
+
+    const agora = Date.now();
+    if (bloqueado && agora >= proximaConferencia) {
+      proximaConferencia = agora + 10_000;
+      const nova = await conferirEsquema(pool);
+      if (nova.ok) {
+        bloqueado = false;
+        app.log.info('esquema em dia; voltando a atender');
+      }
+    }
+    if (!bloqueado) return;
+
     await resposta.status(503).send({
       erro: 'esquema_desatualizado',
       mensagem:
         'o banco está atrás do código. Rode `npm run migrar` no console ' +
-        'deste serviço. Nenhum pedido é atendido até lá.',
+        'deste serviço. O serviço volta a atender sozinho em seguida.',
       pendentes: esquema.pendentes,
     });
   });
