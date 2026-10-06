@@ -80,9 +80,33 @@ export type Ponto = {
   porta: number | null;
   usuario: string | null;
   ativo: boolean;
+  zonas: Zona[];
 };
 
+export type Zona = { id: string; nome: string };
+
 export type Setor = { id: string; nome: string; ordem: number; pontos: Ponto[] };
+
+export type Regra = {
+  id: string;
+  nome: string;
+  tipo: 'estado' | 'acao' | 'presenca' | 'contagem' | 'comparacao';
+  criterio: string;
+  criterio_versao: number;
+  prioridade: 'urgente' | 'intermediaria' | 'leve';
+  severidade: 'info' | 'atencao' | 'critico' | 'emergencia';
+  confianca_minima: string | number;
+  cooldown_min: number;
+  resolucao: string | null;
+  acoes: string[];
+  ativa: boolean;
+  zona_id: string;
+  zona_nome: string;
+  ponto_id: string;
+  ponto_nome: string;
+  canal: number | null;
+  setor_nome: string;
+};
 
 export type LojaResumo = {
   id: string;
@@ -119,4 +143,17 @@ export const consoleApi = {
 
   desativarPonto: (id: string) =>
     pedir<{ id: string; ativo: boolean }>(`/pontos/${id}`, { method: 'DELETE' }),
+};
+
+export const regrasApi = {
+  listar: (lojaId: string) => pedir<{ regras: Regra[] }>(`/lojas/${lojaId}/regras`),
+
+  criar: (zonaId: string, dados: Record<string, unknown>) =>
+    pedir<Regra & { aviso: string }>(`/zonas/${zonaId}/regras`, {
+      method: 'POST',
+      body: JSON.stringify(dados),
+    }),
+
+  editar: (id: string, dados: Record<string, unknown>) =>
+    pedir<Regra>(`/regras/${id}`, { method: 'PATCH', body: JSON.stringify(dados) }),
 };

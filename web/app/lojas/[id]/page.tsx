@@ -61,6 +61,12 @@ export default function DetalheLoja() {
               julgamento {loja.modo_julgamento} · envio {loja.resolucao_padrao} ·{' '}
               {loja.timezone}
             </span>
+            <Link
+              href={`/lojas/${id}/regras`}
+              className="ml-auto rounded-lg border border-farol-borda px-3 py-1.5 text-sm transition hover:border-farol-facho/50"
+            >
+              Critérios de análise →
+            </Link>
           </div>
 
           <div className="mt-6 space-y-5">
