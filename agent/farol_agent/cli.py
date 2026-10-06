@@ -510,12 +510,78 @@ def _area_para_zona(texto: str | None) -> tuple[Zona | None, float]:
     )
 
 
+def _conferir_chave() -> str | None:
+    """A chave parece uma chave? Devolve o motivo quando não parece.
+
+    Conferir ANTES de pedir a senha do gravador e abrir o RTSP: sem isto,
+    o comando captura, redimensiona e tenta julgar — seis vezes — para só
+    então dizer que a chave não presta. Em 05/10/2026 foi exatamente o que
+    aconteceu, duas vezes seguidas (ERR-010).
+
+    Não valida a chave de verdade (só a API faz isso); pega o que é
+    obviamente impossível, que é o caso que mais acontece.
+    """
+    import os
+
+    chave = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not chave:
+        return "ANTHROPIC_API_KEY não está definida nesta janela do terminal"
+    if "..." in chave or "…" in chave:
+        return (
+            "ANTHROPIC_API_KEY contém reticências — o que está lá é o EXEMPLO "
+            "de como a chave se parece, não uma chave"
+        )
+    if not chave.startswith("sk-ant-"):
+        return "ANTHROPIC_API_KEY não começa com sk-ant-"
+    if len(chave) < 40:
+        return f"ANTHROPIC_API_KEY tem só {len(chave)} caracteres — é curta demais"
+    return None
+
+
+def _ensinar_a_chave() -> None:
+    """Como pôr a chave, SEM imprimir um exemplo colável.
+
+    Exemplo em bloco de comando é colado literalmente — foi o que gerou o
+    ERR-010. Aqui se descreve a chave em vez de mostrar um valor falso: o
+    que a pessoa copia é a chave dela, não a minha ilustração.
+    """
+    print("  Para pôr a chave nesta janela do PowerShell:", file=sys.stderr)
+    print("    1. Abra  https://console.anthropic.com/settings/keys", file=sys.stderr)
+    print("    2. Crie uma chave e copie o valor INTEIRO (~100 caracteres,",
+          file=sys.stderr)
+    print("       começa com sk-ant- e não tem reticências no meio).", file=sys.stderr)
+    print("    3. Digite  $env:ANTHROPIC_API_KEY =  e, entre aspas, cole a chave.",
+          file=sys.stderr)
+    print("  Vale só para esta janela do terminal; fechou, tem que pôr de novo.",
+          file=sys.stderr)
+    print("  Ou rode com --simulado para provar a cadeia sem gastar nem precisar "
+          "de chave.\n", file=sys.stderr)
+
+
+def _erro_legivel(erro: str | None) -> str:
+    """Traduz o despejo do SDK para uma frase que diz o que fazer.
+
+    `AuthenticationError: Error code: 401 - {'type': 'error', 'error':
+    {...}}` repetido seis vezes não ajuda ninguém a resolver nada.
+    """
+    bruto = str(erro or "")
+    if "authentication_error" in bruto or "401" in bruto:
+        return "a chave da API foi recusada (401). Confira ANTHROPIC_API_KEY"
+    if "credit" in bruto.lower() or "billing" in bruto.lower():
+        return "a conta da API está sem crédito"
+    if "429" in bruto or "rate_limit" in bruto:
+        return "a API pediu para ir mais devagar (429) — tente de novo em instantes"
+    if "529" in bruto or "overloaded" in bruto:
+        return "a API está sobrecarregada (529) — tente de novo em instantes"
+    return bruto
+
+
 def _mostrar_analise(i: int, r, marcou_area: bool, simulado: bool = False) -> None:
     """Uma linha de cabeçalho por análise, detalhes embaixo."""
     v = r.veredito
 
     if v is None:
-        print(f"  {i:02d} · ✗ {r.erro}")
+        print(f"  {i:02d} · ✗ {_erro_legivel(r.erro)}")
         if not r.cena_utilizavel:
             print("       Isso não é falha do modelo: o canal não entregou cena.")
             print("       Câmera ligada nesse canal? Lente tampada? Ambiente escuro?")
@@ -598,17 +664,19 @@ def cmd_analisar(args: argparse.Namespace) -> int:
         from farol_agent.juizes.base import ErroDoJuiz
         from farol_agent.juizes.nuvem import JuizNuvem
 
+        # Antes de pedir a senha do gravador e abrir o RTSP: se a chave não
+        # presta, nada do que vem depois tem como dar certo.
+        problema = _conferir_chave()
+        if problema:
+            print(f"\n{problema}.\n", file=sys.stderr)
+            _ensinar_a_chave()
+            return 1
+
         try:
             juiz = JuizNuvem()
         except ErroDoJuiz as e:
             print(f"\nnão consegui preparar o juiz da nuvem: {e}\n", file=sys.stderr)
-            print("  A chave vem do ambiente, nunca da linha de comando", file=sys.stderr)
-            print("  (argumento aparece no histórico do shell e em `ps`):",
-                  file=sys.stderr)
-            print('    PowerShell:  $env:ANTHROPIC_API_KEY = "sk-ant-..."',
-                  file=sys.stderr)
-            print("  Ou rode com --simulado para provar a cadeia sem gastar.\n",
-                  file=sys.stderr)
+            _ensinar_a_chave()
             return 1
 
     try:
@@ -669,6 +737,15 @@ def cmd_analisar(args: argparse.Namespace) -> int:
                 centavos += r.veredito.custo_centavos
             if r.veredito is None:
                 falhas += 1
+
+            # Chave recusada ou crédito acabado não melhora na repetição.
+            # Insistir só enterra a causa no meio de N linhas iguais e
+            # gasta captura à toa (ERR-010).
+            if r.veredito is None and not r.recuperavel:
+                if i < args.repetir:
+                    print(f"\n  parei aqui: isso não melhora repetindo "
+                          f"(faltavam {args.repetir - i} análises).")
+                break
 
             if i < args.repetir:
                 relogio.sleep(args.intervalo)

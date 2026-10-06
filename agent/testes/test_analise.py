@@ -366,3 +366,150 @@ def test_silenciador_devolve_o_nivel_mesmo_com_excecao():
         with _opencv_sem_aviso():
             raise ValueError("falha no meio da detecção")
     assert cvlog.getLogLevel() == antes
+
+
+# ──────── chave recusada: parar na primeira, não martelar seis (ERR-010) ────────
+
+
+@pytest.mark.parametrize(
+    "chave, pedaco",
+    [
+        ("", "não está definida"),
+        ("sk-ant-...", "EXEMPLO"),
+        ("sk-ant-…", "EXEMPLO"),
+        ("minha-chave-secreta-de-verdade-com-muitos-caracteres", "sk-ant-"),
+        ("sk-ant-abc", "curta demais"),
+    ],
+)
+def test_chave_impossivel_e_pega_antes_de_tocar_no_gravador(
+    chave, pedaco, monkeypatch
+):
+    """Conferir a chave ANTES de pedir a senha do DVR e abrir o RTSP.
+
+    Sem isto o comando captura, redimensiona e tenta julgar — seis vezes —
+    para só então dizer que a chave não presta. Aconteceu duas vezes
+    seguidas em 05/10/2026, com o exemplo `sk-ant-...` colado literalmente.
+    """
+    from farol_agent.cli import _conferir_chave
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", chave)
+    problema = _conferir_chave()
+
+    assert problema is not None
+    assert pedaco in problema
+
+
+def test_chave_plausivel_passa(monkeypatch):
+    from farol_agent.cli import _conferir_chave
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-" + "a" * 60)
+    assert _conferir_chave() is None
+
+
+@pytest.mark.parametrize(
+    "bruto, esperado",
+    [
+        ("AuthenticationError: Error code: 401 - {'type': 'authentication_error'}",
+         "recusada (401)"),
+        ("RateLimitError: Error code: 429", "mais devagar"),
+        ("Error code: 529 overloaded_error", "sobrecarregada"),
+        ("your credit balance is too low", "sem crédito"),
+    ],
+)
+def test_erro_da_api_vira_frase_que_diz_o_que_fazer(bruto, esperado):
+    # Seis linhas de despejo do SDK nao ajudam ninguem a resolver nada.
+    from farol_agent.cli import _erro_legivel
+
+    assert esperado in _erro_legivel(bruto)
+
+
+def test_erro_desconhecido_sai_inteiro():
+    # Traduzir o que se conhece, nunca engolir o que não se conhece.
+    from farol_agent.cli import _erro_legivel
+
+    assert _erro_legivel("coisa nunca vista") == "coisa nunca vista"
+
+
+def test_analise_carrega_se_o_erro_vale_retentar():
+    definitivo = JuizFixo(erro=ErroDoJuiz("401", recuperavel=False))
+    r = analisar(FonteDeTeste(640, 480), definitivo, "c", borrar_rosto=False)
+    assert r.recuperavel is False
+
+    passageiro = JuizFixo(erro=ErroDoJuiz("429", recuperavel=True))
+    r = analisar(FonteDeTeste(640, 480), passageiro, "c", borrar_rosto=False)
+    assert r.recuperavel is True
+
+
+def test_o_laco_para_na_primeira_falha_definitiva(monkeypatch, tmp_path, capsys):
+    """Seis capturas e seis 401 iguais escondem a causa e gastam à toa."""
+    import farol_agent.analise as mod_analise
+    import farol_agent.dvr.dahua as mod_dahua
+    import farol_agent.fontes.rtsp as mod_rtsp
+    from farol_agent import cli
+    from farol_agent.analise import Analise
+
+    chamadas = {"n": 0}
+
+    def falsa_analise(*a, **k):
+        chamadas["n"] += 1
+        return Analise(erro="401 authentication_error", recuperavel=False)
+
+    class FalsoCliente:
+        def __init__(self, *a, **k):
+            pass
+
+        def url_rtsp(self, canal, sub=False):
+            return "rtsp://exemplo/1"
+
+    monkeypatch.setattr(mod_analise, "analisar", falsa_analise)
+    monkeypatch.setattr(mod_dahua, "ClienteDahua", FalsoCliente)
+    monkeypatch.setattr(mod_rtsp, "FonteRTSP", lambda *a, **k: object())
+    monkeypatch.setattr(cli, "_senha_do_dvr", lambda args: "x")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-" + "a" * 60)
+
+    codigo = cli.main([
+        "analisar", "--host", "10.0.0.1", "--criterio", "c",
+        "--repetir", "6", "--intervalo", "0",
+        "--salvar-em", str(tmp_path), "--simulado",
+    ])
+
+    assert chamadas["n"] == 1, "tentou de novo um erro que não melhora repetindo"
+    assert codigo == 1
+    assert "parei aqui" in capsys.readouterr().out
+
+
+def test_erro_passageiro_nao_interrompe_o_laco(monkeypatch, tmp_path):
+    # O contraste: 429 e queda de rede valem retentar, e as análises
+    # seguintes podem muito bem dar certo.
+    import farol_agent.analise as mod_analise
+    import farol_agent.dvr.dahua as mod_dahua
+    import farol_agent.fontes.rtsp as mod_rtsp
+    from farol_agent import cli
+    from farol_agent.analise import Analise
+
+    chamadas = {"n": 0}
+
+    def falsa_analise(*a, **k):
+        chamadas["n"] += 1
+        return Analise(erro="429 devagar", recuperavel=True)
+
+    class FalsoCliente:
+        def __init__(self, *a, **k):
+            pass
+
+        def url_rtsp(self, canal, sub=False):
+            return "rtsp://exemplo/1"
+
+    monkeypatch.setattr(mod_analise, "analisar", falsa_analise)
+    monkeypatch.setattr(mod_dahua, "ClienteDahua", FalsoCliente)
+    monkeypatch.setattr(mod_rtsp, "FonteRTSP", lambda *a, **k: object())
+    monkeypatch.setattr(cli, "_senha_do_dvr", lambda args: "x")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-" + "a" * 60)
+
+    cli.main([
+        "analisar", "--host", "10.0.0.1", "--criterio", "c",
+        "--repetir", "4", "--intervalo", "0",
+        "--salvar-em", str(tmp_path), "--simulado",
+    ])
+
+    assert chamadas["n"] == 4

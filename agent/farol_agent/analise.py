@@ -36,6 +36,10 @@ class Analise:
 
     veredito: Veredito | None = None
     erro: str | None = None
+    # Falha que não adianta repetir — chave recusada, crédito acabado,
+    # imagem corrompida. Sem isto, quem chama em laço martela a mesma
+    # parede N vezes e enterra a causa no meio das repetições.
+    recuperavel: bool = True
 
     # A imagem como o modelo a viu
     enviado_largura: int = 0
@@ -158,6 +162,7 @@ def analisar(
         r.veredito = juiz.julgar(destino, criterio, contexto=contexto)
     except ErroDoJuiz as e:
         r.erro = str(e)
+        r.recuperavel = e.recuperavel
 
     r.ms_total = int((time.monotonic() - inicio) * 1000)
     return r
