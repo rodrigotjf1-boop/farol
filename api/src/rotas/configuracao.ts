@@ -76,16 +76,24 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
       [quem.lojaId],
     );
 
+    // Um critério que vale em três canais desce TRÊS vezes, uma debaixo de
+    // cada área — com o mesmo id. A expansão é feita aqui, no servidor, de
+    // propósito: o agente já indexa tudo por área, então para ele um
+    // critério em vários canais é só "o mesmo critério aparecendo em mais de
+    // uma zona". Ensinar o agente a resolver o conjunto poria a mesma regra
+    // em dois lugares, em duas linguagens, e elas divergiriam na primeira
+    // correção feita só de um lado.
     const regras = await pool.query(
-      `select r.id, r.zona_id, r.nome, r.tipo, r.criterio, r.criterio_versao,
+      `select r.id, a.zona_id, r.nome, r.tipo, r.criterio, r.criterio_versao,
               r.processo_descricao, r.prioridade, r.severidade,
               r.confianca_minima, r.cooldown_min, r.resolucao, r.janelas,
               r.acoes, r.base_id, r.retencao_midia_dias
          from regra r
-         join zona z on z.id = r.zona_id
+         join regra_alvo a on a.regra_id = r.id
+         join zona z on z.id = a.zona_id
          join ponto p on p.id = z.ponto_id
          join setor st on st.id = p.setor_id
-        where st.loja_id = $1 and p.ativo and r.ativa
+        where r.loja_id = $1 and st.loja_id = $1 and p.ativo and r.ativa
         order by r.nome`,
       [quem.lojaId],
     );

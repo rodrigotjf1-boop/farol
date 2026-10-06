@@ -274,8 +274,8 @@ def test_sem_cena_e_distinto_de_repetido(fila, regra):
 
     assert p.sem_cena == [regra.id]
     assert p.repetidos == []
-    assert regra.id in motor.sem_cena
-    assert "preto" in motor.sem_cena[regra.id]
+    assert motor._lugar(regra) in motor.sem_cena
+    assert "preto" in motor.sem_cena[motor._lugar(regra)]
 
 
 def test_camera_que_volta_sai_da_lista_de_defeito(fila, regra, fonte):
@@ -285,7 +285,96 @@ def test_camera_que_volta_sai_da_lista_de_defeito(fila, regra, fonte):
     motor = MotorDeRegras(fila, [regra])
 
     motor.preparar(EventoGatilho(ponto_id="ponto-teste", ts=BASE), FonteDeTelaPreta())
-    assert regra.id in motor.sem_cena
+    assert motor._lugar(regra) in motor.sem_cena
 
     motor.preparar(EventoGatilho(ponto_id=fonte.ponto_id, ts=BASE), fonte)
-    assert regra.id not in motor.sem_cena
+    assert motor._lugar(regra) not in motor.sem_cena
+
+
+# ─────────────── cada critério no SEU canal (ERR-020) ───────────────
+
+
+def _em_outro_canal(regra, zona_id, ponto_id, regra_id=None):
+    """A mesma regra (ou outra) numa zona de OUTRO canal."""
+    from dataclasses import replace
+
+    from farol_agent.modelos import Zona
+
+    zona = Zona(id=zona_id, nome=zona_id, poligono=regra.zona.poligono, ponto_id=ponto_id)
+    return replace(regra, id=regra_id or regra.id, zona=zona)
+
+
+def test_criterio_de_um_canal_nao_e_aplicado_ao_quadro_de_outro(fila, regra):
+    """O defeito que só aparece com dois canais.
+
+    O polígono da zona é normalizado 0..1, então "cabe" em qualquer imagem:
+    sem conferir o dono, o critério da bancada era recortado do quadro da
+    fritadeira, julgado e pago. Com um canal só, ninguém via.
+    """
+    from farol_agent.modelos import EventoGatilho
+
+    da_bancada = _em_outro_canal(regra, "z-bancada", "canal-1", regra_id="r-bancada")
+    da_fritadeira = _em_outro_canal(regra, "z-frit", "canal-2", regra_id="r-frit")
+    motor = MotorDeRegras(fila, [da_bancada, da_fritadeira])
+
+    no_canal_1 = motor.regras_aplicaveis(EventoGatilho(ponto_id="canal-1", ts=BASE))
+    no_canal_2 = motor.regras_aplicaveis(EventoGatilho(ponto_id="canal-2", ts=BASE))
+
+    assert [r.id for r in no_canal_1] == ["r-bancada"]
+    assert [r.id for r in no_canal_2] == ["r-frit"]
+
+
+def test_o_MESMO_criterio_em_dois_canais_vale_nos_dois(fila, regra):
+    # Um cadastro, vários canais: o mesmo id aparece uma vez por canal.
+    from farol_agent.modelos import EventoGatilho
+
+    no_1 = _em_outro_canal(regra, "z1", "canal-1")
+    no_2 = _em_outro_canal(regra, "z2", "canal-2")
+    motor = MotorDeRegras(fila, [no_1, no_2])
+
+    aplicaveis = motor.regras_aplicaveis(EventoGatilho(ponto_id="canal-2", ts=BASE))
+
+    assert [(r.id, r.zona.id) for r in aplicaveis] == [("r1", "z2")]
+
+
+def test_o_silencio_e_por_canal(fila, regra):
+    """A bancada suja do canal 1 não pode calar a do canal 2.
+
+    O silêncio era indexado só pelo critério. Com o mesmo critério em três
+    canais, o primeiro alerta do dia calaria os outros dois por quinze
+    minutos — e a loja teria um canal auditado e dois de enfeite.
+    """
+    no_1 = _em_outro_canal(regra, "z1", "canal-1")
+    no_2 = _em_outro_canal(regra, "z2", "canal-2")
+    motor = MotorDeRegras(fila, [no_1, no_2])
+
+    fila.registrar_alerta(regra_id="r1", zona_id="z1", ts=BASE)
+    logo_depois = BASE + timedelta(minutes=1)
+
+    assert motor._em_silencio(no_1, logo_depois) is True
+    assert motor._em_silencio(no_2, logo_depois) is False, "o canal 2 foi calado pelo 1"
+
+
+def test_o_alerta_e_gravado_JUNTO_com_o_corpo_que_vai_subir(fila, regra, fonte):
+    # Os dois na mesma linha: se o corpo fosse guardado depois, um PC
+    # desligado entre os dois passos deixaria um alerta que conta para o
+    # silêncio e nunca chega a ninguém.
+    motor = MotorDeRegras(
+        fila, [regra], serializar=lambda a: {"idempotenciaKey": a.chave, "x": 1}
+    )
+    alertas = _rodar(motor, fonte, JuizFixo(Resultado.NAO_CONFORME, 0.95), BASE)
+
+    pendentes = fila.eventos_a_subir()
+    assert len(pendentes) == 1
+    assert pendentes[0][1] == {"idempotenciaKey": alertas[0].chave, "x": 1}
+
+
+def test_o_alerta_leva_o_hash_da_cena(fila, regra, fonte):
+    # É o que permite agrupar vereditos sobre a MESMA imagem e perceber
+    # quando o modelo muda de ideia. Só é barato de guardar agora.
+    motor = MotorDeRegras(fila, [regra])
+    alertas = _rodar(motor, fonte, JuizFixo(Resultado.NAO_CONFORME, 0.95), BASE)
+
+    assert alertas[0].imagem_hash is not None
+    assert len(alertas[0].imagem_hash) == 16
+    int(alertas[0].imagem_hash, 16)   # é hexadecimal

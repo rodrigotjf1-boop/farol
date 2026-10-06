@@ -159,6 +159,38 @@ export async function despacharEventos(
 
 // ───────────────────── o agente que caiu ─────────────────────
 
+/** Quanto tempo a API precisa estar ACEITANDO sinal de vida antes de o
+ *  vigia poder acusar alguém. Igual ao limite de silêncio do agente. */
+export const CARENCIA_DO_VIGIA_MS = 5 * 60_000;
+
+/**
+ * O vigia pode acusar agora?
+ *
+ * Ele conclui "o agente caiu" a partir de UM fato: faz tempo que o agente
+ * não bate. Mas há duas situações em que quem impediu a batida foi a
+ * própria API:
+ *
+ *   · a guarda de esquema está respondendo 503 a tudo — inclusive ao
+ *     sinal de vida — enquanto alguém não roda a migration;
+ *   · a API acabou de voltar de uma parada longa, e nenhum agente teve
+ *     tempo de bater de novo.
+ *
+ * Nas duas, acusar seria mandar "esta loja não está sendo auditada" para o
+ * celular do dono por causa de um deploy. É o alerta mais grave que o
+ * produto tem; um falso ensina a ignorar o verdadeiro.
+ *
+ * Então: nada de acusar enquanto a porta está fechada, nem antes de ela
+ * estar aberta há pelo menos o tempo que um agente vivo leva para aparecer.
+ */
+export function vigiaPodeAcusar(
+  porta: { recusando: boolean; aceitaDesde: number },
+  agora: number,
+  carenciaMs: number = CARENCIA_DO_VIGIA_MS,
+): boolean {
+  if (porta.recusando) return false;
+  return agora - porta.aceitaDesde >= carenciaMs;
+}
+
 /**
  * Agente sem bater há tempo demais é o alerta mais urgente que existe.
  *

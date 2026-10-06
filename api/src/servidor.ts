@@ -8,7 +8,7 @@
 import { criarApp } from './app.js';
 import { pool } from './db.js';
 import { conferirEsquema } from './preflight.js';
-import { despacharAgentesCaidos } from './despacho.js';
+import { despacharAgentesCaidos, vigiaPodeAcusar } from './despacho.js';
 
 const PORTA = Number(process.env.PORT ?? 3000);
 
@@ -31,6 +31,11 @@ for (const sinal of ['SIGTERM', 'SIGINT'] as const) {
 // do código faz o serviço parecer saudável e quebrar em toda requisição
 // que tocar a coluna nova.
 const esquema = await conferirEsquema(pool);
+
+// O que o vigia precisa saber sobre a porta: se ela está recusando pedidos
+// (e portanto o sinal de vida dos agentes), e desde quando está aceitando.
+const porta = { recusando: !esquema.ok, aceitaDesde: Date.now() };
+
 if (!esquema.ok) {
   app.log.fatal({ pendentes: esquema.pendentes }, 'esquema desatualizado');
   console.error(`
@@ -67,6 +72,8 @@ if (!esquema.ok) {
       const nova = await conferirEsquema(pool);
       if (nova.ok) {
         bloqueado = false;
+        porta.recusando = false;
+        porta.aceitaDesde = Date.now();
         app.log.info('esquema em dia; voltando a atender');
       }
     }
@@ -104,6 +111,12 @@ const INTERVALO_VIGIA_MS = 60_000;
 let avisouTabelaFaltando = false;
 
 const vigia = setInterval(() => {
+  // O vigia não acusa o agente de um silêncio que a própria API impôs:
+  // com a guarda de esquema recusando tudo, o sinal de vida também é
+  // recusado. Sem isto, demorar mais de cinco minutos entre o deploy e o
+  // `npm run migrar` mandaria um falso "o agente caiu" a quem cuida da loja.
+  if (!vigiaPodeAcusar(porta, Date.now())) return;
+
   // `void` com a promessa tratada DENTRO: uma rejeição aqui seria
   // unhandled e derrubaria o processo — e derrubar a API porque o aviso
   // falhou seria trocar um problema pequeno por um grande.

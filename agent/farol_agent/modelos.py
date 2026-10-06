@@ -116,6 +116,11 @@ class Zona:
     id: str
     nome: str
     poligono: list[tuple[float, float]]
+    # De qual canal é esta zona. O polígono é normalizado 0..1, então ele
+    # "cabe" em qualquer quadro — e é por isso que o dono precisa estar
+    # escrito: sem ele, a zona da bancada recorta o quadro da fritadeira
+    # sem reclamar. `None` só no modo de bancada (YAML, um canal só).
+    ponto_id: str | None = None
 
     def bbox(self, largura: int, altura: int, margem: float = 0.05) -> tuple[int, int, int, int]:
         """Retângulo que contém o polígono, com margem relativa.

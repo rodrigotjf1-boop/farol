@@ -111,7 +111,9 @@ export type Ponto = {
   zonas: Zona[];
 };
 
-export type Zona = { id: string; nome: string };
+/** Uma área dentro do canal. `principal` é o corte DO CANAL: marcar o
+ *  canal na árvore de critérios é marcar esta área. */
+export type Zona = { id: string; nome: string; principal?: boolean };
 
 export type Setor = { id: string; nome: string; ordem: number; pontos: Ponto[] };
 
@@ -128,11 +130,20 @@ export type Regra = {
   resolucao: string | null;
   acoes: string[];
   ativa: boolean;
+  /** Onde o critério vale. Um cadastro, vários canais — ou nenhum, quando
+   *  ele foi tirado do último. */
+  alvos: AlvoDoCriterio[];
+};
+
+export type AlvoDoCriterio = {
   zona_id: string;
   zona_nome: string;
+  principal: boolean;
   ponto_id: string;
   ponto_nome: string;
   canal: number | null;
+  ponto_ativo: boolean;
+  setor_id: string;
   setor_nome: string;
 };
 
@@ -188,14 +199,26 @@ export const consoleApi = {
 export const regrasApi = {
   listar: (lojaId: string) => pedir<{ regras: Regra[] }>(`/lojas/${lojaId}/regras`),
 
-  criar: (zonaId: string, dados: Record<string, unknown>) =>
-    pedir<Regra & { aviso: string }>(`/zonas/${zonaId}/regras`, {
+  /** Um cadastro valendo em todos os canais de `zonaIds`. */
+  criar: (lojaId: string, dados: Record<string, unknown> & { zonaIds: string[] }) =>
+    pedir<Regra & { aviso: string; canais: number }>(`/lojas/${lojaId}/regras`, {
       method: 'POST',
       body: JSON.stringify(dados),
     }),
 
+  /** `zonaIds` ausente mantém os canais; presente, SUBSTITUI a marcação. */
   editar: (id: string, dados: Record<string, unknown>) =>
-    pedir<Regra>(`/regras/${id}`, { method: 'PATCH', body: JSON.stringify(dados) }),
+    pedir<Regra & { canais: number; desligada: boolean }>(`/regras/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(dados),
+    }),
+
+  /** Tira o critério de UM canal. Ele continua nos outros. */
+  tirarDoCanal: (id: string, zonaId: string) =>
+    pedir<{ removido: boolean; restantes: number; desligada: boolean }>(
+      `/regras/${id}/canais/${zonaId}`,
+      { method: 'DELETE' },
+    ),
 };
 
 // ───────────────────── o canal: ver e demarcar ─────────────────────

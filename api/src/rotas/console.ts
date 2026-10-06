@@ -89,8 +89,12 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
               -- regra vai morar, e uma ida a mais ao servidor para isso
               -- seria gasto a toa.
               coalesce(
-                (select jsonb_agg(jsonb_build_object('id', z.id, 'nome', z.nome)
-                                  order by z.nome)
+                (select jsonb_agg(jsonb_build_object(
+                                    'id', z.id, 'nome', z.nome,
+                                    -- A arvore de canais marca a AREA
+                                    -- PRINCIPAL quando se marca o canal.
+                                    'principal', z.principal)
+                                  order by z.principal desc, z.nome)
                    from zona z where z.ponto_id = p.id),
                 '[]'::jsonb) as zonas
          from setor st

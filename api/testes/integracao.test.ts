@@ -60,9 +60,15 @@ describe('gravação de eventos (Postgres real)', { skip: !URL && 'sem DATABASE_
       [p.rows[0].id, 'bancada'],
     );
     const r = await pool.query(
-      `insert into regra (zona_id, nome, tipo, criterio)
-       values ($1,'limpa','estado','a bancada está limpa') returning id`,
-      [z.rows[0].id],
+      `with nova as (
+         insert into regra (loja_id, nome, tipo, criterio)
+         values ($2, 'limpa', 'estado', 'a bancada está limpa')
+         returning id
+       ), alvo as (
+         insert into regra_alvo (regra_id, zona_id) select id, $1 from nova
+       )
+       select id from nova`,
+      [z.rows[0].id, lojaId],
     );
     return { tenantId, lojaId, regraId: r.rows[0].id as string };
   }

@@ -1,9 +1,25 @@
 'use client';
 
+// =====================================================================
+// Critérios de análise — o explorador
+// =====================================================================
+// Pedido do dono (06/10/2026): navegar como num explorador de arquivos.
+// Setor é pasta, canal é o que está dentro, critério é o arquivo. Em cada
+// canal, "+ critério"; em cada critério, editar ou tirar do canal.
+//
+// E um critério é cadastrado UMA vez: no formulário, a mesma árvore deixa
+// marcar o setor inteiro ou só os canais que se quer. Três cadastros
+// iguais em três câmeras eram três edições quando a redação mudava.
+// =====================================================================
+
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
+import { areaDoCanal, rotuloDoCanal } from '@/componentes/criterios/canais';
+import { Confirmar } from '@/componentes/criterios/confirmar';
+import { Explorador } from '@/componentes/criterios/explorador';
+import { FormularioCriterio } from '@/componentes/criterios/formulario-criterio';
 import { podeConfigurar, Shell } from '@/componentes/shell';
 import {
   api,
@@ -11,32 +27,29 @@ import {
   ErroDaApi,
   regrasApi,
   type Eu,
+  type Ponto,
   type Regra,
   type Setor,
 } from '@/lib/api';
 
-const TIPOS: Array<{ v: Regra['tipo']; r: string; ajuda: string }> = [
-  { v: 'estado', r: 'Estado', ajuda: 'um quadro responde: EPI, limpeza, organização' },
-  { v: 'presenca', r: 'Presença', ajuda: 'tem alguém na zona neste horário' },
-  { v: 'contagem', r: 'Contagem', ajuda: 'quantas pessoas, fila, ocupação' },
-  { v: 'comparacao', r: 'Comparação', ajuda: 'compara com um padrão guardado' },
-  { v: 'acao', r: 'Ação', ajuda: 'sequência com etapas — custa bem mais' },
-];
+/** O formulário aberto: criando (com canais já marcados) ou editando. */
+type Aberto = { chave: string; regra?: Regra; marcadas: string[] };
 
-const SEVERIDADES = ['info', 'atencao', 'critico', 'emergencia'] as const;
-const PRIORIDADES: Array<{ v: string; r: string }> = [
-  { v: 'leve', r: 'Leve — pode esperar horas' },
-  { v: 'intermediaria', r: 'Intermediária — até 30 s' },
-  { v: 'urgente', r: 'Urgente — menos de 2 s, só local' },
-];
+/** A pergunta aberta antes de tirar um critério de um canal. */
+type Tirando = { regra: Regra; ponto: Ponto; zonaId: string };
 
-export default function Regras() {
+export default function Criterios() {
   const { id } = useParams<{ id: string }>();
   const [regras, setRegras] = useState<Regra[] | null>(null);
   const [setores, setSetores] = useState<Setor[]>([]);
   const [eu, setEu] = useState<Eu | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [criando, setCriando] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [aberto, setAberto] = useState<Aberto | null>(null);
+  const [tirando, setTirando] = useState<Tirando | null>(null);
+  const [tirandoAgora, setTirandoAgora] = useState(false);
+  const [erroAoTirar, setErroAoTirar] = useState<string | null>(null);
+  const topoDoFormulario = useRef<HTMLDivElement>(null);
 
   async function recarregar() {
     const [r, l] = await Promise.all([regrasApi.listar(id), consoleApi.loja(id)]);
@@ -54,24 +67,62 @@ export default function Regras() {
       .catch((e) => setErro(e instanceof ErroDaApi ? e.message : 'não deu certo'));
   }, [id]);
 
+  // O formulário abre no topo. Em tela pequena o canal clicado pode estar
+  // três rolagens abaixo, e o formulário abriria fora da vista.
+  useEffect(() => {
+    if (aberto) topoDoFormulario.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [aberto]);
+
   const configura = podeConfigurar(eu);
-  const zonas = setores.flatMap((s) =>
-    s.pontos.flatMap((p) =>
-      (p.zonas ?? []).map((z) => ({
-        id: z.id,
-        rotulo: `${s.nome} · ${p.nome}${p.canal ? ` (canal ${p.canal})` : ''} · ${z.nome}`,
-      })),
-    ),
-  );
+  const temCanal = setores.some((s) => s.pontos.some((p) => p.zonas.length > 0));
+
+  function abrir(novo: Omit<Aberto, 'chave'>) {
+    setErro(null);
+    setAviso(null);
+    // A chave muda a cada abertura: o formulário é remontado com os valores
+    // de AGORA, em vez de reaproveitar o estado do critério anterior.
+    setAberto({ ...novo, chave: `${novo.regra?.id ?? 'novo'}-${Date.now()}` });
+  }
 
   async function alternar(r: Regra) {
+    setErro(null);
+    setAviso(null);
     try {
       await regrasApi.editar(r.id, { ativa: !r.ativa });
       await recarregar();
+      setAviso(`“${r.nome}” ${r.ativa ? 'desligado' : 'ligado'}.`);
     } catch (e) {
       setErro(e instanceof ErroDaApi ? e.message : 'não deu certo');
     }
   }
+
+  async function confirmarRetirada() {
+    if (!tirando) return;
+    setTirandoAgora(true);
+    setErroAoTirar(null);
+    try {
+      const r = await regrasApi.tirarDoCanal(tirando.regra.id, tirando.zonaId);
+      await recarregar();
+      setAviso(
+        r.restantes === 0
+          ? `“${tirando.regra.nome}” saiu de ${rotuloDoCanal(tirando.ponto)}. Era o último canal: ` +
+              'o critério foi desligado e está em “Sem canal”.'
+          : `“${tirando.regra.nome}” saiu de ${rotuloDoCanal(tirando.ponto)}. ` +
+              `Continua valendo em ${r.restantes} ${r.restantes === 1 ? 'canal' : 'canais'}.`,
+      );
+      setTirando(null);
+    } catch (e) {
+      // O erro fica DENTRO da pergunta: fechá-la esconderia que a retirada
+      // não aconteceu.
+      setErroAoTirar(e instanceof ErroDaApi ? e.message : 'não deu certo');
+    } finally {
+      setTirandoAgora(false);
+    }
+  }
+
+  const outrosCanais = tirando
+    ? tirando.regra.alvos.filter((a) => a.zona_id !== tirando.zonaId)
+    : [];
 
   return (
     <Shell>
@@ -81,24 +132,51 @@ export default function Regras() {
 
       <div className="mt-2 flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold">Critérios de análise</h1>
-        {configura && zonas.length > 0 && (
+        {configura && temCanal && !aberto && (
           <button
-            onClick={() => setCriando((c) => !c)}
-            aria-expanded={criando}
+            type="button"
+            onClick={() => abrir({ marcadas: [] })}
             className="ml-auto rounded-lg border border-farol-borda px-3 py-1.5 text-sm transition hover:border-farol-facho/50"
           >
-            {criando ? 'Cancelar' : '＋ Critério'}
+            ＋ Critério
           </button>
         )}
       </div>
+      <p className="mt-1 max-w-prose text-sm text-farol-suave">
+        Um critério é cadastrado uma vez e vale nos canais que você marcar. Editar muda em
+        todos; tirar de um canal não mexe nos outros.
+      </p>
 
       {erro && (
-        <p role="alert" className="mt-4 text-sm text-farol-critico">
+        <p role="alert" className="mt-4 rounded-lg bg-farol-critico/10 p-3 text-sm text-farol-critico">
           {erro}
         </p>
       )}
+      {aviso && (
+        <p role="status" className="mt-4 rounded-lg bg-farol-ok/10 p-3 text-sm text-farol-ok">
+          {aviso}
+        </p>
+      )}
 
-      {zonas.length === 0 && regras !== null && (
+      <div ref={topoDoFormulario} className="scroll-mt-4">
+        {aberto && (
+          <FormularioCriterio
+            key={aberto.chave}
+            lojaId={id}
+            setores={setores}
+            regra={aberto.regra}
+            marcadasDeInicio={aberto.marcadas}
+            aoCancelar={() => setAberto(null)}
+            aoSalvar={async (mensagem) => {
+              setAberto(null);
+              await recarregar();
+              setAviso(mensagem);
+            }}
+          />
+        )}
+      </div>
+
+      {regras !== null && !temCanal && (
         <div className="mt-6 rounded-xl border border-dashed border-farol-borda p-8 text-center">
           <p className="text-farol-suave">Esta loja ainda não tem câmera cadastrada.</p>
           <Link href={`/lojas/${id}`} className="mt-2 inline-block text-sm text-farol-facho">
@@ -107,292 +185,67 @@ export default function Regras() {
         </div>
       )}
 
-      {criando && (
-        <FormularioRegra
-          zonas={zonas}
-          aoSalvar={async () => {
-            setCriando(false);
-            await recarregar();
+      {regras !== null && temCanal && regras.length === 0 && !aberto && (
+        <div className="mt-6 rounded-xl border border-dashed border-farol-borda p-6">
+          <p className="text-farol-suave">Nenhum critério ainda.</p>
+          <p className="mt-2 max-w-prose text-sm text-farol-suave">
+            Um critério descreve, em português, o que é <em>conforme</em> naquela câmera. O
+            agente usa esse texto como pergunta — então escreva como você explicaria a alguém
+            que acabou de chegar. Abra um setor abaixo e use <strong>＋ critério</strong> no
+            canal.
+          </p>
+        </div>
+      )}
+
+      {regras !== null && temCanal && (
+        <Explorador
+          setores={setores}
+          regras={regras}
+          configura={configura}
+          aoAdicionar={(ponto) => {
+            const area = areaDoCanal(ponto);
+            abrir({ marcadas: area ? [area] : [] });
           }}
+          aoEditar={(regra) => abrir({ regra, marcadas: regra.alvos.map((a) => a.zona_id) })}
+          aoTirar={(regra, ponto, zonaId) => {
+            setErroAoTirar(null);
+            setTirando({ regra, ponto, zonaId });
+          }}
+          aoAlternar={alternar}
         />
       )}
 
-      {regras?.length === 0 && zonas.length > 0 && !criando && (
-        <div className="mt-6 rounded-xl border border-dashed border-farol-borda p-8">
-          <p className="text-farol-suave">Nenhum critério ainda.</p>
-          <p className="mt-2 max-w-prose text-sm text-farol-suave">
-            Um critério descreve, em português, o que é <em>conforme</em> naquela
-            câmera. O agente usa esse texto como pergunta — então escreva como você
-            explicaria a alguém que acabou de chegar.
+      {tirando && (
+        <Confirmar
+          titulo={`Tirar “${tirando.regra.nome}” deste canal?`}
+          rotuloConfirmar="Tirar do canal"
+          ocupado={tirandoAgora}
+          erro={erroAoTirar}
+          aoConfirmar={confirmarRetirada}
+          aoCancelar={() => setTirando(null)}
+        >
+          <p>
+            A análise deste critério{' '}
+            <strong className="text-farol-tinta">deixará de ser verificada</strong> em{' '}
+            <strong className="text-farol-tinta">{rotuloDoCanal(tirando.ponto)}</strong>.
           </p>
-        </div>
-      )}
-
-      {regras && regras.length > 0 && (
-        <ul className="mt-6 space-y-3">
-          {regras.map((r) => (
-            <li
-              key={r.id}
-              className="rounded-xl border border-farol-borda bg-farol-painel p-4"
-            >
-              <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
-                <span className="font-medium">{r.nome}</span>
-                <span className="rounded bg-farol-borda/60 px-1.5 py-0.5 text-xs text-farol-suave">
-                  {r.tipo}
-                </span>
-                <span
-                  className={`rounded px-1.5 py-0.5 text-xs ${
-                    r.severidade === 'emergencia' || r.severidade === 'critico'
-                      ? 'bg-farol-critico/15 text-farol-critico'
-                      : 'bg-farol-borda/60 text-farol-suave'
-                  }`}
-                >
-                  {r.severidade}
-                </span>
-
-                {configura && (
-                  <button
-                    onClick={() => alternar(r)}
-                    aria-pressed={r.ativa}
-                    className={`ml-auto rounded-lg px-3 py-1.5 text-sm transition ${
-                      r.ativa
-                        ? 'bg-farol-ok/15 text-farol-ok'
-                        : 'border border-farol-borda text-farol-suave hover:border-farol-facho/50'
-                    }`}
-                  >
-                    {r.ativa ? 'Ligada' : 'Desligada'}
-                  </button>
-                )}
-              </div>
-
-              <p className="mt-2 max-w-prose text-sm text-farol-suave">{r.criterio}</p>
-
-              <p className="mt-2 text-xs text-farol-suave">
-                {r.setor_nome} · {r.ponto_nome}
-                {r.canal ? ` (canal ${r.canal})` : ''} · {r.zona_nome} ·{' '}
-                {r.prioridade} · confiança mínima {Number(r.confianca_minima).toFixed(2)} ·
-                silêncio {r.cooldown_min} min · versão {r.criterio_versao}
-              </p>
-            </li>
-          ))}
-        </ul>
+          {outrosCanais.length > 0 ? (
+            <p>
+              Ele continua valendo em:{' '}
+              {outrosCanais
+                .map((a) => rotuloDoCanal({ nome: a.ponto_nome, canal: a.canal }))
+                .join(', ')}
+              .
+            </p>
+          ) : (
+            <p>
+              Este é o <strong className="text-farol-tinta">único canal</strong> deste critério.
+              Ele deixa de ser verificado em qualquer lugar, é desligado e fica guardado em “Sem
+              canal” — o histórico de vereditos continua.
+            </p>
+          )}
+        </Confirmar>
       )}
     </Shell>
-  );
-}
-
-// ───────────────────────── formulário ─────────────────────────
-
-const campo = 'w-full rounded-lg border border-farol-borda bg-farol-fundo px-3 py-2 text-sm';
-const rotulo = 'block text-xs font-medium text-farol-suave';
-
-function FormularioRegra({
-  zonas,
-  aoSalvar,
-}: {
-  zonas: Array<{ id: string; rotulo: string }>;
-  aoSalvar: () => Promise<void>;
-}) {
-  const [zonaId, setZonaId] = useState(zonas[0]?.id ?? '');
-  const [dados, setDados] = useState<Record<string, unknown>>({
-    tipo: 'estado',
-    prioridade: 'intermediaria',
-    severidade: 'atencao',
-    confiancaMinima: 0.7,
-    cooldownMin: 15,
-  });
-  const [erro, setErro] = useState<string | null>(null);
-  const [salvando, setSalvando] = useState(false);
-
-  const tipo = TIPOS.find((t) => t.v === dados.tipo);
-
-  async function enviar(e: React.FormEvent) {
-    e.preventDefault();
-    setErro(null);
-    setSalvando(true);
-    try {
-      await regrasApi.criar(zonaId, dados);
-      await aoSalvar();
-    } catch (e) {
-      setErro(e instanceof ErroDaApi ? e.message : 'não deu certo');
-      setSalvando(false);
-    }
-  }
-
-  function muda(k: string, v: unknown) {
-    setDados((d) => ({ ...d, [k]: v }));
-  }
-
-  return (
-    <form
-      onSubmit={enviar}
-      className="mt-6 rounded-xl border border-farol-borda bg-farol-painel p-4"
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2">
-          <label className={rotulo} htmlFor="onde">
-            Onde
-          </label>
-          <select
-            id="onde"
-            className={`mt-1 ${campo}`}
-            value={zonaId}
-            onChange={(e) => setZonaId(e.target.value)}
-          >
-            {zonas.map((z) => (
-              <option key={z.id} value={z.id}>
-                {z.rotulo}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className={rotulo} htmlFor="nome">
-            Nome do critério
-          </label>
-          <input
-            id="nome"
-            required
-            className={`mt-1 ${campo}`}
-            placeholder="Bancada limpa entre pedidos"
-            onChange={(e) => muda('nome', e.target.value)}
-          />
-        </div>
-
-        <div>
-          <label className={rotulo} htmlFor="tipo">
-            Tipo
-          </label>
-          <select
-            id="tipo"
-            className={`mt-1 ${campo}`}
-            value={String(dados.tipo)}
-            onChange={(e) => muda('tipo', e.target.value)}
-          >
-            {TIPOS.map((t) => (
-              <option key={t.v} value={t.v}>
-                {t.r}
-              </option>
-            ))}
-          </select>
-          {tipo && <p className="mt-1 text-xs text-farol-suave">{tipo.ajuda}</p>}
-        </div>
-
-        <div className="sm:col-span-2">
-          <label className={rotulo} htmlFor="criterio">
-            O que é “conforme”
-          </label>
-          <textarea
-            id="criterio"
-            required
-            rows={3}
-            className={`mt-1 ${campo}`}
-            placeholder="A superfície de trabalho está livre de restos de alimento, embalagens descartadas e utensílios sujos."
-            onChange={(e) => muda('criterio', e.target.value)}
-          />
-          {/* O texto VAI para o modelo como pergunta. Vale dizer isso aqui,
-              senão alguém escreve um rótulo e espera que funcione. */}
-          <p className="mt-1 text-xs text-farol-suave">
-            Este texto vai direto ao modelo como pergunta. Descreva o que se vê,
-            não o rótulo — “a superfície tem restos no canto” funciona melhor que
-            “sujeira”.
-          </p>
-        </div>
-
-        <div>
-          <label className={rotulo} htmlFor="prioridade">
-            Prioridade
-          </label>
-          <select
-            id="prioridade"
-            className={`mt-1 ${campo}`}
-            value={String(dados.prioridade)}
-            onChange={(e) => muda('prioridade', e.target.value)}
-          >
-            {PRIORIDADES.map((p) => (
-              <option key={p.v} value={p.v}>
-                {p.r}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className={rotulo} htmlFor="severidade">
-            Severidade
-          </label>
-          <select
-            id="severidade"
-            className={`mt-1 ${campo}`}
-            value={String(dados.severidade)}
-            onChange={(e) => muda('severidade', e.target.value)}
-          >
-            {SEVERIDADES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className={rotulo} htmlFor="confianca">
-            Confiança mínima para alertar
-          </label>
-          <input
-            id="confianca"
-            type="number"
-            min={0}
-            max={1}
-            step={0.05}
-            className={`mt-1 ${campo}`}
-            value={Number(dados.confiancaMinima)}
-            onChange={(e) => muda('confiancaMinima', Number(e.target.value))}
-          />
-          <p className="mt-1 text-xs text-farol-suave">
-            Abaixo disso o resultado é registrado, mas não vira alerta.
-          </p>
-        </div>
-
-        <div>
-          <label className={rotulo} htmlFor="cooldown">
-            Silêncio entre alertas (min)
-          </label>
-          <input
-            id="cooldown"
-            type="number"
-            min={0}
-            className={`mt-1 ${campo}`}
-            value={Number(dados.cooldownMin)}
-            onChange={(e) => muda('cooldownMin', Number(e.target.value))}
-          />
-          <p className="mt-1 text-xs text-farol-suave">
-            Dentro desse prazo não se analisa de novo — a condição continua lá e a
-            loja já sabe.
-          </p>
-        </div>
-      </div>
-
-      {erro && (
-        <p role="alert" className="mt-4 text-sm text-farol-critico">
-          {erro}
-        </p>
-      )}
-
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button
-          type="submit"
-          disabled={salvando || !zonaId}
-          className="rounded-lg bg-farol-facho px-4 py-2 text-sm font-semibold text-farol-fundo transition hover:brightness-110 disabled:opacity-60"
-        >
-          {salvando ? 'Salvando…' : 'Criar critério'}
-        </button>
-        <p className="text-xs text-farol-suave">
-          O critério nasce <strong className="text-farol-tinta">desligado</strong>. Ligue
-          só depois de conferir que ele acerta.
-        </p>
-      </div>
-    </form>
   );
 }

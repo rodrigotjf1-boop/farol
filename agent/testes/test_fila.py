@@ -191,3 +191,103 @@ def test_alerta_registra_e_devolve_o_ultimo(fila):
 
     ultimo = fila.ultimo_alerta("r1")
     assert ultimo == BASE + timedelta(minutes=5)
+
+
+# ───────────── a fila de uma loja que JÁ existe (ERR-019) ─────────────
+
+
+ESQUEMA_ANTIGO = """
+create table analise (
+  id integer primary key autoincrement, chave text not null unique,
+  regra_id text not null, ponto_id text not null, zona_id text,
+  prioridade text not null, criterio text not null,
+  criterio_versao integer not null, imagem_caminho text not null,
+  contexto text not null default '{}', capturado_em text not null,
+  expira_em text not null, estado text not null default 'pendente',
+  tentativas integer not null default 0, proxima_em text not null,
+  erro text, resultado text, confianca real, motivo text, via text,
+  modelo text, custo_centavos real, latencia_ms integer, julgado_em text
+);
+create table alerta (
+  id integer primary key autoincrement, regra_id text not null,
+  zona_id text, ts text not null, enviado integer not null default 0
+);
+"""
+
+
+def test_fila_de_versao_antiga_ganha_as_colunas_novas(tmp_path):
+    """Atualizar o agente não pode quebrar a fila que já está no disco.
+
+    O esquema usa "create table if not exists", que não mexe em tabela
+    existente. Sem a evolução, o primeiro insert depois da atualização
+    morreria com "no such column" — numa loja em operação, com fila cheia.
+    """
+    import sqlite3
+
+    caminho = tmp_path / "fila.db"
+    con = sqlite3.connect(caminho)
+    con.executescript(ESQUEMA_ANTIGO)
+    con.execute(
+        "insert into alerta (regra_id, zona_id, ts) values ('r-velha','z1','2026-10-01T10:00:00')"
+    )
+    con.commit()
+    con.close()
+
+    fila = Fila(caminho)
+    try:
+        assert fila.enfileirar(
+            chave="k-nova", regra_id="r1", ponto_id="p1", zona_id="z1",
+            prioridade="intermediaria", criterio="c", criterio_versao=1,
+            imagem_caminho=tmp_path / "a.jpg", capturado_em=BASE,
+            phash="00ff00ff00ff00ff",
+        )
+        fila.registrar_alerta(
+            regra_id="r1", zona_id="z1", ts=BASE, chave="k-nova",
+            evento={"idempotenciaKey": "k-nova"},
+        )
+
+        # O alerta antigo não tem corpo: não há como remontá-lo, então ele
+        # fica de fora em vez de subir pela metade.
+        assert [c for _, c in fila.eventos_a_subir()] == [{"idempotenciaKey": "k-nova"}]
+        # Mas continua valendo para o silêncio.
+        assert fila.ultimo_alerta("r-velha") is not None
+    finally:
+        fila.fechar()
+
+
+def test_abrir_a_fila_duas_vezes_nao_repete_a_evolucao(tmp_path):
+    caminho = tmp_path / "fila.db"
+    Fila(caminho).fechar()
+    Fila(caminho).fechar()   # "duplicate column name" se a checagem falhar
+
+
+def test_eventos_sobem_do_mais_antigo_ao_mais_novo(fila):
+    for i, minuto in enumerate([30, 10, 20]):
+        fila.registrar_alerta(
+            regra_id="r1", zona_id="z1", ts=BASE + timedelta(minutes=minuto),
+            chave=f"k{i}", evento={"idempotenciaKey": f"k{i}"},
+        )
+
+    ordem = [c["idempotenciaKey"] for _, c in fila.eventos_a_subir()]
+    assert ordem == ["k1", "k2", "k0"]
+
+
+def test_recusado_pela_nuvem_sai_da_fila_mas_fica_registrado(fila):
+    fila.registrar_alerta(
+        regra_id="r1", zona_id="z1", ts=BASE, chave="k", evento={"idempotenciaKey": "k"}
+    )
+    (id_, _), = fila.eventos_a_subir()
+
+    fila.marcar_enviados([id_], estado=2)
+
+    assert fila.eventos_a_subir() == []
+    assert fila.a_subir() == 0
+    # O registro fica: é a prova de que o evento existiu e por que não subiu.
+    assert fila.ultimo_alerta("r1") is not None
+
+
+def test_ultimo_alerta_por_zona_nao_mistura_canais(fila):
+    fila.registrar_alerta(regra_id="r1", zona_id="z1", ts=BASE)
+
+    assert fila.ultimo_alerta("r1", "z1") is not None
+    assert fila.ultimo_alerta("r1", "z2") is None

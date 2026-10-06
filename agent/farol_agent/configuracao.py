@@ -114,7 +114,7 @@ def _enum(valor: Any, tipo: type, onde: str, campo: str):
         ) from None
 
 
-def _zona(dados: dict[str, Any], onde: str) -> Zona:
+def _zona(dados: dict[str, Any], onde: str, ponto_id: str) -> Zona:
     poligono = dados.get("poligono") or []
     if len(poligono) < 3:
         raise ErroDeConfiguracao(f"{onde}: polígono precisa de 3 pontos ou mais")
@@ -122,6 +122,9 @@ def _zona(dados: dict[str, Any], onde: str) -> Zona:
         id=str(dados["id"]),
         nome=str(dados.get("nome") or "zona"),
         poligono=[(float(p[0]), float(p[1])) for p in poligono],
+        # Obrigatório aqui, sem padrão: é o que impede o motor de aplicar o
+        # critério de um canal ao quadro de outro (ERR-020).
+        ponto_id=ponto_id,
     )
 
 
@@ -191,7 +194,7 @@ def de_json(dados: dict[str, Any]) -> ConfigDaLoja:
         principal_id: str | None = None
 
         for z in p.get("zonas") or []:
-            zona = _zona(z, f"{onde} / zona {z.get('nome')}")
+            zona = _zona(z, f"{onde} / zona {z.get('nome')}", str(p["id"]))
             zonas.append(zona)
             if z.get("principal"):
                 principal_id = zona.id
