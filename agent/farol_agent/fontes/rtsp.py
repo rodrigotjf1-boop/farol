@@ -45,9 +45,20 @@ from farol_agent.modelos import Frame
 _log = logging.getLogger(__name__)
 
 # Tem que ser definido ANTES de o FFmpeg ser carregado pelo OpenCV.
+#
+# `timeout` E `stimeout` os dois, de propósito: o nome mudou no FFmpeg 5 e
+# o antigo virou obsoleto. Qual deles vale depende da build que veio junto
+# com o OpenCV instalado, e opção desconhecida é ignorada — então mandar
+# os dois custa nada e cobre as duas gerações.
+#
+# Medido em 06/10/2026: com só `stimeout`, uma câmera desligada levou
+# **30 segundos** para falhar (o padrão do FFmpeg), não os 5 configurados.
+# Trinta segundos é tempo demais: o usuário desiste da tela antes, e numa
+# loja com várias câmeras fora do ar o agente fica preso numa fila de
+# esperas em vez de atender o resto.
 os.environ.setdefault(
     "OPENCV_FFMPEG_CAPTURE_OPTIONS",
-    "rtsp_transport;tcp|stimeout;5000000|max_delay;500000",
+    "rtsp_transport;tcp|timeout;5000000|stimeout;5000000|max_delay;500000",
 )
 
 
@@ -201,8 +212,13 @@ class FonteRTSP:
             cap.release()
             raise ErroDaFonte(
                 f"não abri o main-stream de {self.ponto_id}",
-                dica="confira usuário, senha e canal; e se o gravador não está no "
-                "limite de conexões simultâneas",
+                # A ordem é a da frequência real, não a da gravidade: o
+                # cabo solto e o gravador desligado respondem por quase
+                # tudo, e sugerir "confira a senha" primeiro manda a
+                # pessoa mexer no que estava certo.
+                dica="o gravador está ligado e na rede? Depois disso: usuário, "
+                "senha e número do canal; e se o gravador não está no limite "
+                "de conexões simultâneas",
             )
         try:
             saida = []
