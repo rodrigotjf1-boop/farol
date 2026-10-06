@@ -402,6 +402,17 @@ máquina que a distribuição não controla fisicamente e onde qualquer um com
 acesso ao Windows lê a variável de ambiente. Nesse ponto ou ela está num cofre,
 ou é a chave do próprio lojista (P1) — e as duas coisas se resolvem juntas.
 
+**Federação de identidade está fora para o agente.** O Console a oferece no
+lugar da chave estática, e ela é melhor — token curto, rotação automática, nada
+guardado em variável de ambiente. Mas exige um provedor de identidade (AWS IAM,
+GCP, Azure, GitHub Actions, Kubernetes) emitindo o token, e o agente roda em PC
+de cozinha, onde não há nenhum e nunca haverá. O próprio aviso do Console diz:
+"ambientes sem um provedor de identidade ainda podem precisar de uma chave de
+API". Então o caminho do agente é **chave estática + cofre**, ou a chave do
+próprio lojista (P1). Se um dia a análise rodar do lado da nuvem numa máquina
+com identidade de plataforma, aí a federação volta à mesa — para aquele caminho,
+não para o da loja.
+
 **Quando mexer, decidir:** uma chave por loja ou uma para todas (uma para
 todas significa que um vazamento obriga a trocar em todas); se o agente busca
 no cofre ao subir ou recebe injetada; e como o agente sobrevive ao cofre fora
