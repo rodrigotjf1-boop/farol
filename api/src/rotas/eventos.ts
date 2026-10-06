@@ -35,9 +35,19 @@ const DIM_EMBEDDING = 768;
 // defeito (ou malicioso) que mande a fila inteira de uma vez.
 const MAX_POR_LOTE = 500;
 
+// O corpo de exemplo, completo, está em `contratos/evento-do-agente.json`.
+// O teste do agente exige que ele gere exatamente aquele arquivo, e o teste
+// daqui manda aquele arquivo e confere o que foi gravado. Os dois lados já
+// divergiram uma vez sem ninguém ver — o agente mandava `idempotencia_key`.
 export type EventoEntrada = {
   idempotenciaKey: string;
   regraId: string;
+  // Em qual canal o critério foi verificado. Aceito e validado no formato;
+  // a zona gravada ainda vem da regra.
+  zonaId?: string | null;
+  // Qual redação do critério produziu o veredito, e qual cena foi julgada.
+  criterioVersao?: number | null;
+  imagemHash?: string | null;
   ocorridoEm: string;
   veredito: string;
   confianca?: number | null;
@@ -56,6 +66,9 @@ export type EventoEntrada = {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Termina em `Z` ou em deslocamento (`-03:00`, `+0530`).
+const COM_FUSO = /(Z|[+-]\d{2}:?\d{2})$/i;
+
 export function validarEvento(e: unknown, i: number): string | null {
   const onde = `eventos[${i}]`;
   if (typeof e !== 'object' || e === null) return `${onde}: não é objeto`;
@@ -69,6 +82,26 @@ export function validarEvento(e: unknown, i: number): string | null {
   }
   if (typeof v.ocorridoEm !== 'string' || Number.isNaN(Date.parse(v.ocorridoEm))) {
     return `${onde}.ocorridoEm: data ISO obrigatória`;
+  }
+  // Hora sem fuso seria lida como UTC pelo banco. A loja está em outro
+  // fuso, então o evento ficaria gravado horas fora do lugar — e sem
+  // nenhum erro, que é o pior jeito. Recusar aqui faz o defeito aparecer
+  // no agente, onde ele nasce.
+  if (!COM_FUSO.test(v.ocorridoEm.trim())) {
+    return `${onde}.ocorridoEm: precisa do fuso (ex.: 2026-10-06T12:00:00-03:00)`;
+  }
+  if (v.zonaId != null && (typeof v.zonaId !== 'string' || !UUID.test(v.zonaId))) {
+    return `${onde}.zonaId: uuid`;
+  }
+  if (v.criterioVersao != null) {
+    if (!Number.isInteger(v.criterioVersao) || (v.criterioVersao as number) < 1) {
+      return `${onde}.criterioVersao: inteiro a partir de 1`;
+    }
+  }
+  if (v.imagemHash != null) {
+    if (typeof v.imagemHash !== 'string' || !/^[0-9a-f]{1,64}$/i.test(v.imagemHash)) {
+      return `${onde}.imagemHash: hexadecimal`;
+    }
   }
   if (typeof v.veredito !== 'string' || !VEREDITOS.has(v.veredito)) {
     return `${onde}.veredito: um de ${[...VEREDITOS].join(', ')}`;
@@ -127,6 +160,12 @@ export async function gravarEventos(
     prioridade: e.prioridade ?? null,
     em_lote: e.emLote ?? false,
     embedding: e.embedding ?? null,
+    // A consulta abaixo já declarava estas duas colunas e este objeto não
+    // as preenchia: o banco recebia nulo, a versão caía sempre na da regra
+    // de HOJE e o hash da cena nunca era gravado. A migration 010 existia e
+    // nada chegava a ela.
+    criterio_versao: e.criterioVersao ?? null,
+    imagem_hash: e.imagemHash ? e.imagemHash.toLowerCase() : null,
   }));
 
   // UMA instrução para N eventos. A corrente de joins é o que impede um

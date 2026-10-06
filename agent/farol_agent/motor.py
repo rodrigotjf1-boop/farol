@@ -30,7 +30,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Callable, Iterable, Sequence
 
 import cv2
 
@@ -73,6 +73,8 @@ class Alerta:
     imagem_caminho: str
     cooldown_min: int
     veredito: Veredito
+    # pHash do quadro julgado. Sobe com o evento.
+    imagem_hash: str | None = None
 
 
 @dataclass
@@ -100,17 +102,25 @@ class MotorDeRegras:
         jpeg: int = 85,
         limiar_dedupe: int = 6,
         memoria_dedupe_seg: int = 30,
+        serializar: Callable[["Alerta"], dict[str, Any]] | None = None,
     ) -> None:
         self.fila = fila
         self.regras: list[Regra] = list(regras)
+        # Transforma o alerta no corpo que sobe para a nuvem. O motor não
+        # conhece o formato — só sabe que ele tem que ser gravado na MESMA
+        # linha do alerta, para o evento sobreviver a queda de internet e a
+        # PC desligado. Sem serializador (modo de bancada) nada sobe.
+        self._serializar = serializar
         self.rajada = rajada
         self.descartar = descartar
         self.jpeg = jpeg
         self._dedup = dedupe.Deduplicador(
             limiar=limiar_dedupe, memoria_seg=memoria_dedupe_seg
         )
-        # Ultimo motivo por regra. O console le daqui para dizer QUAL
-        # camera parou, em vez de so mostrar silencio no painel.
+        # Ultimo motivo por regra EM CADA CANAL (chave de `_lugar`). O
+        # mesmo criterio pode valer em varios canais, e o que se quer
+        # saber e QUAL camera parou: indexado so pelo criterio, o canal que
+        # voltou apagaria o aviso do que continua sem sinal.
         self.sem_cena: dict[str, str] = {}
 
     # ──────────────────────── seleção de regras ────────────────────────
@@ -124,6 +134,14 @@ class MotorDeRegras:
         saida = []
         for r in self.regras:
             if not r.vale_agora(evento.ts):
+                continue
+            # O critério só vale no canal da zona dele. Esta linha não
+            # existia, e com um canal só ninguém notava: com dois, o
+            # critério da bancada era recortado do quadro da fritadeira,
+            # julgado e PAGO — o polígono é normalizado e "cabe" em
+            # qualquer imagem (ERR-020). `None` é o modo de bancada, que
+            # tem um canal só por construção.
+            if r.zona.ponto_id is not None and r.zona.ponto_id != evento.ponto_id:
                 continue
             if evento.zona_id and r.zona.id != evento.zona_id:
                 continue
@@ -202,7 +220,7 @@ class MotorDeRegras:
         utilizavel, porque = qualidade.cena_utilizavel(f.imagem)
         if not utilizavel:
             _log.info("regra=%s sem cena para julgar: %s", regra.id, porque)
-            self.sem_cena[regra.id] = porque
+            self.sem_cena[self._lugar(regra)] = porque
             return None, "sem_cena"
 
         if regra.borrar_rosto:
@@ -212,7 +230,7 @@ class MotorDeRegras:
         if self._dedup.repetido(chave_dedupe, f.imagem, f.ts):
             # A cena voltou a ser julgavel: tirar daqui faz o painel parar
             # de acusar defeito quando a camera voltou.
-            self.sem_cena.pop(regra.id, None)
+            self.sem_cena.pop(self._lugar(regra), None)
             return None, "repetido"
 
         f = recorte.redimensionar(f, regra.lado_maior)
@@ -226,7 +244,7 @@ class MotorDeRegras:
         # veredito guardado ainda precisa passar pelas portas do alerta,
         # e isso acontece em `processar`.
         if self.fila.veredito_de(chave) is not None:
-            self.sem_cena.pop(regra.id, None)
+            self.sem_cena.pop(self._lugar(regra), None)
             return None, "ja_julgado"
 
         destino = (
@@ -254,13 +272,14 @@ class MotorDeRegras:
             imagem_caminho=destino,
             capturado_em=f.ts,
             contexto=ctx,
+            phash=f"{ph:016x}",
         )
         if not novo:
             # Chave repetida que ainda não concluiu: a imagem recém-escrita
             # não serve para nada e viraria lixo permanente no spool.
             destino.unlink(missing_ok=True)
             return None, "repetido"
-        self.sem_cena.pop(regra.id, None)
+        self.sem_cena.pop(self._lugar(regra), None)
         return chave, "ok"
 
     # ─────────────────────────── despacho ──────────────────────────────
@@ -305,7 +324,11 @@ class MotorDeRegras:
             alerta = self._avaliar(regra, item, veredito)
             if alerta is not None:
                 self.fila.registrar_alerta(
-                    regra_id=regra.id, zona_id=item.zona_id, ts=item.capturado_em
+                    regra_id=regra.id,
+                    zona_id=item.zona_id,
+                    ts=item.capturado_em,
+                    chave=item.chave,
+                    evento=self._serializar(alerta) if self._serializar else None,
                 )
                 alertas.append(alerta)
 
@@ -343,6 +366,7 @@ class MotorDeRegras:
             imagem_caminho=item.imagem_caminho,
             cooldown_min=regra.cooldown_min,
             veredito=veredito,
+            imagem_hash=item.phash,
         )
 
     # ──────────────────────────── interno ──────────────────────────────
@@ -353,10 +377,16 @@ class MotorDeRegras:
                 return r
         return None
 
+    @staticmethod
+    def _lugar(regra: Regra) -> str:
+        """O critério NAQUELE canal — a unidade do que é "por lugar"."""
+        return f"{regra.id}@{regra.zona.id}"
+
     def _em_silencio(self, regra: Regra, ts: datetime) -> bool:
         if regra.cooldown_min <= 0:
             return False
-        ultimo = self.fila.ultimo_alerta(regra.id)
+        # Por canal: a bancada suja do canal 1 não pode calar a do canal 2.
+        ultimo = self.fila.ultimo_alerta(regra.id, regra.zona.id)
         if ultimo is None:
             return False
         return ts - ultimo < timedelta(minutes=regra.cooldown_min)

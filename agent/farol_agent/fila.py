@@ -82,6 +82,9 @@ class ItemFila:
     tentativas: int
     estado: EstadoItem
     contexto: dict[str, Any]
+    # pHash do quadro julgado, em hexadecimal. Sobe com o evento para a
+    # nuvem conseguir agrupar vereditos sobre a MESMA cena.
+    phash: str | None = None
 
 
 _ESQUEMA = """
@@ -91,6 +94,7 @@ create table if not exists analise (
   regra_id        text    not null,
   ponto_id        text    not null,
   zona_id         text,
+  phash           text,
   prioridade      text    not null,
   criterio        text    not null,
   criterio_versao integer not null,
@@ -122,17 +126,38 @@ create index if not exists idx_analise_regra
 -- O que de fato virou alerta. Serve a duas coisas: a janela de silêncio do
 -- motor e o buffer offline — quando a internet volta, é daqui que sai o que
 -- o console ainda não recebeu.
+--
+-- `evento` é o corpo EXATO que sobe para a nuvem, gravado no instante do
+-- alerta. A primeira versão desta tabela guardava só regra, zona e hora, e
+-- com isso não dava para remontar o evento depois: o "buffer offline"
+-- existia no comentário e não no código (ERR-019).
+--
+-- `enviado`: 0 = falta subir · 1 = a nuvem recebeu · 2 = a nuvem recusou
+-- (regra apagada ou de outra loja — não adianta insistir).
 create table if not exists alerta (
   id       integer primary key autoincrement,
   regra_id text    not null,
   zona_id  text,
   ts       text    not null,
-  enviado  integer not null default 0
+  enviado  integer not null default 0,
+  chave    text,
+  evento   text
 );
 
 create index if not exists idx_alerta_regra on alerta (regra_id, ts desc);
 create index if not exists idx_alerta_envio on alerta (enviado, ts);
 """
+
+
+# Colunas que entraram depois da primeira instalação. `create table if not
+# exists` não toca em tabela que já existe, e a fila de uma loja em operação
+# existe há semanas — sem isto, atualizar o agente quebraria no primeiro
+# insert com "no such column".
+_COLUNAS_NOVAS = (
+    ("analise", "phash", "text"),
+    ("alerta", "chave", "text"),
+    ("alerta", "evento", "text"),
+)
 
 
 def _agora_iso(ts: datetime) -> str:
@@ -161,6 +186,15 @@ class Fila:
             self._con.execute("pragma journal_mode=WAL")
             self._con.execute("pragma synchronous=NORMAL")
             self._con.executescript(_ESQUEMA)
+            for tabela, coluna, tipo in _COLUNAS_NOVAS:
+                existentes = {
+                    l["name"]
+                    for l in self._con.execute(f"pragma table_info({tabela})")
+                }
+                if coluna not in existentes:
+                    self._con.execute(
+                        f"alter table {tabela} add column {coluna} {tipo}"
+                    )
             self._con.commit()
 
     # ───────────────────────────── chave ──────────────────────────────
@@ -192,6 +226,7 @@ class Fila:
         imagem_caminho: str | Path,
         capturado_em: datetime,
         contexto: dict[str, Any] | None = None,
+        phash: str | None = None,
     ) -> bool:
         """Insere. Devolve False quando a chave já existia (nada a fazer)."""
         validade = VALIDADE_PADRAO.get(prioridade, timedelta(hours=2))
@@ -199,15 +234,16 @@ class Fila:
         with self._lock:
             cur = self._con.execute(
                 """insert or ignore into analise
-                   (chave, regra_id, ponto_id, zona_id, prioridade, criterio,
-                    criterio_versao, imagem_caminho, contexto, capturado_em,
-                    expira_em, proxima_em)
-                   values (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   (chave, regra_id, ponto_id, zona_id, phash, prioridade,
+                    criterio, criterio_versao, imagem_caminho, contexto,
+                    capturado_em, expira_em, proxima_em)
+                   values (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     chave,
                     regra_id,
                     ponto_id,
                     zona_id,
+                    phash,
                     prioridade,
                     criterio,
                     criterio_versao,
@@ -334,37 +370,81 @@ class Fila:
     # ──────────────────────────── alertas ─────────────────────────────
 
     def registrar_alerta(
-        self, *, regra_id: str, zona_id: str | None, ts: datetime
+        self,
+        *,
+        regra_id: str,
+        zona_id: str | None,
+        ts: datetime,
+        chave: str | None = None,
+        evento: dict[str, Any] | None = None,
     ) -> None:
+        """Registra o alerta e, junto, o corpo que vai subir para a nuvem.
+
+        Os dois na MESMA linha: se o corpo fosse guardado depois, um PC
+        desligado entre os dois passos deixaria um alerta que conta para o
+        silêncio e nunca chega a ninguém.
+        """
+        corpo = json.dumps(evento, ensure_ascii=False) if evento is not None else None
         with self._lock:
             self._con.execute(
-                "insert into alerta (regra_id, zona_id, ts) values (?,?,?)",
-                (regra_id, zona_id, _agora_iso(ts)),
+                "insert into alerta (regra_id, zona_id, ts, chave, evento) values (?,?,?,?,?)",
+                (regra_id, zona_id, _agora_iso(ts), chave, corpo),
             )
             self._con.commit()
 
-    def ultimo_alerta(self, regra_id: str) -> datetime | None:
-        """Quando esta regra alertou pela última vez — base do silêncio."""
+    def ultimo_alerta(
+        self, regra_id: str, zona_id: str | None = None
+    ) -> datetime | None:
+        """Quando esta regra alertou pela última vez — base do silêncio.
+
+        Com `zona_id`, a pergunta é sobre AQUELE canal. Um critério que
+        vale em três canais tem três silêncios: a bancada suja do canal 1
+        não pode calar a do canal 2 por quinze minutos.
+        """
         with self._lock:
-            l = self._con.execute(
-                "select ts from alerta where regra_id=? order by ts desc limit 1",
-                (regra_id,),
-            ).fetchone()
+            if zona_id is None:
+                l = self._con.execute(
+                    "select ts from alerta where regra_id=? order by ts desc limit 1",
+                    (regra_id,),
+                ).fetchone()
+            else:
+                l = self._con.execute(
+                    """select ts from alerta where regra_id=? and zona_id=?
+                        order by ts desc limit 1""",
+                    (regra_id, zona_id),
+                ).fetchone()
         return datetime.fromisoformat(l["ts"]) if l else None
 
-    def alertas_nao_enviados(self, limite: int = 100) -> list[sqlite3.Row]:
+    def eventos_a_subir(self, limite: int = 100) -> list[tuple[int, dict[str, Any]]]:
+        """O que a nuvem ainda não recebeu, do mais antigo ao mais novo.
+
+        Linha sem `evento` é de antes desta coluna existir: não há como
+        remontar o corpo, então ela fica de fora em vez de subir pela metade.
+        """
         with self._lock:
-            return self._con.execute(
-                "select * from alerta where enviado=0 order by ts limit ?",
+            linhas = self._con.execute(
+                """select id, evento from alerta
+                    where enviado=0 and evento is not null
+                    order by ts, id limit ?""",
                 (limite,),
             ).fetchall()
+        return [(l["id"], json.loads(l["evento"])) for l in linhas]
 
-    def marcar_enviados(self, ids: list[int]) -> None:
+    def a_subir(self) -> int:
+        """Quantos eventos esperam a nuvem. É o número que diz "tem fila"."""
+        with self._lock:
+            l = self._con.execute(
+                "select count(*) n from alerta where enviado=0 and evento is not null"
+            ).fetchone()
+        return int(l["n"])
+
+    def marcar_enviados(self, ids: list[int], estado: int = 1) -> None:
+        """`estado=1`: a nuvem recebeu. `estado=2`: recusou, e não muda repetindo."""
         if not ids:
             return
         with self._lock:
             self._con.executemany(
-                "update alerta set enviado=1 where id=?", [(i,) for i in ids]
+                "update alerta set enviado=? where id=?", [(estado, i) for i in ids]
             )
             self._con.commit()
 
@@ -429,4 +509,5 @@ class Fila:
             tentativas=l["tentativas"],
             estado=EstadoItem(l["estado"]),
             contexto=json.loads(l["contexto"] or "{}"),
+            phash=l["phash"],
         )

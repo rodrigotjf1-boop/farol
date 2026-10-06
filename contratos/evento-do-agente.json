@@ -1,0 +1,17 @@
+{
+  "idempotenciaKey": "0123456789abcdef0123456789abcdef",
+  "regraId": "00000000-0000-4000-8000-000000000001",
+  "zonaId": "00000000-0000-4000-8000-000000000002",
+  "criterioVersao": 3,
+  "imagemHash": "c3a1f0e2b4d59687",
+  "ocorridoEm": "2026-10-06T12:00:00-03:00",
+  "veredito": "nao_conforme",
+  "confianca": 0.93,
+  "motivo": "há restos de alimento sobre a bancada",
+  "modelo": "claude-haiku-4-5-20251001",
+  "via": "nuvem",
+  "tokensEntrada": 1459,
+  "tokensSaida": 103,
+  "custoCentavos": 1.07,
+  "latenciaMs": 912
+}

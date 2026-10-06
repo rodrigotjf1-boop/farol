@@ -44,10 +44,11 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from farol_agent.configuracao import ConfigDaLoja, PontoConfig
+from farol_agent.contrato import evento_para_nuvem
 from farol_agent.fila import Fila
 from farol_agent.modelos import EventoGatilho
 from farol_agent.motor import MotorDeRegras
@@ -57,6 +58,14 @@ _log = logging.getLogger(__name__)
 
 INTERVALO_CAPTURA_PADRAO = 30.0
 LIMITE_POR_PASSADA = 10
+# Quantos eventos sobem por pedido. A API aceita 500; cem por vez drena uma
+# fila de fim de semana em poucos minutos sem mandar um corpo gigante por
+# uma internet que acabou de voltar.
+LIMITE_DE_SUBIDA = 100
+# Quanto esperar depois de a nuvem recusar o PEDIDO (4xx). Repetir a cada
+# trinta segundos um pedido que está errado não conserta nada e enche o log
+# com a mesma linha — só muda com agente novo ou nuvem nova.
+PAUSA_APOS_RECUSA_MIN = 10
 
 
 class Auditoria:
@@ -84,6 +93,11 @@ class Auditoria:
         self.fontes: dict[str, Any] = {}
         self.versao_montada: int | None = None
         self.ultimo_erro: str | None = None
+
+        # Estado da subida. O texto do último erro serve para dizer a causa
+        # UMA vez, e não a cada passada enquanto a internet estiver fora.
+        self._erro_de_subida: str | None = None
+        self._subida_suspensa_ate: datetime | None = None
 
         self._parar = threading.Event()
         self._thread: threading.Thread | None = None
@@ -151,7 +165,9 @@ class Auditoria:
                 _log.error("sem juiz: %s", e)
 
         regras = self._com_juiz(config)
-        self.motor = MotorDeRegras(self.fila, regras)
+        # Com o serializador, o motor grava o corpo do evento na mesma
+        # linha do alerta: é o que faz o evento sobreviver a internet fora.
+        self.motor = MotorDeRegras(self.fila, regras, serializar=evento_para_nuvem)
 
         # Fontes só para pontos que têm regra: abrir câmera que ninguém
         # audita é fluxo do gravador gasto à toa.
@@ -263,51 +279,77 @@ class Auditoria:
             _log.exception("julgamento falhou")
             return []
 
-    def subir(self, alertas: list) -> int:
-        """Manda os eventos para a nuvem. O que não subir, fica na fila.
+    def subir(self, agora: datetime | None = None) -> int:
+        """Manda para a nuvem o que ela ainda não recebeu.
 
-        Evento perdido é auditoria perdida, e auditoria perdida não se
-        recupera: a cena já passou. Então falha aqui não descarta nada —
-        é o mesmo princípio da configuração em disco.
+        Sobe o que está GUARDADO na fila, não a lista que acabou de sair do
+        julgamento. A primeira versão mandava só essa lista: se a nuvem
+        estivesse fora naquele instante, a lista era jogada fora com a
+        variável e o evento nunca mais subia (ERR-019). Evento perdido é
+        auditoria perdida, e não se recupera — a cena já passou.
+
+        Três respostas possíveis da nuvem, três destinos:
+
+        - aceito ou repetido → marcado como entregue;
+        - recusado (regra apagada, ou de outra loja) → marcado como
+          recusado e NÃO volta: insistir não muda a resposta, e um evento
+          impossível na frente da fila prenderia todos os de trás;
+        - o pedido inteiro falhou → nada é marcado, tudo sobe de novo.
         """
-        if not alertas:
+        agora = agora or datetime.now()
+        if self._subida_suspensa_ate is not None and agora < self._subida_suspensa_ate:
             return 0
 
-        eventos = [
-            {
-                # Vem da FILA. Inventar uma chave aqui anularia a
-                # protecao contra duplicata na retentativa.
-                "idempotencia_key": a.chave,
-                "regra_id": a.regra_id,
-                "criterio_versao": a.criterio_versao,
-                "ocorrido_em": a.ts.isoformat(),
-                "veredito": a.veredito.resultado.value,
-                "confianca": a.confianca,
-                "motivo": a.motivo,
-                "modelo": a.veredito.modelo,
-                "via": a.veredito.via.value if a.veredito.via else None,
-                "tokens_entrada": a.veredito.tokens_entrada,
-                "tokens_saida": a.veredito.tokens_saida,
-                "custo_centavos": a.veredito.custo_centavos,
-                "latencia_ms": a.veredito.latencia_ms,
-            }
-            for a in alertas
-        ]
+        pendentes = self.fila.eventos_a_subir(LIMITE_DE_SUBIDA)
+        if not pendentes:
+            return 0
 
         try:
-            self.cliente._pedir("POST", "/v1/eventos", {"eventos": eventos})
+            resposta = self.cliente._pedir(
+                "POST", "/v1/eventos", {"eventos": [corpo for _, corpo in pendentes]}
+            )
         except ErroDaNuvem as e:
             self.ultimo_erro = str(e)
-            _log.error("não subi %d evento(s): %s", len(eventos), e)
+            if not e.recuperavel:
+                self._subida_suspensa_ate = agora + timedelta(
+                    minutes=PAUSA_APOS_RECUSA_MIN
+                )
+            # A causa uma vez, não uma linha a cada trinta segundos durante
+            # um fim de semana sem internet (ERR-014).
+            if str(e) != self._erro_de_subida:
+                self._erro_de_subida = str(e)
+                _log.error(
+                    "não subi %d evento(s): %s — ficam guardados e sobem "
+                    "quando a nuvem aceitar",
+                    self.fila.a_subir(), e,
+                )
             return 0
-        return len(eventos)
+
+        if self._erro_de_subida is not None:
+            _log.info("a nuvem voltou a aceitar eventos")
+        self._erro_de_subida = None
+        self._subida_suspensa_ate = None
+
+        recusadas = set((resposta or {}).get("recusados") or [])
+        entregues = [i for i, c in pendentes if c.get("idempotenciaKey") not in recusadas]
+        devolvidos = [i for i, c in pendentes if c.get("idempotenciaKey") in recusadas]
+
+        self.fila.marcar_enviados(entregues)
+        if devolvidos:
+            self.fila.marcar_enviados(devolvidos, estado=2)
+            _log.warning(
+                "%d evento(s) recusado(s) pela nuvem: o critério foi apagado "
+                "ou não é desta loja. Não serão reenviados.",
+                len(devolvidos),
+            )
+        return len(entregues)
 
     def passo(self, agora: datetime | None = None) -> dict[str, int]:
         """Uma volta completa: captura, julga, sobe."""
         agora = agora or datetime.now()
         enfileirados = self.capturar(agora)
         alertas = self.julgar(agora)
-        subidos = self.subir(alertas)
+        subidos = self.subir(agora)
         return {
             "enfileirados": enfileirados,
             "alertas": len(alertas),
