@@ -82,7 +82,22 @@ def capturar_quadro(ponto: PontoConfig) -> dict[str, Any]:
     try:
         q = preview.capturar(fonte)
     except (preview.ErroDoPreview, ErroDaFonte) as e:
-        raise ErroDoComando(str(e)) from None
+        # Quem lê isto está na tela do console, do outro lado do país, e
+        # precisa saber QUAL câmera e ONDE. O id interno não identifica
+        # nada para um humano — "não abri o main-stream de
+        # 78119376-e82a-46c8-9ce7-a92acf90565f" manda procurar no banco
+        # antes de poder ir até o equipamento.
+        onde = ponto.nome or ponto.id
+        if ponto.canal:
+            onde += f", canal {ponto.canal}"
+        if ponto.host:
+            onde += f" em {ponto.host}"
+
+        # A dica diz o que FAZER, e é o que mais falta a quem está na tela
+        # do console sem acesso ao equipamento. Ela existia no erro da
+        # fonte e se perdia aqui, porque só o texto principal viajava.
+        dica = getattr(e, "dica", None)
+        raise ErroDoComando(f"{e} ({onde})" + (f" — {dica}" if dica else "")) from None
     finally:
         fechar = getattr(fonte, "fechar", None)
         if callable(fechar):
