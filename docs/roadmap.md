@@ -66,12 +66,30 @@ suficiente para revelar o que uma tarde de teste esconde**: deriva, vazamento
 de memória, fila que cresce, câmera que cai de madrugada, regra que dispara
 demais.
 
-### 🔴 O que bloqueia esse alvo
+### ✅ O que bloqueava, e saiu do caminho
 
-**`farol-agent servir` não roda o motor de análise.** Verificado em 06/10: ele
-sincroniza configuração e atende comandos, e só. O motor, a fila e o gatilho
-existem — e são testados — mas só no `laco`, que roda contra material gravado
-com gatilho simulado.
+**`farol-agent servir` agora roda o motor.** O que faltava em 06/10 era que ele
+sincronizava configuração e atendia comandos, e só — o motor existia e era
+testado, mas só no `laco`, contra material gravado com gatilho simulado. As
+duas metades estão juntas, numa thread própria, para que a auditoria nunca
+atrase o heartbeat.
+
+**O alerta tem para onde ir.** A7 fechada: política em tabela, transporte pelo
+Regem/n8n, e o vigia que avisa quando um agente para de bater — porque agente
+calado significa loja não auditada com console verde.
+
+### 🔴 O que ainda bloqueia o alvo
+
+| bloqueio | natureza |
+|---|---|
+| **A2.3 · detector local** não existe | regra de `presenca`, `contagem` e `comparacao` é 100% local por desenho; sem detector, o seletor recusa (corretamente) e a regra fica de fora da captura — ver ERR-014 |
+| migration 011 não está na nuvem | passo do dono, console do `farol-api` |
+| nenhum destino de alerta cadastrado | passo do dono, **Loja → Alertas** |
+| só um canal configurado | o alvo pede três |
+
+### Histórico do que já não bloqueia
+
+**`servir` sem motor** (resolvido em 06/10).
 
 Ou seja: hoje o agente **conversa com a nuvem e captura preview, mas não
 audita nada**. Ligar uma regra não faria diferença.
@@ -87,13 +105,13 @@ pequenas:
 
 ### Ordem acordada
 
-| # | o quê | por quê |
-|---|---|---|
-| 1 | lacunas pequenas: editar ponto, renomear zona, status do agente | removem atrito imediato e são rápidas |
-| 2 | `evento.criterio_versao` + `imagem_hash` | só é barato enquanto não há evento gravado |
-| 3 | **ligar o motor no `servir`** | é o que destrava o alvo de 3 canais |
-| 4 | A7 · alertas | transforma "o Farol viu" em "alguém soube" |
-| 5 | wizard com orçamento e auto-detecção | quando houver o que dimensionar |
+| # | o quê | por quê | estado |
+|---|---|---|---|
+| 1 | lacunas pequenas: editar ponto, renomear zona, status do agente | removem atrito imediato e são rápidas | ✅ |
+| 2 | `evento.criterio_versao` + `imagem_hash` | só é barato enquanto não há evento gravado | ✅ mig. 010 |
+| 3 | **ligar o motor no `servir`** | é o que destrava o alvo de 3 canais | ✅ |
+| 4 | A7 · alertas | transforma "o Farol viu" em "alguém soube" | ✅ mig. 011 · PR #30 |
+| 5 | wizard com orçamento e auto-detecção | quando houver o que dimensionar | ⬅️ aqui |
 
 ---
 
@@ -843,7 +861,7 @@ passa despercebido.
 
 ---
 
-## A7 · Alertas: política no Farol, transporte fora (plano)
+## A7 · Alertas: política no Farol, transporte fora — ✅ FEITO (06/10/2026, PR #30)
 
 **O Farol decide QUEM recebe O QUÊ; quem entrega é outro.**
 
@@ -857,13 +875,50 @@ Regem ou o n8n entrega. Exceção: **o KDS**, que é integração direta
 Farol↔Regem e é onde o alerta vale mais, porque a cozinha já está olhando
 para aquela tela.
 
-### O que falta no banco
+### O banco — migration 011, aplicada
 
 | tabela | para quê |
 |---|---|
-| `destino` | quem recebe: tipo (`whatsapp`, `email`, `kds`, `webhook`), endereço, a quem pertence (loja ou tenant), ativo |
-| `politica_alerta` | por severidade × prioridade: enviar ou não, e para quais destinos |
-| `envio` | o que foi despachado, para quem, quando, e o resultado — sem isto não há como responder "o alerta chegou?" |
+| `destino` | quem recebe: tipo (`whatsapp`, `email`, `kds`, `webhook`), endereço, perfil, escopo (loja ou rede), `segredo_ref`, ativo |
+| `politica_alerta` | por severidade × prioridade (nulo = curinga): avisar ou **vetar**, e para qual destino |
+| `envio` | o que foi despachado, para quem, quando, e o resultado — é o que responde "o alerta chegou?" |
+
+### Como a resolução decide (`api/src/alertas.ts`)
+
+1. **O escopo mais específico ganha inteiro.** Loja com política própria ignora
+   as linhas da rede. Somar os dois tornaria impossível uma loja receber MENOS
+   que o padrão da rede — todo veto local seria desfeito por uma linha de rede.
+2. **O veto ganha do envio.** Uma linha `enviar: false` que case silencia a
+   combinação, mesmo com outra linha mandando enviar. É como se lê regra de
+   firewall, e é a única forma de "não me avise disso" não exigir apagar o resto.
+3. **Sem política, emergência e urgente alcançam todos os destinos ativos.** A
+   assimetria é deliberada: um alerta a mais incomoda por um instante; uma
+   emergência não vista tira do produto a razão de existir.
+4. **Só `nao_conforme` alerta.** Conforme é métrica; não avaliável é fila de
+   revisão. Sem o filtro, oito regras conformando o dia inteiro mandariam
+   centenas de "está tudo bem", e no terceiro dia ninguém abriria mais nenhuma.
+
+### O vigia do vigia
+
+Job de um minuto (`despacharAgentesCaidos`): agente ativo sem bater há mais de
+cinco minutos gera aviso de emergência. Não porque uma máquina parou, mas por
+causa do que o silêncio significa — **aquela loja parou de ser auditada** e o
+console segue verde. O aviso diz a consequência em português, não "sem
+heartbeat".
+
+Duas armadilhas resolvidas ali (ERR-015 e ERR-016):
+
+- a faixa de repetição conta **desde a queda**, não desde o calendário: balde
+  fixo fazia um agente que caía às 05:59 receber o segundo aviso um minuto
+  depois;
+- **o transporte não pode ser o agente** — o aviso de que o agente caiu
+  dependeria do agente. O transporte é infraestrutura da distribuição e puxa de
+  todas as lojas.
+
+### A tela — `/lojas/[id]/alertas`
+
+Três perguntas na ordem em que aparecem na cabeça de quem configura: *para quem
+eu aviso* → *aviso de quê, para quem* → *chegou?*
 
 A política que o dono descreveu vira linha de tabela, não `if` no código:
 urgente sempre; intermediário conforme o papel; leve com destino próprio ou
@@ -878,6 +933,75 @@ nenhum. Quem opera muda isso sem deploy.
 - **`envio` registra o RESULTADO, não só a tentativa.** "Mandei" e
   "chegou" são fatos diferentes, e a diferença entre eles é o que explica
   um alerta que ninguém viu.
+- **Nenhum segredo na linha.** `destino.segredo_ref` guarda o NOME da
+  variável, resolvida no ambiente de quem despacha — mesmo desenho do cofre
+  do agente. O console mostra *que existe* segredo, nunca qual.
+
+### O que falta para o alerta sair de verdade
+
+| falta | de quem |
+|---|---|
+| `npm run migrar` na nuvem (mig. 011) | do dono, console do `farol-api` |
+| cadastrar o primeiro destino em **Loja → Alertas** | do dono |
+| o lado do n8n/Regem puxando `POST /v1/envios/reivindicar` | a fazer, depois da semana de operação |
+
+---
+
+## A9 · Critério geral: um cadastro servindo vários canais (plano)
+
+**Pedido do dono (06/10/2026), e caiu fora desta consolidação na primeira
+passagem — registrado aqui para não se perder outra vez:** *"o critério geral é
+como se fosse um critério local, porém se forem muitos canais, ao invés de
+repetir, ele é cadastrado de forma a atender vários canais"*. E um segundo
+nível: um critério que atenda **setores selecionados**.
+
+Serve diretamente ao alvo de três canais: "a bancada está limpa" vale nos três,
+e cadastrar três vezes significa **editar três vezes** quando a redação mudar —
+e esquecer uma, o que é pior que não ter.
+
+### O modelo
+
+Hoje `regra.zona_id` é uma zona só. O caminho de menor dano:
+
+| mudança | por quê |
+|---|---|
+| `regra.zona_id` passa a aceitar nulo | regra existente continua idêntica; nada a migrar |
+| nova `regra_alvo (regra_id, escopo, alvo_id)`, com escopo em `zona`/`ponto`/`setor`/`loja` | o alvo é um CONJUNTO, e os quatro níveis cobrem "este canal", "esta câmera", "a cozinha toda", "a loja toda" |
+| a descida **expande** no servidor | o agente já indexa tudo por zona; expandindo na API ele não muda **uma linha** |
+
+Expandir no servidor é a decisão que importa: a alternativa — ensinar o agente a
+resolver escopo — colocaria a mesma lógica em dois lugares, em duas linguagens, e
+elas divergiriam na primeira correção feita só de um lado.
+
+### A decisão difícil: de que zona é o evento?
+
+`POST /v1/eventos` grava `zona_id` **a partir da regra**, e o comentário lá diz
+por quê: *"a regra já sabe a zona dela, e aceitar a do agente só criaria uma
+forma de divergirem"*. Para regra de uma zona, está certo.
+
+Para regra geral, a zona é informação que **o agente tem e a regra não** — e aí
+o comentário deixa de valer. A saída não é confiar: é **aceitar `zonaId` do
+agente apenas quando a regra for geral, e validar na mesma consulta** que aquela
+zona resolve para um dos alvos da regra. Mesma cadeia de junções que hoje impede
+gravar evento contra regra de outra loja.
+
+Sem essa validação, um agente comprometido gravaria evento em qualquer zona da
+loja usando uma regra geral como passe.
+
+### Perguntas para o dono
+
+1. **Zona dentro de um alvo amplo.** Escolhendo "a cozinha toda", a regra vale no
+   *quadro inteiro* de cada canal, ou em cada zona desenhada? Proposta: quadro
+   inteiro, porque é o que existe sem ninguém desenhar nada — e quem quer
+   precisão desenha e escolhe as zonas.
+2. **Canal novo entra sozinho?** Instalando a quarta câmera na cozinha, a regra
+   geral passa a valer nela automaticamente? Proposta: **sim**, e é o principal
+   valor do recurso — mas **nasce desligada naquele canal**, pela mesma razão
+   que regra nasce desligada: ninguém mediu a acurácia naquele enquadramento.
+3. **Exceção.** Vale poder dizer "esta regra geral, menos no canal 7"? Custa uma
+   coluna (`excluido boolean` em `regra_alvo`) e evita o que sempre acontece: um
+   canal onde a regra não faz sentido obriga a abandonar o cadastro geral.
+
 
 ---
 

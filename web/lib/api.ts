@@ -281,3 +281,80 @@ export const previewApi = {
       body: JSON.stringify(dados),
     }),
 };
+
+// ───────────────── alertas: destinos, política, envios ─────────────────
+
+export type Destino = {
+  id: string;
+  tipo: 'whatsapp' | 'email' | 'kds' | 'webhook';
+  nome: string;
+  endereco: string;
+  papel: string | null;
+  ativo: boolean;
+  da_rede: boolean;
+  tem_segredo: boolean;
+};
+
+export type Politica = {
+  id: string;
+  severidade: string | null;
+  prioridade: string | null;
+  enviar: boolean;
+  destino_id: string | null;
+  da_rede: boolean;
+  destino_nome: string | null;
+  destino_tipo: string | null;
+};
+
+export type Envio = {
+  id: string;
+  motivo: 'evento' | 'agente_caiu' | 'busca_concluida';
+  estado: 'pendente' | 'enviado' | 'entregue' | 'falhou' | 'descartado';
+  tentativas: number;
+  erro: string | null;
+  criado_em: string;
+  despachado_em: string | null;
+  confirmado_em: string | null;
+  destino_tipo: string;
+  destino_nome: string;
+  ocorrido_em: string | null;
+  regra_nome: string | null;
+};
+
+export const alertasApi = {
+  destinos: (lojaId: string) =>
+    pedir<{ destinos: Destino[] }>(`/lojas/${lojaId}/destinos`),
+
+  criarDestino: (lojaId: string, dados: Record<string, unknown>) =>
+    pedir<{ destino: Destino }>(`/lojas/${lojaId}/destinos`, {
+      method: 'POST',
+      body: JSON.stringify(dados),
+    }),
+
+  alternarDestino: (id: string, ativo: boolean) =>
+    pedir<{ destino: Destino }>(`/destinos/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ ativo }),
+    }),
+
+  politicas: (lojaId: string) =>
+    pedir<{
+      politicas: Politica[];
+      escopo_vigente: 'loja' | 'rede';
+      explicacao: string;
+    }>(`/lojas/${lojaId}/politicas`),
+
+  criarPolitica: (lojaId: string, dados: Record<string, unknown>) =>
+    pedir<{ politica: Politica }>(`/lojas/${lojaId}/politicas`, {
+      method: 'POST',
+      body: JSON.stringify(dados),
+    }),
+
+  removerPolitica: (id: string) =>
+    pedir<{ removida: boolean }>(`/politicas/${id}`, { method: 'DELETE' }),
+
+  envios: (lojaId: string, estado?: string) =>
+    pedir<{ envios: Envio[] }>(
+      `/lojas/${lojaId}/envios${estado ? `?estado=${estado}` : ''}`,
+    ),
+};
