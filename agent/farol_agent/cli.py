@@ -673,7 +673,14 @@ def cmd_analisar(args: argparse.Namespace) -> int:
             return 1
 
         try:
-            juiz = JuizNuvem()
+            # A chave NÃO escolhe modelo — quem escolhe é esta linha. Toda
+            # análise vai ao barato; a cascata só reconsulta o forte quando
+            # a confiança fica abaixo do limiar. `--so-haiku` desliga isso
+            # e trava o custo por análise, que é o número que uma rede de
+            # lojas precisa para orçar.
+            from farol_agent.juizes.nuvem import MODELO_FORTE
+
+            juiz = JuizNuvem(modelo_forte=None if args.so_haiku else MODELO_FORTE)
         except ErroDoJuiz as e:
             print(f"\nnão consegui preparar o juiz da nuvem: {e}\n", file=sys.stderr)
             _ensinar_a_chave()
@@ -867,7 +874,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="pasta onde ficam as imagens ENVIADAS")
     a.add_argument("--simulado", action="store_true",
                    help="não chama a API: prova a cadeia sem gastar")
-    a.set_defaults(func=cmd_analisar)
+    a.add_argument("--so-haiku", dest="so_haiku", action="store_true",
+                   help="desliga a cascata: nunca reconsulta o modelo forte, "
+                        "custo por análise fica travado")
+    a.set_defaults(func=cmd_analisar, so_haiku=False)
 
     args = p.parse_args(argv)
     return int(args.func(args))
