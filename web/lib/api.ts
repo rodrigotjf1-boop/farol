@@ -157,3 +157,81 @@ export const regrasApi = {
   editar: (id: string, dados: Record<string, unknown>) =>
     pedir<Regra>(`/regras/${id}`, { method: 'PATCH', body: JSON.stringify(dados) }),
 };
+
+// ───────────────────── o canal: ver e demarcar ─────────────────────
+
+export type EstadoDoPreview = {
+  temPreview: boolean;
+  capturadoEm: string | null;
+  largura: number | null;
+  altura: number | null;
+  pedido: {
+    id: string;
+    estado: 'pendente' | 'entregue' | 'concluido' | 'falhou' | 'expirado';
+    erro: string | null;
+    criadoEm: string;
+    concluidoEm: string | null;
+  } | null;
+};
+
+export type ZonaCompleta = {
+  id: string;
+  ponto_id: string;
+  nome: string;
+  poligono: [number, number][];
+  principal: boolean;
+  largura_cena_cm: string | number | null;
+};
+
+export type PontoCompleto = {
+  id: string;
+  nome: string;
+  canal: number | null;
+  host: string | null;
+  fabricante: string | null;
+  ativo: boolean;
+  sensor_pol: string | null;
+  focal_mm: string | number | null;
+  distancia_cm: string | number | null;
+  resolucao_h: number | null;
+  largura_cena_cm: string | number | null;
+  preview_largura: number | null;
+  preview_altura: number | null;
+  preview_em: string | null;
+  tem_preview: boolean;
+  setor_id: string;
+  setor_nome: string;
+  loja_id: string;
+};
+
+export const previewApi = {
+  ponto: (id: string) =>
+    pedir<{ ponto: PontoCompleto; zonas: ZonaCompleta[] }>(`/pontos/${id}`),
+
+  /**
+   * A URL da imagem, com um selo de tempo para furar o cache do
+   * navegador. Sem ele, clicar em atualizar mostraria a cena de antes e
+   * pareceria que o botão não funciona.
+   */
+  url: (pontoId: string, selo?: string | null) =>
+    `/api/pontos/${pontoId}/preview${selo ? `?t=${encodeURIComponent(selo)}` : ''}`,
+
+  estado: (pontoId: string) =>
+    pedir<EstadoDoPreview>(`/pontos/${pontoId}/preview/estado`),
+
+  pedir: (pontoId: string) =>
+    pedir<{ comandoId: string; jaPedido: boolean; expiraEm?: string }>(
+      `/pontos/${pontoId}/preview`,
+      { method: 'POST' },
+    ),
+
+  salvarArea: (zonaId: string, dados: Partial<ZonaCompleta> & {
+    poligono?: [number, number][];
+    larguraCenaCm?: number | null;
+    principal?: boolean;
+  }) =>
+    pedir<ZonaCompleta>(`/zonas/${zonaId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(dados),
+    }),
+};

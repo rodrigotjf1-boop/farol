@@ -121,6 +121,9 @@ export default function DetalheLoja() {
                           <th className="px-4 py-2 font-medium">Canal</th>
                           <th className="px-4 py-2 font-medium">Endereço</th>
                           <th className="px-4 py-2 font-medium">Estado</th>
+                          <th className="px-4 py-2 font-medium">
+                            <span className="sr-only">Ações</span>
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -141,6 +144,14 @@ export default function DetalheLoja() {
                               ) : (
                                 <span className="text-farol-suave">desativado</span>
                               )}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-2 text-right">
+                              <Link
+                                href={`/pontos/${p.id}/area`}
+                                className="text-sm text-farol-facho hover:underline"
+                              >
+                                ver quadro e área
+                              </Link>
                             </td>
                           </tr>
                         ))}
