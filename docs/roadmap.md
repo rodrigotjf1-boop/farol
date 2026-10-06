@@ -712,3 +712,25 @@ filtra melhor. Ou seja, a mesma marcação de área que define o corte serve
 de filtro — "mostre as análises desta região, neste período". A área deixa
 de ser só configuração e vira dimensão de consulta. Entra no desenho da
 tela de busca (A7), ainda não escrita.
+
+### P4 · O gravador da loja precisa de IP fixo
+
+Visto na tela do MHDX em 06/10/2026: **Modo DHCP**.
+
+`ponto.host` é campo fixo no cadastro. Com DHCP, o endereço do gravador
+muda sozinho — queda de luz, troca de roteador, lease que expira — e o
+Farol para de achar a câmera **sem ninguém ter mexido em nada**. O
+sintoma seria idêntico ao ERR-013: comando entregue, captura falhando,
+equipamento aparentemente normal.
+
+Entra no procedimento de instalação: **IP fixo no gravador, ou reserva
+por MAC no roteador**, antes de cadastrar o ponto.
+
+E vale avaliar uma defesa no produto, porque instalação boa não se
+garante por documento: o agente conhece o MAC do gravador
+(`dvr descobrir` já o lê). Se o host parar de responder, ele poderia
+varrer a rede procurando aquele MAC e avisar *"o gravador mudou de
+192.168.1.108 para 192.168.1.112"* — em vez de só falhar. A decisão de
+**corrigir sozinho ou só avisar** fica para quando chegar a vez;
+corrigir sozinho é conveniente e é também como um equipamento trocado
+passa despercebido.
