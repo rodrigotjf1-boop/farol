@@ -121,7 +121,28 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
       }
     }
 
-    return { loja: l.rows[0], setores: [...setores.values()] };
+    // Os agentes da loja vêm junto: sem isto, a única forma de saber se
+    // a loja está sendo auditada é tentar usar e esperar falhar.
+    //
+    // `segundos_sem_bater` é calculado no BANCO, não no cliente. O
+    // relógio do navegador erra — fuso, horário de verão, máquina com a
+    // hora solta — e um agente saudável apareceria como caído, ou pior,
+    // um caído apareceria saudável.
+    const ag = await pool.query(
+      `select id, nome, estado, versao, ultimo_heartbeat,
+              extract(epoch from (now() - ultimo_heartbeat))::integer
+                as segundos_sem_bater
+         from agente
+        where loja_id = $1
+        order by ultimo_heartbeat desc nulls last`,
+      [id],
+    );
+
+    return {
+      loja: l.rows[0],
+      setores: [...setores.values()],
+      agentes: ag.rows,
+    };
   });
 
   // ──────────────────────────── setores ────────────────────────────

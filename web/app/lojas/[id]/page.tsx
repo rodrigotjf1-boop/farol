@@ -4,9 +4,11 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { Agentes } from '@/componentes/agentes';
 import { podeConfigurar, Shell } from '@/componentes/shell';
 import {
   api,
+  type AgenteResumo,
   consoleApi,
   ErroDaApi,
   type Eu,
@@ -19,6 +21,7 @@ export default function DetalheLoja() {
   const { id } = useParams<{ id: string }>();
   const [loja, setLoja] = useState<Loja | null>(null);
   const [setores, setSetores] = useState<Setor[]>([]);
+  const [agentes, setAgentes] = useState<AgenteResumo[]>([]);
   const [eu, setEu] = useState<Eu | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [abrindo, setAbrindo] = useState<string | null>(null);
@@ -27,6 +30,7 @@ export default function DetalheLoja() {
     const r = await consoleApi.loja(id);
     setLoja(r.loja);
     setSetores(r.setores);
+    setAgentes(r.agentes ?? []);
   }
 
   useEffect(() => {
@@ -34,6 +38,7 @@ export default function DetalheLoja() {
       .then(([r, u]) => {
         setLoja(r.loja);
         setSetores(r.setores);
+        setAgentes(r.agentes ?? []);
         setEu(u);
       })
       .catch((e) => setErro(e instanceof ErroDaApi ? e.message : 'não deu certo'));
@@ -67,6 +72,10 @@ export default function DetalheLoja() {
             >
               Critérios de análise →
             </Link>
+          </div>
+
+          <div className="mt-6">
+            <Agentes agentes={agentes} />
           </div>
 
           <div className="mt-6 space-y-5">

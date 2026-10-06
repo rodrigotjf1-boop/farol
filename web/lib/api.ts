@@ -136,6 +136,17 @@ export type Regra = {
   setor_nome: string;
 };
 
+export type AgenteResumo = {
+  id: string;
+  nome: string;
+  estado: 'novo' | 'ativo' | 'inativo' | 'bloqueado';
+  versao: string | null;
+  ultimo_heartbeat: string | null;
+  /** Calculado no BANCO: o relógio do navegador erra e faria um agente
+   *  saudável parecer caído, ou pior, o contrário. */
+  segundos_sem_bater: number | null;
+};
+
 export type LojaResumo = {
   id: string;
   nome: string;
@@ -152,7 +163,8 @@ export type Loja = Omit<LojaResumo, 'setores' | 'pontos'>;
 export const consoleApi = {
   lojas: () => pedir<{ lojas: LojaResumo[] }>('/lojas'),
 
-  loja: (id: string) => pedir<{ loja: Loja; setores: Setor[] }>(`/lojas/${id}`),
+  loja: (id: string) =>
+    pedir<{ loja: Loja; setores: Setor[]; agentes: AgenteResumo[] }>(`/lojas/${id}`),
 
   criarSetor: (lojaId: string, nome: string, ordem?: number) =>
     pedir<Setor>(`/lojas/${lojaId}/setores`, {
@@ -216,8 +228,14 @@ export type PontoCompleto = {
   nome: string;
   canal: number | null;
   host: string | null;
+  porta: number | null;
+  usuario: string | null;
   fabricante: string | null;
+  origem: 'dvr' | 'ip';
   ativo: boolean;
+  /** MAC do gravador, lido pelo agente. IP muda (DHCP); MAC não. */
+  mac: string | null;
+  mac_visto_em: string | null;
   sensor_pol: string | null;
   focal_mm: string | number | null;
   distancia_cm: string | number | null;

@@ -638,3 +638,119 @@ describe('pedido sem corpo (ERR-012)', { skip: !URL && 'sem DATABASE_URL' }, () 
     assert.notEqual(r.statusCode, 400, r.body);
   });
 });
+
+describe('editar o canal e a zona (lote 1)', { skip: !URL && 'sem DATABASE_URL' }, () => {
+  let pool: pg.Pool;
+  let app: FastifyInstance;
+  let lojaId: string;
+  let pontoId: string;
+  let zonaId: string;
+  let cookie: string;
+  let adminAntes: string | undefined;
+  const m3 = `teste-ed-${randomUUID().slice(0, 8)}`;
+
+  before(async () => {
+    adminAntes = process.env.FAROL_ADMIN_TOKEN;
+    process.env.FAROL_ADMIN_TOKEN = ADMIN;
+    pool = new pg.Pool({ connectionString: URL });
+
+    const t = await pool.query('insert into tenant (nome) values ($1) returning id', [m3]);
+    const l = await pool.query(
+      'insert into loja (tenant_id, nome) values ($1,$2) returning id',
+      [t.rows[0].id, 'loja da edição'],
+    );
+    lojaId = l.rows[0].id;
+    const st = await pool.query(
+      'insert into setor (loja_id, nome) values ($1,$2) returning id', [lojaId, 'cozinha'],
+    );
+    const p = await pool.query(
+      `insert into ponto (setor_id, nome, canal, host) values ($1,'bancada',1,'10.0.0.9')
+       returning id`,
+      [st.rows[0].id],
+    );
+    pontoId = p.rows[0].id;
+    const z = await pool.query(
+      `insert into zona (ponto_id, nome, poligono, principal)
+       values ($1,'Quadro inteiro','[[0,0],[1,0],[1,1],[0,1]]'::jsonb,true) returning id`,
+      [pontoId],
+    );
+    zonaId = z.rows[0].id;
+
+    app = criarApp(pool, { logger: false });
+    await app.ready();
+
+    const email = `ed-${randomUUID().slice(0, 8)}@exemplo.com`;
+    await app.inject({
+      method: 'POST', url: '/v1/distribuicao/usuarios',
+      headers: { 'x-farol-admin': ADMIN },
+      payload: { tenantId: t.rows[0].id, nome: 'D', email, senha: SENHA, nivel: 'presidente' },
+    });
+    const login = await app.inject({
+      method: 'POST', url: '/v1/sessao', payload: { email, senha: SENHA },
+    });
+    const bruto = login.headers['set-cookie'];
+    cookie = (Array.isArray(bruto) ? bruto[0]! : String(bruto)).split(';')[0]!;
+  });
+
+  after(async () => {
+    if (adminAntes === undefined) delete process.env.FAROL_ADMIN_TOKEN;
+    else process.env.FAROL_ADMIN_TOKEN = adminAntes;
+    await app?.close();
+    await pool?.query('delete from tenant where nome like $1', [`${m3}%`]);
+    await pool?.end();
+  });
+
+  it('o canal volta com porta, usuário e MAC — o formulário precisa deles', async () => {
+    // Sem estes campos a tela de edição nasceria incompleta, e editar o
+    // ponto apagaria o que ela não conhece.
+    await pool.query(
+      `update ponto set porta = 554, usuario = 'admin', mac = 'cc:81:30:25:af:f9',
+              mac_visto_em = now() where id = $1`,
+      [pontoId],
+    );
+
+    const r = await app.inject({
+      method: 'GET', url: `/v1/pontos/${pontoId}`, headers: { cookie },
+    });
+    const p = (r.json() as { ponto: Record<string, unknown> }).ponto;
+
+    assert.equal(p.porta, 554);
+    assert.equal(p.usuario, 'admin');
+    assert.equal(p.mac, 'cc:81:30:25:af:f9');
+    assert.ok(p.mac_visto_em);
+  });
+
+  it('renomear a zona não mexe no polígono', async () => {
+    // A zona nasce "Quadro inteiro" e o nome vira mentira quando alguém
+    // desenha 34% dela. Renomear é edição de UM campo.
+    const r = await app.inject({
+      method: 'PATCH', url: `/v1/zonas/${zonaId}`,
+      headers: { cookie }, payload: { nome: 'bancada de montagem' },
+    });
+    assert.equal(r.statusCode, 200, r.body);
+
+    const z = r.json() as { nome: string; poligono: number[][] };
+    assert.equal(z.nome, 'bancada de montagem');
+    assert.deepEqual(z.poligono[0], [0, 0], 'o polígono não podia mudar');
+  });
+
+  it('a loja devolve os agentes com o tempo sem bater, calculado no banco', async () => {
+    // No cliente, o relógio do navegador erra — fuso, horário de verão,
+    // máquina com a hora solta — e um agente saudável apareceria como
+    // caído, ou pior, o contrário.
+    await pool.query(
+      `insert into agente (loja_id, nome, fingerprint, estado, ultimo_heartbeat)
+       values ($1,'agente da loja',$2,'ativo', now() - interval '12 minutes')`,
+      [lojaId, `fp-${randomUUID()}`],
+    );
+
+    const r = await app.inject({
+      method: 'GET', url: `/v1/lojas/${lojaId}`, headers: { cookie },
+    });
+    assert.equal(r.statusCode, 200, r.body);
+
+    const agentes = (r.json() as { agentes: { segundos_sem_bater: number }[] }).agentes;
+    assert.equal(agentes.length, 1);
+    assert.ok(agentes[0].segundos_sem_bater >= 700, String(agentes[0].segundos_sem_bater));
+  });
+});
