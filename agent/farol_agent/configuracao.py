@@ -329,7 +329,10 @@ class Sincronizador:
             _log.info("configuração mudou na nuvem (%s → %s)", local, remota)
             self.puxar()
 
-        return list(resposta.get("comandos") or [])
+        comandos = list(resposta.get("comandos") or [])
+        if comandos:
+            _log.info("%d comando(s) para atender", len(comandos))
+        return comandos
 
     def puxar(self) -> ConfigDaLoja | None:
         """Busca a configuração e grava. Converte ANTES de gravar.

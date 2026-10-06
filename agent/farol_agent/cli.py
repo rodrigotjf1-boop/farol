@@ -875,6 +875,16 @@ def cmd_servir(args: argparse.Namespace) -> int:
     from farol_agent.nuvem import ClienteNuvem, ErroDaNuvem
     from farol_agent.servico import laco
 
+    # INFO por padrão, ao contrário dos outros comandos. Este roda sozinho
+    # num PC de loja, por semanas, sem ninguém olhando — e serviço calado é
+    # indistinguível de serviço travado. Quando alguém finalmente for ver
+    # por que a auditoria parou, o histórico precisa estar lá.
+    logging.basicConfig(
+        level=logging.DEBUG if args.verboso else logging.INFO,
+        format="  %(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
     token = os.environ.get("FAROL_AGENTE_TOKEN", "")
     if not token:
         print("\nFAROL_AGENTE_TOKEN não está definida.", file=sys.stderr)
@@ -1077,6 +1087,8 @@ def main(argv: list[str] | None = None) -> int:
     sv.add_argument("--versao", help="versão do agente, para o console mostrar")
     sv.add_argument("--voltas", type=int,
                     help="para após N batidas (sem isto, roda até Ctrl+C)")
+    sv.add_argument("--verboso", action="store_true",
+                    help="mostra também o detalhe de cada requisição")
     sv.set_defaults(func=cmd_servir)
 
     args = p.parse_args(argv)
