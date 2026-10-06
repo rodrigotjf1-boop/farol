@@ -217,9 +217,14 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
         return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'setor não encontrado' });
       }
       const z = await cliente.query(
-        `insert into zona (ponto_id, nome, poligono)
-         values ($1, 'Quadro inteiro', '[[0,0],[1,0],[1,1],[0,1]]'::jsonb)
-         returning id, nome, poligono`,
+        // Nasce como o corte PRINCIPAL do canal. Na falta de desenho do
+        // usuário, o padrão do sistema é o quadro inteiro — o sistema não
+        // adivinha recorte, porque corte automático erraria calado,
+        // cortando justamente o que importa, e o veredito sairia confiante
+        // sobre o pedaço errado.
+        `insert into zona (ponto_id, nome, poligono, principal)
+         values ($1, 'Quadro inteiro', '[[0,0],[1,0],[1,1],[0,1]]'::jsonb, true)
+         returning id, nome, poligono, principal`,
         [rows[0].id],
       );
       await cliente.query('commit');
