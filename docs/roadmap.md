@@ -619,3 +619,18 @@ evento nem fica no histórico — é descartável por natureza.
 4. Em cima da tela pronta: o diagnóstico por zona (já calculado em
    `GET /v1/pontos/:id/diagnostico`) aparece ao lado do desenho — *"esta área
    sustenta estado em r384; montagem não, aproxime 1,4×"*
+
+### P3 · Renomear o cadastro de teste para "Regem"
+
+Pedido do dono em 06/10/2026, **para o fim do processo**: onde está `teste1`,
+passar a ser **Regem**.
+
+É o cadastro criado no provisionamento inicial do console (tenant/loja de
+teste). Fica para depois de o produto estar implementado e testado, porque
+renomear antes só atrapalha quem está rastreando dado de teste no meio do
+desenvolvimento.
+
+**A confirmar quando chegar a vez:** qual registro carrega o nome — `tenant`,
+`loja`, ou os dois. São tabelas diferentes e o nome aparece em telas
+diferentes. Conferir pela leitura antes de escrever, e a troca é um `update`
+simples, sem migration.
