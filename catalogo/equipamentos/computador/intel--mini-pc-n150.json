@@ -1,0 +1,21 @@
+{
+  "id": "intel--mini-pc-n150",
+  "categoria": "computador",
+  "fabricante": "Intel",
+  "modelo": "Mini PC N150",
+  "nivel": "basico",
+  "nivel_motivo": "Até 8 fluxos; basta quando a câmera já entrega o evento pronto.",
+  "status": "aceitavel",
+  "observacao": "Decodifica ~8 streams 1080p. Basta quando a câmera entrega o evento pronto.",
+  "specs": {
+    "tem_igpu": true,
+    "quicksync": true,
+    "decode_streams_1080p": 8,
+    "inferencias_s": 33
+  },
+  "medido": [],
+  "precos": [],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026"
+  ]
+}

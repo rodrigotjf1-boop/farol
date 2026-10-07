@@ -1,0 +1,63 @@
+{
+  "id": "intel--i7-10700f-com-radeon-rx-560-4-gb",
+  "categoria": "computador",
+  "fabricante": "Intel",
+  "modelo": "i7-10700F com Radeon RX 560 4 GB",
+  "nivel": "intermediario",
+  "nivel_motivo": "Medido: 14 canais no reduzido, 4 em alta e o detector local, com 90% da máquina livre.",
+  "status": "aceitavel",
+  "observacao": "O PC da loja de teste. Sem iGPU: toda a decodificação é por software — e sobra. O detector roda na RX 560 por DirectML. 16 GB de RAM, Windows 10.",
+  "specs": {
+    "tem_igpu": false,
+    "quicksync": false,
+    "nucleos_logicos": 16,
+    "ram_gb": 16,
+    "gpu": "Radeon RX 560 4 GB"
+  },
+  "medido": [
+    {
+      "em": "2026-10-06",
+      "onde": "loja de teste",
+      "metrica": "decodificar_14_fluxos_reduzidos",
+      "valor": 4,
+      "unidade": "% do processador",
+      "condicao": "704x480 a 15 quadros/s, por software"
+    },
+    {
+      "em": "2026-10-07",
+      "onde": "loja de teste",
+      "metrica": "decodificar_4_fluxos_principais",
+      "valor": 10,
+      "unidade": "% da máquina",
+      "condicao": "1920x1080 a 15 quadros/s cada, por software, já contando a comparação entre quadros"
+    },
+    {
+      "em": "2026-10-07",
+      "onde": "loja de teste",
+      "metrica": "comparar_quadro_com_o_anterior",
+      "valor": 2.8,
+      "unidade": "ms por quadro",
+      "condicao": "em 320x180, no processador"
+    },
+    {
+      "em": "2026-10-06",
+      "onde": "loja de teste",
+      "metrica": "detector_rf_detr_nano_384",
+      "valor": 113,
+      "unidade": "ms",
+      "condicao": "ONNX Runtime no processador"
+    },
+    {
+      "em": "2026-10-06",
+      "onde": "loja de teste",
+      "metrica": "detector_rf_detr_nano_384",
+      "valor": 88,
+      "unidade": "ms",
+      "condicao": "ONNX Runtime com DirectML na RX 560"
+    }
+  ],
+  "precos": [],
+  "fontes": [
+    "medição em campo, loja de teste"
+  ]
+}

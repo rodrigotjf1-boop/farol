@@ -1,0 +1,28 @@
+{
+  "id": "amd--radeon-rx-560-4-gb",
+  "categoria": "gpu",
+  "fabricante": "AMD",
+  "modelo": "Radeon RX 560 4 GB",
+  "nivel": "basico",
+  "nivel_motivo": "Acelera o detector local; 4 GB não comportam modelo de visão.",
+  "status": "aceitavel",
+  "observacao": "Placa de entrada, a que estava no PC da loja de teste. Pelo DirectML, serve ao detector.",
+  "specs": {
+    "vram_gb": 4,
+    "aceleracao": "DirectML"
+  },
+  "medido": [
+    {
+      "em": "2026-10-06",
+      "onde": "loja de teste",
+      "metrica": "detector_rf_detr_nano_384",
+      "valor": 88,
+      "unidade": "ms",
+      "condicao": "ONNX Runtime com DirectML, num i7-10700F; no processador a mesma análise leva 113 ms"
+    }
+  ],
+  "precos": [],
+  "fontes": [
+    "medição em campo, loja de teste"
+  ]
+}

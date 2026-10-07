@@ -1,0 +1,35 @@
+{
+  "id": "intelbras--vip-3260-z-ia",
+  "categoria": "camera_ip",
+  "fabricante": "Intelbras",
+  "modelo": "VIP 3260 Z IA",
+  "nivel": "avancado",
+  "nivel_motivo": "Varifocal de 2,7 a 13,5 mm com WDR de 120 dB: fecha o enquadramento para leitura e montagem.",
+  "status": "recomendado",
+  "observacao": "IP varifocal mais barata com estoque e o melhor WDR da faixa. Autofoco: desligar e travar o zoom depois de calibrar, senão o enquadramento muda e quebra o classificador.",
+  "serve_para": [
+    "presenca",
+    "contagem",
+    "comparacao",
+    "estado",
+    "estado:leitura",
+    "acao",
+    "acao:montagem"
+  ],
+  "specs": {
+    "resolucao_h": 1920,
+    "mp": 2,
+    "lente_min_mm": 2.7,
+    "lente_max_mm": 13.5,
+    "lente_motorizada": true,
+    "wdr_db": 120,
+    "starlight": true,
+    "fps_max": 30,
+    "interface": "ip_poe"
+  },
+  "medido": [],
+  "precos": [],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026"
+  ]
+}

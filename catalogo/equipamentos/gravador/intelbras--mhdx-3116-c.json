@@ -1,0 +1,104 @@
+{
+  "id": "intelbras--mhdx-3116-c",
+  "categoria": "gravador_dvr",
+  "fabricante": "Intelbras",
+  "modelo": "MHDX 3116-C",
+  "nivel": "intermediario",
+  "nivel_motivo": "16 canais em 1080p real e fluxo reduzido de 704×480 a 15 quadros/s, medido em campo. Inteligência embarcada em 1 canal só.",
+  "status": "recomendado",
+  "observacao": "Grava 1080p real. Inteligência de vídeo em 1 canal apenas; movimento em todos os 16 — por isso a classificação acontece no agente. O firmware trunca a lista de codes do eventManager.cgi em ~100 caracteres: usar [All] e filtrar no agente. Desligar a detecção de face.",
+  "specs": {
+    "canais_bnc": 16,
+    "canais_ip": 8,
+    "resolucao_max_real": "5MP Lite",
+    "grava_1080n": false,
+    "fps_por_canal_full": 15,
+    "throughput_mbps": 96,
+    "conexoes_simultaneas": 128,
+    "inteligencia_canais": 1,
+    "inteligencia_tipos": [
+      "cerca_virtual",
+      "linha_virtual",
+      "objeto_abandonado",
+      "face"
+    ],
+    "movimento_todos_canais": true,
+    "zonas_movimento": 330,
+    "protocolo_evento": "dahua_cgi",
+    "rede_mbps": 1000,
+    "substream": "D1/CIF",
+    "compressao": [
+      "H.264+",
+      "H.264"
+    ],
+    "onvif": true,
+    "rtsp": true,
+    "disco_max_tb": 10
+  },
+  "medido": [
+    {
+      "em": "2026-10-06",
+      "onde": "loja de teste",
+      "metrica": "fluxo_reduzido",
+      "valor": "704x480 a 15 quadros/s",
+      "condicao": "14 canais abertos ao mesmo tempo"
+    },
+    {
+      "em": "2026-10-06",
+      "onde": "loja de teste",
+      "metrica": "fluxo_reduzido_por_canal",
+      "valor": 170,
+      "unidade": "kbit/s"
+    },
+    {
+      "em": "2026-10-07",
+      "onde": "loja de teste",
+      "metrica": "fluxo_principal",
+      "valor": "1920x1080 a 15 quadros/s",
+      "condicao": "4 canais ao mesmo tempo"
+    },
+    {
+      "em": "2026-10-07",
+      "onde": "loja de teste",
+      "metrica": "fluxo_principal_por_canal",
+      "valor": 2.8,
+      "unidade": "Mbit/s"
+    },
+    {
+      "em": "2026-10-06",
+      "onde": "loja de teste",
+      "metrica": "abertura_rtsp_por_canal",
+      "valor": "1,7 a 2,1",
+      "unidade": "s",
+      "condicao": "os canais abrem um de cada vez; 14 canais levam cerca de 30 s"
+    },
+    {
+      "em": "2026-10-07",
+      "onde": "loja de teste",
+      "metrica": "fluxos_principais_ao_mesmo_tempo",
+      "valor": "4 sustentam 15 quadros/s; 8 caem para 9 a 11",
+      "condicao": "PC ligado por cabo negociando 10 Mbps — o limite medido é do cabo; a 100 Mbps não foi medido"
+    },
+    {
+      "em": "2026-10-05",
+      "onde": "loja de teste",
+      "metrica": "canal_sem_camera",
+      "valor": "transmite tela preta com logotipo e relógio (99,5% dos pixels em preto)"
+    }
+  ],
+  "precos": [
+    {
+      "preco_min": 1400,
+      "preco_max": 1900,
+      "confianca": "estimado",
+      "cotado_em": "2026-08-11",
+      "fonte": "docs/FAROL-Mapeamento-Arquitetura-e-Orcamento.md §8.5",
+      "nota": "faixa do MHDX 3116, sem o sufixo -C"
+    }
+  ],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026",
+    "docs/FAROL-Mapeamento-Arquitetura-e-Orcamento.md §8.5",
+    "medição em campo, loja de teste"
+  ]
+}

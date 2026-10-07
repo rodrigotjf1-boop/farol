@@ -1,0 +1,21 @@
+{
+  "id": "intelbras--nvd-1408-p",
+  "categoria": "gravador_nvr",
+  "fabricante": "Intelbras",
+  "modelo": "NVD 1408 P",
+  "nivel": "intermediario",
+  "nivel_motivo": "8 canais IP em até 4K, com PoE embutido.",
+  "status": "aceitavel",
+  "observacao": "NVR de 8 canais com 8 portas PoE — dispensa switch PoE separado.",
+  "specs": {
+    "canais_ip": 8,
+    "poe_portas": 8,
+    "resolucao_max_real": "4K",
+    "protocolo_evento": "dahua_cgi"
+  },
+  "medido": [],
+  "precos": [],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026"
+  ]
+}

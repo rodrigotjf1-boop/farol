@@ -1,0 +1,25 @@
+{
+  "id": "hailo--hailo-8-26-tops",
+  "categoria": "acelerador",
+  "fabricante": "Hailo",
+  "modelo": "Hailo-8 (26 TOPS)",
+  "nivel": null,
+  "nivel_motivo": null,
+  "status": "aceitavel",
+  "observacao": "Citado na pesquisa como a alternativa ao Coral. Não testado. O nome do modelo foi deduzido dos 26 TOPS.",
+  "specs": {
+    "tops": 26
+  },
+  "medido": [],
+  "precos": [
+    {
+      "preco": 1799,
+      "confianca": "indice",
+      "cotado_em": "2026-10-03",
+      "fonte": "migration 002 — pesquisa de 01 a 03/10/2026"
+    }
+  ],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026"
+  ]
+}

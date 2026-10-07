@@ -1,0 +1,20 @@
+{
+  "id": "intelbras--vhd-3150-vf-g7",
+  "categoria": "camera_analogica",
+  "fabricante": "Intelbras",
+  "modelo": "VHD 3150 VF G7",
+  "nivel": "basico",
+  "nivel_motivo": "É 720p, apesar do anúncio.",
+  "status": "descartado",
+  "observacao": "ARMADILHA: lojas anunciam 2 MP; o datasheet oficial diz 1 MP / 1280×720.",
+  "specs": {
+    "resolucao_h": 1280,
+    "mp": 1,
+    "armadilha": "anunciado_2mp_e_720p"
+  },
+  "medido": [],
+  "precos": [],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026"
+  ]
+}

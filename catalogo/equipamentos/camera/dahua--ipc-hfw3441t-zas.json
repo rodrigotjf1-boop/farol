@@ -1,0 +1,36 @@
+{
+  "id": "dahua--ipc-hfw3441t-zas",
+  "categoria": "camera_ip",
+  "fabricante": "Dahua",
+  "modelo": "IPC-HFW3441T-ZAS",
+  "nivel": "avancado",
+  "nivel_motivo": "4 MP com varifocal motorizada e IA embarcada (WizSense).",
+  "status": "aceitavel",
+  "observacao": "Bom equilíbrio; a varifocal motorizada evita voltar com a escada. A Dahua não tem canal de varejo no Brasil.",
+  "serve_para": [
+    "presenca",
+    "contagem",
+    "comparacao",
+    "estado",
+    "estado:leitura"
+  ],
+  "specs": {
+    "mp": 4,
+    "lente_motorizada": true,
+    "ia_embarcada": true,
+    "interface": "ip_poe"
+  },
+  "medido": [],
+  "precos": [
+    {
+      "preco_min": 900,
+      "preco_max": 1200,
+      "confianca": "estimado",
+      "cotado_em": "2026-08-11",
+      "fonte": "docs/FAROL-Mapeamento-Arquitetura-e-Orcamento.md §7.6"
+    }
+  ],
+  "fontes": [
+    "docs/FAROL-Mapeamento-Arquitetura-e-Orcamento.md §7.6"
+  ]
+}

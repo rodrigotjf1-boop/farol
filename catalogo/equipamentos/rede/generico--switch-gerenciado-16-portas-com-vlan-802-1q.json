@@ -1,0 +1,27 @@
+{
+  "id": "generico--switch-gerenciado-16-portas-com-vlan-802-1q",
+  "categoria": "switch",
+  "fabricante": "generico",
+  "modelo": "Switch gerenciado 16 portas com VLAN 802.1Q",
+  "nivel": null,
+  "nivel_motivo": null,
+  "status": "aceitavel",
+  "observacao": "Sem modelo definido. Central da rede: os switches que a loja já tem viram portas de acesso da VLAN das câmeras.",
+  "specs": {
+    "portas": 16,
+    "vlan": true,
+    "gerenciado": true
+  },
+  "medido": [],
+  "precos": [
+    {
+      "preco": 700,
+      "confianca": "estimado",
+      "cotado_em": "2026-08-11",
+      "fonte": "docs/FAROL-Mapeamento-Arquitetura-e-Orcamento.md §16"
+    }
+  ],
+  "fontes": [
+    "docs/FAROL-Mapeamento-Arquitetura-e-Orcamento.md §16"
+  ]
+}

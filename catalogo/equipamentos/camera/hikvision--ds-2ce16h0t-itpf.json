@@ -1,0 +1,27 @@
+{
+  "id": "hikvision--ds-2ce16h0t-itpf",
+  "categoria": "camera_analogica",
+  "fabricante": "Hikvision",
+  "modelo": "DS-2CE16H0T-ITPF",
+  "nivel": "basico",
+  "nivel_motivo": "5 MP, mas com lente fixa de 2,8 mm: só enquadra aberto.",
+  "status": "aceitavel",
+  "observacao": "Melhor relação preço por megapixel. Lente FIXA de 2,8 mm: só serve a curta distância. A 85 cm enquadra 160 cm — largo demais para inspeção de bancada.",
+  "serve_para": [
+    "presenca",
+    "contagem"
+  ],
+  "specs": {
+    "resolucao_h": 2592,
+    "mp": 5,
+    "lente_min_mm": 2.8,
+    "lente_max_mm": 2.8,
+    "interface": "analogica_4em1",
+    "cor_24h": false
+  },
+  "medido": [],
+  "precos": [],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026"
+  ]
+}

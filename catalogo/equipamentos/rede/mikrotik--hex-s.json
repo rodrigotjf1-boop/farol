@@ -1,0 +1,26 @@
+{
+  "id": "mikrotik--hex-s",
+  "categoria": "roteador",
+  "fabricante": "MikroTik",
+  "modelo": "hEX S",
+  "nivel": null,
+  "nivel_motivo": null,
+  "status": "aceitavel",
+  "observacao": "Duas saídas de internet, roteamento por política, VLAN, firewall e troca automática quando uma cai.",
+  "specs": {
+    "wan": 2,
+    "vlan": true
+  },
+  "medido": [],
+  "precos": [
+    {
+      "preco": 500,
+      "confianca": "estimado",
+      "cotado_em": "2026-08-11",
+      "fonte": "docs/FAROL-Mapeamento-Arquitetura-e-Orcamento.md §16"
+    }
+  ],
+  "fontes": [
+    "docs/FAROL-Mapeamento-Arquitetura-e-Orcamento.md §16"
+  ]
+}

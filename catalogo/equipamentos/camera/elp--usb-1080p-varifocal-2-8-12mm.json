@@ -1,0 +1,37 @@
+{
+  "id": "elp--usb-1080p-varifocal-2-8-12mm",
+  "categoria": "camera_usb",
+  "fabricante": "ELP",
+  "modelo": "USB 1080p varifocal 2.8-12mm",
+  "nivel": "intermediario",
+  "nivel_motivo": "Varifocal em close ligada direto no PC; corpo plástico, sem WDR.",
+  "status": "aceitavel",
+  "observacao": "UVC plug-and-play: entra no OpenCV direto, sem RTSP, sem gravador, sem rede. Taxa de quadros garantida. Limite de cabo USB passivo: ~5 m. Corpo plástico, sem WDR.",
+  "serve_para": [
+    "comparacao",
+    "estado"
+  ],
+  "specs": {
+    "resolucao_h": 1920,
+    "mp": 2,
+    "lente_min_mm": 2.8,
+    "lente_max_mm": 12,
+    "lente_motorizada": false,
+    "fps_max": 30,
+    "interface": "usb_uvc",
+    "cabo_max_m": 5
+  },
+  "medido": [],
+  "precos": [
+    {
+      "preco": 562,
+      "confianca": "estimado",
+      "cotado_em": "2026-10-03",
+      "fonte": "docs/roadmap.md — hardware do teste de montagem"
+    }
+  ],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026",
+    "docs/roadmap.md — hardware do teste de montagem"
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "niveis": ["basico", "intermediario", "avancado"],
+  "categorias_com_nivel": [
+    "camera_ip",
+    "camera_analogica",
+    "camera_usb",
+    "gravador_dvr",
+    "gravador_nvr",
+    "computador",
+    "gpu"
+  ],
+  "criterio": {
+    "camera": {
+      "basico": "Lente fixa ou enquadramento aberto. Vê quem está e quantos são; não fecha o quadro numa bancada.",
+      "intermediario": "Varifocal, 4 MP ou mais, ou cor 24 h. Fecha o enquadramento o bastante para julgar estado: limpeza, organização, EPI.",
+      "avancado": "Enquadramento fechado com WDR real, cor 24 h real ou IA embarcada. Para leitura, cor à noite e montagem."
+    },
+    "gravador": {
+      "basico": "Até 8 canais, ou gravador com limitação que o tira da proposta.",
+      "intermediario": "16 canais em 1080p real, com fluxo reduzido que sustenta análise contínua.",
+      "avancado": "4K real ou IA embarcada em vários canais."
+    },
+    "computador": {
+      "basico": "Poucos fluxos e detector local. Basta quando a câmera já entrega o evento pronto.",
+      "intermediario": "Os 16 canais no fluxo reduzido, alguns em alta, e o detector local. Sem modelo de visão.",
+      "avancado": "Modelo de visão rodando dentro da loja — exige placa de 16 GB ou mais."
+    },
+    "gpu": {
+      "basico": "Acelera o detector. Não comporta modelo de visão.",
+      "intermediario": "16 GB: modelo de visão de porte médio.",
+      "avancado": "24 GB ou mais."
+    }
+  },
+  "usos": [
+    "presenca",
+    "contagem",
+    "comparacao",
+    "estado",
+    "estado:cor",
+    "estado:leitura",
+    "acao",
+    "acao:montagem"
+  ],
+  "status": ["recomendado", "aceitavel", "descartado"],
+  "confianca_do_preco": ["confirmado", "indice", "estimado"]
+}

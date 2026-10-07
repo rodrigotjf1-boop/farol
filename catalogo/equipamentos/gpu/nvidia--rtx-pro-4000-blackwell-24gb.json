@@ -1,0 +1,21 @@
+{
+  "id": "nvidia--rtx-pro-4000-blackwell-24gb",
+  "categoria": "gpu",
+  "fabricante": "NVIDIA",
+  "modelo": "RTX PRO 4000 Blackwell 24GB",
+  "nivel": "avancado",
+  "nivel_motivo": "24 GB com driver profissional.",
+  "status": "aceitavel",
+  "observacao": "O piso NVIDIA novo de 24 GB no Brasil. Driver profissional sem cláusula de datacenter.",
+  "specs": {
+    "vram_gb": 24,
+    "watts": 140,
+    "ecc": true,
+    "fp8": true
+  },
+  "medido": [],
+  "precos": [],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026"
+  ]
+}

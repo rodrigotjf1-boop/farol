@@ -1,0 +1,31 @@
+{
+  "id": "intelbras--vhd-1230-b-g7",
+  "categoria": "camera_analogica",
+  "fabricante": "Intelbras",
+  "modelo": "VHD 1230 B G7",
+  "nivel": "basico",
+  "nivel_motivo": "2 MP de lente fixa: substituição simples.",
+  "status": "aceitavel",
+  "observacao": "Substituição simples onde 1080p basta.",
+  "serve_para": [
+    "presenca",
+    "contagem"
+  ],
+  "specs": {
+    "mp": 2,
+    "interface": "analogica_4em1"
+  },
+  "medido": [],
+  "precos": [
+    {
+      "preco_min": 250,
+      "preco_max": 350,
+      "confianca": "estimado",
+      "cotado_em": "2026-08-11",
+      "fonte": "docs/FAROL-Mapeamento-Arquitetura-e-Orcamento.md §7.6"
+    }
+  ],
+  "fontes": [
+    "docs/FAROL-Mapeamento-Arquitetura-e-Orcamento.md §7.6"
+  ]
+}

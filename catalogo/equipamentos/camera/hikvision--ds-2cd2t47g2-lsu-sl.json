@@ -1,0 +1,42 @@
+{
+  "id": "hikvision--ds-2cd2t47g2-lsu-sl",
+  "categoria": "camera_ip",
+  "fabricante": "Hikvision",
+  "modelo": "DS-2CD2T47G2-LSU/SL",
+  "nivel": "avancado",
+  "nivel_motivo": "Cor 24 h real (sensor 1/1.8, F1.0) e WDR de 130 dB: sustenta regra que depende de cor à noite.",
+  "status": "recomendado",
+  "observacao": "ColorVu: cor 24 h real. Necessária onde a regra depende de cor à noite.",
+  "serve_para": [
+    "presenca",
+    "contagem",
+    "comparacao",
+    "estado",
+    "estado:cor"
+  ],
+  "specs": {
+    "resolucao_h": 2688,
+    "mp": 4,
+    "sensor_pol": 0.555,
+    "lente_min_mm": 2.8,
+    "lente_max_mm": 2.8,
+    "wdr_db": 130,
+    "cor_24h": true,
+    "interface": "ip_poe"
+  },
+  "medido": [],
+  "precos": [
+    {
+      "preco_min": 1100,
+      "preco_max": 1400,
+      "confianca": "estimado",
+      "cotado_em": "2026-08-11",
+      "fonte": "docs/FAROL-Mapeamento-Arquitetura-e-Orcamento.md §7.6",
+      "nota": "faixa do DS-2CD2T47G2-L, da mesma família"
+    }
+  ],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026",
+    "docs/FAROL-Mapeamento-Arquitetura-e-Orcamento.md §7.6"
+  ]
+}

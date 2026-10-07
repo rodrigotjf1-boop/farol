@@ -1,0 +1,24 @@
+{
+  "id": "intelbras--mhdx-3108-c",
+  "categoria": "gravador_dvr",
+  "fabricante": "Intelbras",
+  "modelo": "MHDX 3108-C",
+  "nivel": "basico",
+  "nivel_motivo": "Mesma família do 3116-C, com 8 canais.",
+  "status": "recomendado",
+  "observacao": "Mesma família, 8 canais. Para até 8 câmeras.",
+  "specs": {
+    "canais_bnc": 8,
+    "canais_ip": 4,
+    "resolucao_max_real": "5MP Lite",
+    "grava_1080n": false,
+    "inteligencia_canais": 1,
+    "movimento_todos_canais": true,
+    "protocolo_evento": "dahua_cgi"
+  },
+  "medido": [],
+  "precos": [],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026"
+  ]
+}
