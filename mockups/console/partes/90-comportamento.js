@@ -450,6 +450,9 @@
         const nuvem = s.onde === 'nuvem';
         celulas.push({
           d, si, h, n, fora, na, ok: n - fora - na, ativos,
+          // Fora do critério é contado a cada olhada; AVISO é a primeira de
+          // cada período de silêncio (uns quinze minutos).
+          avisos: Math.min(fora, Math.ceil(ativos / 15)),
           // Na hora em que a loja fecha, a parte aberta vem primeiro: o
           // critério da loja fechada começa a valer depois dela.
           comeca: s.quando === 'fechada' ? aberta : 0,
@@ -496,9 +499,9 @@
   }
 
   function somar(celulas) {
-    const t = { n: 0, ok: 0, fora: 0, na: 0, loja: 0, nuvem: 0, custo: 0, ms: 0 };
+    const t = { n: 0, ok: 0, fora: 0, na: 0, loja: 0, nuvem: 0, custo: 0, ms: 0, avisos: 0 };
     for (const c of celulas) {
-      t.n += c.n; t.ok += c.ok; t.fora += c.fora; t.na += c.na; t.custo += c.custo; t.ms += c.ms;
+      t.n += c.n; t.ok += c.ok; t.fora += c.fora; t.na += c.na; t.custo += c.custo; t.ms += c.ms; t.avisos += c.avisos;
       if (AN_SERIES[c.si].onde === 'nuvem') t.nuvem += c.n;
       else t.loja += c.n;
     }
@@ -610,7 +613,7 @@
     contar($('[data-an="nap"]'), porcento(t.na, t.n), animar);
     $('[data-an="total-pe"]').textContent = `${numero.format(Math.round(t.n / horasComAnalise))} por hora, em média`;
     $('[data-an="ok-pe"]').textContent = `${numero.format(t.ok)} análises`;
-    $('[data-an="nc-pe"]').textContent = `${porcento(t.fora, t.n)}% das análises`;
+    $('[data-an="nc-pe"]').textContent = `${porcento(t.fora, t.n)}% das análises · ${plural(t.avisos, 'aviso', 'avisos')}`;
     $('[data-an="na-pe"]').textContent = `${numero.format(t.na)} análises`;
     const divide = $('[data-an="divide"]');
     divide.innerHTML = `<i class="cor-loja" style="flex:${t.loja} 1 0"></i><i class="cor-nuvem" style="flex:${t.nuvem} 1 0"></i>`;
@@ -685,7 +688,7 @@
         `<td class="num-col" data-r="Custo">${dinheiro(t.custo)}</td>` +
         `<td class="num-col" data-r="Custo por análise na nuvem">${t.nuvem ? reaisFinos.format(t.custo / t.nuvem / 100) : '—'}</td></tr>`;
 
-    // ── as últimas vezes fora do critério, dentro do recorte ──
+    // ── os últimos AVISOS dentro do recorte ──
     const vezes = [];
     const dias = [...diasDoRecorte()].sort((a, b) => a - b); // do mais recente para trás
     busca: for (const d of dias) {
@@ -693,7 +696,7 @@
         const daHora = [];
         for (const c of recorte) {
           if (c.d !== d || c.h !== h) continue;
-          for (let j = 0; j < c.fora; j += 1) {
+          for (let j = 0; j < c.avisos; j += 1) {
             daHora.push({ c, minuto: c.comeca + Math.floor(sorte(d, c.si, h, 20 + j) * c.ativos), j });
           }
         }
@@ -704,7 +707,7 @@
         }
       }
     }
-    $('[data-an-fora-conta]').textContent = numero.format(t.fora);
+    $('[data-an-fora-conta]').textContent = numero.format(t.avisos);
     $('[data-an-fora]').innerHTML = vezes.length
       ? vezes
           .map(({ c, minuto, j }) => {
@@ -716,7 +719,7 @@
             const aviso =
               r < 0.6 ? `<span class="chip ok">${icone('check-check')}aviso chegou</span>`
               : r < 0.8 ? `<span class="chip atencao">${icone('send')}aviso mandado</span>`
-              : `<span class="chip">${icone('bell-off')}em silêncio</span>`;
+              : `<span class="chip">${icone('hourglass')}aviso na fila</span>`;
             const nuvem = s.onde === 'nuvem';
             return (
               `<li><time datetime="${hora}">${umDia ? '' : `${rotuloDoDia(c.d, false)} · `}${hora}</time>` +
@@ -728,8 +731,8 @@
             );
           })
           .join('') +
-        (t.fora > vezes.length ? `<li class="mais"><span></span><p>e mais ${numero.format(t.fora - vezes.length)} neste recorte.</p><span></span></li>` : '')
-      : '<li class="mais"><span></span><p>Nada ficou fora do critério neste recorte.</p><span></span></li>';
+        (t.avisos > vezes.length ? `<li class="mais"><span></span><p>e mais ${plural(t.avisos - vezes.length, 'aviso', 'avisos')} neste recorte.</p><span></span></li>` : '')
+      : '<li class="mais"><span></span><p>Nenhum aviso neste recorte.</p><span></span></li>';
   }
 
   // os seletores de hora, canal e critério
