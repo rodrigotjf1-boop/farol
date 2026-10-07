@@ -173,6 +173,7 @@ def _regra(dados: dict[str, Any], zona: Zona) -> Regra:
         # liga regra por conta própria.
         ativa=True,
         borrar_rosto=True,
+        parametros=dict(dados.get("parametros") or {}),
     )
 
 

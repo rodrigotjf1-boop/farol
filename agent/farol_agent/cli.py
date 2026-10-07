@@ -863,6 +863,54 @@ def cmd_ensaio(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_detector(args: argparse.Namespace) -> int:
+    """O detector local: instalar o modelo e olhar uma imagem com ele."""
+    import os
+    from pathlib import Path
+
+    from farol_agent.juizes.base import ErroDoJuiz
+    from farol_agent.juizes.detector import (
+        MODELO_ARQUIVO,
+        MODELO_NOME,
+        OBJETOS,
+        JuizDetector,
+        MotorOnnx,
+        instalar_modelo,
+    )
+
+    pasta = Path(args.pasta or os.environ.get("FAROL_MODELOS") or "modelos")
+
+    try:
+        if args.acao == "instalar":
+            # Passo de INSTALAÇÃO, de propósito. O agente em serviço nunca
+            # baixa modelo sozinho.
+            print(f"instalando {MODELO_NOME} em {pasta.resolve()} (108 MB na primeira vez)…")
+            caminho = instalar_modelo(pasta)
+            motor = MotorOnnx(caminho)
+            print(f"\n  pronto: {caminho}")
+            print(f"  conferido pelo sha256 · roda em {motor.onde}")
+            print("  reinicie o agente para ele passar a usar o detector.\n")
+            return 0
+
+        if args.acao == "objetos":
+            print("\n  o detector local conhece: " + ", ".join(sorted(OBJETOS)) + "\n")
+            return 0
+
+        # olhar
+        if not args.imagem:
+            print("\n  ERRO: diga a imagem com --imagem\n", file=sys.stderr)
+            return 2
+        parametros = {"objeto": args.objeto, "minimo": args.minimo, "maximo": args.maximo}
+        juiz = JuizDetector(MotorOnnx(pasta / MODELO_ARQUIVO))
+        v = juiz.julgar(Path(args.imagem), "", contexto={"parametros": parametros})
+        print(f"\n  {v.resultado.value}  (confiança {v.confianca:.2f}, {v.latencia_ms} ms, {v.modelo})")
+        print(f"  {v.motivo}\n")
+        return 0
+    except ErroDoJuiz as e:
+        print(f"\n  ERRO: {e}\n", file=sys.stderr)
+        return 1
+
+
 def cmd_servir(args: argparse.Namespace) -> int:
     """Roda o agente contra a nuvem: configuração desce, comandos chegam.
 
@@ -1100,6 +1148,17 @@ def main(argv: list[str] | None = None) -> int:
                    help="JSON {arquivo: resultado} com o que era verdade — habilita "
                         "a acurácia")
     e.set_defaults(func=cmd_ensaio)
+
+    dt = sub.add_parser("detector",
+                        help="detector local (presença e contagem): instala o modelo e testa")
+    dt.add_argument("acao", choices=["instalar", "olhar", "objetos"])
+    dt.add_argument("--pasta",
+                    help="onde fica o modelo (padrão: FAROL_MODELOS ou ./modelos)")
+    dt.add_argument("--imagem", help="imagem para o detector olhar (ação olhar)")
+    dt.add_argument("--objeto", default="pessoa", help="o que procurar (padrão pessoa)")
+    dt.add_argument("--minimo", type=int, default=1, help="pelo menos quantos (padrão 1)")
+    dt.add_argument("--maximo", type=int, help="no máximo quantos")
+    dt.set_defaults(func=cmd_detector)
 
     sv = sub.add_parser("servir",
                         help="roda o agente contra a nuvem: config desce, comandos chegam")

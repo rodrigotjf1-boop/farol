@@ -48,3 +48,7 @@ fila.db-*
 /agent/configuracao.json
 /agent/maquina.json
 web/tsconfig.tsbuildinfo
+
+# O modelo do detector local (108 MB): baixado na instalação e conferido
+# por sha256, nunca versionado.
+/agent/modelos/

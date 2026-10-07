@@ -68,6 +68,48 @@ LIMITE_DE_SUBIDA = 100
 PAUSA_APOS_RECUSA_MIN = 10
 
 
+# O detector é carregado UMA vez por processo. O juiz é reconstruído a cada
+# versão de configuração, e recarregar 108 MB de modelo sempre que alguém
+# liga um critério no console travaria a batida por segundos, à toa.
+_detector: Any = None
+_detector_tentado = False
+
+
+def _detector_local():
+    """O juiz detector, se o modelo estiver instalado. `None` se não.
+
+    Nunca baixa nada: instalar o modelo é passo de instalação
+    (`farol-agent detector instalar`). Sem ele, critérios de presença e
+    contagem ficam de fora — e o motivo é dito uma vez.
+    """
+    global _detector, _detector_tentado
+    if _detector_tentado:
+        return _detector
+    _detector_tentado = True
+
+    import os
+    from pathlib import Path
+
+    from farol_agent.juizes.detector import MODELO_ARQUIVO, JuizDetector, MotorOnnx
+
+    caminho = Path(os.environ.get("FAROL_MODELOS") or "modelos") / MODELO_ARQUIVO
+    if not caminho.is_file():
+        _log.info(
+            "detector local não instalado (%s não existe): critérios de "
+            "presença e contagem ficam de fora. Rode: farol-agent detector instalar",
+            caminho,
+        )
+        return None
+    try:
+        motor = MotorOnnx(caminho)
+    except Exception as e:  # noqa: BLE001
+        _log.warning("detector local indisponível: %s", e)
+        return None
+    _detector = JuizDetector(motor)
+    _log.info("detector local pronto: %s em %s", motor.nome, motor.onde)
+    return _detector
+
+
 class Auditoria:
     """Mantém o motor em dia com a configuração e roda o laço de análise."""
 
@@ -147,7 +189,9 @@ class Auditoria:
             # atendida, e regra de nuvem falha dizendo o que falta.
             _log.warning("juiz de nuvem indisponível: %s", e)
 
-        seletor = SeletorDeJuiz(config.modo_julgamento, nuvem=nuvem)
+        seletor = SeletorDeJuiz(
+            config.modo_julgamento, nuvem=nuvem, detector=_detector_local()
+        )
         return JuizPorRegra(seletor, {r.id: r for r in config.regras})
 
     def montar(self, config: ConfigDaLoja) -> None:
