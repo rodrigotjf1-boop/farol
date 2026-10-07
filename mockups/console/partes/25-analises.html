@@ -1,0 +1,176 @@
+    <!-- ═════════════════════════ ANÁLISES ═════════════════════════ -->
+    <!-- O Painel responde "está tudo bem?". Esta tela responde "o que foi
+         julgado, onde, por quem e quanto custou" — com filtro por período,
+         hora, canal, critério e por onde a análise foi feita (na loja ou na
+         nuvem). O gráfico também é filtro: tocar numa hora mostra só ela. -->
+    <section class="tela" data-tela="analises" aria-labelledby="t-analises" hidden>
+      <header class="cab">
+        <div>
+          <p class="sobre"><svg class="ic p" aria-hidden="true"><use href="#i-store"/></svg><span data-loja-nome>Loja Centro</span></p>
+          <h1 id="t-analises">Análises</h1>
+          <p class="sub">O que foi julgado nas câmeras, hora a hora: em que canal, onde foi julgado e quanto custou.</p>
+        </div>
+      </header>
+
+      <div class="corpo" data-quando="normal">
+        <section class="filtros cartao" aria-label="Filtros das análises">
+          <div class="filtro">
+            <span class="rotulo" id="an-r-periodo">Período</span>
+            <div class="seg" role="group" aria-labelledby="an-r-periodo">
+              <button type="button" data-an-periodo="hoje" aria-pressed="true">Hoje</button>
+              <button type="button" data-an-periodo="ontem" aria-pressed="false">Ontem</button>
+              <button type="button" data-an-periodo="7d" aria-pressed="false">7 dias</button>
+              <button type="button" data-an-periodo="dia" aria-pressed="false">Outro dia</button>
+            </div>
+          </div>
+          <div class="filtro" data-an-campo-dia hidden>
+            <label for="an-dia">Dia</label>
+            <input class="entrada" type="date" id="an-dia" min="2026-09-08" max="2026-10-07" value="2026-10-05">
+          </div>
+          <div class="filtro">
+            <span class="rotulo" id="an-r-horas">Horas</span>
+            <div class="par" role="group" aria-labelledby="an-r-horas">
+              <select class="entrada" id="an-de" aria-label="Da hora"></select>
+              <span aria-hidden="true">às</span>
+              <select class="entrada" id="an-ate" aria-label="Até a hora"></select>
+            </div>
+          </div>
+          <div class="filtro cresce-f">
+            <label for="an-canal">Canal</label>
+            <select class="entrada" id="an-canal"></select>
+          </div>
+          <div class="filtro cresce-f">
+            <label for="an-criterio">Critério</label>
+            <select class="entrada" id="an-criterio"></select>
+          </div>
+          <div class="filtro">
+            <span class="rotulo" id="an-r-onde">Onde foi julgado</span>
+            <div class="seg" role="group" aria-labelledby="an-r-onde">
+              <button type="button" data-an-onde="tudo" aria-pressed="true">Tudo</button>
+              <button type="button" data-an-onde="loja" aria-pressed="false"><svg class="ic p" aria-hidden="true"><use href="#i-cpu"/></svg>Na loja</button>
+              <button type="button" data-an-onde="nuvem" aria-pressed="false"><svg class="ic p" aria-hidden="true"><use href="#i-cloud"/></svg>Na nuvem</button>
+            </div>
+          </div>
+        </section>
+
+        <div class="recorte">
+          <p data-an-recorte aria-live="polite"></p>
+          <button class="btn fantasma mini" type="button" data-an-limpar hidden><svg class="ic" aria-hidden="true"><use href="#i-filter-x"/></svg>Limpar filtros</button>
+        </div>
+
+        <div class="an-corpo">
+          <div class="vazio curto" data-an-sem-dado hidden>
+            <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-chart-column"/></svg></span>
+            <h2>Nada foi analisado neste recorte</h2>
+            <p>Nenhum critério foi conferido nestas horas, neste canal. Escolha outra hora no gráfico abaixo ou limpe os filtros.</p>
+            <button class="btn" type="button" data-an-limpar><svg class="ic" aria-hidden="true"><use href="#i-filter-x"/></svg>Limpar filtros</button>
+          </div>
+
+          <div class="numeros seis" data-an-so-com-dado>
+            <article class="kpi cartao">
+              <span class="rot"><svg class="ic p" aria-hidden="true"><use href="#i-activity"/></svg>Análises</span>
+              <span class="num" data-an="total">0</span>
+              <span class="pe" data-an="total-pe"></span>
+            </article>
+            <article class="kpi cartao">
+              <span class="rot"><span class="ponto ok"></span>Conforme</span>
+              <span class="num"><span data-an="okp">0</span><small>%</small></span>
+              <span class="pe" data-an="ok-pe"></span>
+            </article>
+            <article class="kpi cartao">
+              <span class="rot"><span class="ponto critico"></span>Fora do critério</span>
+              <span class="num" data-an="nc">0</span>
+              <span class="pe" data-an="nc-pe"></span>
+            </article>
+            <article class="kpi cartao">
+              <span class="rot"><span class="ponto"></span>Não deu para avaliar</span>
+              <span class="num"><span data-an="nap">0</span><small>%</small></span>
+              <span class="pe" data-an="na-pe"></span>
+            </article>
+            <article class="kpi cartao">
+              <span class="rot"><svg class="ic p" aria-hidden="true"><use href="#i-cpu"/></svg>Onde foi julgado</span>
+              <span class="divide" data-an="divide" role="img"></span>
+              <span class="pe" data-an="onde-pe"></span>
+            </article>
+            <article class="kpi cartao">
+              <span class="rot"><svg class="ic p" aria-hidden="true"><use href="#i-coins"/></svg>Custo da nuvem</span>
+              <span class="num" data-an="custo">R$ 0,00</span>
+              <span class="pe" data-an="custo-pe"></span>
+            </article>
+          </div>
+
+          <div class="an-grade">
+            <section class="grafico cartao" aria-labelledby="t-an-grafico">
+              <div class="secao-cab">
+                <h2 id="t-an-grafico" data-an-grafico-titulo>Hora a hora</h2>
+                <div class="seg empurra" role="group" aria-label="O que o gráfico mostra">
+                  <button type="button" data-an-vista="resultado" aria-pressed="true">Resultado</button>
+                  <button type="button" data-an-vista="onde" aria-pressed="false">Onde julgou</button>
+                  <button type="button" data-an-vista="custo" aria-pressed="false">Custo</button>
+                </div>
+              </div>
+              <div class="legenda" aria-hidden="true" data-an-legenda></div>
+              <div class="barras-area" data-an-area>
+                <div class="eixo-y" aria-hidden="true" data-an-eixo-y></div>
+                <div class="barras tocaveis" data-an-barras></div>
+                <div class="eixo-x" aria-hidden="true" data-an-eixo-x></div>
+                <div class="dica" data-an-dica hidden></div>
+              </div>
+              <p class="nota" data-an-grafico-nota></p>
+            </section>
+
+            <section class="cartao pad por-canal" aria-labelledby="t-an-canais">
+              <div class="secao-cab">
+                <h2 id="t-an-canais">Por canal</h2>
+              </div>
+              <ul class="canais-barras" data-an-canais></ul>
+              <p class="nota">Toque num canal para ver só ele.</p>
+            </section>
+          </div>
+
+          <section class="secao" aria-labelledby="t-an-tabela" data-an-so-com-dado>
+            <div class="secao-cab">
+              <h2 id="t-an-tabela">Por critério e canal</h2>
+              <span class="nota empurra">Do que mais ficou fora do critério para o que menos ficou.</span>
+            </div>
+            <div class="cartao rola">
+              <table class="em-cartoes">
+                <caption class="so-leitor">Cada critério em cada canal, no recorte escolhido: resultado, onde foi julgado, tempo e custo</caption>
+                <thead>
+                  <tr>
+                    <th>Critério</th><th>Canal</th><th>Onde julga</th><th>Conforme</th>
+                    <th class="num-col">Análises</th><th class="num-col">Fora</th>
+                    <th class="num-col">Não avaliou</th><th class="num-col">Tempo</th>
+                    <th class="num-col">Custo</th><th class="num-col">Por análise</th>
+                  </tr>
+                </thead>
+                <tbody data-an-linhas></tbody>
+                <tfoot data-an-rodape></tfoot>
+              </table>
+            </div>
+            <p class="nota">O custo é uma estimativa: o preço de tabela do modelo usado, convertido com o dólar a R$ 5,40. A conta de verdade vem na fatura do provedor. Análise feita na loja não tem custo por análise.</p>
+          </section>
+
+          <section class="secao" aria-labelledby="t-an-fora" data-an-so-com-dado>
+            <div class="secao-cab">
+              <h2 id="t-an-fora">Fora do critério neste recorte <span class="conta" data-an-fora-conta>0</span></h2>
+              <a class="elo empurra" href="#alertas" data-ir="alertas">Ver se o aviso chegou<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+            </div>
+            <ul class="ocorrencias cartao" data-an-fora></ul>
+          </section>
+        </div>
+      </div>
+
+      <div class="vazio" data-quando="vazio">
+        <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-chart-column"/></svg></span>
+        <h2>Ainda não há análises</h2>
+        <p>As análises aparecem aqui quando a loja tem pelo menos um canal com imagem e um critério ligado. O primeiro resultado chega em até uma hora.</p>
+        <a class="btn primario" href="#canais" data-ir="canais" data-so-config><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Cadastrar o primeiro canal</a>
+      </div>
+      <div class="ossos" data-quando="carregando" aria-hidden="true">
+        <div class="osso" style="height:96px"></div>
+        <div class="linha"><div class="osso" style="height:96px"></div><div class="osso" style="height:96px"></div><div class="osso" style="height:96px"></div><div class="osso" style="height:96px"></div></div>
+        <div class="osso" style="height:260px"></div>
+      </div>
+    </section>
+

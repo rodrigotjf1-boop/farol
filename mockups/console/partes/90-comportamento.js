@@ -13,7 +13,7 @@
   const app = $('#app');
   const entrar = $('#entrar');
   const palco = $('#conteudo');
-  const TELAS = ['painel', 'canais', 'area', 'criterios', 'alertas', 'orcamento', 'lojas'];
+  const TELAS = ['painel', 'analises', 'canais', 'area', 'criterios', 'alertas', 'orcamento', 'lojas'];
 
   // ═══════════════════════ dados de exemplo ═══════════════════════
   // Tudo aqui é inventado para o protótipo. As somas fecham: o total dos
@@ -201,6 +201,7 @@
     palco.scrollTop = 0;
     try { history.replaceState(null, '', `#${nome}`); } catch { /* sem histórico, sem problema */ }
     if (nome === 'painel') desenharPainel(false);
+    if (nome === 'analises') desenharAnalises(false);
     if (nome === 'area') desenharArea();
   }
 
@@ -336,6 +337,493 @@
     dica.style.top = `${c.top - base.top - 8}px`;
   });
   areaDasBarras.addEventListener('pointerleave', () => { dica.hidden = true; });
+
+  // ═══════════════════════ análises ═══════════════════════
+  // O Painel responde "está tudo bem?". Esta tela responde "o que foi
+  // julgado, onde, por quem e quanto custou" — e deixa recortar por período,
+  // hora, canal, critério e por onde a análise foi feita.
+  //
+  // Dados inventados, mas com a forma e a ordem de grandeza dos de verdade:
+  // por critério, canal (e área) e hora — quantas análises, no que deram,
+  // onde foram julgadas, quanto tempo levaram e quanto custaram. A partida é
+  // uma loja real numa noite: ~110 análises por hora por critério julgado na
+  // loja (0,09 s, sem custo) e ~45 por critério julgado na nuvem (2,1 s,
+  // 1,3 centavo cada).
+
+  const AN_HOJE = Date.UTC(2026, 9, 7); // quarta, 07/10/2026 — o "agora" do protótipo
+  const AN_AGORA_MIN = 21 * 60 + 40;
+  const AN_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+
+  const AN_CANAIS = [
+    { id: 'bal', nome: 'Balcão', num: '01' },
+    { id: 'cx', nome: 'Caixa', num: 'IP' },
+    { id: 'chp', nome: 'Chapa', num: '03' },
+    { id: 'm1', nome: 'Montagem 1', num: '04' },
+    { id: 'm2', nome: 'Montagem 2', num: '05' },
+    { id: 'fri', nome: 'Fritadeira', num: '06' },
+  ];
+
+  // `quando`: 'aberta' é conferido com a loja aberta; 'fechada', com ela
+  // fechada. `ritmo` é quantas análises por hora cheia; `fora` e `na`, a
+  // parte que fica fora do critério e a que não dá para avaliar.
+  const AN_SERIES = [
+    { crit: 'posto', canal: 'bal', area: 'Dentro do balcão', onde: 'loja', quando: 'aberta', ritmo: 112, fora: 0.07, na: 0 },
+    { crit: 'fila', canal: 'bal', area: 'Lado do cliente', onde: 'loja', quando: 'aberta', ritmo: 112, fora: 0.03, na: 0 },
+    { crit: 'vazio', canal: 'cx', onde: 'loja', quando: 'fechada', ritmo: 118, fora: 0.002, na: 0 },
+    { crit: 'chapa', canal: 'chp', onde: 'loja', quando: 'aberta', ritmo: 110, fora: 0.05, na: 0 },
+    { crit: 'touca', canal: 'chp', onde: 'nuvem', quando: 'aberta', ritmo: 44, fora: 0.01, na: 0.05 },
+    { crit: 'touca', canal: 'm1', onde: 'nuvem', quando: 'aberta', ritmo: 46, fora: 0.02, na: 0.52 },
+    { crit: 'touca', canal: 'm2', onde: 'nuvem', quando: 'aberta', ritmo: 45, fora: 0.02, na: 0.4 },
+    { crit: 'bancada', canal: 'm1', onde: 'nuvem', quando: 'aberta', ritmo: 52, fora: 0.07, na: 0.01 },
+    { crit: 'bancada', canal: 'm2', onde: 'nuvem', quando: 'aberta', ritmo: 50, fora: 0.05, na: 0.01 },
+    // Hoje a Fritadeira está sem imagem (o Painel avisa): nada foi julgado.
+    { crit: 'cesto', canal: 'fri', onde: 'nuvem', quando: 'aberta', ritmo: 30, fora: 0.01, na: 0.02, paradoHoje: true },
+  ];
+
+  const AN_MOTIVOS = {
+    posto: ['Nenhuma pessoa atrás do balcão.', 'O balcão ficou sem atendente.'],
+    fila: ['8 pessoas na área do balcão; o combinado é no máximo 6.', '7 pessoas esperando do lado do cliente.'],
+    vazio: ['Uma pessoa na área do caixa com a loja fechada.'],
+    chapa: ['Nenhuma pessoa na área da chapa.'],
+    touca: ['Uma pessoa na área de preparo sem touca nem boné.', 'Cabelo descoberto na bancada.'],
+    bancada: ['Restos de alimento e embalagem aberta no canto direito da bancada.', 'Utensílio sujo sobre a superfície de trabalho.'],
+    cesto: ['Cesto dentro do óleo sem fritura em andamento.'],
+  };
+
+  const reais = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+  const reaisFinos = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  const dinheiro = (centavos) => reais.format(centavos / 100);
+  const hh = (h) => `${String(h).padStart(2, '0')}h`;
+
+  // Um número entre 0 e 1 que depende só das entradas: o protótipo mostra
+  // sempre os mesmos dados, e as somas fecham de uma tela para a outra.
+  function sorte(a, b, c, d = 0) {
+    let x = Math.imul(a + 1, 73856093) ^ Math.imul(b + 1, 19349663) ^ Math.imul(c + 1, 83492791) ^ Math.imul(d + 1, 2654435761);
+    x = Math.imul(x ^ (x >>> 15), 2246822507);
+    x = Math.imul(x ^ (x >>> 13), 3266489909);
+    return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
+  }
+
+  const minutos = (texto) => Number(texto.slice(0, 2)) * 60 + Number(texto.slice(3, 5));
+  /** O dia `d` (0 = hoje, 1 = ontem…) no índice do horário da loja (0 = segunda). */
+  const diaDaSemana = (d) => (((2 - d) % 7) + 7) % 7;
+
+  /** Quantos minutos da hora `h` do dia `d` a loja ficou aberta. */
+  function minutosAberta(d, h) {
+    let total = 0;
+    const ini = h * 60;
+    const fim = ini + 60;
+    const dentro = (a, b) => Math.max(0, Math.min(fim, b) - Math.max(ini, a));
+    const hoje = HORARIO[diaDaSemana(d)];
+    if (hoje.abre) {
+      const abre = minutos(hoje.ini);
+      const fecha = minutos(hoje.fim);
+      total += fecha > abre ? dentro(abre, fecha) : dentro(abre, 1440);
+    }
+    // a madrugada pertence ao dia em que a loja abriu
+    const ontem = HORARIO[diaDaSemana(d + 1)];
+    if (ontem.abre && minutos(ontem.fim) <= minutos(ontem.ini)) total += dentro(0, minutos(ontem.fim));
+    return Math.min(60, total);
+  }
+
+  // O movimento pesa no que fica fora do critério: no pico erra-se mais.
+  const pico = (h) => 0.55 + 0.9 * Math.exp(-(((h - 20.5) / 1.6) ** 2));
+
+  const AN_DIAS = new Map();
+  /** As células do dia `d`: uma por série e hora em que houve análise. */
+  function celulasDoDia(d) {
+    if (AN_DIAS.has(d)) return AN_DIAS.get(d);
+    const celulas = [];
+    AN_SERIES.forEach((s, si) => {
+      if (d === 0 && s.paradoHoje) return;
+      for (let h = 0; h < 24; h += 1) {
+        // hoje só existe até agora
+        const visto = d === 0 ? Math.max(0, Math.min(60, AN_AGORA_MIN - h * 60)) : 60;
+        if (visto === 0) continue;
+        const aberta = Math.min(minutosAberta(d, h), visto);
+        const ativos = s.quando === 'aberta' ? aberta : visto - aberta;
+        if (ativos <= 0) continue;
+        const n = Math.round(s.ritmo * (ativos / 60) * (0.92 + 0.16 * sorte(d, si, h, 1)));
+        if (n === 0) continue;
+        const fora = Math.min(n, Math.round(n * s.fora * pico(h) * (0.5 + sorte(d, si, h, 2))));
+        const na = Math.min(n - fora, Math.round(n * s.na * (0.85 + 0.3 * sorte(d, si, h, 3))));
+        const nuvem = s.onde === 'nuvem';
+        celulas.push({
+          d, si, h, n, fora, na, ok: n - fora - na, ativos,
+          // Na hora em que a loja fecha, a parte aberta vem primeiro: o
+          // critério da loja fechada começa a valer depois dela.
+          comeca: s.quando === 'fechada' ? aberta : 0,
+          custo: nuvem ? n * (1.25 + 0.12 * sorte(d, si, h, 4)) : 0,
+          ms: n * (nuvem ? 2000 + 250 * sorte(d, si, h, 5) : 88 + 10 * sorte(d, si, h, 5)),
+        });
+      }
+    });
+    AN_DIAS.set(d, celulas);
+    return celulas;
+  }
+
+  const an = { periodo: 'hoje', dia: '2026-10-05', de: 0, ate: 24, canal: '', crit: '', onde: 'tudo', vista: 'resultado' };
+  const AN_PADRAO = { ...an };
+
+  function diasDoRecorte() {
+    if (an.periodo === 'hoje') return [0];
+    if (an.periodo === 'ontem') return [1];
+    if (an.periodo === '7d') return [6, 5, 4, 3, 2, 1, 0];
+    const [a, m, dd] = an.dia.split('-').map(Number);
+    return [Math.max(0, Math.round((AN_HOJE - Date.UTC(a, m - 1, dd)) / 86400000))];
+  }
+
+  function rotuloDoDia(d, comMes = true) {
+    const data = new Date(AN_HOJE - d * 86400000);
+    const dia = String(data.getUTCDate()).padStart(2, '0');
+    const mes = String(data.getUTCMonth() + 1).padStart(2, '0');
+    return `${AN_SEMANA[data.getUTCDay()]} ${dia}${comMes ? `/${mes}` : ''}`;
+  }
+
+  /** As células do recorte. `menos` deixa de fora um filtro: o gráfico de
+   *  horas mostra o dia inteiro, e a lista de canais mostra todos. */
+  function celulasDoRecorte(menos = '') {
+    return diasDoRecorte()
+      .flatMap(celulasDoDia)
+      .filter((c) => {
+        const s = AN_SERIES[c.si];
+        if (menos !== 'horas' && (c.h < an.de || c.h >= an.ate)) return false;
+        if (menos !== 'canal' && an.canal && s.canal !== an.canal) return false;
+        if (an.crit && s.crit !== an.crit) return false;
+        if (an.onde !== 'tudo' && s.onde !== an.onde) return false;
+        return true;
+      });
+  }
+
+  function somar(celulas) {
+    const t = { n: 0, ok: 0, fora: 0, na: 0, loja: 0, nuvem: 0, custo: 0, ms: 0 };
+    for (const c of celulas) {
+      t.n += c.n; t.ok += c.ok; t.fora += c.fora; t.na += c.na; t.custo += c.custo; t.ms += c.ms;
+      if (AN_SERIES[c.si].onde === 'nuvem') t.nuvem += c.n;
+      else t.loja += c.n;
+    }
+    return t;
+  }
+
+  const porcento = (parte, todo) => (todo ? Math.round((parte / todo) * 100) : 0);
+  const segundos = (ms) => {
+    const s = ms / 1000;
+    return `${s < 1 ? s.toFixed(2) : s.toFixed(1)} s`.replace('.', ',');
+  };
+
+  /** Os pedaços de uma barra, de baixo para cima, conforme o que o gráfico mostra. */
+  function pedacos(t) {
+    if (an.vista === 'onde') return [['cor-loja', t.loja], ['cor-nuvem', t.nuvem]];
+    if (an.vista === 'custo') return [['cor-nuvem', t.custo]];
+    return [['cor-nc', t.fora], ['cor-na', t.na], ['cor-ok', t.ok]];
+  }
+  const tamanho = (t) => (an.vista === 'custo' ? t.custo : t.n);
+
+  function fraseDoRecorte(total) {
+    const dias = diasDoRecorte();
+    const periodo =
+      an.periodo === 'hoje' ? `Hoje, ${rotuloDoDia(0)}`
+      : an.periodo === 'ontem' ? `Ontem, ${rotuloDoDia(1)}`
+      : an.periodo === '7d' ? `Últimos 7 dias, de ${rotuloDoDia(6)} a ${rotuloDoDia(0)}`
+      : rotuloDoDia(dias[0]);
+    const horas = an.de === 0 && an.ate === 24 ? 'o dia inteiro' : `das ${hh(an.de)} às ${hh(an.ate)}`;
+    const canal = an.canal ? AN_CANAIS.find((c) => c.id === an.canal).nome : 'todos os canais';
+    const crit = an.crit ? `“${CRITERIOS[an.crit].nome}”` : 'todos os critérios';
+    const onde = an.onde === 'loja' ? 'só o que foi julgado na loja' : an.onde === 'nuvem' ? 'só o que foi julgado na nuvem' : 'na loja e na nuvem';
+    return `<b>${periodo}</b>, ${horas} · <b>${canal}</b> · ${crit} · ${onde} — ${plural(total, 'análise', 'análises').replace(String(total), numero.format(total))}`;
+  }
+
+  function desenharAnalises(animar) {
+    const umDia = an.periodo !== '7d';
+    const recorte = celulasDoRecorte();
+    const t = somar(recorte);
+
+    // ── os controles espelham o estado ──
+    for (const b of $$('[data-an-periodo]')) b.setAttribute('aria-pressed', String(b.dataset.anPeriodo === an.periodo));
+    for (const b of $$('[data-an-onde]')) b.setAttribute('aria-pressed', String(b.dataset.anOnde === an.onde));
+    for (const b of $$('[data-an-vista]')) b.setAttribute('aria-pressed', String(b.dataset.anVista === an.vista));
+    $('[data-an-campo-dia]').hidden = an.periodo !== 'dia';
+    $('#an-dia').value = an.dia;
+    $('#an-de').value = String(an.de);
+    $('#an-ate').value = String(an.ate);
+    $('#an-canal').value = an.canal;
+    $('#an-criterio').value = an.crit;
+
+    $('[data-an-recorte]').innerHTML = fraseDoRecorte(t.n);
+    const mexeu = ['periodo', 'de', 'ate', 'canal', 'crit', 'onde'].some((k) => an[k] !== AN_PADRAO[k]);
+    for (const b of $$('[data-an-limpar]')) b.hidden = !mexeu;
+
+    // ── o gráfico de horas (ou de dias) aparece sempre: é por ele que se
+    //    sai de um recorte vazio ──
+    const oDiaInteiro = umDia ? celulasDoRecorte('horas') : [];
+    const baldes = umDia
+      ? Array.from({ length: 24 }, (_, h) => ({ rotulo: hh(h), mostra: h % 3 === 0, h, t: somar(oDiaInteiro.filter((c) => c.h === h)) }))
+      : diasDoRecorte().map((d) => ({ rotulo: rotuloDoDia(d, false), mostra: true, d, t: somar(recorte.filter((c) => c.d === d)) }));
+    const maior = Math.max(...baldes.map((b) => tamanho(b.t)), an.vista === 'custo' ? 100 : 10);
+    const teto = tetoRedondo(maior);
+    const eixo = (v) => (an.vista === 'custo' ? dinheiro(v) : numero.format(v));
+    $('[data-an-grafico-titulo]').textContent = umDia ? 'Hora a hora' : 'Dia a dia';
+    $('[data-an-eixo-y]').innerHTML = [teto, teto / 2, 0].map((v) => `<span>${eixo(v)}</span>`).join('');
+    $('[data-an-legenda]').innerHTML =
+      an.vista === 'onde' ? '<span><i class="cor-loja"></i>julgado na loja</span><span><i class="cor-nuvem"></i>julgado na nuvem</span>'
+      : an.vista === 'custo' ? '<span><i class="cor-nuvem"></i>custo estimado das análises na nuvem</span>'
+      : '<span><i class="cor-ok"></i>conforme</span><span><i class="cor-nc"></i>fora do critério</span><span><i class="cor-na"></i>não avaliou</span>';
+    const area = $('[data-an-area]');
+    area.style.setProperty('--vao', umDia ? '3px' : 'clamp(8px, 3%, 28px)');
+    const umaHora = umDia && an.ate - an.de === 1;
+    $('[data-an-barras]').innerHTML = baldes
+      .map((b, i) => {
+        const dentro = !umDia || (b.h >= an.de && b.h < an.ate);
+        const marcada = umaHora && b.h === an.de;
+        const altura = (tamanho(b.t) / teto) * 100;
+        const leitura =
+          `${b.rotulo}: ${plural(b.t.n, 'análise', 'análises')}, ${b.t.ok} conforme, ${b.t.fora} fora do critério, ${b.t.na} sem avaliar; ` +
+          `${b.t.loja} na loja e ${b.t.nuvem} na nuvem; custo ${dinheiro(b.t.custo)}. ` +
+          (umDia ? (marcada ? 'Hora selecionada: toque para voltar ao dia inteiro.' : 'Toque para ver só esta hora.') : 'Toque para abrir este dia.');
+        return (
+          `<button type="button" class="col${dentro ? '' : ' apagada'}${b.t.n ? '' : ' vazia'}" data-i="${i}" ` +
+          `aria-pressed="${marcada}" aria-label="${leitura}">` +
+          `<span class="barra-col" style="height:${altura}%;animation-delay:${i * 14}ms">` +
+          pedacos(b.t).map(([cor, v]) => `<i class="${cor}" style="flex:${v} 1 0"></i>`).join('') +
+          `</span></button>`
+        );
+      })
+      .join('');
+    $('[data-an-eixo-x]').innerHTML = baldes.map((b) => `<span>${b.mostra ? b.rotulo : ''}</span>`).join('');
+    $('[data-an-grafico-nota]').textContent = umDia
+      ? (umaHora ? `Mostrando só das ${hh(an.de)} às ${hh(an.ate)}. Toque na mesma barra para voltar ao dia inteiro.` : 'Toque numa barra para ver só aquela hora.')
+      : 'Toque num dia para abri-lo hora a hora.';
+    an.baldes = baldes;
+
+    // ── com ou sem dado: os números, a tabela e as ocorrências somem; o
+    //    gráfico e os canais ficam ──
+    const semDado = t.n === 0;
+    for (const el of $$('[data-an-so-com-dado]')) el.hidden = semDado;
+    $('[data-an-sem-dado]').hidden = !semDado;
+
+    // ── os números ──
+    const horasComAnalise = new Set(recorte.map((c) => `${c.d}-${c.h}`)).size || 1;
+    const horasComNuvem = new Set(recorte.filter((c) => c.custo > 0).map((c) => `${c.d}-${c.h}`)).size || 1;
+    contar($('[data-an="total"]'), t.n, animar);
+    contar($('[data-an="okp"]'), porcento(t.ok, t.n), animar);
+    contar($('[data-an="nc"]'), t.fora, animar);
+    contar($('[data-an="nap"]'), porcento(t.na, t.n), animar);
+    $('[data-an="total-pe"]').textContent = `${numero.format(Math.round(t.n / horasComAnalise))} por hora, em média`;
+    $('[data-an="ok-pe"]').textContent = `${numero.format(t.ok)} análises`;
+    $('[data-an="nc-pe"]').textContent = `${porcento(t.fora, t.n)}% das análises`;
+    $('[data-an="na-pe"]').textContent = `${numero.format(t.na)} análises`;
+    const divide = $('[data-an="divide"]');
+    divide.innerHTML = `<i class="cor-loja" style="flex:${t.loja} 1 0"></i><i class="cor-nuvem" style="flex:${t.nuvem} 1 0"></i>`;
+    divide.setAttribute('aria-label', `${porcento(t.loja, t.n)}% na loja e ${porcento(t.nuvem, t.n)}% na nuvem`);
+    $('[data-an="onde-pe"]').innerHTML =
+      `<span><b>${numero.format(t.loja)}</b> na loja (${porcento(t.loja, t.n)}%)</span><span><b>${numero.format(t.nuvem)}</b> na nuvem (${porcento(t.nuvem, t.n)}%)</span>`;
+    $('[data-an="custo"]').textContent = dinheiro(t.custo);
+    $('[data-an="custo-pe"]').innerHTML = t.nuvem
+      ? `<span>${reaisFinos.format(t.custo / t.nuvem / 100)} por análise</span><span>${dinheiro(t.custo / horasComNuvem)} por hora</span>`
+      : 'nenhuma análise na nuvem neste recorte';
+
+    // ── por canal: todos os canais, mesmo com um escolhido ──
+    const semCanal = celulasDoRecorte('canal');
+    const canais = AN_CANAIS.map((c) => ({ ...c, t: somar(semCanal.filter((x) => AN_SERIES[x.si].canal === c.id)) }));
+    const maiorCanal = Math.max(...canais.map((c) => tamanho(c.t)), 1);
+    $('[data-an-canais]').innerHTML = canais
+      .map((c) => {
+        const valor =
+          an.vista === 'custo' ? dinheiro(c.t.custo)
+          : an.vista === 'onde' ? `${numero.format(c.t.loja)} loja · ${numero.format(c.t.nuvem)} nuvem`
+          : `${numero.format(c.t.n)} · ${numero.format(c.t.fora)} fora`;
+        return (
+          `<li><button type="button" class="canal-linha" data-an-canal-linha="${c.id}" aria-pressed="${an.canal === c.id}">` +
+          `<span class="cl-nome"><span class="canal-num">${c.num}</span><span>${c.nome}</span></span>` +
+          `<span class="cl-num">${c.t.n ? valor : 'sem análise'}</span>` +
+          `<span class="trilho"><span class="fita" style="width:${(tamanho(c.t) / maiorCanal) * 100}%">` +
+          pedacos(c.t).map(([cor, v]) => `<i class="${cor}" style="flex:${v} 1 0"></i>`).join('') +
+          `</span></span></button></li>`
+        );
+      })
+      .join('');
+
+    // ── por critério e canal ──
+    const grupos = new Map();
+    for (const c of recorte) {
+      if (!grupos.has(c.si)) grupos.set(c.si, []);
+      grupos.get(c.si).push(c);
+    }
+    const linhas = [...grupos.entries()]
+      .map(([si, cs]) => ({ s: AN_SERIES[si], t: somar(cs) }))
+      .sort((a, b) => b.t.fora - a.t.fora || b.t.na - a.t.na || b.t.n - a.t.n);
+    const fita = (x) =>
+      `<div class="prop"><span class="fita"><i class="cor-nc" style="width:${(x.fora / x.n) * 100}%"></i>` +
+      `<i class="cor-na" style="width:${(x.na / x.n) * 100}%"></i><i class="cor-ok" style="width:${(x.ok / x.n) * 100}%"></i></span>` +
+      `<b>${porcento(x.ok, x.n)}%</b></div>`;
+    $('[data-an-linhas]').innerHTML = linhas
+      .map(({ s, t: x }) => {
+        const canal = AN_CANAIS.find((c) => c.id === s.canal);
+        const nuvem = s.onde === 'nuvem';
+        return (
+          `<tr><td class="inteira"><span class="crit">${CRITERIOS[s.crit].nome}</span></td>` +
+          `<td class="inteira" data-r="Canal"><span class="chip vazado">${icone('cctv')}${canal.nome}${s.area ? ` · ${s.area}` : ''}</span></td>` +
+          `<td class="inteira" data-r="Onde julga"><span class="chip ${nuvem ? 'atencao' : ''}">${icone(nuvem ? 'cloud' : 'cpu')}${nuvem ? 'na nuvem' : 'na loja'}</span></td>` +
+          `<td class="inteira" data-r="Conforme">${fita(x)}</td>` +
+          `<td class="num-col" data-r="Análises">${numero.format(x.n)}</td>` +
+          `<td class="num-col" data-r="Fora do critério">${numero.format(x.fora)}</td>` +
+          `<td class="num-col" data-r="Não avaliou">${numero.format(x.na)}</td>` +
+          `<td class="num-col" data-r="Tempo médio">${segundos(x.ms / x.n)}</td>` +
+          `<td class="num-col" data-r="Custo">${nuvem ? dinheiro(x.custo) : '—'}</td>` +
+          `<td class="num-col" data-r="Custo por análise">${nuvem ? reaisFinos.format(x.custo / x.n / 100) : '—'}</td></tr>`
+        );
+      })
+      .join('');
+    $('[data-an-rodape]').innerHTML = semDado
+      ? ''
+      : `<tr><td class="inteira">Total do recorte</td><td></td><td></td>` +
+        `<td class="inteira" data-r="Conforme">${fita(t)}</td>` +
+        `<td class="num-col" data-r="Análises">${numero.format(t.n)}</td>` +
+        `<td class="num-col" data-r="Fora do critério">${numero.format(t.fora)}</td>` +
+        `<td class="num-col" data-r="Não avaliou">${numero.format(t.na)}</td>` +
+        `<td class="num-col" data-r="Tempo médio">${segundos(t.ms / t.n)}</td>` +
+        `<td class="num-col" data-r="Custo">${dinheiro(t.custo)}</td>` +
+        `<td class="num-col" data-r="Custo por análise na nuvem">${t.nuvem ? reaisFinos.format(t.custo / t.nuvem / 100) : '—'}</td></tr>`;
+
+    // ── as últimas vezes fora do critério, dentro do recorte ──
+    const vezes = [];
+    const dias = [...diasDoRecorte()].sort((a, b) => a - b); // do mais recente para trás
+    busca: for (const d of dias) {
+      for (let h = 23; h >= 0; h -= 1) {
+        const daHora = [];
+        for (const c of recorte) {
+          if (c.d !== d || c.h !== h) continue;
+          for (let j = 0; j < c.fora; j += 1) {
+            daHora.push({ c, minuto: c.comeca + Math.floor(sorte(d, c.si, h, 20 + j) * c.ativos), j });
+          }
+        }
+        daHora.sort((a, b) => b.minuto - a.minuto);
+        for (const v of daHora) {
+          vezes.push(v);
+          if (vezes.length === 6) break busca;
+        }
+      }
+    }
+    $('[data-an-fora-conta]').textContent = numero.format(t.fora);
+    $('[data-an-fora]').innerHTML = vezes.length
+      ? vezes
+          .map(({ c, minuto, j }) => {
+            const s = AN_SERIES[c.si];
+            const canal = AN_CANAIS.find((x) => x.id === s.canal);
+            const frases = AN_MOTIVOS[s.crit];
+            const hora = `${String(c.h).padStart(2, '0')}:${String(Math.min(59, minuto)).padStart(2, '0')}`;
+            const r = sorte(c.d, c.si, c.h, 40 + j);
+            const aviso =
+              r < 0.6 ? `<span class="chip ok">${icone('check-check')}aviso chegou</span>`
+              : r < 0.8 ? `<span class="chip atencao">${icone('send')}aviso mandado</span>`
+              : `<span class="chip">${icone('bell-off')}em silêncio</span>`;
+            const nuvem = s.onde === 'nuvem';
+            return (
+              `<li><time datetime="${hora}">${umDia ? '' : `${rotuloDoDia(c.d, false)} · `}${hora}</time>` +
+              `<div><div class="o-titulo">${CRITERIOS[s.crit].nome} ` +
+              `<span class="chip vazado">${icone('cctv')}${canal.nome}${s.area ? ` · ${s.area}` : ''}</span>` +
+              `<span class="chip ${nuvem ? 'atencao' : ''}">${icone(nuvem ? 'cloud' : 'cpu')}${nuvem ? 'na nuvem' : 'na loja'}</span></div>` +
+              `<p>${frases[Math.floor(sorte(c.d, c.si, c.h, 60 + j) * frases.length)]}</p></div>` +
+              `<div class="o-fim">${aviso}<span class="mono suave">confiança ${(0.72 + 0.23 * sorte(c.d, c.si, c.h, 80 + j)).toFixed(2).replace('.', ',')}</span></div></li>`
+            );
+          })
+          .join('') +
+        (t.fora > vezes.length ? `<li class="mais"><span></span><p>e mais ${numero.format(t.fora - vezes.length)} neste recorte.</p><span></span></li>` : '')
+      : '<li class="mais"><span></span><p>Nada ficou fora do critério neste recorte.</p><span></span></li>';
+  }
+
+  // os seletores de hora, canal e critério
+  $('#an-de').innerHTML = Array.from({ length: 24 }, (_, h) => `<option value="${h}">${hh(h)}</option>`).join('');
+  $('#an-ate').innerHTML = Array.from({ length: 24 }, (_, i) => `<option value="${i + 1}">${hh(i + 1)}</option>`).join('');
+  $('#an-canal').innerHTML =
+    '<option value="">Todos os canais</option>' + AN_CANAIS.map((c) => `<option value="${c.id}">${c.num} · ${c.nome}</option>`).join('');
+  $('#an-criterio').innerHTML =
+    '<option value="">Todos os critérios</option>' +
+    [...new Set(AN_SERIES.map((s) => s.crit))].map((k) => `<option value="${k}">${CRITERIOS[k].nome}</option>`).join('');
+
+  for (const b of $$('[data-an-periodo]')) b.addEventListener('click', () => { an.periodo = b.dataset.anPeriodo; desenharAnalises(true); });
+  for (const b of $$('[data-an-onde]')) b.addEventListener('click', () => { an.onde = b.dataset.anOnde; desenharAnalises(true); });
+  for (const b of $$('[data-an-vista]')) b.addEventListener('click', () => { an.vista = b.dataset.anVista; desenharAnalises(false); });
+  $('#an-dia').addEventListener('change', (ev) => { if (ev.target.value) an.dia = ev.target.value; desenharAnalises(true); });
+  // "das 20h às 18h" não existe: quem mexe numa ponta empurra a outra.
+  $('#an-de').addEventListener('change', (ev) => {
+    an.de = Number(ev.target.value);
+    if (an.ate <= an.de) an.ate = an.de + 1;
+    desenharAnalises(true);
+  });
+  $('#an-ate').addEventListener('change', (ev) => {
+    an.ate = Number(ev.target.value);
+    if (an.de >= an.ate) an.de = an.ate - 1;
+    desenharAnalises(true);
+  });
+  $('#an-canal').addEventListener('change', (ev) => { an.canal = ev.target.value; desenharAnalises(true); });
+  $('#an-criterio').addEventListener('change', (ev) => { an.crit = ev.target.value; desenharAnalises(true); });
+  for (const b of $$('[data-an-limpar]')) {
+    b.addEventListener('click', () => {
+      Object.assign(an, AN_PADRAO, { vista: an.vista });
+      desenharAnalises(true);
+      avisar('Filtros limpos: hoje, o dia inteiro, todos os canais.');
+    });
+  }
+
+  // O gráfico também é filtro: tocar numa hora mostra só ela; num dia, abre o dia.
+  $('[data-an-barras]').addEventListener('click', (ev) => {
+    const col = ev.target.closest('.col');
+    if (!col) return;
+    const b = an.baldes[Number(col.dataset.i)];
+    if (b.h !== undefined) {
+      const jaEra = an.de === b.h && an.ate === b.h + 1;
+      an.de = jaEra ? 0 : b.h;
+      an.ate = jaEra ? 24 : b.h + 1;
+    } else if (b.d === 0) an.periodo = 'hoje';
+    else if (b.d === 1) an.periodo = 'ontem';
+    else {
+      an.periodo = 'dia';
+      an.dia = new Date(AN_HOJE - b.d * 86400000).toISOString().slice(0, 10);
+    }
+    desenharAnalises(true);
+    // o desenho refaz as barras: o foco volta para a mesma coluna
+    if (b.h !== undefined) $(`[data-an-barras] .col[data-i="${b.h}"]`)?.focus({ preventScroll: true });
+  });
+  $('[data-an-canais]').addEventListener('click', (ev) => {
+    const linha = ev.target.closest('[data-an-canal-linha]');
+    if (!linha) return;
+    const id = linha.dataset.anCanalLinha;
+    an.canal = an.canal === id ? '' : id;
+    desenharAnalises(true);
+    $(`[data-an-canal-linha="${id}"]`)?.focus({ preventScroll: true });
+  });
+
+  // a dica do gráfico, no ponteiro e no teclado
+  const anDica = $('[data-an-dica]');
+  const anArea = $('[data-an-area]');
+  function mostrarDicaDaAnalise(col) {
+    if (!col) {
+      anDica.hidden = true;
+      return;
+    }
+    const b = an.baldes[Number(col.dataset.i)];
+    const t = b.t;
+    anDica.innerHTML =
+      `<b>${b.rotulo}</b> · ${plural(t.n, 'análise', 'análises').replace(String(t.n), numero.format(t.n))}<br>` +
+      (an.vista === 'onde'
+        ? `${numero.format(t.loja)} na loja · ${numero.format(t.nuvem)} na nuvem`
+        : an.vista === 'custo'
+          ? `${dinheiro(t.custo)} · ${numero.format(t.nuvem)} na nuvem${t.nuvem ? ` · ${reaisFinos.format(t.custo / t.nuvem / 100)} cada` : ''}`
+          : `${numero.format(t.ok)} conforme · ${numero.format(t.fora)} fora · ${numero.format(t.na)} sem avaliar`);
+    anDica.hidden = false;
+    const base = anArea.getBoundingClientRect();
+    const c = col.getBoundingClientRect();
+    const barra = $('.barra-col', col).getBoundingClientRect();
+    const meio = c.left + c.width / 2 - base.left;
+    const metade = anDica.offsetWidth / 2;
+    anDica.style.left = `${Math.min(Math.max(meio, metade), base.width - metade)}px`;
+    anDica.style.top = `${Math.max(barra.top - base.top - 8, anDica.offsetHeight)}px`;
+  }
+  anArea.addEventListener('pointermove', (ev) => mostrarDicaDaAnalise(ev.target.closest('.col')));
+  anArea.addEventListener('pointerleave', () => mostrarDicaDaAnalise(null));
+  anArea.addEventListener('focusin', (ev) => mostrarDicaDaAnalise(ev.target.closest('.col')));
+  anArea.addEventListener('focusout', () => mostrarDicaDaAnalise(null));
 
   // ═══════════════════════ critérios ═══════════════════════
   function cartaoDoCriterio(chave, canal) {
