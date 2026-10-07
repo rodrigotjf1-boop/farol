@@ -20,6 +20,8 @@
   "somaLatenciaMs": 20976,
   "comLatencia": 23,
   "custoCentavos": 24.61,
+  "julgadasLoja": 3,
+  "julgadasNuvem": 20,
   "ultimoResultado": "nao_conforme",
   "ultimoMotivo": "há restos de alimento sobre a bancada",
   "ultimoImpedimento": "a câmera entregou a tela de sem sinal",

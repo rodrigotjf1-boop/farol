@@ -255,6 +255,8 @@ def linha_do_contrato() -> dict:
         "soma_latencia_ms": 20976,
         "com_latencia": 23,
         "custo_centavos": 24.61,
+        "julgadas_loja": 3,
+        "julgadas_nuvem": 20,
         "ultimo_resultado": "nao_conforme",
         "ultimo_motivo": "há restos de alimento sobre a bancada",
         "ultimo_impedimento": "a câmera entregou a tela de sem sinal",
@@ -280,6 +282,8 @@ def test_o_exemplo_do_contrato_fecha_a_conta():
     desfechos = ["semJuiz", "semQuadro", "semCena", "emSilencio", "repetidas", "jaJulgadas", "enfileiradas"]
     assert sum(c[d] for d in desfechos) == c["capturas"]
     assert c["conformes"] + c["naoConformes"] + c["naoAvaliaveis"] + c["falhas"] == c["enfileiradas"]
+    # Cada julgamento concluído foi feito em um dos dois lugares.
+    assert c["julgadasLoja"] + c["julgadasNuvem"] == c["conformes"] + c["naoConformes"] + c["naoAvaliaveis"]
 
 
 def test_nenhuma_chave_do_resumo_em_snake_case():

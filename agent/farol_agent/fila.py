@@ -190,6 +190,8 @@ create table if not exists resumo_hora (
   soma_latencia_ms   integer not null default 0,
   com_latencia       integer not null default 0,
   custo_centavos     real    not null default 0,
+  julgadas_loja      integer not null default 0,
+  julgadas_nuvem     integer not null default 0,
   ultimo_resultado   text,
   ultimo_motivo      text,
   ultimo_impedimento text,
@@ -226,6 +228,9 @@ _SOMAS_DO_VEREDITO = (
     "soma_latencia_ms",
     "com_latencia",
     "custo_centavos",
+    # Onde o julgamento foi feito. A soma das duas é a dos três resultados.
+    "julgadas_loja",
+    "julgadas_nuvem",
 )
 
 _TEXTOS_DO_RESUMO = ("ultimo_resultado", "ultimo_motivo", "ultimo_impedimento", "ultima_em")
@@ -272,6 +277,8 @@ _COLUNAS_NOVAS = (
     ("analise", "phash", "text"),
     ("alerta", "chave", "text"),
     ("alerta", "evento", "text"),
+    ("resumo_hora", "julgadas_loja", "integer not null default 0"),
+    ("resumo_hora", "julgadas_nuvem", "integer not null default 0"),
 )
 
 
@@ -680,6 +687,10 @@ class Fila:
             somas["com_latencia"] = 1
         if veredito.custo_centavos:
             somas["custo_centavos"] = float(veredito.custo_centavos)
+        # Onde foi julgado: só a nuvem é "fora da loja". Detector, modelo
+        # local e comparação rodam no computador dela — é a diferença que
+        # interessa a quem paga a conta e a quem pergunta se a imagem saiu.
+        somas["julgadas_nuvem" if veredito.via is Via.NUVEM else "julgadas_loja"] = 1
         with self._lock:
             self._somar_no_resumo(
                 ts, regra_id, zona_id, somas,
