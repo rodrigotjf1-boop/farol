@@ -1631,7 +1631,8 @@ olhada no silêncio — lá cada uma custa.
 
 1. Mostrar o tempo (posto ocupado X% do tempo, maior ausência) — os números
    já chegam; falta a tela dizer.
-2. Horário de funcionamento na tela.
+2. Horário de funcionamento — **banco, API e agente prontos (migration 018)**;
+   as telas esperam a aprovação do protótipo. Ver abaixo.
 3. Mais de uma área por canal, cada área com os seus critérios — protótipo
    em aprovação (o banco e a árvore de critérios já aceitam; falta criar a
    segunda área).
@@ -1649,6 +1650,33 @@ olhada no silêncio — lá cada uma custa.
     fechada os três critérios de nuvem foram julgados uma vez por minuto
     cada — o relógio que o gravador escreve na imagem muda o quadro — para
     responder "não há ninguém".
+
+### Horário de funcionamento (migration 018)
+
+Pedido do dono, na mesma noite: "colocar horário de funcionamento da loja.
+opção de classificar quais análises são feitas no horário e quais são feitas
+fora do horário".
+
+- **O horário é da loja; o critério só diz de que lado fica.**
+  `loja.horario_funcionamento` guarda quando ela abre, no formato das janelas
+  do critério. `regra.quando` diz se o critério é conferido **no horário**,
+  **fora do horário** ou **sempre**. Mudou o horário da loja, mudou para todos
+  — ninguém edita vinte critérios porque a sexta passou a fechar à uma.
+- **Sem horário informado, a loja vale como sempre aberta.** É como era, e é o
+  que impede uma loja de ficar sem auditoria por falta de um cadastro. Nela,
+  critério "fora do horário" não roda nunca, e a tela precisa dizer isso.
+- **O padrão é "no horário"**, inclusive para os critérios que já existem.
+- **A madrugada pertence ao dia em que a loja abriu.** Sexta das 18h à 1h
+  cobre o sábado à 0h30, e não a sexta à 0h30. A janela do critério no agente
+  conferia só o dia de hoje e errava os dois lados; foi corrigida junto.
+- **Quem decide se confere é o agente**, com o relógio do computador da loja.
+  Fora da hora o critério não vale: nem câmera, nem fila, nem juiz, nem
+  olhada no resumo. A API usa a mesma conta para dizer "aberta agora" na
+  tela — os dois lados leem os mesmos casos em
+  `contratos/horario-de-funcionamento.json`.
+- **O sinal "nunca olhado"** deixa de acusar critério que só roda com a loja
+  aberta.
+- Agente antigo ignora os dois campos e segue como estava.
 
 ### Fica para o fim (por decisão do dono)
 
