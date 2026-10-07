@@ -28,7 +28,15 @@
     "interface": "ip_poe"
   },
   "medido": [],
-  "precos": [],
+  "precos": [
+    {
+      "preco_min": 874,
+      "preco_max": 1158,
+      "confianca": "indice",
+      "cotado_em": "2026-10-07",
+      "fonte": "busca em lojas brasileiras: mercadolivre.com.br, upperseg.com.br, tudoforte.com.br, igtechgrupo.com.br"
+    }
+  ],
   "fontes": [
     "migration 002 — pesquisa de 01 a 03/10/2026"
   ]

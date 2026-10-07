@@ -56,7 +56,16 @@
       "condicao": "ONNX Runtime com DirectML na RX 560"
     }
   ],
-  "precos": [],
+  "precos": [
+    {
+      "preco_min": 3569,
+      "preco_max": 3569,
+      "confianca": "indice",
+      "cotado_em": "2026-10-07",
+      "fonte": "busca em lojas brasileiras: enifler.com.br",
+      "nota": "anúncio de PC com i7-10700F e GTX 1050 Ti — placa de porte equivalente à RX 560"
+    }
+  ],
   "fontes": [
     "medição em campo, loja de teste"
   ]

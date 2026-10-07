@@ -125,6 +125,14 @@ export function lerCatalogo(pasta: string): Catalogo {
 
 const lista = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
+/** O nome do arquivo de um modelo: minúsculas, sem acento, só letra e número. */
+export function slugDe(fabricante: string, modelo: string): string {
+  const s = (t: string) =>
+    t.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return `${s(fabricante)}--${s(modelo)}`;
+}
+
 /**
  * Copia o catálogo para o banco. Uma instrução por tabela, numa transação:
  * ou entra tudo, ou não entra nada.
@@ -169,6 +177,28 @@ export async function carregarCatalogo(pool: pg.Pool, pasta?: string | null): Pr
   try {
     await cliente.query('begin');
 
+    // ─── adoção: linha que existe e ainda não sabe de que arquivo é ───
+    // A migration 002 semeou 21 modelos sem `slug`. Num banco recém-criado
+    // eles estão lá, e a cópia tem que reconhecê-los em vez de inserir uma
+    // segunda linha. O reconhecimento é pelo nome do ARQUIVO, calculado do
+    // fabricante e do modelo — assim "i7 10a geracao" (como foi semeado) e
+    // "i7 10ª geração" (como o catálogo escreve hoje) são a mesma linha.
+    const semArquivo = await cliente.query(
+      'select id, fabricante, modelo from equipamento where slug is null',
+    );
+    const doCatalogo = new Set(linhas.map((l) => l.slug));
+    const adotar = semArquivo.rows
+      .map((r) => ({ id: r.id as string, slug: slugDe(r.fabricante, r.modelo) }))
+      .filter((r) => doCatalogo.has(r.slug));
+    if (adotar.length > 0) {
+      await cliente.query(
+        `update equipamento q set slug = x.slug
+           from jsonb_to_recordset($1::jsonb) as x(id uuid, slug text)
+          where q.id = x.id and q.slug is null`,
+        [JSON.stringify(adotar)],
+      );
+    }
+
     const eq = await cliente.query(
       `with entrada as (
          select * from jsonb_to_recordset($1::jsonb) as x(
@@ -183,17 +213,20 @@ export async function carregarCatalogo(pool: pg.Pool, pasta?: string | null): Pr
          select slug, categoria, fabricante, modelo, status, observacao, nivel,
                 nivel_motivo, serve_para, specs, medido, precos, fontes
            from entrada
-         on conflict (fabricante, modelo) do update
-            set slug = excluded.slug, categoria = excluded.categoria,
+         -- A chave é o ARQUIVO (slug), não o par fabricante/modelo: corrigir
+         -- a grafia do nome no catálogo atualiza a linha em vez de criar outra.
+         on conflict (slug) where slug is not null do update
+            set fabricante = excluded.fabricante, modelo = excluded.modelo,
+                categoria = excluded.categoria,
                 status = excluded.status, observacao = excluded.observacao,
                 nivel = excluded.nivel, nivel_motivo = excluded.nivel_motivo,
                 serve_para = excluded.serve_para, specs = excluded.specs,
                 medido = excluded.medido, precos = excluded.precos,
                 fontes = excluded.fontes, atualizado_em = now()
-          where (q.slug, q.categoria, q.status, q.observacao, q.nivel, q.nivel_motivo,
+          where (q.fabricante, q.modelo, q.categoria, q.status, q.observacao, q.nivel, q.nivel_motivo,
                  q.serve_para, q.specs, q.medido, q.precos, q.fontes)
                 is distinct from
-                (excluded.slug, excluded.categoria, excluded.status, excluded.observacao,
+                (excluded.fabricante, excluded.modelo, excluded.categoria, excluded.status, excluded.observacao,
                  excluded.nivel, excluded.nivel_motivo, excluded.serve_para, excluded.specs,
                  excluded.medido, excluded.precos, excluded.fontes)
          returning (xmax = 0) as novo

@@ -108,8 +108,12 @@ export type Ponto = {
   porta: number | null;
   usuario: string | null;
   ativo: boolean;
+  /** O quanto o canal importa para a loja. Ordena o orçamento. */
+  importancia?: Importancia;
   zonas: Zona[];
 };
+
+export type Importancia = 'critico' | 'normal' | 'baixo';
 
 /** Uma área dentro do canal. `principal` é o corte DO CANAL: marcar o
  *  canal na árvore de critérios é marcar esta área. */
@@ -201,12 +205,99 @@ export const consoleApi = {
   editarPonto: (id: string, dados: Partial<Ponto>) =>
     pedir<Ponto>(`/pontos/${id}`, { method: 'PATCH', body: JSON.stringify(dados) }),
 
+  /** O orçamento por uso da loja: carga de cada canal, opções por nível e três pacotes. */
+  orcamento: (lojaId: string) => pedir<Orcamento>(`/lojas/${lojaId}/orcamento`),
+
   /** Exclui o canal. Pausar é outra coisa: `editarPonto(id, { ativo: false })`. */
   excluirPonto: (id: string) =>
     pedir<{ excluido: boolean; criteriosTirados: number; criteriosDesligados: string[] }>(
       `/pontos/${id}`,
       { method: 'DELETE' },
     ),
+};
+
+// ───────────────────────── orçamento por uso ─────────────────────────
+
+export type Nivel = 'basico' | 'intermediario' | 'avancado';
+export type Carga = 'sem_uso' | 'leve' | 'moderada' | 'intensa';
+
+export type FaixaDePreco = { min: number; max: number; confianca: string; cotadoEm: string };
+
+/** Uma solução: o que o usuário precisa para escolher. O catálogo não vem. */
+export type Opcao = {
+  nivel: Nivel;
+  fabricante: string;
+  modelo: string;
+  porque: string;
+  recomendado: boolean;
+  preco: FaixaDePreco | null;
+};
+
+export type CanalNoOrcamento = {
+  id: string;
+  nome: string;
+  canal: number | null;
+  setor: string;
+  ativo: boolean;
+  importancia: Importancia;
+  uso: {
+    criterios: number;
+    ligados: number;
+    tipos: string[];
+    quadrosPorHora: number;
+    carga: Carga;
+    motivo: string;
+  };
+  exige: {
+    usoMaisExigente: string | null;
+    descricao: string | null;
+    pxPorCmMin: number | null;
+    cor: boolean;
+    wdrDb: number | null;
+    julgamentoNaLoja: boolean;
+  };
+  camera: {
+    pxPorCm: number | null;
+    situacao: 'sem_uso' | 'nao_medido' | 'atende' | 'nao_atende';
+    mensagem: string;
+  };
+  opcoes: Opcao[];
+};
+
+export type ItemDoPacote = {
+  papel: 'camera' | 'gravador' | 'computador' | 'placa_de_video';
+  para: string;
+  quantidade: number;
+  opcao: Opcao | null;
+  observacao: string | null;
+};
+
+type Soma = { min: number; max: number };
+
+export type Pacote = {
+  nivel: Nivel;
+  itens: ItemDoPacote[];
+  total: { cameras: Soma; infraestrutura: Soma; geral: Soma };
+  semPreco: number;
+};
+
+export type Orcamento = {
+  loja: { id: string; nome: string; modoJulgamento: string };
+  capturasPorHora: number;
+  resumo: {
+    canais: number;
+    emUso: number;
+    porCarga: Record<Carga, number>;
+    quadrosPorHora: number;
+    cameraNaoAtende: number;
+    cameraNaoMedida: number;
+  };
+  setores: Array<{ nome: string; canais: number; porCarga: Record<Carga, number> }>;
+  canais: CanalNoOrcamento[];
+  computador: { nivelExigido: Nivel; motivo: string; opcoes: Opcao[] };
+  gravador: { canaisEmUso: number; nivelExigido: Nivel; motivo: string; opcoes: Opcao[] };
+  pacotes: Pacote[];
+  avisos: string[];
 };
 
 export const regrasApi = {
