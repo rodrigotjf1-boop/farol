@@ -94,6 +94,7 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
          join ponto p on p.id = z.ponto_id
          join setor st on st.id = p.setor_id
         where r.loja_id = $1 and st.loja_id = $1 and p.ativo and r.ativa
+          and p.excluido_em is null and r.excluida_em is null
         order by r.nome`,
       [quem.lojaId],
     );

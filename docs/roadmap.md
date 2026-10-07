@@ -1021,8 +1021,43 @@ naquele canal).
 - **Tirar do último canal** não apaga o critério: ele é **desligado** e vai para
   "Sem canal", com o histórico. Dali volta a qualquer canal. "Ligado" sem canal
   nenhum seria a pior mentira que esta tela pode contar, e a API recusa.
-- **Não existe "apagar critério".** O histórico de vereditos aponta para ele.
+- ~~Não existe "apagar critério".~~ **Mudou em 07/10/2026**, a pedido do dono —
+  ver "Excluir critério e canal", logo abaixo.
 - **Ligar/desligar** vale para o critério inteiro, em todos os canais dele.
+
+### Excluir critério e canal; editar canal — ✅ 07/10/2026, migration 014
+
+**Pedido do dono:** *"dar opção de editar ou excluir os critérios. Também os
+canais, editar ou excluir."*
+
+| | antes | agora |
+|---|---|---|
+| critério | editar; tirar de um canal | + **excluir** (sai de todos e some da tela) |
+| canal | só criar — a API editava e desativava, **a tela não** | + **editar** (inclui pausar) e **excluir** |
+
+A falta do "editar canal" na tela já tinha custado: o ponto "Bancada" ficou
+preso no endereço antigo do gravador, sem ter como corrigir.
+
+**Excluir é marcar, não apagar a linha** (`excluido_em`, `excluido_por`). Todo
+veredito gravado aponta para o critério e para a área; apagar a linha quebraria
+a pergunta que o produto existe para responder meses depois. O excluído some da
+tela, da árvore e do que desce para o agente — o histórico continua com nome.
+
+- **Excluir canal não exclui os critérios dele:** saem só daquele canal. O que
+  valia só ali é desligado e vai para "Sem canal" — a mesma regra de tirar do
+  último canal. A pergunta de confirmação lista quem fica sem canal e quem
+  continua nos outros.
+- **Pausar ≠ excluir.** Pausar (`ativo = false`, pelo Editar) deixa o canal na
+  tela, marcado, com os critérios guardados.
+- Outra conta recebe 404; perfil de execução, 403. Quem excluiu fica registrado.
+
+Conferido no navegador (1280 e 375 px) e por 15 testes contra Postgres real.
+De quebra: a tela da loja tinha **761 px de largura num celular de 375** — o
+texto `sr-only` da tabela escapava da caixa de rolagem (ERR-028). Corrigido
+aqui e na tela de alertas.
+
+**Não incluído:** editar ou excluir **setor**. Não foi pedido; se for, segue o
+mesmo desenho.
 
 ### O evento diz em qual canal foi — e não às cegas
 

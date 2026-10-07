@@ -37,7 +37,7 @@ export function rotasDeDiagnostico(app: FastifyInstance, pool: pg.Pool): void {
          join setor st on st.id = p.setor_id
          join loja  l  on l.id  = st.loja_id
          left join formato_sensor f on f.nome = p.sensor_pol
-        where p.id = $1 and l.tenant_id = $2`,
+        where p.id = $1 and l.tenant_id = $2 and p.excluido_em is null`,
       [id, s.tenantId],
     );
     if (p.rowCount === 0) {

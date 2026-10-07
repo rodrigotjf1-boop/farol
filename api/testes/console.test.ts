@@ -252,21 +252,24 @@ describe('console: lojas, setores e pontos', { skip: !URL && 'sem DATABASE_URL' 
     assert.equal(r.statusCode, 404);
   });
 
-  // ───────────────────── desativar, não apagar ─────────────────────
+  // ───────────────────── excluir marca, não apaga ─────────────────────
 
-  it('excluir DESATIVA e preserva o histórico', async () => {
+  it('excluir MARCA o ponto e preserva a linha', async () => {
+    // O comportamento completo está em excluir.test.ts; aqui fica a
+    // garantia mínima, junto das outras rotas do ponto.
     const r = await app.inject({
       method: 'DELETE',
-      url: `/v1/pontos/${minha.pontoId}`,
+      url: "/v1/pontos/" + minha.pontoId,
       headers: comoDono(),
     });
 
     assert.equal(r.statusCode, 200);
-    assert.equal(r.json().ativo, false);
+    assert.equal(r.json().excluido, true);
 
-    const ainda = await pool.query('select ativo from ponto where id = $1', [minha.pontoId]);
+    const ainda = await pool.query('select ativo, excluido_em from ponto where id = $1', [minha.pontoId]);
     assert.equal(ainda.rowCount, 1, 'a linha não pode sumir: evento aponta para ela');
     assert.equal(ainda.rows[0].ativo, false);
+    assert.ok(ainda.rows[0].excluido_em instanceof Date);
   });
 
   // ──────────────────────────── RBAC ───────────────────────────────
