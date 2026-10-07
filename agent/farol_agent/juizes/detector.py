@@ -399,6 +399,19 @@ class MotorOnnx:
 
 
 class JuizDetector:
+    """Julga presença e contagem pelo que o detector encontra.
+
+    ⚠️ Para este juiz, "não vi" é um VEREDITO — ausência, com confiança
+    alta. Ele supõe que a imagem é uma cena. Quem chama garante isso com
+    `qualidade.cena_utilizavel` no QUADRO INTEIRO, como o motor faz: a tela
+    preta de "sem sinal" do gravador, entregue direto, sai daqui como
+    "não há ninguém" com 0,96.
+
+    A porta não mora aqui dentro de propósito: o juiz recebe o RECORTE da
+    área, e um recorte liso (um trecho de piso vazio) é cena legítima — é
+    justamente o "vazio" que a regra precisa enxergar.
+    """
+
     nome = "detector"
 
     def __init__(

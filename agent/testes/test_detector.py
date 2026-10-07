@@ -363,6 +363,51 @@ def test_cli_sem_modelo_instalado_diz_o_comando_que_resolve(tmp_path, capsys):
     assert "farol-agent detector instalar" in capsys.readouterr().err
 
 
+def test_cli_NAO_julga_a_tela_de_sem_sinal(tmp_path, capsys):
+    """Na loja, em 06/10/2026, `detector olhar` respondeu `nao_conforme`
+    com 0,96 para a tela preta do gravador: "não vi nenhuma pessoa".
+
+    Em serviço o motor barra esse quadro antes do juiz. O diagnóstico
+    pulava a porta — e mostrava um alerta que o agente não daria.
+
+    A pasta do modelo está VAZIA: se o comando consultasse o detector,
+    sairia com erro de modelo ausente. Sair com `nao_avaliavel` prova que
+    o quadro foi barrado antes.
+    """
+    from pathlib import Path
+
+    from farol_agent.cli import main
+
+    amostra = Path(__file__).parent / "amostras" / "mhdx-sem-sinal.jpg"
+    codigo = main(["detector", "olhar", "--pasta", str(tmp_path), "--imagem", str(amostra)])
+
+    saida = capsys.readouterr()
+    assert codigo == 0
+    assert "nao_avaliavel" in saida.out
+    assert "preto" in saida.out
+    assert "nao_conforme" not in saida.out
+    assert saida.err == ""
+
+
+def test_cli_recusa_objeto_desconhecido_antes_de_olhar_a_imagem(tmp_path, capsys):
+    # A ordem importa: sem isto, a tela de sem-sinal responderia
+    # "nao_avaliavel" para um objeto que o detector nem conhece.
+    from pathlib import Path
+
+    from farol_agent.cli import main
+
+    amostra = Path(__file__).parent / "amostras" / "mhdx-sem-sinal.jpg"
+    codigo = main(
+        ["detector", "olhar", "--pasta", str(tmp_path), "--imagem", str(amostra),
+         "--objeto", "espatula"]
+    )
+
+    saida = capsys.readouterr()
+    assert codigo == 1
+    assert "espatula" in saida.err
+    assert "nao_avaliavel" not in saida.out
+
+
 # ─────────── o contrato com a nuvem: o mesmo arquivo que a API lê ───────────
 
 

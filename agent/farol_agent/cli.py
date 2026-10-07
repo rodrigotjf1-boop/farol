@@ -901,6 +901,25 @@ def cmd_detector(args: argparse.Namespace) -> int:
             print("\n  ERRO: diga a imagem com --imagem\n", file=sys.stderr)
             return 2
         parametros = {"objeto": args.objeto, "minimo": args.minimo, "maximo": args.maximo}
+        JuizDetector.atende(parametros)
+
+        # A mesma porta do motor, antes do modelo. O detector lê "não vi"
+        # como AUSÊNCIA, com confiança alta — e a tela de "sem sinal" do
+        # gravador é um quadro onde ele não vê ninguém. Em serviço esse
+        # quadro nunca chega ao juiz; pulando a porta, este comando mostrava
+        # um alerta que o agente não daria (na loja, em 06/10/2026:
+        # nao_conforme com 0,96 para a tela preta do gravador).
+        from farol_agent import imagens
+        from farol_agent.pipeline import qualidade
+
+        bgr = imagens.ler(args.imagem)
+        if bgr is not None:
+            utilizavel, porque = qualidade.cena_utilizavel(bgr)
+            if not utilizavel:
+                print("\n  nao_avaliavel  (o agente não manda este quadro ao detector)")
+                print(f"  {porque}\n")
+                return 0
+
         juiz = JuizDetector(MotorOnnx(pasta / MODELO_ARQUIVO))
         v = juiz.julgar(Path(args.imagem), "", contexto={"parametros": parametros})
         print(f"\n  {v.resultado.value}  (confiança {v.confianca:.2f}, {v.latencia_ms} ms, {v.modelo})")
