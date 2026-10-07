@@ -403,13 +403,19 @@ class JuizDetector:
 
     ⚠️ Para este juiz, "não vi" é um VEREDITO — ausência, com confiança
     alta. Ele supõe que a imagem é uma cena. Quem chama garante isso com
-    `qualidade.cena_utilizavel` no QUADRO INTEIRO, como o motor faz: a tela
+    `qualidade.cena_utilizavel` ANTES de chamar, como o motor faz: a tela
     preta de "sem sinal" do gravador, entregue direto, sai daqui como
     "não há ninguém" com 0,96.
 
-    A porta não mora aqui dentro de propósito: o juiz recebe o RECORTE da
-    área, e um recorte liso (um trecho de piso vazio) é cena legítima — é
-    justamente o "vazio" que a regra precisa enxergar.
+    A porta mora em quem chama, e não aqui dentro, porque é o motor que
+    registra o "sem cena" por critério e canal — é isso que faz o console
+    mostrar defeito de câmera em vez de calmaria.
+
+    Ponto a observar na operação: o motor aplica a porta ao RECORTE da
+    área, e ela recusa imagem quase uniforme. Uma área pequena sobre uma
+    superfície lisa e vazia pode cair nessa recusa — e "posto vazio" é
+    justamente o que uma regra de presença precisa enxergar. Não medido
+    ainda; acompanhar os avisos de "sem cena" por critério.
     """
 
     nome = "detector"

@@ -83,10 +83,14 @@ calado significa loja não auditada com console verde.
 | bloqueio | natureza |
 |---|---|
 | detector local só cobre 17 objetos | presença e contagem já são julgadas na loja (A10); objeto fora da lista — a espátula — e `comparacao` ainda esperam a fase das fotos de referência |
-| migration 012 não está na nuvem | passo do dono, console do `farol-api`, depois de mesclar o PR do critério em vários canais |
-| o agente em execução é anterior ao conserto do evento | atualizar e reiniciar no notebook — até lá **nenhum evento chega à nuvem** (ver abaixo) |
+| nenhum critério rodando na loja | os dois cadastrados em 06/10 ("Copo" e "Produto") nasceram antes dos campos do detector e ficam de fora até serem editados. "Produto" pede contagem de **produção**, que não existe — ver A10 |
+| rosto reconhecível em imagem que sai da loja | o borrão só apaga o rosto que o detector acha: 3 de 8 canais com gente (A11). **Bloqueia ligar critério de nuvem** numa loja; não bloqueia presença e contagem, que não saem dela |
 | nenhum destino de alerta cadastrado | passo do dono, **Loja → Alertas** |
-| só um canal configurado | o alvo pede três |
+| dois canais configurados | o alvo pede três; o ponto "Bancada" ainda aponta para o endereço antigo do gravador |
+
+Saíram desta tabela em 06/10/2026: a migration 012 (aplicada), a 013
+(aplicada) e o agente anterior ao conserto do evento — o que roda agora é o
+do PC da loja, com o código da `main`.
 
 ### ⚠️ O caminho do evento nunca tinha sido percorrido (06/10/2026)
 
@@ -735,8 +739,12 @@ com intervalo longo faz o usuário achar que travou.
 
 ### Privacidade — não é detalhe aqui
 
+> ⚠️ **Corrigido em 06/10/2026 (A11):** o borrão que "já existia" não
+> apagava o rosto, e mesmo consertado só alcança o rosto que o detector
+> acha. Ler A11 antes de confiar nesta seção.
+
 O quadro de preview é cena real da loja, com pessoas. Então: **borrão de
-rosto antes de sair da loja** (`recorte.borrar_rostos`, já existe), expurgo
+rosto antes de sair da loja** (`recorte.borrar_rostos`), expurgo
 por data como nas fotos de ponto/vistoria, e o quadro de preview **não** vira
 evento nem fica no histórico — é descartável por natureza.
 
@@ -1089,10 +1097,31 @@ com o modelo real, pelo código do agente, nas próprias cenas.
 | limite | fase que resolve |
 |---|---|
 | objeto fora dos 17 (a espátula) | **fase 2**: fotos de referência do cadastro (A3.5) — detecção por exemplo ou comparação por embedding |
-| objeto pequeno no substream (copo a 704×480) | medir com o fluxo principal recortado na área; não medido ainda |
+| objeto pequeno no substream (copo a 704×480) | **continua sem medida**: na noite de 06/10 não havia copo em cena na bancada. Medir com um copo posto de propósito, no sub e no fluxo principal recortado |
+| contar **produção** ao longo do tempo ("do início do preparo até embalar = 1 unidade") | não é o `contagem` daqui, que conta quantos objetos há no quadro AGORA e responde conforme/não conforme. Contar produção é métrica de fluxo: pede rastreio em vídeo e um resultado que é número, não veredito. Pedido do dono em 06/10/2026 (critério "Produto"); **sem desenho ainda** — o valor está em cruzar o que a câmera viu sair com o que o Regem registrou como vendido |
 | "copo SUJO", "sem luva" — estado do objeto | não é presença: é critério de `estado`, pela nuvem ou por modelo de linguagem local (**fase 3**) |
 | pessoa parcialmente fora do quadro | limite do modelo; mitiga-se com o enquadramento da área |
 | a imagem do alerta com a caixa desenhada | junto com o envio de mídia do evento, que ainda não existe |
+
+### Medido com a loja em operação (06/10/2026, 23h)
+
+Os mesmos canais, agora com gente trabalhando. Só números saíram da loja.
+
+| o que foi medido | resultado |
+|---|---|
+| pessoa de perto, vista de cima, cortada pela borda (canal 4) | **0,72** no quadro inteiro do sub; **0,97** num ladrilho do fluxo principal |
+| pessoa de corpo inteiro (canal 1) | 0,92 no sub; 0,97 no ladrilho |
+| embalagem aberta com o lanche dentro | "tigela" 0,22 no sub, **0,66** no ladrilho do principal — o detector não conhece a embalagem |
+| copo | nenhum em cena; nada medido |
+| canal 14 | tinha imagem à tarde; às 23h, tela de "sem sinal" |
+
+**O que isso diz:** 0,72 está a dois centésimos do limiar. Naquele canal uma
+regra de "posto ocupado" vai oscilar entre `conforme` e `nao_avaliavel`
+conforme a pessoa se mexe. O modelo recebe o quadro inteiro reduzido a
+384×384; cortado em seis ladrilhos, a mesma pessoa vai a 0,97. Julgar em
+ladrilhos custa ~0,5 s por quadro nesta máquina — cabe na cadência de 30 s
+com 14 canais. **Não construído**: primeiro a semana de operação mostra com
+que frequência o `nao_avaliavel` aparece de verdade.
 
 ### A abertura dos canais em fila
 
@@ -1100,6 +1129,78 @@ Medido na mesma loja: os canais RTSP abrem **um de cada vez**, ~2,1 s cada
 (14 canais ≈ 30 s). Depois de abertos, 15 quadros/s por canal, ~170 kbit/s
 cada, ~4 % de processador com os 14. Não bloqueia; fica para investigar se
 é o gravador ou o `open` do OpenCV segurando a fila.
+
+---
+
+## A11 · A imagem que sai da loja: o borrão não borrava — 🟡 corrigido, cobertura parcial (06/10/2026)
+
+### O que aconteceu
+
+Para conferir uma medida, dois quadros foram trazidos de uma loja depois de
+passarem por `recorte.borrar_rostos`, com "-borrado" no nome do arquivo. **Os
+rostos estavam reconhecíveis.** As cópias foram apagadas; o defeito ficou.
+
+Eram dois defeitos, um em cima do outro:
+
+1. **O borrão não apagava.** O detector achava o rosto, a função devolvia
+   `borrou=True`, e o que ela aplicava era um desfoque de 8% do lado do rosto
+   — num rosto de 150 px, um sigma de ~2 px.
+2. **Ninguém conferia.** Todos os testes do agente passam `borrar_rosto=False`
+   ("o dublê não tem rosto"). Não havia um teste do borrão.
+
+### A medida: depois de "borrar", o detector de rosto ainda acha um rosto ali?
+
+Pontuação do próprio detector, em cinco rostos de câmeras da loja:
+
+| | 107×125 px | 47×66 | 42×53 | 21×27 | 34×43 |
+|---|---|---|---|---|---|
+| antes | 0,93 | 0,65 | 0,86 | 0,78 | 0,62 |
+| desfoque antigo | **0,93** | **0,65** | **0,86** | 0,75 | 0,64 |
+| mosaico de 6 células | 0,46 | 0,19 | 0,53 | 0,80 | 0,54 |
+| mosaico de 2 células | — | — | — | 0,19 | 0,33 |
+| **uma cor só** | — | — | — | — | 0,12 |
+
+O desfoque antigo não mudava nem a segunda casa. E rosto pequeno já é um
+mosaico: reduzi-lo a seis células quase não tira nada. Só a cor única zera.
+
+### O que foi corrigido
+
+- O rosto achado vira **uma cor** (a média da região), com 25% de margem em
+  volta da caixa — a caixa do detector vai da testa ao queixo, justa.
+- `borrou=True` passa a significar exatamente "achei e apaguei pelo menos um".
+  Caixa fora do quadro não conta.
+- 13 testes, com um rosto no dublê, nos dois caminhos por onde a imagem sai:
+  o preview e o que o motor guarda para o juiz. Oito deles falham no código
+  antigo.
+
+### O que NÃO está resolvido
+
+| limite | consequência |
+|---|---|
+| o detector de rosto achou rosto em **3 de 8 canais com gente** | câmera de teto mostra rosto de cima, de lado ou longe. Imagem que sai da loja ainda pode levar rosto reconhecível |
+| `borrou` não vai no evento | o motor descarta o retorno; não dá para responder depois "esta imagem saiu protegida?" |
+| `borrar_rosto` é sempre ligado | critério que precise VER o rosto (máscara) hoje não tem como pedir isso |
+
+### Proposta — aguardando decisão do dono
+
+**Ocultar a pessoa, não o rosto.** O detector de objetos acha gente com 0,83 a
+0,97 nestas câmeras — muito mais do que o de rosto acha rosto. Para toda
+imagem que sai da loja, cada pessoa detectada vira um retângulo de uma cor.
+
+- **Preview** (a única imagem que sai sem recorte): oculta pessoas sempre. Quem
+  desenha uma área na tela não precisa ver quem está nela.
+- **Critério de nuvem**: escolha por critério — *nada*, *rostos* ou *pessoas*.
+  "Bancada limpa" não precisa de ninguém; "uso de touca" precisa da pessoa e
+  fica com *rostos*.
+
+Custa uma inferência a mais por imagem que sai (~90 ms) e exige o detector
+instalado. Sem ele, cai para *rostos* e **avisa** — nunca em silêncio.
+
+### Regra de trabalho que fica
+
+Imagem de câmera de loja **não sai da loja para diagnóstico**. Mede-se lá e
+trazem-se números. O casaco-que-parece-pessoa e o banquinho foram descobertos
+olhando imagem; da próxima vez, quem olha é o dono, na tela dele.
 
 ---
 
