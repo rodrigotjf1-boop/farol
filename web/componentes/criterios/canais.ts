@@ -5,13 +5,23 @@
 // vale numa área de um canal, porque é pela área que o agente recorta o
 // quadro.
 //
-// Marcar um canal é marcar a área PRINCIPAL dele — o corte que o usuário
-// desenhou em "Área de análise"; na falta de desenho, o quadro inteiro.
+// Canal com UMA área: marcar o canal é marcar a área dele — o corte que o
+// usuário desenhou em "Quadro e área"; na falta de desenho, o quadro
+// inteiro.
+//
+// Canal com MAIS DE UMA área: o critério vai para a ÁREA. A mesma câmera do
+// caixa confere presença dentro do balcão e fila do lado do cliente, e
+// "marcar o canal" não diria em qual das duas o critério vale. Ali a árvore
+// mostra as áreas, e é nelas que se marca.
+//
 // Estas funções são a única ponte entre as duas visões, para a regra não
 // ficar espalhada pela tela.
 // =====================================================================
 
 import type { Ponto, Regra, Setor } from '@/lib/api';
+
+/** O canal tem mais de uma área: o critério é marcado na área, não no canal. */
+export const temVariasAreas = (p: Ponto): boolean => p.zonas.length > 1;
 
 /** A área que representa o canal: a principal; na falta, a primeira. */
 export function areaDoCanal(p: Ponto): string | null {
@@ -79,9 +89,14 @@ export function alternarSetor(s: Setor, marcadas: ReadonlySet<string>): Set<stri
   }
   for (const p of canais) {
     // Canal já marcado fica como está: quem escolheu uma área específica
-    // não quer vê-la trocada pela principal ao marcar o setor.
+    // não quer vê-la trocada ao marcar o setor.
     if (canalMarcado(p, marcadas)) continue;
     if (!p.ativo) continue;
+    if (temVariasAreas(p)) {
+      // "O setor inteiro" é tudo o que há nele: todas as áreas do canal.
+      for (const z of p.zonas) novo.add(z.id);
+      continue;
+    }
     const area = areaDoCanal(p);
     if (area) novo.add(area);
   }
@@ -93,6 +108,28 @@ export function contarCanais(setores: Setor[], marcadas: ReadonlySet<string>): n
   let n = 0;
   for (const s of setores) for (const p of s.pontos) if (canalMarcado(p, marcadas)) n += 1;
   return n;
+}
+
+/**
+ * Onde o critério vale, numa frase: "Vale em 2 canais — em Balcão, só
+ * “Lado do cliente”." A parte das áreas só aparece no canal em que nem
+ * todas estão marcadas: é a que diz algo que o número de canais não diz.
+ */
+export function resumoDeOndeVale(setores: Setor[], marcadas: ReadonlySet<string>): string {
+  const total = contarCanais(setores, marcadas);
+  if (total === 0) return 'Nenhum canal marcado.';
+  const emAreas: string[] = [];
+  for (const s of setores) {
+    for (const p of s.pontos) {
+      if (!temVariasAreas(p)) continue;
+      const dentro = p.zonas.filter((z) => marcadas.has(z.id));
+      if (dentro.length > 0 && dentro.length < p.zonas.length) {
+        emAreas.push(`em ${p.nome}, só ${dentro.map((z) => `“${z.nome}”`).join(' e ')}`);
+      }
+    }
+  }
+  const base = total === 1 ? 'Vale em 1 canal' : `Vale em ${total} canais`;
+  return `${base}${emAreas.length > 0 ? ` — ${emAreas.join('; ')}` : ''}.`;
 }
 
 export function rotuloDoCanal(p: { nome: string; canal: number | null }): string {

@@ -53,6 +53,10 @@ export type Linha = {
   setor: string;
   pontoAtivo: boolean;
   pontoExcluido: boolean;
+  /** A área (ou as áreas) do canal em que o critério foi olhado — só
+   *  quando o canal tem mais de uma. Com uma só, dizer o nome dela seria
+   *  repetir o canal. */
+  areaNome?: string | null;
   capturas: number;
   semJuiz: number;
   semQuadro: number;
@@ -329,6 +333,8 @@ export type LinhaDaTela = {
   pontoNome: string;
   canal: number | null;
   setor: string;
+  /** Em que área do canal — nulo quando o canal tem uma área só. */
+  areaNome: string | null;
   /** O critério ou o canal foi excluído depois: a linha é só histórico. */
   historico: boolean;
   capturas: number;
@@ -356,6 +362,7 @@ export function montarLinhas(linhas: Linha[], parados: ReadonlySet<string>): Lin
       pontoNome: l.pontoNome,
       canal: l.canal,
       setor: l.setor,
+      areaNome: l.areaNome ?? null,
       historico: l.regraExcluida || l.pontoExcluido,
       capturas: l.capturas,
       analises: julgadas(l),

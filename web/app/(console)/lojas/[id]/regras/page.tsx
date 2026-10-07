@@ -18,9 +18,11 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useConsole } from '@/componentes/console';
-import { areaDoCanal, rotuloDoCanal } from '@/componentes/criterios/canais';
+import { areaDoCanal, rotuloDoCanal, temVariasAreas } from '@/componentes/criterios/canais';
 import { Explorador, type Filtro } from '@/componentes/criterios/explorador';
 import { GavetaDoCriterio } from '@/componentes/criterios/formulario-criterio';
+import { FaixaDoHorario } from '@/componentes/horario/faixa-do-horario';
+import { GavetaDoHorario } from '@/componentes/horario/gaveta-do-horario';
 import { useAvisar } from '@/componentes/ui/avisos';
 import { Botao, classesDoBotao } from '@/componentes/ui/botao';
 import { Alerta, Cabecalho, Ossos, Segmentado, Vazio } from '@/componentes/ui/pecas';
@@ -57,6 +59,7 @@ export default function Criterios() {
   const [excluindo, setExcluindo] = useState<Regra | null>(null);
   const [excluindoAgora, setExcluindoAgora] = useState(false);
   const [erroAoExcluir, setErroAoExcluir] = useState<string | null>(null);
+  const [horarioAberto, setHorarioAberto] = useState(false);
 
   const carregar = useCallback(async () => {
     try {
@@ -152,6 +155,17 @@ export default function Criterios() {
   const canaisDoExcluido = excluindo ? [...new Map(excluindo.alvos.map((a) => [a.ponto_id, a])).values()] : [];
   /** Onde o critério continua valendo se for tirado deste canal. */
   const outrosCanais = tirando ? tirando.regra.alvos.filter((a) => a.zona_id !== tirando.zonaId) : [];
+  /** A área de onde ele sai — só tem nome próprio no canal com mais de uma. */
+  const areaDeOndeSai =
+    tirando && temVariasAreas(tirando.ponto)
+      ? (tirando.ponto.zonas.find((z) => z.id === tirando.zonaId)?.nome ?? null)
+      : null;
+  /** Em palavras: "Canal 1 · Balcão, na área “Lado do cliente”". */
+  const lugar = (a: { ponto_id: string; ponto_nome: string; canal: number | null; zona_nome: string }) => {
+    const ponto = setores.flatMap((s) => s.pontos).find((p) => p.id === a.ponto_id);
+    const canal = rotuloDoCanal({ nome: a.ponto_nome, canal: a.canal });
+    return ponto && temVariasAreas(ponto) ? `${canal} (${a.zona_nome})` : canal;
+  };
 
   return (
     <>
@@ -189,6 +203,10 @@ export default function Criterios() {
       )}
 
       {regras === null && !erro && <Ossos alturas={[52, 96, 96, 52]} />}
+
+      {regras !== null && temCanal && loja && (
+        <FaixaDoHorario loja={loja} configura={configura} aoEditar={() => setHorarioAberto(true)} />
+      )}
 
       {regras !== null && !temCanal && (
         <Vazio
@@ -228,10 +246,10 @@ export default function Criterios() {
           regras={regras}
           filtro={filtro}
           configura={configura}
-          aoAdicionar={(ponto) => {
-            // "+ critério" num canal abre o formulário de novo critério com
-            // aquele canal já marcado.
-            const area = areaDoCanal(ponto);
+          aoAdicionar={(ponto, zonaId) => {
+            // "+ critério" abre o formulário de novo critério com aquele lugar
+            // já marcado: a área em que se clicou, ou o canal de uma área só.
+            const area = zonaId ?? areaDoCanal(ponto);
             abrir({ marcadas: area ? [area] : [] });
           }}
           aoEditar={(regra) => abrir({ regra, marcadas: regra.alvos.map((a) => a.zona_id) })}
@@ -256,9 +274,22 @@ export default function Criterios() {
           regra={aberto.regra}
           marcadasDeInicio={aberto.marcadas}
           objetosDoDetector={objetosDoDetector}
+          horarioDaLoja={loja?.horario_funcionamento ?? []}
           aoFechar={() => setAberto(null)}
           aoSalvar={async (mensagem) => {
             setAberto(null);
+            await depoisDeMexer(mensagem);
+          }}
+        />
+      )}
+
+      {horarioAberto && loja && (
+        <GavetaDoHorario
+          lojaId={id}
+          horario={loja.horario_funcionamento}
+          aoFechar={() => setHorarioAberto(false)}
+          aoSalvar={async (mensagem) => {
+            setHorarioAberto(false);
             await depoisDeMexer(mensagem);
           }}
         />
@@ -297,8 +328,8 @@ export default function Criterios() {
 
       {tirando && (
         <Dialogo
-          titulo={`Tirar “${tirando.regra.nome}” deste canal?`}
-          rotuloConfirmar="Tirar do canal"
+          titulo={`Tirar “${tirando.regra.nome}” ${areaDeOndeSai ? 'desta área' : 'deste canal'}?`}
+          rotuloConfirmar={areaDeOndeSai ? 'Tirar da área' : 'Tirar do canal'}
           rotuloOcupado="Tirando…"
           ocupado={tirandoAgora}
           erro={erroAoTirar}
@@ -307,16 +338,17 @@ export default function Criterios() {
         >
           <p>
             A análise deste critério <strong>deixará de ser verificada</strong> em{' '}
-            <strong>{rotuloDoCanal(tirando.ponto)}</strong>.
+            <strong>
+              {rotuloDoCanal(tirando.ponto)}
+              {areaDeOndeSai ? `, na área “${areaDeOndeSai}”` : ''}
+            </strong>
+            .
           </p>
           {outrosCanais.length > 0 ? (
-            <p>
-              Ele continua valendo em:{' '}
-              {outrosCanais.map((a) => rotuloDoCanal({ nome: a.ponto_nome, canal: a.canal })).join(', ')}.
-            </p>
+            <p>Ele continua valendo em: {outrosCanais.map(lugar).join(', ')}.</p>
           ) : (
             <p>
-              Este é o <strong>único canal</strong> deste critério. Ele deixa de ser verificado em qualquer lugar, é
+              Este é o <strong>único lugar</strong> deste critério. Ele deixa de ser verificado em qualquer lugar, é
               desligado e fica guardado em “Sem canal”. O histórico continua.
             </p>
           )}

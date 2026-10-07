@@ -183,6 +183,8 @@ async function criarRegra(
         where z.id = any($1::uuid[])
           and l.tenant_id = $2
           and p.excluido_em is null
+          -- Área excluída não recebe critério: ela não existe mais na tela.
+          and z.excluida_em is null
           and ($3::uuid is null or l.id = $3)
      ),
      dono as (
@@ -491,7 +493,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
              join ponto p  on p.id  = z.ponto_id
              join setor st on st.id = p.setor_id
             where st.loja_id = $1 and z.id = any($2::uuid[])
-              and p.excluido_em is null`,
+              and p.excluido_em is null and z.excluida_em is null`,
           [lojaId, z.ids],
         );
         if (validas.rowCount !== z.ids.length) {

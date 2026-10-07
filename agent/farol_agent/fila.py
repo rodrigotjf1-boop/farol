@@ -323,6 +323,7 @@ class Fila:
         ts: datetime,
         *,
         por_olhada: bool = False,
+        zona_id: str | None = None,
     ) -> str:
         """Determinística: a mesma cena, na mesma regra, no mesmo minuto.
 
@@ -331,9 +332,16 @@ class Fila:
         vazio dá a MESMA cena duas vezes no minuto, e com a chave por
         minuto a segunda olhada sumia como "já julgada". Continua
         determinística — a mesma olhada, repetida, dá a mesma chave.
+
+        `zona_id` é a área do canal. O mesmo critério pode valer em duas
+        áreas da mesma câmera, e dois recortes parecidos (duas faixas de
+        piso vazio) têm o mesmo pHash: sem a área na chave, a segunda
+        sumia como repetida da primeira. Sem área (bancada, um corte só),
+        a chave é a de sempre.
         """
         quando = f"{ts:%Y%m%d%H%M%S}" if por_olhada else f"{ts:%Y%m%d%H%M}"
-        bruto = f"{regra_id}:{criterio_versao}:{ponto_id}:{phash:016x}:{quando}"
+        lugar = ponto_id if zona_id is None else f"{ponto_id}/{zona_id}"
+        bruto = f"{regra_id}:{criterio_versao}:{lugar}:{phash:016x}:{quando}"
         return sha256(bruto.encode("utf-8")).hexdigest()[:32]
 
     # ──────────────────────────── escrita ─────────────────────────────

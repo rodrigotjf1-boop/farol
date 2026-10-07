@@ -159,9 +159,9 @@
     <section class="tela" data-tela="area" aria-labelledby="t-area" hidden>
       <header class="cab">
         <div>
-          <p class="sobre"><a href="#canais" data-ir="canais"><svg class="ic p" aria-hidden="true"><use href="#i-arrow-left"/></svg> Canais</a> <span>· Cozinha · canal 4</span></p>
-          <h1 id="t-area">Montagem 1</h1>
-          <p class="sub">Marque na imagem a região que importa. Sem área marcada, o quadro inteiro é analisado: custa mais e mostra menos detalhe por centímetro.</p>
+          <p class="sobre"><a href="#canais" data-ir="canais"><svg class="ic p" aria-hidden="true"><use href="#i-arrow-left"/></svg> Canais</a> <span>· Atendimento · canal 1</span></p>
+          <h1 id="t-area">Balcão</h1>
+          <p class="sub">Marque na imagem cada região que importa e diga o que conferir em cada uma. Um canal pode ter mais de uma área: o critério vale só dentro da área em que foi posto.</p>
         </div>
       </header>
 
@@ -173,34 +173,56 @@
               <span class="suave mono">07/10 · 21:40</span>
               <button class="btn secundario mini empurra" type="button" data-atualizar-quadro><svg class="ic p" aria-hidden="true"><use href="#i-refresh-cw"/></svg>Atualizar quadro</button>
             </div>
-            <div class="quadro" data-quadro role="application" aria-label="Quadro do canal Montagem 1. Arraste para marcar a área de análise.">
+            <div class="quadro" data-quadro role="application" aria-label="Quadro do canal Balcão. Arraste para redesenhar a área selecionada.">
               <svg viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-                <rect width="640" height="360" fill="#2A3442"/>
-                <rect x="0" y="0" width="640" height="70" fill="#222B38"/>
-                <rect x="60" y="92" width="520" height="210" rx="6" fill="#8D99A8"/>
-                <rect x="60" y="92" width="520" height="14" fill="#A5B0BD"/>
-                <rect x="92" y="126" width="150" height="100" rx="8" fill="#C9D1DA"/>
-                <circle cx="130" cy="160" r="20" fill="#D9A257"/><circle cx="182" cy="160" r="20" fill="#7FB069"/>
-                <circle cx="130" cy="204" r="16" fill="#C4574B"/><circle cx="182" cy="204" r="16" fill="#E7D9A8"/>
-                <rect x="286" y="140" width="130" height="110" rx="10" fill="#5F6B7A"/>
-                <circle cx="351" cy="195" r="34" fill="#D9A257"/><circle cx="351" cy="195" r="24" fill="#7A4B2A"/>
-                <rect x="452" y="126" width="96" height="60" rx="6" fill="#DDE3EA"/>
-                <rect x="452" y="200" width="96" height="60" rx="6" fill="#DDE3EA"/>
-                <rect x="0" y="318" width="640" height="42" fill="#1D2530"/>
+                <rect width="640" height="360" fill="#C9D1DA"/>
+                <rect x="0" y="0" width="296" height="360" fill="#AEB8C4"/>
+                <rect x="24" y="24" width="120" height="74" rx="6" fill="#7F8B9A"/>
+                <rect x="34" y="34" width="100" height="54" rx="3" fill="#5F6B7A"/>
+                <rect x="40" y="250" width="90" height="80" rx="8" fill="#E2B94B"/>
+                <rect x="286" y="14" width="62" height="332" rx="8" fill="#2A3442"/>
+                <rect x="298" y="52" width="38" height="56" rx="4" fill="#586474"/>
+                <rect x="298" y="212" width="38" height="56" rx="4" fill="#586474"/>
+                <rect x="294" y="130" width="46" height="28" rx="3" fill="#8D99A8"/>
+                <rect x="294" y="288" width="46" height="28" rx="3" fill="#8D99A8"/>
+                <circle cx="222" cy="92" r="26" fill="#12365C"/><circle cx="222" cy="92" r="11" fill="#D9A257"/>
+                <rect x="392" y="0" width="3" height="360" fill="#9AA4B0"/>
+                <rect x="470" y="0" width="3" height="360" fill="#9AA4B0"/>
+                <circle cx="430" cy="92" r="24" fill="#6F7B8A"/><circle cx="430" cy="92" r="10" fill="#E7D9A8"/>
+                <circle cx="432" cy="172" r="24" fill="#8A6F5B"/><circle cx="432" cy="172" r="10" fill="#C99A6B"/>
+                <circle cx="436" cy="252" r="24" fill="#5F7A6B"/><circle cx="436" cy="252" r="10" fill="#E7D9A8"/>
+                <rect x="604" y="110" width="36" height="140" fill="#8D99A8"/>
               </svg>
               <div class="fora" data-fora></div>
-              <div class="ret" data-ret data-rotulo="bancada de montagem"></div>
+              <div data-rets></div>
               <span class="tarja">ilustração · no console aparece o quadro real da câmera</span>
             </div>
-            <p class="nota">Arraste sobre a imagem para marcar a região. O que fica escuro está fora da análise.</p>
+            <p class="nota">Arraste sobre a imagem para redesenhar a área selecionada. Clique em outra área, sem arrastar, para passar a mexer nela.</p>
           </section>
 
           <aside class="area-lado" aria-label="Ajustes da área">
+            <section class="cartao pad secao" aria-labelledby="t-areas">
+              <div class="secao-cab">
+                <h2 id="t-areas">Áreas deste canal</h2>
+                <button class="btn secundario mini empurra" type="button" data-nova-area data-so-config><svg class="ic p" aria-hidden="true"><use href="#i-plus"/></svg>Nova área</button>
+              </div>
+              <ul class="areas-lista" data-areas aria-label="Áreas deste canal"></ul>
+              <p class="nota">Cada área tem os seus critérios. Presença se confere dentro do balcão; fila, do lado do cliente.</p>
+            </section>
+
+            <section class="cartao pad secao" aria-labelledby="t-area-crit">
+              <div class="secao-cab">
+                <h2 id="t-area-crit" data-area-crit-titulo>Critérios nesta área</h2>
+                <button class="btn secundario mini empurra" type="button" data-folha="folha-criterio" data-modo="novo" data-criterio-na-area data-so-config><svg class="ic p" aria-hidden="true"><use href="#i-plus"/></svg>Critério</button>
+              </div>
+              <ul class="area-criterios" data-area-criterios></ul>
+            </section>
+
             <section class="cartao pad secao">
-              <h2>Área</h2>
+              <h2>Área selecionada</h2>
               <div class="campo">
                 <label for="area-nome">Nome desta área</label>
-                <input class="entrada" id="area-nome" value="bancada de montagem">
+                <input class="entrada" id="area-nome" value="Dentro do balcão">
               </div>
               <div class="pares">
                 <div class="campo"><label for="area-x1">Esquerda</label><input class="entrada mono" id="area-x1" type="number" min="0" max="1" step="0.01" value="0.10" data-coord="x1"></div>
@@ -227,7 +249,7 @@
               <h2>Conexão</h2>
               <div class="pares">
                 <div class="campo"><label for="cx-fab">Fabricante</label><input class="entrada" id="cx-fab" value="intelbras"></div>
-                <div class="campo"><label for="cx-canal">Canal</label><input class="entrada mono" id="cx-canal" type="number" value="4"></div>
+                <div class="campo"><label for="cx-canal">Canal</label><input class="entrada mono" id="cx-canal" type="number" value="1"></div>
                 <div class="campo"><label for="cx-host">Endereço</label><input class="entrada mono" id="cx-host" value="192.168.0.50"></div>
                 <div class="campo"><label for="cx-porta">Porta</label><input class="entrada mono" id="cx-porta" type="number" value="554"></div>
               </div>

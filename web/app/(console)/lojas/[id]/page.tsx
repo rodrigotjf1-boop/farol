@@ -119,7 +119,7 @@ function Numero({
 
 // ───────────────────────── a saúde ─────────────────────────
 
-function Saude({ r }: { r: Resultados }) {
+function Saude({ r, fechada }: { r: Resultados; fechada: boolean }) {
   const agente = r.agentes[0];
   const dePe = r.agentes.some(
     (a) => a.estado === 'ativo' && a.segundos_sem_bater !== null && a.segundos_sem_bater <= LIMITE_DO_AGENTE_SEG,
@@ -189,6 +189,9 @@ function Saude({ r }: { r: Resultados }) {
               : desligados === 0
                 ? 'todos ligados'
                 : `${plural(desligados, 'desligado', 'desligados')}`}
+            {/* Loja fechada: os critérios "no horário" estão certos em não
+                rodar — e é isso que explica os números parados. */}
+            {fechada && r.criterios.total > 0 && ' · loja fechada agora: os do horário esperam'}
           </small>
         </div>
       </li>
@@ -232,6 +235,7 @@ function PorCriterio({ r }: { r: Resultados }) {
               <span className="inline-flex flex-wrap items-center gap-1.5">
                 <Chip tom="vazado" icone={Cctv}>
                   {l.pontoNome}
+                  {l.areaNome && ` · ${l.areaNome}`}
                 </Chip>
                 {marca && <Chip tom={marca.tom}>{marca.rotulo}</Chip>}
                 {l.historico && <Chip>excluído</Chip>}
@@ -308,6 +312,7 @@ function Ocorrencias({ r }: { r: Resultados }) {
               {o.pontoNome && (
                 <Chip tom="vazado" icone={Cctv}>
                   {o.pontoNome}
+                  {o.areaNome && ` · ${o.areaNome}`}
                 </Chip>
               )}
             </div>
@@ -443,7 +448,7 @@ export default function PainelDaLoja() {
         </Alerta>
       )}
 
-      <Saude r={dados} />
+      <Saude r={dados} fechada={loja?.aberta_agora === false} />
 
       {lojaNova ? (
         <>

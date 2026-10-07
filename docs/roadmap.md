@@ -1631,11 +1631,10 @@ olhada no silêncio — lá cada uma custa.
 
 1. Mostrar o tempo (posto ocupado X% do tempo, maior ausência) — os números
    já chegam; falta a tela dizer.
-2. Horário de funcionamento — **banco, API e agente prontos (migration 018)**;
-   as telas esperam a aprovação do protótipo. Ver abaixo.
-3. Mais de uma área por canal, cada área com os seus critérios — protótipo
-   em aprovação (o banco e a árvore de critérios já aceitam; falta criar a
-   segunda área).
+2. Horário de funcionamento — **feito** (migration 018; telas aprovadas e
+   entregues junto com as áreas). Ver abaixo.
+3. Mais de uma área por canal, cada área com os seus critérios — **feito**
+   (migration 019). Ver abaixo.
 4. A pergunta da contagem na língua de quem cadastra: "avisar quando passar
    de N".
 5. "Só avisa se continuar assim" por algumas olhadas.
@@ -1677,6 +1676,51 @@ fora do horário".
 - **O sinal "nunca olhado"** deixa de acusar critério que só roda com a loja
   aberta.
 - Agente antigo ignora os dois campos e segue como estava.
+- **Na tela** (protótipo aprovado pelo dono em 07/10/2026): uma faixa no
+  alto de Critérios diz o horário e se a loja está aberta agora ("aberta
+  agora · fecha às 23:00"); o horário se edita numa gaveta, dia a dia, com
+  seletor de hora; o formulário do critério pergunta "Em que horário
+  conferir"; o cartão do critério mostra "fora do horário" ou "sempre"
+  (o padrão, "no horário", não ganha etiqueta); o painel avisa quando a
+  loja está fechada e os critérios do horário esperam.
+
+### Mais de uma área por canal (migration 019)
+
+Pedido do dono: a câmera do caixa confere presença **dentro do balcão** e
+fila **do lado do cliente** — "cada área pode ter seu critério diferente;
+o critério, mesmo sendo no canal, fica destinado à área marcada".
+
+- **O banco já tinha área por canal** (`zona`) e critério por área
+  (`regra_alvo`); faltava criar a segunda. A 019 acrescenta só a exclusão
+  por marca (`zona.excluida_em`) e o nome único por canal.
+- **Canal com uma área só continua igual**: marca-se o canal. Com mais de
+  uma, o canal deixa de ter caixa de marcar e o critério é posto **na
+  área** — na árvore do formulário e na tela de critérios, que agrupa por
+  área. O painel passa a dizer "canal · área".
+- **Excluir uma área é marcar**: o que ela registrou fica no histórico. Os
+  critérios saem dela; o que ficar sem lugar nenhum é desligado e vai para
+  "Sem canal". A última área do canal não se exclui. Excluída a principal,
+  a mais antiga assume. O diálogo diz isso antes, com o nome dos critérios.
+- **Até 8 áreas por canal.** Cada área com critério de nuvem é uma imagem
+  a mais por olhada; oito é teto, não meta.
+- **Área nova nasce no meio do quadro, sem critério** — nada passa a ser
+  verificado só por criar. Mexer em área é de quem configura (gerente);
+  antes a supervisão conseguia renomear, e não devia.
+- **Na imagem, clique seleciona e arrasto desenha.** Toda loja começa com
+  a área "Quadro inteiro" cobrindo a imagem; se apertar sobre outra área
+  já trocasse a seleção, não haveria onde desenhar a segunda (ERR-035 —
+  estava assim no protótipo, e só apareceu usando a tela a partir do
+  estado real). O clique vale para a menor área sob o ponteiro.
+- **No agente**, duas coisas ainda identificavam o julgamento por canal +
+  critério, sem a área: o nome da imagem guardada e a chave da fila. Com
+  o mesmo critério em duas áreas do mesmo canal, a segunda imagem gravava
+  por cima da primeira e as duas áreas saíam com o veredito da segunda
+  (ERR-034). A área entrou nos dois. **O agente da loja precisa ser o
+  desta versão antes de alguém marcar o mesmo critério em duas áreas de um
+  canal.**
+- O recorte que vai ao juiz é o retângulo da área **com 5% de margem**: ao
+  desenhar "dentro do balcão", deixar folga do lado de dentro, não em cima
+  da linha do balcão.
 
 ### Fica para o fim (por decisão do dono)
 

@@ -155,6 +155,12 @@ export function rotasDeResultados(app: FastifyInstance, pool: pg.Pool): void {
                   (r.excluida_em is not null) as regra_excluida,
                   pt.id as ponto_id, pt.nome as ponto_nome, pt.canal, st.nome as setor,
                   pt.ativo as ponto_ativo, (pt.excluido_em is not null) as ponto_excluido,
+                  -- Em que área(s) deste canal o critério foi olhado, e
+                  -- quantas áreas o canal tem: com uma só o nome dela não
+                  -- diz nada além do canal.
+                  array_agg(distinct z.nome) as areas,
+                  (select count(*)::integer from zona zz
+                    where zz.ponto_id = pt.id and zz.excluida_em is null) as areas_do_canal,
                   sum(h.capturas)::integer as capturas,
                   sum(h.sem_juiz)::integer as sem_juiz,
                   sum(h.sem_quadro)::integer as sem_quadro,
@@ -231,6 +237,9 @@ export function rotasDeResultados(app: FastifyInstance, pool: pg.Pool): void {
         pool.query(
           `select e.id, e.ocorrido_em, e.motivo, e.confianca,
                   r.nome as regra_nome, pt.nome as ponto_nome, pt.canal,
+                  z.nome as zona_nome,
+                  (select count(*)::integer from zona zz
+                    where zz.ponto_id = pt.id and zz.excluida_em is null) as areas_do_canal,
                   (select case
                             when bool_or(v.estado = 'entregue') then 'entregue'
                             when bool_or(v.estado = 'enviado')  then 'enviado'
@@ -287,6 +296,10 @@ export function rotasDeResultados(app: FastifyInstance, pool: pg.Pool): void {
       comLatencia: r.com_latencia,
       ultimaEm: r.ultima_em ? new Date(r.ultima_em).toISOString() : null,
       ultimoImpedimento: r.ultimo_impedimento,
+      areaNome:
+        r.areas_do_canal > 1
+          ? [...(r.areas as string[])].sort((a, b) => a.localeCompare(b, 'pt-BR')).join(' e ')
+          : null,
     }));
 
     const asHoras: HoraDoCanal[] = horas.rows.map((h) => ({
@@ -362,6 +375,9 @@ export function rotasDeResultados(app: FastifyInstance, pool: pg.Pool): void {
         regraNome: (o.regra_nome as string | null) ?? null,
         pontoNome: (o.ponto_nome as string | null) ?? null,
         canal: (o.canal as number | null) ?? null,
+        areaNome: (o.areas_do_canal as number | null) && (o.areas_do_canal as number) > 1
+          ? ((o.zona_nome as string | null) ?? null)
+          : null,
         motivo: (o.motivo as string | null) ?? null,
         confianca: o.confianca === null ? null : Number(o.confianca),
         aviso: (o.aviso as string | null) ?? null,
