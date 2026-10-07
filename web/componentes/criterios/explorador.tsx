@@ -33,6 +33,7 @@ type Props = {
   aoAdicionar: (ponto: Ponto) => void;
   aoEditar: (regra: Regra) => void;
   aoTirar: (regra: Regra, ponto: Ponto, zonaId: string) => void;
+  aoExcluir: (regra: Regra) => void;
   aoAlternar: (regra: Regra) => void;
 };
 
@@ -129,6 +130,7 @@ function LinhaDoCriterio({
   configura,
   aoEditar,
   aoTirar,
+  aoExcluir,
   aoAlternar,
 }: {
   regra: Regra;
@@ -138,6 +140,7 @@ function LinhaDoCriterio({
   configura: boolean;
   aoEditar: Props['aoEditar'];
   aoTirar: Props['aoTirar'];
+  aoExcluir: Props['aoExcluir'];
   aoAlternar: Props['aoAlternar'];
 }) {
   const n = canaisDe(regra);
@@ -174,6 +177,13 @@ function LinhaDoCriterio({
                   {rotuloDoCanal(ponto)} o critério {regra.nome}
                 </span>
               </button>
+              <button
+                type="button"
+                onClick={() => aoExcluir(regra)}
+                className={`${botaoDeLinha} text-farol-critico hover:border-farol-critico/60`}
+              >
+                Excluir<span className="sr-only"> o critério {regra.nome} de todos os canais</span>
+              </button>
             </>
           )}
         </div>
@@ -197,6 +207,7 @@ function Canal({
   aoAdicionar,
   aoEditar,
   aoTirar,
+  aoExcluir,
   aoAlternar,
 }: { ponto: Ponto } & Omit<Props, 'setores'>) {
   const criterios = criteriosDoCanal(regras, ponto.id);
@@ -262,6 +273,7 @@ function Canal({
               configura={configura}
               aoEditar={aoEditar}
               aoTirar={aoTirar}
+              aoExcluir={aoExcluir}
               aoAlternar={aoAlternar}
             />
           ))}
@@ -333,7 +345,7 @@ export function Explorador({ setores, regras, ...resto }: Props) {
           </h2>
           <p className="mt-1 max-w-prose text-xs text-farol-suave">
             Critérios que não valem em canal nenhum, e por isso não são verificados. Ficam
-            guardados com o histórico; edite para marcar canais de novo.
+            guardados com o histórico; marque canais de novo, ou exclua.
           </p>
           <ul className="mt-3 space-y-2">
             {semCanal.map((r) => (
@@ -345,13 +357,18 @@ export function Explorador({ setores, regras, ...resto }: Props) {
                 <span className="min-w-0 break-words text-sm font-medium">{r.nome}</span>
                 <Etiquetas regra={r} />
                 {resto.configura && (
-                  <button
-                    type="button"
-                    onClick={() => resto.aoEditar(r)}
-                    className={`ml-auto ${botaoDeLinha}`}
-                  >
-                    Marcar canais<span className="sr-only"> para o critério {r.nome}</span>
-                  </button>
+                  <div className="ml-auto flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={() => resto.aoEditar(r)} className={botaoDeLinha}>
+                      Marcar canais<span className="sr-only"> para o critério {r.nome}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => resto.aoExcluir(r)}
+                      className={`${botaoDeLinha} text-farol-critico hover:border-farol-critico/60`}
+                    >
+                      Excluir<span className="sr-only"> o critério {r.nome}</span>
+                    </button>
+                  </div>
                 )}
               </li>
             ))}

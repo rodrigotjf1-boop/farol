@@ -186,7 +186,7 @@ export default function Alertas() {
       <section className="mt-8">
         <h2 className="font-display text-lg text-farol-tinta">Quem recebe</h2>
 
-        <div className="mt-3 overflow-x-auto">
+        <div className="relative mt-3 overflow-x-auto">
           <table className="w-full min-w-[40rem] text-sm">
             <caption className="sr-only">Destinos de alerta desta loja</caption>
             <thead>
@@ -360,7 +360,7 @@ export default function Alertas() {
           sem o alcance padrão, cadastre uma linha de <em>não avisar</em>.
         </p>
 
-        <div className="mt-3 overflow-x-auto">
+        <div className="relative mt-3 overflow-x-auto">
           <table className="w-full min-w-[36rem] text-sm">
             <caption className="sr-only">Política de alertas</caption>
             <thead>
@@ -508,7 +508,7 @@ export default function Alertas() {
           A diferença entre os dois é a única coisa que explica um alerta que ninguém viu.
         </p>
 
-        <div className="mt-3 overflow-x-auto">
+        <div className="relative mt-3 overflow-x-auto">
           <table className="w-full min-w-[44rem] text-sm">
             <caption className="sr-only">Últimos envios de alerta</caption>
             <thead>

@@ -17,6 +17,8 @@ type Props = {
   titulo: string;
   children: React.ReactNode;
   rotuloConfirmar: string;
+  /** O que o botão mostra enquanto a ação acontece. */
+  rotuloOcupado?: string;
   ocupado?: boolean;
   erro?: string | null;
   aoConfirmar: () => void;
@@ -27,6 +29,7 @@ export function Confirmar({
   titulo,
   children,
   rotuloConfirmar,
+  rotuloOcupado = 'Tirando…',
   ocupado = false,
   erro,
   aoConfirmar,
@@ -89,7 +92,7 @@ export function Confirmar({
             disabled={ocupado}
             className="rounded-lg bg-farol-critico px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
           >
-            {ocupado ? 'Tirando…' : rotuloConfirmar}
+            {ocupado ? rotuloOcupado : rotuloConfirmar}
           </button>
         </div>
       </div>

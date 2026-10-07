@@ -50,6 +50,9 @@ export default function Criterios() {
   const [tirando, setTirando] = useState<Tirando | null>(null);
   const [tirandoAgora, setTirandoAgora] = useState(false);
   const [erroAoTirar, setErroAoTirar] = useState<string | null>(null);
+  const [excluindo, setExcluindo] = useState<Regra | null>(null);
+  const [excluindoAgora, setExcluindoAgora] = useState(false);
+  const [erroAoExcluir, setErroAoExcluir] = useState<string | null>(null);
   const topoDoFormulario = useRef<HTMLDivElement>(null);
 
   async function recarregar() {
@@ -123,6 +126,30 @@ export default function Criterios() {
     }
   }
 
+  async function confirmarExclusao() {
+    if (!excluindo) return;
+    setExcluindoAgora(true);
+    setErroAoExcluir(null);
+    try {
+      await regrasApi.excluir(excluindo.id);
+      await recarregar();
+      setAviso(`“${excluindo.nome}” excluído. O histórico do que ele já registrou continua.`);
+      if (aberto?.regra?.id === excluindo.id) setAberto(null);
+      setExcluindo(null);
+    } catch (e) {
+      // O erro fica DENTRO da pergunta: fechá-la esconderia que a exclusão
+      // não aconteceu.
+      setErroAoExcluir(e instanceof ErroDaApi ? e.message : 'não deu certo');
+    } finally {
+      setExcluindoAgora(false);
+    }
+  }
+
+  /** Os canais (não as áreas) em que o critério a excluir vale. */
+  const canaisDoExcluido = excluindo
+    ? [...new Map(excluindo.alvos.map((a) => [a.ponto_id, a])).values()]
+    : [];
+
   const outrosCanais = tirando
     ? tirando.regra.alvos.filter((a) => a.zona_id !== tirando.zonaId)
     : [];
@@ -147,7 +174,7 @@ export default function Criterios() {
       </div>
       <p className="mt-1 max-w-prose text-sm text-farol-suave">
         Um critério é cadastrado uma vez e vale nos canais que você marcar. Editar muda em
-        todos; tirar de um canal não mexe nos outros.
+        todos; tirar de um canal não mexe nos outros; excluir tira de todos.
       </p>
 
       {erro && (
@@ -215,8 +242,51 @@ export default function Criterios() {
             setErroAoTirar(null);
             setTirando({ regra, ponto, zonaId });
           }}
+          aoExcluir={(regra) => {
+            setErro(null);
+            setAviso(null);
+            setErroAoExcluir(null);
+            setExcluindo(regra);
+          }}
           aoAlternar={alternar}
         />
+      )}
+
+      {excluindo && (
+        <Confirmar
+          titulo={`Excluir o critério “${excluindo.nome}”?`}
+          rotuloConfirmar="Excluir critério"
+          rotuloOcupado="Excluindo…"
+          ocupado={excluindoAgora}
+          erro={erroAoExcluir}
+          aoConfirmar={confirmarExclusao}
+          aoCancelar={() => setExcluindo(null)}
+        >
+          {canaisDoExcluido.length > 0 ? (
+            <p>
+              A análise deste critério{' '}
+              <strong className="text-farol-tinta">deixará de ser verificada</strong> em{' '}
+              {canaisDoExcluido.length === 1 ? 'seu canal' : `todos os ${canaisDoExcluido.length} canais`}
+              :{' '}
+              <strong className="text-farol-tinta">
+                {canaisDoExcluido
+                  .map((a) => rotuloDoCanal({ nome: a.ponto_nome, canal: a.canal }))
+                  .join(', ')}
+              </strong>
+              .
+            </p>
+          ) : (
+            <p>Este critério não vale em canal nenhum — nada deixa de ser verificado.</p>
+          )}
+          <p>
+            Ele some desta tela. O histórico do que já registrou continua guardado.
+          </p>
+          {canaisDoExcluido.length > 1 && (
+            <p>
+              Para tirar de um canal só, use <strong className="text-farol-tinta">Tirar do canal</strong>.
+            </p>
+          )}
+        </Confirmar>
       )}
 
       {tirando && (

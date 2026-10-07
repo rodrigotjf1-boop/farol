@@ -177,6 +177,7 @@ async function criarRegra(
          join loja  l  on l.id  = st.loja_id
         where z.id = any($1::uuid[])
           and l.tenant_id = $2
+          and p.excluido_em is null
           and ($3::uuid is null or l.id = $3)
      ),
      dono as (
@@ -252,7 +253,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
               ${ALVOS_DO_CRITERIO} as alvos
          from regra r
          join loja l on l.id = r.loja_id
-        where l.id = $1 and l.tenant_id = $2
+        where l.id = $1 and l.tenant_id = $2 and r.excluida_em is null
         order by r.nome, r.criado_em`,
       [id, s.tenantId],
     );
@@ -370,7 +371,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
         `select r.tipo, r.parametros
            from regra r
            join loja l on l.id = r.loja_id
-          where r.id = $1 and l.tenant_id = $2
+          where r.id = $1 and l.tenant_id = $2 and r.excluida_em is null
             for update of r`,
         [id, s.tenantId],
       );
@@ -477,7 +478,8 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
              from zona z
              join ponto p  on p.id  = z.ponto_id
              join setor st on st.id = p.setor_id
-            where st.loja_id = $1 and z.id = any($2::uuid[])`,
+            where st.loja_id = $1 and z.id = any($2::uuid[])
+              and p.excluido_em is null`,
           [lojaId, z.ids],
         );
         if (validas.rowCount !== z.ids.length) {
@@ -578,7 +580,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
         `select r.id, r.ativa
            from regra r
            join loja l on l.id = r.loja_id
-          where r.id = $1 and l.tenant_id = $2
+          where r.id = $1 and l.tenant_id = $2 and r.excluida_em is null
             for update of r`,
         [id, s.tenantId],
       );
@@ -619,6 +621,65 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
         'critério removido de um canal',
       );
       return { removido: true, restantes, desligada };
+    } catch (e) {
+      await cliente.query('rollback').catch(() => {});
+      throw e;
+    } finally {
+      cliente.release();
+    }
+  });
+
+  // ─────────────────────── excluir o critério ───────────────────────
+  // Pedido do dono (07/10/2026). "Tirar do canal" continua existindo e é
+  // outra coisa: tira de UM canal e o critério segue nos outros.
+  //
+  // Excluir tira de todos e some da tela. A LINHA fica (migration 014): os
+  // vereditos que este critério já produziu apontam para ela, e é com ela
+  // que o histórico continua tendo nome.
+
+  app.delete('/v1/regras/:id', async (req, resposta) => {
+    const s = await quem(req, resposta);
+    if (!s) return;
+    if (!exigirConfigurar(s, resposta)) return;
+
+    const { id } = req.params as { id: string };
+    const naoAchei = () =>
+      resposta.status(404).send({ erro: 'nao_encontrada', mensagem: 'critério não encontrado' });
+    if (!UUID.test(id)) return naoAchei();
+
+    const cliente = await pool.connect();
+    try {
+      await cliente.query('begin');
+
+      const r = await cliente.query(
+        `select r.id, r.nome
+           from regra r
+           join loja l on l.id = r.loja_id
+          where r.id = $1 and l.tenant_id = $2 and r.excluida_em is null
+            for update of r`,
+        [id, s.tenantId],
+      );
+      if (r.rowCount === 0) {
+        await cliente.query('rollback');
+        return naoAchei();
+      }
+
+      const tirados = await cliente.query('delete from regra_alvo where regra_id = $1', [id]);
+      await cliente.query(
+        `update regra
+            set excluida_em = now(), excluida_por = $2, ativa = false, atualizado_em = now()
+          where id = $1`,
+        [id, s.usuarioId],
+      );
+
+      await cliente.query('commit');
+
+      // Excluir um critério muda o que a loja audita. Fica no log com quem fez.
+      req.log.info(
+        { regra: id, nome: r.rows[0].nome, por: s.usuarioId, canais: tirados.rowCount },
+        'critério EXCLUÍDO',
+      );
+      return { excluido: true, canais: tirados.rowCount ?? 0 };
     } catch (e) {
       await cliente.query('rollback').catch(() => {});
       throw e;

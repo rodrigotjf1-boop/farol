@@ -50,7 +50,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
               (select count(*)::int
                  from ponto p
                  join setor st2 on st2.id = p.setor_id
-                where st2.loja_id = l.id) as pontos
+                where st2.loja_id = l.id and p.excluido_em is null) as pontos
          from loja l
         where l.tenant_id = $1
         order by l.nome`,
@@ -98,7 +98,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
                    from zona z where z.ponto_id = p.id),
                 '[]'::jsonb) as zonas
          from setor st
-         left join ponto p on p.setor_id = st.id
+         left join ponto p on p.setor_id = st.id and p.excluido_em is null
         where st.loja_id = $1
         order by st.ordem, st.nome, p.nome`,
       [id],
@@ -307,6 +307,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
               atualizado_em = now()
          from setor st, loja l
         where p.id = $1
+          and p.excluido_em is null
           and st.id = p.setor_id
           and l.id = st.loja_id
           and l.tenant_id = $10
@@ -330,27 +331,103 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
     return rows[0];
   });
 
+  // ─────────────────────────── excluir o canal ───────────────────────────
+  // EXCLUIR não é PAUSAR. Pausar é `PATCH {ativo:false}`: o canal fica na
+  // tela, marcado, com os critérios guardados. Excluir é para o canal que
+  // não existe mais — some das telas e do que desce para o agente.
+  //
+  // A linha fica (migration 014): evento histórico aponta para a área, que
+  // aponta para o canal. E os critérios NÃO são excluídos junto: saem só
+  // deste canal. O que valia só aqui é desligado e vai para "Sem canal" —
+  // a mesma regra de tirar o critério do último canal.
+
   app.delete('/v1/pontos/:id', async (req, resposta) => {
     const s = await quem(req, resposta);
     if (!s) return;
     if (!exigirConfigurar(s, resposta)) return;
 
     const { id } = req.params as { id: string };
+    const naoAchei = () =>
+      resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'ponto não encontrado' });
+    if (!UUID.test(id)) return naoAchei();
 
-    // DESATIVA, não apaga. Evento histórico aponta para a zona, que
-    // aponta para o ponto: apagar quebraria a linha do tempo da loja —
-    // e é justamente o histórico que o produto existe para guardar.
-    const { rows } = await pool.query(
-      `update ponto p set ativo = false, atualizado_em = now()
-         from setor st, loja l
-        where p.id = $1 and st.id = p.setor_id and l.id = st.loja_id
-          and l.tenant_id = $2
-       returning p.id, p.ativo`,
-      [id, s.tenantId],
-    );
-    if (rows.length === 0) {
-      return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'ponto não encontrado' });
+    const cliente = await pool.connect();
+    try {
+      await cliente.query('begin');
+
+      const p = await cliente.query(
+        `select p.id, p.nome
+           from ponto p
+           join setor st on st.id = p.setor_id
+           join loja  l  on l.id  = st.loja_id
+          where p.id = $1 and l.tenant_id = $2 and p.excluido_em is null
+            for update of p`,
+        [id, s.tenantId],
+      );
+      if (p.rowCount === 0) {
+        await cliente.query('rollback');
+        return naoAchei();
+      }
+
+      // Os critérios deste canal, travados antes de mexer: "sobrou algum
+      // canal?" decide se o critério é desligado, e duas exclusões ao mesmo
+      // tempo não podem ver, cada uma, "ainda sobra um".
+      const afetados = await cliente.query(
+        `select r.id
+           from regra r
+          where r.id in (select ra.regra_id
+                           from regra_alvo ra
+                           join zona z on z.id = ra.zona_id
+                          where z.ponto_id = $1)
+          order by r.id
+            for update of r`,
+        [id],
+      );
+      const ids: string[] = afetados.rows.map((r) => r.id);
+
+      await cliente.query(
+        `delete from regra_alvo ra
+          using zona z
+          where z.id = ra.zona_id and z.ponto_id = $1`,
+        [id],
+      );
+
+      // Uma instrução para todos, nunca um laço por critério.
+      const desligados = await cliente.query(
+        `update regra r
+            set ativa = false, atualizado_em = now()
+          where r.id = any($1::uuid[])
+            and r.ativa
+            and not exists (select 1 from regra_alvo ra where ra.regra_id = r.id)
+        returning r.nome`,
+        [ids],
+      );
+
+      await cliente.query(
+        `update ponto
+            set excluido_em = now(), excluido_por = $2, ativo = false, atualizado_em = now()
+          where id = $1`,
+        [id, s.usuarioId],
+      );
+
+      await cliente.query('commit');
+
+      // Excluir um canal muda o que a loja audita. Fica no log com quem fez.
+      req.log.info(
+        { ponto: id, por: s.usuarioId, criterios: ids.length, desligados: desligados.rowCount },
+        'canal EXCLUÍDO',
+      );
+      return {
+        excluido: true,
+        criteriosTirados: ids.length,
+        criteriosDesligados: desligados.rows.map((r) => r.nome as string),
+        aviso: 'canal excluído; o histórico dele continua no sistema',
+      };
+    } catch (e) {
+      await cliente.query('rollback').catch(() => {});
+      throw e;
+    } finally {
+      cliente.release();
     }
-    return { ...rows[0], aviso: 'ponto desativado; o histórico dele continua no sistema' };
   });
 }

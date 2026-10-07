@@ -50,7 +50,7 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
          from ponto p
          join setor st on st.id = p.setor_id
          join loja  l  on l.id  = st.loja_id
-        where p.id = $1 and l.tenant_id = $2 and p.ativo`,
+        where p.id = $1 and l.tenant_id = $2 and p.excluido_em is null and p.ativo`,
       [id, s.tenantId],
     );
     if (p.rowCount === 0) {
@@ -118,7 +118,7 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
          from ponto p
          join setor st on st.id = p.setor_id
          join loja  l  on l.id  = st.loja_id
-        where p.id = $1 and l.tenant_id = $2`,
+        where p.id = $1 and l.tenant_id = $2 and p.excluido_em is null`,
       [id, s.tenantId],
     );
     if (r.rowCount === 0 || !r.rows[0].preview) {
@@ -150,7 +150,7 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
          from ponto p
          join setor st on st.id = p.setor_id
          join loja  l  on l.id  = st.loja_id
-        where p.id = $1 and l.tenant_id = $2`,
+        where p.id = $1 and l.tenant_id = $2 and p.excluido_em is null`,
       [id, s.tenantId],
     );
     if (r.rowCount === 0) {
@@ -215,7 +215,7 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
          from ponto p
          join setor st on st.id = p.setor_id
          join loja  l  on l.id  = st.loja_id
-        where p.id = $1 and l.tenant_id = $2`,
+        where p.id = $1 and l.tenant_id = $2 and p.excluido_em is null`,
       [id, s.tenantId],
     );
     if (p.rowCount === 0) {
@@ -253,7 +253,7 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
          join ponto p on p.id = z.ponto_id
          join setor st on st.id = p.setor_id
          join loja  l  on l.id  = st.loja_id
-        where z.id = $1 and l.tenant_id = $2`,
+        where z.id = $1 and l.tenant_id = $2 and p.excluido_em is null`,
       [id, s.tenantId],
     );
     if (z.rowCount === 0) {

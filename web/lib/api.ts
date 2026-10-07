@@ -201,8 +201,12 @@ export const consoleApi = {
   editarPonto: (id: string, dados: Partial<Ponto>) =>
     pedir<Ponto>(`/pontos/${id}`, { method: 'PATCH', body: JSON.stringify(dados) }),
 
-  desativarPonto: (id: string) =>
-    pedir<{ id: string; ativo: boolean }>(`/pontos/${id}`, { method: 'DELETE' }),
+  /** Exclui o canal. Pausar é outra coisa: `editarPonto(id, { ativo: false })`. */
+  excluirPonto: (id: string) =>
+    pedir<{ excluido: boolean; criteriosTirados: number; criteriosDesligados: string[] }>(
+      `/pontos/${id}`,
+      { method: 'DELETE' },
+    ),
 };
 
 export const regrasApi = {
@@ -229,6 +233,10 @@ export const regrasApi = {
       `/regras/${id}/canais/${zonaId}`,
       { method: 'DELETE' },
     ),
+
+  /** Exclui o critério de TODOS os canais. O histórico de vereditos fica. */
+  excluir: (id: string) =>
+    pedir<{ excluido: boolean; canais: number }>(`/regras/${id}`, { method: 'DELETE' }),
 };
 
 // ───────────────────── o canal: ver e demarcar ─────────────────────
