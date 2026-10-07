@@ -5,11 +5,16 @@ tela deve ficar e reagir; não é o app, e os dados dentro dele são exemplo.
 
 | arquivo | o que é | situação |
 |---|---|---|
-| `farol-console.html` | o console inteiro: entrada, painel "o que o Farol viu", canais, área do canal, critérios, alertas, orçamento e lojas | em aprovação (07/10/2026) |
+| `farol-console.html` | o console inteiro: entrada, painel "o que o Farol viu", canais, área do canal, critérios, alertas, orçamento e lojas | aprovado pelo dono em 07/10/2026 e portado para `web/` |
 
 Abre com dois cliques. No canto de baixo, o botão **Protótipo** troca a
 situação da loja (em operação, loja nova, carregando, agente fora do ar), o
 perfil de quem olha e o tema.
+
+O que o app faz diferente do protótipo está listado em `docs/roadmap.md`,
+seção A14 — incluindo duas coisas que o protótipo mostra e o app ainda não
+faz, à espera de decisão ("pacote indicado" e "pontos de atenção" na lista de
+lojas).
 
 ## Como usar
 

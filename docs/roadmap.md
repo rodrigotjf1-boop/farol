@@ -1395,7 +1395,7 @@ abre fora do PC — ver de outro computador é outra funcionalidade, com senha.
 
 ---
 
-## A13 · O que o Farol viu: o resumo por hora — 🟡 agente e API prontos; a tela espera o protótipo (07/10/2026, migration 017)
+## A13 · O que o Farol viu: o resumo por hora — ✅ agente, API e tela (07/10/2026, migration 017)
 
 ### O problema
 
@@ -1474,8 +1474,6 @@ problema é o computador.
 
 ### O que NÃO faz
 
-- **A tela ainda não existe no console.** Faz parte do redesenho (A14), que
-  espera aprovação do protótipo.
 - "Desde quando" o canal está sem imagem tem precisão de **hora**, que é a do
   resumo.
 - Item que expira na fila antes de ser julgado não entra em contador nenhum.
@@ -1484,24 +1482,90 @@ problema é o computador.
 
 ---
 
-## A14 · Console redesenhado — 🟡 protótipo em aprovação (07/10/2026)
+## A14 · Console redesenhado — ✅ protótipo aprovado e portado para o app (07/10/2026)
 
 Pedido do dono: web app minimalista, intuitivo, limpo, responsivo e dinâmico,
 com animações e ícones modernos, usando o kit de marca — e **protótipo de
 todas as telas para aprovação antes de mexer no app**.
 
-- Protótipo navegável em `mockups/farol-console.html` (um arquivo, abre com
-  dois cliques), com as fontes em `mockups/console/`. Oito telas: entrada,
-  painel "o que o Farol viu", canais, área do canal, critérios, alertas,
-  orçamento e lojas; tema claro e escuro; computador, tablet e celular.
-- **Uma navegação que muda de forma:** coluna à esquerda no computador, trilho
-  no tablet, barra embaixo no celular. A loja é o contexto, no topo.
-- **Cores do kit:** azul-marinho do logotipo para agir, âmbar do facho só para
-  "olhe aqui". Verde e vermelho ficam para resultado.
-- Conferido em navegador de verdade em 1440, 1024, 768 e 375 px, nos dois
-  temas, todas as telas e camadas: sem rolagem lateral e sem erro de script.
+### O protótipo
 
-Nada do app foi alterado. A implementação começa depois da aprovação.
+- Navegável, em `mockups/farol-console.html` (um arquivo, abre com dois
+  cliques), com as fontes em `mockups/console/`. Oito telas: entrada, painel
+  "o que o Farol viu", canais, área do canal, critérios, alertas, orçamento e
+  lojas; tema claro e escuro; computador, tablet e celular.
+- **Aprovado pelo dono em 07/10/2026**, com as seis decisões que vinham nele:
+  tema claro e escuro seguindo o aparelho; botão principal na cor do
+  logotipo, âmbar só para "olhe aqui"; a loja como contexto no topo;
+  formulário em gaveta; fontes e ícones novos; filtro de ligados e
+  desligados nos critérios.
+
+### O que mudou no app
+
+- **Uma navegação que muda de forma:** coluna à esquerda no computador, trilho
+  no tablet, barra embaixo no celular. A loja é o contexto, no topo, e o menu
+  é o da loja escolhida: Painel, Canais, Critérios, Alertas e Orçamento.
+- **A moldura não recarrega** ao trocar de tela (`app/(console)/layout.tsx`):
+  ela guarda quem está usando, as lojas e a saúde do agente, e as telas leem
+  de lá (`useConsole`).
+- **O agente fora do ar aparece em toda tela**, e não só no painel: faixa no
+  topo, ponto ao lado da loja e o bloco do agente na navegação.
+- **A tela "O que o Farol viu"** (A13) é o painel de cada loja: saúde, números,
+  gráfico por hora ou por dia, o que precisa de atenção, a tabela por critério
+  e canal e as últimas vezes fora do critério.
+- **Criar e editar acontecem em gaveta** (folha que sobe, no celular);
+  excluir pergunta antes, dizendo a consequência, com o foco no Cancelar.
+- **Tabela vira cartões no celular** em vez de rolar de lado.
+- Peças em `web/componentes/ui/`; cores como variáveis em `globals.css`, nos
+  dois temas; fontes servidas pelo próprio app (`@fontsource-variable`), sem
+  pedido a servidor de fontes; ícones `lucide-react`.
+
+### O que a API ganhou
+
+`GET /v1/lojas` passou a trazer, de cada loja, os critérios, os agentes, há
+quanto tempo o agente não bate e o resultado das últimas 24 horas — numa
+consulta só para todas as lojas da conta. **Execução não recebe o resultado**:
+a tela de resultados já é fechada para ela, e a lista não pode ser porta
+lateral. Guardado por `api/testes/lista-de-lojas.test.ts`, que foi conferido
+estragando o código de cinco jeitos (os cinco foram pegos).
+
+### Conferido em navegador de verdade
+
+Contra o build de produção e a API local: as oito telas em 1440, 1024, 768 e
+375 px, nos dois temas — sem rolagem lateral e sem erro de script ou de rede.
+E **usando** a tela, com clique de mouse: abrir e fechar cada gaveta, criar,
+editar e excluir um canal, os menus, as chaves, o filtro, as abas, a troca de
+período, de loja e de tema; como supervisão (vê, não configura), como
+execução (não vê resultado) e numa conta vazia (os estados vazios).
+
+Usar a tela achou o que a foto não mostra: **o menu "…" abria 290 px para o
+lado e atrás dos cartões de baixo.** A animação de entrada da seção terminava
+com `animation-fill-mode: both`, e o navegador segurava um `transform`
+identidade para sempre — o que basta para a seção virar a referência de todo
+`position: fixed` dentro dela. O menu passou a ser desenhado fora da seção, e
+as animações de entrada usam `backwards`.
+
+### Diferente do protótipo
+
+Duas coisas que o protótipo mostra e o app **não faz**, porque dependem de uma
+decisão que não é da tela — ficam para o dono decidir:
+
+- **"Pacote indicado" no orçamento.** A API calcula os três caminhos e não
+  escolhe um. Destacar um deles pede uma regra de negócio (qual pacote se
+  indica, e por quê); a tela não inventa.
+- **"Pontos de atenção" no cartão de cada loja.** Os sinais são calculados por
+  loja, no painel dela. Trazê-los na lista é calcular os de todas as lojas a
+  cada batida da moldura (30 s). No lugar, o cartão mostra a saúde do agente
+  e o percentual conforme em 24 horas.
+
+E quatro de propósito:
+
+- **No orçamento, as câmeras que servem a cada canal ficam recolhidas**, menos
+  as do primeiro: com oito canais, tudo aberto era uma página de catálogo.
+- **"Novo canal" deixa cadastrar o setor ali mesmo.**
+- **No celular, as abas dos Alertas vão sem ícone:** com ele, a terceira
+  ficava cortada na borda.
+- **"Sem imagem desde as 14h"** tem precisão de hora, que é a do resumo.
 
 ---
 
