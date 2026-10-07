@@ -14,7 +14,7 @@
 
 import { useId, useState } from 'react';
 
-import { consoleApi, ErroDaApi, type Ponto } from '@/lib/api';
+import { consoleApi, ErroDaApi, type Importancia, type Ponto } from '@/lib/api';
 
 const campo = 'w-full rounded-lg border border-farol-borda bg-farol-fundo px-3 py-2 text-sm';
 const rotulo = 'block text-xs font-medium text-farol-suave';
@@ -38,6 +38,7 @@ export function FormularioPonto({ setorId, ponto, aoSalvar, aoCancelar }: Props)
   const [usuario, setUsuario] = useState(ponto?.usuario ?? '');
   const [fabricante, setFabricante] = useState(ponto?.fabricante ?? '');
   const [ativo, setAtivo] = useState(ponto?.ativo ?? true);
+  const [importancia, setImportancia] = useState<Importancia>(ponto?.importancia ?? 'normal');
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -56,7 +57,7 @@ export function FormularioPonto({ setorId, ponto, aoSalvar, aoCancelar }: Props)
 
     try {
       if (ponto) {
-        await consoleApi.editarPonto(ponto.id, { ...dados, ativo });
+        await consoleApi.editarPonto(ponto.id, { ...dados, ativo, importancia });
         await aoSalvar(
           ativo
             ? `Canal “${dados.nome}” salvo.`
@@ -162,6 +163,24 @@ export function FormularioPonto({ setorId, ponto, aoSalvar, aoCancelar }: Props)
             onChange={(e) => setFabricante(e.target.value)}
           />
         </div>
+
+        {editando && (
+          <div>
+            <label className={rotulo} htmlFor={`${prefixo}-importancia`}>
+              Importância
+            </label>
+            <select
+              id={`${prefixo}-importancia`}
+              className={`mt-1 ${campo}`}
+              value={importancia}
+              onChange={(e) => setImportancia(e.target.value as Importancia)}
+            >
+              <option value="critico">crítico — resolver primeiro</option>
+              <option value="normal">normal</option>
+              <option value="baixo">baixo — por último</option>
+            </select>
+          </div>
+        )}
 
         {editando && (
           <div>

@@ -24,6 +24,7 @@ import { sessaoDe, type Sessao } from './sessao.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ORIGENS = ['dvr', 'ip'];
+const IMPORTANCIAS = ['critico', 'normal', 'baixo'];
 
 export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
   /** Toda rota começa por aqui: sem sessão, nada acontece. */
@@ -84,7 +85,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
     const st = await pool.query(
       `select st.id, st.nome, st.ordem,
               p.id as ponto_id, p.nome as ponto_nome, p.origem, p.fabricante,
-              p.canal, p.host, p.porta, p.usuario, p.ativo,
+              p.canal, p.host, p.porta, p.usuario, p.ativo, p.importancia,
               -- as zonas vem junto: a tela de regras precisa saber ONDE a
               -- regra vai morar, e uma ida a mais ao servidor para isso
               -- seria gasto a toa.
@@ -120,6 +121,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
           porta: r.porta,
           usuario: r.usuario,
           ativo: r.ativo,
+          importancia: r.importancia,
           zonas: r.zonas ?? [],
         });
       }
@@ -283,6 +285,12 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
         mensagem: `origem: um de ${ORIGENS.join(', ')}`,
       });
     }
+    if (corpo.importancia != null && !IMPORTANCIAS.includes(String(corpo.importancia))) {
+      return resposta.status(422).send({
+        erro: 'validacao',
+        mensagem: `importancia: um de ${IMPORTANCIAS.join(', ')}`,
+      });
+    }
 
     // `coalesce($n, coluna)`: campo ausente MANTÉM o valor, não apaga.
     // Um PATCH que zera o que não foi mandado destrói configuração a
@@ -297,6 +305,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
               porta      = coalesce($7, p.porta),
               usuario    = coalesce($8, p.usuario),
               ativo      = coalesce($9, p.ativo),
+              importancia     = coalesce($16, p.importancia),
               sensor_pol      = coalesce($11, p.sensor_pol),
               focal_mm        = coalesce($12, p.focal_mm),
               distancia_cm    = coalesce($13, p.distancia_cm),
@@ -312,7 +321,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
           and l.id = st.loja_id
           and l.tenant_id = $10
        returning p.id, p.nome, p.origem, p.fabricante, p.canal, p.host,
-                 p.porta, p.usuario, p.ativo, p.sensor_pol, p.focal_mm,
+                 p.porta, p.usuario, p.ativo, p.importancia, p.sensor_pol, p.focal_mm,
                  p.distancia_cm, p.resolucao_h, p.largura_cena_cm`,
       [
         id,
@@ -323,6 +332,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
         s.tenantId,
         corpo.sensorPol ?? null, corpo.focalMm ?? null, corpo.distanciaCm ?? null,
         corpo.resolucaoH ?? null, corpo.larguraCenaCm ?? null,
+        corpo.importancia ?? null,
       ],
     );
     if (rows.length === 0) {

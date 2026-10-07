@@ -1254,7 +1254,7 @@ olhando imagem; da próxima vez, quem olha é o dono, na tela dele.
 
 ---
 
-## A12 · Base de equipamentos, classe dos canais e orçamento — 🟡 3 de 4 passos (07/10/2026)
+## A12 · Base de equipamentos, classe dos canais e orçamento — ✅ os 4 passos (07/10/2026)
 
 **Pedido do dono (07/10/2026):**
 
@@ -1294,28 +1294,76 @@ viraram cadastro.
 |---|---|---|
 | **1 · a base** | `catalogo/`: 39 modelos, com nível, motivo, para que serve, preço datado e o que foi medido na loja. Conferida por teste a cada envio | ✅ feito |
 | **2 · a carga** | a API copia os arquivos para o banco **a cada subida** (`api/src/catalogo.ts`): só a linha que mudou, nunca apaga, e arquivo com defeito não grava nada. A tabela ganha `nivel`, `medido`, `precos` e `fontes`. O requisito de cada uso veio para `catalogo/usos.json`. `/saude` devolve quantos modelos há no banco | ✅ feito (migration 015) |
-| **3 · a classe do canal e o orçamento** | ver abaixo | a fazer |
+| **3 · a classe do canal e o orçamento** | `GET /v1/lojas/:id/orcamento` e a tela **Loja → Orçamento**: carga de cada canal, o que precisa enxergar, opções por nível e três pacotes | ✅ feito (migration 016) |
 | **4 · os canais no navegador do PC de análise** | `farol-agent servir --visor`: o mosaico em `http://127.0.0.1:8765`, só neste computador | ✅ feito |
 
-### Passo 3 — a classe de cada canal sai do uso, e o orçamento sai da classe
+### Passo 3 — a classe de cada canal sai do uso, e o orçamento sai da classe ✅
 
-Cada canal ganha duas leituras, calculadas dos critérios que valem nele:
+A conta mora em `api/src/orcamento.ts` — pura, sem banco. A rota
+`GET /v1/lojas/:id/orcamento` só junta o que ela precisa; a tela é
+**Loja → Orçamento**.
 
-- **quanto ele é usado** — quantos critérios, e com que frequência cada um
-  roda. Dá a carga: *leve*, *moderada*, *intensa*. É o que dimensiona
-  computador e rede;
-- **o que ele precisa enxergar** — o uso mais exigente entre os critérios dele
-  (presença pede pouco; montagem pede enquadramento fechado, cor e 12,8 px por
-  cm). É o que dimensiona a câmera.
+**Duas leituras de cada canal, e são perguntas diferentes:**
 
-Mais um campo que só o dono sabe: a **importância** do canal (crítico, normal,
-baixo) — decide a ordem em que o orçamento resolve as coisas quando o dinheiro
-não dá para tudo.
+| | de onde sai | o que dimensiona |
+|---|---|---|
+| **quanto é usado** | dos critérios que valem nele: 120 capturas por hora × os quadros que cada uso julga por análise | computador e rede |
+| **o que precisa enxergar** | do uso mais exigente entre os critérios dele (px por cm, cor, WDR, julgamento na loja) | a câmera |
 
-O orçamento então compara, canal a canal, o que ele precisa com o que a loja
-tem, e apresenta **opções** — até três por canal, uma por nível, só entre os
-equipamentos que servem àquele uso. É o "motor de dimensionamento" que este
-roadmap já descrevia, agora com dado para rodar.
+Um canal com dez critérios de presença é muito usado e serve com qualquer
+câmera; um canal com um único critério de leitura é pouco usado e precisa da
+melhor.
+
+| carga | quadros julgados por hora | exemplo |
+|---|---|---|
+| sem uso | 0 | nenhum critério |
+| leve | até 120 | um critério simples |
+| moderada | até 480 | dois a quatro critérios simples |
+| intensa | acima | cinco ou mais — ou um só critério de ação, que julga 8 quadros por análise |
+
+Conta o uso **previsto**: critério cadastrado e desligado entra, porque foi
+para usá-lo que a loja o cadastrou.
+
+**A importância** (`ponto.importancia`: crítico, normal, baixo — migration 016)
+é o único dado que só o dono sabe. Ela **ordena** — crítico primeiro, depois o
+mais usado — e não muda o que o canal precisa.
+
+**As opções:** para cada canal, até três câmeras — uma por nível — entre as que
+servem a **todos** os usos dele. Para critério de estado não se oferece câmera
+básica: ela não fecha o quadro. Dentro do nível, a recomendada vem antes; entre
+iguais, a mais barata.
+
+**Os três pacotes:** cada um usa, em cada canal, a opção daquele nível; quando
+não há opção daquele nível que sirva, sobe — e diz por quê. Câmera que **já
+atende** (óptica informada e px por cm suficiente) não entra. Gravador e
+computador entram com o porte que a loja exige, e a tela avisa para tirá-los da
+conta se a loja já os tem. Soma parcial é dita como parcial: o que não tem
+preço não entra no total, e o cartão mostra "+ N itens sem preço" ao lado do
+número.
+
+**O computador só pede placa de vídeo** quando há critério que só um modelo de
+visão julga (estado, ação) **e** a imagem não pode sair da loja. Presença e
+contagem nunca pedem.
+
+**O que chega ao usuário é solução, não catálogo:** marca, modelo, nível, a
+razão do nível e a faixa de preço. Equipamento descartado nem é lido do banco;
+observação interna, fonte e medição de campo não entram na consulta — e um
+teste confere isso pelo conteúdo, modelo a modelo. Só quem configura a loja
+(gerente, presidente, suporte) vê o orçamento.
+
+**Os preços** de dez modelos que estavam sem cotação foram buscados em lojas
+brasileiras em 07/10/2026 e entraram como `indice` — vieram de resultado de
+busca, não de página conferida. A tela mostra a origem e a data ao lado de cada
+valor.
+
+**O que não faz ainda:**
+
+| limite | caminho |
+|---|---|
+| a variante do uso (estado que depende de **cor**, **leitura** de etiqueta, **montagem**) não existe no critério — só o tipo | um campo no critério; aí o canal pede a câmera certa para cor à noite ou leitura |
+| não sabe o que a loja **já tem** de gravador e computador | o levantamento (`levantamento_item`, da migration 002) — a mesma conta, alimentada pelas respostas do cliente |
+| orçamento para quem **ainda não é cliente** (sem canal cadastrado) | o formulário de levantamento; a conta é a mesma |
+| a frequência é fixa em 120 capturas por hora | quando a cadência por critério existir, a carga passa a usá-la |
 
 ### Passo 4 — os canais no navegador, no PC de análise ✅
 

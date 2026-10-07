@@ -190,7 +190,9 @@ describe('catálogo de equipamentos', () => {
     assert.ok(doBanco.length >= 20, `só li ${doBanco.length} equipamentos da migration 002`);
 
     for (const b of doBanco) {
-      const achado = lidos.find((l) => l.item.fabricante === b.fabricante && l.item.modelo === b.modelo);
+      // Pelo nome do ARQUIVO, não pela grafia: a migration semeou
+      // "i7 10a geracao", e o catálogo escreve "i7 10ª geração".
+      const achado = lidos.find((l) => l.item.id === `${slug(b.fabricante)}--${slug(b.modelo)}`);
       assert.ok(achado, `falta no catálogo: ${b.fabricante} ${b.modelo}`);
       assert.equal(achado.item.categoria, b.categoria, `${b.modelo}: categoria`);
       assert.equal(achado.item.status, b.status, `${b.modelo}: status`);

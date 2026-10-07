@@ -133,6 +133,51 @@ describe('catálogo: dos arquivos para o banco (Postgres real)', { skip: !URL_DO
     assert.equal(l.medido.length, 1);
   });
 
+  it('corrigir a grafia do nome atualiza a MESMA linha, não cria outra', async () => {
+    const antes = await pool.query(
+      "select id from equipamento where slug = 'intelbras--mhdx-3108-c'",
+    );
+    const total = (await pool.query('select count(*)::int as n from equipamento')).rows[0].n;
+    const outra = copia();
+    const arquivo = join(outra, 'equipamentos', 'gravador', 'intelbras--mhdx-3108-c.json');
+    const item = JSON.parse(readFileSync(arquivo, 'utf8'));
+    item.modelo = 'MHDX 3108 C';   // o mesmo arquivo, o nome escrito de outro jeito
+    writeFileSync(arquivo, JSON.stringify(item));
+
+    const r = await carregarCatalogo(pool, outra);
+
+    assert.ok(r.ok, String(!r.ok && r.motivo));
+    assert.equal(r.equipamentos.novos, 0);
+    const depois = await pool.query(
+      "select id, modelo from equipamento where slug = 'intelbras--mhdx-3108-c'",
+    );
+    assert.equal(depois.rows[0].id, antes.rows[0].id, 'levantamento e diagnóstico apontam para este id');
+    assert.equal(depois.rows[0].modelo, 'MHDX 3108 C');
+    assert.equal((await pool.query('select count(*)::int as n from equipamento')).rows[0].n, total);
+  });
+
+  it('banco recém-criado: a linha que a migration semeou é ADOTADA, não duplicada', async () => {
+    // A migration 002 semeia sem `slug`, e com a grafia antiga do nome.
+    const id = (await pool.query(
+      "select id from equipamento where slug = 'intel--i7-10a-geracao-com-uhd-630'",
+    )).rows[0].id;
+    await pool.query(
+      "update equipamento set slug = null, modelo = 'i7 10a geracao com UHD 630', nivel = null where id = $1",
+      [id],
+    );
+    const total = (await pool.query('select count(*)::int as n from equipamento')).rows[0].n;
+
+    const r = await carregarCatalogo(pool);
+
+    assert.ok(r.ok, String(!r.ok && r.motivo));
+    assert.equal(r.equipamentos.novos, 0, 'inserir aqui seria duplicar o modelo');
+    const l = (await pool.query('select slug, modelo, nivel from equipamento where id = $1', [id])).rows[0];
+    assert.equal(l.slug, 'intel--i7-10a-geracao-com-uhd-630');
+    assert.equal(l.modelo, 'i7 10ª geração com UHD 630', 'e ganha a grafia do catálogo');
+    assert.equal(l.nivel, 'intermediario');
+    assert.equal((await pool.query('select count(*)::int as n from equipamento')).rows[0].n, total);
+  });
+
   it('modelo novo é arquivo novo: entra sem migration', async () => {
     const outra = copia();
     const novo = {

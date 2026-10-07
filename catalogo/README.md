@@ -29,6 +29,11 @@ vieram na imagem do deploy — e atualiza o banco (`api/src/catalogo.ts`). Só
 mexe na linha que mudou; nunca apaga. Ninguém edita `equipamento` à mão: a
 próxima subida desfaria.
 
+**A chave é o nome do arquivo.** Corrigir a grafia de um modelo (de "i7 10a
+geracao" para "i7 10ª geração") atualiza a mesma linha do banco, porque o nome
+do arquivo — sem acento, só letra e número — continua o mesmo. Para trocar um
+modelo por OUTRO, crie outro arquivo.
+
 Para conferir de fora: `/saude` da API devolve `catalogoModelos`, o número de
 modelos no banco. Só o número.
 
@@ -115,7 +120,12 @@ Mudar um número ali muda o dimensionamento de toda loja. O teste compara com o
 que a migration 002 semeou e reclama de qualquer diferença: mudança de
 requisito tem que ser decisão, não efeito colateral.
 
-## O que ainda não está aqui
+## Para que serve
 
-- **A classe de cada canal** pelo uso que se faz dele, e o **orçamento**
-  montado em cima disso: próximos passos (roadmap, A12).
+É daqui que sai o **orçamento por uso** (`api/src/orcamento.ts`, tela
+**Loja → Orçamento**): para cada canal, as câmeras cujo `serve_para` cobre os
+usos dele, uma por `nivel`. O que vai para o usuário é marca, modelo, nível,
+`nivel_motivo` e a faixa de preço — nada mais.
+
+Por isso `nivel_motivo` é escrito para o cliente ler: uma frase, sem jargão de
+bancada. A armadilha e a medição ficam em `observacao` e `medido`, que não saem.
