@@ -204,6 +204,23 @@ describe('critério sem rastro', () => {
     assert.equal(s[0]!.regraNome, 'Produto');
   });
 
+  it('sem o que procurar é UM sinal, mesmo com o agente contando "sem juiz"', () => {
+    // O caso que está na loja de verdade (visto no log do agente em
+    // 07/10): o critério "Produto", de contagem, ligado antes de existir a
+    // regra que exige o objeto. O agente conta cada olhada como sem juiz —
+    // e a tela acenderia dois sinais para a mesma causa.
+    const c = criterio({ id: 'r9', nome: 'Produto', tipo: 'contagem', ligado: true, temObjeto: false });
+    const doAgente = linha({
+      regraId: 'r9', regraNome: 'Produto', tipo: 'contagem', capturas: 120, semJuiz: 120, repetidas: 0,
+      enfileiradas: 0, conformes: 0, naoConformes: 0, naoAvaliaveis: 0,
+      ultimoImpedimento: 'o critério não diz o que procurar — edite-o no console e escolha o objeto',
+    });
+    const s = sinaisDe({ linhas: [linha(), doAgente], criterios: [criterio(), c] });
+
+    assert.deepEqual(tipos(s), ['falta_dizer_o_que_procurar']);
+    assert.equal(s[0]!.regraNome, 'Produto');
+  });
+
   it('ligado, com canal, e nunca olhado', () => {
     const c = criterio({ id: 'r9', nome: 'Porta fechada' });
     assert.deepEqual(tipos(sinaisDe({ criterios: [criterio(), c] })), ['nunca_olhado']);

@@ -239,7 +239,19 @@ export function montarSinais(entrada: {
     porCriterio.set(l.regraId, lista);
   }
 
+  // Presença ou contagem sem objeto escolhido. O agente conta essas
+  // olhadas como "sem juiz" — e está certo, ninguém julga aquilo —, mas a
+  // causa tem nome próprio e providência própria. O diagnóstico específico
+  // ganha do genérico: dois sinais para o mesmo defeito mandam a pessoa
+  // procurar dois problemas.
+  const semObjeto = new Set(
+    criterios
+      .filter((c) => c.canais > 0 && (c.tipo === 'presenca' || c.tipo === 'contagem') && !c.temObjeto)
+      .map((c) => c.id),
+  );
+
   for (const [regraId, lista] of porCriterio) {
+    if (semObjeto.has(regraId)) continue;
     const nome = lista[0]!.regraNome;
     const semJuiz = lista.filter((l) => l.capturas > 0 && l.semJuiz / l.capturas >= FRACAO_SEM_JUIZ);
     if (semJuiz.length > 0) {
@@ -292,8 +304,7 @@ export function montarSinais(entrada: {
   const comRastro = new Set(vivas.filter((l) => l.capturas > 0).map((l) => l.regraId));
   for (const c of criterios) {
     if (c.canais === 0) continue;
-    const peloDetector = c.tipo === 'presenca' || c.tipo === 'contagem';
-    if (peloDetector && !c.temObjeto) {
+    if (semObjeto.has(c.id)) {
       // Vale ligado ou desligado: do jeito que está, ele não tem como ser
       // julgado, e ligar não muda isso.
       sinais.push({ tipo: 'falta_dizer_o_que_procurar', gravidade: 'atencao', regraId: c.id, regraNome: c.nome });
