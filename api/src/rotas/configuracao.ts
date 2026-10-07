@@ -46,7 +46,8 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
     // ele já estaria em dia. O erro se esconderia até alguém conferir na
     // mão por que a loja analisa pela regra antiga.
     const l = await pool.query(
-      `select id, nome, config_versao, modo_julgamento, resolucao_padrao
+      `select id, nome, config_versao, modo_julgamento, resolucao_padrao,
+              horario_funcionamento
          from loja where id = $1`,
       [quem.lojaId],
     );
@@ -87,7 +88,7 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
       `select r.id, a.zona_id, r.nome, r.tipo, r.criterio, r.criterio_versao,
               r.processo_descricao, r.prioridade, r.severidade,
               r.confianca_minima, r.cooldown_min, r.resolucao, r.janelas,
-              r.acoes, r.base_id, r.retencao_midia_dias, r.parametros
+              r.acoes, r.base_id, r.retencao_midia_dias, r.parametros, r.quando
          from regra r
          join regra_alvo a on a.regra_id = r.id
          join zona z on z.id = a.zona_id
@@ -123,6 +124,9 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
         // O que o detector local procura, nos critérios de presença e de
         // contagem. Vai como está: quem interpreta é o agente.
         parametros: r.parametros ?? {},
+        // Em que horário conferir, em relação ao horário da loja (que desce
+        // em `loja.horarioFuncionamento`). O agente antigo ignora os dois.
+        quando: r.quando,
       });
       regrasPorZona.set(r.zona_id, lista);
     }
@@ -152,6 +156,9 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
         // que o desenho promete manter dentro da loja.
         modoJulgamento: l.rows[0].modo_julgamento,
         resolucaoPadrao: l.rows[0].resolucao_padrao,
+        // Quando a loja abre. Vazio = sempre aberta. Quem decide se é hora
+        // de conferir é o agente, com o relógio do computador da loja.
+        horarioFuncionamento: l.rows[0].horario_funcionamento ?? [],
       },
       versao: l.rows[0].config_versao,
       geradoEm: new Date().toISOString(),

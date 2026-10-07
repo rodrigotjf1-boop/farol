@@ -128,7 +128,23 @@ def _zona(dados: dict[str, Any], onde: str, ponto_id: str) -> Zona:
     )
 
 
-def _regra(dados: dict[str, Any], zona: Zona) -> Regra:
+# Em que horário o critério é conferido, em relação ao horário da loja.
+QUANDOS = ("no_horario", "fora_do_horario", "sempre")
+
+
+def _janelas(lista: Any) -> list[Janela]:
+    """Faixas `{dias, hora_ini, hora_fim}` — do critério ou da loja."""
+    return [
+        Janela(
+            dias=[int(d) for d in (j.get("dias") or [])],
+            hora_ini=str(j.get("hora_ini", "00:00")),
+            hora_fim=str(j.get("hora_fim", "23:59")),
+        )
+        for j in (lista or [])
+    ]
+
+
+def _regra(dados: dict[str, Any], zona: Zona, horario_da_loja: list[Janela] | None = None) -> Regra:
     onde = f"regra {dados.get('id')}"
 
     resolucao = str(dados.get("resolucao") or "r640")
@@ -137,14 +153,15 @@ def _regra(dados: dict[str, Any], zona: Zona) -> Regra:
             f"{onde}: resolucao={resolucao!r} inválida. Válidas: {', '.join(RESOLUCOES)}"
         )
 
-    janelas = [
-        Janela(
-            dias=[int(d) for d in (j.get("dias") or [])],
-            hora_ini=str(j.get("hora_ini", "00:00")),
-            hora_fim=str(j.get("hora_fim", "23:59")),
+    janelas = _janelas(dados.get("janelas"))
+
+    # Nuvem antiga não manda o campo: o critério segue como era, valendo no
+    # horário da loja — e sem horário informado, sempre.
+    quando = str(dados.get("quando") or "no_horario")
+    if quando not in QUANDOS:
+        raise ErroDeConfiguracao(
+            f"{onde}: quando={quando!r} inválido. Válidos: {', '.join(QUANDOS)}"
         )
-        for j in (dados.get("janelas") or [])
-    ]
 
     return Regra(
         id=str(dados["id"]),
@@ -174,6 +191,8 @@ def _regra(dados: dict[str, Any], zona: Zona) -> Regra:
         ativa=True,
         borrar_rosto=True,
         parametros=dict(dados.get("parametros") or {}),
+        quando=quando,
+        horario_da_loja=list(horario_da_loja or []),
     )
 
 
@@ -186,6 +205,10 @@ def de_json(dados: dict[str, Any]) -> ConfigDaLoja:
     """
     if not isinstance(dados, dict) or "loja" not in dados:
         raise ErroDeConfiguracao("resposta não parece configuração da loja")
+
+    # O horário é DA LOJA e vale para todos os critérios dela. Vazio = sempre
+    # aberta. Quem decide se é hora de conferir é o relógio deste computador.
+    horario_da_loja = _janelas(dados["loja"].get("horarioFuncionamento"))
 
     pontos: list[PontoConfig] = []
     for p in dados.get("pontos") or []:
@@ -200,7 +223,7 @@ def de_json(dados: dict[str, Any]) -> ConfigDaLoja:
             if z.get("principal"):
                 principal_id = zona.id
             for r in z.get("regras") or []:
-                regras.append(_regra(r, zona))
+                regras.append(_regra(r, zona, horario_da_loja))
 
         pontos.append(
             PontoConfig(

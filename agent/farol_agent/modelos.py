@@ -152,14 +152,25 @@ class Janela:
     hora_fim: str
 
     def contem(self, ts: datetime) -> bool:
-        if self.dias and ts.isoweekday() not in self.dias:
-            return False
+        hoje = ts.isoweekday()
         hhmm = ts.strftime("%H:%M")
         if self.hora_ini <= self.hora_fim:
+            if self.dias and hoje not in self.dias:
+                return False
             return self.hora_ini <= hhmm <= self.hora_fim
         # Janela que cruza a meia-noite: "23:00-01:00".
         # O protótipo errava isto e por isso usava "23:00-23:59" como contorno.
-        return hhmm >= self.hora_ini or hhmm <= self.hora_fim
+        #
+        # A madrugada pertence ao dia em que a janela ABRIU. "Sexta, das 18h
+        # à 1h" cobre o sábado à 0h30 — e não a sexta à 0h30, que é o resto
+        # da quinta. Conferindo só o dia de hoje, a loja que fecha à 1h
+        # "fechava" à meia-noite de sábado e "abria" na madrugada de sexta.
+        if hhmm >= self.hora_ini:
+            return not self.dias or hoje in self.dias
+        if hhmm <= self.hora_fim:
+            ontem = 7 if hoje == 1 else hoje - 1
+            return not self.dias or ontem in self.dias
+        return False
 
 
 @dataclass
@@ -184,13 +195,29 @@ class Regra:
     # O que os juízes que não leem português precisam saber. Para presença
     # e contagem: {"objeto": "pessoa", "minimo": 1, "maximo": None}.
     parametros: dict[str, Any] = field(default_factory=dict)
+    # Em que horário conferir, em relação ao horário DA LOJA: "no_horario"
+    # (com ela aberta), "fora_do_horario" (fechada) ou "sempre". O horário é
+    # o mesmo para todos os critérios da loja e desce junto com cada um —
+    # assim a pergunta "vale agora?" se responde aqui, sem a regra precisar
+    # saber de que loja é.
+    quando: str = "no_horario"
+    horario_da_loja: list[Janela] = field(default_factory=list)
 
     def vale_agora(self, ts: datetime) -> bool:
         if not self.ativa:
             return False
-        if not self.janelas:
+        if self.janelas and not any(j.contem(ts) for j in self.janelas):
+            return False
+        return self._na_hora_da_loja(ts)
+
+    def _na_hora_da_loja(self, ts: datetime) -> bool:
+        if self.quando == "sempre":
             return True
-        return any(j.contem(ts) for j in self.janelas)
+        # Loja que não informou horário é tratada como sempre aberta: é como
+        # funcionava antes de o horário existir, e é o que impede uma loja
+        # de ficar sem auditoria por falta de um cadastro.
+        aberta = not self.horario_da_loja or any(j.contem(ts) for j in self.horario_da_loja)
+        return not aberta if self.quando == "fora_do_horario" else aberta
 
     @property
     def lado_maior(self) -> int:
