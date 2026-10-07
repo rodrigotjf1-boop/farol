@@ -180,6 +180,14 @@ export type LojaResumo = {
   ativa: boolean;
   setores: number;
   pontos: number;
+  /** Critérios cadastrados (os excluídos não contam). */
+  criterios: number;
+  /** Quantos agentes a loja tem, e há quanto tempo o mais recente bateu. */
+  agentes: number;
+  segundos_sem_bater: number | null;
+  /** O que foi julgado nas últimas 24 horas. Nulo para quem não vê
+   *  resultados, e para loja que ainda não mandou nenhum. */
+  resultado_24h: { conformes: number; naoConformes: number; naoAvaliaveis: number } | null;
 };
 
 export type Loja = Omit<LojaResumo, 'setores' | 'pontos'>;
@@ -489,4 +497,130 @@ export const alertasApi = {
     pedir<{ envios: Envio[] }>(
       `/lojas/${lojaId}/envios${estado ? `?estado=${estado}` : ''}`,
     ),
+};
+
+// ───────────────────── resultados: o que o Farol viu ─────────────────────
+
+export type Periodo = '24h' | '7d';
+
+export type TipoDeSinal =
+  | 'sem_agente'
+  | 'agente_fora'
+  | 'canal_sem_imagem'
+  | 'sem_juiz'
+  | 'julgamento_falhando'
+  | 'avalia_pouco'
+  | 'falta_dizer_o_que_procurar'
+  | 'nunca_olhado';
+
+/** Um defeito DO FAROL (não da cozinha): o sistema não está conseguindo olhar. */
+export type Sinal = {
+  tipo: TipoDeSinal;
+  gravidade: 'critico' | 'atencao';
+  regraId?: string;
+  regraNome?: string;
+  pontoId?: string;
+  pontoNome?: string;
+  canal?: number | null;
+  quantos?: number;
+  percentual?: number;
+  segundosSemBater?: number | null;
+  desde?: string | null;
+  impedimento?: string | null;
+};
+
+export type LinhaDeResultado = {
+  regraId: string;
+  regraNome: string;
+  tipo: string;
+  pontoId: string;
+  pontoNome: string;
+  canal: number | null;
+  setor: string;
+  /** Critério ou canal excluído depois: a linha é só histórico. */
+  historico: boolean;
+  capturas: number;
+  analises: number;
+  conformes: number;
+  naoConformes: number;
+  naoAvaliaveis: number;
+  semImagem: number;
+  semJuiz: number;
+  falhas: number;
+  alertas: number;
+  confiancaMedia: number | null;
+  latenciaMediaMs: number | null;
+  ultimaEm: string | null;
+  marca: 'sem_imagem' | 'sem_juiz' | 'falhando' | 'avalia_pouco' | null;
+};
+
+export type Ocorrencia = {
+  id: string;
+  ocorridoEm: string;
+  regraNome: string | null;
+  pontoNome: string | null;
+  canal: number | null;
+  motivo: string | null;
+  confianca: number | null;
+  /** O que houve com o aviso desta ocorrência; nulo = não gerou aviso. */
+  aviso: 'entregue' | 'enviado' | 'pendente' | 'falhou' | null;
+};
+
+export type Resultados = {
+  loja: { id: string; nome: string; timezone: string };
+  periodo: Periodo;
+  desde: string;
+  agora: string;
+  /** Já chegou resumo desta loja alguma vez? */
+  temHistorico: boolean;
+  agentes: AgenteResumo[];
+  canais: { verificados: number; comImagem: number };
+  criterios: { total: number; ligados: number };
+  totais: {
+    capturas: number;
+    analises: number;
+    conformes: number;
+    naoConformes: number;
+    naoAvaliaveis: number;
+    falhas: number;
+    alertas: number;
+  };
+  serie: {
+    passo: 'hora' | 'dia';
+    /** `inicio` é o relógio DA LOJA, sem fuso: "2026-10-07T12:00:00". */
+    pontos: Array<{ inicio: string; conformes: number; naoConformes: number; naoAvaliaveis: number }>;
+  };
+  linhas: LinhaDeResultado[];
+  sinais: Sinal[];
+  ocorrencias: Ocorrencia[];
+};
+
+// A moldura quer só a contagem de sinais, o painel quer tudo, e a tela de
+// canais quer saber qual câmera está sem imagem — três lugares pedindo a
+// mesma resposta. Um pedido serve aos três: o que está em voo é
+// compartilhado, e a resposta vale por meio minuto.
+const VALIDADE_MS = 30_000;
+const guardados = new Map<string, { em: number; promessa: Promise<Resultados> }>();
+
+export const resultadosApi = {
+  obter(lojaId: string, periodo: Periodo = '24h', forcar = false): Promise<Resultados> {
+    const chave = `${lojaId}:${periodo}`;
+    const tem = guardados.get(chave);
+    if (!forcar && tem && Date.now() - tem.em < VALIDADE_MS) return tem.promessa;
+
+    const promessa = pedir<Resultados>(`/lojas/${lojaId}/resultados?periodo=${periodo}`);
+    guardados.set(chave, { em: Date.now(), promessa });
+    // Pedido que falhou não fica guardado: a próxima tela tenta de novo.
+    promessa.catch(() => {
+      if (guardados.get(chave)?.promessa === promessa) guardados.delete(chave);
+    });
+    return promessa;
+  },
+
+  /** Depois de mexer em canal ou critério, o que estava guardado envelheceu. */
+  esquecer(lojaId: string): void {
+    for (const chave of [...guardados.keys()]) {
+      if (chave.startsWith(`${lojaId}:`)) guardados.delete(chave);
+    }
+  },
 };

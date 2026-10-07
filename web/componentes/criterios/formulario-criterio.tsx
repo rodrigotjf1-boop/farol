@@ -1,27 +1,24 @@
 'use client';
 
 // =====================================================================
-// O formulário do critério — criar e editar
+// O formulário do critério — criar e editar, numa gaveta
 // =====================================================================
 // O critério é cadastrado UMA vez e a árvore diz em quais canais ele vale.
 // Editar aqui muda em todos: é o motivo de o cadastro ser um só.
 // =====================================================================
 
+import { TriangleAlert } from 'lucide-react';
 import { useId, useState } from 'react';
 
+import { Botao } from '@/componentes/ui/botao';
+import { Campo, Escolhas, GRADE, Grupo, ROTULO } from '@/componentes/ui/campo';
+import { Alerta } from '@/componentes/ui/pecas';
+import { Gaveta } from '@/componentes/ui/sobreposto';
 import { ErroDaApi, regrasApi, type Regra, type Setor } from '@/lib/api';
 
 import { ArvoreDeCanais } from './arvore-de-canais';
 import { contarCanais } from './canais';
-import {
-  campo,
-  nomeDaSeveridade,
-  PRIORIDADES,
-  rotulo,
-  SEVERIDADES,
-  TIPOS,
-  TIPOS_DO_DETECTOR,
-} from './opcoes';
+import { nomeDaSeveridade, PRIORIDADES, SEVERIDADES, TIPOS, TIPOS_DO_DETECTOR } from './opcoes';
 
 type Props = {
   lojaId: string;
@@ -33,49 +30,45 @@ type Props = {
   /** O que o detector local sabe procurar. Vem da API, junto com os critérios. */
   objetosDoDetector: string[];
   aoSalvar: (mensagem: string) => Promise<void>;
-  aoCancelar: () => void;
+  aoFechar: () => void;
 };
 
-export function FormularioCriterio({
+export function GavetaDoCriterio({
   lojaId,
   setores,
   regra,
   marcadasDeInicio,
   objetosDoDetector,
   aoSalvar,
-  aoCancelar,
+  aoFechar,
 }: Props) {
   const editando = regra !== undefined;
-  const prefixo = useId();
-
+  const p = useId();
   const [marcadas, setMarcadas] = useState<Set<string>>(() => new Set(marcadasDeInicio));
-  const [dados, setDados] = useState<Record<string, unknown>>(() => ({
-    nome: regra?.nome ?? '',
-    tipo: regra?.tipo ?? 'estado',
-    criterio: regra?.criterio ?? '',
-    prioridade: regra?.prioridade ?? 'intermediaria',
-    severidade: regra?.severidade ?? 'atencao',
-    confiancaMinima: regra ? Number(regra.confianca_minima) : 0.7,
-    cooldownMin: regra?.cooldown_min ?? 15,
-  }));
-  // O que o detector procura. Só vale para presença e contagem; guardado
-  // sempre, para não se perder se a pessoa trocar o tipo e voltar.
+  const [nome, setNome] = useState(regra?.nome ?? '');
+  const [tipo, setTipo] = useState<Regra['tipo']>(regra?.tipo ?? 'estado');
+  const [criterio, setCriterio] = useState(regra?.criterio ?? '');
+  const [prioridade, setPrioridade] = useState<string>(regra?.prioridade ?? 'intermediaria');
+  const [severidade, setSeveridade] = useState<string>(regra?.severidade ?? 'atencao');
+  const [confiancaMinima, setConfiancaMinima] = useState(regra ? Number(regra.confianca_minima) : 0.7);
+  const [cooldownMin, setCooldownMin] = useState(regra?.cooldown_min ?? 15);
+
+  // O que o detector procura. Só vale nos tipos julgados na loja.
   const [objeto, setObjeto] = useState(regra?.parametros?.objeto ?? 'pessoa');
   const [deveHaver, setDeveHaver] = useState(regra?.parametros?.maximo !== 0);
   const [minimo, setMinimo] = useState(String(regra?.parametros?.minimo ?? 0));
-  const [maximo, setMaximo] = useState(
-    regra?.parametros?.maximo == null ? '' : String(regra.parametros.maximo),
-  );
+  const [maximo, setMaximo] = useState(regra?.parametros?.maximo == null ? '' : String(regra.parametros.maximo));
+
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
-  const tipo = TIPOS.find((t) => t.v === dados.tipo);
-  const peloDetector = TIPOS_DO_DETECTOR.includes(String(dados.tipo));
+  const peloDetector = TIPOS_DO_DETECTOR.includes(tipo);
 
-  /** Os campos do detector, do jeito que a API espera. */
+  /** Os parâmetros que sobem, ou `undefined` quando o tipo não usa detector. */
   function parametros(): Record<string, unknown> | undefined {
     if (!peloDetector) return undefined;
-    if (dados.tipo === 'presenca') {
+    if (tipo === 'presenca') {
+      // "Deve haver" é pelo menos um; "não deve haver" é no máximo zero.
       return deveHaver ? { objeto, minimo: 1, maximo: null } : { objeto, minimo: 0, maximo: 0 };
     }
     return {
@@ -84,26 +77,32 @@ export function FormularioCriterio({
       maximo: maximo === '' ? null : Number(maximo),
     };
   }
+
   const canais = contarCanais(setores, marcadas);
   const canaisAntes = regra ? new Set(regra.alvos.map((a) => a.ponto_id)).size : 0;
-
-  function muda(k: string, v: unknown) {
-    setDados((d) => ({ ...d, [k]: v }));
-  }
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
     setErro(null);
     setSalvando(true);
     try {
-      const zonaIds = [...marcadas];
-      const corpo = { ...dados, zonaIds, parametros: parametros() };
+      const corpo = {
+        nome,
+        tipo,
+        criterio,
+        prioridade,
+        severidade,
+        confiancaMinima,
+        cooldownMin,
+        zonaIds: [...marcadas],
+        parametros: parametros(),
+      };
       if (regra) {
         const r = await regrasApi.editar(regra.id, corpo);
         await aoSalvar(
           r.desligada
-            ? 'Critério salvo. Sem canal marcado, ele foi desligado e fica em "Sem canal".'
-            : `Critério salvo — vale em ${r.canais} ${r.canais === 1 ? 'canal' : 'canais'}.`,
+            ? 'Critério salvo. Sem canal marcado, ele foi desligado e fica em “Sem canal”.'
+            : `Critério salvo. Vale em ${r.canais} ${r.canais === 1 ? 'canal' : 'canais'}.`,
         );
       } else {
         const r = await regrasApi.criar(lojaId, corpo);
@@ -119,299 +118,235 @@ export function FormularioCriterio({
   }
 
   return (
-    <form
-      onSubmit={enviar}
-      className="mt-6 rounded-xl border border-farol-facho/40 bg-farol-painel p-4"
-      aria-label={editando ? `Editar o critério ${regra.nome}` : 'Novo critério'}
-    >
-      <h2 className="text-base font-semibold">
-        {editando ? `Editar “${regra.nome}”` : 'Novo critério'}
-      </h2>
-      {editando && canaisAntes > 1 && (
-        <p className="mt-1 text-sm text-farol-atencao">
-          Este critério vale em {canaisAntes} canais. O que você mudar aqui muda em todos.
-        </p>
-      )}
-
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2">
-          <span className={rotulo}>Onde vale</span>
-          <p className="mb-1 mt-0.5 text-xs text-farol-suave">
-            Marque o setor para valer em todos os canais dele, ou abra o setor e marque
-            só os canais que quiser.
-          </p>
-          <ArvoreDeCanais
-            setores={setores}
-            marcadas={marcadas}
-            aoMudar={setMarcadas}
-            prefixo={prefixo}
-          />
-          {editando && canais === 0 && (
-            <p role="alert" className="mt-1 text-xs text-farol-atencao">
-              Sem nenhum canal, este critério deixa de ser verificado em qualquer lugar e é
-              desligado. Ele fica guardado em “Sem canal”.
+    <Gaveta
+      titulo={editando ? `Editar o critério “${regra.nome}”` : 'Novo critério'}
+      descricao={
+        editando
+          ? canaisAntes > 1
+            ? `Este critério vale em ${canaisAntes} canais. O que você mudar aqui muda em todos.`
+            : 'O que você mudar aqui muda em todos os canais em que ele vale.'
+          : 'Cadastrado uma vez, vale nos canais que você marcar.'
+      }
+      ocupado={salvando}
+      aoFechar={aoFechar}
+      rodape={
+        <>
+          <Botao
+            type="submit"
+            form={`${p}-form`}
+            variante="primario"
+            ocupado={salvando}
+            disabled={!editando && canais === 0}
+          >
+            {salvando ? 'Salvando…' : editando ? 'Salvar critério' : 'Criar critério'}
+          </Botao>
+          <Botao onClick={aoFechar} disabled={salvando}>
+            Cancelar
+          </Botao>
+          {!editando && (
+            <p className="flex-[1_1_180px] text-[12.5px] text-farol-suave">
+              {canais === 0 ? (
+                'Marque ao menos um canal.'
+              ) : (
+                <>
+                  O critério nasce <strong className="font-semibold text-farol-tinta">desligado</strong>. Ligue depois
+                  de conferir que ele acerta.
+                </>
+              )}
             </p>
           )}
-        </div>
-
-        <div>
-          <label className={rotulo} htmlFor={`${prefixo}-nome`}>
-            Nome do critério
-          </label>
+        </>
+      }
+    >
+      <form id={`${p}-form`} onSubmit={enviar} className="flex flex-col gap-4" aria-label={editando ? `Editar o critério ${regra.nome}` : 'Novo critério'}>
+        <Campo rotulo="Nome do critério" htmlFor={`${p}-nome`}>
           <input
-            id={`${prefixo}-nome`}
+            id={`${p}-nome`}
             required
-            className={`mt-1 ${campo}`}
+            autoFocus
+            className="entrada"
             placeholder="Bancada limpa entre pedidos"
-            value={String(dados.nome)}
-            onChange={(e) => muda('nome', e.target.value)}
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
           />
-        </div>
+        </Campo>
 
-        <div>
-          <label className={rotulo} htmlFor={`${prefixo}-tipo`}>
-            Tipo
-          </label>
-          <select
-            id={`${prefixo}-tipo`}
-            className={`mt-1 ${campo}`}
-            value={String(dados.tipo)}
-            onChange={(e) => muda('tipo', e.target.value)}
-          >
-            {TIPOS.map((t) => (
-              <option key={t.v} value={t.v}>
-                {t.r}
-              </option>
-            ))}
-          </select>
-          {tipo && <p className="mt-1 text-xs text-farol-suave">{tipo.ajuda}</p>}
-        </div>
+        <Escolhas nome={`${p}-tipo`} rotulo="O que conferir" opcoes={TIPOS} valor={tipo} aoMudar={setTipo} />
 
+        {/* Presença e contagem são julgadas dentro da loja, pelo detector.
+            Ele não lê o texto: trabalha com o objeto e a quantidade. Sem
+            estes campos o critério fica cadastrado e não é verificado. */}
         {peloDetector && (
-          <fieldset className="rounded-lg border border-farol-borda p-3 sm:col-span-2">
-            <legend className="px-1 text-xs font-medium text-farol-suave">
-              O que o detector procura
-            </legend>
-            <p className="mb-3 text-xs text-farol-suave">
-              Este tipo é julgado <strong className="text-farol-tinta">dentro da loja</strong>,
-              sem internet e sem custo por análise. Quem decide são os campos abaixo — o
-              texto do critério é para a pessoa ler no alerta.
+          <Grupo titulo="O que o detector procura">
+            <p className="text-[12.5px] text-farol-suave">
+              Este tipo é julgado <strong className="font-semibold text-farol-tinta">dentro da loja</strong>, sem
+              internet e sem custo por análise. Quem decide são os campos abaixo.
             </p>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {dados.tipo === 'presenca' && (
-                <div>
-                  <label className={rotulo} htmlFor={`${prefixo}-deve`}>
-                    Regra
-                  </label>
+            <div className={GRADE}>
+              {tipo === 'presenca' && (
+                <Campo rotulo="Regra" htmlFor={`${p}-deve`}>
                   <select
-                    id={`${prefixo}-deve`}
-                    className={`mt-1 ${campo}`}
+                    id={`${p}-deve`}
+                    className="entrada"
                     value={deveHaver ? 'sim' : 'nao'}
                     onChange={(e) => setDeveHaver(e.target.value === 'sim')}
                   >
                     <option value="sim">deve haver</option>
                     <option value="nao">não deve haver</option>
                   </select>
-                </div>
+                </Campo>
               )}
-
-              <div>
-                <label className={rotulo} htmlFor={`${prefixo}-objeto`}>
-                  O que procurar
-                </label>
-                <select
-                  id={`${prefixo}-objeto`}
-                  className={`mt-1 ${campo}`}
-                  value={objeto}
-                  onChange={(e) => setObjeto(e.target.value)}
-                >
+              <Campo rotulo="O que procurar" htmlFor={`${p}-objeto`}>
+                <select id={`${p}-objeto`} className="entrada" value={objeto} onChange={(e) => setObjeto(e.target.value)}>
                   {objetosDoDetector.map((o) => (
                     <option key={o} value={o}>
                       {o}
                     </option>
                   ))}
                 </select>
-              </div>
-
-              {dados.tipo === 'contagem' && (
+              </Campo>
+              {tipo === 'contagem' && (
                 <>
-                  <div>
-                    <label className={rotulo} htmlFor={`${prefixo}-minimo`}>
-                      Pelo menos
-                    </label>
+                  <Campo rotulo="Pelo menos" htmlFor={`${p}-minimo`}>
                     <input
-                      id={`${prefixo}-minimo`}
+                      id={`${p}-minimo`}
                       type="number"
                       min={0}
                       step={1}
-                      className={`mt-1 ${campo}`}
+                      className="entrada font-mono"
                       value={minimo}
                       onChange={(e) => setMinimo(e.target.value)}
                     />
-                  </div>
-                  <div>
-                    <label className={rotulo} htmlFor={`${prefixo}-maximo`}>
-                      No máximo
-                    </label>
+                  </Campo>
+                  <Campo rotulo="No máximo" htmlFor={`${p}-maximo`}>
                     <input
-                      id={`${prefixo}-maximo`}
+                      id={`${p}-maximo`}
                       type="number"
                       min={0}
                       step={1}
                       placeholder="sem limite"
-                      className={`mt-1 ${campo}`}
+                      className="entrada font-mono"
                       value={maximo}
                       onChange={(e) => setMaximo(e.target.value)}
                     />
-                  </div>
+                  </Campo>
                 </>
               )}
             </div>
-            <p className="mt-3 text-xs text-farol-suave">
-              O detector conhece só os objetos desta lista. Na dúvida ele responde “não
-              avaliável” em vez de alertar: um casaco pendurado não vira pessoa.
+            <p className="text-[12.5px] text-farol-suave">
+              O detector conhece só os objetos desta lista. Na dúvida ele responde “não deu para avaliar” em vez de
+              avisar: um casaco pendurado não vira pessoa.
             </p>
-          </fieldset>
+          </Grupo>
         )}
 
-        <div className="sm:col-span-2">
-          <label className={rotulo} htmlFor={`${prefixo}-criterio`}>
-            O que é “conforme”
-          </label>
+        <Campo
+          rotulo="O que é “conforme”"
+          htmlFor={`${p}-criterio`}
+          // Dois casos, e a dica não pode mentir em nenhum. Nos tipos de
+          // texto, o critério VAI para o modelo como pergunta — vale dizer,
+          // senão alguém escreve um rótulo e espera que funcione. Em
+          // presença e contagem ele não vai a modelo nenhum.
+          ajuda={
+            peloDetector
+              ? 'Aqui o texto não é enviado a modelo nenhum: ele descreve a regra para quem ler o aviso. Quem decide são os campos de “O que o detector procura”.'
+              : 'Este texto vai direto ao modelo como pergunta. Descreva o que se vê, não o rótulo: “a superfície tem restos no canto” funciona melhor que “sujeira”.'
+          }
+        >
           <textarea
-            id={`${prefixo}-criterio`}
+            id={`${p}-criterio`}
             required
             rows={3}
-            className={`mt-1 ${campo}`}
+            className="entrada min-h-[84px] resize-y leading-normal"
             placeholder="A superfície de trabalho está livre de restos de alimento, embalagens descartadas e utensílios sujos."
-            value={String(dados.criterio)}
-            onChange={(e) => muda('criterio', e.target.value)}
+            value={criterio}
+            onChange={(e) => setCriterio(e.target.value)}
           />
-          {/* Dois casos, e a dica não pode mentir em nenhum. Nos tipos de
-              texto, o critério VAI para o modelo como pergunta — vale dizer,
-              senão alguém escreve um rótulo e espera que funcione. Em
-              presença e contagem ele não vai a modelo nenhum: quem decide
-              são os campos do detector. */}
-          {peloDetector ? (
-            <p className="mt-1 text-xs text-farol-suave">
-              Aqui o texto não é enviado a modelo nenhum: ele descreve a regra para quem
-              ler o alerta. O que decide são os campos de “O que o detector procura”.
-            </p>
-          ) : (
-            <p className="mt-1 text-xs text-farol-suave">
-              Este texto vai direto ao modelo como pergunta. Descreva o que se vê, não o
-              rótulo — “a superfície tem restos no canto” funciona melhor que “sujeira”.
-            </p>
+        </Campo>
+
+        <div className="flex min-w-0 flex-col gap-[5px]">
+          <span className={ROTULO}>Onde vale</span>
+          <p className="text-xs text-farol-suave">
+            Marque o setor para valer em todos os canais dele, ou abra o setor e marque só os canais que quiser.
+          </p>
+          <ArvoreDeCanais setores={setores} marcadas={marcadas} aoMudar={setMarcadas} prefixo={p} />
+          {editando && canais === 0 && (
+            <Alerta tom="atencao" icone={TriangleAlert} papel="alert">
+              Sem nenhum canal, este critério deixa de ser verificado em qualquer lugar e é desligado. Ele fica
+              guardado em “Sem canal”.
+            </Alerta>
           )}
         </div>
 
-        <div>
-          <label className={rotulo} htmlFor={`${prefixo}-prioridade`}>
-            Prioridade
-          </label>
-          <select
-            id={`${prefixo}-prioridade`}
-            className={`mt-1 ${campo}`}
-            value={String(dados.prioridade)}
-            onChange={(e) => muda('prioridade', e.target.value)}
-          >
-            {PRIORIDADES.map((p) => (
-              <option key={p.v} value={p.v}>
-                {p.r}
-              </option>
-            ))}
-          </select>
-        </div>
+        <Grupo titulo="Quando avisar">
+          <div className={GRADE}>
+            <Campo rotulo="Prioridade" htmlFor={`${p}-prioridade`}>
+              <select
+                id={`${p}-prioridade`}
+                className="entrada"
+                value={prioridade}
+                onChange={(e) => setPrioridade(e.target.value)}
+              >
+                {PRIORIDADES.map((o) => (
+                  <option key={o.v} value={o.v}>
+                    {o.r}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            <Campo rotulo="Gravidade" htmlFor={`${p}-severidade`}>
+              <select
+                id={`${p}-severidade`}
+                className="entrada"
+                value={severidade}
+                onChange={(e) => setSeveridade(e.target.value)}
+              >
+                {SEVERIDADES.map((s) => (
+                  <option key={s} value={s}>
+                    {nomeDaSeveridade(s)}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            <Campo
+              rotulo="Confiança mínima"
+              htmlFor={`${p}-confianca`}
+              ajuda="Abaixo disso o resultado é registrado, mas não vira aviso."
+            >
+              <input
+                id={`${p}-confianca`}
+                type="number"
+                min={0}
+                max={1}
+                step={0.05}
+                className="entrada font-mono"
+                value={confiancaMinima}
+                onChange={(e) => setConfiancaMinima(Number(e.target.value))}
+              />
+            </Campo>
+            <Campo
+              rotulo="Silêncio entre avisos, em minutos"
+              htmlFor={`${p}-cooldown`}
+              ajuda="Vale por canal: o aviso de um não cala os outros."
+            >
+              <input
+                id={`${p}-cooldown`}
+                type="number"
+                min={0}
+                className="entrada font-mono"
+                value={cooldownMin}
+                onChange={(e) => setCooldownMin(Number(e.target.value))}
+              />
+            </Campo>
+          </div>
+        </Grupo>
 
-        <div>
-          <label className={rotulo} htmlFor={`${prefixo}-severidade`}>
-            Severidade
-          </label>
-          <select
-            id={`${prefixo}-severidade`}
-            className={`mt-1 ${campo}`}
-            value={String(dados.severidade)}
-            onChange={(e) => muda('severidade', e.target.value)}
-          >
-            {SEVERIDADES.map((s) => (
-              <option key={s} value={s}>
-                {nomeDaSeveridade(s)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className={rotulo} htmlFor={`${prefixo}-confianca`}>
-            Confiança mínima para alertar
-          </label>
-          <input
-            id={`${prefixo}-confianca`}
-            type="number"
-            min={0}
-            max={1}
-            step={0.05}
-            className={`mt-1 ${campo}`}
-            value={Number(dados.confiancaMinima)}
-            onChange={(e) => muda('confiancaMinima', Number(e.target.value))}
-          />
-          <p className="mt-1 text-xs text-farol-suave">
-            Abaixo disso o resultado é registrado, mas não vira alerta.
-          </p>
-        </div>
-
-        <div>
-          <label className={rotulo} htmlFor={`${prefixo}-cooldown`}>
-            Silêncio entre alertas (min)
-          </label>
-          <input
-            id={`${prefixo}-cooldown`}
-            type="number"
-            min={0}
-            className={`mt-1 ${campo}`}
-            value={Number(dados.cooldownMin)}
-            onChange={(e) => muda('cooldownMin', Number(e.target.value))}
-          />
-          <p className="mt-1 text-xs text-farol-suave">
-            Vale por canal: o alerta de um não cala os outros.
-          </p>
-        </div>
-      </div>
-
-      {erro && (
-        <p role="alert" className="mt-4 text-sm text-farol-critico">
-          {erro}
-        </p>
-      )}
-
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button
-          type="submit"
-          disabled={salvando || (!editando && canais === 0)}
-          className="rounded-lg bg-farol-facho px-4 py-2 text-sm font-semibold text-farol-fundo transition hover:brightness-110 disabled:opacity-60"
-        >
-          {salvando ? 'Salvando…' : editando ? 'Salvar critério' : 'Criar critério'}
-        </button>
-        <button
-          type="button"
-          onClick={aoCancelar}
-          className="rounded-lg border border-farol-borda px-4 py-2 text-sm transition hover:border-farol-facho/50"
-        >
-          Cancelar
-        </button>
-        {!editando && (
-          <p className="text-xs text-farol-suave">
-            {canais === 0 ? (
-              'Marque ao menos um canal.'
-            ) : (
-              <>
-                O critério nasce <strong className="text-farol-tinta">desligado</strong>. Ligue
-                só depois de conferir que ele acerta.
-              </>
-            )}
-          </p>
+        {erro && (
+          <Alerta tom="critico" papel="alert">
+            {erro}
+          </Alerta>
         )}
-      </div>
-    </form>
+      </form>
+    </Gaveta>
   );
 }

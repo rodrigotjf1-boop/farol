@@ -25,6 +25,8 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Fora: as rotas da API (o proxy), os arquivos do Next e o favicon.
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  // Fora: as rotas da API (o proxy), os arquivos do Next e os arquivos de
+  // `public/` — ícone e logotipo têm que chegar também a quem ainda não
+  // entrou, senão a própria tela de entrada fica sem marca.
+  matcher: ['/((?!api|_next/static|_next/image|favicon\\.ico|favicon\\.svg|icone-\\d+\\.png).*)'],
 };

@@ -1,14 +1,18 @@
 // As opções de um critério, com o texto que explica cada uma na tela.
 
+import { Hash, Layers, ListOrdered, ScanSearch, UserRoundCheck, type LucideIcon } from 'lucide-react';
+
 import type { ParametrosDoDetector, Regra } from '@/lib/api';
 
-export const TIPOS: Array<{ v: Regra['tipo']; r: string; ajuda: string }> = [
-  { v: 'estado', r: 'Estado', ajuda: 'um quadro responde: EPI, limpeza, organização' },
-  { v: 'presenca', r: 'Presença', ajuda: 'tem alguém na zona neste horário' },
-  { v: 'contagem', r: 'Contagem', ajuda: 'quantas pessoas, fila, ocupação' },
-  { v: 'comparacao', r: 'Comparação', ajuda: 'compara com um padrão guardado' },
-  { v: 'acao', r: 'Ação', ajuda: 'sequência com etapas — custa bem mais' },
+export const TIPOS: ReadonlyArray<{ valor: Regra['tipo']; titulo: string; ajuda: string; icone: LucideIcon }> = [
+  { valor: 'estado', titulo: 'Estado', ajuda: 'limpeza, organização, uso de touca e luva', icone: ScanSearch },
+  { valor: 'presenca', titulo: 'Presença', ajuda: 'tem alguém, ou algo, na área', icone: UserRoundCheck },
+  { valor: 'contagem', titulo: 'Contagem', ajuda: 'quantas pessoas, fila, ocupação', icone: Hash },
+  { valor: 'comparacao', titulo: 'Comparação', ajuda: 'compara com um padrão guardado', icone: Layers },
+  { valor: 'acao', titulo: 'Ação', ajuda: 'sequência com etapas; custa bem mais', icone: ListOrdered },
 ];
+
+export const iconeDoTipo = (v: string): LucideIcon => TIPOS.find((t) => t.valor === v)?.icone ?? ScanSearch;
 
 export const SEVERIDADES = ['info', 'atencao', 'critico', 'emergencia'] as const;
 
@@ -29,12 +33,12 @@ const NOME_DA_PRIORIDADE: Record<string, string> = {
 export const nomeDaSeveridade = (v: string): string => NOME_DA_SEVERIDADE[v] ?? v;
 export const nomeDaPrioridade = (v: string): string => NOME_DA_PRIORIDADE[v] ?? v;
 export const nomeDoTipo = (v: string): string =>
-  TIPOS.find((t) => t.v === v)?.r.toLowerCase() ?? v;
+  TIPOS.find((t) => t.valor === v)?.titulo.toLowerCase() ?? v;
 
 export const PRIORIDADES: Array<{ v: string; r: string }> = [
-  { v: 'leve', r: 'Leve — pode esperar horas' },
-  { v: 'intermediaria', r: 'Intermediária — até 30 s' },
-  { v: 'urgente', r: 'Urgente — menos de 2 s, só local' },
+  { v: 'leve', r: 'leve — pode esperar horas' },
+  { v: 'intermediaria', r: 'intermediária — até 30 s' },
+  { v: 'urgente', r: 'urgente — menos de 2 s, só na loja' },
 ];
 
 /** Os tipos julgados pelo detector local, dentro da loja. */
@@ -55,7 +59,3 @@ export function resumoDaProcura(p: ParametrosDoDetector | undefined): string | n
   if (minimo === maximo) return `exatamente ${minimo} × ${p.objeto}`;
   return `de ${minimo} a ${maximo} × ${p.objeto}`;
 }
-
-/** A mesma classe de campo do resto do console. */
-export const campo = 'w-full rounded-lg border border-farol-borda bg-farol-fundo px-3 py-2 text-sm';
-export const rotulo = 'block text-xs font-medium text-farol-suave';

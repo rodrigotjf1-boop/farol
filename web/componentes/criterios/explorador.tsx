@@ -4,21 +4,26 @@
 // O explorador de critérios
 // =====================================================================
 // Setor é pasta, canal é o que está dentro, critério é o arquivo. Navega-se
-// como num explorador: abre o setor, abre o canal, vê os critérios que
-// valem ali.
+// como num explorador: abre o setor, vê os canais e os critérios que valem
+// em cada um.
 //
 // O mesmo critério aparece debaixo de cada canal em que vale — é o MESMO
 // cadastro, e a linha diz em quantos canais ele está. Editar em qualquer
-// um edita em todos; "tirar do canal" tira só daquele.
+// um edita em todos; "tirar deste canal" tira só daquele.
 // =====================================================================
 
-import { useEffect, useRef, useState } from 'react';
+import { ChevronRight, CircleMinus, Ellipsis, Folder, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react';
+import { useState } from 'react';
 
+import { plural } from '@/componentes/formatos';
+import { Botao } from '@/componentes/ui/botao';
+import { CARTAO, Chip, Liga, Titulo } from '@/componentes/ui/pecas';
+import { DivisorDeMenu, ITEM_DE_MENU, Menu } from '@/componentes/ui/sobreposto';
 import type { Ponto, Regra, Setor } from '@/lib/api';
 
 import { criteriosDoCanal, emOrdem, rotuloDoCanal } from './canais';
-import { Arquivo, Camera, Pasta, Seta } from './icones';
 import {
+  iconeDoTipo,
   nomeDaPrioridade,
   nomeDaSeveridade,
   nomeDoTipo,
@@ -26,9 +31,9 @@ import {
   TIPOS_DO_DETECTOR,
 } from './opcoes';
 
-type Props = {
-  setores: Setor[];
-  regras: Regra[];
+export type Filtro = 'todos' | 'ligados' | 'desligados';
+
+type Acoes = {
   configura: boolean;
   aoAdicionar: (ponto: Ponto) => void;
   aoEditar: (regra: Regra) => void;
@@ -37,92 +42,69 @@ type Props = {
   aoAlternar: (regra: Regra) => void;
 };
 
-const botaoDeLinha =
-  'rounded-lg border border-farol-borda px-2.5 py-1 text-xs transition hover:border-farol-facho/50';
-
-function plural(n: number, um: string, varios: string): string {
-  return `${n} ${n === 1 ? um : varios}`;
-}
+type Props = Acoes & { setores: Setor[]; regras: Regra[]; filtro: Filtro };
 
 /** Em quantos CANAIS (não áreas) o critério vale. */
 function canaisDe(regra: Regra): number {
   return new Set(regra.alvos.map((a) => a.ponto_id)).size;
 }
 
+const passa = (regra: Regra, filtro: Filtro): boolean =>
+  filtro === 'todos' || (filtro === 'ligados' ? regra.ativa : !regra.ativa);
+
 function Etiquetas({ regra }: { regra: Regra }) {
   const grave = regra.severidade === 'emergencia' || regra.severidade === 'critico';
   const peloDetector = TIPOS_DO_DETECTOR.includes(regra.tipo);
   const procura = resumoDaProcura(regra.parametros);
+  const n = canaisDe(regra);
+
   return (
     <>
       {peloDetector && procura && (
-        <span
-          className="rounded bg-farol-ok/15 px-1.5 py-0.5 text-xs text-farol-ok"
-          title="Julgado dentro da loja pelo detector local, sem internet"
-        >
+        <Chip tom="ok" title="Julgado dentro da loja pelo detector, sem internet">
           {procura}
-        </span>
+        </Chip>
       )}
+      {/* Presença ou contagem sem dizer o que procurar: está cadastrado e
+          NÃO é verificado. Tem que aparecer na lista, não só ao abrir. */}
       {peloDetector && !procura && (
-        // Cadastrado e sem como ser verificado: a tela tem que dizer, senão
-        // o critério parece estar auditando.
-        <span className="rounded bg-farol-atencao/15 px-1.5 py-0.5 text-xs text-farol-atencao">
-          falta dizer o que procurar — edite
-        </span>
+        <Chip tom="atencao" icone={TriangleAlert}>
+          falta dizer o que procurar
+        </Chip>
       )}
-      <span className="rounded bg-farol-borda/60 px-1.5 py-0.5 text-xs text-farol-suave">
-        {nomeDoTipo(regra.tipo)}
-      </span>
-      <span
-        className={`rounded px-1.5 py-0.5 text-xs ${
-          grave ? 'bg-farol-critico/15 text-farol-critico' : 'bg-farol-borda/60 text-farol-suave'
-        }`}
-      >
-        {nomeDaSeveridade(regra.severidade)}
-      </span>
+      <Chip>{nomeDoTipo(regra.tipo)}</Chip>
+      <Chip tom={grave ? 'critico' : 'neutro'}>{nomeDaSeveridade(regra.severidade)}</Chip>
+      {n > 1 && (
+        <Chip tom="vazado" title="É um cadastro só: editar aqui muda em todos os canais">
+          vale em {n} canais
+        </Chip>
+      )}
     </>
   );
 }
 
-function BotaoLigar({
-  regra,
-  configura,
-  aoAlternar,
-}: {
-  regra: Regra;
-  configura: boolean;
-  aoAlternar: (regra: Regra) => void;
-}) {
+function Interruptor({ regra, configura, aoAlternar }: { regra: Regra; configura: boolean; aoAlternar: Acoes['aoAlternar'] }) {
   const n = canaisDe(regra);
   if (!configura) {
     return (
-      <span className={`text-xs ${regra.ativa ? 'text-farol-ok' : 'text-farol-suave'}`}>
+      <span className={`text-[12.5px] font-medium ${regra.ativa ? 'text-farol-ok' : 'text-farol-suave'}`}>
         {regra.ativa ? 'Ligado' : 'Desligado'}
       </span>
     );
   }
   return (
-    <button
-      type="button"
-      onClick={() => aoAlternar(regra)}
-      aria-pressed={regra.ativa}
-      title={
-        n > 1
-          ? `Liga ou desliga nos ${n} canais em que este critério vale`
-          : 'Liga ou desliga este critério'
-      }
-      className={`rounded-lg px-2.5 py-1 text-xs transition ${
-        regra.ativa
-          ? 'bg-farol-ok/15 text-farol-ok'
-          : 'border border-farol-borda text-farol-suave hover:border-farol-facho/50'
-      }`}
-    >
-      {regra.ativa ? 'Ligado' : 'Desligado'}
-    </button>
+    <Liga
+      ligado={regra.ativa}
+      aoMudar={() => aoAlternar(regra)}
+      descricao={`Critério ${regra.nome}`}
+      rotulo={regra.ativa ? 'Ligado' : 'Desligado'}
+      // Ligar ou desligar vale para o critério inteiro, em todos os canais.
+      title={n > 1 ? `Liga ou desliga nos ${n} canais em que este critério vale` : undefined}
+    />
   );
 }
 
-function LinhaDoCriterio({
+function CartaoDoCriterio({
   regra,
   ponto,
   zonaId,
@@ -132,149 +114,136 @@ function LinhaDoCriterio({
   aoTirar,
   aoExcluir,
   aoAlternar,
-}: {
-  regra: Regra;
-  ponto: Ponto;
-  zonaId: string;
-  zonaNome: string;
-  configura: boolean;
-  aoEditar: Props['aoEditar'];
-  aoTirar: Props['aoTirar'];
-  aoExcluir: Props['aoExcluir'];
-  aoAlternar: Props['aoAlternar'];
-}) {
-  const n = canaisDe(regra);
-  return (
-    <li className="rounded-lg border border-farol-borda/70 bg-farol-fundo/60 p-3">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
-        <Arquivo className="text-farol-suave" />
-        <span className="min-w-0 break-words text-sm font-medium">{regra.nome}</span>
-        <Etiquetas regra={regra} />
-        {n > 1 && (
-          <span
-            className="rounded bg-farol-facho/15 px-1.5 py-0.5 text-xs text-farol-facho"
-            title="É um cadastro só: editar aqui muda em todos os canais"
-          >
-            vale em {n} canais
-          </span>
-        )}
+}: { regra: Regra; ponto: Ponto; zonaId: string; zonaNome: string } & Omit<Acoes, 'aoAdicionar'>) {
+  const Icone = iconeDoTipo(regra.tipo);
 
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <BotaoLigar regra={regra} configura={configura} aoAlternar={aoAlternar} />
-          {configura && (
-            <>
-              <button type="button" onClick={() => aoEditar(regra)} className={botaoDeLinha}>
-                Editar<span className="sr-only"> o critério {regra.nome}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => aoTirar(regra, ponto, zonaId)}
-                className={`${botaoDeLinha} text-farol-critico hover:border-farol-critico/60`}
-              >
-                Tirar do canal
-                <span className="sr-only">
-                  {' '}
-                  {rotuloDoCanal(ponto)} o critério {regra.nome}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => aoExcluir(regra)}
-                className={`${botaoDeLinha} text-farol-critico hover:border-farol-critico/60`}
-              >
-                Excluir<span className="sr-only"> o critério {regra.nome} de todos os canais</span>
-              </button>
-            </>
-          )}
-        </div>
+  return (
+    <li className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-xl border border-farol-borda bg-farol-painel-2 p-3 transition-colors hover:border-farol-borda-forte md:grid-cols-[auto_minmax(0,1fr)_auto]">
+      <span
+        className={`grid h-[34px] w-[34px] place-items-center rounded-[10px] border border-farol-borda bg-farol-painel md:row-span-2 ${
+          regra.ativa ? 'text-farol-marca' : 'text-farol-suave'
+        }`}
+      >
+        <Icone className="h-[18px] w-[18px]" aria-hidden />
+      </span>
+
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+        <b className="min-w-0 break-words font-semibold">{regra.nome}</b>
+        <Etiquetas regra={regra} />
       </div>
 
-      <p className="mt-2 line-clamp-2 max-w-prose text-sm text-farol-suave">{regra.criterio}</p>
-      <p className="mt-1 text-xs text-farol-suave">
+      <div className="col-span-2 flex items-center justify-between gap-1.5 max-md:order-last max-md:border-t max-md:border-farol-borda max-md:pt-2 md:col-span-1 md:justify-end">
+        <Interruptor regra={regra} configura={configura} aoAlternar={aoAlternar} />
+        {configura && (
+          <Menu
+            alinhar="fim"
+            gatilho={(p) => (
+              <Botao variante="fantasma" mini quadrado aria-label={`Ações do critério ${regra.nome}`} {...p}>
+                <Ellipsis className="h-[18px] w-[18px]" aria-hidden />
+              </Botao>
+            )}
+          >
+            {(fechar) => (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={ITEM_DE_MENU}
+                  onClick={() => {
+                    fechar();
+                    aoEditar(regra);
+                  }}
+                >
+                  <Pencil className="h-[18px] w-[18px]" aria-hidden />
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={ITEM_DE_MENU}
+                  onClick={() => {
+                    fechar();
+                    aoTirar(regra, ponto, zonaId);
+                  }}
+                >
+                  <CircleMinus className="h-[18px] w-[18px]" aria-hidden />
+                  Tirar deste canal
+                </button>
+                <DivisorDeMenu />
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={`${ITEM_DE_MENU} text-farol-critico`}
+                  onClick={() => {
+                    fechar();
+                    aoExcluir(regra);
+                  }}
+                >
+                  <Trash2 className="h-[18px] w-[18px]" aria-hidden />
+                  Excluir de todos os canais
+                </button>
+              </>
+            )}
+          </Menu>
+        )}
+      </div>
+
+      <p className="col-span-2 line-clamp-2 text-[13px] text-farol-suave md:col-start-2">{regra.criterio}</p>
+      <p className="col-span-2 text-xs text-farol-suave md:col-start-2">
         {ponto.zonas.length > 1 && <>área: {zonaNome} · </>}
         prioridade {nomeDaPrioridade(regra.prioridade)} · confiança mínima{' '}
-        {Number(regra.confianca_minima).toFixed(2)} · silêncio{' '}
-        {regra.cooldown_min} min · versão {regra.criterio_versao}
+        {Number(regra.confianca_minima).toFixed(2).replace('.', ',')} · silêncio de {regra.cooldown_min} min · versão{' '}
+        {regra.criterio_versao}
       </p>
     </li>
   );
 }
 
-function Canal({
-  ponto,
-  regras,
-  configura,
-  aoAdicionar,
-  aoEditar,
-  aoTirar,
-  aoExcluir,
-  aoAlternar,
-}: { ponto: Ponto } & Omit<Props, 'setores'>) {
-  const criterios = criteriosDoCanal(regras, ponto.id);
-  const [aberto, setAberto] = useState(criterios.length > 0);
-
-  // Canal que GANHA um critério abre sozinho. Sem isto, quem clica em
-  // "+ critério" num canal vazio salva e não vê nada mudar: o canal
-  // continua recolhido, com o critério novo escondido dentro. Só abre —
-  // nunca fecha por conta própria o que a pessoa deixou aberto.
-  const antes = useRef(criterios.length);
-  useEffect(() => {
-    if (criterios.length > antes.current) setAberto(true);
-    antes.current = criterios.length;
-  }, [criterios.length]);
+function Canal({ ponto, regras, filtro, ...acoes }: { ponto: Ponto; regras: Regra[]; filtro: Filtro } & Acoes) {
+  const todos = criteriosDoCanal(regras, ponto.id);
+  const visiveis = todos.filter((c) => passa(c.regra, filtro));
+  const { configura, aoAdicionar } = acoes;
 
   return (
-    <li>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-2 py-1.5">
-        <button
-          type="button"
-          onClick={() => setAberto((a) => !a)}
-          aria-expanded={aberto}
-          className="flex min-w-0 items-center gap-2 rounded text-left hover:text-farol-facho"
+    <li className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-x-[9px] gap-y-1.5 text-[13px] text-farol-suave">
+        <span
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-farol-realce font-mono text-[11.5px] font-semibold text-farol-marca"
+          title={ponto.canal != null ? `Canal ${ponto.canal} do gravador` : 'Câmera IP'}
         >
-          <Seta aberta={aberto} />
-          <Camera className="text-farol-suave" />
-          <span className="min-w-0 break-words text-sm">{rotuloDoCanal(ponto)}</span>
-        </button>
-        {!ponto.ativo && (
-          <span className="rounded bg-farol-atencao/15 px-1.5 py-0.5 text-xs text-farol-atencao">
-            desativado — não é verificado
-          </span>
-        )}
-        <span className="text-xs text-farol-suave">
-          {criterios.length === 0 ? 'sem critério' : plural(criterios.length, 'critério', 'critérios')}
+          {ponto.canal != null ? String(ponto.canal).padStart(2, '0') : 'IP'}
         </span>
-
+        <b className="min-w-0 break-words font-semibold text-farol-tinta">{ponto.nome}</b>
+        <span>{todos.length === 0 ? 'sem critério' : plural(todos.length, 'critério', 'critérios')}</span>
+        {!ponto.ativo && <Chip tom="atencao">pausado, não é verificado</Chip>}
         {configura && ponto.ativo && ponto.zonas.length > 0 && (
-          <button
-            type="button"
-            onClick={() => aoAdicionar(ponto)}
-            className="ml-auto rounded-lg border border-dashed border-farol-borda px-2.5 py-1 text-xs text-farol-facho transition hover:border-farol-facho/60"
-          >
-            ＋ critério<span className="sr-only"> em {rotuloDoCanal(ponto)}</span>
-          </button>
+          <Botao variante="fantasma" mini className="ml-auto" onClick={() => aoAdicionar(ponto)}>
+            <Plus className="h-[15px] w-[15px]" aria-hidden />
+            Critério<span className="sr-only"> em {rotuloDoCanal(ponto)}</span>
+          </Botao>
         )}
       </div>
 
-      {aberto && (
-        <ul className="mb-2 ml-2.5 space-y-2 border-l border-farol-borda pl-3 sm:ml-4 sm:pl-4">
-          {criterios.length === 0 && (
-            <li className="py-1 text-sm text-farol-suave">
-              Nenhum critério neste canal. Nada é verificado aqui.
-            </li>
-          )}
-          {criterios.map((c) => (
-            <LinhaDoCriterio
+      {todos.length === 0 ? (
+        <p className="text-[13px] text-farol-suave">Nenhum critério neste canal. Nada é verificado aqui.</p>
+      ) : visiveis.length === 0 ? (
+        <p className="text-[13px] text-farol-suave">
+          Nenhum critério {filtro === 'ligados' ? 'ligado' : 'desligado'} neste canal.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {visiveis.map((c) => (
+            <CartaoDoCriterio
               key={`${c.regra.id}-${c.zonaId}`}
               regra={c.regra}
               ponto={ponto}
               zonaId={c.zonaId}
               zonaNome={c.zonaNome}
               configura={configura}
-              aoEditar={aoEditar}
-              aoTirar={aoTirar}
-              aoExcluir={aoExcluir}
-              aoAlternar={aoAlternar}
+              aoEditar={acoes.aoEditar}
+              aoTirar={acoes.aoTirar}
+              aoExcluir={acoes.aoExcluir}
+              aoAlternar={acoes.aoAlternar}
             />
           ))}
         </ul>
@@ -283,98 +252,106 @@ function Canal({
   );
 }
 
-function SetorDaLoja({ setor, ...resto }: { setor: Setor } & Omit<Props, 'setores'>) {
+function SetorDaLoja({ setor, regras, filtro, ...acoes }: { setor: Setor; regras: Regra[]; filtro: Filtro } & Acoes) {
   const [aberto, setAberto] = useState(true);
   const canais = emOrdem(setor.pontos);
-  const comCriterio = new Set<string>();
-  for (const p of canais) {
-    for (const c of criteriosDoCanal(resto.regras, p.id)) comCriterio.add(c.regra.id);
-  }
+
+  // Critérios DISTINTOS do setor: o mesmo critério em três canais conta um.
+  const distintos = new Set<string>();
+  for (const p of canais) for (const c of criteriosDoCanal(regras, p.id)) distintos.add(c.regra.id);
 
   return (
-    <li className="rounded-xl border border-farol-borda bg-farol-painel p-3 sm:p-4">
+    <li className={CARTAO}>
       <button
         type="button"
         onClick={() => setAberto((a) => !a)}
         aria-expanded={aberto}
-        className="flex w-full flex-wrap items-center gap-x-2 gap-y-1 rounded text-left hover:text-farol-facho"
+        className="flex w-full flex-wrap items-center gap-x-[9px] gap-y-1 rounded-[14px] px-3.5 py-3 text-left"
       >
-        <Seta aberta={aberto} />
-        <Pasta className="text-farol-facho" />
-        <span className="min-w-0 break-words font-medium">{setor.nome}</span>
-        <span className="ml-auto text-xs text-farol-suave">
-          {plural(canais.length, 'canal', 'canais')} ·{' '}
-          {plural(comCriterio.size, 'critério', 'critérios')}
+        <ChevronRight
+          className={`h-[18px] w-[18px] shrink-0 text-farol-suave transition-transform duration-200 ease-farol ${aberto ? 'rotate-90' : ''}`}
+          aria-hidden
+        />
+        <Folder className="h-[18px] w-[18px] shrink-0 text-farol-facho-icone" aria-hidden />
+        <b className="min-w-0 break-words text-[15px] font-semibold">{setor.nome}</b>
+        <span className="ml-auto text-[12.5px] text-farol-suave">
+          {plural(canais.length, 'canal', 'canais')} · {plural(distintos.size, 'critério', 'critérios')}
         </span>
       </button>
 
-      {aberto && (
-        <ul className="ml-2.5 mt-1 border-l border-farol-borda pl-3 sm:pl-4">
-          {canais.length === 0 && (
-            <li className="py-1 text-sm text-farol-suave">Este setor ainda não tem câmera.</li>
-          )}
-          {canais.map((p) => (
-            <Canal key={p.id} ponto={p} {...resto} />
-          ))}
-        </ul>
-      )}
+      {/* A pasta abre e fecha deslizando. Fechada, o que há dentro sai da
+          ordem do teclado: `inert` impede o foco de cair em algo invisível. */}
+      <div
+        className={`grid transition-[grid-template-rows] duration-300 ease-farol ${aberto ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+        inert={!aberto}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <ul className="flex flex-col gap-3.5 px-3.5 pb-3.5">
+            {canais.length === 0 && <li className="text-[13px] text-farol-suave">Este setor ainda não tem câmera.</li>}
+            {canais.map((p) => (
+              <Canal key={p.id} ponto={p} regras={regras} filtro={filtro} {...acoes} />
+            ))}
+          </ul>
+        </div>
+      </div>
     </li>
   );
 }
 
-export function Explorador({ setores, regras, ...resto }: Props) {
-  // Critério que foi tirado do último canal. Não é verificado em lugar
-  // nenhum, mas continua existindo — aparece aqui para poder voltar.
-  const semCanal = regras.filter((r) => r.alvos.length === 0);
+export function Explorador({ setores, regras, filtro, ...acoes }: Props) {
+  // Critério que não vale em canal nenhum: não tem galho na árvore, e some
+  // de vista se não ganhar um lugar próprio. Não é verificado — e é
+  // exatamente por isso que precisa aparecer.
+  const semCanal = regras.filter((r) => r.alvos.length === 0 && passa(r, filtro));
 
   return (
-    <div className="mt-6 space-y-3">
-      <ul className="space-y-3">
+    <>
+      <ul className="flex flex-col gap-3">
         {setores.map((s) => (
-          <SetorDaLoja key={s.id} setor={s} regras={regras} {...resto} />
+          <SetorDaLoja key={s.id} setor={s} regras={regras} filtro={filtro} {...acoes} />
         ))}
       </ul>
 
       {semCanal.length > 0 && (
-        <section
-          aria-label="Critérios sem canal"
-          className="rounded-xl border border-dashed border-farol-borda p-3 sm:p-4"
-        >
-          <h2 className="text-sm font-medium">
-            Sem canal <span className="text-farol-suave">({semCanal.length})</span>
-          </h2>
-          <p className="mt-1 max-w-prose text-xs text-farol-suave">
-            Critérios que não valem em canal nenhum, e por isso não são verificados. Ficam
-            guardados com o histórico; marque canais de novo, ou exclua.
+        <section aria-labelledby="t-semcanal" className="flex min-w-0 flex-col gap-3">
+          <Titulo id="t-semcanal" conta={semCanal.length}>
+            Sem canal
+          </Titulo>
+          <p className="max-w-[70ch] text-[12.5px] text-farol-suave">
+            Critérios que não valem em canal nenhum e, por isso, não são verificados. Ficam guardados com o
+            histórico: marque canais de novo ou exclua.
           </p>
-          <ul className="mt-3 space-y-2">
-            {semCanal.map((r) => (
-              <li
-                key={r.id}
-                className="flex flex-wrap items-center gap-x-2 gap-y-2 rounded-lg border border-farol-borda/70 p-3"
-              >
-                <Arquivo className="text-farol-suave" />
-                <span className="min-w-0 break-words text-sm font-medium">{r.nome}</span>
-                <Etiquetas regra={r} />
-                {resto.configura && (
-                  <div className="ml-auto flex flex-wrap items-center gap-2">
-                    <button type="button" onClick={() => resto.aoEditar(r)} className={botaoDeLinha}>
-                      Marcar canais<span className="sr-only"> para o critério {r.nome}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => resto.aoExcluir(r)}
-                      className={`${botaoDeLinha} text-farol-critico hover:border-farol-critico/60`}
-                    >
-                      Excluir<span className="sr-only"> o critério {r.nome}</span>
-                    </button>
+          <ul className="flex flex-col gap-2">
+            {semCanal.map((r) => {
+              const Icone = iconeDoTipo(r.tipo);
+              return (
+                <li
+                  key={r.id}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-dashed border-farol-borda-forte p-3"
+                >
+                  <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[10px] border border-farol-borda bg-farol-painel text-farol-suave">
+                    <Icone className="h-[18px] w-[18px]" aria-hidden />
+                  </span>
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1.5">
+                    <b className="min-w-0 break-words font-semibold">{r.nome}</b>
+                    <Etiquetas regra={r} />
                   </div>
-                )}
-              </li>
-            ))}
+                  {acoes.configura && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Botao mini onClick={() => acoes.aoEditar(r)}>
+                        Marcar canais<span className="sr-only"> para o critério {r.nome}</span>
+                      </Botao>
+                      <Botao mini variante="perigo-leve" onClick={() => acoes.aoExcluir(r)}>
+                        Excluir<span className="sr-only"> o critério {r.nome}</span>
+                      </Botao>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}
-    </div>
+    </>
   );
 }

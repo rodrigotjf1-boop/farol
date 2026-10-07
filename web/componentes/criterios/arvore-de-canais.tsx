@@ -13,6 +13,7 @@
 // que é a tela dizendo "há um canal aqui sem este critério".
 // =====================================================================
 
+import { ChevronRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { Ponto, Setor } from '@/lib/api';
@@ -26,18 +27,14 @@ import {
   estadoDoSetor,
   rotuloDoCanal,
 } from './canais';
-import { Seta } from './icones';
 
 type Props = {
   setores: Setor[];
   marcadas: ReadonlySet<string>;
   aoMudar: (novo: Set<string>) => void;
-  /** Usado para ligar os rótulos às caixas sem colidir com outra árvore. */
   prefixo: string;
 };
 
-/** Caixa de seleção com o terceiro estado ("alguns"), que o HTML só
- *  aceita por propriedade — não existe atributo `indeterminate`. */
 function Caixa({
   id,
   marcada,
@@ -52,6 +49,7 @@ function Caixa({
   rotulo: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
+  // "Parcial" não existe como atributo de HTML: só se liga pelo elemento.
   useEffect(() => {
     if (ref.current) ref.current.indeterminate = parcial;
   }, [parcial]);
@@ -65,8 +63,22 @@ function Caixa({
       onChange={aoClicar}
       aria-label={rotulo}
       aria-checked={parcial ? 'mixed' : marcada}
-      className="h-4 w-4 shrink-0 accent-farol-facho"
+      className="h-[17px] w-[17px] shrink-0 accent-farol-marca"
     />
+  );
+}
+
+function Seta({ aberta, rotulo, aoClicar }: { aberta: boolean; rotulo: string; aoClicar: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={aoClicar}
+      aria-expanded={aberta}
+      aria-label={rotulo}
+      className="rounded p-0.5 text-farol-suave hover:text-farol-tinta"
+    >
+      <ChevronRight className={`h-4 w-4 transition-transform duration-200 ease-farol ${aberta ? 'rotate-90' : ''}`} aria-hidden />
+    </button>
   );
 }
 
@@ -88,17 +100,13 @@ function LinhaDoCanal({
 
   return (
     <li>
-      <div className="flex min-w-0 items-center gap-2 py-1">
+      <div className="flex min-h-[34px] min-w-0 items-center gap-2">
         {variasAreas ? (
-          <button
-            type="button"
-            onClick={() => setAberto((a) => !a)}
-            aria-expanded={aberto}
-            aria-label={`${aberto ? 'Recolher' : 'Abrir'} as áreas de ${rotuloDoCanal(ponto)}`}
-            className="rounded p-0.5 text-farol-suave hover:text-farol-tinta"
-          >
-            <Seta aberta={aberto} />
-          </button>
+          <Seta
+            aberta={aberto}
+            aoClicar={() => setAberto((a) => !a)}
+            rotulo={`${aberto ? 'Recolher' : 'Abrir'} as áreas de ${rotuloDoCanal(ponto)}`}
+          />
         ) : (
           <span className="w-5 shrink-0" aria-hidden />
         )}
@@ -108,11 +116,9 @@ function LinhaDoCanal({
           aoClicar={() => aoMudar(alternarCanal(ponto, marcadas))}
           rotulo={rotuloDoCanal(ponto)}
         />
-        <label htmlFor={idCaixa} className="min-w-0 cursor-pointer break-words text-sm">
+        <label htmlFor={idCaixa} className="min-w-0 flex-1 cursor-pointer break-words">
           {rotuloDoCanal(ponto)}
-          {!ponto.ativo && (
-            <span className="ml-2 text-xs text-farol-atencao">canal desativado — não é verificado</span>
-          )}
+          {!ponto.ativo && <span className="ml-2 text-xs text-farol-facho-tinta">pausado, não é verificado</span>}
         </label>
       </div>
 
@@ -121,7 +127,7 @@ function LinhaDoCanal({
           {ponto.zonas.map((z) => {
             const idArea = `${prefixo}-area-${z.id}`;
             return (
-              <li key={z.id} className="flex min-w-0 items-center gap-2 py-1">
+              <li key={z.id} className="flex min-h-[34px] min-w-0 items-center gap-2">
                 <Caixa
                   id={idArea}
                   marcada={marcadas.has(z.id)}
@@ -133,7 +139,7 @@ function LinhaDoCanal({
                   }}
                   rotulo={`${z.nome} em ${rotuloDoCanal(ponto)}`}
                 />
-                <label htmlFor={idArea} className="min-w-0 cursor-pointer break-words text-sm text-farol-suave">
+                <label htmlFor={idArea} className="min-w-0 cursor-pointer break-words text-farol-suave">
                   {z.nome}
                   {z.principal && <span className="ml-2 text-xs">área principal</span>}
                 </label>
@@ -165,24 +171,20 @@ function PastaDoSetor({
 
   if (canais.length === 0) {
     return (
-      <li className="py-1 pl-7 text-sm text-farol-suave">
-        {setor.nome} <span className="text-xs">— sem câmera cadastrada</span>
+      <li className="py-1.5 pl-7 text-farol-suave">
+        {setor.nome} <span className="text-xs">· sem câmera cadastrada</span>
       </li>
     );
   }
 
   return (
     <li>
-      <div className="flex min-w-0 items-center gap-2 py-1">
-        <button
-          type="button"
-          onClick={() => setAberto((a) => !a)}
-          aria-expanded={aberto}
-          aria-label={`${aberto ? 'Recolher' : 'Abrir'} o setor ${setor.nome}`}
-          className="rounded p-0.5 text-farol-suave hover:text-farol-tinta"
-        >
-          <Seta aberta={aberto} />
-        </button>
+      <div className="flex min-h-[34px] min-w-0 items-center gap-2">
+        <Seta
+          aberta={aberto}
+          aoClicar={() => setAberto((a) => !a)}
+          rotulo={`${aberto ? 'Recolher' : 'Abrir'} o setor ${setor.nome}`}
+        />
         <Caixa
           id={idCaixa}
           marcada={estado === 'todos'}
@@ -190,16 +192,16 @@ function PastaDoSetor({
           aoClicar={() => aoMudar(alternarSetor(setor, marcadas))}
           rotulo={`Setor ${setor.nome} inteiro`}
         />
-        <label htmlFor={idCaixa} className="min-w-0 cursor-pointer break-words text-sm font-medium">
+        <label htmlFor={idCaixa} className="min-w-0 flex-1 cursor-pointer break-words font-semibold">
           {setor.nome}
         </label>
-        <span className="ml-auto shrink-0 text-xs text-farol-suave">
+        <span className="shrink-0 text-xs text-farol-suave">
           {n} de {canais.length}
         </span>
       </div>
 
       {aberto && (
-        <ul className="ml-2.5 border-l border-farol-borda pl-3">
+        <ul className="ml-2 border-l border-farol-borda pl-3">
           {canais.map((p) => (
             <LinhaDoCanal key={p.id} ponto={p} marcadas={marcadas} aoMudar={aoMudar} prefixo={prefixo} />
           ))}
@@ -213,18 +215,14 @@ export function ArvoreDeCanais({ setores, marcadas, aoMudar, prefixo }: Props) {
   const total = contarCanais(setores, marcadas);
 
   return (
-    <div>
-      <ul className="rounded-lg border border-farol-borda bg-farol-fundo p-2">
+    <div className="flex flex-col gap-[5px]">
+      <ul className="rounded-[10px] border border-farol-borda-forte bg-farol-painel px-2 py-1.5">
         {setores.map((s) => (
           <PastaDoSetor key={s.id} setor={s} marcadas={marcadas} aoMudar={aoMudar} prefixo={prefixo} />
         ))}
       </ul>
-      <p className="mt-1 text-xs text-farol-suave" aria-live="polite">
-        {total === 0
-          ? 'Nenhum canal marcado.'
-          : total === 1
-            ? 'Vale em 1 canal.'
-            : `Vale em ${total} canais.`}
+      <p className="text-xs text-farol-suave" aria-live="polite">
+        {total === 0 ? 'Nenhum canal marcado.' : total === 1 ? 'Vale em 1 canal.' : `Vale em ${total} canais.`}
       </p>
     </div>
   );
