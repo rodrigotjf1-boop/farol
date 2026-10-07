@@ -1040,21 +1040,26 @@
     const c = quadro.getBoundingClientRect();
     return { x: prender((ev.clientX - c.left) / c.width), y: prender((ev.clientY - c.top) / c.height) };
   }
+  // CLIQUE seleciona, ARRASTO desenha — e o arrasto pode começar em cima de
+  // outra área. Toda loja nova tem a área "Quadro inteiro" cobrindo a imagem
+  // toda: se apertar sobre ela já trocasse a seleção, não sobrava onde
+  // começar a desenhar a segunda.
   quadro.addEventListener('pointerdown', (ev) => {
-    // clicar em OUTRA área seleciona; arrastar redesenha a selecionada
-    const outra = ev.target.closest('[data-ret-i]');
-    if (outra && Number(outra.dataset.retI) !== sel) {
-      sel = Number(outra.dataset.retI);
-      desenharArea();
-      return;
-    }
     quadro.setPointerCapture?.(ev.pointerId);
-    arraste = posicao(ev);
-    Object.assign(areas[sel], { x1: arraste.x, y1: arraste.y, x2: arraste.x, y2: arraste.y });
-    desenharArea();
+    const a = areas[sel];
+    arraste = {
+      ...posicao(ev),
+      telaX: ev.clientX,
+      telaY: ev.clientY,
+      antes: { x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2 },
+      desenhou: false,
+    };
   });
   quadro.addEventListener('pointermove', (ev) => {
     if (!arraste) return;
+    // mão que treme num clique não é arrasto
+    if (!arraste.desenhou && Math.hypot(ev.clientX - arraste.telaX, ev.clientY - arraste.telaY) < 6) return;
+    arraste.desenhou = true;
     const p = posicao(ev);
     Object.assign(areas[sel], {
       x1: Math.min(arraste.x, p.x), y1: Math.min(arraste.y, p.y),
@@ -1062,12 +1067,33 @@
     });
     desenharArea();
   });
-  const soltar = () => {
+  const soltar = (ev) => {
     if (!arraste) return;
+    const gesto = arraste;
     arraste = null;
-    const a = areas[sel];
-    if (a.x2 - a.x1 < 0.02 || a.y2 - a.y1 < 0.02) Object.assign(a, { x1: 0, y1: 0, x2: 1, y2: 1 });
-    desenharArea();
+    if (gesto.desenhou) {
+      // risco fino: volta a área como estava
+      const a = areas[sel];
+      if (a.x2 - a.x1 < 0.02 || a.y2 - a.y1 < 0.02) Object.assign(a, gesto.antes);
+      desenharArea();
+      return;
+    }
+    if (ev.type !== 'pointerup') return;
+    // foi um clique: vale a MENOR área que contém o ponto
+    let alvo = -1;
+    let menor = Infinity;
+    areas.forEach((r, i) => {
+      if (gesto.x < r.x1 || gesto.x > r.x2 || gesto.y < r.y1 || gesto.y > r.y2) return;
+      const tamanho = (r.x2 - r.x1) * (r.y2 - r.y1);
+      if (tamanho < menor || (tamanho === menor && i === sel)) {
+        menor = tamanho;
+        alvo = i;
+      }
+    });
+    if (alvo >= 0 && alvo !== sel) {
+      sel = alvo;
+      desenharArea();
+    }
   };
   quadro.addEventListener('pointerup', soltar);
   quadro.addEventListener('pointercancel', soltar);
