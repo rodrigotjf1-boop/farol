@@ -72,6 +72,8 @@ describe('contrato do resumo (validação)', () => {
     const vazia = {
       ...CONTRATO, ultimoResultado: null, ultimoMotivo: null, ultimoImpedimento: null, ultimaEm: null,
       conformes: 0, naoConformes: 0, naoAvaliaveis: 0, somaConfianca: 0, comConfianca: 0,
+      // nada julgado: em lugar nenhum
+      julgadasLoja: 0, julgadasNuvem: 0,
     };
     assert.equal(validarResumo(vazia, 0), null);
   });
@@ -210,6 +212,8 @@ describe('resumo por hora (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
     assert.equal(Number(l.soma_latencia_ms), 20976);
     assert.equal(l.com_latencia, 23);
     assert.equal(Number(l.custo_centavos), 24.61);
+    assert.equal(l.julgadas_loja, 3);
+    assert.equal(l.julgadas_nuvem, 20);
     assert.equal(l.ultimo_resultado, 'nao_conforme');
     assert.equal(l.ultimo_motivo, 'há restos de alimento sobre a bancada');
     assert.equal(l.ultimo_impedimento, 'a câmera entregou a tela de sem sinal');

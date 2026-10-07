@@ -17,6 +17,7 @@ import { rotasDeRegras } from './rotas/regras.js';
 import { rotasDeEventos } from './rotas/eventos.js';
 import { rotasDeLojas } from './rotas/lojas.js';
 import { rotasDeOrcamento } from './rotas/orcamento.js';
+import { rotasDeAnalises } from './rotas/analises.js';
 import { rotasDeResultados } from './rotas/resultados.js';
 import { rotasDeResumos } from './rotas/resumos.js';
 import { rotasDeSessao } from './rotas/sessao.js';
@@ -112,6 +113,7 @@ export function criarApp(pool: pg.Pool, opcoes: { logger?: boolean } = {}): Fast
   rotasDeEventos(app, pool);
   rotasDeResumos(app, pool);
   rotasDeResultados(app, pool);
+  rotasDeAnalises(app, pool);
   rotasDeAlertas(app, pool);
 
   return app;
