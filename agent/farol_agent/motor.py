@@ -15,13 +15,21 @@ alerta** é este arquivo.
    pagar o modelo de cinco em cinco minutos para reconfirmar "ainda está
    suja" é dinheiro queimado. O alerta registra o cooldown, então o console
    consegue dizer "a condição persistiu por ao menos X minutos" sem ter
-   pago por isso. *(Medir duração de verdade é trabalho do juiz de
-   comparação, que roda local e não custa chamada — vem no A2.4.)*
+   pago por isso.
+
+   **Menos em presença e contagem** (`CONTINUOS`). Ali julgar não custa
+   chamada — é o detector, na loja — e o que a loja quer saber é
+   justamente **por quanto tempo**: quanto o posto ficou vazio, quanto a
+   fila ficou grande. Com o silêncio pulando a olhada, quinze minutos
+   depois de cada aviso ninguém media nada (na loja, 07/10/2026: 14 de 16
+   olhadas puladas). Nesses tipos toda olhada é julgada e conta; o
+   silêncio segura só o aviso, na porta 3.
 
 3. **O veredito vira alerta?** Só `nao_conforme` **com confiança acima do
-   mínimo da regra**. Abaixo disso é registrado mas não toca a sineta: o
-   que destrói a confiança da loja no sistema não é errar pouco, é berrar
-   errado. `nao_avaliavel` nunca alerta — vira indicador de câmera.
+   mínimo da regra**, e **fora do silêncio** daquele critério naquele
+   canal. Abaixo disso é registrado mas não toca a sineta: o que destrói a
+   confiança da loja no sistema não é errar pouco, é berrar errado.
+   `nao_avaliavel` nunca alerta — vira indicador de câmera.
 """
 
 from __future__ import annotations
@@ -43,11 +51,18 @@ from farol_agent.modelos import (
     Regra,
     Resultado,
     Severidade,
+    TipoRegra,
     Veredito,
 )
 from farol_agent.pipeline import dedupe, qualidade, recorte
 
 _log = logging.getLogger(__name__)
+
+# Tipos em que TODA olhada é julgada, mesmo no silêncio e mesmo com a cena
+# igual à anterior: quem julga é o detector local (não há o que economizar)
+# e a medida é o tempo — "em quantas olhadas o posto estava vazio".
+# `comparacao` também é local, mas pode escalar para um modelo: fica fora.
+CONTINUOS = (TipoRegra.PRESENCA, TipoRegra.CONTAGEM)
 
 
 @dataclass
@@ -179,7 +194,9 @@ class MotorDeRegras:
         # No que deu cada olhada, para o resumo por hora. Uma por regra.
         olhadas: list[tuple[Regra, str, str | None]] = []
         for regra in regras:
-            if self._em_silencio(regra, evento.ts):
+            # Presença e contagem não param no silêncio: a olhada é a
+            # medida. O aviso é que fica calado, em `_avaliar`.
+            if regra.tipo not in CONTINUOS and self._em_silencio(regra, evento.ts):
                 preparo.em_silencio.append(regra.id)
                 olhadas.append((regra, "em_silencio", None))
                 continue
@@ -266,8 +283,13 @@ class MotorDeRegras:
         if regra.borrar_rosto:
             f, _ = recorte.borrar_rostos(f)
 
+        # Em presença e contagem, cena igual à anterior NÃO é atalho: o
+        # posto vazio é a mesma imagem por meia hora, e é essa meia hora
+        # que se quer medir. Cada olhada entra, com chave própria.
+        continuo = regra.tipo in CONTINUOS
+
         chave_dedupe = f"{evento.ponto_id}:{regra.zona.id}:{regra.id}"
-        if self._dedup.repetido(chave_dedupe, f.imagem, f.ts):
+        if not continuo and self._dedup.repetido(chave_dedupe, f.imagem, f.ts):
             # A cena voltou a ser julgavel: tirar daqui faz o painel parar
             # de acusar defeito quando a camera voltou.
             self.sem_cena.pop(self._lugar(regra), None)
@@ -277,13 +299,14 @@ class MotorDeRegras:
         ph = dedupe.phash(f.imagem)
 
         chave = Fila.chave_idempotente(
-            regra.id, regra.criterio_versao, evento.ponto_id, ph, f.ts
+            regra.id, regra.criterio_versao, evento.ponto_id, ph, f.ts,
+            por_olhada=continuo,
         )
 
         # Já julgamos esta cena exata? Então não paga de novo — mas o
         # veredito guardado ainda precisa passar pelas portas do alerta,
         # e isso acontece em `processar`.
-        if self.fila.veredito_de(chave) is not None:
+        if not continuo and self.fila.veredito_de(chave) is not None:
             self.sem_cena.pop(self._lugar(regra), None)
             return None, "ja_julgado"
 
@@ -400,6 +423,17 @@ class MotorDeRegras:
             )
             return None
 
+        # O silêncio, aqui, e pelo canal DO ITEM (a regra achada pelo id
+        # pode ser a de outro canal). É o que cala presença e contagem,
+        # que são julgadas a cada olhada — e é o que impede dois avisos
+        # quando duas olhadas entraram na fila antes do primeiro veredito.
+        if self._calado(regra, item.zona_id, item.capturado_em):
+            _log.debug(
+                "regra=%s nao_conforme dentro do silêncio de %d min: conta, não avisa",
+                regra.id, regra.cooldown_min,
+            )
+            return None
+
         return Alerta(
             regra_id=regra.id,
             regra_nome=regra.nome,
@@ -442,10 +476,14 @@ class MotorDeRegras:
         return f"{regra.id}@{regra.zona.id}"
 
     def _em_silencio(self, regra: Regra, ts: datetime) -> bool:
+        return self._calado(regra, regra.zona.id, ts)
+
+    def _calado(self, regra: Regra, zona_id: str | None, ts: datetime) -> bool:
+        """O critério já avisou NESTE canal há menos que o silêncio dele?"""
         if regra.cooldown_min <= 0:
             return False
         # Por canal: a bancada suja do canal 1 não pode calar a do canal 2.
-        ultimo = self.fila.ultimo_alerta(regra.id, regra.zona.id)
+        ultimo = self.fila.ultimo_alerta(regra.id, zona_id)
         if ultimo is None:
             return False
         return ts - ultimo < timedelta(minutes=regra.cooldown_min)
