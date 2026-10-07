@@ -1173,6 +1173,13 @@ Medido na mesma loja: os canais RTSP abrem **um de cada vez**, ~2,1 s cada
 cada, ~4 % de processador com os 14. Não bloqueia; fica para investigar se
 é o gravador ou o `open` do OpenCV segurando a fila.
 
+**Respondido em 07/10/2026: é o OpenCV.** Ele abre um fluxo de cada vez. E
+isso tinha um efeito pior que a fila: um canal cadastrado com o endereço
+errado esperava 30 s por tentativa, e nesse tempo **nenhum outro canal
+abria**. Corrigido — antes de chamar o OpenCV o agente pergunta à rede se o
+gravador atende (1,5 s, fora da trava), e o OpenCV passa a desistir em 5 s
+(ERR-030).
+
 ---
 
 ## A11 · A imagem que sai da loja: o borrão não borrava — 🟡 corrigido, cobertura parcial (06/10/2026)
