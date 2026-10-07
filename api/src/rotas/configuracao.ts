@@ -87,7 +87,7 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
       `select r.id, a.zona_id, r.nome, r.tipo, r.criterio, r.criterio_versao,
               r.processo_descricao, r.prioridade, r.severidade,
               r.confianca_minima, r.cooldown_min, r.resolucao, r.janelas,
-              r.acoes, r.base_id, r.retencao_midia_dias
+              r.acoes, r.base_id, r.retencao_midia_dias, r.parametros
          from regra r
          join regra_alvo a on a.regra_id = r.id
          join zona z on z.id = a.zona_id
@@ -119,6 +119,9 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
         acoes: r.acoes,
         baseId: r.base_id,
         retencaoMidiaDias: r.retencao_midia_dias,
+        // O que o detector local procura, nos critérios de presença e de
+        // contagem. Vai como está: quem interpreta é o agente.
+        parametros: r.parametros ?? {},
       });
       regrasPorZona.set(r.zona_id, lista);
     }

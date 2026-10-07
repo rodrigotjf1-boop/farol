@@ -361,3 +361,35 @@ def test_cli_sem_modelo_instalado_diz_o_comando_que_resolve(tmp_path, capsys):
 
     assert codigo == 1
     assert "farol-agent detector instalar" in capsys.readouterr().err
+
+
+# ─────────── o contrato com a nuvem: o mesmo arquivo que a API lê ───────────
+
+
+def _contrato():
+    import json
+    from pathlib import Path
+
+    caminho = Path(__file__).resolve().parents[2] / "contratos" / "objetos-do-detector.json"
+    assert caminho.is_file(), f"contrato não encontrado em {caminho}"
+    return json.loads(caminho.read_text(encoding="utf-8"))
+
+
+def test_o_vocabulario_do_agente_e_o_do_contrato():
+    """A API valida o cadastro com esta mesma lista (api/testes/detector.test.ts).
+
+    Se as duas divergirem, o console aceita um critério que o agente recusa
+    — e só o log do PC da loja fica sabendo (a forma do ERR-018).
+    """
+    assert sorted(OBJETOS) == sorted(_contrato()["objetos"])
+
+
+def test_todo_exemplo_do_contrato_e_aceito_pelo_agente():
+    for exemplo in _contrato()["exemplos"]:
+        Procura.de_parametros(exemplo)
+
+
+def test_todo_recusado_do_contrato_e_recusado_pelo_agente():
+    for ruim in _contrato()["recusados"]:
+        with pytest.raises(ErroDoJuiz):
+            Procura.de_parametros(ruim)

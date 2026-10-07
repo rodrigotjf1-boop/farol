@@ -133,6 +133,15 @@ export type Regra = {
   /** Onde o critério vale. Um cadastro, vários canais — ou nenhum, quando
    *  ele foi tirado do último. */
   alvos: AlvoDoCriterio[];
+  /** O que o detector local procura, nos critérios de presença e de
+   *  contagem. Vazio nos tipos que usam só o texto. */
+  parametros: ParametrosDoDetector;
+};
+
+export type ParametrosDoDetector = {
+  objeto?: string;
+  minimo?: number;
+  maximo?: number | null;
 };
 
 export type AlvoDoCriterio = {
@@ -197,7 +206,8 @@ export const consoleApi = {
 };
 
 export const regrasApi = {
-  listar: (lojaId: string) => pedir<{ regras: Regra[] }>(`/lojas/${lojaId}/regras`),
+  listar: (lojaId: string) =>
+    pedir<{ regras: Regra[]; detector: { objetos: string[] } }>(`/lojas/${lojaId}/regras`),
 
   /** Um cadastro valendo em todos os canais de `zonaIds`. */
   criar: (lojaId: string, dados: Record<string, unknown> & { zonaIds: string[] }) =>

@@ -1,6 +1,6 @@
 // As opções de um critério, com o texto que explica cada uma na tela.
 
-import type { Regra } from '@/lib/api';
+import type { ParametrosDoDetector, Regra } from '@/lib/api';
 
 export const TIPOS: Array<{ v: Regra['tipo']; r: string; ajuda: string }> = [
   { v: 'estado', r: 'Estado', ajuda: 'um quadro responde: EPI, limpeza, organização' },
@@ -36,6 +36,25 @@ export const PRIORIDADES: Array<{ v: string; r: string }> = [
   { v: 'intermediaria', r: 'Intermediária — até 30 s' },
   { v: 'urgente', r: 'Urgente — menos de 2 s, só local' },
 ];
+
+/** Os tipos julgados pelo detector local, dentro da loja. */
+export const TIPOS_DO_DETECTOR: ReadonlyArray<string> = ['presenca', 'contagem'];
+
+/**
+ * O que o detector procura, em uma frase — ou `null` quando o critério
+ * ainda não diz. `null` num critério de presença é coisa para a tela
+ * mostrar: ele está cadastrado e não tem como ser verificado.
+ */
+export function resumoDaProcura(p: ParametrosDoDetector | undefined): string | null {
+  if (!p?.objeto) return null;
+  const minimo = p.minimo ?? 0;
+  const maximo = p.maximo ?? null;
+  if (maximo === 0) return `não deve haver ${p.objeto}`;
+  if (maximo === null) return `pelo menos ${minimo} × ${p.objeto}`;
+  if (minimo === 0) return `no máximo ${maximo} × ${p.objeto}`;
+  if (minimo === maximo) return `exatamente ${minimo} × ${p.objeto}`;
+  return `de ${minimo} a ${maximo} × ${p.objeto}`;
+}
 
 /** A mesma classe de campo do resto do console. */
 export const campo = 'w-full rounded-lg border border-farol-borda bg-farol-fundo px-3 py-2 text-sm';
