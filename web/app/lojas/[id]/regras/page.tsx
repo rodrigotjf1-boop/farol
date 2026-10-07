@@ -42,6 +42,7 @@ export default function Criterios() {
   const { id } = useParams<{ id: string }>();
   const [regras, setRegras] = useState<Regra[] | null>(null);
   const [setores, setSetores] = useState<Setor[]>([]);
+  const [objetosDoDetector, setObjetosDoDetector] = useState<string[]>([]);
   const [eu, setEu] = useState<Eu | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -54,6 +55,7 @@ export default function Criterios() {
   async function recarregar() {
     const [r, l] = await Promise.all([regrasApi.listar(id), consoleApi.loja(id)]);
     setRegras(r.regras);
+    setObjetosDoDetector(r.detector?.objetos ?? []);
     setSetores(l.setores);
   }
 
@@ -61,6 +63,7 @@ export default function Criterios() {
     Promise.all([regrasApi.listar(id), consoleApi.loja(id), api.eu()])
       .then(([r, l, u]) => {
         setRegras(r.regras);
+        setObjetosDoDetector(r.detector?.objetos ?? []);
         setSetores(l.setores);
         setEu(u);
       })
@@ -166,6 +169,7 @@ export default function Criterios() {
             setores={setores}
             regra={aberto.regra}
             marcadasDeInicio={aberto.marcadas}
+            objetosDoDetector={objetosDoDetector}
             aoCancelar={() => setAberto(null)}
             aoSalvar={async (mensagem) => {
               setAberto(null);

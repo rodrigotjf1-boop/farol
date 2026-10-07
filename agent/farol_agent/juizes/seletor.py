@@ -50,6 +50,7 @@ class SeletorDeJuiz:
         local: Juiz | None = None,
         comparacao: Juiz | None = None,
         binario: Juiz | None = None,
+        detector: Juiz | None = None,
     ) -> None:
         if modo not in MODOS:
             raise ValueError(f"modo_julgamento inválido: {modo!r}. Válidos: {MODOS}")
@@ -58,6 +59,7 @@ class SeletorDeJuiz:
         self.local = local
         self.comparacao = comparacao
         self.binario = binario
+        self.detector = detector
 
     def para(self, regra: Regra) -> Juiz:
         """O juiz desta regra, ou erro dizendo o que falta configurar."""
@@ -65,8 +67,20 @@ class SeletorDeJuiz:
             return self._exigir(self.comparacao, "comparacao", regra)
 
         if regra.tipo in SEMPRE_LOCAIS:
-            juiz = self.binario or self.local
-            return self._exigir(juiz, "binario ou local", regra)
+            # Presença e contagem têm um juiz feito para elas: o detector.
+            # Ele não lê o texto do critério — precisa dos campos da regra.
+            # A pergunta "esta regra tem os campos?" é feita AQUI, na
+            # montagem, e não na hora de julgar: senão o agente capturaria,
+            # gravaria e falharia a cada ciclo (ERR-014).
+            reserva = self.binario or self.local
+            if self.detector is not None:
+                try:
+                    self.detector.atende(regra.parametros)
+                    return self.detector
+                except ErroDoJuiz as e:
+                    if reserva is None:
+                        raise ErroDoJuiz(str(e), recuperavel=False) from None
+            return self._exigir(reserva, "detector, binario ou local", regra)
 
         # Daqui para baixo é `estado` ou `acao`.
         if regra.prioridade is Prioridade.URGENTE:
@@ -128,4 +142,10 @@ class JuizPorRegra:
             )
         juiz = self.seletor.para(regra)
         _log.debug("regra %s julgada por %s", regra.id, juiz.nome)
+        # Os campos da regra viajam pelo contexto, como o `regra_id`: é o
+        # canal que o contrato do juiz já tem. Sempre os da regra de AGORA,
+        # nunca os que foram enfileirados — se o dono corrigiu "o que
+        # procurar", a análise que estava na fila já usa a correção.
+        if regra.parametros:
+            ctx = {**ctx, "parametros": regra.parametros}
         return juiz.julgar(imagem, criterio, contexto=ctx)

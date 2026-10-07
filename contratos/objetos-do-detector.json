@@ -1,0 +1,36 @@
+{
+  "objetos": [
+    "bolsa",
+    "cadeira",
+    "celular",
+    "colher",
+    "copo",
+    "faca",
+    "forno",
+    "garfo",
+    "garrafa",
+    "geladeira",
+    "mesa",
+    "micro-ondas",
+    "mochila",
+    "notebook",
+    "pessoa",
+    "pia",
+    "tigela"
+  ],
+  "exemplos": [
+    { "objeto": "pessoa", "minimo": 1, "maximo": null },
+    { "objeto": "pessoa", "minimo": 0, "maximo": 0 },
+    { "objeto": "pessoa", "minimo": 0, "maximo": 3 },
+    { "objeto": "copo", "minimo": 2, "maximo": 2 }
+  ],
+  "recusados": [
+    {},
+    { "objeto": "espátula", "minimo": 1 },
+    { "objeto": "pessoa" },
+    { "objeto": "pessoa", "minimo": 0, "maximo": null },
+    { "objeto": "pessoa", "minimo": 3, "maximo": 1 },
+    { "objeto": "pessoa", "minimo": -1 },
+    { "objeto": "pessoa", "minimo": 1.5 }
+  ]
+}

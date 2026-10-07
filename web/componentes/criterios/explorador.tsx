@@ -18,7 +18,13 @@ import type { Ponto, Regra, Setor } from '@/lib/api';
 
 import { criteriosDoCanal, emOrdem, rotuloDoCanal } from './canais';
 import { Arquivo, Camera, Pasta, Seta } from './icones';
-import { nomeDaPrioridade, nomeDaSeveridade, nomeDoTipo } from './opcoes';
+import {
+  nomeDaPrioridade,
+  nomeDaSeveridade,
+  nomeDoTipo,
+  resumoDaProcura,
+  TIPOS_DO_DETECTOR,
+} from './opcoes';
 
 type Props = {
   setores: Setor[];
@@ -44,8 +50,25 @@ function canaisDe(regra: Regra): number {
 
 function Etiquetas({ regra }: { regra: Regra }) {
   const grave = regra.severidade === 'emergencia' || regra.severidade === 'critico';
+  const peloDetector = TIPOS_DO_DETECTOR.includes(regra.tipo);
+  const procura = resumoDaProcura(regra.parametros);
   return (
     <>
+      {peloDetector && procura && (
+        <span
+          className="rounded bg-farol-ok/15 px-1.5 py-0.5 text-xs text-farol-ok"
+          title="Julgado dentro da loja pelo detector local, sem internet"
+        >
+          {procura}
+        </span>
+      )}
+      {peloDetector && !procura && (
+        // Cadastrado e sem como ser verificado: a tela tem que dizer, senão
+        // o critério parece estar auditando.
+        <span className="rounded bg-farol-atencao/15 px-1.5 py-0.5 text-xs text-farol-atencao">
+          falta dizer o que procurar — edite
+        </span>
+      )}
       <span className="rounded bg-farol-borda/60 px-1.5 py-0.5 text-xs text-farol-suave">
         {nomeDoTipo(regra.tipo)}
       </span>

@@ -82,7 +82,7 @@ calado significa loja não auditada com console verde.
 
 | bloqueio | natureza |
 |---|---|
-| **A2.3 · detector local** não existe | regra de `presenca`, `contagem` e `comparacao` é 100% local por desenho; sem detector, o seletor recusa (corretamente) e a regra fica de fora da captura — ver ERR-014 |
+| detector local só cobre 17 objetos | presença e contagem já são julgadas na loja (A10); objeto fora da lista — a espátula — e `comparacao` ainda esperam a fase das fotos de referência |
 | migration 012 não está na nuvem | passo do dono, console do `farol-api`, depois de mesclar o PR do critério em vários canais |
 | o agente em execução é anterior ao conserto do evento | atualizar e reiniciar no notebook — até lá **nenhum evento chega à nuvem** (ver abaixo) |
 | nenhum destino de alerta cadastrado | passo do dono, **Loja → Alertas** |
@@ -1037,6 +1037,69 @@ Navegador de verdade, do início ao fim: marcar o setor (3 canais), desmarcar um
 (caixa parcial, 2), criar, tirar com a pergunta (foco inicial em "Cancelar",
 Esc cancela), último canal indo para "Sem canal", editar abrindo com os canais
 atuais. Em 375 px a página tem 375 px — sem rolagem lateral.
+
+---
+
+## A10 · Detector local: presença e contagem na loja — ✅ fase 1 (06/10/2026, migration 013)
+
+Critério de `presenca` e de `contagem` é 100% local por desenho. Até aqui
+isso queria dizer que eles **não rodavam**: o seletor recusava mandá-los à
+nuvem e não havia juiz na loja. Agora há.
+
+### O que foi construído
+
+| peça | o quê |
+|---|---|
+| `JuizDetector` (agente) | RF-DETR Nano (Apache 2.0) pelo ONNX Runtime; usa a placa de vídeo por DirectML quando há |
+| modelo fixado | `sha256` conferido na carga — o agente só carrega o modelo que foi medido; baixa só em `farol-agent detector instalar`, nunca em serviço |
+| `regra.parametros` (mig. 013) | `{"objeto","minimo","maximo"}` — o que procurar e quantos |
+| contrato | `contratos/objetos-do-detector.json`, lido pelos testes do agente E da API (a lição do ERR-018) |
+| console | no formulário, presença e contagem ganham "o que procurar" e "quantos"; o explorador mostra o que o detector procura, ou "falta dizer o que procurar" |
+
+### Por que o critério tem campos
+
+O detector não lê português. Tirar "o que procurar" do texto livre seria erro
+silencioso: "copo sujo na bancada" viraria "há copo?", e ninguém notaria que
+"sujo" foi ignorado. O texto fica para a pessoa ler; quem decide é o campo.
+
+### Os limiares vieram das câmeras da loja, não da ficha
+
+Medido em 06/10/2026 nos 14 canais com câmera de uma loja, substream 704×480:
+
+| o que era | o que o modelo disse |
+|---|---|
+| pessoas de corpo inteiro | "pessoa" 0,83 a 0,94 |
+| casaco pendurado | "pessoa" **0,41** |
+| banquinho de plástico | "vaso sanitário" **0,57** |
+| pessoa cortada no canto do quadro | não viu |
+| velocidade (i7-10700F / Radeon RX 560) | 113 ms no processador, 88 ms na placa |
+
+Daí: **0,70** para "está lá", **0,35** para "talvez". E a regra central —
+com `c` certos e `t` em dúvida, a quantidade real está entre `c` e `c + t`:
+
+- o intervalo cabe no que o critério pede → `conforme`;
+- fica inteiro fora → `nao_conforme`;
+- atravessa a fronteira → **`nao_avaliavel`**, nunca alerta.
+
+O casaco não prova presença e não acusa ninguém em área restrita. Conferido
+com o modelo real, pelo código do agente, nas próprias cenas.
+
+### O que esta fase NÃO faz
+
+| limite | fase que resolve |
+|---|---|
+| objeto fora dos 17 (a espátula) | **fase 2**: fotos de referência do cadastro (A3.5) — detecção por exemplo ou comparação por embedding |
+| objeto pequeno no substream (copo a 704×480) | medir com o fluxo principal recortado na área; não medido ainda |
+| "copo SUJO", "sem luva" — estado do objeto | não é presença: é critério de `estado`, pela nuvem ou por modelo de linguagem local (**fase 3**) |
+| pessoa parcialmente fora do quadro | limite do modelo; mitiga-se com o enquadramento da área |
+| a imagem do alerta com a caixa desenhada | junto com o envio de mídia do evento, que ainda não existe |
+
+### A abertura dos canais em fila
+
+Medido na mesma loja: os canais RTSP abrem **um de cada vez**, ~2,1 s cada
+(14 canais ≈ 30 s). Depois de abertos, 15 quadros/s por canal, ~170 kbit/s
+cada, ~4 % de processador com os 14. Não bloqueia; fica para investigar se
+é o gravador ou o `open` do OpenCV segurando a fila.
 
 ---
 

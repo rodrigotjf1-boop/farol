@@ -24,6 +24,10 @@ include = ["farol_agent*"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+# Detector local (presença e contagem). Apache 2.0 / MIT. Opcional porque o
+# agente funciona sem ele — só não julga esses dois tipos de critério.
+# No Windows com placa de vídeo, instale `onnxruntime-directml` no lugar.
+detector = ["onnxruntime>=1.20"]
 
 [tool.pytest.ini_options]
 testpaths = ["testes"]

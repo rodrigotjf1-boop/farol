@@ -36,6 +36,11 @@
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
+import {
+  lerParametrosDoDetector,
+  OBJETOS_DO_DETECTOR,
+  TIPOS_DO_DETECTOR,
+} from '../detector.js';
 import { exigirConfigurar } from '../rbac.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 
@@ -140,12 +145,26 @@ const ALVOS_DO_CRITERIO = `
  * critério inteiro não nasce, porque "criei em 2 dos 3 canais que você
  * marcou" é pior que recusar.
  */
+/**
+ * Os campos do detector para um critério que está nascendo.
+ *
+ * Presença e contagem EXIGEM os campos: sem eles o critério nasceria sem
+ * ter como ser julgado, e a tela mostraria um critério cadastrado que
+ * nunca verifica nada. Os outros tipos usam só o texto, e não guardam
+ * campo nenhum — mesmo que o corpo traga.
+ */
+function parametrosParaCriar(c: Corpo): { ok: Record<string, unknown> } | { problema: string } {
+  if (!TIPOS_DO_DETECTOR.includes(String(c.tipo))) return { ok: {} };
+  return lerParametrosDoDetector(c.parametros);
+}
+
 async function criarRegra(
   pool: pg.Pool,
   tenantId: string,
   lojaId: string | null,
   zonaIds: string[],
   c: Corpo,
+  parametros: Record<string, unknown>,
 ): Promise<Record<string, unknown> | null> {
   // `ativa` NÃO entra: a regra nasce desligada, sempre. Ligar é outra
   // ação, consciente, depois de medir.
@@ -168,16 +187,16 @@ async function criarRegra(
      nova as (
        insert into regra (loja_id, nome, tipo, criterio, processo_descricao,
                           prioridade, severidade, confianca_minima, cooldown_min,
-                          resolucao, janelas, acoes, retencao_midia_dias)
+                          resolucao, janelas, acoes, retencao_midia_dias, parametros)
        select dono.loja_id, $5, $6, $7, $8,
               coalesce($9,'intermediaria'), coalesce($10,'atencao'),
               coalesce($11, 0.700), coalesce($12, 15), $13,
               coalesce($14,'[]'::jsonb), coalesce($15,'["registro"]'::jsonb),
-              coalesce($16, 90)
+              coalesce($16, 90), $17::jsonb
          from dono
        returning id, nome, tipo, criterio, criterio_versao, prioridade,
                  severidade, confianca_minima, cooldown_min, resolucao,
-                 janelas, acoes, ativa
+                 janelas, acoes, ativa, parametros
      ),
      ligados as (
        insert into regra_alvo (regra_id, zona_id)
@@ -194,6 +213,7 @@ async function criarRegra(
       c.janelas ? JSON.stringify(c.janelas) : null,
       c.acoes ? JSON.stringify(c.acoes) : null,
       c.retencaoMidiaDias ?? null,
+      JSON.stringify(parametros),
     ],
   );
   return rows[0] ?? null;
@@ -228,7 +248,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
       `select r.id, r.nome, r.tipo, r.criterio, r.criterio_versao,
               r.processo_descricao, r.prioridade, r.severidade,
               r.confianca_minima, r.cooldown_min, r.resolucao,
-              r.janelas, r.acoes, r.ativa, r.retencao_midia_dias,
+              r.janelas, r.acoes, r.ativa, r.retencao_midia_dias, r.parametros,
               ${ALVOS_DO_CRITERIO} as alvos
          from regra r
          join loja l on l.id = r.loja_id
@@ -236,7 +256,9 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
         order by r.nome, r.criado_em`,
       [id, s.tenantId],
     );
-    return { regras: rows };
+    // O vocabulário do detector vai junto: a tela monta a lista de "o que
+    // procurar" a partir daqui, em vez de ter uma terceira cópia dela.
+    return { regras: rows, detector: { objetos: OBJETOS_DO_DETECTOR } };
   });
 
   // ─────────────── criar um critério, em um ou vários canais ───────────────
@@ -264,7 +286,12 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
       });
     }
 
-    const criada = await criarRegra(pool, s.tenantId, id, z.ids, c);
+    const campos = parametrosParaCriar(c);
+    if ('problema' in campos) {
+      return resposta.status(422).send({ erro: 'validacao', mensagem: campos.problema });
+    }
+
+    const criada = await criarRegra(pool, s.tenantId, id, z.ids, c, campos.ok);
     if (!criada) {
       return resposta.status(404).send({
         erro: 'nao_encontrada',
@@ -292,7 +319,12 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
       return resposta.status(404).send({ erro: 'nao_encontrada', mensagem: 'zona não encontrada' });
     }
 
-    const criada = await criarRegra(pool, s.tenantId, null, [id.toLowerCase()], c);
+    const campos = parametrosParaCriar(c);
+    if ('problema' in campos) {
+      return resposta.status(422).send({ erro: 'validacao', mensagem: campos.problema });
+    }
+
+    const criada = await criarRegra(pool, s.tenantId, null, [id.toLowerCase()], c, campos.ok);
     if (!criada) {
       return resposta.status(404).send({ erro: 'nao_encontrada', mensagem: 'zona não encontrada' });
     }
@@ -330,6 +362,54 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
     try {
       await cliente.query('begin');
 
+      // Os campos do detector dependem do TIPO final do critério, e o tipo
+      // pode não vir no corpo. Lê-se o atual com a linha já travada, para
+      // decidir antes de gravar — e para duas edições simultâneas passarem
+      // uma depois da outra.
+      const antes = await cliente.query(
+        `select r.tipo, r.parametros
+           from regra r
+           join loja l on l.id = r.loja_id
+          where r.id = $1 and l.tenant_id = $2
+            for update of r`,
+        [id, s.tenantId],
+      );
+      if (antes.rowCount === 0) {
+        await cliente.query('rollback');
+        return resposta.status(404).send({ erro: 'nao_encontrada', mensagem: 'regra não encontrada' });
+      }
+
+      const tipoFinal = String(c.tipo ?? antes.rows[0].tipo);
+      let novosParametros: Record<string, unknown> | null = null;   // null = mantém
+      if (TIPOS_DO_DETECTOR.includes(tipoFinal)) {
+        const lido = lerParametrosDoDetector(
+          c.parametros !== undefined ? c.parametros : antes.rows[0].parametros,
+        );
+        if ('problema' in lido) {
+          // Critério de presença antigo, ainda sem os campos, pode ter o
+          // nome corrigido sem ser barrado. Mas mexer nos campos, mudar o
+          // tipo ou LIGAR exige que eles estejam certos: ligado sem dizer
+          // o que procurar seria "Ligado" na tela com nada sendo verificado.
+          const precisaEstarCerto =
+            c.parametros !== undefined || c.tipo !== undefined || c.ativa === true;
+          if (precisaEstarCerto) {
+            await cliente.query('rollback');
+            return resposta.status(422).send({
+              erro: c.ativa === true && c.parametros === undefined ? 'sem_campos' : 'validacao',
+              mensagem:
+                c.ativa === true && c.parametros === undefined
+                  ? `este critério ainda não diz o que procurar. Edite-o e escolha o objeto antes de ligar. (${lido.problema})`
+                  : lido.problema,
+            });
+          }
+        } else if (c.parametros !== undefined) {
+          novosParametros = lido.ok;
+        }
+      } else if (c.parametros !== undefined || c.tipo !== undefined) {
+        // Tipos que usam só o texto não guardam campo de detector.
+        novosParametros = {};
+      }
+
       // A versão sobe QUANDO E SÓ QUANDO o texto do critério muda. A chave
       // de idempotência do agente inclui essa versão: sem subir, o critério
       // reescrito reaproveitaria o veredito do critério antigo — a pergunta
@@ -357,6 +437,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
                 acoes              = coalesce($12::jsonb, r.acoes),
                 ativa              = coalesce($13, r.ativa),
                 retencao_midia_dias = coalesce($14, r.retencao_midia_dias),
+                parametros         = coalesce($16::jsonb, r.parametros),
                 atualizado_em      = now()
            from loja l
           where r.id = $1
@@ -365,7 +446,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
          returning r.id, r.nome, r.tipo, r.criterio, r.criterio_versao,
                    r.prioridade, r.severidade, r.confianca_minima,
                    r.cooldown_min, r.resolucao, r.janelas, r.acoes, r.ativa,
-                   r.loja_id`,
+                   r.parametros, r.loja_id`,
         [
           id,
           c.nome != null ? String(c.nome).trim() : null,
@@ -379,6 +460,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
           typeof c.ativa === 'boolean' ? c.ativa : null,
           c.retencaoMidiaDias ?? null,
           s.tenantId,
+          novosParametros === null ? null : JSON.stringify(novosParametros),
         ],
       );
       if (rows.length === 0) {

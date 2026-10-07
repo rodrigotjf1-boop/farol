@@ -181,6 +181,9 @@ class Regra:
     base_id: str | None = None
     ativa: bool = False          # nasce desligada até ter acurácia medida
     borrar_rosto: bool = True
+    # O que os juízes que não leem português precisam saber. Para presença
+    # e contagem: {"objeto": "pessoa", "minimo": 1, "maximo": None}.
+    parametros: dict[str, Any] = field(default_factory=dict)
 
     def vale_agora(self, ts: datetime) -> bool:
         if not self.ativa:

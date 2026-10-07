@@ -13,7 +13,15 @@ import { ErroDaApi, regrasApi, type Regra, type Setor } from '@/lib/api';
 
 import { ArvoreDeCanais } from './arvore-de-canais';
 import { contarCanais } from './canais';
-import { campo, nomeDaSeveridade, PRIORIDADES, rotulo, SEVERIDADES, TIPOS } from './opcoes';
+import {
+  campo,
+  nomeDaSeveridade,
+  PRIORIDADES,
+  rotulo,
+  SEVERIDADES,
+  TIPOS,
+  TIPOS_DO_DETECTOR,
+} from './opcoes';
 
 type Props = {
   lojaId: string;
@@ -22,6 +30,8 @@ type Props = {
   regra?: Regra;
   /** Áreas que já vêm marcadas ao abrir — o canal onde se clicou "+ critério". */
   marcadasDeInicio: string[];
+  /** O que o detector local sabe procurar. Vem da API, junto com os critérios. */
+  objetosDoDetector: string[];
   aoSalvar: (mensagem: string) => Promise<void>;
   aoCancelar: () => void;
 };
@@ -31,6 +41,7 @@ export function FormularioCriterio({
   setores,
   regra,
   marcadasDeInicio,
+  objetosDoDetector,
   aoSalvar,
   aoCancelar,
 }: Props) {
@@ -47,10 +58,32 @@ export function FormularioCriterio({
     confiancaMinima: regra ? Number(regra.confianca_minima) : 0.7,
     cooldownMin: regra?.cooldown_min ?? 15,
   }));
+  // O que o detector procura. Só vale para presença e contagem; guardado
+  // sempre, para não se perder se a pessoa trocar o tipo e voltar.
+  const [objeto, setObjeto] = useState(regra?.parametros?.objeto ?? 'pessoa');
+  const [deveHaver, setDeveHaver] = useState(regra?.parametros?.maximo !== 0);
+  const [minimo, setMinimo] = useState(String(regra?.parametros?.minimo ?? 0));
+  const [maximo, setMaximo] = useState(
+    regra?.parametros?.maximo == null ? '' : String(regra.parametros.maximo),
+  );
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
   const tipo = TIPOS.find((t) => t.v === dados.tipo);
+  const peloDetector = TIPOS_DO_DETECTOR.includes(String(dados.tipo));
+
+  /** Os campos do detector, do jeito que a API espera. */
+  function parametros(): Record<string, unknown> | undefined {
+    if (!peloDetector) return undefined;
+    if (dados.tipo === 'presenca') {
+      return deveHaver ? { objeto, minimo: 1, maximo: null } : { objeto, minimo: 0, maximo: 0 };
+    }
+    return {
+      objeto,
+      minimo: minimo === '' ? 0 : Number(minimo),
+      maximo: maximo === '' ? null : Number(maximo),
+    };
+  }
   const canais = contarCanais(setores, marcadas);
   const canaisAntes = regra ? new Set(regra.alvos.map((a) => a.ponto_id)).size : 0;
 
@@ -64,15 +97,16 @@ export function FormularioCriterio({
     setSalvando(true);
     try {
       const zonaIds = [...marcadas];
+      const corpo = { ...dados, zonaIds, parametros: parametros() };
       if (regra) {
-        const r = await regrasApi.editar(regra.id, { ...dados, zonaIds });
+        const r = await regrasApi.editar(regra.id, corpo);
         await aoSalvar(
           r.desligada
             ? 'Critério salvo. Sem canal marcado, ele foi desligado e fica em "Sem canal".'
             : `Critério salvo — vale em ${r.canais} ${r.canais === 1 ? 'canal' : 'canais'}.`,
         );
       } else {
-        const r = await regrasApi.criar(lojaId, { ...dados, zonaIds });
+        const r = await regrasApi.criar(lojaId, corpo);
         await aoSalvar(
           `Critério criado em ${r.canais} ${r.canais === 1 ? 'canal' : 'canais'}. ` +
             'Ele nasce desligado: ligue depois de conferir que acerta.',
@@ -153,6 +187,93 @@ export function FormularioCriterio({
           {tipo && <p className="mt-1 text-xs text-farol-suave">{tipo.ajuda}</p>}
         </div>
 
+        {peloDetector && (
+          <fieldset className="rounded-lg border border-farol-borda p-3 sm:col-span-2">
+            <legend className="px-1 text-xs font-medium text-farol-suave">
+              O que o detector procura
+            </legend>
+            <p className="mb-3 text-xs text-farol-suave">
+              Este tipo é julgado <strong className="text-farol-tinta">dentro da loja</strong>,
+              sem internet e sem custo por análise. Quem decide são os campos abaixo — o
+              texto do critério é para a pessoa ler no alerta.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {dados.tipo === 'presenca' && (
+                <div>
+                  <label className={rotulo} htmlFor={`${prefixo}-deve`}>
+                    Regra
+                  </label>
+                  <select
+                    id={`${prefixo}-deve`}
+                    className={`mt-1 ${campo}`}
+                    value={deveHaver ? 'sim' : 'nao'}
+                    onChange={(e) => setDeveHaver(e.target.value === 'sim')}
+                  >
+                    <option value="sim">deve haver</option>
+                    <option value="nao">não deve haver</option>
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className={rotulo} htmlFor={`${prefixo}-objeto`}>
+                  O que procurar
+                </label>
+                <select
+                  id={`${prefixo}-objeto`}
+                  className={`mt-1 ${campo}`}
+                  value={objeto}
+                  onChange={(e) => setObjeto(e.target.value)}
+                >
+                  {objetosDoDetector.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {dados.tipo === 'contagem' && (
+                <>
+                  <div>
+                    <label className={rotulo} htmlFor={`${prefixo}-minimo`}>
+                      Pelo menos
+                    </label>
+                    <input
+                      id={`${prefixo}-minimo`}
+                      type="number"
+                      min={0}
+                      step={1}
+                      className={`mt-1 ${campo}`}
+                      value={minimo}
+                      onChange={(e) => setMinimo(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className={rotulo} htmlFor={`${prefixo}-maximo`}>
+                      No máximo
+                    </label>
+                    <input
+                      id={`${prefixo}-maximo`}
+                      type="number"
+                      min={0}
+                      step={1}
+                      placeholder="sem limite"
+                      className={`mt-1 ${campo}`}
+                      value={maximo}
+                      onChange={(e) => setMaximo(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+            <p className="mt-3 text-xs text-farol-suave">
+              O detector conhece só os objetos desta lista. Na dúvida ele responde “não
+              avaliável” em vez de alertar: um casaco pendurado não vira pessoa.
+            </p>
+          </fieldset>
+        )}
+
         <div className="sm:col-span-2">
           <label className={rotulo} htmlFor={`${prefixo}-criterio`}>
             O que é “conforme”
@@ -166,12 +287,22 @@ export function FormularioCriterio({
             value={String(dados.criterio)}
             onChange={(e) => muda('criterio', e.target.value)}
           />
-          {/* O texto VAI para o modelo como pergunta. Vale dizer isso aqui,
-              senão alguém escreve um rótulo e espera que funcione. */}
-          <p className="mt-1 text-xs text-farol-suave">
-            Este texto vai direto ao modelo como pergunta. Descreva o que se vê, não o
-            rótulo — “a superfície tem restos no canto” funciona melhor que “sujeira”.
-          </p>
+          {/* Dois casos, e a dica não pode mentir em nenhum. Nos tipos de
+              texto, o critério VAI para o modelo como pergunta — vale dizer,
+              senão alguém escreve um rótulo e espera que funcione. Em
+              presença e contagem ele não vai a modelo nenhum: quem decide
+              são os campos do detector. */}
+          {peloDetector ? (
+            <p className="mt-1 text-xs text-farol-suave">
+              Aqui o texto não é enviado a modelo nenhum: ele descreve a regra para quem
+              ler o alerta. O que decide são os campos de “O que o detector procura”.
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-farol-suave">
+              Este texto vai direto ao modelo como pergunta. Descreva o que se vê, não o
+              rótulo — “a superfície tem restos no canto” funciona melhor que “sujeira”.
+            </p>
+          )}
         </div>
 
         <div>
