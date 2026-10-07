@@ -313,6 +313,13 @@ câmeras reais, com o mesmo contrato de evento.
 Estudada e parqueada. O tipo `acao` já existe na migration 001; esta é a
 especificação de como ela funciona quando for implementada.
 
+> **07/10/2026 — este desenho supõe saber de qual pedido é o lanche.** Na loja
+> há quatro bancadas, vários lanches abertos em cada uma e ninguém diz qual é
+> de quem. O que falta para chegar lá, com as medidas do PC da loja, está em
+> [`estudo-montagem-em-escala.md`](estudo-montagem-em-escala.md): conferir a
+> **conta** (demanda do KDS × produção vista), não adivinhar o pedido de cada
+> lanche. As quatro decisões abaixo continuam valendo e o estudo se apoia nelas.
+
 ### A simplificação que torna o problema tratável
 
 Classificar um ingrediente entre doze possíveis é difícil e trava em ~95% por
@@ -471,6 +478,7 @@ Ao fechar o diagnóstico, o usuário leva cinco coisas:
 | DVR MHDX 3116-C | compra | A2.3 — fontes reais |
 | Câmeras de teste da montagem | compra | A4 — montagem |
 | Pedido chega ao KDS antes da montagem? | confirmar na operação | desenho do laço de montagem |
+| Cabo de rede entre o PC da loja e o gravador negociando a 10 Mbps (placa gigabit) | trocar o cabo | montagem em escala: 4 bancadas em alta + o resto da loja pedem 13,6 Mbps |
 | Distância do PC até a bancada | medir | decide se a USB entra |
 
 ---
@@ -1133,7 +1141,7 @@ com o modelo real, pelo código do agente, nas próprias cenas.
 |---|---|
 | objeto fora dos 17 (a espátula) | **fase 2**: fotos de referência do cadastro (A3.5) — detecção por exemplo ou comparação por embedding |
 | objeto pequeno no substream (copo a 704×480) | **continua sem medida**: na noite de 06/10 não havia copo em cena na bancada. Medir com um copo posto de propósito, no sub e no fluxo principal recortado |
-| contar **produção** ao longo do tempo ("do início do preparo até embalar = 1 unidade") | não é o `contagem` daqui, que conta quantos objetos há no quadro AGORA e responde conforme/não conforme. Contar produção é métrica de fluxo: pede rastreio em vídeo e um resultado que é número, não veredito. Pedido do dono em 06/10/2026 (critério "Produto"); **sem desenho ainda** — o valor está em cruzar o que a câmera viu sair com o que o Regem registrou como vendido |
+| contar **produção** ao longo do tempo ("do início do preparo até embalar = 1 unidade") | não é o `contagem` daqui, que conta quantos objetos há no quadro AGORA e responde conforme/não conforme. Contar produção é métrica de fluxo: pede rastreio em vídeo e um resultado que é número, não veredito. Pedido do dono em 06/10/2026 (critério "Produto"), detalhado por ele em 07/10: o que importa é conferir se o pedido registrado foi preparado, e conforme a ficha. **Estudo em [`estudo-montagem-em-escala.md`](estudo-montagem-em-escala.md)**, aguardando decisão |
 | "copo SUJO", "sem luva" — estado do objeto | não é presença: é critério de `estado`, pela nuvem ou por modelo de linguagem local (**fase 3**) |
 | pessoa parcialmente fora do quadro | limite do modelo; mitiga-se com o enquadramento da área |
 | a imagem do alerta com a caixa desenhada | junto com o envio de mídia do evento, que ainda não existe |
