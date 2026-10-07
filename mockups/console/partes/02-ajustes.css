@@ -103,3 +103,27 @@ td:first-child .crit { min-width: 200px; }
 .no-area-cab b { color: var(--tinta); font-weight: 600; }
 .no-area-cab .empurra { margin-left: auto; }
 .arv-canais .arv-canal-nome { flex: 1; min-width: 0; }
+
+/* ───────────── horário de funcionamento ───────────── */
+.horario-faixa { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 14px 16px; }
+.horario-faixa .selo-ic {
+  flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px;
+  background: var(--realce); color: var(--marca);
+}
+.horario-texto { flex: 1 1 240px; min-width: 0; }
+.horario-texto h2 { font: 600 15px var(--texto); letter-spacing: 0; }
+.horario-texto p { color: var(--suave); font-size: 13px; overflow-wrap: anywhere; }
+.horario-dias { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.horario-dia {
+  display: grid; grid-template-columns: minmax(0, 1fr) 112px auto 112px; align-items: center; gap: 4px 8px;
+  min-height: 48px; padding: 4px 0; border-bottom: 1px solid var(--borda);
+}
+.horario-dia:last-child { border-bottom: 0; }
+.horario-dia label { display: flex; align-items: center; gap: 9px; min-width: 0; font-weight: 600; cursor: pointer; }
+.horario-dia > span { color: var(--suave); font-size: 13px; }
+.horario-dia small { grid-column: 1 / -1; color: var(--suave); font-size: 12px; padding-left: 26px; margin-top: -2px; }
+.horario-dia .entrada { min-height: 40px; padding-inline: 8px; }
+.horario-dia.fechada label { color: var(--suave); font-weight: 500; }
+@media (max-width: 420px) {
+  .horario-dia { grid-template-columns: minmax(0, 1fr) 96px auto 96px; }
+}

@@ -93,6 +93,12 @@
       texto: 'Há no máximo 6 pessoas esperando na área do balcão.',
       meta: 'prioridade urgente · confiança mínima 0,75 · silêncio de 10 min · versão 2',
     },
+    vazio: {
+      nome: 'Ninguém no caixa com a loja fechada', tipo: 'presença', gravidade: 'crítico', grave: true, ligado: true, canais: 1,
+      quando: 'fora', procura: 'não deve haver × pessoa',
+      texto: 'Com a loja fechada, não há ninguém na área do caixa.',
+      meta: 'prioridade urgente · confiança mínima 0,80 · silêncio de 10 min · versão 1',
+    },
     posto: {
       nome: 'Alguém no balcão', tipo: 'presença', gravidade: 'atenção', ligado: true, canais: 1,
       procura: 'pelo menos 1 × pessoa',
@@ -127,7 +133,7 @@
             { nome: 'Lado do cliente', criterios: ['fila'] },
           ],
         },
-        { nome: 'Caixa', num: 'IP', criterios: [] },
+        { nome: 'Caixa', num: 'IP', criterios: ['vazio'] },
       ],
     },
     {
@@ -340,6 +346,12 @@
       `<span class="chip">${c.tipo}</span>`,
       `<span class="chip ${c.grave ? 'critico' : ''}">${c.gravidade}</span>`,
       c.canais > 1 ? `<span class="chip vazado" title="É um cadastro só: editar aqui muda em todos os canais">vale em ${c.canais} canais</span>` : '',
+      // "No horário" é o comum e não leva etiqueta; o que foge dele, leva.
+      c.quando === 'fora'
+        ? `<span class="chip vazado" title="Só é conferido com a loja fechada">${icone('moon')}fora do horário</span>`
+        : c.quando === 'sempre'
+          ? `<span class="chip vazado" title="Conferido com a loja aberta ou fechada">${icone('clock')}sempre</span>`
+          : '',
     ].join('');
     return (
       `<article class="criterio ${c.ligado ? '' : 'desligado'}" data-criterio="${chave}" data-nome="${c.nome}" data-canal="${canal}">` +
@@ -700,6 +712,7 @@
       const tipo = { estado: 'estado', 'presença': 'presenca', contagem: 'contagem' }[editando && c ? c.tipo : 'estado'] || 'estado';
       $(`#fcr-t-${tipo}`).checked = true;
       $('#fcr-texto').value = editando && c ? c.texto : '';
+      $(`#fcr-q-${editando && c && c.quando ? c.quando : 'no'}`).checked = true;
       ajustarTipo();
     }
     abrirCamada(folha, gatilho);
@@ -836,6 +849,103 @@
       primeiro.focus();
     }
   });
+
+  // ═══════════════════════ horário de funcionamento ═══════════════════════
+  // O horário é DA LOJA. Cada critério só diz se é conferido com ela aberta,
+  // fechada ou sempre — mudou o horário, mudou para todos.
+  const DIAS = [['seg', 'Segunda'], ['ter', 'Terça'], ['qua', 'Quarta'], ['qui', 'Quinta'], ['sex', 'Sexta'], ['sáb', 'Sábado'], ['dom', 'Domingo']];
+  let HORARIO = [
+    { abre: false, ini: '18:00', fim: '23:30' },
+    { abre: true, ini: '18:00', fim: '23:30' },
+    { abre: true, ini: '18:00', fim: '23:30' },
+    { abre: true, ini: '18:00', fim: '23:30' },
+    { abre: true, ini: '18:00', fim: '01:00' },
+    { abre: true, ini: '18:00', fim: '01:00' },
+    { abre: true, ini: '18:00', fim: '23:30' },
+  ];
+  // O relógio do protótipo: quarta-feira, 21:40 (o mesmo do quadro do canal).
+  const AGORA = { dia: 2, hora: '21:40' };
+
+  function juntarDias(indices) {
+    // [1,2,3,6] → "ter a qui e dom"
+    const grupos = [];
+    for (const i of indices) {
+      const ultimo = grupos[grupos.length - 1];
+      if (ultimo && ultimo[1] === i - 1) ultimo[1] = i;
+      else grupos.push([i, i]);
+    }
+    const nomes = grupos.map(([a, b]) => (a === b ? DIAS[a][0] : b === a + 1 ? `${DIAS[a][0]} e ${DIAS[b][0]}` : `${DIAS[a][0]} a ${DIAS[b][0]}`));
+    return nomes.length > 1 ? `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}` : nomes[0];
+  }
+
+  function resumoDoHorario() {
+    const abertos = HORARIO.map((h, i) => ({ ...h, i })).filter((h) => h.abre);
+    if (!abertos.length) return 'não informado — a loja é tratada como sempre aberta';
+    const porFaixa = new Map();
+    for (const h of abertos) {
+      const k = `${h.ini}|${h.fim}`;
+      porFaixa.set(k, [...(porFaixa.get(k) ?? []), h.i]);
+    }
+    const partes = [...porFaixa].map(([k, dias]) => {
+      const [ini, fim] = k.split('|');
+      return `${juntarDias(dias)}, ${ini} às ${fim}`;
+    });
+    const fechados = HORARIO.map((h, i) => (h.abre ? -1 : i)).filter((i) => i >= 0);
+    if (fechados.length) partes.push(`${juntarDias(fechados)} ${fechados.length === 1 ? 'fechada' : 'fechadas'}`);
+    return partes.join(' · ');
+  }
+
+  function abertaAgora() {
+    // Aberta se a hora cai na faixa de hoje, ou na de ontem quando ela
+    // atravessa a meia-noite.
+    const hoje = HORARIO[AGORA.dia];
+    const ontem = HORARIO[(AGORA.dia + 6) % 7];
+    const cruza = (h) => h.fim <= h.ini;
+    if (hoje.abre && AGORA.hora >= hoje.ini && (cruza(hoje) || AGORA.hora < hoje.fim)) return hoje.fim;
+    if (ontem.abre && cruza(ontem) && AGORA.hora < ontem.fim) return ontem.fim;
+    return null;
+  }
+
+  function desenharHorario() {
+    const resumo = resumoDoHorario();
+    for (const e of $$('[data-horario-resumo]')) e.textContent = resumo;
+    const chip = $('[data-horario-agora]');
+    const informado = HORARIO.some((h) => h.abre);
+    const ate = abertaAgora();
+    chip.className = `chip ${!informado ? 'atencao' : ate ? 'ok' : ''}`;
+    chip.innerHTML = !informado
+      ? 'sem horário informado'
+      : ate
+        ? `<span class="ponto ok pulsa"></span>aberta agora · fecha às ${ate}`
+        : `${icone('moon')}fechada agora`;
+
+    $('[data-horario-dias]').innerHTML = HORARIO.map((h, i) => {
+      const nota = !h.abre ? 'fechada' : h.fim <= h.ini ? 'fecha no dia seguinte' : '';
+      return (
+        `<li class="horario-dia${h.abre ? '' : ' fechada'}"><label><input class="caixa" type="checkbox" data-h-abre="${i}" ${h.abre ? 'checked' : ''}>${DIAS[i][1]}</label>` +
+        `<input class="entrada mono" type="time" data-h-ini="${i}" value="${h.ini}" ${h.abre ? '' : 'disabled'} aria-label="${DIAS[i][1]}: abre às">` +
+        `<span>às</span>` +
+        `<input class="entrada mono" type="time" data-h-fim="${i}" value="${h.fim}" ${h.abre ? '' : 'disabled'} aria-label="${DIAS[i][1]}: fecha às">` +
+        `${nota ? `<small>${nota}</small>` : ''}</li>`
+      );
+    }).join('');
+  }
+
+  $('[data-horario-dias]').addEventListener('change', (ev) => {
+    const e = ev.target;
+    if (e.dataset.hAbre !== undefined) HORARIO[Number(e.dataset.hAbre)].abre = e.checked;
+    if (e.dataset.hIni !== undefined && e.value) HORARIO[Number(e.dataset.hIni)].ini = e.value;
+    if (e.dataset.hFim !== undefined && e.value) HORARIO[Number(e.dataset.hFim)].fim = e.value;
+    desenharHorario();
+  });
+  $('[data-horario-copiar]').addEventListener('click', () => {
+    const molde = HORARIO.find((h) => h.abre);
+    if (!molde) return avisar('Marque um dia e ponha as horas dele primeiro.');
+    HORARIO = HORARIO.map(() => ({ ...molde }));
+    desenharHorario();
+    avisar('Horário copiado para os sete dias. Desmarque os dias em que a loja não abre.');
+  });
+  desenharHorario();
 
   // ═══════════════════════ áreas do canal ═══════════════════════
   // Um canal pode ter mais de uma área, e cada área tem os seus critérios:

@@ -1051,6 +1051,30 @@ td:first-child .crit { min-width: 200px; }
 .no-area-cab .empurra { margin-left: auto; }
 .arv-canais .arv-canal-nome { flex: 1; min-width: 0; }
 
+/* ───────────── horário de funcionamento ───────────── */
+.horario-faixa { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 14px 16px; }
+.horario-faixa .selo-ic {
+  flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px;
+  background: var(--realce); color: var(--marca);
+}
+.horario-texto { flex: 1 1 240px; min-width: 0; }
+.horario-texto h2 { font: 600 15px var(--texto); letter-spacing: 0; }
+.horario-texto p { color: var(--suave); font-size: 13px; overflow-wrap: anywhere; }
+.horario-dias { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.horario-dia {
+  display: grid; grid-template-columns: minmax(0, 1fr) 112px auto 112px; align-items: center; gap: 4px 8px;
+  min-height: 48px; padding: 4px 0; border-bottom: 1px solid var(--borda);
+}
+.horario-dia:last-child { border-bottom: 0; }
+.horario-dia label { display: flex; align-items: center; gap: 9px; min-width: 0; font-weight: 600; cursor: pointer; }
+.horario-dia > span { color: var(--suave); font-size: 13px; }
+.horario-dia small { grid-column: 1 / -1; color: var(--suave); font-size: 12px; padding-left: 26px; margin-top: -2px; }
+.horario-dia .entrada { min-height: 40px; padding-inline: 8px; }
+.horario-dia.fechada label { color: var(--suave); font-weight: 500; }
+@media (max-width: 420px) {
+  .horario-dia { grid-template-columns: minmax(0, 1fr) 96px auto 96px; }
+}
+
 </style>
 </head>
 <body>
@@ -1317,8 +1341,8 @@ td:first-child .crit { min-width: 200px; }
             <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-list-checks"/></svg></span>
             <div>
               <span class="rot">Critérios ligados</span>
-              <span class="val">5 de 6</span>
-              <small>1 desligado, aguardando ajuste</small>
+              <span class="val">7 de 8</span>
+              <small>1 desligado · 1 só confere com a loja fechada</small>
             </div>
           </li>
         </ul>
@@ -1758,6 +1782,17 @@ td:first-child .crit { min-width: 200px; }
       </header>
 
       <div class="corpo" data-quando="normal">
+        <section class="cartao horario-faixa" aria-labelledby="t-horario">
+          <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg></span>
+          <div class="horario-texto">
+            <h2 id="t-horario">Horário de funcionamento</h2>
+            <p data-horario-resumo></p>
+          </div>
+          <span class="chip" data-horario-agora></span>
+          <button class="btn secundario mini" type="button" data-folha="folha-horario" data-modo="editar" data-so-config><svg class="ic p" aria-hidden="true"><use href="#i-pencil"/></svg>Editar horário</button>
+        </section>
+        <p class="nota">Cada critério diz em que horário é conferido: <b>no horário</b> (só com a loja aberta), <b>fora do horário</b> (só com ela fechada) ou <b>sempre</b>. Fora da sua hora, o critério não é olhado e não avisa.</p>
+
         <div class="arvore" data-arvore></div>
 
         <section class="secao" aria-labelledby="t-semcanal">
@@ -2323,6 +2358,16 @@ td:first-child .crit { min-width: 200px; }
       <small data-arv-conta aria-live="polite">Nenhum canal marcado.</small>
     </div>
 
+    <div class="campo">
+      <span class="rotulo" id="fcr-quando-r">Em que horário conferir</span>
+      <div class="escolhas" role="radiogroup" aria-labelledby="fcr-quando-r">
+        <div class="escolha"><input type="radio" name="fcr-quando" id="fcr-q-no" value="no" checked><label for="fcr-q-no"><b><svg class="ic" aria-hidden="true"><use href="#i-store"/></svg>No horário</b><small>só com a loja aberta</small></label></div>
+        <div class="escolha"><input type="radio" name="fcr-quando" id="fcr-q-fora" value="fora"><label for="fcr-q-fora"><b><svg class="ic" aria-hidden="true"><use href="#i-moon"/></svg>Fora do horário</b><small>só com a loja fechada</small></label></div>
+        <div class="escolha"><input type="radio" name="fcr-quando" id="fcr-q-sempre" value="sempre"><label for="fcr-q-sempre"><b><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>Sempre</b><small>aberta ou fechada</small></label></div>
+      </div>
+      <small>O horário é o da loja: <span data-horario-resumo></span>. Mudou lá, mudou para todos os critérios.</small>
+    </div>
+
     <fieldset>
       <legend>Quando avisar</legend>
       <div class="campos">
@@ -2337,6 +2382,23 @@ td:first-child .crit { min-width: 200px; }
     <button class="btn primario" type="submit" form="f-criterio" data-rotulo-novo="Criar critério" data-rotulo-editar="Salvar critério">Criar critério</button>
     <button class="btn secundario" type="button" data-fecha>Cancelar</button>
     <p class="nota" data-so-novo>O critério nasce <b>desligado</b>. Ligue depois de conferir que ele acerta.</p>
+  </footer>
+</section>
+
+<section class="folha" id="folha-horario" role="dialog" aria-modal="true" aria-labelledby="fho-titulo" hidden>
+  <header class="folha-cab">
+    <div><h2 id="fho-titulo">Horário de funcionamento</h2><p>Quando a loja está aberta. É por ele que cada critério sabe se é hora de conferir.</p></div>
+    <button class="btn fantasma quadrado mini" type="button" data-fecha aria-label="Fechar"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </header>
+  <form class="folha-corpo" id="f-horario" data-sucesso-editar="Horário salvo. O agente passa a segui-lo na próxima batida.">
+    <ul class="horario-dias" data-horario-dias></ul>
+    <button class="elo" type="button" data-horario-copiar style="align-self:flex-start">Copiar o primeiro dia aberto para os outros</button>
+    <p class="nota">Se a loja fecha depois da meia-noite, ponha a hora de fechar normalmente (01:00): o Farol entende que é no dia seguinte.</p>
+    <p class="nota">Sem nenhum dia marcado, a loja é tratada como <b>sempre aberta</b> — é como funciona hoje.</p>
+  </form>
+  <footer class="folha-pe">
+    <button class="btn primario" type="submit" form="f-horario">Salvar horário</button>
+    <button class="btn secundario" type="button" data-fecha>Cancelar</button>
   </footer>
 </section>
 
@@ -2524,6 +2586,12 @@ td:first-child .crit { min-width: 200px; }
       texto: 'Há no máximo 6 pessoas esperando na área do balcão.',
       meta: 'prioridade urgente · confiança mínima 0,75 · silêncio de 10 min · versão 2',
     },
+    vazio: {
+      nome: 'Ninguém no caixa com a loja fechada', tipo: 'presença', gravidade: 'crítico', grave: true, ligado: true, canais: 1,
+      quando: 'fora', procura: 'não deve haver × pessoa',
+      texto: 'Com a loja fechada, não há ninguém na área do caixa.',
+      meta: 'prioridade urgente · confiança mínima 0,80 · silêncio de 10 min · versão 1',
+    },
     posto: {
       nome: 'Alguém no balcão', tipo: 'presença', gravidade: 'atenção', ligado: true, canais: 1,
       procura: 'pelo menos 1 × pessoa',
@@ -2558,7 +2626,7 @@ td:first-child .crit { min-width: 200px; }
             { nome: 'Lado do cliente', criterios: ['fila'] },
           ],
         },
-        { nome: 'Caixa', num: 'IP', criterios: [] },
+        { nome: 'Caixa', num: 'IP', criterios: ['vazio'] },
       ],
     },
     {
@@ -2771,6 +2839,12 @@ td:first-child .crit { min-width: 200px; }
       `<span class="chip">${c.tipo}</span>`,
       `<span class="chip ${c.grave ? 'critico' : ''}">${c.gravidade}</span>`,
       c.canais > 1 ? `<span class="chip vazado" title="É um cadastro só: editar aqui muda em todos os canais">vale em ${c.canais} canais</span>` : '',
+      // "No horário" é o comum e não leva etiqueta; o que foge dele, leva.
+      c.quando === 'fora'
+        ? `<span class="chip vazado" title="Só é conferido com a loja fechada">${icone('moon')}fora do horário</span>`
+        : c.quando === 'sempre'
+          ? `<span class="chip vazado" title="Conferido com a loja aberta ou fechada">${icone('clock')}sempre</span>`
+          : '',
     ].join('');
     return (
       `<article class="criterio ${c.ligado ? '' : 'desligado'}" data-criterio="${chave}" data-nome="${c.nome}" data-canal="${canal}">` +
@@ -3131,6 +3205,7 @@ td:first-child .crit { min-width: 200px; }
       const tipo = { estado: 'estado', 'presença': 'presenca', contagem: 'contagem' }[editando && c ? c.tipo : 'estado'] || 'estado';
       $(`#fcr-t-${tipo}`).checked = true;
       $('#fcr-texto').value = editando && c ? c.texto : '';
+      $(`#fcr-q-${editando && c && c.quando ? c.quando : 'no'}`).checked = true;
       ajustarTipo();
     }
     abrirCamada(folha, gatilho);
@@ -3267,6 +3342,103 @@ td:first-child .crit { min-width: 200px; }
       primeiro.focus();
     }
   });
+
+  // ═══════════════════════ horário de funcionamento ═══════════════════════
+  // O horário é DA LOJA. Cada critério só diz se é conferido com ela aberta,
+  // fechada ou sempre — mudou o horário, mudou para todos.
+  const DIAS = [['seg', 'Segunda'], ['ter', 'Terça'], ['qua', 'Quarta'], ['qui', 'Quinta'], ['sex', 'Sexta'], ['sáb', 'Sábado'], ['dom', 'Domingo']];
+  let HORARIO = [
+    { abre: false, ini: '18:00', fim: '23:30' },
+    { abre: true, ini: '18:00', fim: '23:30' },
+    { abre: true, ini: '18:00', fim: '23:30' },
+    { abre: true, ini: '18:00', fim: '23:30' },
+    { abre: true, ini: '18:00', fim: '01:00' },
+    { abre: true, ini: '18:00', fim: '01:00' },
+    { abre: true, ini: '18:00', fim: '23:30' },
+  ];
+  // O relógio do protótipo: quarta-feira, 21:40 (o mesmo do quadro do canal).
+  const AGORA = { dia: 2, hora: '21:40' };
+
+  function juntarDias(indices) {
+    // [1,2,3,6] → "ter a qui e dom"
+    const grupos = [];
+    for (const i of indices) {
+      const ultimo = grupos[grupos.length - 1];
+      if (ultimo && ultimo[1] === i - 1) ultimo[1] = i;
+      else grupos.push([i, i]);
+    }
+    const nomes = grupos.map(([a, b]) => (a === b ? DIAS[a][0] : b === a + 1 ? `${DIAS[a][0]} e ${DIAS[b][0]}` : `${DIAS[a][0]} a ${DIAS[b][0]}`));
+    return nomes.length > 1 ? `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}` : nomes[0];
+  }
+
+  function resumoDoHorario() {
+    const abertos = HORARIO.map((h, i) => ({ ...h, i })).filter((h) => h.abre);
+    if (!abertos.length) return 'não informado — a loja é tratada como sempre aberta';
+    const porFaixa = new Map();
+    for (const h of abertos) {
+      const k = `${h.ini}|${h.fim}`;
+      porFaixa.set(k, [...(porFaixa.get(k) ?? []), h.i]);
+    }
+    const partes = [...porFaixa].map(([k, dias]) => {
+      const [ini, fim] = k.split('|');
+      return `${juntarDias(dias)}, ${ini} às ${fim}`;
+    });
+    const fechados = HORARIO.map((h, i) => (h.abre ? -1 : i)).filter((i) => i >= 0);
+    if (fechados.length) partes.push(`${juntarDias(fechados)} ${fechados.length === 1 ? 'fechada' : 'fechadas'}`);
+    return partes.join(' · ');
+  }
+
+  function abertaAgora() {
+    // Aberta se a hora cai na faixa de hoje, ou na de ontem quando ela
+    // atravessa a meia-noite.
+    const hoje = HORARIO[AGORA.dia];
+    const ontem = HORARIO[(AGORA.dia + 6) % 7];
+    const cruza = (h) => h.fim <= h.ini;
+    if (hoje.abre && AGORA.hora >= hoje.ini && (cruza(hoje) || AGORA.hora < hoje.fim)) return hoje.fim;
+    if (ontem.abre && cruza(ontem) && AGORA.hora < ontem.fim) return ontem.fim;
+    return null;
+  }
+
+  function desenharHorario() {
+    const resumo = resumoDoHorario();
+    for (const e of $$('[data-horario-resumo]')) e.textContent = resumo;
+    const chip = $('[data-horario-agora]');
+    const informado = HORARIO.some((h) => h.abre);
+    const ate = abertaAgora();
+    chip.className = `chip ${!informado ? 'atencao' : ate ? 'ok' : ''}`;
+    chip.innerHTML = !informado
+      ? 'sem horário informado'
+      : ate
+        ? `<span class="ponto ok pulsa"></span>aberta agora · fecha às ${ate}`
+        : `${icone('moon')}fechada agora`;
+
+    $('[data-horario-dias]').innerHTML = HORARIO.map((h, i) => {
+      const nota = !h.abre ? 'fechada' : h.fim <= h.ini ? 'fecha no dia seguinte' : '';
+      return (
+        `<li class="horario-dia${h.abre ? '' : ' fechada'}"><label><input class="caixa" type="checkbox" data-h-abre="${i}" ${h.abre ? 'checked' : ''}>${DIAS[i][1]}</label>` +
+        `<input class="entrada mono" type="time" data-h-ini="${i}" value="${h.ini}" ${h.abre ? '' : 'disabled'} aria-label="${DIAS[i][1]}: abre às">` +
+        `<span>às</span>` +
+        `<input class="entrada mono" type="time" data-h-fim="${i}" value="${h.fim}" ${h.abre ? '' : 'disabled'} aria-label="${DIAS[i][1]}: fecha às">` +
+        `${nota ? `<small>${nota}</small>` : ''}</li>`
+      );
+    }).join('');
+  }
+
+  $('[data-horario-dias]').addEventListener('change', (ev) => {
+    const e = ev.target;
+    if (e.dataset.hAbre !== undefined) HORARIO[Number(e.dataset.hAbre)].abre = e.checked;
+    if (e.dataset.hIni !== undefined && e.value) HORARIO[Number(e.dataset.hIni)].ini = e.value;
+    if (e.dataset.hFim !== undefined && e.value) HORARIO[Number(e.dataset.hFim)].fim = e.value;
+    desenharHorario();
+  });
+  $('[data-horario-copiar]').addEventListener('click', () => {
+    const molde = HORARIO.find((h) => h.abre);
+    if (!molde) return avisar('Marque um dia e ponha as horas dele primeiro.');
+    HORARIO = HORARIO.map(() => ({ ...molde }));
+    desenharHorario();
+    avisar('Horário copiado para os sete dias. Desmarque os dias em que a loja não abre.');
+  });
+  desenharHorario();
 
   // ═══════════════════════ áreas do canal ═══════════════════════
   // Um canal pode ter mais de uma área, e cada área tem os seus critérios:

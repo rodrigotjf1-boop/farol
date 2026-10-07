@@ -17,6 +17,17 @@
       </header>
 
       <div class="corpo" data-quando="normal">
+        <section class="cartao horario-faixa" aria-labelledby="t-horario">
+          <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg></span>
+          <div class="horario-texto">
+            <h2 id="t-horario">Horário de funcionamento</h2>
+            <p data-horario-resumo></p>
+          </div>
+          <span class="chip" data-horario-agora></span>
+          <button class="btn secundario mini" type="button" data-folha="folha-horario" data-modo="editar" data-so-config><svg class="ic p" aria-hidden="true"><use href="#i-pencil"/></svg>Editar horário</button>
+        </section>
+        <p class="nota">Cada critério diz em que horário é conferido: <b>no horário</b> (só com a loja aberta), <b>fora do horário</b> (só com ela fechada) ou <b>sempre</b>. Fora da sua hora, o critério não é olhado e não avisa.</p>
+
         <div class="arvore" data-arvore></div>
 
         <section class="secao" aria-labelledby="t-semcanal">

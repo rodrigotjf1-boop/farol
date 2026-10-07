@@ -142,6 +142,16 @@
       <small data-arv-conta aria-live="polite">Nenhum canal marcado.</small>
     </div>
 
+    <div class="campo">
+      <span class="rotulo" id="fcr-quando-r">Em que horário conferir</span>
+      <div class="escolhas" role="radiogroup" aria-labelledby="fcr-quando-r">
+        <div class="escolha"><input type="radio" name="fcr-quando" id="fcr-q-no" value="no" checked><label for="fcr-q-no"><b><svg class="ic" aria-hidden="true"><use href="#i-store"/></svg>No horário</b><small>só com a loja aberta</small></label></div>
+        <div class="escolha"><input type="radio" name="fcr-quando" id="fcr-q-fora" value="fora"><label for="fcr-q-fora"><b><svg class="ic" aria-hidden="true"><use href="#i-moon"/></svg>Fora do horário</b><small>só com a loja fechada</small></label></div>
+        <div class="escolha"><input type="radio" name="fcr-quando" id="fcr-q-sempre" value="sempre"><label for="fcr-q-sempre"><b><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>Sempre</b><small>aberta ou fechada</small></label></div>
+      </div>
+      <small>O horário é o da loja: <span data-horario-resumo></span>. Mudou lá, mudou para todos os critérios.</small>
+    </div>
+
     <fieldset>
       <legend>Quando avisar</legend>
       <div class="campos">
@@ -156,6 +166,23 @@
     <button class="btn primario" type="submit" form="f-criterio" data-rotulo-novo="Criar critério" data-rotulo-editar="Salvar critério">Criar critério</button>
     <button class="btn secundario" type="button" data-fecha>Cancelar</button>
     <p class="nota" data-so-novo>O critério nasce <b>desligado</b>. Ligue depois de conferir que ele acerta.</p>
+  </footer>
+</section>
+
+<section class="folha" id="folha-horario" role="dialog" aria-modal="true" aria-labelledby="fho-titulo" hidden>
+  <header class="folha-cab">
+    <div><h2 id="fho-titulo">Horário de funcionamento</h2><p>Quando a loja está aberta. É por ele que cada critério sabe se é hora de conferir.</p></div>
+    <button class="btn fantasma quadrado mini" type="button" data-fecha aria-label="Fechar"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </header>
+  <form class="folha-corpo" id="f-horario" data-sucesso-editar="Horário salvo. O agente passa a segui-lo na próxima batida.">
+    <ul class="horario-dias" data-horario-dias></ul>
+    <button class="elo" type="button" data-horario-copiar style="align-self:flex-start">Copiar o primeiro dia aberto para os outros</button>
+    <p class="nota">Se a loja fecha depois da meia-noite, ponha a hora de fechar normalmente (01:00): o Farol entende que é no dia seguinte.</p>
+    <p class="nota">Sem nenhum dia marcado, a loja é tratada como <b>sempre aberta</b> — é como funciona hoje.</p>
+  </form>
+  <footer class="folha-pe">
+    <button class="btn primario" type="submit" form="f-horario">Salvar horário</button>
+    <button class="btn secundario" type="button" data-fecha>Cancelar</button>
   </footer>
 </section>
 
