@@ -84,7 +84,10 @@ def _leitor_rtsp(ponto: PontoConfig):
     from farol_agent.servico import url_do_ponto
 
     # A URL leva a senha embutida e não é registrada em lugar nenhum.
-    leitor = _LeitorContinuo(url_do_ponto(ponto, sub=True), f"visor-{ponto.id}")
+    leitor = _LeitorContinuo(
+        url_do_ponto(ponto, sub=True), f"visor-{ponto.id}",
+        (ponto.host, int(ponto.porta or 554)) if ponto.host else None,
+    )
     leitor.iniciar()
     return leitor
 
@@ -182,6 +185,12 @@ class Canais:
 
         atual = canal.leitor.ultimo()
         if atual is None:
+            # O leitor sabe por que não há imagem (o gravador não respondeu,
+            # o canal não abriu). "Abrindo…" para sempre não diz a ninguém
+            # que o cadastro do canal está errado.
+            motivo = getattr(canal.leitor, "ultimo_erro", None)
+            if motivo:
+                return None, "erro", f"{motivo} — confira o cadastro deste canal no console"
             if canal.jpeg is None:
                 return None, "abrindo", ""
             # Havia imagem e o fluxo parou: dizer isso é melhor que congelar

@@ -78,7 +78,10 @@ def capturar_quadro(ponto: PontoConfig) -> dict[str, Any]:
     """
     from farol_agent.fontes.rtsp import ErroDaFonte, FonteRTSP
 
-    fonte = FonteRTSP(ponto.id, url_do_ponto(ponto), abrir_sub=False)
+    fonte = FonteRTSP(
+        ponto.id, url_do_ponto(ponto), abrir_sub=False,
+        alcance=(ponto.host, int(ponto.porta or 554)) if ponto.host else None,
+    )
     try:
         q = preview.capturar(fonte)
     except (preview.ErroDoPreview, ErroDaFonte) as e:

@@ -216,6 +216,21 @@ def test_canal_que_nao_abre_devolve_o_motivo_sem_estourar():
     assert "FAROL_DVR_SENHA" in detalhe
 
 
+def test_canal_com_endereco_errado_diz_o_motivo_em_vez_de_abrindo_para_sempre():
+    # Na loja, o canal "Bancada" ficou com o endereço antigo do gravador. A
+    # página mostrava "abrindo o canal…" e nunca dizia por quê.
+    leitor = LeitorFalso(mudo=True)
+    leitor.ultimo_erro = "o gravador não respondeu na rede"
+    canais = Canais(lambda: _config(BANCADA), abrir=lambda p: leitor)
+
+    jpeg, estado, detalhe = canais.quadro("p1")
+
+    assert jpeg is None
+    assert estado == "erro"
+    assert "não respondeu" in detalhe and "console" in detalhe
+    assert "192.168" not in detalhe, "o endereço não vai para a página"
+
+
 def test_canal_inexistente_e_None(abertos):
     canais = Canais(lambda: _config(BANCADA), abrir=abertos)
 

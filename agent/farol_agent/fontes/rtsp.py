@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import logging
 import os
+import socket
 import threading
 import time
 from datetime import datetime
@@ -68,8 +69,50 @@ class ErroDaFonte(Exception):
         self.dica = dica
 
 
+# ─────────────── canal que não responde não segura os outros ───────────────
+# Medido na loja em 07/10/2026: um canal cadastrado com o endereço antigo do
+# gravador levava **30 segundos** para desistir, a cada tentativa — e, nesse
+# tempo, NENHUM outro canal abria. O OpenCV abre um fluxo de cada vez (é uma
+# trava dele, global), então quem espera uma resposta que não vem prende a
+# fila inteira. As opções de `timeout` do FFmpeg, acima, não seguraram: quem
+# cortou em 30 s foi o limite do próprio OpenCV.
+#
+# Duas defesas, e a primeira é a que resolve:
+#
+#  1. Antes de chamar o OpenCV, perguntar à rede se alguém atende naquele
+#     endereço. É uma conexão TCP comum, fora da trava, com 1,5 s de limite.
+#     Não atendeu, nem se tenta abrir.
+#  2. Dizer ao OpenCV para desistir em 5 s, não em 30 — para o caso de o
+#     gravador atender e depois calar.
+ALCANCE_SEG = 1.5
+ABRIR_MS = 5000
+LER_MS = 5000
+
+
+def alcanca(host: str, porta: int, limite: float = ALCANCE_SEG) -> bool:
+    """Alguém atende em `host:porta`? Pergunta barata, fora do OpenCV."""
+    try:
+        with socket.create_connection((host, porta), timeout=limite):
+            return True
+    except OSError:
+        return False
+
+
 def _abrir(url: str) -> cv2.VideoCapture:
-    cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
+    parametros: list[int] = []
+    for nome, valor in (("CAP_PROP_OPEN_TIMEOUT_MSEC", ABRIR_MS), ("CAP_PROP_READ_TIMEOUT_MSEC", LER_MS)):
+        prop = getattr(cv2, nome, None)
+        if prop is not None:
+            parametros += [int(prop), valor]
+    try:
+        cap = (
+            cv2.VideoCapture(url, cv2.CAP_FFMPEG, parametros)
+            if parametros
+            else cv2.VideoCapture(url, cv2.CAP_FFMPEG)
+        )
+    except (TypeError, cv2.error):
+        # OpenCV antigo, sem a forma com parâmetros: abre como sempre abriu.
+        cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
     # Buffer de 1: pede ao backend para não acumular. Nem todo backend
     # respeita — por isso o leitor contínuo drena mesmo assim.
     try:
@@ -82,15 +125,22 @@ def _abrir(url: str) -> cv2.VideoCapture:
 class _LeitorContinuo:
     """Drena o fluxo numa thread e guarda só o quadro mais recente."""
 
-    def __init__(self, url: str, nome: str) -> None:
+    def __init__(self, url: str, nome: str, alcance: tuple[str, int] | None = None) -> None:
         self.url = url
         self.nome = nome
+        # `(host, porta)` do gravador, quando se sabe. É o que permite
+        # perguntar à rede antes de prender a fila do OpenCV.
+        self.alcance = alcance
         self._cap: cv2.VideoCapture | None = None
         self._ultimo: tuple[datetime, object] | None = None
         self._trava = threading.Lock()
         self._parar = threading.Event()
         self._thread: threading.Thread | None = None
         self.reconexoes = 0
+        # Por que não há imagem, em português, sem endereço nem senha.
+        # `None` enquanto está tudo bem. É o que a página dos canais mostra.
+        self.ultimo_erro: str | None = None
+        self._avisou = False
 
     def iniciar(self) -> None:
         if self._thread is not None:
@@ -100,14 +150,33 @@ class _LeitorContinuo:
         )
         self._thread.start()
 
+    def _falhou(self, motivo: str, detalhe: str = "") -> None:
+        """Registra a falha UMA vez por sequência. Canal fora do ar tenta de
+        novo para sempre; um aviso a cada tentativa afogaria o log e
+        esconderia a falha seguinte (a lição do ERR-014)."""
+        self.ultimo_erro = motivo
+        self.reconexoes += 1
+        if not self._avisou:
+            self._avisou = True
+            _log.warning(
+                "%s: %s%s. Sigo tentando, sem repetir este aviso.",
+                self.nome, motivo, f" ({detalhe})" if detalhe else "",
+            )
+
     def _laco(self) -> None:
         espera = 1.0
         while not self._parar.is_set():
+            if self.alcance is not None and not alcanca(*self.alcance):
+                self._falhou("o gravador não respondeu na rede", "%s:%s" % self.alcance)
+                if self._parar.wait(espera):
+                    return
+                espera = min(espera * 2, 15.0)
+                continue
+
             cap = _abrir(self.url)
             if not cap.isOpened():
                 cap.release()
-                _log.warning("%s: não abriu; tentando em %.0fs", self.nome, espera)
-                self.reconexoes += 1
+                self._falhou("o canal não abriu (usuário, senha ou número do canal?)")
                 if self._parar.wait(espera):
                     return
                 espera = min(espera * 2, 15.0)
@@ -123,6 +192,10 @@ class _LeitorContinuo:
                     _log.info("%s: fluxo interrompido, religando", self.nome)
                     self.reconexoes += 1
                     break
+                if self._avisou:
+                    _log.info("%s: voltou depois de %d tentativa(s)", self.nome, self.reconexoes)
+                    self._avisou = False
+                self.ultimo_erro = None
                 with self._trava:
                     self._ultimo = (datetime.now(), quadro)
             cap.release()
@@ -159,11 +232,15 @@ class FonteRTSP:
         url_sub: str | None = None,
         *,
         abrir_sub: bool = True,
+        alcance: tuple[str, int] | None = None,
     ) -> None:
         self.ponto_id = ponto_id
         self.url_main = url_main
         self.url_sub = url_sub
-        self._sub = _LeitorContinuo(url_sub, f"{ponto_id}-sub") if url_sub else None
+        # `(host, porta)` do gravador: ver "canal que não responde não segura
+        # os outros", no topo deste arquivo.
+        self.alcance = alcance
+        self._sub = _LeitorContinuo(url_sub, f"{ponto_id}-sub", alcance) if url_sub else None
         if self._sub is not None and abrir_sub:
             self._sub.iniciar()
 
@@ -206,6 +283,15 @@ class FonteRTSP:
                 )
                 time.sleep(0.12)
             return saida
+
+        if self.alcance is not None and not alcanca(*self.alcance):
+            # Nem chama o OpenCV: ele esperaria, com a fila dos outros
+            # canais presa atrás.
+            raise ErroDaFonte(
+                "o gravador não respondeu na rede (%s:%s)" % self.alcance,
+                dica="o gravador está ligado e neste endereço? Confira o endereço "
+                "do canal no console",
+            )
 
         cap = _abrir(self.url_main)
         if not cap.isOpened():
