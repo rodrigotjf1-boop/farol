@@ -101,8 +101,28 @@ export function faixaContem(f: Faixa, dia: number, hora: string): boolean {
  */
 export function abertaEm(horario: Faixa[] | null | undefined, instante: Date, fuso: string): boolean | null {
   if (!horario || horario.length === 0) return null;
+  return faixaDeAgora(horario, instante, fuso) !== null;
+}
+
+/** A faixa em que a loja está aberta naquele instante, ou `null` se fechada. */
+export function faixaDeAgora(horario: Faixa[] | null | undefined, instante: Date, fuso: string): Faixa | null {
+  if (!horario || horario.length === 0) return null;
   const { dia, hora } = relogioDaLoja(instante, fuso);
-  return horario.some((f) => faixaContem(f, dia, hora));
+  return horario.find((f) => faixaContem(f, dia, hora)) ?? null;
+}
+
+/**
+ * O que a tela mostra da loja AGORA: aberta ou fechada, e até que horas.
+ * Sai do relógio do servidor, no fuso da loja — o do navegador erra.
+ */
+export function situacaoAgora(
+  horario: Faixa[] | null | undefined,
+  instante: Date,
+  fuso: string,
+): { aberta_agora: boolean | null; fecha_as: string | null } {
+  if (!horario || horario.length === 0) return { aberta_agora: null, fecha_as: null };
+  const f = faixaDeAgora(horario, instante, fuso);
+  return { aberta_agora: f !== null, fecha_as: f?.hora_fim ?? null };
 }
 
 /**

@@ -72,7 +72,7 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
          from zona z
          join ponto p on p.id = z.ponto_id
          join setor st on st.id = p.setor_id
-        where st.loja_id = $1 and p.ativo
+        where st.loja_id = $1 and p.ativo and z.excluida_em is null
         order by z.principal desc, z.nome`,
       [quem.lojaId],
     );

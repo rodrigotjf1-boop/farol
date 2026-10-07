@@ -86,7 +86,8 @@ export function rotasDeDiagnostico(app: FastifyInstance, pool: pg.Pool): void {
 
     // ──────────────── as zonas e o que cada uma cobre ────────────────
     const z = await pool.query(
-      `select id, nome, largura_cena_cm from zona where ponto_id = $1 order by nome`,
+      `select id, nome, largura_cena_cm from zona
+        where ponto_id = $1 and excluida_em is null order by nome`,
       [id],
     );
     const requisitos = await pool.query(

@@ -22,6 +22,7 @@ import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
+import { exigirConfigurar } from '../rbac.js';
 import { sessaoDe } from './sessao.js';
 
 // 1280 px de largura basta de sobra para desenhar um retângulo, e segura
@@ -222,9 +223,23 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'ponto não encontrado' });
     }
 
+    // Cada área vem com os SEUS critérios: um canal pode ter mais de uma, e
+    // o critério vale só dentro da área em que foi posto. Uma consulta para
+    // o canal inteiro — nunca uma por área.
     const z = await pool.query(
-      `select id, nome, poligono, principal, largura_cena_cm
-         from zona where ponto_id = $1 order by principal desc, nome`,
+      `select z.id, z.nome, z.poligono, z.principal, z.largura_cena_cm,
+              coalesce((
+                select jsonb_agg(jsonb_build_object(
+                         'id', r.id, 'nome', r.nome, 'tipo', r.tipo, 'ativa', r.ativa,
+                         'quando', r.quando, 'parametros', r.parametros)
+                       order by r.nome)
+                  from regra_alvo ra
+                  join regra r on r.id = ra.regra_id
+                 where ra.zona_id = z.id and r.excluida_em is null
+              ), '[]'::jsonb) as criterios
+         from zona z
+        where z.ponto_id = $1 and z.excluida_em is null
+        order by z.principal desc, z.criado_em, z.nome`,
       [id],
     );
 
@@ -239,6 +254,9 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       return resposta.status(401).send({ erro: 'sem_sessao', mensagem: 'faça login' });
     }
 
+    // A área decide o que o critério enxerga: mexer nela é configurar.
+    if (!exigirConfigurar(s, resposta)) return;
+
     const { id } = req.params as { id: string };
     const corpo = (req.body ?? {}) as {
       nome?: string;
@@ -246,6 +264,10 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       larguraCenaCm?: number | null;
       principal?: boolean;
     };
+    if (corpo.nome !== undefined) {
+      const problema = nomeDeAreaInvalido(corpo.nome);
+      if (problema) return resposta.status(422).send({ erro: 'validacao', mensagem: problema });
+    }
 
     const z = await pool.query(
       `select z.id, z.ponto_id
@@ -253,7 +275,8 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
          join ponto p on p.id = z.ponto_id
          join setor st on st.id = p.setor_id
          join loja  l  on l.id  = st.loja_id
-        where z.id = $1 and l.tenant_id = $2 and p.excluido_em is null`,
+        where z.id = $1 and l.tenant_id = $2 and p.excluido_em is null
+          and z.excluida_em is null`,
       [id, s.tenantId],
     );
     if (z.rowCount === 0) {
@@ -302,7 +325,7 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
         returning id, ponto_id, nome, poligono, principal, largura_cena_cm`,
         [
           id,
-          corpo.nome ?? null,
+          corpo.nome === undefined ? null : String(corpo.nome).trim(),
           corpo.poligono === undefined ? null : JSON.stringify(corpo.poligono),
           // `largura` separada do valor: sem isto não há como gravar NULL
           // de propósito — `coalesce` trataria "apagar" como "não mexer".
@@ -313,6 +336,178 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       );
       await cliente.query('commit');
       return r.rows[0];
+    } catch (e) {
+      await cliente.query('rollback').catch(() => {});
+      if (ehNomeRepetido(e)) return resposta.status(409).send(NOME_REPETIDO);
+      throw e;
+    } finally {
+      cliente.release();
+    }
+  });
+
+  // ───────────── console: mais uma área no mesmo canal ─────────────
+  //
+  // A mesma câmera do caixa confere presença DENTRO do balcão e fila do
+  // lado do cliente: duas áreas, cada uma com os seus critérios.
+
+  app.post('/v1/pontos/:id/zonas', async (req, resposta) => {
+    const s = await sessaoDe(pool, req);
+    if (!s) {
+      return resposta.status(401).send({ erro: 'sem_sessao', mensagem: 'faça login' });
+    }
+    if (!exigirConfigurar(s, resposta)) return;
+
+    const { id } = req.params as { id: string };
+    const naoAchei = () =>
+      resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'ponto não encontrado' });
+    if (!UUID.test(id)) return naoAchei();
+
+    const corpo = (req.body ?? {}) as { nome?: unknown; poligono?: unknown };
+    const problema = nomeDeAreaInvalido(corpo.nome);
+    if (problema) return resposta.status(422).send({ erro: 'validacao', mensagem: problema });
+    // Sem desenho, a área nasce no meio do quadro: dá para ver e arrastar.
+    const poligono = corpo.poligono ?? AREA_DO_MEIO;
+    const erro = validarPoligono(poligono);
+    if (erro) return resposta.status(422).send({ erro: 'poligono_invalido', mensagem: erro });
+
+    // O canal é desta conta e existe? E quantas áreas já tem? Numa consulta.
+    const canal = await pool.query(
+      `select p.id,
+              (select count(*)::int from zona z
+                where z.ponto_id = p.id and z.excluida_em is null) as areas
+         from ponto p
+         join setor st on st.id = p.setor_id
+         join loja  l  on l.id  = st.loja_id
+        where p.id = $1 and l.tenant_id = $2 and p.excluido_em is null`,
+      [id, s.tenantId],
+    );
+    if (canal.rowCount === 0) return naoAchei();
+    if (canal.rows[0].areas >= MAX_AREAS_POR_CANAL) {
+      return resposta.status(409).send({
+        erro: 'areas_demais',
+        mensagem: `um canal tem no máximo ${MAX_AREAS_POR_CANAL} áreas`,
+      });
+    }
+
+    try {
+      // Nunca principal: o corte do canal continua sendo o que já era.
+      const r = await pool.query(
+        `insert into zona (ponto_id, nome, poligono, principal)
+         values ($1, $2, $3::jsonb, false)
+         returning id, ponto_id, nome, poligono, principal, largura_cena_cm`,
+        [id, String(corpo.nome).trim(), JSON.stringify(poligono)],
+      );
+      return resposta.status(201).send({ ...r.rows[0], criterios: [] });
+    } catch (e) {
+      if (ehNomeRepetido(e)) return resposta.status(409).send(NOME_REPETIDO);
+      throw e;
+    }
+  });
+
+  // ───────────── console: excluir uma área do canal ─────────────
+  //
+  // Excluir é MARCAR. O resumo por hora aponta para a área, e apagar a
+  // linha levaria junto tudo o que foi contado nela. O que deixa de existir
+  // é o vínculo: os critérios dela saem deste canal.
+
+  app.delete('/v1/zonas/:id', async (req, resposta) => {
+    const s = await sessaoDe(pool, req);
+    if (!s) {
+      return resposta.status(401).send({ erro: 'sem_sessao', mensagem: 'faça login' });
+    }
+    if (!exigirConfigurar(s, resposta)) return;
+
+    const { id } = req.params as { id: string };
+    const naoAchei = () =>
+      resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'zona não encontrada' });
+    if (!UUID.test(id)) return naoAchei();
+
+    const cliente = await pool.connect();
+    try {
+      await cliente.query('begin');
+
+      // Trava o CANAL, não só a área: duas exclusões ao mesmo tempo não
+      // podem ver, cada uma, "ainda sobra uma área".
+      const z = await cliente.query(
+        `select z.id, z.nome, z.ponto_id, z.principal
+           from zona z
+           join ponto p  on p.id  = z.ponto_id
+           join setor st on st.id = p.setor_id
+           join loja  l  on l.id  = st.loja_id
+          where z.id = $1 and l.tenant_id = $2
+            and p.excluido_em is null and z.excluida_em is null
+            for update of p`,
+        [id, s.tenantId],
+      );
+      if (z.rowCount === 0) {
+        await cliente.query('rollback');
+        return naoAchei();
+      }
+      const area = z.rows[0];
+
+      const outras = await cliente.query(
+        `select id from zona
+          where ponto_id = $1 and id <> $2 and excluida_em is null
+          order by criado_em, id`,
+        [area.ponto_id, id],
+      );
+      if (outras.rowCount === 0) {
+        await cliente.query('rollback');
+        return resposta.status(409).send({
+          erro: 'ultima_area',
+          mensagem: 'o canal precisa de pelo menos uma área; para parar de verificar, pause ou exclua o canal',
+        });
+      }
+
+      // Os critérios desta área, travados antes de mexer: "sobrou algum
+      // lugar?" decide se o critério é desligado.
+      const afetados = await cliente.query(
+        `select r.id
+           from regra r
+          where r.id in (select ra.regra_id from regra_alvo ra where ra.zona_id = $1)
+          order by r.id
+            for update of r`,
+        [id],
+      );
+      const ids: string[] = afetados.rows.map((r) => r.id);
+
+      await cliente.query(`delete from regra_alvo where zona_id = $1`, [id]);
+
+      // Uma instrução para todos, nunca um laço por critério.
+      const desligados = await cliente.query(
+        `update regra r
+            set ativa = false, atualizado_em = now()
+          where r.id = any($1::uuid[])
+            and r.ativa
+            and not exists (select 1 from regra_alvo ra where ra.regra_id = r.id)
+        returning r.nome`,
+        [ids],
+      );
+
+      // Sai de principal ANTES de outra entrar: o índice único recusa duas.
+      await cliente.query(
+        `update zona
+            set excluida_em = now(), excluida_por = $2, principal = false, atualizado_em = now()
+          where id = $1`,
+        [id, s.usuarioId],
+      );
+      if (area.principal) {
+        // O corte do canal passa para a área mais antiga que sobrou.
+        await cliente.query(`update zona set principal = true where id = $1`, [outras.rows[0].id]);
+      }
+
+      await cliente.query('commit');
+
+      req.log.info(
+        { zona: id, ponto: area.ponto_id, por: s.usuarioId, criterios: ids.length, desligados: desligados.rowCount },
+        'área EXCLUÍDA',
+      );
+      return {
+        excluida: true,
+        criteriosTirados: ids.length,
+        criteriosDesligados: desligados.rows.map((r) => r.nome as string),
+        aviso: 'área excluída; o que ela registrou continua no histórico',
+      };
     } catch (e) {
       await cliente.query('rollback').catch(() => {});
       throw e;
@@ -446,6 +641,32 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
  * Por isso recusa aqui, onde ainda há um humano na frente da tela para
  * ler a mensagem.
  */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Uma câmera tem duas, três regiões que importam. O teto existe para um
+// laço descontrolado não encher o canal de áreas.
+const MAX_AREAS_POR_CANAL = 8;
+
+/** Onde a área nova nasce quando ninguém a desenhou: o meio do quadro. */
+const AREA_DO_MEIO = [[0.3, 0.3], [0.7, 0.3], [0.7, 0.7], [0.3, 0.7]];
+
+const NOME_REPETIDO = {
+  erro: 'nome_repetido',
+  mensagem: 'já existe uma área com esse nome neste canal',
+};
+
+/** O índice `zona_nome_por_ponto_uk` recusou: o nome já está em uso no canal. */
+function ehNomeRepetido(e: unknown): boolean {
+  const erro = e as { code?: string; constraint?: string };
+  return erro?.code === '23505' && erro.constraint === 'zona_nome_por_ponto_uk';
+}
+
+function nomeDeAreaInvalido(valor: unknown): string | null {
+  if (typeof valor !== 'string' || !valor.trim()) return 'diga o nome da área';
+  if (valor.trim().length > 60) return 'o nome da área tem no máximo 60 caracteres';
+  return null;
+}
+
 function validarPoligono(valor: unknown): string | null {
   if (!Array.isArray(valor)) return 'o polígono tem que ser uma lista de pontos';
   if (valor.length < 3) return 'o polígono precisa de ao menos 3 pontos';

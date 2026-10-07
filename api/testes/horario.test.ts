@@ -23,7 +23,7 @@ import pg from 'pg';
 
 import { criarApp } from '../src/app.js';
 import {
-  abertaEm, faixaContem, horaDeConferir, lerHorario, QUANDOS, relogioDaLoja, type Faixa, type Quando,
+  abertaEm, faixaContem, horaDeConferir, lerHorario, QUANDOS, relogioDaLoja, situacaoAgora, type Faixa, type Quando,
 } from '../src/horario.js';
 
 const SP = 'America/Sao_Paulo';
@@ -101,6 +101,13 @@ describe('horário: a conta', () => {
   it('loja sem horário não está aberta nem fechada: não se sabe', () => {
     assert.equal(abertaEm([], new Date(), SP), null);
     assert.equal(abertaEm(null, new Date(), SP), null);
+    assert.deepEqual(situacaoAgora([], new Date(), SP), { aberta_agora: null, fecha_as: null });
+  });
+
+  it('aberta agora: até que horas — e a madrugada diz a hora de fechar da véspera', () => {
+    assert.deepEqual(situacaoAgora(DA_LOJA, emSP('2026-10-07', '21:40'), SP), { aberta_agora: true, fecha_as: '23:30' });
+    assert.deepEqual(situacaoAgora(DA_LOJA, emSP('2026-10-10', '00:30'), SP), { aberta_agora: true, fecha_as: '01:00' });
+    assert.deepEqual(situacaoAgora(DA_LOJA, emSP('2026-10-07', '10:00'), SP), { aberta_agora: false, fecha_as: null });
   });
 
   it('hora de conferir: no horário, fora dele e sempre', () => {
@@ -268,6 +275,7 @@ describe('horário: as rotas (Postgres real)', { skip: !URL_DO_BANCO && 'sem DAT
     const l = await aLoja();
     assert.deepEqual(l.horario_funcionamento, []);
     assert.equal(l.aberta_agora, null);
+    assert.equal(l.fecha_as, null);
   });
 
   it('salvar grava, devolve se está aberta agora e sobe a versão que o agente acompanha', async () => {
@@ -275,6 +283,7 @@ describe('horário: as rotas (Postgres real)', { skip: !URL_DO_BANCO && 'sem DAT
     const r = await salvar(horarioDeAgora(true));
     assert.equal(r.statusCode, 200, r.body);
     assert.equal(r.json().aberta_agora, true);
+    assert.equal(r.json().fecha_as, '23:59', 'a tela diz até que horas');
 
     assert.equal(await versao(), antes + 1, 'sem subir a versão o agente não puxa o horário novo');
     const l = await aLoja();
@@ -289,6 +298,7 @@ describe('horário: as rotas (Postgres real)', { skip: !URL_DO_BANCO && 'sem DAT
     const r = await salvar(horarioDeAgora(false));
     assert.equal(r.statusCode, 200, r.body);
     assert.equal(r.json().aberta_agora, false);
+    assert.equal(r.json().fecha_as, null);
   });
 
   it('horário malformado é recusado com a frase, e nada muda', async () => {

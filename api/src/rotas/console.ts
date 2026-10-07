@@ -18,7 +18,7 @@
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
-import { abertaEm, lerHorario } from '../horario.js';
+import { lerHorario, situacaoAgora } from '../horario.js';
 import { exigirConfigurar, peloMenos } from '../rbac.js';
 import { acharCampoProibido } from './lojas.js';
 import { sessaoDe, type Sessao } from './sessao.js';
@@ -109,7 +109,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
     return {
       lojas: rows.map((l) => ({
         ...l,
-        aberta_agora: abertaEm(l.horario_funcionamento, agora, l.timezone),
+        ...situacaoAgora(l.horario_funcionamento, agora, l.timezone),
         resultado_24h: porLoja.get(l.id) ?? null,
       })),
     };
@@ -152,7 +152,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
                                     -- PRINCIPAL quando se marca o canal.
                                     'principal', z.principal)
                                   order by z.principal desc, z.nome)
-                   from zona z where z.ponto_id = p.id),
+                   from zona z where z.ponto_id = p.id and z.excluida_em is null),
                 '[]'::jsonb) as zonas
          from setor st
          left join ponto p on p.setor_id = st.id and p.excluido_em is null
@@ -203,7 +203,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
     return {
       loja: {
         ...l.rows[0],
-        aberta_agora: abertaEm(l.rows[0].horario_funcionamento, new Date(), l.rows[0].timezone),
+        ...situacaoAgora(l.rows[0].horario_funcionamento, new Date(), l.rows[0].timezone),
       },
       setores: [...setores.values()],
       agentes: ag.rows,
@@ -249,7 +249,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
     }
     return {
       horario_funcionamento: rows[0].horario_funcionamento,
-      aberta_agora: abertaEm(rows[0].horario_funcionamento, new Date(), rows[0].timezone),
+      ...situacaoAgora(rows[0].horario_funcionamento, new Date(), rows[0].timezone),
     };
   });
 
