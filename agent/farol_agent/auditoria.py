@@ -48,7 +48,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from farol_agent.configuracao import ConfigDaLoja, PontoConfig
-from farol_agent.contrato import evento_para_nuvem
+from farol_agent.contrato import evento_para_nuvem, resumo_para_nuvem
 from farol_agent.fila import Fila
 from farol_agent.modelos import EventoGatilho
 from farol_agent.motor import MotorDeRegras
@@ -66,6 +66,13 @@ LIMITE_DE_SUBIDA = 100
 # trinta segundos um pedido que está errado não conserta nada e enche o log
 # com a mesma linha — só muda com agente novo ou nuvem nova.
 PAUSA_APOS_RECUSA_MIN = 10
+# O resumo por hora sobe de tempos em tempos, não a cada passada: a linha
+# da hora corrente muda a cada captura, e mandá-la a cada trinta segundos
+# seria cento e vinte pedidos por hora para dizer quase a mesma coisa.
+INTERVALO_DE_RESUMO_MIN = 5
+LIMITE_DE_RESUMOS = 200
+# Por quanto tempo o resumo que a nuvem já tem fica guardado na loja.
+GUARDA_DO_RESUMO_DIAS = 15
 
 
 # O detector é carregado UMA vez por processo. O juiz é reconstruído a cada
@@ -140,6 +147,18 @@ class Auditoria:
         # UMA vez, e não a cada passada enquanto a internet estiver fora.
         self._erro_de_subida: str | None = None
         self._subida_suspensa_ate: datetime | None = None
+
+        # Critérios ligados que ninguém aqui consegue julgar, com o motivo.
+        # Não são capturados (ver `_com_juiz`), mas entram no resumo da
+        # hora: é o que faz o console dizer "falta o juiz" em vez de
+        # mostrar um critério ligado e mudo.
+        self.sem_juiz: list[tuple[Any, str]] = []
+
+        # O resumo tem estado de subida próprio. Um pedido de eventos
+        # recusado não pode calar o resumo, nem o contrário.
+        self._erro_de_resumo: str | None = None
+        self._resumo_suspenso_ate: datetime | None = None
+        self._proximo_resumo: datetime | None = None
 
         self._parar = threading.Event()
         self._thread: threading.Thread | None = None
@@ -254,6 +273,7 @@ class Auditoria:
         instante em que o juiz dela existir — o agente remonta sozinho
         quando a configuração muda.
         """
+        self.sem_juiz = []
         if self.juiz is None:
             return list(config.regras)
 
@@ -270,6 +290,7 @@ class Auditoria:
                 servidas.append(r)
             except ErroDoJuiz as e:
                 orfas.append((r, str(e)))
+        self.sem_juiz = orfas
 
         # Um critério que vale em três canais aparece três vezes na lista.
         # A causa é uma só, então o aviso também: uma linha por critério,
@@ -316,7 +337,29 @@ class Auditoria:
             if p.sem_cena:
                 _log.warning("ponto %s sem cena: %s", ponto_id, p.sem_cena)
 
+        self._contar_sem_juiz(agora)
         return total
+
+    def _contar_sem_juiz(self, agora: datetime) -> None:
+        """Marca no resumo da hora os critérios que valem agora e não têm juiz.
+
+        Eles não são capturados, então não deixariam rastro nenhum. No
+        console, "ligado e sem nenhuma olhada" e "ligado e sem ninguém que
+        julgue" pedem providências diferentes — e só esta máquina sabe qual
+        das duas é.
+        """
+        valendo = [(r, motivo) for r, motivo in self.sem_juiz if r.vale_agora(agora)]
+        if not valendo:
+            return
+        try:
+            self.fila.contar_lote(
+                [
+                    (agora, r.id, r.zona.id, {"capturas": 1, "sem_juiz": 1}, motivo)
+                    for r, motivo in valendo
+                ]
+            )
+        except Exception:  # noqa: BLE001
+            _log.exception("não consegui somar os critérios sem juiz no resumo")
 
     def julgar(self, agora: datetime | None = None) -> list:
         """Drena a fila e devolve os alertas."""
@@ -347,8 +390,21 @@ class Auditoria:
           recusado e NÃO volta: insistir não muda a resposta, e um evento
           impossível na frente da fila prenderia todos os de trás;
         - o pedido inteiro falhou → nada é marcado, tudo sobe de novo.
+
+        Devolve quantos EVENTOS subiram. O resumo por hora sobe junto, com
+        ritmo e estado próprios (`_subir_resumos`).
         """
         agora = agora or datetime.now()
+        subidos = self._subir_eventos(agora)
+        try:
+            self._subir_resumos(agora)
+        except Exception:  # noqa: BLE001
+            # O resumo nunca pode custar um evento: se algo inesperado
+            # acontecer aqui, o que já subiu continua contado.
+            _log.exception("erro inesperado ao subir o resumo por hora")
+        return subidos
+
+    def _subir_eventos(self, agora: datetime) -> int:
         if self._subida_suspensa_ate is not None and agora < self._subida_suspensa_ate:
             return 0
 
@@ -395,6 +451,66 @@ class Auditoria:
                 len(devolvidos),
             )
         return len(entregues)
+
+    def _subir_resumos(self, agora: datetime) -> int:
+        """Manda o resumo por hora que a nuvem ainda não tem.
+
+        Mesmas três respostas da subida de eventos, pelas mesmas razões:
+        aceito vira "a nuvem tem"; recusado (critério que não é mais desta
+        loja) é marcado e não volta; pedido que falhou não marca nada.
+        """
+        if self._resumo_suspenso_ate is not None and agora < self._resumo_suspenso_ate:
+            return 0
+        if self._proximo_resumo is not None and agora < self._proximo_resumo:
+            return 0
+
+        linhas = self.fila.resumos_a_subir(LIMITE_DE_RESUMOS)
+        if not linhas:
+            return 0
+
+        try:
+            resposta = self.cliente._pedir(
+                "POST", "/v1/resumos", {"resumos": [resumo_para_nuvem(l) for l in linhas]}
+            )
+        except ErroDaNuvem as e:
+            if not e.recuperavel:
+                self._resumo_suspenso_ate = agora + timedelta(
+                    minutes=PAUSA_APOS_RECUSA_MIN
+                )
+            if str(e) != self._erro_de_resumo:
+                self._erro_de_resumo = str(e)
+                _log.error(
+                    "o resumo por hora ficou sem subir (%d linha(s) esperando): "
+                    "%s — fica guardado e sobe quando a nuvem aceitar",
+                    self.fila.resumos_pendentes(), e,
+                )
+            return 0
+
+        if self._erro_de_resumo is not None:
+            _log.info("a nuvem voltou a aceitar o resumo por hora")
+        self._erro_de_resumo = None
+        self._resumo_suspenso_ate = None
+
+        # A nuvem devolve a POSIÇÃO, na lista que subiu, do que ela recusou.
+        recusadas = {int(i) for i in ((resposta or {}).get("recusados") or [])}
+        aceitas = [l for i, l in enumerate(linhas) if i not in recusadas]
+        devolvidas = [l for i, l in enumerate(linhas) if i in recusadas]
+
+        self.fila.marcar_resumos(aceitas, estado=0)
+        if devolvidas:
+            self.fila.marcar_resumos(devolvidas, estado=2)
+            _log.warning(
+                "%d linha(s) de resumo recusada(s) pela nuvem: o critério ou "
+                "o canal não é mais desta loja. Não serão reenviadas.",
+                len(devolvidas),
+            )
+
+        # Veio lote cheio: ainda tem fila (a internet acabou de voltar), e a
+        # próxima passada continua. Esvaziou: volta ao ritmo normal.
+        if len(linhas) < LIMITE_DE_RESUMOS:
+            self._proximo_resumo = agora + timedelta(minutes=INTERVALO_DE_RESUMO_MIN)
+            self.fila.limpar_resumos(agora - timedelta(days=GUARDA_DO_RESUMO_DIAS))
+        return len(aceitas)
 
     def passo(self, agora: datetime | None = None) -> dict[str, int]:
         """Uma volta completa: captura, julga, sobe."""

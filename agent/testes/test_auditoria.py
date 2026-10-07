@@ -77,14 +77,30 @@ class JuizDeTeste:
 class NuvemDeTeste:
     """Dublê do cliente. Falha sob encomenda e responde como a API responde."""
 
-    def __init__(self, erro=None, recusar=None):
+    def __init__(self, erro=None, recusar=None, recusar_resumos=None):
         self.erro = erro
         # Chaves que a "nuvem" devolve em `recusados` — regra apagada.
         self.recusar = recusar or (lambda corpo: [])
         self.enviados: list[dict] = []
         self.tentativas = 0
+        # O resumo por hora tem conta própria. `tentativas` e `enviados`
+        # continuam sendo só de EVENTO: os testes daqui afirmam sobre a
+        # subida de evento, e não podem mudar de resultado porque o agente
+        # passou a mandar mais uma coisa pelo mesmo cliente.
+        self.recusar_resumos = recusar_resumos or (lambda corpo: [])
+        self.resumos_enviados: list[dict] = []
+        self.tentativas_de_resumo = 0
 
     def _pedir(self, metodo, caminho, corpo=None):
+        if caminho == "/v1/resumos":
+            self.tentativas_de_resumo += 1
+            if self.erro:
+                raise self.erro
+            self.resumos_enviados.append(corpo)
+            return {
+                "aceitos": len(corpo["resumos"]),
+                "recusados": self.recusar_resumos(corpo),
+            }
         self.tentativas += 1
         if self.erro:
             raise self.erro

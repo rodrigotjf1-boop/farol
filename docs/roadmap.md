@@ -1395,6 +1395,116 @@ abre fora do PC — ver de outro computador é outra funcionalidade, com senha.
 
 ---
 
+## A13 · O que o Farol viu: o resumo por hora — 🟡 agente e API prontos; a tela espera o protótipo (07/10/2026, migration 017)
+
+### O problema
+
+A nuvem só recebia o "não conforme" que virou alerta. O conforme, o "não deu
+para avaliar", a câmera sem cena e o critério sem juiz ficavam na loja e
+sumiam na limpeza. No console, **uma loja calada podia ser cozinha em ordem
+ou sistema parado** — coisas opostas, com a mesma cara. A página "Painel" era
+um texto dizendo que as telas viriam a seguir.
+
+### O que foi construído
+
+- **O agente conta, por hora, critério e canal, tudo o que olhou**
+  (`fila.py`, tabela `resumo_hora` no SQLite da loja). Cada olhada termina em
+  um de sete desfechos — sem juiz, sem quadro, sem cena, em silêncio,
+  repetida, já julgada, enfileirada — e a soma deles é o número de capturas.
+  O que foi enfileirado vira conforme, não conforme, não avaliável ou falha.
+  A conta é somada **na hora em que a coisa acontece**, e não recontada da
+  fila de análises: a fila é limpa, e um resumo que dependesse dela encolheria
+  sozinho.
+- **Câmera que não responde passou a deixar rastro.** A exceção saía do motor
+  sem contar nada: canal morto ficava com zero olhadas, igual a canal sem
+  critério. Agora conta como "sem quadro" e o erro segue subindo.
+- **Critério sem juiz também.** Ele continua sem ser capturado (A10), mas
+  entra no resumo com o motivo — é o que deixa o console dizer "falta instalar
+  o detector" em vez de mostrar um critério ligado e mudo.
+- **O agente manda o acumulado da hora e a nuvem substitui**
+  (`POST /v1/resumos`, corpo em `contratos/resumo-do-agente.json`, lido pelos
+  testes dos dois lados). A mesma linha sobe várias vezes enquanto a hora
+  corre; um pedido repetido depois de uma queda de rede dá no mesmo. Sobe a
+  cada 5 minutos, com estado próprio: recusa do resumo não segura evento, e o
+  contrário também não.
+- **A soma que chega durante a subida não se perde:** cada linha tem versão, e
+  "a nuvem tem" só vale para a versão que subiu.
+- **O texto de erro sobe sem segredo.** Motivo de falha vem de biblioteca, de
+  modelo e de câmera; endereço com senha embutida, cabeçalho de autorização e
+  chave de API são trocados por `…` antes de gravar.
+- **A leitura** (`GET /v1/lojas/:id/resultados?periodo=24h|7d`): totais, série
+  com todos os baldes no relógio **da loja**, uma linha por critério e canal,
+  as últimas vezes fora do critério com o estado do aviso, e os **sinais**.
+  Supervisão para cima, e o suporte.
+
+### Os sinais
+
+Apontam defeito **do Farol**, não da cozinha — "não conforme" é resultado e
+fica nos números. A conta está em `api/src/resultados.ts`, sem banco.
+
+| sinal | quando | por que esse limiar |
+|---|---|---|
+| sem agente / agente fora | nenhum agente batendo há mais de 5 min | o mesmo limite que o console já usava |
+| canal sem imagem | 80% do que foi olhado na hora corrente e na anterior veio sem cena, com pelo menos 4 olhadas | só a hora corrente não decide: às 14h01 ela tem duas olhadas |
+| critério sem juiz | 80% das olhadas sem ninguém que julgue | um sinal por **critério**, não por canal: a causa é uma só |
+| julgamento falhando | 5 falhas ou mais, e mais falhas que julgamentos | uma falha em quarenta é oscilação de rede |
+| avalia pouco | metade dos julgamentos sem resposta, com pelo menos 10 | por **canal**: a mesma pergunta pode ser respondível de uma câmera e não de outra |
+| falta dizer o que procurar | presença ou contagem sem objeto | só existe em critério de antes da migration 013; a API já recusa criar assim |
+| nunca olhado | ligado, com canal, sem horário próprio, e nenhuma olhada | critério de fim de semana numa quarta está certo em não ter sido olhado |
+
+Com o agente fora, "canal sem imagem" e "nunca olhado" **não aparecem**: são
+consequência, e dizer as duas coisas manda a pessoa olhar a câmera quando o
+problema é o computador.
+
+### Decisões
+
+- **Agregado, e não um registro por olhada.** Oito canais a cada trinta
+  segundos são 23 mil olhadas por dia, quase todas "nada mudou". O resumo
+  responde "quanto" e "em que proporção" com uma linha por hora; o "o quê,
+  exatamente" de um não conforme continua em `evento`. E sai menos coisa da
+  loja.
+- **A chave na nuvem tem o agente.** Agente reinstalado no meio da hora começa
+  do zero; sem o agente na chave, ele apagaria o que o anterior contou. A
+  leitura soma.
+- **Soma e quantidade, não média.** Média de média erra quando as horas têm
+  volumes diferentes.
+- **Não se exige que o critério ainda valha no canal** para aceitar o resumo:
+  tirar o critério do canal às 15h não apaga o que foi olhado às 14h. Exige-se
+  que critério e canal sejam da loja do agente — os dois, na mesma consulta.
+
+### O que NÃO faz
+
+- **A tela ainda não existe no console.** Faz parte do redesenho (A14), que
+  espera aprovação do protótipo.
+- "Desde quando" o canal está sem imagem tem precisão de **hora**, que é a do
+  resumo.
+- Item que expira na fila antes de ser julgado não entra em contador nenhum.
+- Agente antigo não manda resumo; loja com agente de antes desta versão
+  aparece sem números até ser atualizada.
+
+---
+
+## A14 · Console redesenhado — 🟡 protótipo em aprovação (07/10/2026)
+
+Pedido do dono: web app minimalista, intuitivo, limpo, responsivo e dinâmico,
+com animações e ícones modernos, usando o kit de marca — e **protótipo de
+todas as telas para aprovação antes de mexer no app**.
+
+- Protótipo navegável em `mockups/farol-console.html` (um arquivo, abre com
+  dois cliques), com as fontes em `mockups/console/`. Oito telas: entrada,
+  painel "o que o Farol viu", canais, área do canal, critérios, alertas,
+  orçamento e lojas; tema claro e escuro; computador, tablet e celular.
+- **Uma navegação que muda de forma:** coluna à esquerda no computador, trilho
+  no tablet, barra embaixo no celular. A loja é o contexto, no topo.
+- **Cores do kit:** azul-marinho do logotipo para agir, âmbar do facho só para
+  "olhe aqui". Verde e vermelho ficam para resultado.
+- Conferido em navegador de verdade em 1440, 1024, 768 e 375 px, nos dois
+  temas, todas as telas e camadas: sem rolagem lateral e sem erro de script.
+
+Nada do app foi alterado. A implementação começa depois da aprovação.
+
+---
+
 ## A8 · Busca investigativa nas gravações (plano)
 
 **Definição do dono (06/10/2026):** não é monitoramento. É pergunta

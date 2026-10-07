@@ -52,3 +52,6 @@ web/tsconfig.tsbuildinfo
 # O modelo do detector local (108 MB): baixado na instalação e conferido
 # por sha256, nunca versionado.
 /agent/modelos/
+
+# saida do montador do prototipo: so serve para publicar a pagina
+mockups/console/saida/

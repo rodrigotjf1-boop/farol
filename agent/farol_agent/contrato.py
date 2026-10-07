@@ -71,3 +71,54 @@ def evento_para_nuvem(alerta: Any) -> dict[str, Any]:
         "custoCentavos": v.custo_centavos,
         "latenciaMs": v.latencia_ms,
     }
+
+
+def _instante(texto: str | None) -> str | None:
+    return instante_com_fuso(datetime.fromisoformat(texto)) if texto else None
+
+
+def resumo_para_nuvem(linha: dict[str, Any]) -> dict[str, Any]:
+    """O corpo de UMA linha em `POST /v1/resumos`.
+
+    Recebe uma linha de `fila.resumos_a_subir()`. As chaves são as de
+    `contratos/resumo-do-agente.json`, lido também pelo teste da API.
+
+    Os números sobem ABSOLUTOS, não como diferença desde a última subida:
+    a mesma linha pode subir dez vezes ao longo da hora, e um pedido
+    repetido depois de uma queda de rede tem que dar no mesmo — somar
+    diferenças dobraria a contagem a cada retentativa.
+    """
+    return {
+        "regraId": linha["regra_id"],
+        "zonaId": linha["zona_id"],
+        # A hora cheia em que as cenas foram capturadas, com o fuso da loja.
+        "hora": _instante(linha["hora"]),
+        # Quantas vezes o critério foi olhado neste canal...
+        "capturas": linha["capturas"],
+        # ...e no que deu cada olhada. A soma destas sete é `capturas`.
+        "semJuiz": linha["sem_juiz"],
+        "semQuadro": linha["sem_quadro"],
+        "semCena": linha["sem_cena"],
+        "emSilencio": linha["em_silencio"],
+        "repetidas": linha["repetidas"],
+        "jaJulgadas": linha["ja_julgadas"],
+        "enfileiradas": linha["enfileiradas"],
+        # O que saiu do julgamento do que foi enfileirado.
+        "conformes": linha["conformes"],
+        "naoConformes": linha["nao_conformes"],
+        "naoAvaliaveis": linha["nao_avaliaveis"],
+        "falhas": linha["falhas"],
+        "alertas": linha["alertas"],
+        # Soma e quantidade, e não a média: média de média erra quando as
+        # horas têm volumes diferentes, e quem soma as horas é a nuvem.
+        "somaConfianca": round(float(linha["soma_confianca"]), 4),
+        "comConfianca": linha["com_confianca"],
+        "somaLatenciaMs": int(linha["soma_latencia_ms"]),
+        "comLatencia": linha["com_latencia"],
+        "custoCentavos": round(float(linha["custo_centavos"]), 4),
+        "ultimoResultado": linha["ultimo_resultado"],
+        "ultimoMotivo": linha["ultimo_motivo"],
+        # Por que NÃO deu para julgar, na última vez em que não deu.
+        "ultimoImpedimento": linha["ultimo_impedimento"],
+        "ultimaEm": _instante(linha["ultima_em"]),
+    }

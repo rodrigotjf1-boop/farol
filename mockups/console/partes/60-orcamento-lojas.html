@@ -1,0 +1,239 @@
+    <!-- ═════════════════════════ ORÇAMENTO ═════════════════════════ -->
+    <section class="tela" data-tela="orcamento" aria-labelledby="t-orcamento" hidden>
+      <header class="cab">
+        <div>
+          <p class="sobre"><svg class="ic p" aria-hidden="true"><use href="#i-store"/></svg><span data-loja-nome>Loja Centro</span></p>
+          <h1 id="t-orcamento">Orçamento por uso</h1>
+          <p class="sub">Cada canal é classificado pelo quanto é usado e pelo que precisa enxergar. A partir disso, o que serve em cada nível e três caminhos somados.</p>
+        </div>
+      </header>
+
+      <div class="corpo" data-quando="normal">
+        <div class="resumo4">
+          <article class="kpi cartao"><span class="rot">Canais em uso</span><span class="num">6 <small>de 8</small></span><span class="pe">2 sem critério</span></article>
+          <article class="kpi cartao"><span class="rot">Por quantidade de uso</span><span class="num">1 <small>intenso</small></span><span class="pe">2 moderados · 3 leves</span></article>
+          <article class="kpi cartao"><span class="rot">Quadros julgados por hora</span><span class="num">1.080</span><span class="pe">soma de todos os canais</span></article>
+          <article class="kpi cartao"><span class="rot">Câmeras instaladas</span><span class="num">1 <small>não atende</small></span><span class="pe">3 ainda sem medida</span></article>
+        </div>
+
+        <section class="secao" aria-labelledby="t-orc-canais">
+          <div class="secao-cab">
+            <h2 id="t-orc-canais">Canais</h2>
+            <span class="nota empurra">Na ordem em que o dinheiro resolve: os críticos primeiro, depois os mais usados.</span>
+          </div>
+
+          <article class="orc-canal cartao">
+            <div class="orc-cab">
+              <span class="canal-num">04</span>
+              <h3>Montagem 1</h3>
+              <span class="suave">Cozinha</span>
+              <span class="chip critico">uso intenso</span>
+              <div class="empurra">
+                <label class="suave" for="imp-m1">Importância</label>
+                <select class="entrada" id="imp-m1" data-so-config data-toast-muda="Montagem 1 agora é de importância">
+                  <option selected>crítica</option><option>normal</option><option>baixa</option>
+                </select>
+              </div>
+            </div>
+            <dl class="fatos">
+              <div><dt>Usos de análise</dt><dd>estado e contagem, 3 critérios</dd></div>
+              <div><dt>O que precisa enxergar</dt><dd>detalhe de superfície · 3 pontos por cm</dd></div>
+              <div><dt>Câmera instalada</dt><dd><span class="chip atencao">ainda sem medida</span> informe a largura real da área</dd></div>
+            </dl>
+            <div class="opcoes">
+              <div class="opcao">
+                <div class="o-chips"><span class="chip">Básico</span></div>
+                <b>Hikvision DS-2CE16H0T-ITPF</b>
+                <p>5 MP, mas com lente fixa de 2,8 mm: só enquadra aberto.</p>
+                <span class="preco">R$ 108 a R$ 220<small>preço de busca, out/2026</small></span>
+              </div>
+              <div class="opcao indicada">
+                <div class="o-chips"><span class="chip">Intermediário</span><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-badge-check"/></svg>indicada</span></div>
+                <b>Intelbras VHD 3250 VF G7</b>
+                <p>2 MP com lente varifocal manual: fecha o enquadramento na bancada.</p>
+                <span class="preco">R$ 535<small>preço de busca, out/2026</small></span>
+              </div>
+              <div class="opcao">
+                <div class="o-chips"><span class="chip">Avançado</span></div>
+                <b>Intelbras VIP 3260 Z IA</b>
+                <p>Varifocal de 2,7 a 13,5 mm e boa imagem contra a luz: fecha o enquadramento para leitura e montagem.</p>
+                <span class="preco">R$ 874 a R$ 1.158<small>preço de busca, out/2026</small></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="orc-canal cartao">
+            <div class="orc-cab">
+              <span class="canal-num">03</span>
+              <h3>Chapa</h3>
+              <span class="suave">Cozinha</span>
+              <span class="chip atencao">uso moderado</span>
+              <div class="empurra">
+                <label class="suave" for="imp-ch">Importância</label>
+                <select class="entrada" id="imp-ch" data-so-config data-toast-muda="Chapa agora é de importância">
+                  <option>crítica</option><option selected>normal</option><option>baixa</option>
+                </select>
+              </div>
+            </div>
+            <dl class="fatos">
+              <div><dt>Usos de análise</dt><dd>presença e estado, 2 critérios</dd></div>
+              <div><dt>O que precisa enxergar</dt><dd>detalhe de superfície · 3 pontos por cm</dd></div>
+              <div><dt>Câmera instalada</dt><dd><span class="chip critico">não atende</span> entrega 1,2 ponto por cm</dd></div>
+            </dl>
+            <button class="btn secundario mini" type="button" data-dobra="opc-chapa" aria-expanded="false" style="align-self:flex-start">
+              <svg class="ic p" aria-hidden="true"><use href="#i-chevron-down"/></svg>Ver as 3 câmeras que servem
+            </button>
+            <div class="dobra fechada" id="opc-chapa"><div>
+              <div class="opcoes">
+                <div class="opcao"><div class="o-chips"><span class="chip">Básico</span></div><b>Hikvision DS-2CE16H0T-ITPF</b><p>5 MP, lente fixa de 2,8 mm.</p><span class="preco">R$ 108 a R$ 220<small>preço de busca, out/2026</small></span></div>
+                <div class="opcao indicada"><div class="o-chips"><span class="chip">Intermediário</span><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-badge-check"/></svg>indicada</span></div><b>Intelbras VHD 3250 VF G7</b><p>2 MP com lente varifocal manual.</p><span class="preco">R$ 535<small>preço de busca, out/2026</small></span></div>
+                <div class="opcao"><div class="o-chips"><span class="chip">Avançado</span></div><b>Intelbras VIP 3260 Z IA</b><p>Varifocal de 2,7 a 13,5 mm.</p><span class="preco">R$ 874 a R$ 1.158<small>preço de busca, out/2026</small></span></div>
+              </div>
+            </div></div>
+          </article>
+
+          <article class="orc-canal cartao">
+            <div class="orc-cab">
+              <span class="canal-num">01</span>
+              <h3>Balcão</h3>
+              <span class="suave">Atendimento</span>
+              <span class="chip ok">uso leve</span>
+              <div class="empurra">
+                <label class="suave" for="imp-ba">Importância</label>
+                <select class="entrada" id="imp-ba" data-so-config data-toast-muda="Balcão agora é de importância">
+                  <option>crítica</option><option selected>normal</option><option>baixa</option>
+                </select>
+              </div>
+            </div>
+            <dl class="fatos">
+              <div><dt>Usos de análise</dt><dd>contagem, 1 critério</dd></div>
+              <div><dt>O que precisa enxergar</dt><dd>pessoas de corpo inteiro · 1,5 ponto por cm</dd></div>
+              <div><dt>Câmera instalada</dt><dd><span class="chip ok">atende</span> nada a comprar para este canal</dd></div>
+            </dl>
+          </article>
+          <button class="btn fantasma" type="button" data-toast="No console, a lista traz todos os canais da loja." style="align-self:flex-start"><svg class="ic" aria-hidden="true"><use href="#i-chevron-down"/></svg>Mostrar os outros 5 canais</button>
+        </section>
+
+        <section class="secao" aria-labelledby="t-orc-infra">
+          <h2 id="t-orc-infra">Computador e gravador</h2>
+          <div class="pacotes" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))">
+            <article class="orc-canal cartao">
+              <div class="orc-cab"><span class="canal-num"><svg class="ic" aria-hidden="true"><use href="#i-cpu"/></svg></span><h3>Computador: pelo menos intermediário</h3></div>
+              <p class="suave">8 canais e um critério de estado julgado na loja pedem um processador que decodifique o vídeo sem engasgar.</p>
+              <div class="opcoes" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))">
+                <div class="opcao"><div class="o-chips"><span class="chip">Básico</span></div><b>Intel Mini PC N150</b><p>Até 8 fluxos; basta quando a câmera já entrega o evento pronto.</p><span class="preco">R$ 2.087 a R$ 2.673<small>preço de busca, out/2026</small></span></div>
+                <div class="opcao indicada"><div class="o-chips"><span class="chip">Intermediário</span><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-badge-check"/></svg>indicada</span></div><b>Intel i5-14400</b><p>Decodifica o vídeo e roda o detector; a placa de vídeo entra depois, se houver motivo medido.</p><span class="preco">R$ 4.200<small>faixa de mercado, ago/2026</small></span></div>
+              </div>
+            </article>
+            <article class="orc-canal cartao">
+              <div class="orc-cab"><span class="canal-num"><svg class="ic" aria-hidden="true"><use href="#i-hard-drive"/></svg></span><h3>Gravador: pelo menos básico</h3></div>
+              <p class="suave">8 canais cabem num gravador de 8. Se a loja já tem um que serve, tire-o da conta.</p>
+              <div class="opcoes" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))">
+                <div class="opcao indicada"><div class="o-chips"><span class="chip">Básico</span><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-badge-check"/></svg>indicada</span></div><b>Intelbras MHDX 3108-C</b><p>8 canais, da mesma família do de 16.</p><span class="preco">R$ 675 a R$ 1.071<small>preço de busca, out/2026</small></span></div>
+                <div class="opcao"><div class="o-chips"><span class="chip">Intermediário</span></div><b>Intelbras MHDX 3116-C</b><p>16 canais em 1080p real, medido em campo.</p><span class="preco">R$ 1.400 a R$ 1.900<small>faixa de mercado, ago/2026</small></span></div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="secao" aria-labelledby="t-orc-pacotes">
+          <div class="secao-cab">
+            <h2 id="t-orc-pacotes">Três caminhos</h2>
+            <span class="nota empurra">Câmera que já atende não entra na soma.</span>
+          </div>
+          <div class="pacotes">
+            <article class="pacote cartao">
+              <span class="chip" style="align-self:flex-start">Pacote básico</span>
+              <span class="total">R$ 2.978 a R$ 4.184</span>
+              <span class="suave">câmeras R$ 216 a R$ 440 · gravador e computador R$ 2.762 a R$ 3.744</span>
+              <ul>
+                <li>2 × Hikvision DS-2CE16H0T-ITPF<small>Câmera · Montagem 1 e Chapa</small></li>
+                <li>Intelbras MHDX 3108-C<small>Gravador · 8 canais</small></li>
+                <li>Intel Mini PC N150<small>Computador · aperta quando houver critério de estado na loja</small></li>
+              </ul>
+            </article>
+            <article class="pacote cartao indicada">
+              <span class="chip ok" style="align-self:flex-start"><svg class="ic" aria-hidden="true"><use href="#i-badge-check"/></svg>Pacote intermediário · indicado</span>
+              <span class="total">R$ 6.670 a R$ 7.170</span>
+              <span class="suave">câmeras R$ 1.070 · gravador e computador R$ 5.600 a R$ 6.100</span>
+              <ul>
+                <li>2 × Intelbras VHD 3250 VF G7<small>Câmera · Montagem 1 e Chapa</small></li>
+                <li>Intelbras MHDX 3116-C<small>Gravador · 16 canais, sobra para crescer</small></li>
+                <li>Intel i5-14400<small>Computador · sem placa de vídeo</small></li>
+              </ul>
+            </article>
+            <article class="pacote cartao">
+              <span class="chip" style="align-self:flex-start">Pacote avançado</span>
+              <span class="total">R$ 12.248 a R$ 13.516</span>
+              <span class="suave">câmeras R$ 1.748 a R$ 2.316 · gravador e computador R$ 10.500 a R$ 11.200</span>
+              <ul>
+                <li>2 × Intelbras VIP 3260 Z IA<small>Câmera · Montagem 1 e Chapa</small></li>
+                <li>Intelbras MHDX 5116<small>Gravador · 16 canais em 4K</small></li>
+                <li>Intel i5-14400 com NVIDIA RTX 5060 Ti 16GB<small>Computador · julga estado dentro da loja</small></li>
+              </ul>
+            </article>
+          </div>
+          <p class="nota">Os preços são referência, com a data em que foram vistos. Confira antes de comprar. As opções vêm do catálogo mantido pelo Monitor Farol.</p>
+        </section>
+      </div>
+
+      <div class="vazio" data-quando="vazio">
+        <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-calculator"/></svg></span>
+        <h2>Ainda não há o que orçar</h2>
+        <p>O orçamento sai dos canais e dos critérios da loja. Cadastre um canal e diga o que ele precisa conferir.</p>
+        <a class="btn primario" href="#canais" data-ir="canais"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Cadastrar um canal</a>
+      </div>
+      <div class="ossos" data-quando="carregando" aria-hidden="true">
+        <div class="linha"><div class="osso" style="height:96px"></div><div class="osso" style="height:96px"></div><div class="osso" style="height:96px"></div><div class="osso" style="height:96px"></div></div>
+        <div class="osso" style="height:240px"></div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════ LOJAS ═════════════════════════ -->
+    <section class="tela" data-tela="lojas" aria-labelledby="t-lojas" hidden>
+      <header class="cab">
+        <div>
+          <p class="sobre"><svg class="ic p" aria-hidden="true"><use href="#i-building-2"/></svg>Brasa Burger</p>
+          <h1 id="t-lojas">Lojas</h1>
+          <p class="sub">Todas as lojas da rede e como cada uma está agora. Escolha uma para entrar.</p>
+        </div>
+      </header>
+
+      <div class="corpo" data-quando="normal">
+        <div class="lojas">
+          <a class="loja cartao" href="#painel" data-entrar-loja="Loja Centro" data-agente-loja="ativo">
+            <div class="loja-topo">
+              <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-store"/></svg></span>
+              <div><h3>Loja Centro</h3><span class="chip ok"><span class="ponto ok pulsa"></span>agente ativo</span></div>
+            </div>
+            <div class="loja-fatos">
+              <div><b>8</b><span>canais</span></div>
+              <div><b>6</b><span>critérios</span></div>
+              <div><b>89%</b><span>conforme em 24 h</span></div>
+            </div>
+            <div class="canal-pe"><span class="chip atencao">3 pontos de atenção</span><span class="elo">Entrar<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></span></div>
+          </a>
+          <a class="loja cartao" href="#painel" data-entrar-loja="Loja Praia" data-agente-loja="fora">
+            <div class="loja-topo">
+              <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-store"/></svg></span>
+              <div><h3>Loja Praia</h3><span class="chip critico"><svg class="ic" aria-hidden="true"><use href="#i-unplug"/></svg>agente sem sinal há 2 h</span></div>
+            </div>
+            <div class="loja-fatos">
+              <div><b>5</b><span>canais</span></div>
+              <div><b>4</b><span>critérios</span></div>
+              <div><b>—</b><span>nada verificado agora</span></div>
+            </div>
+            <div class="canal-pe"><span class="chip critico">loja sem verificação</span><span class="elo">Entrar<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></span></div>
+          </a>
+        </div>
+      </div>
+
+      <div class="vazio" data-quando="vazio">
+        <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-store"/></svg></span>
+        <h2>Nenhuma loja cadastrada ainda</h2>
+        <p>A primeira loja é criada pela Regem, na contratação. Depois disso, os setores e os canais se cadastram aqui.</p>
+      </div>
+      <div class="ossos" data-quando="carregando" aria-hidden="true">
+        <div class="linha"><div class="osso" style="height:190px"></div><div class="osso" style="height:190px"></div></div>
+      </div>
+    </section>

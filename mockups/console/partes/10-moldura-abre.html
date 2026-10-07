@@ -1,0 +1,154 @@
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<!-- ═════════════════════════ ENTRAR ═════════════════════════ -->
+<main class="entrar" id="entrar" hidden>
+  <section class="entrar-palco" aria-hidden="true">
+    <svg class="palavra" viewBox="70 62 522 172">
+      <g transform="translate(465.42,159.5)">
+        <path class="lg-facho" d="M0 0 L75.97 -33.82 A83.16 83.16 0 0 1 75.97 33.82 Z"/>
+        <circle class="lg-anel" r="63" stroke-width="11.02"/>
+        <circle class="lg-tinta" r="18.9"/>
+        <circle class="lg-ponto" r="7.88"/>
+      </g>
+      <!--LETRAS-->
+    </svg>
+    <div class="farol-cena">
+      <span class="feixe"></span>
+      <svg class="farol-grande vivo" viewBox="0 0 512 512">
+        <g transform="translate(256,256)">
+          <path class="lg-facho raio" d="M0 0 L217.5 -96.84 A238.08 238.08 0 0 1 217.5 96.84 Z"/>
+          <circle class="lg-anel" r="153.6" stroke-width="26.88"/>
+          <circle class="lg-tinta" r="46.08"/>
+          <circle class="lg-ponto" r="19.2"/>
+        </g>
+      </svg>
+    </div>
+    <div>
+      <h2>Monitoramento inteligente da sua operação</h2>
+      <p>As câmeras que a loja já tem conferem, o dia inteiro, se o combinado está sendo feito.</p>
+    </div>
+  </section>
+
+  <section class="entrar-form">
+    <form id="f-entrar" novalidate>
+      <div>
+        <h1>Entrar</h1>
+        <p class="sub">Use o e-mail e a senha da sua conta.</p>
+      </div>
+      <div class="campo">
+        <label for="entrar-email">E-mail</label>
+        <input class="entrada" id="entrar-email" type="email" autocomplete="username" placeholder="voce@empresa.com.br" value="ana@exemplo.com.br" required>
+      </div>
+      <div class="campo">
+        <label for="entrar-senha">Senha</label>
+        <div class="com-botao">
+          <input class="entrada" id="entrar-senha" type="password" autocomplete="current-password" value="exemplo-de-senha" required>
+          <button type="button" id="ver-senha" aria-label="Mostrar a senha" aria-pressed="false">
+            <svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg>
+          </button>
+        </div>
+      </div>
+      <p class="aviso critico" id="entrar-erro" role="alert" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-circle-alert"/></svg>
+        <span>E-mail ou senha não conferem. Confira os dois e tente de novo.</span>
+      </p>
+      <button class="btn primario" type="submit" id="entrar-botao">Entrar</button>
+      <p class="nota">Esqueceu a senha? Fale com quem administra a conta. Por segurança, ninguém consegue recuperá-la, só definir uma nova.</p>
+    </form>
+  </section>
+</main>
+
+<!-- ═════════════════════════ APLICATIVO ═════════════════════════ -->
+<div class="app" id="app" data-perfil="gerente" data-agente="ativo">
+
+  <aside class="lado" aria-label="Navegação">
+    <div class="marca-linha vivo" data-marca>
+      <svg class="palavra" viewBox="70 62 522 172" role="img" aria-label="Farol">
+        <g transform="translate(465.42,159.5)">
+          <path class="lg-facho" d="M0 0 L75.97 -33.82 A83.16 83.16 0 0 1 75.97 33.82 Z"/>
+          <circle class="lg-anel" r="63" stroke-width="11.02"/>
+          <circle class="lg-tinta" r="18.9"/>
+          <circle class="lg-ponto" r="7.88"/>
+        </g>
+        <!--LETRAS-->
+      </svg>
+      <svg class="selo" viewBox="0 0 512 512" role="img" aria-label="Farol">
+        <g transform="translate(256,256)">
+          <path class="lg-facho" d="M0 0 L217.5 -96.84 A238.08 238.08 0 0 1 217.5 96.84 Z"/>
+          <circle class="lg-anel" r="153.6" stroke-width="26.88"/>
+          <circle class="lg-tinta" r="46.08"/>
+          <circle class="lg-ponto" r="19.2"/>
+        </g>
+      </svg>
+    </div>
+
+    <button class="troca" type="button" data-menu="menu-loja" aria-haspopup="menu" aria-expanded="false">
+      <svg class="ic" aria-hidden="true"><use href="#i-store"/></svg>
+      <span class="nome"><b data-loja-nome>Loja Centro</b><small>Brasa Burger</small></span>
+      <svg class="ic p" aria-hidden="true"><use href="#i-chevrons-up-down"/></svg>
+      <span class="so-leitor">Trocar de loja</span>
+    </button>
+
+    <nav class="nav" aria-label="Seções da loja" data-nav>
+      <span class="nav-realce" aria-hidden="true"></span>
+      <a href="#painel" data-ir="painel" aria-current="page">
+        <svg class="ic" aria-hidden="true"><use href="#i-layout-dashboard"/></svg><span>Painel</span>
+        <span class="conta" data-conta-atencao><span class="so-leitor">pontos de atenção: </span>3</span>
+      </a>
+      <a href="#canais" data-ir="canais">
+        <svg class="ic" aria-hidden="true"><use href="#i-cctv"/></svg><span>Canais</span>
+      </a>
+      <a href="#criterios" data-ir="criterios">
+        <svg class="ic" aria-hidden="true"><use href="#i-list-checks"/></svg><span>Critérios</span>
+      </a>
+      <a href="#alertas" data-ir="alertas">
+        <svg class="ic" aria-hidden="true"><use href="#i-bell-ring"/></svg><span>Alertas</span>
+      </a>
+      <a href="#orcamento" data-ir="orcamento" data-so-config>
+        <svg class="ic" aria-hidden="true"><use href="#i-calculator"/></svg><span>Orçamento</span>
+      </a>
+    </nav>
+
+    <div class="cresce"></div>
+
+    <div class="agente" data-agente-bloco>
+      <span class="ponto ok pulsa" data-agente-ponto></span>
+      <div><b data-agente-titulo>Agente ativo</b><span data-agente-detalhe>bateu há 12 s · versão 0.9.4</span></div>
+    </div>
+
+    <div class="conta-linha">
+      <button class="avatar" type="button" data-menu="menu-conta" aria-haspopup="menu" aria-expanded="false" aria-label="Conta de Ana Souza">AS</button>
+      <span class="quem"><b>Ana Souza</b><small data-perfil-nome>gerente</small></span>
+      <button class="btn fantasma quadrado mini" type="button" data-tema aria-label="Trocar entre tema claro e escuro">
+        <svg class="ic" aria-hidden="true"><use href="#i-moon" data-tema-icone/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <header class="topo">
+    <svg class="selo" viewBox="0 0 512 512" role="img" aria-label="Farol" data-marca>
+      <g transform="translate(256,256)">
+        <path class="lg-facho" d="M0 0 L217.5 -96.84 A238.08 238.08 0 0 1 217.5 96.84 Z"/>
+        <circle class="lg-anel" r="153.6" stroke-width="26.88"/>
+        <circle class="lg-tinta" r="46.08"/>
+        <circle class="lg-ponto" r="19.2"/>
+      </g>
+    </svg>
+    <button class="troca" type="button" data-menu="menu-loja" aria-haspopup="menu" aria-expanded="false">
+      <svg class="ic" aria-hidden="true"><use href="#i-store"/></svg>
+      <span class="nome"><b data-loja-nome>Loja Centro</b></span>
+      <svg class="ic p" aria-hidden="true"><use href="#i-chevrons-up-down"/></svg>
+      <span class="so-leitor">Trocar de loja</span>
+    </button>
+    <span class="ponto ok pulsa" data-agente-ponto role="img" aria-label="Agente ativo"></span>
+    <button class="avatar" type="button" data-menu="menu-conta" aria-haspopup="menu" aria-expanded="false" aria-label="Conta de Ana Souza">AS</button>
+  </header>
+
+  <main class="palco" id="conteudo" tabindex="-1" data-situacao="normal">
+
+    <div class="tela" data-faixa-agente hidden style="padding-block: 16px 0">
+      <p class="aviso critico" role="alert">
+        <svg class="ic" aria-hidden="true"><use href="#i-unplug"/></svg>
+        <span><b>O agente desta loja está sem sinal há 2 horas.</b> Enquanto ele estiver fora, nenhuma câmera é verificada. Confira se o computador da loja está ligado e com internet.</span>
+      </p>
+    </div>

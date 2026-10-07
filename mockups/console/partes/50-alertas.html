@@ -1,0 +1,149 @@
+    <!-- ═════════════════════════ ALERTAS ═════════════════════════ -->
+    <section class="tela" data-tela="alertas" aria-labelledby="t-alertas" hidden>
+      <header class="cab">
+        <div>
+          <p class="sobre"><svg class="ic p" aria-hidden="true"><use href="#i-store"/></svg><span data-loja-nome>Loja Centro</span></p>
+          <h1 id="t-alertas">Alertas</h1>
+          <p class="sub">Aqui você decide quem recebe o quê. A entrega é feita pela Regem, e nenhuma chave de integração é digitada nesta tela.</p>
+        </div>
+      </header>
+
+      <div class="corpo" data-quando="normal">
+        <div class="abas" role="tablist" aria-label="Partes dos alertas">
+          <button type="button" role="tab" id="aba-quem" aria-controls="p-quem" aria-selected="true"><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>Quem recebe</button>
+          <button type="button" role="tab" id="aba-regras" aria-controls="p-regras" aria-selected="false" tabindex="-1"><svg class="ic" aria-hidden="true"><use href="#i-sliders-horizontal"/></svg>Quem recebe o quê</button>
+          <button type="button" role="tab" id="aba-chegou" aria-controls="p-chegou" aria-selected="false" tabindex="-1"><svg class="ic" aria-hidden="true"><use href="#i-check-check"/></svg>Chegou?</button>
+        </div>
+
+        <!-- 1 · destinos -->
+        <div class="secao" role="tabpanel" id="p-quem" aria-labelledby="aba-quem">
+          <div class="secao-cab">
+            <p class="nota">Pessoas e sistemas que podem receber um aviso desta loja.</p>
+            <button class="btn primario empurra" type="button" data-folha="folha-destino" data-so-config><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Novo destino</button>
+          </div>
+          <div class="destinos">
+            <article class="destino cartao">
+              <div class="destino-topo">
+                <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-message-circle"/></svg></span>
+                <div><h3>Celular do gerente</h3><p class="end">+55 21 90000-0001</p></div>
+                <button class="liga" type="button" role="switch" aria-checked="true" data-liga="Celular do gerente" aria-label="Destino Celular do gerente"><i></i></button>
+              </div>
+              <div class="canal-chips"><span class="chip">WhatsApp</span><span class="chip">perfil gerente</span><span class="chip vazado">esta loja</span></div>
+            </article>
+            <article class="destino cartao">
+              <div class="destino-topo">
+                <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-mail"/></svg></span>
+                <div><h3>Diretoria</h3><p class="end">diretoria@exemplo.com.br</p></div>
+                <button class="liga" type="button" role="switch" aria-checked="true" data-liga="Diretoria" aria-label="Destino Diretoria"><i></i></button>
+              </div>
+              <div class="canal-chips"><span class="chip">E-mail</span><span class="chip">perfil presidente</span><span class="chip vazado">rede inteira</span></div>
+            </article>
+            <article class="destino cartao">
+              <div class="destino-topo">
+                <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-monitor"/></svg></span>
+                <div><h3>Tela da cozinha</h3><p class="end">loja-centro</p></div>
+                <button class="liga" type="button" role="switch" aria-checked="false" data-liga="Tela da cozinha" aria-label="Destino Tela da cozinha"><i></i></button>
+              </div>
+              <div class="canal-chips"><span class="chip">KDS do Regem</span><span class="chip vazado">esta loja</span><span class="chip" title="Há uma chave guardada pela Regem para este destino"><svg class="ic" aria-hidden="true"><use href="#i-lock-keyhole"/></svg>chave guardada</span></div>
+            </article>
+          </div>
+        </div>
+
+        <!-- 2 · política -->
+        <div class="secao" role="tabpanel" id="p-regras" aria-labelledby="aba-regras" hidden>
+          <div class="secao-cab">
+            <p class="nota">Valendo agora: <b>regras desta loja</b>. As da rede ficam sem efeito aqui enquanto a loja tiver as suas.</p>
+            <button class="btn primario empurra" type="button" data-folha="folha-regra" data-so-config><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Nova regra</button>
+          </div>
+          <p class="aviso neutro">
+            <svg class="ic" aria-hidden="true"><use href="#i-info"/></svg>
+            <span>Sem regra que case, <b>emergência e urgente chegam a todos os destinos ligados</b> e o resto fica calado. Para silenciar uma combinação, crie uma regra de não avisar.</span>
+          </p>
+          <div class="cartao rola">
+            <table class="em-cartoes">
+              <caption class="so-leitor">Regras de aviso desta loja</caption>
+              <thead><tr><th>Quando for</th><th>O que fazer</th><th>Para quem</th><th>Vale em</th><th><span class="so-leitor">Ações</span></th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="inteira"><span class="caminho"><span class="chip critico">crítico</span><span class="chip">urgente</span></span></td>
+                  <td data-r="O que fazer"><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-bell-ring"/></svg>avisar</span></td>
+                  <td data-r="Para quem">Celular do gerente</td>
+                  <td data-r="Vale em">esta loja</td>
+                  <td class="num-col inteira" data-so-config><button class="btn perigo-leve mini" type="button" data-toast="Regra removida.">Remover</button></td>
+                </tr>
+                <tr>
+                  <td class="inteira"><span class="caminho"><span class="chip critico">emergência</span><span class="chip">qualquer prioridade</span></span></td>
+                  <td data-r="O que fazer"><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-bell-ring"/></svg>avisar</span></td>
+                  <td data-r="Para quem">Diretoria</td>
+                  <td data-r="Vale em">rede inteira <span class="suave">· sem efeito aqui</span></td>
+                  <td class="num-col inteira" data-so-config><button class="btn perigo-leve mini" type="button" data-toast="Regra removida.">Remover</button></td>
+                </tr>
+                <tr>
+                  <td class="inteira"><span class="caminho"><span class="chip">informativo</span><span class="chip">qualquer prioridade</span></span></td>
+                  <td data-r="O que fazer"><span class="chip"><svg class="ic" aria-hidden="true"><use href="#i-bell-off"/></svg>não avisar</span></td>
+                  <td data-r="Para quem">—</td>
+                  <td data-r="Vale em">esta loja</td>
+                  <td class="num-col inteira" data-so-config><button class="btn perigo-leve mini" type="button" data-toast="Regra removida.">Remover</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 3 · chegou? -->
+        <div class="secao" role="tabpanel" id="p-chegou" aria-labelledby="aba-chegou" hidden>
+          <p class="nota"><b>Mandado</b> quer dizer que o aviso saiu do Farol. <b>Chegou</b> quer dizer que quem entrega confirmou. A diferença entre os dois explica um aviso que ninguém viu.</p>
+          <div class="cartao rola">
+            <table class="em-cartoes">
+              <caption class="so-leitor">Últimos avisos enviados</caption>
+              <thead><tr><th>Quando</th><th>Motivo</th><th>Para</th><th>Situação</th><th class="num-col">Tentativas</th><th class="num-col">Confirmado</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="mono" data-r="Quando">07/10 21:42</td>
+                  <td class="inteira"><span class="crit">Bancada limpa entre pedidos</span></td>
+                  <td data-r="Para">Celular do gerente</td>
+                  <td data-r="Situação"><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-check-check"/></svg>chegou</span></td>
+                  <td class="num-col" data-r="Tentativas">1</td>
+                  <td class="num-col" data-r="Confirmado">21:42</td>
+                </tr>
+                <tr>
+                  <td class="mono" data-r="Quando">07/10 20:17</td>
+                  <td class="inteira"><span class="crit">Alguém na chapa no horário de pico</span></td>
+                  <td data-r="Para">Celular do gerente</td>
+                  <td data-r="Situação"><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-check-check"/></svg>chegou</span></td>
+                  <td class="num-col" data-r="Tentativas">1</td>
+                  <td class="num-col" data-r="Confirmado">20:18</td>
+                </tr>
+                <tr>
+                  <td class="mono" data-r="Quando">07/10 19:55</td>
+                  <td class="inteira"><span class="crit">Fila no balcão</span></td>
+                  <td data-r="Para">Celular do gerente</td>
+                  <td data-r="Situação"><span class="chip atencao"><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>mandado</span></td>
+                  <td class="num-col" data-r="Tentativas">1</td>
+                  <td class="num-col" data-r="Confirmado">—</td>
+                </tr>
+                <tr>
+                  <td class="mono" data-r="Quando">07/10 09:02</td>
+                  <td class="inteira"><span class="crit"><svg class="ic p" aria-hidden="true"><use href="#i-unplug"/></svg>Agente sem sinal</span></td>
+                  <td data-r="Para">Diretoria</td>
+                  <td data-r="Situação"><span class="chip critico"><svg class="ic" aria-hidden="true"><use href="#i-circle-x"/></svg>falhou</span><small class="suave" style="display:block;margin-top:3px">a caixa de entrada recusou a mensagem</small></td>
+                  <td class="num-col" data-r="Tentativas">3</td>
+                  <td class="num-col" data-r="Confirmado">—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="vazio" data-quando="vazio">
+        <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-bell-ring"/></svg></span>
+        <h2>Ninguém recebe aviso desta loja</h2>
+        <p>Enquanto não houver um destino, nem a queda do agente é avisada. E agente fora quer dizer loja sem verificação.</p>
+        <button class="btn primario" type="button" data-folha="folha-destino" data-so-config><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Cadastrar o primeiro destino</button>
+      </div>
+      <div class="ossos" data-quando="carregando" aria-hidden="true">
+        <div class="osso" style="height:44px"></div>
+        <div class="linha"><div class="osso" style="height:112px"></div><div class="osso" style="height:112px"></div><div class="osso" style="height:112px"></div></div>
+      </div>
+    </section>
