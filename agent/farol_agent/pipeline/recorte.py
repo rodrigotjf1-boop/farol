@@ -217,23 +217,40 @@ def _opencv_sem_aviso():
             pass
 
 
-def borrar_rostos(frame: Frame, fator: float = 0.08) -> tuple[Frame, bool]:
-    """Borra rostos detectados. Mitigação de LGPD a custo zero.
+# O rosto achado vira UMA cor. Não é desfoque e não é mosaico, e a escolha
+# foi medida, não suposta.
+#
+# Até 06/10/2026 isto era um desfoque de 8% do lado do rosto — num rosto de
+# 150 px, um sigma de ~2 px. A função devolvia `borrou=True`, o arquivo
+# viajava como "borrado" e o rosto continuava reconhecível (ERR-026). Não
+# havia um teste sequer: todos passavam `borrar_rosto=False`.
+#
+# A medida, nas câmeras de uma loja: depois de "borrar", o próprio detector
+# de rosto ainda acha um rosto ali? Pontuação dele em cinco rostos reais:
+#
+#     antes              0,93   0,65   0,86   0,78   0,62
+#     desfoque antigo    0,93   0,65   0,86   0,75   0,64    ← não fazia nada
+#     mosaico 6 células  0,46   0,19   0,53   0,80   0,54
+#     mosaico 2 células    —      —      —    0,19   0,33
+#     uma cor              —      —      —      —    0,12
+#
+# Rosto pequeno (20 a 40 px) já é um mosaico: reduzir a seis células quase
+# não tira nada dele. Só a cor única zera em todos.
 
-    Retorna `(frame, borrou)`. O segundo valor vai para o evento: saber se
-    uma imagem teve rosto borrado antes de sair da loja é exatamente o tipo
-    de coisa que a revisão de LGPD vai perguntar, e não dá para reconstruir
-    depois.
+# A caixa do detector vai, justa, da testa ao queixo. A margem cobre o
+# contorno, a orelha e o erro da própria caixa.
+_MARGEM_DO_ROSTO = 0.25
 
-    **Nunca levanta exceção.** Borrar rosto é melhoria de privacidade, não
-    requisito de correção: se não há detector, o pipeline segue.
+
+def _caixas_de_rosto(img: np.ndarray) -> list[tuple[int, int, int, int]] | None:
+    """`(x, y, largura, altura)` de cada rosto achado. `None` = não deu para procurar.
+
+    A diferença entre lista vazia e `None` importa para quem chama: "procurei
+    e não há rosto" é uma resposta; "não consegui procurar" é outra.
     """
     det = _obter_detector()
     if det is None:
-        return frame, False
-
-    img = frame.imagem.copy()
-    caixas: list[tuple[int, int, int, int]] = []
+        return None
 
     try:
         with _opencv_sem_aviso():
@@ -242,35 +259,67 @@ def borrar_rostos(frame: Frame, fator: float = 0.08) -> tuple[Frame, bool]:
                 h, w = img.shape[:2]
                 det.setInputSize((w, h))
                 _, faces = det.detect(img)
-                if faces is not None:
-                    caixas = [
-                        (int(f[0]), int(f[1]), int(f[2]), int(f[3])) for f in faces
-                    ]
-            else:
-                # Haar
-                cinza = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                caixas = [
-                    (int(x), int(y), int(cw), int(ch))
-                    for x, y, cw, ch in det.detectMultiScale(
-                        cinza, scaleFactor=1.15, minNeighbors=4, minSize=(24, 24)
-                    )
-                ]
+                if faces is None:
+                    return []
+                return [(int(f[0]), int(f[1]), int(f[2]), int(f[3])) for f in faces]
+
+            # Haar
+            cinza = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            return [
+                (int(x), int(y), int(cw), int(ch))
+                for x, y, cw, ch in det.detectMultiScale(
+                    cinza, scaleFactor=1.15, minNeighbors=4, minSize=(24, 24)
+                )
+            ]
     except cv2.error as e:
         _log.debug("detecção de rosto falhou neste quadro: %s", e)
-        return frame, False
+        return None
 
+
+def _apagar(regiao: np.ndarray) -> np.ndarray:
+    """A região inteira na cor média dela. Não há filtro que traga o resto de volta.
+
+    A cor média, e não preto: um retângulo preto no meio da cena puxa o
+    olho de quem julga, gente ou modelo; a média some no entorno.
+    """
+    cor = regiao.reshape(-1, regiao.shape[-1] if regiao.ndim == 3 else 1).mean(axis=0)
+    saida = np.empty_like(regiao)
+    saida[...] = np.round(cor).astype(regiao.dtype) if regiao.ndim == 3 else int(round(cor[0]))
+    return saida
+
+
+def borrar_rostos(frame: Frame) -> tuple[Frame, bool]:
+    """Apaga os rostos que o detector achar. Mitigação de LGPD, não garantia.
+
+    Retorna `(frame, borrou)`. `borrou=True` quer dizer exatamente uma coisa:
+    **pelo menos um rosto foi achado e apagado**. Não quer dizer "esta imagem
+    não tem rosto reconhecível" — o detector não acha rosto de costas, de
+    cima ou longe, e câmera de teto é quase sempre um desses (medido numa
+    loja em 06/10/2026: de 8 canais com gente, achou rosto em 3).
+
+    Quem precisa de garantia não pode se apoiar neste retorno; precisa não
+    mandar a imagem.
+
+    **Nunca levanta exceção**: sem detector, o pipeline segue e devolve
+    `False`.
+    """
+    caixas = _caixas_de_rosto(frame.imagem)
     if not caixas:
         return frame, False
 
+    img = frame.imagem.copy()
     h_img, w_img = img.shape[:2]
+    apagados = 0
     for (x, y, w, h) in caixas:
-        x, y = max(0, x), max(0, y)
-        w, h = min(w, w_img - x), min(h, h_img - y)
-        if w <= 0 or h <= 0:
+        mx, my = int(w * _MARGEM_DO_ROSTO), int(h * _MARGEM_DO_ROSTO)
+        x1, y1 = max(0, x - mx), max(0, y - my)
+        x2, y2 = min(w_img, x + w + mx), min(h_img, y + h + my)
+        if x2 <= x1 or y2 <= y1:
             continue
-        k = max(3, int(min(w, h) * fator) | 1)   # ímpar, como o GaussianBlur exige
-        img[y : y + h, x : x + w] = cv2.GaussianBlur(
-            img[y : y + h, x : x + w], (k, k), 0
-        )
+        img[y1:y2, x1:x2] = _apagar(img[y1:y2, x1:x2])
+        apagados += 1
 
+    # Caixa degenerada não apaga nada, e então não se pode dizer que borrou.
+    if not apagados:
+        return frame, False
     return frame.copia_com(img), True
