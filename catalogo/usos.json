@@ -1,0 +1,108 @@
+{
+  "usos": [
+    {
+      "id": "presenca",
+      "tipo_regra": "presenca",
+      "variante": null,
+      "descricao": "Presença em zona e horário",
+      "px_por_cm_min": 1.5,
+      "fps_min": 2,
+      "exige_cor": false,
+      "exige_wdr_db": null,
+      "exige_local": false,
+      "quadros_por_analise": 1,
+      "observacao": "Detector local resolve. Não usa modelo de visão."
+    },
+    {
+      "id": "contagem",
+      "tipo_regra": "contagem",
+      "variante": null,
+      "descricao": "Contagem de pessoas, fila e ocupação",
+      "px_por_cm_min": 1.5,
+      "fps_min": 2,
+      "exige_cor": false,
+      "exige_wdr_db": null,
+      "exige_local": false,
+      "quadros_por_analise": 1,
+      "observacao": "Detector local. Modelo de visão erra contagem — não usar aqui."
+    },
+    {
+      "id": "comparacao",
+      "tipo_regra": "comparacao",
+      "variante": null,
+      "descricao": "Comparação com padrão de referência",
+      "px_por_cm_min": 3.0,
+      "fps_min": 0.2,
+      "exige_cor": false,
+      "exige_wdr_db": null,
+      "exige_local": false,
+      "quadros_por_analise": 1,
+      "observacao": "A comparação local usa a base de conhecimento. Só escala para o modelo de visão abaixo do limiar."
+    },
+    {
+      "id": "estado",
+      "tipo_regra": "estado",
+      "variante": null,
+      "descricao": "Estado em um quadro: EPI, limpeza, organização",
+      "px_por_cm_min": 3.0,
+      "fps_min": 0.2,
+      "exige_cor": false,
+      "exige_wdr_db": 90,
+      "exige_local": false,
+      "quadros_por_analise": 1,
+      "observacao": "O caso mais confiável. Um quadro resolve."
+    },
+    {
+      "id": "estado:cor",
+      "tipo_regra": "estado",
+      "variante": "cor",
+      "descricao": "Estado que depende de cor: touca branca, luva azul, produto cru",
+      "px_por_cm_min": 3.0,
+      "fps_min": 0.2,
+      "exige_cor": true,
+      "exige_wdr_db": 120,
+      "exige_local": false,
+      "quadros_por_analise": 1,
+      "observacao": "Se a câmera cai para infravermelho preto e branco, a regra morre à noite."
+    },
+    {
+      "id": "estado:leitura",
+      "tipo_regra": "estado",
+      "variante": "leitura",
+      "descricao": "Leitura de texto, etiqueta ou validade",
+      "px_por_cm_min": 12.0,
+      "fps_min": 0.2,
+      "exige_cor": false,
+      "exige_wdr_db": 120,
+      "exige_local": false,
+      "quadros_por_analise": 1,
+      "observacao": "Exige resolução bem maior que estado comum."
+    },
+    {
+      "id": "acao",
+      "tipo_regra": "acao",
+      "variante": null,
+      "descricao": "Sequência de ação: procedimento com etapas",
+      "px_por_cm_min": 3.0,
+      "fps_min": 2,
+      "exige_cor": false,
+      "exige_wdr_db": 90,
+      "exige_local": false,
+      "quadros_por_analise": 8,
+      "observacao": "Multiplica o custo por 6 a 10. Preferir auditar o resultado mais dois marcos."
+    },
+    {
+      "id": "acao:montagem",
+      "tipo_regra": "acao",
+      "variante": "montagem",
+      "descricao": "Montagem item a item com verificação binária",
+      "px_por_cm_min": 12.8,
+      "fps_min": 2,
+      "exige_cor": true,
+      "exige_wdr_db": 120,
+      "exige_local": true,
+      "quadros_por_analise": 10,
+      "observacao": "Câmera dedicada em close, luz controlada e receita vinda do Regem. Prioridade urgente: a ida e volta à nuvem gasta 2 a 5 s só de rede."
+    }
+  ]
+}

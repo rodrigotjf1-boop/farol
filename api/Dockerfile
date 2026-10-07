@@ -33,6 +33,10 @@ COPY api/scripts ./scripts
 COPY api/exemplos ./exemplos
 COPY database ./database
 
+# O catálogo de equipamentos também viaja na imagem: a API copia para o
+# banco a cada subida. Modelo novo = arquivo novo + deploy, sem migration.
+COPY catalogo ./catalogo
+
 # Não roda como root. O usuário 'node' (uid 1000) já vem na imagem oficial.
 USER node
 EXPOSE 3000

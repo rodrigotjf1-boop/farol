@@ -21,16 +21,23 @@ Um arquivo JSON por modelo, neste repositório, é a **fonte da verdade**:
 - passa por revisão como qualquer mudança;
 - é conferido por teste a cada envio (`api/testes/catalogo.test.ts`).
 
-O banco guarda uma **cópia** (tabela `equipamento`, da migration 002), porque o
-orçamento cruza equipamento com loja, levantamento e diagnóstico. A carga da
-cópia a partir dos arquivos é o próximo passo — até lá a tabela tem só os 21
-modelos da migration 002, e este catálogo já tem todos eles e mais.
+O banco guarda uma **cópia** (tabelas `equipamento` e `requisito_uso`), porque
+o orçamento cruza equipamento com loja, levantamento e diagnóstico.
+
+**A cópia é automática.** Toda vez que a API sobe, ela lê estes arquivos — que
+vieram na imagem do deploy — e atualiza o banco (`api/src/catalogo.ts`). Só
+mexe na linha que mudou; nunca apaga. Ninguém edita `equipamento` à mão: a
+próxima subida desfaria.
+
+Para conferir de fora: `/saude` da API devolve `catalogoModelos`, o número de
+modelos no banco. Só o número.
 
 ## Onde fica cada coisa
 
 ```
 catalogo/
   niveis.json                      os níveis, os usos e o critério de cada um
+  usos.json                        o que cada uso de análise EXIGE da imagem
   equipamentos/
     gravador/    camera/    computador/    gpu/
     acelerador/  nobreak/   rede/          disco/
@@ -97,9 +104,18 @@ analisar, oferece até três opções — uma por nível.
 3. Mediu alguma coisa em campo? Entra em `medido`, com a data e a condição.
 4. `npm test` na pasta `api` confere o arquivo.
 
+## O requisito de cada uso
+
+`usos.json` diz o que cada tipo de análise exige: px por cm no quadro, quadros
+por segundo, se depende de cor, quanto de WDR, se o julgamento tem que ser
+dentro da loja. É a outra metade da conta — sem ele não há como dizer que uma
+câmera "não atende".
+
+Mudar um número ali muda o dimensionamento de toda loja. O teste compara com o
+que a migration 002 semeou e reclama de qualquer diferença: mudança de
+requisito tem que ser decisão, não efeito colateral.
+
 ## O que ainda não está aqui
 
-- **O requisito de cada uso** (px por cm, quadros por segundo, cor, WDR) segue
-  na tabela `requisito_uso`. Vem para cá junto com a carga no banco.
 - **A classe de cada canal** pelo uso que se faz dele, e o **orçamento**
-  montado em cima disso: próximos passos.
+  montado em cima disso: próximos passos (roadmap, A12).

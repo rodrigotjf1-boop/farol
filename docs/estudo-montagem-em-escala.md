@@ -2,6 +2,9 @@
 
 > **Situação: ESTUDO.** Nada daqui está construído. É o plano para ser
 > discutido e aprovado antes de qualquer código. Data: 07/10/2026.
+>
+> **O dono respondeu às perguntas no mesmo dia** — estão na seção 11, com o
+> que cada resposta muda no desenho.
 
 ## A pergunta do dono
 
@@ -144,6 +147,38 @@ o livro-caixa por produto já responde às duas perguntas do dono sem mudar a
 rotina de ninguém. Fica como degrau opcional, para onde ele quiser rastreio
 pedido a pedido.
 
+### 3.5 Fila de produção e bancadas — cadastro de cada restaurante, não regra
+
+A loja de teste tem **dois KDS**: o do delivery, atendido por 2 bancadas, e o
+do balcão, atendido por 4. Outro restaurante terá outra divisão. Então isso
+**não entra no código**: entra no cadastro.
+
+- **Fila de produção** = um KDS. É de onde vem a demanda.
+- **Bancada** = uma câmera de montagem. É de onde vem a produção.
+- Cada fila diz quais bancadas a atendem. Uma bancada pode atender mais de uma
+  fila, se o restaurante trabalhar assim.
+
+**O livro-caixa fecha por fila**: o que o KDS do delivery pediu contra o que as
+bancadas do delivery montaram. Nove x-burguers no balcão divididos 2 / 6 / 1
+entre três das quatro bancadas dele continuam sendo uma conta só.
+
+### 3.6 O montador não segue a ordem da lista — e não é erro
+
+Dito pelo dono: o colaborador olha a lista e nem sempre segue a ordem. Quando
+um produto demora, ou o ingrediente ainda não está à mão, ele adianta os mais
+rápidos.
+
+Três consequências, todas a favor do livro-caixa por produto:
+
+- **a baixa nunca supõe ordem.** "O mais antigo do mesmo produto" é só
+  contabilidade; nada no desenho exige que o lanche da vez seja o primeiro da
+  fila;
+- **"fora de ordem" não é alerta.** É como a cozinha trabalha;
+- **"pedido esquecido" não pode ser um tempo único.** Cada produto tem o seu
+  tempo normal — e ele se aprende da própria loja, observando quanto cada um
+  leva do KDS até a montagem. O alerta é "este passou muito do normal dele",
+  nunca "este passou de 10 minutos".
+
 ---
 
 ## 4 · Vários lanches abertos na mesma bancada
@@ -204,8 +239,10 @@ bancadas com folga.** O gargalo não é processamento.
 ### O gargalo que apareceu
 
 **É o cabo de rede, não o computador.** A placa do PC é gigabit e está
-negociando com a rede do gravador a **10 Mbps** — sinal de cabo ou conector
-ruim. Cada fluxo principal ocupa 2,8 Mbps:
+**forçada em 10 Mbps Half Duplex** — e não por descuido: em autonegociação o
+enlace não fecha (testado em 07/10, com volta automática). O cabo é Cat6, mas
+tem uma **emenda no caminho**; o dono vai trocar por um inteiro. Cada fluxo
+principal ocupa 2,8 Mbps:
 
 ```
 4 bancadas em alta            4 × 2,8  = 11,2 Mbps
@@ -215,8 +252,9 @@ ruim. Cada fluxo principal ocupa 2,8 Mbps:
 ```
 
 Os quatro sozinhos passam no limite (medido: taxa cheia); **os quatro mais o
-resto da loja não cabem.** Trocar o cabo por um bom (e conferir que negocia a
-100 Mbps ou mais) é pré-requisito do projeto de montagem, e custa quase nada.
+resto da loja não cabem.** O cabo novo é pré-requisito do projeto de montagem.
+Depois de trocado: devolver a placa à autonegociação e conferir que ela fecha
+a 100 Mbps ou mais.
 
 ---
 
@@ -306,27 +344,33 @@ a seguinte com a medida na mão.
 
 | etapa | entrega | precisa de | porta |
 |---|---|---|---|
-| **E0 · medir a operação** | os números do pico, sem funcionalidade nova: montagens por hora por bancada, quantas posições abertas ao mesmo tempo, tempo por camada, px por cm de cada câmera | as câmeras atuais e o agente; uma semana | saber se as câmeras de hoje servem, e quantas precisam ser trocadas ou reposicionadas |
+| **E0 · piloto de UMA bancada** | regular e testar uma câmera de cima antes de instalar as outras: enquadramento, px por cm medido com a folha A4, e os números do pico — montagens por hora, posições abertas ao mesmo tempo, tempo por camada | uma câmera sobre uma bancada, o agente e o cabo novo; uma semana | a câmera entrega os 12,8 px por cm e a camada aparece no quadro depois que a mão sai. Só então se compram as outras |
 | **E1 · contar montagens por bancada** | "montagem começou / terminou" por posição; total produzido × total pedido por período; produção por bancada | detector de "base aberta"; a fila do KDS vinda do Regem | a contagem bater com a venda em mais de 95% das horas |
 | **E2 · saber qual produto** | o livro-caixa por produto; "pronto sem montagem" e "montagem sem pedido" | reconhecimento de ingredientes da loja; fichas com as camadas visíveis | identificar o produto certo em mais de 90% das montagens |
 | **E3 · conferir a ficha na hora** | alerta no KDS da estação antes de o lanche fechar: "faltou o queijo" | E2 + o caminho de volta ao KDS | alerta falso raro o bastante para ninguém desligar |
 | **E4 · observações e porção** | "sem cebola", adicional, quantidade | E3 estável | — |
 
 E0 pode começar já, junto com a semana de operação que é o alvo imediato.
-Não disputa nada com ela.
+Não disputa nada com ela. O dono foi explícito: **primeiro regular e testar
+uma câmera; depois instalar as outras.**
 
 ---
 
-## 11 · O que só o dono responde
+## 11 · Respondido pelo dono (07/10/2026)
 
-1. **O pedido aparece no KDS antes de o montador começar?** Se monta primeiro
-   e lança depois, o livro-caixa perde a referência na hora e só fecha no fim.
-2. **O KDS é um para as quatro bancadas, ou cada uma tem a sua tela?** Decide
-   onde o alerta da estação aparece.
-3. **Quais canais são as quatro bancadas de montagem**, e dá para pôr uma
-   câmera de cima em cada uma?
-4. **A etiqueta com código (opção C) cabe na rotina**, ou é atrito demais para
-   o pico?
+| pergunta | resposta | o que muda no desenho |
+|---|---|---|
+| O pedido aparece no KDS antes de o montador começar? | **Sim.** O operador registra no balcão e o pedido aparece no KDS de produção, ou no destinado. O colaborador olha a lista e começa | o livro-caixa tem a demanda na hora; a verificação por camada tem contra o que conferir |
+| O montador segue a ordem da lista? | **Nem sempre.** Produto demorado, ou sem ingrediente à mão, fica para depois; ele adianta os rápidos | seção 3.6: a baixa não supõe ordem, "fora de ordem" não é alerta, e "esquecido" é por produto |
+| Um KDS para todas as bancadas? | **Dois.** Delivery, com 2 bancadas; balcão, com 4. **E isso varia de restaurante para restaurante — não pode virar regra** | seção 3.5: fila de produção e bancadas são cadastro; o livro-caixa fecha por fila |
+| Cabe uma câmera de cima em cada bancada? | **Sim, terá uma em cima de cada montagem.** Primeiro regular e testar uma; depois instalar as outras | a etapa E0 vira o piloto de uma bancada |
+| A etiqueta com código (opção C) cabe na rotina? | não respondido | segue como degrau opcional; nada depende dela |
+
+### O que ainda falta saber, e só a medição responde
+
+- qual canal recebe a câmera do piloto, e quantos px por cm ela entrega;
+- se a camada fina (molho) aparece no quadro;
+- quantas posições ficam abertas ao mesmo tempo numa bancada, no pico.
 
 ---
 
