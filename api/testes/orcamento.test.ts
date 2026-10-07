@@ -250,9 +250,18 @@ describe('o orçamento da loja', () => {
     const o = orcar([canal('Chapa', ['estado'], { pxPorCm: 2 })]);
     const c = o.canais[0]!;
     assert.equal(c.camera.situacao, 'nao_atende');
-    assert.match(c.camera.mensagem, /2 px por cm/);
+    assert.match(c.camera.mensagem, /2 pontos por cm/);
     assert.match(c.camera.mensagem, /pede 3/);
     assert.equal(o.resumo.cameraNaoAtende, 1);
+  });
+
+  it('a medida é dita como se escreve aqui: com vírgula', () => {
+    // A mensagem vai para a tela como está. "12.8" é número de programa.
+    const o = orcar([canal('Chapa', ['estado'], { pxPorCm: 12.84 })]);
+    const c = o.canais[0]!;
+    assert.equal(c.camera.situacao, 'atende');
+    assert.equal(c.camera.pxPorCm, 12.8, 'o número continua número para quem calcula');
+    assert.match(c.camera.mensagem, /entrega 12,8 pontos por cm/);
   });
 
   it('canal pausado aparece na lista, mas fica fora dos pacotes — e isso é avisado', () => {

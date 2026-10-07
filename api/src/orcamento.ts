@@ -280,13 +280,16 @@ function situacaoDaCamera(
   }
   const minimo = exige.pxPorCmMin ?? 0;
   const tem = Number(pxPorCm.toFixed(1));
+  // O texto vai para a tela como está: número com vírgula, e a mesma
+  // palavra que a tela usa ao lado ("pontos por cm").
+  const dito = tem.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
   if (pxPorCm >= minimo) {
-    return { pxPorCm: tem, situacao: 'atende', mensagem: `a câmera atual entrega ${tem} px por cm; o uso pede ${minimo}` };
+    return { pxPorCm: tem, situacao: 'atende', mensagem: `a câmera atual entrega ${dito} pontos por cm; o uso pede ${minimo}` };
   }
   return {
     pxPorCm: tem,
     situacao: 'nao_atende',
-    mensagem: `a câmera atual entrega ${tem} px por cm; o uso pede ${minimo}. Aproximar a câmera, fechar a lente ou trocar`,
+    mensagem: `a câmera atual entrega ${dito} pontos por cm; o uso pede ${minimo}. Aproximar a câmera, fechar a lente ou trocar`,
   };
 }
 

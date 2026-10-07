@@ -18,7 +18,7 @@
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
-import { exigirConfigurar } from '../rbac.js';
+import { exigirConfigurar, peloMenos } from '../rbac.js';
 import { acharCampoProibido } from './lojas.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 
@@ -45,19 +45,65 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
     const s = await quem(req, resposta);
     if (!s) return;
 
+    // A lista traz, de cada loja, como vai o AGENTE dela. É o que a
+    // moldura do console mostra em toda tela, e o que a lista de lojas
+    // mostra antes de alguém entrar em uma: "esta aqui está sendo
+    // verificada?" não pode depender de abrir loja por loja.
+    //
+    // `segundos_sem_bater` é o do agente que bateu por último, calculado
+    // no BANCO (o relógio do navegador erra). Agente que nunca bateu não
+    // entra na conta: loja só com agente por instalar fica com nulo.
     const { rows } = await pool.query(
       `select l.id, l.nome, l.timezone, l.modo_julgamento, l.resolucao_padrao, l.ativa,
               (select count(*)::int from setor st where st.loja_id = l.id) as setores,
               (select count(*)::int
                  from ponto p
                  join setor st2 on st2.id = p.setor_id
-                where st2.loja_id = l.id and p.excluido_em is null) as pontos
+                where st2.loja_id = l.id and p.excluido_em is null) as pontos,
+              (select count(*)::int
+                 from regra r
+                where r.loja_id = l.id and r.excluida_em is null) as criterios,
+              (select count(*)::int from agente a where a.loja_id = l.id) as agentes,
+              (select min(extract(epoch from (now() - a.ultimo_heartbeat)))::int
+                 from agente a
+                where a.loja_id = l.id and a.estado = 'ativo'
+                  and a.ultimo_heartbeat is not null) as segundos_sem_bater
          from loja l
         where l.tenant_id = $1
         order by l.nome`,
       [s.tenantId],
     );
-    return { lojas: rows };
+
+    // O que foi julgado nas últimas 24 horas, numa consulta para TODAS as
+    // lojas da conta. Resultado é informação de gestão: quem não pode ver
+    // a tela de resultados não recebe o número por esta porta lateral.
+    const veResultados = s.nivel === 'suporte' || peloMenos(s, 'supervisao');
+    const porLoja = new Map<string, { conformes: number; naoConformes: number; naoAvaliaveis: number }>();
+    if (veResultados && rows.length > 0) {
+      const r = await pool.query(
+        `select loja_id,
+                sum(conformes)::int as conformes,
+                sum(nao_conformes)::int as nao_conformes,
+                sum(nao_avaliaveis)::int as nao_avaliaveis
+           from resumo_hora
+          where loja_id = any($1::uuid[]) and hora >= now() - interval '24 hours'
+          group by loja_id`,
+        // Pelos ids que ACABARAM de sair filtrados pelo tenant: é o índice
+        // (loja_id, hora) que atende, e nenhuma loja de fora entra.
+        [rows.map((l) => l.id)],
+      );
+      for (const x of r.rows) {
+        porLoja.set(x.loja_id, {
+          conformes: x.conformes,
+          naoConformes: x.nao_conformes,
+          naoAvaliaveis: x.nao_avaliaveis,
+        });
+      }
+    }
+
+    return {
+      lojas: rows.map((l) => ({ ...l, resultado_24h: porLoja.get(l.id) ?? null })),
+    };
   });
 
   app.get('/v1/lojas/:id', async (req, resposta) => {
