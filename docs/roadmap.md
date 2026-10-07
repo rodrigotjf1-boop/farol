@@ -1567,6 +1567,96 @@ E quatro de propósito:
   ficava cortada na borda.
 - **"Sem imagem desde as 14h"** tem precisão de hora, que é a do resumo.
 
+Por ordem do dono (07/10/2026), "pacote indicado" e "pontos de atenção na
+lista de lojas" ficam como **pendência**: não cobrar, não construir até ele
+retomar.
+
+---
+
+## A15 · Os critérios de uma loja de verdade — 🟡 primeira noite (07/10/2026)
+
+O dono cadastrou seis canais e sete critérios na loja de teste (hamburgueria)
+para o expediente da noite servir de escola. Premissa dele: **critério varia
+muito** — cada usuário, em cada loja, terá os seus; há os padrões
+(atendimento, chapa, montagem) e sempre haverá ações específicas. E decisão
+dele: **LGPD fica para o fim do projeto**, para não atrasar o desenvolvimento.
+
+### O que cada tipo consegue hoje
+
+No serviço existem dois juízes: o detector, na loja, e o modelo de nuvem.
+
+| tipo | quem julga | precisa de |
+|---|---|---|
+| presença, contagem | detector local | "o que procurar" preenchido, com um dos 17 objetos |
+| estado, ação (não urgente) | nuvem | a chave no PC da loja; loja em modo nuvem ou híbrido |
+| estado, ação **urgente** | binário ou modelo local | não instalado em loja nenhuma: fica sem quem julgue |
+| comparação | juiz de comparação | **não é montado no serviço**: fica sem quem julgue |
+
+"Ação" é julgada por **uma foto**, igual a estado — a tela diz "sequência com
+etapas", e sequência não é avaliada.
+
+### O que os sete critérios mostraram
+
+| critério | o que se viu |
+|---|---|
+| Fila de atendimento (contagem) | cadastrada como "de 5 a 8 pessoas" querendo dizer "avise com 5 a 8". O sistema leu como a faixa **certa** e acusou a loja vazia. A tela pergunta o que é aceitável; quem cadastra pensa no que quer ser avisado |
+| Presença no atendimento, tempo de setor na chapa (presença) | o detector julga "tem alguém"; o que se quer é **tempo** com o posto vazio |
+| Uso da chapa clamshell (ação) | com o quadro inteiro reduzido a 640 px, o modelo respondeu "o ângulo e a distância não permitem avaliar os platens" — que no quadro original se veem bem. Falta área; e carregar a chapa também é "carne com platen levantado", por segundos |
+| Uniforme (estado) | quatro peças num critério só; "touca padrão da loja" pede referência |
+| Gaveta do caixa (ação) | abrir a gaveta dura segundos e a olhada é a cada 30 s; "colaborador × entregador" só por uniforme ou lado do balcão |
+| Produto (contagem) | é contador de produção: outra ferramenta |
+
+Fora isso: o canal do caixa principal estava cadastrado com o número de um
+corredor (só olhando a imagem se viu), e **não há horário de funcionamento na
+tela** — a API aceita `janelas`, o formulário não tem. Com a loja fechada,
+presença e fila geraram 8 avisos falsos em minutos.
+
+### O que mudou no agente
+
+**Presença e contagem são julgadas em toda olhada.** Depois de cada aviso o
+critério ficava quinze minutos sem ser julgado (14 de 16 olhadas), e o posto
+vazio — a mesma imagem por meia hora — sumia como "repetida" ou "já julgada".
+Não se media tempo nenhum. Nesses dois tipos quem julga é o detector, na
+loja: não há chamada a economizar. Agora a olhada entra sempre, com chave
+própria, e **o silêncio segura só o aviso**. A conta do tempo passa a existir
+no resumo: cada olhada "fora do critério" é um intervalo de posto vazio (de 30
+a 45 segundos nesta loja — o ciclo real, com quatro canais, passa dos 30).
+
+O silêncio é conferido na hora do aviso, pelo canal do item, **para todo
+tipo**. Fecha um furo antigo: duas olhadas que entravam na fila antes do
+primeiro veredito viravam dois avisos. Estado e ação continuam pulando a
+olhada no silêncio — lá cada uma custa.
+
+### O que os critérios reais pedem, e não existe
+
+1. Mostrar o tempo (posto ocupado X% do tempo, maior ausência) — os números
+   já chegam; falta a tela dizer.
+2. Horário de funcionamento na tela.
+3. Mais de uma área por canal, cada área com os seus critérios — protótipo
+   em aprovação (o banco e a árvore de critérios já aceitam; falta criar a
+   segunda área).
+4. A pergunta da contagem na língua de quem cadastra: "avisar quando passar
+   de N".
+5. "Só avisa se continuar assim" por algumas olhadas.
+6. Referência da loja: "isto é o certo, isto é o errado". O juiz de nuvem já
+   aceita fotos de referência; o console não tem como mandar.
+7. Disparo por movimento na área, para evento de segundos.
+8. Contador de produção.
+9. Antes de ligar: testar o critério nas imagens do canal e responder
+   "consigo avaliar" ou "não consigo, porque…".
+10. O detector como porta da nuvem: critério que depende de gente (uniforme,
+    gaveta) só vai ao modelo quando o detector vê alguém na área. Com a loja
+    fechada os três critérios de nuvem foram julgados uma vez por minuto
+    cada — o relógio que o gravador escreve na imagem muda o quadro — para
+    responder "não há ninguém".
+
+### Fica para o fim (por decisão do dono)
+
+Ocultar a pessoa na imagem que vai à nuvem; limpeza das imagens julgadas no
+PC da loja (`limpar_concluidos` existe e ninguém chama — com a medida a cada
+olhada o disco cresce 0,6 GB por dia nesta loja, medido); consentimento e
+prazo de guarda.
+
 ---
 
 ## A8 · Busca investigativa nas gravações (plano)
