@@ -1,0 +1,248 @@
+  </main>
+
+  <nav class="barra" aria-label="Seções da loja" data-nav>
+    <span class="nav-realce" aria-hidden="true"></span>
+    <a href="#painel" data-ir="painel" aria-current="page"><svg class="ic g" aria-hidden="true"><use href="#i-layout-dashboard"/></svg><span>Painel</span><span class="conta" data-conta-atencao><span class="so-leitor">pontos de atenção: </span>3</span></a>
+    <a href="#canais" data-ir="canais"><svg class="ic g" aria-hidden="true"><use href="#i-cctv"/></svg><span>Canais</span></a>
+    <a href="#criterios" data-ir="criterios"><svg class="ic g" aria-hidden="true"><use href="#i-list-checks"/></svg><span>Critérios</span></a>
+    <a href="#alertas" data-ir="alertas"><svg class="ic g" aria-hidden="true"><use href="#i-bell-ring"/></svg><span>Alertas</span></a>
+    <a href="#orcamento" data-ir="orcamento" data-so-config><svg class="ic g" aria-hidden="true"><use href="#i-calculator"/></svg><span>Orçamento</span></a>
+  </nav>
+</div>
+
+<!-- ═════════════════════════ MENUS ═════════════════════════ -->
+<div class="menu" id="menu-loja" role="menu" hidden>
+  <p class="rotulo-menu">Brasa Burger</p>
+  <button type="button" role="menuitem" data-entrar-loja="Loja Centro" data-agente-loja="ativo" aria-current="true"><svg class="ic" aria-hidden="true"><use href="#i-store"/></svg>Loja Centro</button>
+  <button type="button" role="menuitem" data-entrar-loja="Loja Praia" data-agente-loja="fora"><svg class="ic" aria-hidden="true"><use href="#i-store"/></svg>Loja Praia</button>
+  <hr>
+  <a href="#lojas" role="menuitem" data-ir="lojas"><svg class="ic" aria-hidden="true"><use href="#i-building-2"/></svg>Todas as lojas</a>
+</div>
+
+<div class="menu" id="menu-conta" role="menu" hidden>
+  <p class="rotulo-menu">Ana Souza · <span data-perfil-nome>gerente</span></p>
+  <button type="button" role="menuitem" data-tema><svg class="ic" aria-hidden="true"><use href="#i-moon" data-tema-icone/></svg><span data-tema-rotulo>Usar o tema escuro</span></button>
+  <hr>
+  <button type="button" role="menuitem" data-sair><svg class="ic" aria-hidden="true"><use href="#i-log-out"/></svg>Sair</button>
+</div>
+
+<div class="menu" id="menu-canal" role="menu" hidden>
+  <button type="button" role="menuitem" data-folha="folha-canal" data-modo="editar"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg>Editar</button>
+  <a href="#area" role="menuitem" data-ir="area"><svg class="ic" aria-hidden="true"><use href="#i-crop"/></svg>Quadro e área</a>
+  <hr>
+  <button type="button" role="menuitem" class="perigo" data-dialogo="excluir-canal"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg>Excluir</button>
+</div>
+
+<div class="menu" id="menu-criterio" role="menu" hidden>
+  <button type="button" role="menuitem" data-folha="folha-criterio" data-modo="editar"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg>Editar</button>
+  <button type="button" role="menuitem" data-dialogo="tirar-do-canal"><svg class="ic" aria-hidden="true"><use href="#i-circle-minus"/></svg>Tirar deste canal</button>
+  <hr>
+  <button type="button" role="menuitem" class="perigo" data-dialogo="excluir-criterio"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg>Excluir de todos os canais</button>
+</div>
+
+<!-- ═════════════════════════ GAVETAS ═════════════════════════ -->
+<div class="veu" data-veu hidden></div>
+
+<section class="folha" id="folha-canal" role="dialog" aria-modal="true" aria-labelledby="fca-titulo" hidden>
+  <header class="folha-cab">
+    <div><h2 id="fca-titulo" data-folha-titulo data-novo="Novo canal" data-editar="Editar o canal">Novo canal</h2><p>Uma câmera do gravador ou uma câmera IP direta.</p></div>
+    <button class="btn fantasma quadrado mini" type="button" data-fecha aria-label="Fechar"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </header>
+  <form class="folha-corpo" id="f-canal" data-sucesso-novo="Canal criado." data-sucesso-editar="Canal salvo.">
+    <div class="campo">
+      <label for="fca-nome">Nome do canal</label>
+      <input class="entrada" id="fca-nome" placeholder="Montagem" required data-preenche="nome">
+    </div>
+    <div class="campo">
+      <label for="fca-setor">Setor</label>
+      <select class="entrada" id="fca-setor">
+        <option>Cozinha</option><option>Atendimento</option><option>Estoque</option><option>＋ cadastrar novo setor</option>
+      </select>
+    </div>
+    <div class="campo">
+      <span class="rotulo" id="fca-origem-r">De onde vem a imagem</span>
+      <div class="escolhas" role="radiogroup" aria-labelledby="fca-origem-r">
+        <div class="escolha"><input type="radio" name="fca-origem" id="fca-o-dvr" value="dvr" checked><label for="fca-o-dvr"><b><svg class="ic" aria-hidden="true"><use href="#i-hard-drive"/></svg>Gravador</b><small>DVR ou NVR, por número de canal</small></label></div>
+        <div class="escolha"><input type="radio" name="fca-origem" id="fca-o-ip" value="ip"><label for="fca-o-ip"><b><svg class="ic" aria-hidden="true"><use href="#i-video"/></svg>Câmera IP</b><small>ligada direto na rede</small></label></div>
+      </div>
+    </div>
+    <div class="campos">
+      <div class="campo" data-so-dvr><label for="fca-canal">Canal no gravador</label><input class="entrada mono" id="fca-canal" type="number" min="1" placeholder="11" value="4"></div>
+      <div class="campo"><label for="fca-host">Endereço na rede</label><input class="entrada mono" id="fca-host" placeholder="192.168.1.108" value="192.168.0.50"></div>
+      <div class="campo"><label for="fca-usuario">Usuário</label><input class="entrada" id="fca-usuario" placeholder="admin" value="admin"></div>
+      <div class="campo"><label for="fca-fab">Fabricante</label><input class="entrada" id="fca-fab" placeholder="intelbras" value="intelbras"></div>
+    </div>
+    <div class="campos" data-so-editar>
+      <div class="campo">
+        <label for="fca-imp">Importância</label>
+        <select class="entrada" id="fca-imp"><option>crítica — resolver primeiro</option><option selected>normal</option><option>baixa — por último</option></select>
+      </div>
+      <div class="campo">
+        <span class="rotulo">Situação</span>
+        <button class="liga" type="button" role="switch" aria-checked="true" data-liga-rotulo="ativo — é verificado|pausado — fica guardado, sem verificar"><i></i><span>ativo — é verificado</span></button>
+      </div>
+    </div>
+    <p class="aviso neutro"><svg class="ic" aria-hidden="true"><use href="#i-lock-keyhole"/></svg><span>A senha do gravador não se cadastra aqui. Ela fica no cofre do agente, dentro da loja.</span></p>
+  </form>
+  <footer class="folha-pe">
+    <button class="btn primario" type="submit" form="f-canal" data-rotulo-novo="Criar canal" data-rotulo-editar="Salvar canal">Criar canal</button>
+    <button class="btn secundario" type="button" data-fecha>Cancelar</button>
+  </footer>
+</section>
+
+<section class="folha" id="folha-criterio" role="dialog" aria-modal="true" aria-labelledby="fcr-titulo" hidden>
+  <header class="folha-cab">
+    <div><h2 id="fcr-titulo" data-folha-titulo data-novo="Novo critério" data-editar="Editar o critério">Novo critério</h2><p data-so-novo>Cadastrado uma vez, vale nos canais que você marcar.</p><p data-so-editar>O que você mudar aqui muda em todos os canais em que ele vale.</p></div>
+    <button class="btn fantasma quadrado mini" type="button" data-fecha aria-label="Fechar"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </header>
+  <form class="folha-corpo" id="f-criterio" data-sucesso-novo="Critério criado. Ele nasce desligado: ligue depois de conferir que acerta." data-sucesso-editar="Critério salvo.">
+    <div class="campo">
+      <label for="fcr-nome">Nome do critério</label>
+      <input class="entrada" id="fcr-nome" placeholder="Bancada limpa entre pedidos" required data-preenche="nome">
+    </div>
+
+    <div class="campo">
+      <span class="rotulo" id="fcr-tipo-r">O que conferir</span>
+      <div class="escolhas" role="radiogroup" aria-labelledby="fcr-tipo-r">
+        <div class="escolha"><input type="radio" name="fcr-tipo" id="fcr-t-estado" value="estado" checked><label for="fcr-t-estado"><b><svg class="ic" aria-hidden="true"><use href="#i-scan-search"/></svg>Estado</b><small>limpeza, organização, uso de touca e luva</small></label></div>
+        <div class="escolha"><input type="radio" name="fcr-tipo" id="fcr-t-presenca" value="presenca"><label for="fcr-t-presenca"><b><svg class="ic" aria-hidden="true"><use href="#i-user-round-check"/></svg>Presença</b><small>tem alguém, ou algo, na área</small></label></div>
+        <div class="escolha"><input type="radio" name="fcr-tipo" id="fcr-t-contagem" value="contagem"><label for="fcr-t-contagem"><b><svg class="ic" aria-hidden="true"><use href="#i-hash"/></svg>Contagem</b><small>quantas pessoas, fila, ocupação</small></label></div>
+        <div class="escolha"><input type="radio" name="fcr-tipo" id="fcr-t-comparacao" value="comparacao"><label for="fcr-t-comparacao"><b><svg class="ic" aria-hidden="true"><use href="#i-layers"/></svg>Comparação</b><small>compara com um padrão guardado</small></label></div>
+        <div class="escolha"><input type="radio" name="fcr-tipo" id="fcr-t-acao" value="acao"><label for="fcr-t-acao"><b><svg class="ic" aria-hidden="true"><use href="#i-list-ordered"/></svg>Ação</b><small>sequência com etapas; custa bem mais</small></label></div>
+      </div>
+    </div>
+
+    <fieldset data-detector hidden>
+      <legend>O que o detector procura</legend>
+      <p class="nota">Este tipo é julgado <b>dentro da loja</b>, sem internet e sem custo por análise. Quem decide são os campos abaixo.</p>
+      <div class="campos">
+        <div class="campo" data-so-presenca>
+          <label for="fcr-deve">Regra</label>
+          <select class="entrada" id="fcr-deve"><option>deve haver</option><option>não deve haver</option></select>
+        </div>
+        <div class="campo">
+          <label for="fcr-objeto">O que procurar</label>
+          <select class="entrada" id="fcr-objeto"><option>pessoa</option><option>prato</option><option>tigela</option><option>copo</option><option>garrafa</option><option>faca</option><option>celular</option></select>
+        </div>
+        <div class="campo" data-so-contagem><label for="fcr-min">Pelo menos</label><input class="entrada mono" id="fcr-min" type="number" min="0" step="1" value="0"></div>
+        <div class="campo" data-so-contagem><label for="fcr-max">No máximo</label><input class="entrada mono" id="fcr-max" type="number" min="0" step="1" placeholder="sem limite"></div>
+      </div>
+      <p class="nota">Na dúvida o detector responde “não deu para avaliar” em vez de avisar: um casaco pendurado não vira pessoa.</p>
+    </fieldset>
+
+    <div class="campo">
+      <label for="fcr-texto">O que é “conforme”</label>
+      <textarea class="entrada" id="fcr-texto" rows="3" placeholder="A superfície de trabalho está livre de restos de alimento, embalagens descartadas e utensílios sujos." required></textarea>
+      <small data-ajuda-texto>Este texto vai direto ao modelo como pergunta. Descreva o que se vê, não o rótulo: “a superfície tem restos no canto” funciona melhor que “sujeira”.</small>
+    </div>
+
+    <div class="campo">
+      <span class="rotulo" id="fcr-onde-r">Onde vale</span>
+      <ul class="arv-canais" data-arv-canais aria-labelledby="fcr-onde-r"></ul>
+      <small data-arv-conta aria-live="polite">Nenhum canal marcado.</small>
+    </div>
+
+    <fieldset>
+      <legend>Quando avisar</legend>
+      <div class="campos">
+        <div class="campo"><label for="fcr-prio">Prioridade</label><select class="entrada" id="fcr-prio"><option>leve — pode esperar horas</option><option selected>intermediária — até 30 s</option><option>urgente — menos de 2 s, só na loja</option></select></div>
+        <div class="campo"><label for="fcr-sev">Gravidade</label><select class="entrada" id="fcr-sev"><option>informativo</option><option selected>atenção</option><option>crítico</option><option>emergência</option></select></div>
+        <div class="campo"><label for="fcr-conf">Confiança mínima</label><input class="entrada mono" id="fcr-conf" type="number" min="0" max="1" step="0.05" value="0.70"><small>Abaixo disso o resultado é registrado, mas não vira aviso.</small></div>
+        <div class="campo"><label for="fcr-sil">Silêncio entre avisos, em minutos</label><input class="entrada mono" id="fcr-sil" type="number" min="0" value="15"><small>Vale por canal: o aviso de um não cala os outros.</small></div>
+      </div>
+    </fieldset>
+  </form>
+  <footer class="folha-pe">
+    <button class="btn primario" type="submit" form="f-criterio" data-rotulo-novo="Criar critério" data-rotulo-editar="Salvar critério">Criar critério</button>
+    <button class="btn secundario" type="button" data-fecha>Cancelar</button>
+    <p class="nota" data-so-novo>O critério nasce <b>desligado</b>. Ligue depois de conferir que ele acerta.</p>
+  </footer>
+</section>
+
+<section class="folha" id="folha-destino" role="dialog" aria-modal="true" aria-labelledby="fde-titulo" hidden>
+  <header class="folha-cab">
+    <div><h2 id="fde-titulo">Novo destino</h2><p>Quem pode receber um aviso desta loja.</p></div>
+    <button class="btn fantasma quadrado mini" type="button" data-fecha aria-label="Fechar"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </header>
+  <form class="folha-corpo" id="f-destino" data-sucesso-novo="Destino cadastrado.">
+    <div class="campo">
+      <span class="rotulo" id="fde-canal-r">Por onde chega</span>
+      <div class="escolhas" role="radiogroup" aria-labelledby="fde-canal-r">
+        <div class="escolha"><input type="radio" name="fde-canal" id="fde-c-wa" value="+55 21 98888-7777" checked><label for="fde-c-wa"><b><svg class="ic" aria-hidden="true"><use href="#i-message-circle"/></svg>WhatsApp</b><small>número com + e país</small></label></div>
+        <div class="escolha"><input type="radio" name="fde-canal" id="fde-c-mail" value="voce@empresa.com.br"><label for="fde-c-mail"><b><svg class="ic" aria-hidden="true"><use href="#i-mail"/></svg>E-mail</b><small>endereço de e-mail</small></label></div>
+        <div class="escolha"><input type="radio" name="fde-canal" id="fde-c-kds" value="código da loja no Regem"><label for="fde-c-kds"><b><svg class="ic" aria-hidden="true"><use href="#i-monitor"/></svg>Tela da cozinha</b><small>KDS do Regem</small></label></div>
+        <div class="escolha"><input type="radio" name="fde-canal" id="fde-c-wh" value="https://…"><label for="fde-c-wh"><b><svg class="ic" aria-hidden="true"><use href="#i-webhook"/></svg>Outro sistema</b><small>endereço https</small></label></div>
+      </div>
+    </div>
+    <div class="campo"><label for="fde-nome">Nome</label><input class="entrada" id="fde-nome" placeholder="Celular do gerente" required></div>
+    <div class="campo"><label for="fde-end">Endereço</label><input class="entrada mono" id="fde-end" placeholder="+55 21 98888-7777" required></div>
+    <div class="campo">
+      <label for="fde-perfil">Perfil de quem recebe</label>
+      <select class="entrada" id="fde-perfil"><option>qualquer</option><option>presidente</option><option>gerente</option><option>supervisão</option><option>execução</option></select>
+    </div>
+    <label class="linha-caixa" for="fde-rede"><input class="caixa" type="checkbox" id="fde-rede"><span>Vale para a rede inteira, para não recadastrar o mesmo número em cada loja</span></label>
+  </form>
+  <footer class="folha-pe">
+    <button class="btn primario" type="submit" form="f-destino">Cadastrar destino</button>
+    <button class="btn secundario" type="button" data-fecha>Cancelar</button>
+  </footer>
+</section>
+
+<section class="folha" id="folha-regra" role="dialog" aria-modal="true" aria-labelledby="fre-titulo" hidden>
+  <header class="folha-cab">
+    <div><h2 id="fre-titulo">Nova regra de aviso</h2><p>Para uma combinação de gravidade e prioridade, avisar alguém ou ficar calado.</p></div>
+    <button class="btn fantasma quadrado mini" type="button" data-fecha aria-label="Fechar"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </header>
+  <form class="folha-corpo" id="f-regra" data-sucesso-novo="Regra salva.">
+    <div class="campos">
+      <div class="campo"><label for="fre-sev">Gravidade</label><select class="entrada" id="fre-sev"><option>qualquer</option><option>informativo</option><option>atenção</option><option selected>crítico</option><option>emergência</option></select></div>
+      <div class="campo"><label for="fre-prio">Prioridade</label><select class="entrada" id="fre-prio"><option selected>qualquer</option><option>urgente</option><option>intermediária</option><option>leve</option></select></div>
+    </div>
+    <div class="campo">
+      <span class="rotulo" id="fre-acao-r">O que fazer</span>
+      <div class="escolhas" role="radiogroup" aria-labelledby="fre-acao-r">
+        <div class="escolha"><input type="radio" name="fre-acao" id="fre-a-sim" value="sim" checked><label for="fre-a-sim"><b><svg class="ic" aria-hidden="true"><use href="#i-bell-ring"/></svg>Avisar</b><small>manda para o destino escolhido</small></label></div>
+        <div class="escolha"><input type="radio" name="fre-acao" id="fre-a-nao" value="nao"><label for="fre-a-nao"><b><svg class="ic" aria-hidden="true"><use href="#i-bell-off"/></svg>Não avisar</b><small>silencia a combinação inteira</small></label></div>
+      </div>
+    </div>
+    <div class="campo" data-so-avisar>
+      <label for="fre-dest">Para quem</label>
+      <select class="entrada" id="fre-dest"><option>Celular do gerente</option><option>Diretoria</option><option>＋ cadastrar novo destino</option></select>
+    </div>
+  </form>
+  <footer class="folha-pe">
+    <button class="btn primario" type="submit" form="f-regra">Salvar regra</button>
+    <button class="btn secundario" type="button" data-fecha>Cancelar</button>
+  </footer>
+</section>
+
+<!-- ═════════════════════════ DIÁLOGO ═════════════════════════ -->
+<section class="dialogo" id="dialogo" role="alertdialog" aria-modal="true" aria-labelledby="dlg-titulo" aria-describedby="dlg-corpo" hidden>
+  <h2 id="dlg-titulo"></h2>
+  <div id="dlg-corpo" style="display:flex;flex-direction:column;gap:10px"></div>
+  <div class="pe">
+    <button class="btn secundario" type="button" data-fecha>Cancelar</button>
+    <button class="btn perigo" type="button" data-confirma>Excluir</button>
+  </div>
+</section>
+
+<div class="toasts" data-toasts role="status" aria-live="polite"></div>
+
+<!-- ═════════════════ CONTROLES DO PROTÓTIPO (não fazem parte do console) ═════════════════ -->
+<div class="proto">
+  <button class="btn secundario" type="button" data-menu="menu-proto" aria-haspopup="menu" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-sliders-horizontal"/></svg><span class="txt">Protótipo</span><span class="so-leitor"> (controles de demonstração)</span></button>
+</div>
+<div class="menu" id="menu-proto" role="menu" hidden>
+  <p class="rotulo-menu">Situação da loja (dados de exemplo)</p>
+  <button type="button" role="menuitem" data-situacao="normal" aria-current="true">Em operação</button>
+  <button type="button" role="menuitem" data-situacao="vazio">Loja nova, sem nada</button>
+  <button type="button" role="menuitem" data-situacao="carregando">Carregando</button>
+  <button type="button" role="menuitem" data-agente-fora>Agente fora do ar</button>
+  <hr>
+  <p class="rotulo-menu">Quem está olhando</p>
+  <button type="button" role="menuitem" data-perfil="gerente" aria-current="true">Gerente (configura)</button>
+  <button type="button" role="menuitem" data-perfil="supervisao">Supervisão (só vê)</button>
+  <hr>
+  <button type="button" role="menuitem" data-tema><svg class="ic" aria-hidden="true"><use href="#i-moon" data-tema-icone/></svg><span data-tema-rotulo>Usar o tema escuro</span></button>
+  <button type="button" role="menuitem" data-sair><svg class="ic" aria-hidden="true"><use href="#i-log-out"/></svg>Ver a tela de entrada</button>
+</div>

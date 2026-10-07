@@ -1,0 +1,185 @@
+    <!-- ═════════════════════════ PAINEL ═════════════════════════ -->
+    <section class="tela" data-tela="painel" aria-labelledby="t-painel">
+      <header class="cab">
+        <div>
+          <p class="sobre"><svg class="ic p" aria-hidden="true"><use href="#i-store"/></svg><span data-loja-nome>Loja Centro</span></p>
+          <h1 id="t-painel">O que o Farol viu</h1>
+          <p class="sub">Tudo o que foi analisado nas câmeras desta loja, por critério e por canal.</p>
+        </div>
+        <div class="cab-acoes">
+          <div class="seg" role="group" aria-label="Período">
+            <button type="button" data-periodo="24h" aria-pressed="true">24 horas</button>
+            <button type="button" data-periodo="7d" aria-pressed="false">7 dias</button>
+          </div>
+        </div>
+      </header>
+
+      <div class="corpo" data-quando="normal">
+        <ul class="saude cartao">
+          <li data-saude-agente>
+            <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-cpu"/></svg></span>
+            <div>
+              <span class="rot">Agente</span>
+              <span class="val"><span class="ponto ok pulsa" data-agente-ponto></span><span data-agente-titulo-curto>Ativo</span></span>
+              <small data-agente-detalhe>bateu há 12 s · versão 0.9.4</small>
+            </div>
+          </li>
+          <li class="ruim">
+            <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-cctv"/></svg></span>
+            <div>
+              <span class="rot">Canais com imagem</span>
+              <span class="val">6 de 7</span>
+              <small>Fritadeira sem imagem desde as 14h</small>
+            </div>
+          </li>
+          <li>
+            <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-list-checks"/></svg></span>
+            <div>
+              <span class="rot">Critérios ligados</span>
+              <span class="val">5 de 6</span>
+              <small>1 desligado, aguardando ajuste</small>
+            </div>
+          </li>
+        </ul>
+
+        <div class="painel-grade">
+          <div class="numeros">
+            <article class="kpi cartao">
+              <span class="rot"><svg class="ic p" aria-hidden="true"><use href="#i-activity"/></svg>Análises</span>
+              <span class="num" data-kpi="total">1.284</span>
+              <span class="pe" data-kpi-pe="total">53 por hora, em média</span>
+            </article>
+            <article class="kpi cartao">
+              <span class="rot"><span class="ponto ok"></span>Conforme</span>
+              <span class="num"><span data-kpi="okp">89</span><small>%</small></span>
+              <span class="pe" data-kpi-pe="ok">1.142 análises</span>
+            </article>
+            <article class="kpi cartao">
+              <span class="rot"><span class="ponto critico"></span>Fora do critério</span>
+              <span class="num" data-kpi="nc">41</span>
+              <span class="pe" data-kpi-pe="nc">3% das análises</span>
+            </article>
+            <article class="kpi cartao">
+              <span class="rot"><span class="ponto"></span>Não deu para avaliar</span>
+              <span class="num"><span data-kpi="nap">8</span><small>%</small></span>
+              <span class="pe" data-kpi-pe="na">101 análises</span>
+            </article>
+          </div>
+
+          <section class="grafico cartao" aria-labelledby="t-grafico">
+            <div class="secao-cab">
+              <h2 id="t-grafico" data-grafico-titulo>Hora a hora</h2>
+              <div class="legenda empurra" aria-hidden="true">
+                <span><i class="cor-ok"></i>conforme</span>
+                <span><i class="cor-nc"></i>fora do critério</span>
+                <span><i class="cor-na"></i>não avaliou</span>
+              </div>
+            </div>
+            <div class="barras-area">
+              <div class="eixo-y" aria-hidden="true" data-eixo-y></div>
+              <div class="barras" role="img" data-barras aria-label="Análises por hora"></div>
+              <div class="eixo-x" aria-hidden="true" data-eixo-x></div>
+              <div class="dica" data-dica hidden></div>
+            </div>
+          </section>
+
+          <section class="secao atencao-col" aria-labelledby="t-atencao">
+            <h2 id="t-atencao">Precisa de atenção <span class="conta">3</span></h2>
+            <ul class="sinais cartao">
+              <li class="sinal critico">
+                <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-video-off"/></svg></span>
+                <b>Fritadeira está sem imagem desde as 14h</b>
+                <p>O canal 6 parou de entregar cena. Enquanto isso, 1 critério não é verificado.</p>
+                <a class="elo" href="#canais" data-ir="canais">Ver o canal<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+              </li>
+              <li class="sinal">
+                <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-circle-help"/></svg></span>
+                <b>“Uso de touca” não conseguiu avaliar 53% das vezes em Montagem 1</b>
+                <p>A câmera não mostra o suficiente para decidir. Vale ajustar a área ou o enquadramento.</p>
+                <a class="elo" href="#area" data-ir="area">Ver a área<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+              </li>
+              <li class="sinal">
+                <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-sliders-horizontal"/></svg></span>
+                <b>“Produto na bancada” nunca foi verificado</b>
+                <p>Falta dizer o que o detector procura. Do jeito que está, o critério não tem como ser julgado.</p>
+                <a class="elo" href="#criterios" data-ir="criterios">Ajustar o critério<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+              </li>
+            </ul>
+          </section>
+        </div>
+
+        <section class="secao" aria-labelledby="t-porcrit">
+          <div class="secao-cab">
+            <h2 id="t-porcrit">Por critério e canal</h2>
+            <span class="nota empurra">Do que mais ficou fora do critério para o que menos ficou.</span>
+          </div>
+          <div class="cartao rola">
+            <table class="em-cartoes">
+              <caption class="so-leitor">Resultado de cada critério em cada canal, no período escolhido</caption>
+              <thead>
+                <tr>
+                  <th>Critério</th><th>Canal</th><th>Conforme</th>
+                  <th class="num-col">Análises</th><th class="num-col">Fora do critério</th>
+                  <th class="num-col">Não avaliou</th><th class="num-col">Confiança</th>
+                  <th class="num-col">Tempo</th><th class="num-col">Última</th>
+                </tr>
+              </thead>
+              <tbody data-resultados></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="secao" aria-labelledby="t-ocorr">
+          <div class="secao-cab">
+            <h2 id="t-ocorr">Últimas vezes fora do critério</h2>
+            <a class="elo empurra" href="#alertas" data-ir="alertas">Ver se o aviso chegou<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+          </div>
+          <ul class="ocorrencias cartao">
+            <li>
+              <time datetime="21:42">21:42</time>
+              <div>
+                <div class="o-titulo">Bancada limpa entre pedidos <span class="chip vazado"><svg class="ic" aria-hidden="true"><use href="#i-cctv"/></svg>Montagem 1</span></div>
+                <p>Restos de alimento e embalagem aberta no canto direito da bancada.</p>
+              </div>
+              <div class="o-fim"><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-check-check"/></svg>aviso chegou</span><span class="mono suave">confiança 0,91</span></div>
+            </li>
+            <li>
+              <time datetime="20:17">20:17</time>
+              <div>
+                <div class="o-titulo">Alguém na chapa no horário de pico <span class="chip vazado"><svg class="ic" aria-hidden="true"><use href="#i-cctv"/></svg>Chapa</span></div>
+                <p>Nenhuma pessoa na área da chapa.</p>
+              </div>
+              <div class="o-fim"><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-check-check"/></svg>aviso chegou</span><span class="mono suave">confiança 0,88</span></div>
+            </li>
+            <li>
+              <time datetime="19:55">19:55</time>
+              <div>
+                <div class="o-titulo">Fila no balcão <span class="chip vazado"><svg class="ic" aria-hidden="true"><use href="#i-cctv"/></svg>Balcão</span></div>
+                <p>8 pessoas na área do balcão; o combinado é no máximo 6.</p>
+              </div>
+              <div class="o-fim"><span class="chip atencao"><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>aviso mandado</span><span class="mono suave">confiança 0,84</span></div>
+            </li>
+            <li>
+              <time datetime="19:31">19:31</time>
+              <div>
+                <div class="o-titulo">Bancada limpa entre pedidos <span class="chip vazado"><svg class="ic" aria-hidden="true"><use href="#i-cctv"/></svg>Montagem 2</span></div>
+                <p>Utensílio sujo sobre a superfície de trabalho.</p>
+              </div>
+              <div class="o-fim"><span class="chip"><svg class="ic" aria-hidden="true"><use href="#i-bell-off"/></svg>em silêncio</span><span class="mono suave">confiança 0,79</span></div>
+            </li>
+          </ul>
+        </section>
+      </div>
+
+      <div class="vazio" data-quando="vazio">
+        <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-scan-eye"/></svg></span>
+        <h2>Ainda não há o que mostrar</h2>
+        <p>O Farol começa a registrar quando a loja tem pelo menos um canal com imagem e um critério ligado. O primeiro resultado aparece aqui em até uma hora.</p>
+        <a class="btn primario" href="#canais" data-ir="canais" data-so-config><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Cadastrar o primeiro canal</a>
+      </div>
+      <div class="ossos" data-quando="carregando" aria-hidden="true">
+        <div class="osso" style="height:74px"></div>
+        <div class="linha"><div class="osso" style="height:96px"></div><div class="osso" style="height:96px"></div><div class="osso" style="height:96px"></div><div class="osso" style="height:96px"></div></div>
+        <div class="osso" style="height:230px"></div>
+      </div>
+    </section>

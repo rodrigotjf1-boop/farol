@@ -1,0 +1,3345 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Console do Farol</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: uma navegação só, que muda de forma — coluna à esquerda no computador,
+   trilho no tablet, barra embaixo no celular. A loja é o contexto. O âmbar do
+   facho aparece só onde é para olhar; quem age é a cor do logotipo. */
+:root {
+  --fundo: #F2F5F9;
+  --painel: #FFFFFF;
+  --painel-2: #F7F9FC;
+  --realce: #E9EEF5;
+  --borda: #DDE5EE;
+  --borda-forte: #C5D0DD;
+  --tinta: #0F2540;
+  --suave: #526174;
+  --marca: #12365C;
+  --sobre-marca: #FFFFFF;
+  --facho: #F0A832;
+  --facho-tinta: #8A5A00;
+  --facho-icone: #C98300;
+  --facho-leve: #FCF1D9;
+  --ok: #157347;
+  --ok-leve: #E1F3E9;
+  --critico: #BE2F45;
+  --critico-leve: #FBE6E9;
+  --sobre-critico: #FFFFFF;
+  --graf-ok: #9FD4B7;
+  --graf-na: #C3CEDA;
+  --palco: #12365C;
+  --palco-tinta: #FFFFFF;
+  --palco-suave: #B9CBE0;
+  --veu: rgba(15, 37, 64, .42);
+  --sombra-1: 0 1px 2px rgba(15, 37, 64, .06);
+  --sombra-2: 0 18px 48px -12px rgba(15, 37, 64, .28);
+
+  --titulo: "Bricolage Grotesque", "Figtree", system-ui, sans-serif;
+  --texto: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  --raio: 14px;
+  --raio-p: 10px;
+  --rapido: 120ms;
+  --medio: 220ms;
+  --lento: 340ms;
+  --curva: cubic-bezier(.2, .8, .2, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fundo: #0A111B; --painel: #111A27; --painel-2: #0E1622; --realce: #1A2637;
+    --borda: #1E2B3D; --borda-forte: #2D3D54;
+    --tinta: #E6EDF5; --suave: #93A3B7;
+    --marca: #DCE8F5; --sobre-marca: #0F2540;
+    --facho: #F2B03C; --facho-tinta: #F2B03C; --facho-icone: #F2B03C; --facho-leve: #2B2412;
+    --ok: #4CC790; --ok-leve: #12291F;
+    --critico: #F47C8C; --critico-leve: #32161B; --sobre-critico: #2A0A10;
+    --graf-ok: #22624A; --graf-na: #33445A;
+    --palco: #0E2A49; --palco-tinta: #FFFFFF; --palco-suave: #A9BDD6;
+    --veu: rgba(2, 6, 12, .62);
+    --sombra-1: 0 1px 2px rgba(0, 0, 0, .4);
+    --sombra-2: 0 18px 48px -12px rgba(0, 0, 0, .7);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --fundo: #0A111B; --painel: #111A27; --painel-2: #0E1622; --realce: #1A2637;
+  --borda: #1E2B3D; --borda-forte: #2D3D54;
+  --tinta: #E6EDF5; --suave: #93A3B7;
+  --marca: #DCE8F5; --sobre-marca: #0F2540;
+  --facho: #F2B03C; --facho-tinta: #F2B03C; --facho-icone: #F2B03C; --facho-leve: #2B2412;
+  --ok: #4CC790; --ok-leve: #12291F;
+  --critico: #F47C8C; --critico-leve: #32161B; --sobre-critico: #2A0A10;
+  --graf-ok: #22624A; --graf-na: #33445A;
+  --palco: #0E2A49; --palco-tinta: #FFFFFF; --palco-suave: #A9BDD6;
+  --veu: rgba(2, 6, 12, .62);
+  --sombra-1: 0 1px 2px rgba(0, 0, 0, .4);
+  --sombra-2: 0 18px 48px -12px rgba(0, 0, 0, .7);
+  color-scheme: dark;
+}
+
+/* ───────────────────────── base ───────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--tinta);
+  font: 14px/1.5 var(--texto);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+h1, h2, h3, h4, p, ul, ol, dl, dd, figure { margin: 0; }
+ul, ol { padding: 0; list-style: none; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: inherit; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--facho); outline-offset: 2px; border-radius: 6px; }
+.so-leitor {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+.pular {
+  position: absolute; left: 12px; top: -60px; z-index: 90;
+  background: var(--marca); color: var(--sobre-marca);
+  padding: 8px 12px; border-radius: var(--raio-p); transition: top var(--rapido);
+}
+.pular:focus { top: 12px; }
+
+.ic {
+  width: 18px; height: 18px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.75;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.ic.p { width: 15px; height: 15px; }
+.ic.g { width: 22px; height: 22px; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: .92em; }
+.suave { color: var(--suave); }
+
+/* O logotipo: letras e anel na cor da marca, facho em âmbar. */
+.lg-tinta { fill: var(--marca); }
+.lg-anel { fill: none; stroke: var(--marca); }
+.lg-facho { fill: var(--facho); }
+.lg-ponto { fill: var(--facho); }
+.vivo .lg-ponto { animation: pulso 2s ease-in-out infinite; }
+.fora .lg-ponto, .fora .lg-facho { fill: var(--critico); }
+
+/* ──────────────────────── botões ──────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 38px; padding: 0 14px;
+  border: 1px solid transparent; border-radius: var(--raio-p);
+  background: transparent; font-weight: 600; font-size: 13.5px; line-height: 1;
+  white-space: nowrap; text-decoration: none;
+  transition: background var(--rapido), border-color var(--rapido), color var(--rapido), transform var(--rapido);
+}
+.btn:active { transform: scale(.98); }
+.btn[disabled] { opacity: .55; cursor: not-allowed; }
+.btn.primario { background: var(--marca); color: var(--sobre-marca); }
+.btn.primario:hover { background: color-mix(in srgb, var(--marca) 86%, var(--facho)); }
+.btn.secundario { background: var(--painel); border-color: var(--borda-forte); }
+.btn.secundario:hover { border-color: var(--marca); }
+.btn.fantasma { color: var(--suave); }
+.btn.fantasma:hover { background: var(--realce); color: var(--tinta); }
+.btn.perigo { background: var(--critico); color: var(--sobre-critico); }
+.btn.perigo-leve { color: var(--critico); }
+.btn.perigo-leve:hover { background: var(--critico-leve); }
+.btn.quadrado { width: 38px; padding: 0; }
+.btn.mini { min-height: 32px; padding: 0 10px; font-size: 12.5px; }
+.btn.mini.quadrado { width: 32px; }
+.btn .gira { animation: gira .8s linear infinite; }
+.elo {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: 0; padding: 0;
+  color: var(--tinta); font-weight: 600; text-decoration: none;
+  border-bottom: 1px solid var(--borda-forte);
+}
+.elo:hover { border-color: var(--facho); }
+.elo .ic { transition: transform var(--rapido); }
+.elo:hover .ic { transform: translateX(2px); }
+
+/* ──────────────────────── pastilhas ──────────────────────── */
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 9px; border-radius: 999px;
+  background: var(--realce); color: var(--suave);
+  font-size: 12px; font-weight: 500; line-height: 1.5; white-space: nowrap;
+}
+.chip .ic { width: 13px; height: 13px; }
+.chip.ok { background: var(--ok-leve); color: var(--ok); }
+.chip.atencao { background: var(--facho-leve); color: var(--facho-tinta); }
+.chip.critico { background: var(--critico-leve); color: var(--critico); }
+.chip.vazado { background: none; box-shadow: inset 0 0 0 1px var(--borda-forte); }
+.ponto {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--suave); flex: none;
+}
+.ponto.ok { background: var(--ok); }
+.ponto.critico { background: var(--critico); }
+.ponto.atencao { background: var(--facho); }
+.ponto.pulsa { box-shadow: 0 0 0 0 var(--ok); animation: onda 2.4s ease-out infinite; }
+
+/* ──────────────────────── moldura ──────────────────────── */
+.app {
+  display: grid; height: 100%;
+  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-areas: "lado palco";
+}
+.lado {
+  grid-area: lado; display: flex; flex-direction: column; gap: 14px;
+  padding: 18px 12px 14px; border-right: 1px solid var(--borda);
+  min-height: 0; overflow-y: auto;
+}
+.lado > * { flex-shrink: 0; }
+.lado .cresce { flex: 1 0 12px; }
+.marca-linha { display: flex; align-items: center; gap: 10px; padding: 2px 8px 6px; }
+.marca-linha svg.palavra { height: 28px; width: auto; }
+.marca-linha svg.selo { height: 30px; width: 30px; display: none; }
+
+.troca {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 8px 10px; border-radius: var(--raio-p);
+  background: var(--painel); border: 1px solid var(--borda); text-align: left;
+  transition: border-color var(--rapido);
+}
+.troca:hover { border-color: var(--borda-forte); }
+.troca .nome { flex: 1; min-width: 0; }
+.troca .nome b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.troca .nome small { display: block; color: var(--suave); font-size: 12px; line-height: 1.3; }
+.troca > .ic:first-child { color: var(--suave); }
+
+.nav { position: relative; display: flex; flex-direction: column; gap: 2px; }
+.nav-realce {
+  position: absolute; left: 0; right: 0; top: 0; height: 40px;
+  background: var(--painel); border: 1px solid var(--borda); border-radius: var(--raio-p);
+  box-shadow: var(--sombra-1);
+  transition: transform var(--lento) var(--curva), width var(--lento) var(--curva), height var(--lento) var(--curva);
+  pointer-events: none;
+}
+.nav a {
+  position: relative; display: flex; align-items: center; gap: 11px;
+  height: 40px; padding: 0 11px; border-radius: var(--raio-p);
+  color: var(--suave); text-decoration: none; font-weight: 500;
+  transition: color var(--rapido);
+}
+.nav a:hover { color: var(--tinta); }
+.nav a[aria-current="page"] { color: var(--tinta); font-weight: 600; }
+.nav a[aria-current="page"] .ic { color: var(--facho-icone); }
+.nav a .conta {
+  margin-left: auto; min-width: 20px; padding: 0 6px; border-radius: 999px;
+  background: var(--critico-leve); color: var(--critico);
+  font-size: 11.5px; font-weight: 600; text-align: center; line-height: 20px;
+}
+
+.agente {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px; border-radius: var(--raio-p); background: var(--painel-2);
+  border: 1px solid var(--borda); font-size: 12.5px; line-height: 1.4;
+}
+.agente .ponto { margin-top: 5px; }
+.agente b { display: block; font-weight: 600; font-size: 13px; }
+.conta-linha { display: flex; align-items: center; gap: 10px; padding: 4px 6px; }
+.avatar {
+  width: 32px; height: 32px; border-radius: 50%; flex: none;
+  display: grid; place-items: center;
+  background: var(--marca); color: var(--sobre-marca); font-weight: 600; font-size: 12.5px;
+}
+.conta-linha .quem { flex: 1; min-width: 0; line-height: 1.3; }
+.conta-linha .quem b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conta-linha .quem small { color: var(--suave); font-size: 12px; }
+
+.topo { display: none; }
+.barra { display: none; }
+
+.palco { grid-area: palco; min-width: 0; min-height: 0; overflow-y: auto; scroll-behavior: smooth; }
+.tela {
+  max-width: 1180px; margin-inline: auto;
+  padding-inline: clamp(16px, 3.2vw, 36px);
+  padding-block: 28px 56px;
+  display: flex; flex-direction: column; gap: 24px;
+}
+.tela.entra > * { animation: sobe var(--lento) var(--curva) both; }
+.tela.entra > *:nth-child(2) { animation-delay: 40ms; }
+.tela.entra > *:nth-child(3) { animation-delay: 80ms; }
+.tela.entra > *:nth-child(4) { animation-delay: 120ms; }
+.tela.entra > *:nth-child(5) { animation-delay: 160ms; }
+.tela.entra > *:nth-child(n+6) { animation-delay: 200ms; }
+
+.cab { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 20px; }
+.cab > div:first-child { flex: 1 1 320px; min-width: 0; }
+.sobre {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--suave); font-size: 12.5px; font-weight: 500;
+}
+.sobre a { text-decoration: none; }
+.sobre a:hover { color: var(--tinta); }
+h1 {
+  font: 600 28px/1.15 var(--titulo); letter-spacing: -.02em; text-wrap: balance;
+  margin-top: 2px;
+}
+.sub { color: var(--suave); max-width: 62ch; margin-top: 4px; }
+.cab-acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+h2 { font: 600 16px/1.3 var(--texto); display: flex; align-items: center; gap: 8px; }
+h2 .conta {
+  font: 600 12px/20px var(--texto); min-width: 20px; padding: 0 6px; text-align: center;
+  border-radius: 999px; background: var(--facho-leve); color: var(--facho-tinta);
+}
+.secao { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.secao-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.secao-cab .empurra { margin-left: auto; }
+.nota { color: var(--suave); font-size: 12.5px; max-width: 70ch; }
+
+.cartao {
+  background: var(--painel); border: 1px solid var(--borda); border-radius: var(--raio);
+  min-width: 0;
+}
+.cartao.pad { padding: 16px; }
+
+/* ──────────────── controle segmentado e abas ──────────────── */
+.seg {
+  display: inline-flex; padding: 3px; gap: 2px;
+  background: var(--realce); border-radius: 12px;
+}
+.seg button {
+  min-height: 32px; padding: 0 12px; border: 0; border-radius: 9px;
+  background: transparent; color: var(--suave); font-weight: 600; font-size: 13px;
+  transition: background var(--medio), color var(--medio), box-shadow var(--medio);
+}
+.seg button[aria-pressed="true"], .seg button[aria-selected="true"] {
+  background: var(--painel); color: var(--tinta); box-shadow: var(--sombra-1);
+}
+.abas { display: flex; gap: 4px; border-bottom: 1px solid var(--borda); overflow-x: auto; }
+.abas button {
+  position: relative; display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 0 12px; border: 0; background: none;
+  color: var(--suave); font-weight: 600; white-space: nowrap;
+}
+.abas button::after {
+  content: ""; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px;
+  background: var(--facho); border-radius: 2px;
+  transform: scaleX(0); transition: transform var(--medio) var(--curva);
+}
+.abas button[aria-selected="true"] { color: var(--tinta); }
+.abas button[aria-selected="true"]::after { transform: scaleX(1); }
+
+/* ──────────────────────── interruptor ──────────────────────── */
+.liga {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 0; background: none; padding: 4px 0; color: var(--suave);
+  font-size: 12.5px; font-weight: 500;
+}
+.liga i {
+  position: relative; width: 36px; height: 22px; border-radius: 999px; flex: none;
+  background: var(--borda-forte); transition: background var(--medio);
+}
+.liga i::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--painel); box-shadow: var(--sombra-1);
+  transition: transform var(--medio) var(--curva);
+}
+.liga[aria-checked="true"] { color: var(--ok); }
+.liga[aria-checked="true"] i { background: var(--ok); }
+.liga[aria-checked="true"] i::after { transform: translateX(14px); }
+
+/* ──────────────────────── formulário ──────────────────────── */
+.campos { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.campos .largo { grid-column: 1 / -1; }
+.campo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.campo > label, .campo > .rotulo { font-size: 12.5px; font-weight: 600; color: var(--tinta); }
+.campo small { color: var(--suave); font-size: 12px; line-height: 1.4; }
+.entrada {
+  width: 100%; min-height: 40px; padding: 8px 11px;
+  border: 1px solid var(--borda-forte); border-radius: var(--raio-p);
+  background: var(--painel); color: var(--tinta);
+  transition: border-color var(--rapido), box-shadow var(--rapido);
+}
+.entrada::placeholder { color: var(--suave); opacity: .75; }
+.entrada:hover { border-color: var(--suave); }
+.entrada:focus { outline: none; border-color: var(--marca); box-shadow: 0 0 0 3px var(--facho-leve); }
+textarea.entrada { resize: vertical; min-height: 84px; line-height: 1.5; }
+.com-botao { position: relative; }
+.com-botao .entrada { padding-right: 44px; }
+.com-botao button {
+  position: absolute; right: 4px; top: 4px; width: 32px; height: 32px;
+  display: grid; place-items: center; border: 0; background: none;
+  color: var(--suave); border-radius: 8px;
+}
+.com-botao button:hover { background: var(--realce); color: var(--tinta); }
+.caixa { width: 17px; height: 17px; accent-color: var(--marca); flex: none; }
+.aviso {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 12px; border-radius: var(--raio-p); font-size: 13px;
+  background: var(--facho-leve); color: var(--facho-tinta);
+}
+.aviso.critico { background: var(--critico-leve); color: var(--critico); }
+.aviso.neutro { background: var(--painel-2); color: var(--suave); border: 1px solid var(--borda); }
+.aviso .ic { margin-top: 1px; }
+.aviso b { color: inherit; }
+
+.escolhas { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); }
+.escolha { position: relative; }
+.escolha input { position: absolute; opacity: 0; inset: 0; }
+.escolha label {
+  display: flex; flex-direction: column; gap: 4px; height: 100%;
+  padding: 10px; border: 1px solid var(--borda-forte); border-radius: var(--raio-p);
+  background: var(--painel); cursor: pointer;
+  transition: border-color var(--rapido), background var(--rapido);
+}
+.escolha label b { display: flex; align-items: center; gap: 7px; font-weight: 600; }
+.escolha label small { color: var(--suave); font-size: 11.5px; line-height: 1.35; }
+.escolha input:checked + label { border-color: var(--marca); background: var(--painel-2); box-shadow: inset 0 0 0 1px var(--marca); }
+.escolha input:checked + label .ic { color: var(--facho-icone); }
+.escolha input:focus-visible + label { outline: 2px solid var(--facho); outline-offset: 2px; }
+
+/* ──────────────────────── saúde e números ──────────────────────── */
+.saude { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.saude li {
+  display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; min-width: 0;
+}
+.saude li + li { border-left: 1px solid var(--borda); }
+.saude .selo-ic {
+  width: 34px; height: 34px; border-radius: 10px; flex: none;
+  display: grid; place-items: center; background: var(--realce); color: var(--marca);
+}
+.saude dt, .saude .rot { color: var(--suave); font-size: 12.5px; }
+.saude .val { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; }
+.saude small { display: block; color: var(--suave); font-size: 12px; line-height: 1.4; }
+.saude li.ruim .selo-ic { background: var(--critico-leve); color: var(--critico); }
+
+.painel-grade {
+  display: grid; gap: 24px;
+  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+  grid-template-areas: "numeros atencao" "grafico atencao";
+  align-items: start;
+}
+.numeros { grid-area: numeros; display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.kpi { padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.kpi .rot { display: flex; align-items: center; gap: 7px; color: var(--suave); font-size: 12.5px; }
+.kpi .num { font: 600 30px/1.15 var(--titulo); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.kpi .num small { font: 500 14px var(--texto); color: var(--suave); letter-spacing: 0; }
+.kpi .pe { color: var(--suave); font-size: 12px; }
+
+.grafico { grid-area: grafico; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.legenda { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--suave); }
+.legenda span { display: inline-flex; align-items: center; gap: 6px; }
+.legenda i { width: 10px; height: 10px; border-radius: 3px; }
+.cor-ok { background: var(--graf-ok); }
+.cor-nc { background: var(--critico); }
+.cor-na { background: var(--graf-na); }
+.barras-area { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
+.eixo-y {
+  display: flex; flex-direction: column; justify-content: space-between; height: 168px;
+  color: var(--suave); font: 11px var(--mono); text-align: right;
+}
+.barras {
+  position: relative; height: 168px; display: flex; align-items: flex-end; gap: 3px;
+  background:
+    linear-gradient(var(--borda), var(--borda)) 0 0 / 100% 1px no-repeat,
+    linear-gradient(var(--borda), var(--borda)) 0 50% / 100% 1px no-repeat,
+    linear-gradient(var(--borda-forte), var(--borda-forte)) 0 100% / 100% 1px no-repeat;
+}
+.barra-col {
+  flex: 1 1 0; min-width: 0; height: 100%;
+  display: flex; flex-direction: column-reverse; justify-content: flex-start;
+  border-radius: 4px 4px 0 0; overflow: hidden;
+  transform-origin: bottom; animation: cresce var(--lento) var(--curva) both;
+}
+.barra-col > i { display: block; width: 100%; }
+.barra-col:hover, .barra-col.foco { filter: brightness(1.08) saturate(1.15); }
+.eixo-x {
+  grid-column: 2; display: flex; gap: 3px; color: var(--suave); font: 11px var(--mono);
+}
+.eixo-x span { flex: 1 1 0; min-width: 0; text-align: center; white-space: nowrap; overflow: visible; }
+.dica {
+  position: absolute; z-index: 5; pointer-events: none;
+  padding: 8px 10px; border-radius: var(--raio-p);
+  background: var(--tinta); color: var(--fundo); font-size: 12px; line-height: 1.5;
+  box-shadow: var(--sombra-2); white-space: nowrap;
+  transform: translate(-50%, -100%); transition: opacity var(--rapido);
+}
+
+.atencao-col { grid-area: atencao; }
+.sinais { display: flex; flex-direction: column; }
+.sinal {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px;
+  padding: 14px 16px;
+}
+.sinal + .sinal { border-top: 1px solid var(--borda); }
+.sinal .selo-ic {
+  grid-row: span 3; width: 34px; height: 34px; border-radius: 10px;
+  display: grid; place-items: center; background: var(--facho-leve); color: var(--facho-tinta);
+}
+.sinal.critico .selo-ic { background: var(--critico-leve); color: var(--critico); }
+.sinal b { font-weight: 600; line-height: 1.35; }
+.sinal p { color: var(--suave); font-size: 13px; }
+.sinal .elo { justify-self: start; font-size: 13px; margin-top: 2px; }
+.tudo-bem {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 28px 16px; text-align: center; color: var(--suave);
+}
+.tudo-bem .selo-ic {
+  width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--ok-leve); color: var(--ok);
+}
+.tudo-bem b { color: var(--tinta); }
+
+/* ──────────────────────── tabelas ──────────────────────── */
+.rola { position: relative; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th {
+  text-align: left; font-weight: 600; font-size: 12px; color: var(--suave);
+  padding: 10px 14px; white-space: nowrap; border-bottom: 1px solid var(--borda);
+}
+td { padding: 12px 14px; border-bottom: 1px solid var(--borda); vertical-align: middle; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr { transition: background var(--rapido); }
+tbody tr:hover { background: var(--painel-2); }
+.num-col { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12.5px; white-space: nowrap; }
+.prop { display: flex; align-items: center; gap: 10px; min-width: 150px; }
+.prop .fita {
+  flex: 1; height: 8px; border-radius: 999px; overflow: hidden; display: flex; background: var(--realce);
+}
+.prop .fita i { display: block; height: 100%; }
+.prop b { font: 600 12.5px var(--mono); min-width: 38px; text-align: right; }
+td .crit { font-weight: 600; display: flex; align-items: center; gap: 7px; }
+td .crit .ic { color: var(--facho-tinta); }
+
+.ocorrencias li {
+  display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 4px 14px;
+  padding: 13px 16px; align-items: start;
+}
+.ocorrencias li + li { border-top: 1px solid var(--borda); }
+.ocorrencias time { font: 500 12.5px var(--mono); color: var(--suave); padding-top: 2px; }
+.ocorrencias .o-titulo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-weight: 600; }
+.ocorrencias p { color: var(--suave); font-size: 13px; }
+.ocorrencias .o-fim { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+
+/* ──────────────────────── canais ──────────────────────── */
+.setor-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.setor-cab .ic { color: var(--facho-icone); }
+.setor-cab .empurra { margin-left: auto; }
+.canais { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 268px), 1fr)); }
+.canal {
+  display: flex; flex-direction: column; gap: 12px; padding: 14px;
+  transition: border-color var(--rapido), transform var(--medio) var(--curva), box-shadow var(--medio);
+}
+.canal:hover { border-color: var(--borda-forte); transform: translateY(-2px); box-shadow: var(--sombra-1); }
+.canal-topo { display: flex; align-items: flex-start; gap: 11px; }
+.canal-num {
+  width: 38px; height: 38px; border-radius: 11px; flex: none;
+  display: grid; place-items: center;
+  background: var(--realce); color: var(--marca); font: 600 13px var(--mono);
+}
+.canal-topo h3 { font: 600 15px/1.3 var(--texto); overflow-wrap: anywhere; }
+.canal-topo p { color: var(--suave); font-size: 12px; overflow-wrap: anywhere; }
+.canal-topo > div { flex: 1; min-width: 0; }
+.canal-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.canal-pe {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding-top: 11px; border-top: 1px solid var(--borda); font-size: 13px; color: var(--suave);
+}
+.canal.parado { background: var(--painel-2); }
+.canal.parado .canal-num { color: var(--suave); }
+
+.menu-ancora { position: relative; }
+.menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 190px;
+  padding: 5px; background: var(--painel); border: 1px solid var(--borda);
+  border-radius: 12px; box-shadow: var(--sombra-2);
+  transform-origin: top right; animation: abre var(--medio) var(--curva) both;
+}
+.menu.esq { right: auto; left: 0; transform-origin: top left; }
+.menu.cima { top: auto; bottom: calc(100% + 6px); transform-origin: bottom left; }
+.menu button, .menu a {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  min-height: 36px; padding: 0 10px; border: 0; border-radius: 8px;
+  background: none; text-align: left; text-decoration: none; font-weight: 500;
+}
+.menu button:hover, .menu a:hover { background: var(--realce); }
+.menu .perigo { color: var(--critico); }
+.menu hr { border: 0; border-top: 1px solid var(--borda); margin: 5px 0; }
+.menu .rotulo-menu { padding: 6px 10px 2px; color: var(--suave); font-size: 11.5px; font-weight: 600; }
+.menu [aria-current="true"] { font-weight: 600; }
+.menu [aria-current="true"]::after {
+  content: ""; margin-left: auto; width: 7px; height: 7px; border-radius: 50%; background: var(--facho);
+}
+
+/* ──────────────────────── critérios ──────────────────────── */
+.arvore { display: flex; flex-direction: column; gap: 12px; }
+.ramo-cab {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 12px 14px; border: 0; background: none; text-align: left;
+}
+.ramo-cab .seta { color: var(--suave); transition: transform var(--medio) var(--curva); }
+.ramo-cab[aria-expanded="true"] .seta { transform: rotate(90deg); }
+.ramo-cab b { font-weight: 600; font-size: 15px; }
+.ramo-cab .fim { margin-left: auto; color: var(--suave); font-size: 12.5px; }
+.dobra { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--lento) var(--curva); }
+.dobra.fechada { grid-template-rows: 0fr; }
+.dobra > div { overflow: hidden; min-height: 0; }
+.ramo-corpo { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 14px; }
+.no-canal { display: flex; flex-direction: column; gap: 8px; }
+.no-canal-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 9px; color: var(--suave); font-size: 13px; }
+.no-canal-cab b { color: var(--tinta); font-weight: 600; }
+.no-canal-cab .empurra { margin-left: auto; }
+.criterio {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 12px;
+  padding: 12px; border: 1px solid var(--borda); border-radius: 12px; background: var(--painel-2);
+  transition: border-color var(--rapido);
+}
+.criterio:hover { border-color: var(--borda-forte); }
+.criterio .selo-ic {
+  grid-row: span 2; width: 34px; height: 34px; border-radius: 10px;
+  display: grid; place-items: center; background: var(--painel); border: 1px solid var(--borda); color: var(--marca);
+}
+.criterio .c-titulo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.criterio .c-titulo b { font-weight: 600; overflow-wrap: anywhere; }
+.criterio .c-acoes { display: flex; align-items: center; gap: 6px; }
+.criterio .c-texto {
+  grid-column: 2 / -1; color: var(--suave); font-size: 13px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.criterio .c-meta { grid-column: 2 / -1; color: var(--suave); font-size: 12px; }
+.criterio.desligado .selo-ic { color: var(--suave); }
+.vazio-linha { color: var(--suave); font-size: 13px; padding: 2px 0; }
+
+.arv-canais {
+  border: 1px solid var(--borda-forte); border-radius: var(--raio-p); background: var(--painel);
+  padding: 6px 8px;
+}
+.arv-canais li { padding: 1px 0; }
+.arv-canais .linha { display: flex; align-items: center; gap: 9px; min-height: 34px; }
+.arv-canais .linha label { flex: 1; min-width: 0; cursor: pointer; }
+.arv-canais .linha .fim { color: var(--suave); font-size: 12px; }
+.arv-canais ul { margin-left: 8px; padding-left: 16px; border-left: 1px solid var(--borda); }
+
+/* ──────────────────────── área do canal ──────────────────────── */
+.area-grade { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
+.area-lado { display: flex; flex-direction: column; gap: 14px; }
+.quadro {
+  position: relative; border-radius: 12px; overflow: hidden; touch-action: none; user-select: none;
+  cursor: crosshair; aspect-ratio: 16 / 9; max-width: 100%; background: #1B2330;
+}
+.quadro svg { display: block; width: 100%; height: 100%; }
+.quadro .fora { position: absolute; inset: 0; background: rgba(4, 8, 14, .58); pointer-events: none; }
+.quadro .ret {
+  position: absolute; border: 2px solid #F2B03C; border-radius: 4px; pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(4, 8, 14, .5);
+}
+.quadro .ret::after {
+  content: attr(data-rotulo); position: absolute; left: -2px; top: -24px;
+  background: #F2B03C; color: #1B1403; font: 600 11px var(--texto); padding: 2px 7px; border-radius: 5px 5px 5px 0;
+  white-space: nowrap;
+}
+.quadro .tarja {
+  position: absolute; left: 10px; bottom: 10px; padding: 3px 8px; border-radius: 6px;
+  background: rgba(4, 8, 14, .7); color: #DCE8F5; font: 11px var(--mono);
+}
+.pares { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.lista-dl { display: flex; flex-direction: column; }
+.lista-dl > div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 13px; }
+.lista-dl > div + div { border-top: 1px solid var(--borda); }
+.lista-dl dt { color: var(--suave); }
+.lista-dl dd { font-family: var(--mono); font-size: 12.5px; display: flex; align-items: center; gap: 8px; }
+
+/* ──────────────────────── alertas ──────────────────────── */
+.destinos { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.destino { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.destino-topo { display: flex; align-items: flex-start; gap: 11px; }
+.destino-topo .selo-ic {
+  width: 38px; height: 38px; border-radius: 11px; flex: none;
+  display: grid; place-items: center; background: var(--realce); color: var(--marca);
+}
+.destino-topo > div { flex: 1; min-width: 0; }
+.destino h3 { font: 600 15px/1.3 var(--texto); overflow-wrap: anywhere; }
+.destino .end { color: var(--suave); font: 12px var(--mono); overflow-wrap: anywhere; }
+.caminho { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.caminho .ic { color: var(--suave); }
+
+/* ──────────────────────── orçamento ──────────────────────── */
+.resumo4 { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.orc-canal { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.orc-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.orc-cab h3 { font: 600 15px/1.3 var(--texto); }
+.orc-cab .empurra { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.orc-cab select { min-height: 32px; padding: 3px 8px; width: auto; }
+.fatos { display: grid; gap: 12px 24px; grid-template-columns: repeat(3, minmax(0, 1fr)); font-size: 13px; }
+.fatos dt { color: var(--suave); font-size: 12px; }
+.opcoes { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.opcao {
+  padding: 12px; border: 1px solid var(--borda); border-radius: 12px; background: var(--painel-2);
+  display: flex; flex-direction: column; gap: 6px; min-width: 0;
+}
+.opcao.indicada { border-color: var(--marca); box-shadow: inset 0 0 0 1px var(--marca); background: var(--painel); }
+.opcao .o-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.opcao b { font-weight: 600; overflow-wrap: anywhere; }
+.opcao p { color: var(--suave); font-size: 12.5px; }
+.opcao .preco { font: 600 14px var(--mono); margin-top: auto; padding-top: 4px; }
+.opcao .preco small { display: block; font: 400 11.5px var(--texto); color: var(--suave); }
+.pacotes { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; }
+.pacote { padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+.pacote.indicada { border-color: var(--marca); box-shadow: inset 0 0 0 1px var(--marca); }
+.pacote .total { font: 600 24px/1.2 var(--titulo); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.pacote ul { margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--borda); display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.pacote li small { display: block; color: var(--suave); font-size: 12px; }
+
+/* ──────────────────────── lojas ──────────────────────── */
+.lojas { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); }
+.loja {
+  padding: 18px; display: flex; flex-direction: column; gap: 14px; text-align: left; width: 100%;
+  font: inherit; color: inherit; cursor: pointer;
+  transition: border-color var(--rapido), transform var(--medio) var(--curva), box-shadow var(--medio);
+}
+.loja:hover { border-color: var(--marca); transform: translateY(-2px); box-shadow: var(--sombra-1); }
+.loja-topo { display: flex; align-items: flex-start; gap: 12px; }
+.loja-topo .selo-ic {
+  width: 42px; height: 42px; border-radius: 12px; flex: none; display: grid; place-items: center;
+  background: var(--realce); color: var(--marca);
+}
+.loja h3 { font: 600 18px/1.25 var(--titulo); letter-spacing: -.01em; }
+.loja-fatos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.loja-fatos b { display: block; font: 600 18px/1.2 var(--titulo); font-variant-numeric: tabular-nums; }
+.loja-fatos span { color: var(--suave); font-size: 12px; }
+
+/* ──────────────────────── vazio e ossos ──────────────────────── */
+.vazio {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+  padding: 44px 20px; border: 1px dashed var(--borda-forte); border-radius: var(--raio);
+}
+.vazio .selo-ic {
+  width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center;
+  background: var(--realce); color: var(--marca); margin-bottom: 4px;
+}
+.vazio h2 { font: 600 18px/1.3 var(--titulo); justify-content: center; }
+.vazio p { color: var(--suave); max-width: 52ch; }
+.vazio .btn { margin-top: 8px; }
+.osso {
+  border-radius: 10px; background: linear-gradient(90deg, var(--realce) 25%, var(--painel-2) 45%, var(--realce) 65%);
+  background-size: 300% 100%; animation: brilho 1.4s ease-in-out infinite;
+}
+.ossos { display: flex; flex-direction: column; gap: 16px; }
+.ossos .linha { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* ──────────────────── folha, diálogo, aviso flutuante ──────────────────── */
+.veu {
+  position: fixed; inset: 0; z-index: 60; background: var(--veu);
+  animation: aparece var(--medio) both;
+}
+.folha {
+  position: fixed; z-index: 61; top: 0; right: 0; bottom: 0; width: min(480px, 100%);
+  display: flex; flex-direction: column; background: var(--painel);
+  border-left: 1px solid var(--borda); box-shadow: var(--sombra-2);
+  animation: desliza var(--lento) var(--curva) both;
+}
+.folha-cab {
+  display: flex; align-items: flex-start; gap: 12px; padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--borda);
+}
+.folha-cab h2 { font: 600 20px/1.25 var(--titulo); letter-spacing: -.01em; }
+.folha-cab p { color: var(--suave); font-size: 13px; margin-top: 2px; }
+.folha-cab > div { flex: 1; min-width: 0; }
+.folha-corpo { flex: 1; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+.folha-pe {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 20px;
+  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--borda); background: var(--painel-2);
+}
+.folha-pe .nota { flex: 1 1 180px; }
+fieldset { border: 1px solid var(--borda); border-radius: 12px; padding: 12px 14px 14px; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+legend { padding: 0 6px; font-size: 12.5px; font-weight: 600; }
+
+.dialogo {
+  position: fixed; z-index: 62; left: 50%; top: 50%;
+  width: min(460px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow-y: auto;
+  padding: 22px; border-radius: 18px; background: var(--painel); border: 1px solid var(--borda);
+  box-shadow: var(--sombra-2); transform: translate(-50%, -50%);
+  animation: surge var(--medio) var(--curva) both;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.dialogo h2 { font: 600 19px/1.3 var(--titulo); letter-spacing: -.01em; }
+.dialogo p { color: var(--suave); }
+.dialogo p b { color: var(--tinta); }
+.dialogo .pe { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+
+.toasts {
+  position: fixed; z-index: 80; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; align-items: center;
+  width: max-content; max-width: calc(100% - 32px); pointer-events: none;
+}
+.toast {
+  display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 12px;
+  background: var(--tinta); color: var(--fundo); box-shadow: var(--sombra-2);
+  font-weight: 500; max-width: 100%; animation: sobe var(--lento) var(--curva) both;
+}
+.toast.some { animation: some var(--medio) both; }
+.toast .ic { color: var(--facho); }
+
+.proto {
+  position: fixed; z-index: 70; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+.proto > .btn { box-shadow: var(--sombra-2); border-radius: 999px; }
+.proto .menu { top: auto; bottom: calc(100% + 8px); transform-origin: bottom right; min-width: 232px; }
+
+/* ──────────────────────── entrar ──────────────────────── */
+.entrar { display: grid; height: 100%; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+.entrar-palco {
+  position: relative; overflow: hidden; background: var(--palco); color: var(--palco-tinta);
+  display: flex; flex-direction: column; justify-content: space-between; gap: 32px;
+  padding: clamp(24px, 5vw, 56px);
+}
+.entrar-palco .lg-tinta { fill: var(--palco-tinta); }
+.entrar-palco .lg-anel { stroke: var(--palco-tinta); }
+.entrar-palco svg.palavra { height: 44px; width: auto; position: relative; }
+.feixe {
+  position: absolute; left: 50%; top: 50%; width: 220vmax; height: 220vmax;
+  margin: -110vmax 0 0 -110vmax; pointer-events: none;
+  background: conic-gradient(from 0deg, rgba(242, 176, 60, 0) 0deg, rgba(242, 176, 60, .22) 14deg, rgba(242, 176, 60, 0) 34deg, rgba(242, 176, 60, 0) 360deg);
+  animation: gira 14s linear infinite;
+}
+.farol-grande { position: relative; width: min(46vmin, 300px); height: auto; align-self: center; }
+.farol-grande .raio { transform-origin: 256px 256px; animation: varre 7s ease-in-out infinite; }
+.entrar-palco h2 { font: 600 clamp(24px, 3.4vw, 38px)/1.12 var(--titulo); letter-spacing: -.02em; display: block; max-width: 16ch; position: relative; }
+.entrar-palco p { color: var(--palco-suave); max-width: 44ch; margin-top: 10px; position: relative; }
+.entrar-form { display: grid; place-items: center; padding: 32px clamp(16px, 5vw, 56px); overflow-y: auto; }
+.entrar-form form { width: min(380px, 100%); display: flex; flex-direction: column; gap: 16px; }
+.entrar-form h1 { font-size: 30px; }
+.entrar-form .btn { min-height: 46px; font-size: 15px; }
+
+/* ──────────────────────── animações ──────────────────────── */
+@keyframes sobe { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes some { to { opacity: 0; transform: translateY(8px); } }
+@keyframes aparece { from { opacity: 0; } to { opacity: 1; } }
+@keyframes desliza { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes surge { from { opacity: 0; transform: translate(-50%, -48%) scale(.96); } to { opacity: 1; transform: translate(-50%, -50%); } }
+@keyframes abre { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes cresce { from { transform: scaleY(0); } to { transform: none; } }
+@keyframes gira { to { transform: rotate(360deg); } }
+@keyframes varre { 0%, 100% { transform: rotate(-16deg); } 50% { transform: rotate(16deg); } }
+@keyframes pulso { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+@keyframes onda { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 8px transparent; } }
+@keyframes brilho { from { background-position: 100% 0; } to { background-position: 0 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important; scroll-behavior: auto !important;
+  }
+  .feixe { display: none; }
+}
+
+/* ──────────────────────── telas menores ──────────────────────── */
+@media (max-width: 1180px) {
+  .painel-grade { grid-template-columns: minmax(0, 1fr); grid-template-areas: "atencao" "numeros" "grafico"; }
+  .area-grade { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* tablet: a coluna vira trilho */
+@media (max-width: 1023px) {
+  .app { grid-template-columns: 78px minmax(0, 1fr); }
+  .lado { padding: 14px 8px; align-items: stretch; gap: 12px; }
+  .marca-linha { justify-content: center; padding: 2px 0 4px; }
+  .marca-linha svg.palavra { display: none; }
+  .marca-linha svg.selo { display: block; }
+  .troca { justify-content: center; padding: 9px 0; }
+  .troca .nome, .troca > .ic:last-child { display: none; }
+  .nav a { flex-direction: column; justify-content: center; gap: 3px; height: 56px; padding: 0 2px; font-size: 11px; text-align: center; }
+  .nav-realce { height: 56px; }
+  .nav a .conta { position: absolute; top: 5px; right: 10px; margin: 0; min-width: 16px; padding: 0 4px; line-height: 16px; font-size: 10.5px; }
+  .agente { justify-content: center; padding: 10px 0; }
+  .agente > div { display: none; }
+  .agente .ponto { margin: 0; }
+  .conta-linha { justify-content: center; padding: 0; }
+  .conta-linha .quem, .conta-linha .btn { display: none; }
+  .lado .menu.cima { left: 4px; }
+  .numeros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .resumo4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .opcoes, .pacotes { grid-template-columns: minmax(0, 1fr); }
+  .fatos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* celular: topo com a loja, barra embaixo */
+@media (max-width: 767px) {
+  .app {
+    grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "topo" "palco" "barra";
+  }
+  .lado { display: none; }
+  .topo {
+    grid-area: topo; display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-bottom: 1px solid var(--borda); background: var(--fundo);
+  }
+  .topo svg.selo { width: 30px; height: 30px; flex: none; }
+  .topo .troca { flex: 1; min-width: 0; padding: 6px 10px; justify-content: flex-start; }
+  .topo .troca .nome { display: block; }
+  .topo .troca > .ic:last-child { display: block; }
+  .topo .troca small { display: none; }
+  .barra {
+    grid-area: barra; position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--borda); background: var(--painel);
+  }
+  .barra a {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    min-height: 50px; border-radius: 12px; color: var(--suave); text-decoration: none;
+    font-size: 11px; font-weight: 500; transition: color var(--rapido);
+  }
+  .barra a[aria-current="page"] { color: var(--tinta); font-weight: 600; }
+  .barra a[aria-current="page"] .ic { color: var(--facho-icone); }
+  .barra .nav-realce { top: 6px; height: 50px; background: var(--realce); border: 0; box-shadow: none; border-radius: 12px; }
+  .barra a .conta {
+    position: absolute; top: 4px; left: calc(50% + 6px); min-width: 16px; padding: 0 4px; border-radius: 999px;
+    background: var(--critico); color: var(--sobre-critico); font-size: 10.5px; font-weight: 600; line-height: 16px; text-align: center;
+  }
+  .tela { padding-block: 18px 40px; gap: 20px; }
+  h1 { font-size: 24px; }
+  .btn { min-height: 44px; }
+  .btn.quadrado { width: 44px; }
+  .btn.mini { min-height: 36px; }
+  .btn.mini.quadrado { width: 36px; }
+  .cab-acoes .btn { flex: 1 1 auto; }
+  .saude { grid-template-columns: minmax(0, 1fr); }
+  .saude li + li { border-left: 0; border-top: 1px solid var(--borda); }
+  .kpi .num { font-size: 26px; }
+  .barras, .eixo-y { height: 132px; }
+  .barras, .eixo-x { gap: 2px; }
+  .eixo-x span:nth-child(even) { visibility: hidden; }
+  .campos { grid-template-columns: minmax(0, 1fr); }
+  .fatos { grid-template-columns: minmax(0, 1fr); }
+  .loja-fatos b { font-size: 16px; }
+  .ocorrencias li { grid-template-columns: 46px minmax(0, 1fr); }
+  .ocorrencias .o-fim { grid-column: 2; flex-direction: row; align-items: center; flex-wrap: wrap; }
+  .criterio { grid-template-columns: auto minmax(0, 1fr); }
+  .criterio .c-acoes { grid-column: 1 / -1; justify-content: space-between; padding-top: 8px; border-top: 1px solid var(--borda); order: 5; }
+  .criterio .c-texto, .criterio .c-meta { grid-column: 1 / -1; }
+  .criterio .selo-ic { grid-row: auto; }
+  .folha { top: auto; left: 0; width: 100%; max-height: 92%; border-left: 0; border-top: 1px solid var(--borda); border-radius: 20px 20px 0 0; animation-name: sobe-folha; }
+  .folha-cab::before {
+    content: ""; position: absolute; left: 50%; top: 8px; width: 40px; height: 4px; margin-left: -20px;
+    border-radius: 4px; background: var(--borda-forte);
+  }
+  .folha-cab { position: relative; padding-top: 22px; }
+  .proto { bottom: calc(82px + env(safe-area-inset-bottom, 0px)); right: 12px; }
+  .toasts { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+  .entrar { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .entrar-palco { padding: 22px 20px; gap: 14px; }
+  .entrar-palco svg.palavra { height: 32px; }
+  .farol-grande { display: none; }
+  .entrar-palco h2 { font-size: 22px; max-width: none; }
+  .entrar-form { place-items: start center; padding-top: 28px; }
+
+  /* tabela vira cartões */
+  .em-cartoes thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .em-cartoes, .em-cartoes tbody, .em-cartoes tr, .em-cartoes td { display: block; }
+  .em-cartoes tr { padding: 12px 14px; border-bottom: 1px solid var(--borda); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; }
+  .em-cartoes tbody tr:last-child { border-bottom: 0; }
+  .em-cartoes td { padding: 0; border: 0; text-align: left; }
+  .em-cartoes td[data-r]::before { content: attr(data-r); display: block; color: var(--suave); font: 500 11.5px var(--texto); }
+  .em-cartoes td.inteira { grid-column: 1 / -1; }
+  .em-cartoes .num-col { text-align: left; }
+}
+@keyframes sobe-folha { from { transform: translateY(100%); } to { transform: none; } }
+
+/* ──────────────── situações de cada tela ──────────────── */
+.corpo { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+[data-quando="vazio"], [data-quando="carregando"] { display: none; }
+.palco[data-situacao="vazio"] [data-quando="normal"],
+.palco[data-situacao="carregando"] [data-quando="normal"] { display: none; }
+.palco[data-situacao="vazio"] [data-quando="vazio"],
+.palco[data-situacao="carregando"] [data-quando="carregando"] { display: flex; }
+
+/* Quem só vê não recebe botão que a API recusaria. */
+.app[data-perfil="supervisao"] [data-so-config] { display: none !important; }
+.app[data-perfil="supervisao"] .liga { cursor: default; }
+.app[data-perfil="supervisao"] .liga i { display: none; }
+
+/* a entrada de cada tela: cabeçalho e blocos sobem em sequência */
+.tela.entra > * { animation: none; }
+.tela.entra > .cab, .tela.entra > .vazio, .tela.entra > .corpo > * { animation: sobe var(--lento) var(--curva) both; }
+.tela.entra > .corpo > *:nth-child(1) { animation-delay: 50ms; }
+.tela.entra > .corpo > *:nth-child(2) { animation-delay: 100ms; }
+.tela.entra > .corpo > *:nth-child(3) { animation-delay: 150ms; }
+.tela.entra > .corpo > *:nth-child(n+4) { animation-delay: 200ms; }
+
+.menu { position: fixed; left: 0; top: 0; right: auto; z-index: 75; }
+.farol-cena { position: relative; display: grid; place-items: center; align-self: center; }
+.loja { text-decoration: none; }
+.linha-caixa { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.saude .rot { display: block; }
+.sobre a { display: inline-flex; align-items: center; gap: 4px; }
+.no-canal-cab .canal-num { width: 28px; height: 28px; border-radius: 8px; font-size: 11.5px; }
+.orc-cab .canal-num { width: 32px; height: 32px; border-radius: 9px; }
+.ramo-cab .ic:not(.seta) { color: var(--facho-icone); }
+th.num-col { font-family: var(--texto); font-size: 12px; }
+td:first-child .crit { min-width: 200px; }
+
+@media (max-width: 1023px) {
+  .ossos .linha { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767px) {
+  .proto > .btn { width: 44px; padding: 0; }
+  .proto > .btn .txt { display: none; }
+  td:first-child .crit { min-width: 0; }
+}
+
+/* ──────────────── acabamento depois de ver no navegador ──────────────── */
+.canal-chips { flex: 1; align-content: flex-start; }
+.canal-pe > span:first-child { min-width: 0; }
+.canal-pe .elo { white-space: nowrap; flex: none; }
+.lista-dl dd { font-family: var(--texto); font-size: 13px; }
+.opcao .preco { font: 600 14.5px var(--texto); font-variant-numeric: tabular-nums; }
+.entrar-palco svg.palavra { align-self: flex-start; }
+.barras, .eixo-x { gap: var(--vao, 3px); }
+.fora .lg-ponto, .fora .lg-facho { fill: var(--facho); }
+.fora .lg-ponto { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-delay: 0s !important; }
+}
+
+@media (max-width: 767px) {
+  .saude { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .saude li { flex-direction: column; gap: 8px; padding: 12px; }
+  .saude li + li { border-top: 0; border-left: 1px solid var(--borda); }
+  .saude small { display: none; }
+  .saude .selo-ic { width: 30px; height: 30px; border-radius: 9px; }
+  .saude .rot { font-size: 11.5px; line-height: 1.3; }
+  .saude .val { font-size: 14px; }
+}
+
+</style>
+</head>
+<body>
+<!-- Ícones: Lucide (https://lucide.dev), licença ISC. Gerado por icones.mjs. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+<symbol id="i-layout-dashboard" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></symbol>
+<symbol id="i-cctv" viewBox="0 0 24 24"><path d="M16.75 12h3.632a1 1 0 0 1 .894 1.447l-2.034 4.069a1 1 0 0 1-1.708.134l-2.124-2.97"/><path d="M17.106 9.053a1 1 0 0 1 .447 1.341l-3.106 6.211a1 1 0 0 1-1.342.447L3.61 12.3a2.92 2.92 0 0 1-1.3-3.91L3.69 5.6a2.92 2.92 0 0 1 3.92-1.3z"/><path d="M2 19h3.76a2 2 0 0 0 1.8-1.1L9 15"/><path d="M2 21v-4"/><path d="M7 9h.01"/></symbol>
+<symbol id="i-list-checks" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></symbol>
+<symbol id="i-bell-ring" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/><path d="M22 8c0-2.3-.8-4.3-2-6"/></symbol>
+<symbol id="i-calculator" viewBox="0 0 24 24"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></symbol>
+<symbol id="i-store" viewBox="0 0 24 24"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"/></symbol>
+<symbol id="i-chevrons-up-down" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></symbol>
+<symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+<symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+<symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+<symbol id="i-arrow-up-right" viewBox="0 0 24 24"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="i-ellipsis" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+<symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></symbol>
+<symbol id="i-trash-2" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></symbol>
+<symbol id="i-log-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></symbol>
+<symbol id="i-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+<symbol id="i-crop" viewBox="0 0 24 24"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></symbol>
+<symbol id="i-ruler" viewBox="0 0 24 24"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></symbol>
+<symbol id="i-plug" viewBox="0 0 24 24"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></symbol>
+<symbol id="i-cpu" viewBox="0 0 24 24"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></symbol>
+<symbol id="i-hard-drive" viewBox="0 0 24 24"><line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/></symbol>
+<symbol id="i-video" viewBox="0 0 24 24"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></symbol>
+<symbol id="i-video-off" viewBox="0 0 24 24"><path d="M10.66 6H14a2 2 0 0 1 2 2v2.5l5.248-3.062A.5.5 0 0 1 22 7.87v8.196"/><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"/><path d="m2 2 20 20"/></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+<symbol id="i-hash" viewBox="0 0 24 24"><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/></symbol>
+<symbol id="i-scan-search" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/><path d="m16 16-1.9-1.9"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+<symbol id="i-list-ordered" viewBox="0 0 24 24"><line x1="10" x2="21" y1="6" y2="6"/><line x1="10" x2="21" y1="12" y2="12"/><line x1="10" x2="21" y1="18" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></symbol>
+<symbol id="i-user-round-check" viewBox="0 0 24 24"><path d="M2 21a8 8 0 0 1 13.292-6"/><circle cx="10" cy="8" r="5"/><path d="m16 19 2 2 4-4"/></symbol>
+<symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+<symbol id="i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+<symbol id="i-webhook" viewBox="0 0 24 24"><path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2"/><path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06"/><path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8"/></symbol>
+<symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></symbol>
+<symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+<symbol id="i-circle-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></symbol>
+<symbol id="i-circle-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+<symbol id="i-circle-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+<symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+<symbol id="i-check-check" viewBox="0 0 24 24"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></symbol>
+<symbol id="i-hourglass" viewBox="0 0 24 24"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></symbol>
+<symbol id="i-zap" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+<symbol id="i-package" viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+<symbol id="i-badge-check" viewBox="0 0 24 24"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></symbol>
+<symbol id="i-lock-keyhole" viewBox="0 0 24 24"><circle cx="12" cy="16" r="1"/><rect x="3" y="10" width="18" height="12" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/></symbol>
+<symbol id="i-circle-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
+<symbol id="i-circle-minus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></symbol>
+<symbol id="i-sliders-horizontal" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></symbol>
+<symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></symbol>
+<symbol id="i-maximize" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+<symbol id="i-building-2" viewBox="0 0 24 24"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></symbol>
+<symbol id="i-loader-circle" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></symbol>
+<symbol id="i-circle-slash" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="9" x2="15" y1="15" y2="9"/></symbol>
+<symbol id="i-unplug" viewBox="0 0 24 24"><path d="m19 5 3-3"/><path d="m2 22 3-3"/><path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"/><path d="M7.5 13.5 10 11"/><path d="M10.5 16.5 13 14"/><path d="m12 6 6 6 2.3-2.3a2.4 2.4 0 0 0 0-3.4l-2.6-2.6a2.4 2.4 0 0 0-3.4 0Z"/></symbol>
+<symbol id="i-scan-eye" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="1"/><path d="M18.944 12.33a1 1 0 0 0 0-.66 7.5 7.5 0 0 0-13.888 0 1 1 0 0 0 0 .66 7.5 7.5 0 0 0 13.888 0"/></symbol>
+<symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol>
+</svg>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<!-- ═════════════════════════ ENTRAR ═════════════════════════ -->
+<main class="entrar" id="entrar" hidden>
+  <section class="entrar-palco" aria-hidden="true">
+    <svg class="palavra" viewBox="70 62 522 172">
+      <g transform="translate(465.42,159.5)">
+        <path class="lg-facho" d="M0 0 L75.97 -33.82 A83.16 83.16 0 0 1 75.97 33.82 Z"/>
+        <circle class="lg-anel" r="63" stroke-width="11.02"/>
+        <circle class="lg-tinta" r="18.9"/>
+        <circle class="lg-ponto" r="7.88"/>
+      </g>
+      <path class="lg-tinta" d="M74.6 212.0V80.0H103.4V212.0ZM88.4 162.6V139.0H165.4V162.6ZM88.4 104.6V80.0H172.8V104.6Z"/><path class="lg-tinta" d="M218.8 214.8Q210.0 214.8 203.2 211.3Q196.4 207.8 192.6 201.2Q188.8 194.6 188.8 184.8Q188.8 176.2 192.1 170.4Q195.4 164.6 201.8 161.0Q208.2 157.4 217.6 155.0Q227.0 152.6 239.0 150.8Q245.4 149.8 249.5 148.9Q253.6 148.0 255.6 145.9Q257.6 143.8 257.6 139.8Q257.6 134.2 253.6 130.2Q249.6 126.2 241.0 126.2Q235.2 126.2 230.3 128.2Q225.4 130.2 221.9 134.2Q218.4 138.2 216.8 144.4L191.4 136.6Q193.8 128.4 198.3 122.4Q202.8 116.4 209.2 112.3Q215.6 108.2 223.8 106.2Q232.0 104.2 241.6 104.2Q257.0 104.2 266.7 109.1Q276.4 114.0 281.2 124.3Q286.0 134.6 286.0 150.8V168.8Q286.0 175.8 286.3 183.0Q286.6 190.2 287.1 197.5Q287.6 204.8 288.2 212.0H262.8Q262.0 207.0 261.3 200.5Q260.6 194.0 260.2 187.4H256.6Q253.8 195.0 248.6 201.2Q243.4 207.4 235.9 211.1Q228.4 214.8 218.8 214.8ZM231.0 194.0Q234.8 194.0 238.7 192.6Q242.6 191.2 246.3 188.7Q250.0 186.2 253.1 182.4Q256.2 178.6 258.2 173.8L257.8 157.0L262.4 158.0Q258.8 160.6 254.0 162.1Q249.2 163.6 244.1 164.4Q239.0 165.2 234.0 166.2Q229.0 167.2 225.1 168.8Q221.2 170.4 218.9 173.1Q216.6 175.8 216.6 180.6Q216.6 186.8 220.6 190.4Q224.6 194.0 231.0 194.0Z"/><path class="lg-tinta" d="M313.6 212.0V161.2V107.0H337.4L337.6 142.8H341.4Q343.0 129.4 346.9 121Q350.8 112.6 357.8 108.6Q364.8 104.6 375.2 104.6Q377.0 104.6 379.1 104.7Q381.2 104.8 384.0 105.4L382.8 136.0Q379.8 134.6 376.2 134.0Q372.6 133.4 369.8 133.4Q362.0 133.4 356.4 137.0Q350.8 140.6 347.3 147.3Q343.8 154.0 342.6 163.6V212.0Z"/><path class="lg-tinta" d="M558.44 212.0V69.0H586.84V212.0Z"/>
+    </svg>
+    <div class="farol-cena">
+      <span class="feixe"></span>
+      <svg class="farol-grande vivo" viewBox="0 0 512 512">
+        <g transform="translate(256,256)">
+          <path class="lg-facho raio" d="M0 0 L217.5 -96.84 A238.08 238.08 0 0 1 217.5 96.84 Z"/>
+          <circle class="lg-anel" r="153.6" stroke-width="26.88"/>
+          <circle class="lg-tinta" r="46.08"/>
+          <circle class="lg-ponto" r="19.2"/>
+        </g>
+      </svg>
+    </div>
+    <div>
+      <h2>Monitoramento inteligente da sua operação</h2>
+      <p>As câmeras que a loja já tem conferem, o dia inteiro, se o combinado está sendo feito.</p>
+    </div>
+  </section>
+
+  <section class="entrar-form">
+    <form id="f-entrar" novalidate>
+      <div>
+        <h1>Entrar</h1>
+        <p class="sub">Use o e-mail e a senha da sua conta.</p>
+      </div>
+      <div class="campo">
+        <label for="entrar-email">E-mail</label>
+        <input class="entrada" id="entrar-email" type="email" autocomplete="username" placeholder="voce@empresa.com.br" value="ana@exemplo.com.br" required>
+      </div>
+      <div class="campo">
+        <label for="entrar-senha">Senha</label>
+        <div class="com-botao">
+          <input class="entrada" id="entrar-senha" type="password" autocomplete="current-password" value="exemplo-de-senha" required>
+          <button type="button" id="ver-senha" aria-label="Mostrar a senha" aria-pressed="false">
+            <svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg>
+          </button>
+        </div>
+      </div>
+      <p class="aviso critico" id="entrar-erro" role="alert" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-circle-alert"/></svg>
+        <span>E-mail ou senha não conferem. Confira os dois e tente de novo.</span>
+      </p>
+      <button class="btn primario" type="submit" id="entrar-botao">Entrar</button>
+      <p class="nota">Esqueceu a senha? Fale com quem administra a conta. Por segurança, ninguém consegue recuperá-la, só definir uma nova.</p>
+    </form>
+  </section>
+</main>
+
+<!-- ═════════════════════════ APLICATIVO ═════════════════════════ -->
+<div class="app" id="app" data-perfil="gerente" data-agente="ativo">
+
+  <aside class="lado" aria-label="Navegação">
+    <div class="marca-linha vivo" data-marca>
+      <svg class="palavra" viewBox="70 62 522 172" role="img" aria-label="Farol">
+        <g transform="translate(465.42,159.5)">
+          <path class="lg-facho" d="M0 0 L75.97 -33.82 A83.16 83.16 0 0 1 75.97 33.82 Z"/>
+          <circle class="lg-anel" r="63" stroke-width="11.02"/>
+          <circle class="lg-tinta" r="18.9"/>
+          <circle class="lg-ponto" r="7.88"/>
+        </g>
+        <path class="lg-tinta" d="M74.6 212.0V80.0H103.4V212.0ZM88.4 162.6V139.0H165.4V162.6ZM88.4 104.6V80.0H172.8V104.6Z"/><path class="lg-tinta" d="M218.8 214.8Q210.0 214.8 203.2 211.3Q196.4 207.8 192.6 201.2Q188.8 194.6 188.8 184.8Q188.8 176.2 192.1 170.4Q195.4 164.6 201.8 161.0Q208.2 157.4 217.6 155.0Q227.0 152.6 239.0 150.8Q245.4 149.8 249.5 148.9Q253.6 148.0 255.6 145.9Q257.6 143.8 257.6 139.8Q257.6 134.2 253.6 130.2Q249.6 126.2 241.0 126.2Q235.2 126.2 230.3 128.2Q225.4 130.2 221.9 134.2Q218.4 138.2 216.8 144.4L191.4 136.6Q193.8 128.4 198.3 122.4Q202.8 116.4 209.2 112.3Q215.6 108.2 223.8 106.2Q232.0 104.2 241.6 104.2Q257.0 104.2 266.7 109.1Q276.4 114.0 281.2 124.3Q286.0 134.6 286.0 150.8V168.8Q286.0 175.8 286.3 183.0Q286.6 190.2 287.1 197.5Q287.6 204.8 288.2 212.0H262.8Q262.0 207.0 261.3 200.5Q260.6 194.0 260.2 187.4H256.6Q253.8 195.0 248.6 201.2Q243.4 207.4 235.9 211.1Q228.4 214.8 218.8 214.8ZM231.0 194.0Q234.8 194.0 238.7 192.6Q242.6 191.2 246.3 188.7Q250.0 186.2 253.1 182.4Q256.2 178.6 258.2 173.8L257.8 157.0L262.4 158.0Q258.8 160.6 254.0 162.1Q249.2 163.6 244.1 164.4Q239.0 165.2 234.0 166.2Q229.0 167.2 225.1 168.8Q221.2 170.4 218.9 173.1Q216.6 175.8 216.6 180.6Q216.6 186.8 220.6 190.4Q224.6 194.0 231.0 194.0Z"/><path class="lg-tinta" d="M313.6 212.0V161.2V107.0H337.4L337.6 142.8H341.4Q343.0 129.4 346.9 121Q350.8 112.6 357.8 108.6Q364.8 104.6 375.2 104.6Q377.0 104.6 379.1 104.7Q381.2 104.8 384.0 105.4L382.8 136.0Q379.8 134.6 376.2 134.0Q372.6 133.4 369.8 133.4Q362.0 133.4 356.4 137.0Q350.8 140.6 347.3 147.3Q343.8 154.0 342.6 163.6V212.0Z"/><path class="lg-tinta" d="M558.44 212.0V69.0H586.84V212.0Z"/>
+      </svg>
+      <svg class="selo" viewBox="0 0 512 512" role="img" aria-label="Farol">
+        <g transform="translate(256,256)">
+          <path class="lg-facho" d="M0 0 L217.5 -96.84 A238.08 238.08 0 0 1 217.5 96.84 Z"/>
+          <circle class="lg-anel" r="153.6" stroke-width="26.88"/>
+          <circle class="lg-tinta" r="46.08"/>
+          <circle class="lg-ponto" r="19.2"/>
+        </g>
+      </svg>
+    </div>
+
+    <button class="troca" type="button" data-menu="menu-loja" aria-haspopup="menu" aria-expanded="false">
+      <svg class="ic" aria-hidden="true"><use href="#i-store"/></svg>
+      <span class="nome"><b data-loja-nome>Loja Centro</b><small>Brasa Burger</small></span>
+      <svg class="ic p" aria-hidden="true"><use href="#i-chevrons-up-down"/></svg>
+      <span class="so-leitor">Trocar de loja</span>
+    </button>
+
+    <nav class="nav" aria-label="Seções da loja" data-nav>
+      <span class="nav-realce" aria-hidden="true"></span>
+      <a href="#painel" data-ir="painel" aria-current="page">
+        <svg class="ic" aria-hidden="true"><use href="#i-layout-dashboard"/></svg><span>Painel</span>
+        <span class="conta" data-conta-atencao><span class="so-leitor">pontos de atenção: </span>3</span>
+      </a>
+      <a href="#canais" data-ir="canais">
+        <svg class="ic" aria-hidden="true"><use href="#i-cctv"/></svg><span>Canais</span>
+      </a>
+      <a href="#criterios" data-ir="criterios">
+        <svg class="ic" aria-hidden="true"><use href="#i-list-checks"/></svg><span>Critérios</span>
+      </a>
+      <a href="#alertas" data-ir="alertas">
+        <svg class="ic" aria-hidden="true"><use href="#i-bell-ring"/></svg><span>Alertas</span>
+      </a>
+      <a href="#orcamento" data-ir="orcamento" data-so-config>
+        <svg class="ic" aria-hidden="true"><use href="#i-calculator"/></svg><span>Orçamento</span>
+      </a>
+    </nav>
+
+    <div class="cresce"></div>
+
+    <div class="agente" data-agente-bloco>
+      <span class="ponto ok pulsa" data-agente-ponto></span>
+      <div><b data-agente-titulo>Agente ativo</b><span data-agente-detalhe>bateu há 12 s · versão 0.9.4</span></div>
+    </div>
+
+    <div class="conta-linha">
+      <button class="avatar" type="button" data-menu="menu-conta" aria-haspopup="menu" aria-expanded="false" aria-label="Conta de Ana Souza">AS</button>
+      <span class="quem"><b>Ana Souza</b><small data-perfil-nome>gerente</small></span>
+      <button class="btn fantasma quadrado mini" type="button" data-tema aria-label="Trocar entre tema claro e escuro">
+        <svg class="ic" aria-hidden="true"><use href="#i-moon" data-tema-icone/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <header class="topo">
+    <svg class="selo" viewBox="0 0 512 512" role="img" aria-label="Farol" data-marca>
+      <g transform="translate(256,256)">
+        <path class="lg-facho" d="M0 0 L217.5 -96.84 A238.08 238.08 0 0 1 217.5 96.84 Z"/>
+        <circle class="lg-anel" r="153.6" stroke-width="26.88"/>
+        <circle class="lg-tinta" r="46.08"/>
+        <circle class="lg-ponto" r="19.2"/>
+      </g>
+    </svg>
+    <button class="troca" type="button" data-menu="menu-loja" aria-haspopup="menu" aria-expanded="false">
+      <svg class="ic" aria-hidden="true"><use href="#i-store"/></svg>
+      <span class="nome"><b data-loja-nome>Loja Centro</b></span>
+      <svg class="ic p" aria-hidden="true"><use href="#i-chevrons-up-down"/></svg>
+      <span class="so-leitor">Trocar de loja</span>
+    </button>
+    <span class="ponto ok pulsa" data-agente-ponto role="img" aria-label="Agente ativo"></span>
+    <button class="avatar" type="button" data-menu="menu-conta" aria-haspopup="menu" aria-expanded="false" aria-label="Conta de Ana Souza">AS</button>
+  </header>
+
+  <main class="palco" id="conteudo" tabindex="-1" data-situacao="normal">
+
+    <div class="tela" data-faixa-agente hidden style="padding-block: 16px 0">
+      <p class="aviso critico" role="alert">
+        <svg class="ic" aria-hidden="true"><use href="#i-unplug"/></svg>
+        <span><b>O agente desta loja está sem sinal há 2 horas.</b> Enquanto ele estiver fora, nenhuma câmera é verificada. Confira se o computador da loja está ligado e com internet.</span>
+      </p>
+    </div>
+
+    <!-- ═════════════════════════ PAINEL ═════════════════════════ -->
+    <section class="tela" data-tela="painel" aria-labelledby="t-painel">
+      <header class="cab">
+        <div>
+          <p class="sobre"><svg class="ic p" aria-hidden="true"><use href="#i-store"/></svg><span data-loja-nome>Loja Centro</span></p>
+          <h1 id="t-painel">O que o Farol viu</h1>
+          <p class="sub">Tudo o que foi analisado nas câmeras desta loja, por critério e por canal.</p>
+        </div>
+        <div class="cab-acoes">
+          <div class="seg" role="group" aria-label="Período">
+            <button type="button" data-periodo="24h" aria-pressed="true">24 horas</button>
+            <button type="button" data-periodo="7d" aria-pressed="false">7 dias</button>
+          </div>
+        </div>
+      </header>
+
+      <div class="corpo" data-quando="normal">
+        <ul class="saude cartao">
+          <li data-saude-agente>
+            <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-cpu"/></svg></span>
+            <div>
+              <span class="rot">Agente</span>
+              <span class="val"><span class="ponto ok pulsa" data-agente-ponto></span><span data-agente-titulo-curto>Ativo</span></span>
+              <small data-agente-detalhe>bateu há 12 s · versão 0.9.4</small>
+            </div>
+          </li>
+          <li class="ruim">
+            <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-cctv"/></svg></span>
+            <div>
+              <span class="rot">Canais com imagem</span>
+              <span class="val">6 de 7</span>
+              <small>Fritadeira sem imagem desde as 14h</small>
+            </div>
+          </li>
+          <li>
+            <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-list-checks"/></svg></span>
+            <div>
+              <span class="rot">Critérios ligados</span>
+              <span class="val">5 de 6</span>
+              <small>1 desligado, aguardando ajuste</small>
+            </div>
+          </li>
+        </ul>
+
+        <div class="painel-grade">
+          <div class="numeros">
+            <article class="kpi cartao">
+              <span class="rot"><svg class="ic p" aria-hidden="true"><use href="#i-activity"/></svg>Análises</span>
+              <span class="num" data-kpi="total">1.284</span>
+              <span class="pe" data-kpi-pe="total">53 por hora, em média</span>
+            </article>
+            <article class="kpi cartao">
+              <span class="rot"><span class="ponto ok"></span>Conforme</span>
+              <span class="num"><span data-kpi="okp">89</span><small>%</small></span>
+              <span class="pe" data-kpi-pe="ok">1.142 análises</span>
+            </article>
+            <article class="kpi cartao">
+              <span class="rot"><span class="ponto critico"></span>Fora do critério</span>
+              <span class="num" data-kpi="nc">41</span>
+              <span class="pe" data-kpi-pe="nc">3% das análises</span>
+            </article>
+            <article class="kpi cartao">
+              <span class="rot"><span class="ponto"></span>Não deu para avaliar</span>
+              <span class="num"><span data-kpi="nap">8</span><small>%</small></span>
+              <span class="pe" data-kpi-pe="na">101 análises</span>
+            </article>
+          </div>
+
+          <section class="grafico cartao" aria-labelledby="t-grafico">
+            <div class="secao-cab">
+              <h2 id="t-grafico" data-grafico-titulo>Hora a hora</h2>
+              <div class="legenda empurra" aria-hidden="true">
+                <span><i class="cor-ok"></i>conforme</span>
+                <span><i class="cor-nc"></i>fora do critério</span>
+                <span><i class="cor-na"></i>não avaliou</span>
+              </div>
+            </div>
+            <div class="barras-area">
+              <div class="eixo-y" aria-hidden="true" data-eixo-y></div>
+              <div class="barras" role="img" data-barras aria-label="Análises por hora"></div>
+              <div class="eixo-x" aria-hidden="true" data-eixo-x></div>
+              <div class="dica" data-dica hidden></div>
+            </div>
+          </section>
+
+          <section class="secao atencao-col" aria-labelledby="t-atencao">
+            <h2 id="t-atencao">Precisa de atenção <span class="conta">3</span></h2>
+            <ul class="sinais cartao">
+              <li class="sinal critico">
+                <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-video-off"/></svg></span>
+                <b>Fritadeira está sem imagem desde as 14h</b>
+                <p>O canal 6 parou de entregar cena. Enquanto isso, 1 critério não é verificado.</p>
+                <a class="elo" href="#canais" data-ir="canais">Ver o canal<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+              </li>
+              <li class="sinal">
+                <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-circle-help"/></svg></span>
+                <b>“Uso de touca” não conseguiu avaliar 53% das vezes em Montagem 1</b>
+                <p>A câmera não mostra o suficiente para decidir. Vale ajustar a área ou o enquadramento.</p>
+                <a class="elo" href="#area" data-ir="area">Ver a área<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+              </li>
+              <li class="sinal">
+                <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-sliders-horizontal"/></svg></span>
+                <b>“Produto na bancada” nunca foi verificado</b>
+                <p>Falta dizer o que o detector procura. Do jeito que está, o critério não tem como ser julgado.</p>
+                <a class="elo" href="#criterios" data-ir="criterios">Ajustar o critério<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+              </li>
+            </ul>
+          </section>
+        </div>
+
+        <section class="secao" aria-labelledby="t-porcrit">
+          <div class="secao-cab">
+            <h2 id="t-porcrit">Por critério e canal</h2>
+            <span class="nota empurra">Do que mais ficou fora do critério para o que menos ficou.</span>
+          </div>
+          <div class="cartao rola">
+            <table class="em-cartoes">
+              <caption class="so-leitor">Resultado de cada critério em cada canal, no período escolhido</caption>
+              <thead>
+                <tr>
+                  <th>Critério</th><th>Canal</th><th>Conforme</th>
+                  <th class="num-col">Análises</th><th class="num-col">Fora do critério</th>
+                  <th class="num-col">Não avaliou</th><th class="num-col">Confiança</th>
+                  <th class="num-col">Tempo</th><th class="num-col">Última</th>
+                </tr>
+              </thead>
+              <tbody data-resultados></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="secao" aria-labelledby="t-ocorr">
+          <div class="secao-cab">
+            <h2 id="t-ocorr">Últimas vezes fora do critério</h2>
+            <a class="elo empurra" href="#alertas" data-ir="alertas">Ver se o aviso chegou<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+          </div>
+          <ul class="ocorrencias cartao">
+            <li>
+              <time datetime="21:42">21:42</time>
+              <div>
+                <div class="o-titulo">Bancada limpa entre pedidos <span class="chip vazado"><svg class="ic" aria-hidden="true"><use href="#i-cctv"/></svg>Montagem 1</span></div>
+                <p>Restos de alimento e embalagem aberta no canto direito da bancada.</p>
+              </div>
+              <div class="o-fim"><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-check-check"/></svg>aviso chegou</span><span class="mono suave">confiança 0,91</span></div>
+            </li>
+            <li>
+              <time datetime="20:17">20:17</time>
+              <div>
+                <div class="o-titulo">Alguém na chapa no horário de pico <span class="chip vazado"><svg class="ic" aria-hidden="true"><use href="#i-cctv"/></svg>Chapa</span></div>
+                <p>Nenhuma pessoa na área da chapa.</p>
+              </div>
+              <div class="o-fim"><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-check-check"/></svg>aviso chegou</span><span class="mono suave">confiança 0,88</span></div>
+            </li>
+            <li>
+              <time datetime="19:55">19:55</time>
+              <div>
+                <div class="o-titulo">Fila no balcão <span class="chip vazado"><svg class="ic" aria-hidden="true"><use href="#i-cctv"/></svg>Balcão</span></div>
+                <p>8 pessoas na área do balcão; o combinado é no máximo 6.</p>
+              </div>
+              <div class="o-fim"><span class="chip atencao"><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>aviso mandado</span><span class="mono suave">confiança 0,84</span></div>
+            </li>
+            <li>
+              <time datetime="19:31">19:31</time>
+              <div>
+                <div class="o-titulo">Bancada limpa entre pedidos <span class="chip vazado"><svg class="ic" aria-hidden="true"><use href="#i-cctv"/></svg>Montagem 2</span></div>
+                <p>Utensílio sujo sobre a superfície de trabalho.</p>
+              </div>
+              <div class="o-fim"><span class="chip"><svg class="ic" aria-hidden="true"><use href="#i-bell-off"/></svg>em silêncio</span><span class="mono suave">confiança 0,79</span></div>
+            </li>
+          </ul>
+        </section>
+      </div>
+
+      <div class="vazio" data-quando="vazio">
+        <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-scan-eye"/></svg></span>
+        <h2>Ainda não há o que mostrar</h2>
+        <p>O Farol começa a registrar quando a loja tem pelo menos um canal com imagem e um critério ligado. O primeiro resultado aparece aqui em até uma hora.</p>
+        <a class="btn primario" href="#canais" data-ir="canais" data-so-config><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Cadastrar o primeiro canal</a>
+      </div>
+      <div class="ossos" data-quando="carregando" aria-hidden="true">
+        <div class="osso" style="height:74px"></div>
+        <div class="linha"><div class="osso" style="height:96px"></div><div class="osso" style="height:96px"></div><div class="osso" style="height:96px"></div><div class="osso" style="height:96px"></div></div>
+        <div class="osso" style="height:230px"></div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════ CANAIS ═════════════════════════ -->
+    <section class="tela" data-tela="canais" aria-labelledby="t-canais" hidden>
+      <header class="cab">
+        <div>
+          <p class="sobre"><svg class="ic p" aria-hidden="true"><use href="#i-store"/></svg><span data-loja-nome>Loja Centro</span></p>
+          <h1 id="t-canais">Canais</h1>
+          <p class="sub">As câmeras desta loja, por setor. Um canal é uma câmera do gravador ou uma câmera IP ligada direto na rede.</p>
+        </div>
+        <div class="cab-acoes" data-so-config>
+          <button class="btn secundario" type="button" data-dialogo="novo-setor"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Novo setor</button>
+          <button class="btn primario" type="button" data-folha="folha-canal" data-modo="novo"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Novo canal</button>
+        </div>
+      </header>
+
+      <div class="corpo" data-quando="normal">
+
+        <section class="secao" aria-labelledby="s-cozinha">
+          <div class="setor-cab">
+            <svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>
+            <h2 id="s-cozinha">Cozinha</h2>
+            <span class="suave">4 canais</span>
+          </div>
+          <div class="canais">
+            <article class="canal cartao">
+              <div class="canal-topo">
+                <span class="canal-num" title="Canal 4 do gravador">04</span>
+                <div><h3>Montagem 1</h3><p>gravador · <span class="mono">192.168.0.50</span></p></div>
+                <button class="btn fantasma quadrado mini" type="button" data-menu="menu-canal" data-so-config aria-haspopup="menu" aria-expanded="false" aria-label="Ações do canal Montagem 1"><svg class="ic" aria-hidden="true"><use href="#i-ellipsis"/></svg></button>
+              </div>
+              <div class="canal-chips">
+                <span class="chip ok"><span class="ponto ok"></span>com imagem</span>
+                <span class="chip atencao">importância crítica</span>
+              </div>
+              <div class="canal-pe"><span>3 critérios</span><a class="elo" href="#area" data-ir="area">Quadro e área<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a></div>
+            </article>
+            <article class="canal cartao">
+              <div class="canal-topo">
+                <span class="canal-num" title="Canal 5 do gravador">05</span>
+                <div><h3>Montagem 2</h3><p>gravador · <span class="mono">192.168.0.50</span></p></div>
+                <button class="btn fantasma quadrado mini" type="button" data-menu="menu-canal" data-so-config aria-haspopup="menu" aria-expanded="false" aria-label="Ações do canal Montagem 2"><svg class="ic" aria-hidden="true"><use href="#i-ellipsis"/></svg></button>
+              </div>
+              <div class="canal-chips">
+                <span class="chip ok"><span class="ponto ok"></span>com imagem</span>
+                <span class="chip atencao">importância crítica</span>
+              </div>
+              <div class="canal-pe"><span>2 critérios</span><a class="elo" href="#area" data-ir="area">Quadro e área<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a></div>
+            </article>
+            <article class="canal cartao">
+              <div class="canal-topo">
+                <span class="canal-num" title="Canal 3 do gravador">03</span>
+                <div><h3>Chapa</h3><p>gravador · <span class="mono">192.168.0.50</span></p></div>
+                <button class="btn fantasma quadrado mini" type="button" data-menu="menu-canal" data-so-config aria-haspopup="menu" aria-expanded="false" aria-label="Ações do canal Chapa"><svg class="ic" aria-hidden="true"><use href="#i-ellipsis"/></svg></button>
+              </div>
+              <div class="canal-chips">
+                <span class="chip ok"><span class="ponto ok"></span>com imagem</span>
+              </div>
+              <div class="canal-pe"><span>2 critérios</span><a class="elo" href="#area" data-ir="area">Quadro e área<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a></div>
+            </article>
+            <article class="canal cartao">
+              <div class="canal-topo">
+                <span class="canal-num" title="Canal 6 do gravador">06</span>
+                <div><h3>Fritadeira</h3><p>gravador · <span class="mono">192.168.0.50</span></p></div>
+                <button class="btn fantasma quadrado mini" type="button" data-menu="menu-canal" data-so-config aria-haspopup="menu" aria-expanded="false" aria-label="Ações do canal Fritadeira"><svg class="ic" aria-hidden="true"><use href="#i-ellipsis"/></svg></button>
+              </div>
+              <div class="canal-chips">
+                <span class="chip critico"><svg class="ic" aria-hidden="true"><use href="#i-video-off"/></svg>sem imagem desde as 14h</span>
+              </div>
+              <div class="canal-pe"><span>1 critério</span><a class="elo" href="#area" data-ir="area">Quadro e área<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="secao" aria-labelledby="s-atend">
+          <div class="setor-cab">
+            <svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>
+            <h2 id="s-atend">Atendimento</h2>
+            <span class="suave">2 canais</span>
+          </div>
+          <div class="canais">
+            <article class="canal cartao">
+              <div class="canal-topo">
+                <span class="canal-num" title="Canal 1 do gravador">01</span>
+                <div><h3>Balcão</h3><p>gravador · <span class="mono">192.168.0.50</span></p></div>
+                <button class="btn fantasma quadrado mini" type="button" data-menu="menu-canal" data-so-config aria-haspopup="menu" aria-expanded="false" aria-label="Ações do canal Balcão"><svg class="ic" aria-hidden="true"><use href="#i-ellipsis"/></svg></button>
+              </div>
+              <div class="canal-chips">
+                <span class="chip ok"><span class="ponto ok"></span>com imagem</span>
+              </div>
+              <div class="canal-pe"><span>1 critério</span><a class="elo" href="#area" data-ir="area">Quadro e área<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a></div>
+            </article>
+            <article class="canal cartao">
+              <div class="canal-topo">
+                <span class="canal-num" title="Câmera IP">IP</span>
+                <div><h3>Caixa</h3><p>câmera IP · <span class="mono">192.168.0.61</span></p></div>
+                <button class="btn fantasma quadrado mini" type="button" data-menu="menu-canal" data-so-config aria-haspopup="menu" aria-expanded="false" aria-label="Ações do canal Caixa"><svg class="ic" aria-hidden="true"><use href="#i-ellipsis"/></svg></button>
+              </div>
+              <div class="canal-chips">
+                <span class="chip"><span class="ponto"></span>sem critério</span>
+                <span class="chip">importância baixa</span>
+              </div>
+              <div class="canal-pe"><span>Nada é verificado aqui</span><a class="elo" href="#area" data-ir="area">Quadro e área<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="secao" aria-labelledby="s-estoque">
+          <div class="setor-cab">
+            <svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>
+            <h2 id="s-estoque">Estoque</h2>
+            <span class="suave">2 canais</span>
+          </div>
+          <div class="canais">
+            <article class="canal cartao">
+              <div class="canal-topo">
+                <span class="canal-num" title="Canal 8 do gravador">08</span>
+                <div><h3>Estoque seco</h3><p>gravador · <span class="mono">192.168.0.50</span></p></div>
+                <button class="btn fantasma quadrado mini" type="button" data-menu="menu-canal" data-so-config aria-haspopup="menu" aria-expanded="false" aria-label="Ações do canal Estoque seco"><svg class="ic" aria-hidden="true"><use href="#i-ellipsis"/></svg></button>
+              </div>
+              <div class="canal-chips">
+                <span class="chip"><span class="ponto"></span>sem critério</span>
+              </div>
+              <div class="canal-pe"><span>Nada é verificado aqui</span><a class="elo" href="#area" data-ir="area">Quadro e área<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a></div>
+            </article>
+            <article class="canal cartao parado">
+              <div class="canal-topo">
+                <span class="canal-num" title="Canal 7 do gravador">07</span>
+                <div><h3>Recebimento</h3><p>gravador · <span class="mono">192.168.0.50</span></p></div>
+                <button class="btn fantasma quadrado mini" type="button" data-menu="menu-canal" data-so-config aria-haspopup="menu" aria-expanded="false" aria-label="Ações do canal Recebimento"><svg class="ic" aria-hidden="true"><use href="#i-ellipsis"/></svg></button>
+              </div>
+              <div class="canal-chips">
+                <span class="chip atencao"><svg class="ic" aria-hidden="true"><use href="#i-circle-minus"/></svg>pausado</span>
+              </div>
+              <div class="canal-pe"><span>Fica guardado, sem verificar</span><a class="elo" href="#area" data-ir="area">Quadro e área<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a></div>
+            </article>
+          </div>
+        </section>
+
+        <p class="aviso neutro">
+          <svg class="ic" aria-hidden="true"><use href="#i-lock-keyhole"/></svg>
+          <span>A senha do gravador não se cadastra aqui. Ela fica no cofre do agente, dentro da loja; o console guarda só o usuário.</span>
+        </p>
+      </div>
+
+      <div class="vazio" data-quando="vazio">
+        <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-cctv"/></svg></span>
+        <h2>Nenhum canal cadastrado</h2>
+        <p>Comece criando um setor (Cozinha, Salão, Estoque) e, dentro dele, os canais. Um canal é uma câmera do gravador ou uma câmera IP.</p>
+        <button class="btn primario" type="button" data-folha="folha-canal" data-modo="novo" data-so-config><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Cadastrar o primeiro canal</button>
+      </div>
+      <div class="ossos" data-quando="carregando" aria-hidden="true">
+        <div class="osso" style="height:22px;width:160px"></div>
+        <div class="linha"><div class="osso" style="height:138px"></div><div class="osso" style="height:138px"></div><div class="osso" style="height:138px"></div><div class="osso" style="height:138px"></div></div>
+        <div class="osso" style="height:22px;width:160px"></div>
+        <div class="linha"><div class="osso" style="height:138px"></div><div class="osso" style="height:138px"></div></div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════ ÁREA DE ANÁLISE DO CANAL ═════════════════════ -->
+    <section class="tela" data-tela="area" aria-labelledby="t-area" hidden>
+      <header class="cab">
+        <div>
+          <p class="sobre"><a href="#canais" data-ir="canais"><svg class="ic p" aria-hidden="true"><use href="#i-arrow-left"/></svg> Canais</a> <span>· Cozinha · canal 4</span></p>
+          <h1 id="t-area">Montagem 1</h1>
+          <p class="sub">Marque na imagem a região que importa. Sem área marcada, o quadro inteiro é analisado: custa mais e mostra menos detalhe por centímetro.</p>
+        </div>
+      </header>
+
+      <div class="corpo" data-quando="normal">
+        <div class="area-grade">
+          <section class="cartao pad secao" aria-labelledby="t-quadro">
+            <div class="secao-cab">
+              <h2 id="t-quadro">Quadro do canal</h2>
+              <span class="suave mono">07/10 · 21:40</span>
+              <button class="btn secundario mini empurra" type="button" data-atualizar-quadro><svg class="ic p" aria-hidden="true"><use href="#i-refresh-cw"/></svg>Atualizar quadro</button>
+            </div>
+            <div class="quadro" data-quadro role="application" aria-label="Quadro do canal Montagem 1. Arraste para marcar a área de análise.">
+              <svg viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <rect width="640" height="360" fill="#2A3442"/>
+                <rect x="0" y="0" width="640" height="70" fill="#222B38"/>
+                <rect x="60" y="92" width="520" height="210" rx="6" fill="#8D99A8"/>
+                <rect x="60" y="92" width="520" height="14" fill="#A5B0BD"/>
+                <rect x="92" y="126" width="150" height="100" rx="8" fill="#C9D1DA"/>
+                <circle cx="130" cy="160" r="20" fill="#D9A257"/><circle cx="182" cy="160" r="20" fill="#7FB069"/>
+                <circle cx="130" cy="204" r="16" fill="#C4574B"/><circle cx="182" cy="204" r="16" fill="#E7D9A8"/>
+                <rect x="286" y="140" width="130" height="110" rx="10" fill="#5F6B7A"/>
+                <circle cx="351" cy="195" r="34" fill="#D9A257"/><circle cx="351" cy="195" r="24" fill="#7A4B2A"/>
+                <rect x="452" y="126" width="96" height="60" rx="6" fill="#DDE3EA"/>
+                <rect x="452" y="200" width="96" height="60" rx="6" fill="#DDE3EA"/>
+                <rect x="0" y="318" width="640" height="42" fill="#1D2530"/>
+              </svg>
+              <div class="fora" data-fora></div>
+              <div class="ret" data-ret data-rotulo="bancada de montagem"></div>
+              <span class="tarja">ilustração · no console aparece o quadro real da câmera</span>
+            </div>
+            <p class="nota">Arraste sobre a imagem para marcar a região. O que fica escuro está fora da análise.</p>
+          </section>
+
+          <aside class="area-lado" aria-label="Ajustes da área">
+            <section class="cartao pad secao">
+              <h2>Área</h2>
+              <div class="campo">
+                <label for="area-nome">Nome desta área</label>
+                <input class="entrada" id="area-nome" value="bancada de montagem">
+              </div>
+              <div class="pares">
+                <div class="campo"><label for="area-x1">Esquerda</label><input class="entrada mono" id="area-x1" type="number" min="0" max="1" step="0.01" value="0.10" data-coord="x1"></div>
+                <div class="campo"><label for="area-y1">Topo</label><input class="entrada mono" id="area-y1" type="number" min="0" max="1" step="0.01" value="0.26" data-coord="y1"></div>
+                <div class="campo"><label for="area-x2">Direita</label><input class="entrada mono" id="area-x2" type="number" min="0" max="1" step="0.01" value="0.90" data-coord="x2"></div>
+                <div class="campo"><label for="area-y2">Base</label><input class="entrada mono" id="area-y2" type="number" min="0" max="1" step="0.01" value="0.84" data-coord="y2"></div>
+              </div>
+              <button class="elo" type="button" data-quadro-inteiro style="align-self:flex-start">Usar o quadro inteiro</button>
+              <div class="campo">
+                <label for="area-largura">Largura real desta área, em cm</label>
+                <input class="entrada mono" id="area-largura" type="number" min="1" step="1" value="150" placeholder="meça com fita">
+                <small>É o que permite saber quantos pontos de imagem cabem em cada centímetro. Medir com fita é mais confiável que a conta pela lente.</small>
+              </div>
+              <button class="btn primario" type="button" data-toast="Área salva. O agente usa a nova na próxima batida." data-so-config>Salvar área</button>
+            </section>
+
+            <section class="cartao pad secao">
+              <h2>O que esta área sustenta</h2>
+              <dl class="lista-dl" data-sustenta></dl>
+              <p class="nota">Montagem item a item pede 12,8 pontos por cm; estado, 3; presença, 1,5.</p>
+            </section>
+
+            <section class="cartao pad secao">
+              <h2>Conexão</h2>
+              <div class="pares">
+                <div class="campo"><label for="cx-fab">Fabricante</label><input class="entrada" id="cx-fab" value="intelbras"></div>
+                <div class="campo"><label for="cx-canal">Canal</label><input class="entrada mono" id="cx-canal" type="number" value="4"></div>
+                <div class="campo"><label for="cx-host">Endereço</label><input class="entrada mono" id="cx-host" value="192.168.0.50"></div>
+                <div class="campo"><label for="cx-porta">Porta</label><input class="entrada mono" id="cx-porta" type="number" value="554"></div>
+              </div>
+              <div class="campo"><label for="cx-usuario">Usuário</label><input class="entrada" id="cx-usuario" value="admin"></div>
+              <p class="nota">Identificação do gravador vista pelo agente: <span class="mono">3C:EF:8C:••:••:••</span>, em 06/10. É o que permite reencontrá-lo se o endereço mudar.</p>
+              <button class="btn secundario" type="button" data-toast="Conexão salva. O agente usa a nova na próxima batida." data-so-config>Salvar conexão</button>
+            </section>
+          </aside>
+        </div>
+      </div>
+
+      <div class="vazio" data-quando="vazio">
+        <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-crop"/></svg></span>
+        <h2>Este canal ainda não tem quadro</h2>
+        <p>O quadro é capturado pelo agente instalado na loja. Peça um e ele responde na próxima batida.</p>
+        <button class="btn primario" type="button" data-atualizar-quadro><svg class="ic" aria-hidden="true"><use href="#i-refresh-cw"/></svg>Pedir o quadro</button>
+      </div>
+      <div class="ossos" data-quando="carregando" aria-hidden="true">
+        <div class="osso" style="height:360px"></div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════ CRITÉRIOS ═════════════════════════ -->
+    <section class="tela" data-tela="criterios" aria-labelledby="t-criterios" hidden>
+      <header class="cab">
+        <div>
+          <p class="sobre"><svg class="ic p" aria-hidden="true"><use href="#i-store"/></svg><span data-loja-nome>Loja Centro</span></p>
+          <h1 id="t-criterios">Critérios</h1>
+          <p class="sub">Um critério é cadastrado uma vez e vale nos canais que você marcar. Editar muda em todos; tirar de um canal não mexe nos outros.</p>
+        </div>
+        <div class="cab-acoes">
+          <div class="seg" role="group" aria-label="Mostrar">
+            <button type="button" data-filtro="todos" aria-pressed="true">Todos</button>
+            <button type="button" data-filtro="ligados" aria-pressed="false">Ligados</button>
+            <button type="button" data-filtro="desligados" aria-pressed="false">Desligados</button>
+          </div>
+          <button class="btn primario" type="button" data-folha="folha-criterio" data-modo="novo" data-so-config><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Novo critério</button>
+        </div>
+      </header>
+
+      <div class="corpo" data-quando="normal">
+        <div class="arvore" data-arvore></div>
+
+        <section class="secao" aria-labelledby="t-semcanal">
+          <h2 id="t-semcanal">Sem canal <span class="conta">1</span></h2>
+          <p class="nota">Critérios que não valem em canal nenhum e, por isso, não são verificados. Ficam guardados com o histórico: marque canais de novo ou exclua.</p>
+          <article class="criterio desligado">
+            <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-scan-search"/></svg></span>
+            <div class="c-titulo"><b>Porta do estoque fechada</b><span class="chip">estado</span><span class="chip">informativo</span></div>
+            <div class="c-acoes" data-so-config>
+              <button class="btn secundario mini" type="button" data-folha="folha-criterio" data-modo="editar" data-nome="Porta do estoque fechada">Marcar canais</button>
+              <button class="btn perigo-leve mini" type="button" data-dialogo="excluir-criterio" data-nome="Porta do estoque fechada">Excluir</button>
+            </div>
+            <p class="c-texto">A porta do estoque seco está fechada quando não há ninguém dentro.</p>
+          </article>
+        </section>
+      </div>
+
+      <div class="vazio" data-quando="vazio">
+        <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-list-checks"/></svg></span>
+        <h2>Nenhum critério ainda</h2>
+        <p>Um critério descreve, em português, o que é “conforme” naquela câmera. Escreva como você explicaria a alguém que acabou de chegar.</p>
+        <button class="btn primario" type="button" data-folha="folha-criterio" data-modo="novo" data-so-config><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Criar o primeiro critério</button>
+      </div>
+      <div class="ossos" data-quando="carregando" aria-hidden="true">
+        <div class="osso" style="height:52px"></div>
+        <div class="osso" style="height:96px"></div>
+        <div class="osso" style="height:96px"></div>
+        <div class="osso" style="height:52px"></div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════ ALERTAS ═════════════════════════ -->
+    <section class="tela" data-tela="alertas" aria-labelledby="t-alertas" hidden>
+      <header class="cab">
+        <div>
+          <p class="sobre"><svg class="ic p" aria-hidden="true"><use href="#i-store"/></svg><span data-loja-nome>Loja Centro</span></p>
+          <h1 id="t-alertas">Alertas</h1>
+          <p class="sub">Aqui você decide quem recebe o quê. A entrega é feita pela Regem, e nenhuma chave de integração é digitada nesta tela.</p>
+        </div>
+      </header>
+
+      <div class="corpo" data-quando="normal">
+        <div class="abas" role="tablist" aria-label="Partes dos alertas">
+          <button type="button" role="tab" id="aba-quem" aria-controls="p-quem" aria-selected="true"><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>Quem recebe</button>
+          <button type="button" role="tab" id="aba-regras" aria-controls="p-regras" aria-selected="false" tabindex="-1"><svg class="ic" aria-hidden="true"><use href="#i-sliders-horizontal"/></svg>Quem recebe o quê</button>
+          <button type="button" role="tab" id="aba-chegou" aria-controls="p-chegou" aria-selected="false" tabindex="-1"><svg class="ic" aria-hidden="true"><use href="#i-check-check"/></svg>Chegou?</button>
+        </div>
+
+        <!-- 1 · destinos -->
+        <div class="secao" role="tabpanel" id="p-quem" aria-labelledby="aba-quem">
+          <div class="secao-cab">
+            <p class="nota">Pessoas e sistemas que podem receber um aviso desta loja.</p>
+            <button class="btn primario empurra" type="button" data-folha="folha-destino" data-so-config><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Novo destino</button>
+          </div>
+          <div class="destinos">
+            <article class="destino cartao">
+              <div class="destino-topo">
+                <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-message-circle"/></svg></span>
+                <div><h3>Celular do gerente</h3><p class="end">+55 21 90000-0001</p></div>
+                <button class="liga" type="button" role="switch" aria-checked="true" data-liga="Celular do gerente" aria-label="Destino Celular do gerente"><i></i></button>
+              </div>
+              <div class="canal-chips"><span class="chip">WhatsApp</span><span class="chip">perfil gerente</span><span class="chip vazado">esta loja</span></div>
+            </article>
+            <article class="destino cartao">
+              <div class="destino-topo">
+                <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-mail"/></svg></span>
+                <div><h3>Diretoria</h3><p class="end">diretoria@exemplo.com.br</p></div>
+                <button class="liga" type="button" role="switch" aria-checked="true" data-liga="Diretoria" aria-label="Destino Diretoria"><i></i></button>
+              </div>
+              <div class="canal-chips"><span class="chip">E-mail</span><span class="chip">perfil presidente</span><span class="chip vazado">rede inteira</span></div>
+            </article>
+            <article class="destino cartao">
+              <div class="destino-topo">
+                <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-monitor"/></svg></span>
+                <div><h3>Tela da cozinha</h3><p class="end">loja-centro</p></div>
+                <button class="liga" type="button" role="switch" aria-checked="false" data-liga="Tela da cozinha" aria-label="Destino Tela da cozinha"><i></i></button>
+              </div>
+              <div class="canal-chips"><span class="chip">KDS do Regem</span><span class="chip vazado">esta loja</span><span class="chip" title="Há uma chave guardada pela Regem para este destino"><svg class="ic" aria-hidden="true"><use href="#i-lock-keyhole"/></svg>chave guardada</span></div>
+            </article>
+          </div>
+        </div>
+
+        <!-- 2 · política -->
+        <div class="secao" role="tabpanel" id="p-regras" aria-labelledby="aba-regras" hidden>
+          <div class="secao-cab">
+            <p class="nota">Valendo agora: <b>regras desta loja</b>. As da rede ficam sem efeito aqui enquanto a loja tiver as suas.</p>
+            <button class="btn primario empurra" type="button" data-folha="folha-regra" data-so-config><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Nova regra</button>
+          </div>
+          <p class="aviso neutro">
+            <svg class="ic" aria-hidden="true"><use href="#i-info"/></svg>
+            <span>Sem regra que case, <b>emergência e urgente chegam a todos os destinos ligados</b> e o resto fica calado. Para silenciar uma combinação, crie uma regra de não avisar.</span>
+          </p>
+          <div class="cartao rola">
+            <table class="em-cartoes">
+              <caption class="so-leitor">Regras de aviso desta loja</caption>
+              <thead><tr><th>Quando for</th><th>O que fazer</th><th>Para quem</th><th>Vale em</th><th><span class="so-leitor">Ações</span></th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="inteira"><span class="caminho"><span class="chip critico">crítico</span><span class="chip">urgente</span></span></td>
+                  <td data-r="O que fazer"><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-bell-ring"/></svg>avisar</span></td>
+                  <td data-r="Para quem">Celular do gerente</td>
+                  <td data-r="Vale em">esta loja</td>
+                  <td class="num-col inteira" data-so-config><button class="btn perigo-leve mini" type="button" data-toast="Regra removida.">Remover</button></td>
+                </tr>
+                <tr>
+                  <td class="inteira"><span class="caminho"><span class="chip critico">emergência</span><span class="chip">qualquer prioridade</span></span></td>
+                  <td data-r="O que fazer"><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-bell-ring"/></svg>avisar</span></td>
+                  <td data-r="Para quem">Diretoria</td>
+                  <td data-r="Vale em">rede inteira <span class="suave">· sem efeito aqui</span></td>
+                  <td class="num-col inteira" data-so-config><button class="btn perigo-leve mini" type="button" data-toast="Regra removida.">Remover</button></td>
+                </tr>
+                <tr>
+                  <td class="inteira"><span class="caminho"><span class="chip">informativo</span><span class="chip">qualquer prioridade</span></span></td>
+                  <td data-r="O que fazer"><span class="chip"><svg class="ic" aria-hidden="true"><use href="#i-bell-off"/></svg>não avisar</span></td>
+                  <td data-r="Para quem">—</td>
+                  <td data-r="Vale em">esta loja</td>
+                  <td class="num-col inteira" data-so-config><button class="btn perigo-leve mini" type="button" data-toast="Regra removida.">Remover</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 3 · chegou? -->
+        <div class="secao" role="tabpanel" id="p-chegou" aria-labelledby="aba-chegou" hidden>
+          <p class="nota"><b>Mandado</b> quer dizer que o aviso saiu do Farol. <b>Chegou</b> quer dizer que quem entrega confirmou. A diferença entre os dois explica um aviso que ninguém viu.</p>
+          <div class="cartao rola">
+            <table class="em-cartoes">
+              <caption class="so-leitor">Últimos avisos enviados</caption>
+              <thead><tr><th>Quando</th><th>Motivo</th><th>Para</th><th>Situação</th><th class="num-col">Tentativas</th><th class="num-col">Confirmado</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="mono" data-r="Quando">07/10 21:42</td>
+                  <td class="inteira"><span class="crit">Bancada limpa entre pedidos</span></td>
+                  <td data-r="Para">Celular do gerente</td>
+                  <td data-r="Situação"><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-check-check"/></svg>chegou</span></td>
+                  <td class="num-col" data-r="Tentativas">1</td>
+                  <td class="num-col" data-r="Confirmado">21:42</td>
+                </tr>
+                <tr>
+                  <td class="mono" data-r="Quando">07/10 20:17</td>
+                  <td class="inteira"><span class="crit">Alguém na chapa no horário de pico</span></td>
+                  <td data-r="Para">Celular do gerente</td>
+                  <td data-r="Situação"><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-check-check"/></svg>chegou</span></td>
+                  <td class="num-col" data-r="Tentativas">1</td>
+                  <td class="num-col" data-r="Confirmado">20:18</td>
+                </tr>
+                <tr>
+                  <td class="mono" data-r="Quando">07/10 19:55</td>
+                  <td class="inteira"><span class="crit">Fila no balcão</span></td>
+                  <td data-r="Para">Celular do gerente</td>
+                  <td data-r="Situação"><span class="chip atencao"><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>mandado</span></td>
+                  <td class="num-col" data-r="Tentativas">1</td>
+                  <td class="num-col" data-r="Confirmado">—</td>
+                </tr>
+                <tr>
+                  <td class="mono" data-r="Quando">07/10 09:02</td>
+                  <td class="inteira"><span class="crit"><svg class="ic p" aria-hidden="true"><use href="#i-unplug"/></svg>Agente sem sinal</span></td>
+                  <td data-r="Para">Diretoria</td>
+                  <td data-r="Situação"><span class="chip critico"><svg class="ic" aria-hidden="true"><use href="#i-circle-x"/></svg>falhou</span><small class="suave" style="display:block;margin-top:3px">a caixa de entrada recusou a mensagem</small></td>
+                  <td class="num-col" data-r="Tentativas">3</td>
+                  <td class="num-col" data-r="Confirmado">—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="vazio" data-quando="vazio">
+        <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-bell-ring"/></svg></span>
+        <h2>Ninguém recebe aviso desta loja</h2>
+        <p>Enquanto não houver um destino, nem a queda do agente é avisada. E agente fora quer dizer loja sem verificação.</p>
+        <button class="btn primario" type="button" data-folha="folha-destino" data-so-config><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Cadastrar o primeiro destino</button>
+      </div>
+      <div class="ossos" data-quando="carregando" aria-hidden="true">
+        <div class="osso" style="height:44px"></div>
+        <div class="linha"><div class="osso" style="height:112px"></div><div class="osso" style="height:112px"></div><div class="osso" style="height:112px"></div></div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════ ORÇAMENTO ═════════════════════════ -->
+    <section class="tela" data-tela="orcamento" aria-labelledby="t-orcamento" hidden>
+      <header class="cab">
+        <div>
+          <p class="sobre"><svg class="ic p" aria-hidden="true"><use href="#i-store"/></svg><span data-loja-nome>Loja Centro</span></p>
+          <h1 id="t-orcamento">Orçamento por uso</h1>
+          <p class="sub">Cada canal é classificado pelo quanto é usado e pelo que precisa enxergar. A partir disso, o que serve em cada nível e três caminhos somados.</p>
+        </div>
+      </header>
+
+      <div class="corpo" data-quando="normal">
+        <div class="resumo4">
+          <article class="kpi cartao"><span class="rot">Canais em uso</span><span class="num">6 <small>de 8</small></span><span class="pe">2 sem critério</span></article>
+          <article class="kpi cartao"><span class="rot">Por quantidade de uso</span><span class="num">1 <small>intenso</small></span><span class="pe">2 moderados · 3 leves</span></article>
+          <article class="kpi cartao"><span class="rot">Quadros julgados por hora</span><span class="num">1.080</span><span class="pe">soma de todos os canais</span></article>
+          <article class="kpi cartao"><span class="rot">Câmeras instaladas</span><span class="num">1 <small>não atende</small></span><span class="pe">3 ainda sem medida</span></article>
+        </div>
+
+        <section class="secao" aria-labelledby="t-orc-canais">
+          <div class="secao-cab">
+            <h2 id="t-orc-canais">Canais</h2>
+            <span class="nota empurra">Na ordem em que o dinheiro resolve: os críticos primeiro, depois os mais usados.</span>
+          </div>
+
+          <article class="orc-canal cartao">
+            <div class="orc-cab">
+              <span class="canal-num">04</span>
+              <h3>Montagem 1</h3>
+              <span class="suave">Cozinha</span>
+              <span class="chip critico">uso intenso</span>
+              <div class="empurra">
+                <label class="suave" for="imp-m1">Importância</label>
+                <select class="entrada" id="imp-m1" data-so-config data-toast-muda="Montagem 1 agora é de importância">
+                  <option selected>crítica</option><option>normal</option><option>baixa</option>
+                </select>
+              </div>
+            </div>
+            <dl class="fatos">
+              <div><dt>Usos de análise</dt><dd>estado e contagem, 3 critérios</dd></div>
+              <div><dt>O que precisa enxergar</dt><dd>detalhe de superfície · 3 pontos por cm</dd></div>
+              <div><dt>Câmera instalada</dt><dd><span class="chip atencao">ainda sem medida</span> informe a largura real da área</dd></div>
+            </dl>
+            <div class="opcoes">
+              <div class="opcao">
+                <div class="o-chips"><span class="chip">Básico</span></div>
+                <b>Hikvision DS-2CE16H0T-ITPF</b>
+                <p>5 MP, mas com lente fixa de 2,8 mm: só enquadra aberto.</p>
+                <span class="preco">R$ 108 a R$ 220<small>preço de busca, out/2026</small></span>
+              </div>
+              <div class="opcao indicada">
+                <div class="o-chips"><span class="chip">Intermediário</span><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-badge-check"/></svg>indicada</span></div>
+                <b>Intelbras VHD 3250 VF G7</b>
+                <p>2 MP com lente varifocal manual: fecha o enquadramento na bancada.</p>
+                <span class="preco">R$ 535<small>preço de busca, out/2026</small></span>
+              </div>
+              <div class="opcao">
+                <div class="o-chips"><span class="chip">Avançado</span></div>
+                <b>Intelbras VIP 3260 Z IA</b>
+                <p>Varifocal de 2,7 a 13,5 mm e boa imagem contra a luz: fecha o enquadramento para leitura e montagem.</p>
+                <span class="preco">R$ 874 a R$ 1.158<small>preço de busca, out/2026</small></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="orc-canal cartao">
+            <div class="orc-cab">
+              <span class="canal-num">03</span>
+              <h3>Chapa</h3>
+              <span class="suave">Cozinha</span>
+              <span class="chip atencao">uso moderado</span>
+              <div class="empurra">
+                <label class="suave" for="imp-ch">Importância</label>
+                <select class="entrada" id="imp-ch" data-so-config data-toast-muda="Chapa agora é de importância">
+                  <option>crítica</option><option selected>normal</option><option>baixa</option>
+                </select>
+              </div>
+            </div>
+            <dl class="fatos">
+              <div><dt>Usos de análise</dt><dd>presença e estado, 2 critérios</dd></div>
+              <div><dt>O que precisa enxergar</dt><dd>detalhe de superfície · 3 pontos por cm</dd></div>
+              <div><dt>Câmera instalada</dt><dd><span class="chip critico">não atende</span> entrega 1,2 ponto por cm</dd></div>
+            </dl>
+            <button class="btn secundario mini" type="button" data-dobra="opc-chapa" aria-expanded="false" style="align-self:flex-start">
+              <svg class="ic p" aria-hidden="true"><use href="#i-chevron-down"/></svg>Ver as 3 câmeras que servem
+            </button>
+            <div class="dobra fechada" id="opc-chapa"><div>
+              <div class="opcoes">
+                <div class="opcao"><div class="o-chips"><span class="chip">Básico</span></div><b>Hikvision DS-2CE16H0T-ITPF</b><p>5 MP, lente fixa de 2,8 mm.</p><span class="preco">R$ 108 a R$ 220<small>preço de busca, out/2026</small></span></div>
+                <div class="opcao indicada"><div class="o-chips"><span class="chip">Intermediário</span><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-badge-check"/></svg>indicada</span></div><b>Intelbras VHD 3250 VF G7</b><p>2 MP com lente varifocal manual.</p><span class="preco">R$ 535<small>preço de busca, out/2026</small></span></div>
+                <div class="opcao"><div class="o-chips"><span class="chip">Avançado</span></div><b>Intelbras VIP 3260 Z IA</b><p>Varifocal de 2,7 a 13,5 mm.</p><span class="preco">R$ 874 a R$ 1.158<small>preço de busca, out/2026</small></span></div>
+              </div>
+            </div></div>
+          </article>
+
+          <article class="orc-canal cartao">
+            <div class="orc-cab">
+              <span class="canal-num">01</span>
+              <h3>Balcão</h3>
+              <span class="suave">Atendimento</span>
+              <span class="chip ok">uso leve</span>
+              <div class="empurra">
+                <label class="suave" for="imp-ba">Importância</label>
+                <select class="entrada" id="imp-ba" data-so-config data-toast-muda="Balcão agora é de importância">
+                  <option>crítica</option><option selected>normal</option><option>baixa</option>
+                </select>
+              </div>
+            </div>
+            <dl class="fatos">
+              <div><dt>Usos de análise</dt><dd>contagem, 1 critério</dd></div>
+              <div><dt>O que precisa enxergar</dt><dd>pessoas de corpo inteiro · 1,5 ponto por cm</dd></div>
+              <div><dt>Câmera instalada</dt><dd><span class="chip ok">atende</span> nada a comprar para este canal</dd></div>
+            </dl>
+          </article>
+          <button class="btn fantasma" type="button" data-toast="No console, a lista traz todos os canais da loja." style="align-self:flex-start"><svg class="ic" aria-hidden="true"><use href="#i-chevron-down"/></svg>Mostrar os outros 5 canais</button>
+        </section>
+
+        <section class="secao" aria-labelledby="t-orc-infra">
+          <h2 id="t-orc-infra">Computador e gravador</h2>
+          <div class="pacotes" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))">
+            <article class="orc-canal cartao">
+              <div class="orc-cab"><span class="canal-num"><svg class="ic" aria-hidden="true"><use href="#i-cpu"/></svg></span><h3>Computador: pelo menos intermediário</h3></div>
+              <p class="suave">8 canais e um critério de estado julgado na loja pedem um processador que decodifique o vídeo sem engasgar.</p>
+              <div class="opcoes" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))">
+                <div class="opcao"><div class="o-chips"><span class="chip">Básico</span></div><b>Intel Mini PC N150</b><p>Até 8 fluxos; basta quando a câmera já entrega o evento pronto.</p><span class="preco">R$ 2.087 a R$ 2.673<small>preço de busca, out/2026</small></span></div>
+                <div class="opcao indicada"><div class="o-chips"><span class="chip">Intermediário</span><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-badge-check"/></svg>indicada</span></div><b>Intel i5-14400</b><p>Decodifica o vídeo e roda o detector; a placa de vídeo entra depois, se houver motivo medido.</p><span class="preco">R$ 4.200<small>faixa de mercado, ago/2026</small></span></div>
+              </div>
+            </article>
+            <article class="orc-canal cartao">
+              <div class="orc-cab"><span class="canal-num"><svg class="ic" aria-hidden="true"><use href="#i-hard-drive"/></svg></span><h3>Gravador: pelo menos básico</h3></div>
+              <p class="suave">8 canais cabem num gravador de 8. Se a loja já tem um que serve, tire-o da conta.</p>
+              <div class="opcoes" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))">
+                <div class="opcao indicada"><div class="o-chips"><span class="chip">Básico</span><span class="chip ok"><svg class="ic" aria-hidden="true"><use href="#i-badge-check"/></svg>indicada</span></div><b>Intelbras MHDX 3108-C</b><p>8 canais, da mesma família do de 16.</p><span class="preco">R$ 675 a R$ 1.071<small>preço de busca, out/2026</small></span></div>
+                <div class="opcao"><div class="o-chips"><span class="chip">Intermediário</span></div><b>Intelbras MHDX 3116-C</b><p>16 canais em 1080p real, medido em campo.</p><span class="preco">R$ 1.400 a R$ 1.900<small>faixa de mercado, ago/2026</small></span></div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="secao" aria-labelledby="t-orc-pacotes">
+          <div class="secao-cab">
+            <h2 id="t-orc-pacotes">Três caminhos</h2>
+            <span class="nota empurra">Câmera que já atende não entra na soma.</span>
+          </div>
+          <div class="pacotes">
+            <article class="pacote cartao">
+              <span class="chip" style="align-self:flex-start">Pacote básico</span>
+              <span class="total">R$ 2.978 a R$ 4.184</span>
+              <span class="suave">câmeras R$ 216 a R$ 440 · gravador e computador R$ 2.762 a R$ 3.744</span>
+              <ul>
+                <li>2 × Hikvision DS-2CE16H0T-ITPF<small>Câmera · Montagem 1 e Chapa</small></li>
+                <li>Intelbras MHDX 3108-C<small>Gravador · 8 canais</small></li>
+                <li>Intel Mini PC N150<small>Computador · aperta quando houver critério de estado na loja</small></li>
+              </ul>
+            </article>
+            <article class="pacote cartao indicada">
+              <span class="chip ok" style="align-self:flex-start"><svg class="ic" aria-hidden="true"><use href="#i-badge-check"/></svg>Pacote intermediário · indicado</span>
+              <span class="total">R$ 6.670 a R$ 7.170</span>
+              <span class="suave">câmeras R$ 1.070 · gravador e computador R$ 5.600 a R$ 6.100</span>
+              <ul>
+                <li>2 × Intelbras VHD 3250 VF G7<small>Câmera · Montagem 1 e Chapa</small></li>
+                <li>Intelbras MHDX 3116-C<small>Gravador · 16 canais, sobra para crescer</small></li>
+                <li>Intel i5-14400<small>Computador · sem placa de vídeo</small></li>
+              </ul>
+            </article>
+            <article class="pacote cartao">
+              <span class="chip" style="align-self:flex-start">Pacote avançado</span>
+              <span class="total">R$ 12.248 a R$ 13.516</span>
+              <span class="suave">câmeras R$ 1.748 a R$ 2.316 · gravador e computador R$ 10.500 a R$ 11.200</span>
+              <ul>
+                <li>2 × Intelbras VIP 3260 Z IA<small>Câmera · Montagem 1 e Chapa</small></li>
+                <li>Intelbras MHDX 5116<small>Gravador · 16 canais em 4K</small></li>
+                <li>Intel i5-14400 com NVIDIA RTX 5060 Ti 16GB<small>Computador · julga estado dentro da loja</small></li>
+              </ul>
+            </article>
+          </div>
+          <p class="nota">Os preços são referência, com a data em que foram vistos. Confira antes de comprar. As opções vêm do catálogo mantido pelo Monitor Farol.</p>
+        </section>
+      </div>
+
+      <div class="vazio" data-quando="vazio">
+        <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-calculator"/></svg></span>
+        <h2>Ainda não há o que orçar</h2>
+        <p>O orçamento sai dos canais e dos critérios da loja. Cadastre um canal e diga o que ele precisa conferir.</p>
+        <a class="btn primario" href="#canais" data-ir="canais"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Cadastrar um canal</a>
+      </div>
+      <div class="ossos" data-quando="carregando" aria-hidden="true">
+        <div class="linha"><div class="osso" style="height:96px"></div><div class="osso" style="height:96px"></div><div class="osso" style="height:96px"></div><div class="osso" style="height:96px"></div></div>
+        <div class="osso" style="height:240px"></div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════ LOJAS ═════════════════════════ -->
+    <section class="tela" data-tela="lojas" aria-labelledby="t-lojas" hidden>
+      <header class="cab">
+        <div>
+          <p class="sobre"><svg class="ic p" aria-hidden="true"><use href="#i-building-2"/></svg>Brasa Burger</p>
+          <h1 id="t-lojas">Lojas</h1>
+          <p class="sub">Todas as lojas da rede e como cada uma está agora. Escolha uma para entrar.</p>
+        </div>
+      </header>
+
+      <div class="corpo" data-quando="normal">
+        <div class="lojas">
+          <a class="loja cartao" href="#painel" data-entrar-loja="Loja Centro" data-agente-loja="ativo">
+            <div class="loja-topo">
+              <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-store"/></svg></span>
+              <div><h3>Loja Centro</h3><span class="chip ok"><span class="ponto ok pulsa"></span>agente ativo</span></div>
+            </div>
+            <div class="loja-fatos">
+              <div><b>8</b><span>canais</span></div>
+              <div><b>6</b><span>critérios</span></div>
+              <div><b>89%</b><span>conforme em 24 h</span></div>
+            </div>
+            <div class="canal-pe"><span class="chip atencao">3 pontos de atenção</span><span class="elo">Entrar<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></span></div>
+          </a>
+          <a class="loja cartao" href="#painel" data-entrar-loja="Loja Praia" data-agente-loja="fora">
+            <div class="loja-topo">
+              <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-store"/></svg></span>
+              <div><h3>Loja Praia</h3><span class="chip critico"><svg class="ic" aria-hidden="true"><use href="#i-unplug"/></svg>agente sem sinal há 2 h</span></div>
+            </div>
+            <div class="loja-fatos">
+              <div><b>5</b><span>canais</span></div>
+              <div><b>4</b><span>critérios</span></div>
+              <div><b>—</b><span>nada verificado agora</span></div>
+            </div>
+            <div class="canal-pe"><span class="chip critico">loja sem verificação</span><span class="elo">Entrar<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></span></div>
+          </a>
+        </div>
+      </div>
+
+      <div class="vazio" data-quando="vazio">
+        <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-store"/></svg></span>
+        <h2>Nenhuma loja cadastrada ainda</h2>
+        <p>A primeira loja é criada pela Regem, na contratação. Depois disso, os setores e os canais se cadastram aqui.</p>
+      </div>
+      <div class="ossos" data-quando="carregando" aria-hidden="true">
+        <div class="linha"><div class="osso" style="height:190px"></div><div class="osso" style="height:190px"></div></div>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="barra" aria-label="Seções da loja" data-nav>
+    <span class="nav-realce" aria-hidden="true"></span>
+    <a href="#painel" data-ir="painel" aria-current="page"><svg class="ic g" aria-hidden="true"><use href="#i-layout-dashboard"/></svg><span>Painel</span><span class="conta" data-conta-atencao><span class="so-leitor">pontos de atenção: </span>3</span></a>
+    <a href="#canais" data-ir="canais"><svg class="ic g" aria-hidden="true"><use href="#i-cctv"/></svg><span>Canais</span></a>
+    <a href="#criterios" data-ir="criterios"><svg class="ic g" aria-hidden="true"><use href="#i-list-checks"/></svg><span>Critérios</span></a>
+    <a href="#alertas" data-ir="alertas"><svg class="ic g" aria-hidden="true"><use href="#i-bell-ring"/></svg><span>Alertas</span></a>
+    <a href="#orcamento" data-ir="orcamento" data-so-config><svg class="ic g" aria-hidden="true"><use href="#i-calculator"/></svg><span>Orçamento</span></a>
+  </nav>
+</div>
+
+<!-- ═════════════════════════ MENUS ═════════════════════════ -->
+<div class="menu" id="menu-loja" role="menu" hidden>
+  <p class="rotulo-menu">Brasa Burger</p>
+  <button type="button" role="menuitem" data-entrar-loja="Loja Centro" data-agente-loja="ativo" aria-current="true"><svg class="ic" aria-hidden="true"><use href="#i-store"/></svg>Loja Centro</button>
+  <button type="button" role="menuitem" data-entrar-loja="Loja Praia" data-agente-loja="fora"><svg class="ic" aria-hidden="true"><use href="#i-store"/></svg>Loja Praia</button>
+  <hr>
+  <a href="#lojas" role="menuitem" data-ir="lojas"><svg class="ic" aria-hidden="true"><use href="#i-building-2"/></svg>Todas as lojas</a>
+</div>
+
+<div class="menu" id="menu-conta" role="menu" hidden>
+  <p class="rotulo-menu">Ana Souza · <span data-perfil-nome>gerente</span></p>
+  <button type="button" role="menuitem" data-tema><svg class="ic" aria-hidden="true"><use href="#i-moon" data-tema-icone/></svg><span data-tema-rotulo>Usar o tema escuro</span></button>
+  <hr>
+  <button type="button" role="menuitem" data-sair><svg class="ic" aria-hidden="true"><use href="#i-log-out"/></svg>Sair</button>
+</div>
+
+<div class="menu" id="menu-canal" role="menu" hidden>
+  <button type="button" role="menuitem" data-folha="folha-canal" data-modo="editar"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg>Editar</button>
+  <a href="#area" role="menuitem" data-ir="area"><svg class="ic" aria-hidden="true"><use href="#i-crop"/></svg>Quadro e área</a>
+  <hr>
+  <button type="button" role="menuitem" class="perigo" data-dialogo="excluir-canal"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg>Excluir</button>
+</div>
+
+<div class="menu" id="menu-criterio" role="menu" hidden>
+  <button type="button" role="menuitem" data-folha="folha-criterio" data-modo="editar"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg>Editar</button>
+  <button type="button" role="menuitem" data-dialogo="tirar-do-canal"><svg class="ic" aria-hidden="true"><use href="#i-circle-minus"/></svg>Tirar deste canal</button>
+  <hr>
+  <button type="button" role="menuitem" class="perigo" data-dialogo="excluir-criterio"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg>Excluir de todos os canais</button>
+</div>
+
+<!-- ═════════════════════════ GAVETAS ═════════════════════════ -->
+<div class="veu" data-veu hidden></div>
+
+<section class="folha" id="folha-canal" role="dialog" aria-modal="true" aria-labelledby="fca-titulo" hidden>
+  <header class="folha-cab">
+    <div><h2 id="fca-titulo" data-folha-titulo data-novo="Novo canal" data-editar="Editar o canal">Novo canal</h2><p>Uma câmera do gravador ou uma câmera IP direta.</p></div>
+    <button class="btn fantasma quadrado mini" type="button" data-fecha aria-label="Fechar"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </header>
+  <form class="folha-corpo" id="f-canal" data-sucesso-novo="Canal criado." data-sucesso-editar="Canal salvo.">
+    <div class="campo">
+      <label for="fca-nome">Nome do canal</label>
+      <input class="entrada" id="fca-nome" placeholder="Montagem" required data-preenche="nome">
+    </div>
+    <div class="campo">
+      <label for="fca-setor">Setor</label>
+      <select class="entrada" id="fca-setor">
+        <option>Cozinha</option><option>Atendimento</option><option>Estoque</option><option>＋ cadastrar novo setor</option>
+      </select>
+    </div>
+    <div class="campo">
+      <span class="rotulo" id="fca-origem-r">De onde vem a imagem</span>
+      <div class="escolhas" role="radiogroup" aria-labelledby="fca-origem-r">
+        <div class="escolha"><input type="radio" name="fca-origem" id="fca-o-dvr" value="dvr" checked><label for="fca-o-dvr"><b><svg class="ic" aria-hidden="true"><use href="#i-hard-drive"/></svg>Gravador</b><small>DVR ou NVR, por número de canal</small></label></div>
+        <div class="escolha"><input type="radio" name="fca-origem" id="fca-o-ip" value="ip"><label for="fca-o-ip"><b><svg class="ic" aria-hidden="true"><use href="#i-video"/></svg>Câmera IP</b><small>ligada direto na rede</small></label></div>
+      </div>
+    </div>
+    <div class="campos">
+      <div class="campo" data-so-dvr><label for="fca-canal">Canal no gravador</label><input class="entrada mono" id="fca-canal" type="number" min="1" placeholder="11" value="4"></div>
+      <div class="campo"><label for="fca-host">Endereço na rede</label><input class="entrada mono" id="fca-host" placeholder="192.168.1.108" value="192.168.0.50"></div>
+      <div class="campo"><label for="fca-usuario">Usuário</label><input class="entrada" id="fca-usuario" placeholder="admin" value="admin"></div>
+      <div class="campo"><label for="fca-fab">Fabricante</label><input class="entrada" id="fca-fab" placeholder="intelbras" value="intelbras"></div>
+    </div>
+    <div class="campos" data-so-editar>
+      <div class="campo">
+        <label for="fca-imp">Importância</label>
+        <select class="entrada" id="fca-imp"><option>crítica — resolver primeiro</option><option selected>normal</option><option>baixa — por último</option></select>
+      </div>
+      <div class="campo">
+        <span class="rotulo">Situação</span>
+        <button class="liga" type="button" role="switch" aria-checked="true" data-liga-rotulo="ativo — é verificado|pausado — fica guardado, sem verificar"><i></i><span>ativo — é verificado</span></button>
+      </div>
+    </div>
+    <p class="aviso neutro"><svg class="ic" aria-hidden="true"><use href="#i-lock-keyhole"/></svg><span>A senha do gravador não se cadastra aqui. Ela fica no cofre do agente, dentro da loja.</span></p>
+  </form>
+  <footer class="folha-pe">
+    <button class="btn primario" type="submit" form="f-canal" data-rotulo-novo="Criar canal" data-rotulo-editar="Salvar canal">Criar canal</button>
+    <button class="btn secundario" type="button" data-fecha>Cancelar</button>
+  </footer>
+</section>
+
+<section class="folha" id="folha-criterio" role="dialog" aria-modal="true" aria-labelledby="fcr-titulo" hidden>
+  <header class="folha-cab">
+    <div><h2 id="fcr-titulo" data-folha-titulo data-novo="Novo critério" data-editar="Editar o critério">Novo critério</h2><p data-so-novo>Cadastrado uma vez, vale nos canais que você marcar.</p><p data-so-editar>O que você mudar aqui muda em todos os canais em que ele vale.</p></div>
+    <button class="btn fantasma quadrado mini" type="button" data-fecha aria-label="Fechar"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </header>
+  <form class="folha-corpo" id="f-criterio" data-sucesso-novo="Critério criado. Ele nasce desligado: ligue depois de conferir que acerta." data-sucesso-editar="Critério salvo.">
+    <div class="campo">
+      <label for="fcr-nome">Nome do critério</label>
+      <input class="entrada" id="fcr-nome" placeholder="Bancada limpa entre pedidos" required data-preenche="nome">
+    </div>
+
+    <div class="campo">
+      <span class="rotulo" id="fcr-tipo-r">O que conferir</span>
+      <div class="escolhas" role="radiogroup" aria-labelledby="fcr-tipo-r">
+        <div class="escolha"><input type="radio" name="fcr-tipo" id="fcr-t-estado" value="estado" checked><label for="fcr-t-estado"><b><svg class="ic" aria-hidden="true"><use href="#i-scan-search"/></svg>Estado</b><small>limpeza, organização, uso de touca e luva</small></label></div>
+        <div class="escolha"><input type="radio" name="fcr-tipo" id="fcr-t-presenca" value="presenca"><label for="fcr-t-presenca"><b><svg class="ic" aria-hidden="true"><use href="#i-user-round-check"/></svg>Presença</b><small>tem alguém, ou algo, na área</small></label></div>
+        <div class="escolha"><input type="radio" name="fcr-tipo" id="fcr-t-contagem" value="contagem"><label for="fcr-t-contagem"><b><svg class="ic" aria-hidden="true"><use href="#i-hash"/></svg>Contagem</b><small>quantas pessoas, fila, ocupação</small></label></div>
+        <div class="escolha"><input type="radio" name="fcr-tipo" id="fcr-t-comparacao" value="comparacao"><label for="fcr-t-comparacao"><b><svg class="ic" aria-hidden="true"><use href="#i-layers"/></svg>Comparação</b><small>compara com um padrão guardado</small></label></div>
+        <div class="escolha"><input type="radio" name="fcr-tipo" id="fcr-t-acao" value="acao"><label for="fcr-t-acao"><b><svg class="ic" aria-hidden="true"><use href="#i-list-ordered"/></svg>Ação</b><small>sequência com etapas; custa bem mais</small></label></div>
+      </div>
+    </div>
+
+    <fieldset data-detector hidden>
+      <legend>O que o detector procura</legend>
+      <p class="nota">Este tipo é julgado <b>dentro da loja</b>, sem internet e sem custo por análise. Quem decide são os campos abaixo.</p>
+      <div class="campos">
+        <div class="campo" data-so-presenca>
+          <label for="fcr-deve">Regra</label>
+          <select class="entrada" id="fcr-deve"><option>deve haver</option><option>não deve haver</option></select>
+        </div>
+        <div class="campo">
+          <label for="fcr-objeto">O que procurar</label>
+          <select class="entrada" id="fcr-objeto"><option>pessoa</option><option>prato</option><option>tigela</option><option>copo</option><option>garrafa</option><option>faca</option><option>celular</option></select>
+        </div>
+        <div class="campo" data-so-contagem><label for="fcr-min">Pelo menos</label><input class="entrada mono" id="fcr-min" type="number" min="0" step="1" value="0"></div>
+        <div class="campo" data-so-contagem><label for="fcr-max">No máximo</label><input class="entrada mono" id="fcr-max" type="number" min="0" step="1" placeholder="sem limite"></div>
+      </div>
+      <p class="nota">Na dúvida o detector responde “não deu para avaliar” em vez de avisar: um casaco pendurado não vira pessoa.</p>
+    </fieldset>
+
+    <div class="campo">
+      <label for="fcr-texto">O que é “conforme”</label>
+      <textarea class="entrada" id="fcr-texto" rows="3" placeholder="A superfície de trabalho está livre de restos de alimento, embalagens descartadas e utensílios sujos." required></textarea>
+      <small data-ajuda-texto>Este texto vai direto ao modelo como pergunta. Descreva o que se vê, não o rótulo: “a superfície tem restos no canto” funciona melhor que “sujeira”.</small>
+    </div>
+
+    <div class="campo">
+      <span class="rotulo" id="fcr-onde-r">Onde vale</span>
+      <ul class="arv-canais" data-arv-canais aria-labelledby="fcr-onde-r"></ul>
+      <small data-arv-conta aria-live="polite">Nenhum canal marcado.</small>
+    </div>
+
+    <fieldset>
+      <legend>Quando avisar</legend>
+      <div class="campos">
+        <div class="campo"><label for="fcr-prio">Prioridade</label><select class="entrada" id="fcr-prio"><option>leve — pode esperar horas</option><option selected>intermediária — até 30 s</option><option>urgente — menos de 2 s, só na loja</option></select></div>
+        <div class="campo"><label for="fcr-sev">Gravidade</label><select class="entrada" id="fcr-sev"><option>informativo</option><option selected>atenção</option><option>crítico</option><option>emergência</option></select></div>
+        <div class="campo"><label for="fcr-conf">Confiança mínima</label><input class="entrada mono" id="fcr-conf" type="number" min="0" max="1" step="0.05" value="0.70"><small>Abaixo disso o resultado é registrado, mas não vira aviso.</small></div>
+        <div class="campo"><label for="fcr-sil">Silêncio entre avisos, em minutos</label><input class="entrada mono" id="fcr-sil" type="number" min="0" value="15"><small>Vale por canal: o aviso de um não cala os outros.</small></div>
+      </div>
+    </fieldset>
+  </form>
+  <footer class="folha-pe">
+    <button class="btn primario" type="submit" form="f-criterio" data-rotulo-novo="Criar critério" data-rotulo-editar="Salvar critério">Criar critério</button>
+    <button class="btn secundario" type="button" data-fecha>Cancelar</button>
+    <p class="nota" data-so-novo>O critério nasce <b>desligado</b>. Ligue depois de conferir que ele acerta.</p>
+  </footer>
+</section>
+
+<section class="folha" id="folha-destino" role="dialog" aria-modal="true" aria-labelledby="fde-titulo" hidden>
+  <header class="folha-cab">
+    <div><h2 id="fde-titulo">Novo destino</h2><p>Quem pode receber um aviso desta loja.</p></div>
+    <button class="btn fantasma quadrado mini" type="button" data-fecha aria-label="Fechar"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </header>
+  <form class="folha-corpo" id="f-destino" data-sucesso-novo="Destino cadastrado.">
+    <div class="campo">
+      <span class="rotulo" id="fde-canal-r">Por onde chega</span>
+      <div class="escolhas" role="radiogroup" aria-labelledby="fde-canal-r">
+        <div class="escolha"><input type="radio" name="fde-canal" id="fde-c-wa" value="+55 21 98888-7777" checked><label for="fde-c-wa"><b><svg class="ic" aria-hidden="true"><use href="#i-message-circle"/></svg>WhatsApp</b><small>número com + e país</small></label></div>
+        <div class="escolha"><input type="radio" name="fde-canal" id="fde-c-mail" value="voce@empresa.com.br"><label for="fde-c-mail"><b><svg class="ic" aria-hidden="true"><use href="#i-mail"/></svg>E-mail</b><small>endereço de e-mail</small></label></div>
+        <div class="escolha"><input type="radio" name="fde-canal" id="fde-c-kds" value="código da loja no Regem"><label for="fde-c-kds"><b><svg class="ic" aria-hidden="true"><use href="#i-monitor"/></svg>Tela da cozinha</b><small>KDS do Regem</small></label></div>
+        <div class="escolha"><input type="radio" name="fde-canal" id="fde-c-wh" value="https://…"><label for="fde-c-wh"><b><svg class="ic" aria-hidden="true"><use href="#i-webhook"/></svg>Outro sistema</b><small>endereço https</small></label></div>
+      </div>
+    </div>
+    <div class="campo"><label for="fde-nome">Nome</label><input class="entrada" id="fde-nome" placeholder="Celular do gerente" required></div>
+    <div class="campo"><label for="fde-end">Endereço</label><input class="entrada mono" id="fde-end" placeholder="+55 21 98888-7777" required></div>
+    <div class="campo">
+      <label for="fde-perfil">Perfil de quem recebe</label>
+      <select class="entrada" id="fde-perfil"><option>qualquer</option><option>presidente</option><option>gerente</option><option>supervisão</option><option>execução</option></select>
+    </div>
+    <label class="linha-caixa" for="fde-rede"><input class="caixa" type="checkbox" id="fde-rede"><span>Vale para a rede inteira, para não recadastrar o mesmo número em cada loja</span></label>
+  </form>
+  <footer class="folha-pe">
+    <button class="btn primario" type="submit" form="f-destino">Cadastrar destino</button>
+    <button class="btn secundario" type="button" data-fecha>Cancelar</button>
+  </footer>
+</section>
+
+<section class="folha" id="folha-regra" role="dialog" aria-modal="true" aria-labelledby="fre-titulo" hidden>
+  <header class="folha-cab">
+    <div><h2 id="fre-titulo">Nova regra de aviso</h2><p>Para uma combinação de gravidade e prioridade, avisar alguém ou ficar calado.</p></div>
+    <button class="btn fantasma quadrado mini" type="button" data-fecha aria-label="Fechar"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </header>
+  <form class="folha-corpo" id="f-regra" data-sucesso-novo="Regra salva.">
+    <div class="campos">
+      <div class="campo"><label for="fre-sev">Gravidade</label><select class="entrada" id="fre-sev"><option>qualquer</option><option>informativo</option><option>atenção</option><option selected>crítico</option><option>emergência</option></select></div>
+      <div class="campo"><label for="fre-prio">Prioridade</label><select class="entrada" id="fre-prio"><option selected>qualquer</option><option>urgente</option><option>intermediária</option><option>leve</option></select></div>
+    </div>
+    <div class="campo">
+      <span class="rotulo" id="fre-acao-r">O que fazer</span>
+      <div class="escolhas" role="radiogroup" aria-labelledby="fre-acao-r">
+        <div class="escolha"><input type="radio" name="fre-acao" id="fre-a-sim" value="sim" checked><label for="fre-a-sim"><b><svg class="ic" aria-hidden="true"><use href="#i-bell-ring"/></svg>Avisar</b><small>manda para o destino escolhido</small></label></div>
+        <div class="escolha"><input type="radio" name="fre-acao" id="fre-a-nao" value="nao"><label for="fre-a-nao"><b><svg class="ic" aria-hidden="true"><use href="#i-bell-off"/></svg>Não avisar</b><small>silencia a combinação inteira</small></label></div>
+      </div>
+    </div>
+    <div class="campo" data-so-avisar>
+      <label for="fre-dest">Para quem</label>
+      <select class="entrada" id="fre-dest"><option>Celular do gerente</option><option>Diretoria</option><option>＋ cadastrar novo destino</option></select>
+    </div>
+  </form>
+  <footer class="folha-pe">
+    <button class="btn primario" type="submit" form="f-regra">Salvar regra</button>
+    <button class="btn secundario" type="button" data-fecha>Cancelar</button>
+  </footer>
+</section>
+
+<!-- ═════════════════════════ DIÁLOGO ═════════════════════════ -->
+<section class="dialogo" id="dialogo" role="alertdialog" aria-modal="true" aria-labelledby="dlg-titulo" aria-describedby="dlg-corpo" hidden>
+  <h2 id="dlg-titulo"></h2>
+  <div id="dlg-corpo" style="display:flex;flex-direction:column;gap:10px"></div>
+  <div class="pe">
+    <button class="btn secundario" type="button" data-fecha>Cancelar</button>
+    <button class="btn perigo" type="button" data-confirma>Excluir</button>
+  </div>
+</section>
+
+<div class="toasts" data-toasts role="status" aria-live="polite"></div>
+
+<!-- ═════════════════ CONTROLES DO PROTÓTIPO (não fazem parte do console) ═════════════════ -->
+<div class="proto">
+  <button class="btn secundario" type="button" data-menu="menu-proto" aria-haspopup="menu" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-sliders-horizontal"/></svg><span class="txt">Protótipo</span><span class="so-leitor"> (controles de demonstração)</span></button>
+</div>
+<div class="menu" id="menu-proto" role="menu" hidden>
+  <p class="rotulo-menu">Situação da loja (dados de exemplo)</p>
+  <button type="button" role="menuitem" data-situacao="normal" aria-current="true">Em operação</button>
+  <button type="button" role="menuitem" data-situacao="vazio">Loja nova, sem nada</button>
+  <button type="button" role="menuitem" data-situacao="carregando">Carregando</button>
+  <button type="button" role="menuitem" data-agente-fora>Agente fora do ar</button>
+  <hr>
+  <p class="rotulo-menu">Quem está olhando</p>
+  <button type="button" role="menuitem" data-perfil="gerente" aria-current="true">Gerente (configura)</button>
+  <button type="button" role="menuitem" data-perfil="supervisao">Supervisão (só vê)</button>
+  <hr>
+  <button type="button" role="menuitem" data-tema><svg class="ic" aria-hidden="true"><use href="#i-moon" data-tema-icone/></svg><span data-tema-rotulo>Usar o tema escuro</span></button>
+  <button type="button" role="menuitem" data-sair><svg class="ic" aria-hidden="true"><use href="#i-log-out"/></svg>Ver a tela de entrada</button>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  document.documentElement.lang = 'pt-BR';
+
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const numero = new Intl.NumberFormat('pt-BR');
+  const calmo = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const icone = (nome, extra = '') =>
+    `<svg class="ic ${extra}" aria-hidden="true"><use href="#i-${nome}"/></svg>`;
+
+  const app = $('#app');
+  const entrar = $('#entrar');
+  const palco = $('#conteudo');
+  const TELAS = ['painel', 'canais', 'area', 'criterios', 'alertas', 'orcamento', 'lojas'];
+
+  // ═══════════════════════ dados de exemplo ═══════════════════════
+  // Tudo aqui é inventado para o protótipo. As somas fecham: o total dos
+  // cartões é a soma das linhas da tabela e das barras do gráfico.
+
+  const PERIODOS = {
+    '24h': {
+      titulo: 'Hora a hora',
+      unidade: 'por hora, em média',
+      rotulos: Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}h`),
+      mostrar: (i) => i % 3 === 0,
+      total: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 78, 132, 126, 96, 60, 54, 72, 118, 152, 148, 122, 78, 24],
+      nc: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 6, 5, 2, 1, 1, 2, 4, 7, 6, 3, 2, 0],
+      na: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 6, 10, 10, 8, 5, 4, 6, 9, 12, 12, 10, 6, 1],
+      linhas: [
+        ['Bancada limpa entre pedidos', 'Montagem 1', 196, 14, 2, '0,87', '1,9 s', '21:42'],
+        ['Bancada limpa entre pedidos', 'Montagem 2', 187, 9, 2, '0,85', '1,9 s', '21:38'],
+        ['Alguém na chapa no horário de pico', 'Chapa', 251, 11, 2, '0,93', '0,09 s', '21:44'],
+        ['Fila no balcão', 'Balcão', 281, 5, 2, '0,90', '0,09 s', '21:45'],
+        ['Uso de touca', 'Montagem 1', 44, 1, 51, '0,71', '2,1 s', '21:40', 'avalia pouco'],
+        ['Uso de touca', 'Montagem 2', 49, 1, 38, '0,73', '2,0 s', '21:36', 'avalia pouco'],
+        ['Uso de touca', 'Chapa', 86, 0, 4, '0,82', '2,0 s', '21:41'],
+        ['Cesto fora do óleo com a fritadeira parada', 'Fritadeira', 48, 0, 0, '0,88', '1,8 s', '14:08', 'sem imagem'],
+      ],
+    },
+    '7d': {
+      titulo: 'Dia a dia',
+      unidade: 'por dia, em média',
+      rotulos: ['qui 01', 'sex 02', 'sáb 03', 'dom 04', 'seg 05', 'ter 06', 'qua 07'],
+      mostrar: () => true,
+      total: [1190, 1420, 1610, 1580, 1105, 1242, 1284],
+      nc: [52, 61, 70, 66, 38, 44, 41],
+      na: [118, 133, 150, 139, 96, 104, 101],
+      linhas: [
+        ['Bancada limpa entre pedidos', 'Montagem 1', 1432, 112, 16, '0,86', '1,9 s', 'hoje 21:42'],
+        ['Bancada limpa entre pedidos', 'Montagem 2', 1352, 84, 14, '0,85', '1,9 s', 'hoje 21:38'],
+        ['Alguém na chapa no horário de pico', 'Chapa', 1832, 94, 14, '0,92', '0,09 s', 'hoje 21:44'],
+        ['Fila no balcão', 'Balcão', 2046, 50, 14, '0,90', '0,09 s', 'hoje 21:45'],
+        ['Uso de touca', 'Montagem 1', 316, 14, 370, '0,70', '2,1 s', 'hoje 21:40', 'avalia pouco'],
+        ['Uso de touca', 'Montagem 2', 356, 10, 282, '0,72', '2,0 s', 'hoje 21:36', 'avalia pouco'],
+        ['Uso de touca', 'Chapa', 627, 8, 28, '0,82', '2,0 s', 'hoje 21:41'],
+        ['Cesto fora do óleo com a fritadeira parada', 'Fritadeira', 257, 0, 103, '0,87', '1,8 s', 'hoje 14:08', 'sem imagem'],
+      ],
+    },
+  };
+
+  const CRITERIOS = {
+    bancada: {
+      nome: 'Bancada limpa entre pedidos', tipo: 'estado', gravidade: 'atenção', ligado: true, canais: 2,
+      texto: 'A superfície de trabalho está livre de restos de alimento, embalagens descartadas e utensílios sujos.',
+      meta: 'prioridade intermediária · confiança mínima 0,70 · silêncio de 15 min · versão 3',
+    },
+    touca: {
+      nome: 'Uso de touca', tipo: 'estado', gravidade: 'crítico', grave: true, ligado: true, canais: 3,
+      texto: 'Toda pessoa na área de preparo está com o cabelo coberto por touca ou boné.',
+      meta: 'prioridade intermediária · confiança mínima 0,70 · silêncio de 30 min · versão 2',
+    },
+    produto: {
+      nome: 'Produto na bancada', tipo: 'contagem', gravidade: 'informativo', ligado: false, canais: 1, falta: true,
+      texto: 'Há produto montado esperando na bancada.',
+      meta: 'prioridade leve · confiança mínima 0,70 · silêncio de 15 min · versão 1',
+    },
+    chapa: {
+      nome: 'Alguém na chapa no horário de pico', tipo: 'presença', gravidade: 'crítico', grave: true, ligado: true, canais: 1,
+      procura: 'pelo menos 1 × pessoa',
+      texto: 'Entre 11h30 e 14h30 e entre 18h30 e 22h, há alguém operando a chapa.',
+      meta: 'prioridade urgente · confiança mínima 0,80 · silêncio de 10 min · versão 1',
+    },
+    cesto: {
+      nome: 'Cesto fora do óleo com a fritadeira parada', tipo: 'estado', gravidade: 'atenção', ligado: true, canais: 1,
+      texto: 'Quando não há fritura em andamento, o cesto está pendurado fora do óleo.',
+      meta: 'prioridade intermediária · confiança mínima 0,70 · silêncio de 20 min · versão 1',
+    },
+    fila: {
+      nome: 'Fila no balcão', tipo: 'contagem', gravidade: 'atenção', ligado: true, canais: 1,
+      procura: 'no máximo 6 × pessoa',
+      texto: 'Há no máximo 6 pessoas esperando na área do balcão.',
+      meta: 'prioridade urgente · confiança mínima 0,75 · silêncio de 10 min · versão 2',
+    },
+  };
+
+  const ICONE_DO_TIPO = {
+    estado: 'scan-search', 'presença': 'user-round-check', contagem: 'hash',
+    'comparação': 'layers', 'ação': 'list-ordered',
+  };
+
+  const ARVORE = [
+    {
+      setor: 'Cozinha',
+      canais: [
+        { nome: 'Montagem 1', num: '04', criterios: ['bancada', 'touca', 'produto'] },
+        { nome: 'Montagem 2', num: '05', criterios: ['bancada', 'touca'] },
+        { nome: 'Chapa', num: '03', criterios: ['chapa', 'touca'] },
+        { nome: 'Fritadeira', num: '06', criterios: ['cesto'], semImagem: true },
+      ],
+    },
+    {
+      setor: 'Atendimento',
+      canais: [
+        { nome: 'Balcão', num: '01', criterios: ['fila'] },
+        { nome: 'Caixa', num: 'IP', criterios: [] },
+      ],
+    },
+    {
+      setor: 'Estoque',
+      canais: [
+        { nome: 'Estoque seco', num: '08', criterios: [] },
+        { nome: 'Recebimento', num: '07', criterios: [], pausado: true },
+      ],
+    },
+  ];
+
+  const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+  const soma = (lista) => lista.reduce((a, b) => a + b, 0);
+
+  // ═══════════════════════ aviso flutuante ═══════════════════════
+  function avisar(texto) {
+    const caixa = $('[data-toasts]');
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.innerHTML = `${icone('circle-check')}<span></span>`;
+    t.lastElementChild.textContent = texto;
+    caixa.append(t);
+    setTimeout(() => {
+      t.classList.add('some');
+      setTimeout(() => t.remove(), calmo ? 0 : 240);
+    }, 3800);
+  }
+
+  // ═══════════════════════ navegação ═══════════════════════
+  function moverRealce() {
+    for (const nav of $$('[data-nav]')) {
+      const realce = $('.nav-realce', nav);
+      const atual = $('a[aria-current="page"]', nav);
+      if (!atual || atual.offsetParent === null) {
+        realce.style.opacity = '0';
+        continue;
+      }
+      realce.style.opacity = '1';
+      if (nav.classList.contains('barra')) {
+        realce.style.right = 'auto';
+        realce.style.width = `${atual.offsetWidth}px`;
+        realce.style.transform = `translateX(${atual.offsetLeft}px)`;
+      } else {
+        realce.style.height = `${atual.offsetHeight}px`;
+        realce.style.transform = `translateY(${atual.offsetTop}px)`;
+      }
+    }
+  }
+
+  function ir(nome) {
+    if (!TELAS.includes(nome)) nome = 'painel';
+    fecharTudo();
+    for (const t of $$('[data-tela]')) t.hidden = t.dataset.tela !== nome;
+    const tela = $(`[data-tela="${nome}"]`);
+    tela.classList.remove('entra');
+    void tela.offsetWidth;
+    tela.classList.add('entra');
+
+    const secao = nome === 'area' ? 'canais' : nome;
+    for (const a of $$('[data-nav] a')) {
+      if (a.dataset.ir === secao) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+    }
+    moverRealce();
+    palco.scrollTop = 0;
+    try { history.replaceState(null, '', `#${nome}`); } catch { /* sem histórico, sem problema */ }
+    if (nome === 'painel') desenharPainel(false);
+    if (nome === 'area') desenharArea();
+  }
+
+  document.addEventListener('click', (ev) => {
+    const alvo = ev.target.closest('[data-ir]');
+    if (!alvo) return;
+    ev.preventDefault();
+    ir(alvo.dataset.ir);
+  });
+
+  // ═══════════════════════ painel ═══════════════════════
+  let periodo = '24h';
+
+  function tetoRedondo(maior) {
+    const grandeza = 10 ** Math.floor(Math.log10(Math.max(maior, 1)));
+    const passo = grandeza / 5;
+    return Math.ceil(maior / passo) * passo;
+  }
+
+  function contar(el, ate, animar) {
+    if (!el) return;
+    if (!animar || calmo) {
+      el.textContent = numero.format(ate);
+      return;
+    }
+    const inicio = performance.now();
+    const passo = (agora) => {
+      const p = Math.min(1, (agora - inicio) / 520);
+      el.textContent = numero.format(Math.round(ate * (1 - (1 - p) ** 3)));
+      if (p < 1) requestAnimationFrame(passo);
+    };
+    requestAnimationFrame(passo);
+  }
+
+  function desenharPainel(animar) {
+    const d = PERIODOS[periodo];
+    const total = soma(d.total);
+    const nc = soma(d.nc);
+    const na = soma(d.na);
+    const ok = total - nc - na;
+    const pct = (v) => Math.round((v / total) * 100);
+
+    contar($('[data-kpi="total"]'), total, animar);
+    contar($('[data-kpi="okp"]'), pct(ok), animar);
+    contar($('[data-kpi="nc"]'), nc, animar);
+    contar($('[data-kpi="nap"]'), pct(na), animar);
+    $('[data-kpi-pe="total"]').textContent = `${numero.format(Math.floor(total / d.total.length))} ${d.unidade}`;
+    $('[data-kpi-pe="ok"]').textContent = `${numero.format(ok)} análises`;
+    $('[data-kpi-pe="nc"]').textContent = `${pct(nc)}% das análises`;
+    $('[data-kpi-pe="na"]').textContent = `${numero.format(na)} análises`;
+
+    // gráfico
+    const teto = tetoRedondo(Math.max(...d.total));
+    $('[data-grafico-titulo]').textContent = d.titulo;
+    $('[data-eixo-y]').innerHTML = [teto, teto / 2, 0].map((v) => `<span>${numero.format(v)}</span>`).join('');
+    const barras = $('[data-barras]');
+    areaDasBarras.style.setProperty('--vao', d.total.length > 12 ? '3px' : 'clamp(8px, 3%, 28px)');
+    barras.setAttribute(
+      'aria-label',
+      `${d.titulo}: ${numero.format(total)} análises, ${numero.format(nc)} fora do critério e ${numero.format(na)} que não deu para avaliar.`,
+    );
+    barras.innerHTML = d.total
+      .map((t, i) => {
+        const bom = t - d.nc[i] - d.na[i];
+        const altura = (t / teto) * 100;
+        return (
+          `<div class="barra-col" data-i="${i}" style="height:${altura}%;animation-delay:${i * 14}ms">` +
+          `<i class="cor-nc" style="flex:${d.nc[i]} 1 0"></i>` +
+          `<i class="cor-na" style="flex:${d.na[i]} 1 0"></i>` +
+          `<i class="cor-ok" style="flex:${bom} 1 0"></i></div>`
+        );
+      })
+      .join('');
+    $('[data-eixo-x]').innerHTML = d.rotulos
+      .map((r, i) => `<span>${d.mostrar(i) ? r : ''}</span>`)
+      .join('');
+
+    // tabela, do que mais ficou fora do critério para o que menos ficou
+    const linhas = [...d.linhas].sort((a, b) => b[3] - a[3] || b[4] - a[4]);
+    $('[data-resultados]').innerHTML = linhas
+      .map(([crit, canal, bom, fora, sem, conf, tempo, ultima, sinal]) => {
+        const t = bom + fora + sem;
+        const p = (v) => (v / t) * 100;
+        const marca = sinal
+          ? `<span class="chip ${sinal === 'sem imagem' ? 'critico' : 'atencao'}">${sinal}</span>`
+          : '';
+        return (
+          `<tr><td class="inteira"><span class="crit">${crit}</span></td>` +
+          `<td data-r="Canal"><span class="caminho"><span class="chip vazado">${icone('cctv')}${canal}</span>${marca}</span></td>` +
+          `<td class="inteira" data-r="Conforme"><div class="prop"><span class="fita">` +
+          `<i class="cor-nc" style="width:${p(fora)}%"></i><i class="cor-na" style="width:${p(sem)}%"></i><i class="cor-ok" style="width:${p(bom)}%"></i>` +
+          `</span><b>${Math.round(p(bom))}%</b></div></td>` +
+          `<td class="num-col" data-r="Análises">${numero.format(t)}</td>` +
+          `<td class="num-col" data-r="Fora do critério">${numero.format(fora)}</td>` +
+          `<td class="num-col" data-r="Não avaliou">${numero.format(sem)}</td>` +
+          `<td class="num-col" data-r="Confiança média">${conf}</td>` +
+          `<td class="num-col" data-r="Tempo médio">${tempo}</td>` +
+          `<td class="num-col" data-r="Última análise">${ultima}</td></tr>`
+        );
+      })
+      .join('');
+  }
+
+  for (const b of $$('[data-periodo]')) {
+    b.addEventListener('click', () => {
+      periodo = b.dataset.periodo;
+      for (const o of $$('[data-periodo]')) o.setAttribute('aria-pressed', String(o === b));
+      desenharPainel(true);
+    });
+  }
+
+  // dica do gráfico
+  const dica = $('[data-dica]');
+  const areaDasBarras = $('.barras-area');
+  areaDasBarras.addEventListener('pointermove', (ev) => {
+    const col = ev.target.closest('.barra-col');
+    if (!col) {
+      dica.hidden = true;
+      return;
+    }
+    const d = PERIODOS[periodo];
+    const i = Number(col.dataset.i);
+    const bom = d.total[i] - d.nc[i] - d.na[i];
+    dica.innerHTML =
+      `<b>${d.rotulos[i]}</b> · ${numero.format(d.total[i])} análises<br>` +
+      `${numero.format(bom)} conforme · ${numero.format(d.nc[i])} fora · ${numero.format(d.na[i])} sem avaliar`;
+    dica.hidden = false;
+    const base = areaDasBarras.getBoundingClientRect();
+    const c = col.getBoundingClientRect();
+    const meio = c.left + c.width / 2 - base.left;
+    const metade = dica.offsetWidth / 2;
+    dica.style.left = `${Math.min(Math.max(meio, metade), base.width - metade)}px`;
+    dica.style.top = `${c.top - base.top - 8}px`;
+  });
+  areaDasBarras.addEventListener('pointerleave', () => { dica.hidden = true; });
+
+  // ═══════════════════════ critérios ═══════════════════════
+  function cartaoDoCriterio(chave, canal) {
+    const c = CRITERIOS[chave];
+    const chips = [
+      c.procura ? `<span class="chip ok" title="Julgado dentro da loja, sem internet">${c.procura}</span>` : '',
+      c.falta ? `<span class="chip atencao">${icone('triangle-alert')}falta dizer o que procurar</span>` : '',
+      `<span class="chip">${c.tipo}</span>`,
+      `<span class="chip ${c.grave ? 'critico' : ''}">${c.gravidade}</span>`,
+      c.canais > 1 ? `<span class="chip vazado" title="É um cadastro só: editar aqui muda em todos os canais">vale em ${c.canais} canais</span>` : '',
+    ].join('');
+    return (
+      `<article class="criterio ${c.ligado ? '' : 'desligado'}" data-criterio="${chave}" data-nome="${c.nome}" data-canal="${canal}">` +
+      `<span class="selo-ic">${icone(ICONE_DO_TIPO[c.tipo])}</span>` +
+      `<div class="c-titulo"><b>${c.nome}</b>${chips}</div>` +
+      `<div class="c-acoes">` +
+      `<button class="liga" type="button" role="switch" aria-checked="${c.ligado}" data-liga-criterio="${chave}" aria-label="Critério ${c.nome}"><i></i><span>${c.ligado ? 'Ligado' : 'Desligado'}</span></button>` +
+      `<button class="btn fantasma quadrado mini" type="button" data-menu="menu-criterio" data-so-config aria-haspopup="menu" aria-expanded="false" aria-label="Ações do critério ${c.nome}">${icone('ellipsis')}</button>` +
+      `</div>` +
+      `<p class="c-texto">${c.texto}</p><p class="c-meta">${c.meta}</p></article>`
+    );
+  }
+
+  function desenharCriterios() {
+    $('[data-arvore]').innerHTML = ARVORE.map((s, i) => {
+      const distintos = new Set(s.canais.flatMap((c) => c.criterios));
+      const canais = s.canais
+        .map((c) => {
+          const estado = c.pausado
+            ? `<span class="chip atencao">pausado, não é verificado</span>`
+            : c.semImagem
+              ? `<span class="chip critico">${icone('video-off')}sem imagem</span>`
+              : '';
+          const corpo = c.criterios.length
+            ? c.criterios.map((k) => cartaoDoCriterio(k, c.nome)).join('')
+            : `<p class="vazio-linha">Nenhum critério neste canal. Nada é verificado aqui.</p>`;
+          const mais = c.pausado
+            ? ''
+            : `<button class="btn fantasma mini empurra" type="button" data-folha="folha-criterio" data-modo="novo" data-so-config>${icone('plus', 'p')}Critério<span class="so-leitor"> em ${c.nome}</span></button>`;
+          return (
+            `<div class="no-canal"><div class="no-canal-cab"><span class="canal-num">${c.num}</span>` +
+            `<b>${c.nome}</b><span>${c.criterios.length ? plural(c.criterios.length, 'critério', 'critérios') : 'sem critério'}</span>${estado}${mais}</div>${corpo}</div>`
+          );
+        })
+        .join('');
+      return (
+        `<section class="cartao"><button class="ramo-cab" type="button" data-dobra="ramo-${i}" aria-expanded="true">` +
+        `${icone('chevron-right', 'seta')}${icone('folder')}<b>${s.setor}</b>` +
+        `<span class="fim">${plural(s.canais.length, 'canal', 'canais')} · ${plural(distintos.size, 'critério', 'critérios')}</span></button>` +
+        `<div class="dobra" id="ramo-${i}"><div><div class="ramo-corpo">${canais}</div></div></div></section>`
+      );
+    }).join('');
+  }
+
+  for (const b of $$('[data-filtro]')) {
+    b.addEventListener('click', () => {
+      for (const o of $$('[data-filtro]')) o.setAttribute('aria-pressed', String(o === b));
+      const f = b.dataset.filtro;
+      for (const c of $$('[data-tela="criterios"] .criterio')) {
+        const ligado = !c.classList.contains('desligado');
+        c.hidden = (f === 'ligados' && !ligado) || (f === 'desligados' && ligado);
+      }
+    });
+  }
+
+  // a árvore de "onde vale", dentro da gaveta do critério
+  function desenharOndeVale(marcados = []) {
+    const lista = $('[data-arv-canais]');
+    lista.innerHTML = ARVORE.map((s, i) => {
+      const filhos = s.canais
+        .map((c, j) => {
+          const id = `onde-${i}-${j}`;
+          const marcado = marcados.includes(c.nome) ? 'checked' : '';
+          return (
+            `<li><div class="linha"><input class="caixa" type="checkbox" id="${id}" data-canal-caixa ${marcado}>` +
+            `<label for="${id}">${c.nome}${c.pausado ? ' <span class="suave">· pausado, não é verificado</span>' : ''}</label></div></li>`
+          );
+        })
+        .join('');
+      return (
+        `<li data-setor-no><div class="linha"><input class="caixa" type="checkbox" id="onde-${i}" data-setor-caixa>` +
+        `<label for="onde-${i}"><b>${s.setor}</b></label><span class="fim" data-setor-conta></span></div><ul>${filhos}</ul></li>`
+      );
+    }).join('');
+    atualizarOndeVale();
+  }
+
+  function atualizarOndeVale() {
+    let total = 0;
+    for (const no of $$('[data-setor-no]')) {
+      const caixas = $$('[data-canal-caixa]', no);
+      const n = caixas.filter((c) => c.checked).length;
+      total += n;
+      const pai = $('[data-setor-caixa]', no);
+      pai.checked = n === caixas.length;
+      pai.indeterminate = n > 0 && n < caixas.length;
+      $('[data-setor-conta]', no).textContent = `${n} de ${caixas.length}`;
+    }
+    $('[data-arv-conta]').textContent =
+      total === 0 ? 'Nenhum canal marcado.' : total === 1 ? 'Vale em 1 canal.' : `Vale em ${total} canais.`;
+  }
+
+  $('[data-arv-canais]').addEventListener('change', (ev) => {
+    if (ev.target.matches('[data-setor-caixa]')) {
+      const no = ev.target.closest('[data-setor-no]');
+      for (const c of $$('[data-canal-caixa]', no)) c.checked = ev.target.checked;
+    }
+    atualizarOndeVale();
+  });
+
+  function ajustarTipo() {
+    const tipo = $('input[name="fcr-tipo"]:checked').value;
+    const peloDetector = tipo === 'presenca' || tipo === 'contagem';
+    $('[data-detector]').hidden = !peloDetector;
+    for (const e of $$('[data-so-presenca]')) e.hidden = tipo !== 'presenca';
+    for (const e of $$('[data-so-contagem]')) e.hidden = tipo !== 'contagem';
+    $('[data-ajuda-texto]').textContent = peloDetector
+      ? 'Aqui o texto não é enviado a modelo nenhum: ele descreve a regra para quem ler o aviso. Quem decide são os campos acima.'
+      : 'Este texto vai direto ao modelo como pergunta. Descreva o que se vê, não o rótulo: “a superfície tem restos no canto” funciona melhor que “sujeira”.';
+  }
+  for (const r of $$('input[name="fcr-tipo"]')) r.addEventListener('change', ajustarTipo);
+
+  for (const r of $$('input[name="fca-origem"]')) {
+    r.addEventListener('change', () => {
+      for (const e of $$('[data-so-dvr]')) e.hidden = $('input[name="fca-origem"]:checked').value !== 'dvr';
+    });
+  }
+  for (const r of $$('input[name="fde-canal"]')) {
+    r.addEventListener('change', () => { $('#fde-end').placeholder = r.value; });
+  }
+  for (const r of $$('input[name="fre-acao"]')) {
+    r.addEventListener('change', () => {
+      $('[data-so-avisar]').hidden = $('input[name="fre-acao"]:checked').value !== 'sim';
+    });
+  }
+
+  // ═══════════════════════ interruptores e dobras ═══════════════════════
+  document.addEventListener('click', (ev) => {
+    const chave = ev.target.closest('.liga');
+    if (chave) {
+      if (app.dataset.perfil === 'supervisao' && app.contains(chave)) return;
+      const ligado = chave.getAttribute('aria-checked') !== 'true';
+      if (chave.dataset.ligaCriterio) {
+        const c = CRITERIOS[chave.dataset.ligaCriterio];
+        c.ligado = ligado;
+        for (const outro of $$(`[data-liga-criterio="${chave.dataset.ligaCriterio}"]`)) {
+          outro.setAttribute('aria-checked', String(ligado));
+          outro.lastElementChild.textContent = ligado ? 'Ligado' : 'Desligado';
+          outro.closest('.criterio').classList.toggle('desligado', !ligado);
+        }
+        avisar(
+          `“${c.nome}” ${ligado ? 'ligado' : 'desligado'}` +
+            (c.canais > 1 ? ` nos ${c.canais} canais em que vale.` : '.'),
+        );
+        return;
+      }
+      chave.setAttribute('aria-checked', String(ligado));
+      if (chave.dataset.ligaRotulo) {
+        const [sim, nao] = chave.dataset.ligaRotulo.split('|');
+        chave.lastElementChild.textContent = ligado ? sim : nao;
+      }
+      if (chave.dataset.liga) avisar(`“${chave.dataset.liga}” ${ligado ? 'volta a receber avisos' : 'deixa de receber avisos'}.`);
+      return;
+    }
+
+    const dobra = ev.target.closest('[data-dobra]');
+    if (dobra) {
+      const alvo = document.getElementById(dobra.dataset.dobra);
+      const abrir = alvo.classList.contains('fechada');
+      alvo.classList.toggle('fechada', !abrir);
+      dobra.setAttribute('aria-expanded', String(abrir));
+      return;
+    }
+
+    const recado = ev.target.closest('[data-toast]');
+    if (recado) avisar(recado.dataset.toast);
+  });
+
+  document.addEventListener('change', (ev) => {
+    const s = ev.target.closest('[data-toast-muda]');
+    if (s) avisar(`${s.dataset.toastMuda} ${s.value}.`);
+  });
+
+  // ═══════════════════════ abas ═══════════════════════
+  const abas = $$('[role="tab"]');
+  function escolherAba(aba, focar) {
+    for (const a of abas) {
+      const ativa = a === aba;
+      a.setAttribute('aria-selected', String(ativa));
+      a.tabIndex = ativa ? 0 : -1;
+      const p = document.getElementById(a.getAttribute('aria-controls'));
+      p.hidden = !ativa;
+      if (ativa) {
+        p.style.animation = 'none';
+        void p.offsetWidth;
+        p.style.animation = 'sobe var(--lento) var(--curva) both';
+      }
+    }
+    if (focar) aba.focus();
+  }
+  for (const a of abas) {
+    a.addEventListener('click', () => escolherAba(a, false));
+    a.addEventListener('keydown', (ev) => {
+      const i = abas.indexOf(a);
+      if (ev.key === 'ArrowRight') escolherAba(abas[(i + 1) % abas.length], true);
+      if (ev.key === 'ArrowLeft') escolherAba(abas[(i - 1 + abas.length) % abas.length], true);
+    });
+  }
+
+  // ═══════════════════════ menus ═══════════════════════
+  let menuAberto = null;
+  let ultimoGatilho = null;
+  let contexto = { nome: '', canal: '' };
+
+  function fecharMenu(devolverFoco) {
+    if (!menuAberto) return;
+    menuAberto.menu.hidden = true;
+    menuAberto.botao.setAttribute('aria-expanded', 'false');
+    ultimoGatilho = menuAberto.botao;
+    if (devolverFoco) menuAberto.botao.focus();
+    menuAberto = null;
+  }
+
+  function abrirMenu(botao) {
+    const menu = document.getElementById(botao.dataset.menu);
+    const mesmo = menuAberto && menuAberto.botao === botao;
+    fecharMenu(false);
+    if (mesmo) return;
+
+    const dono = botao.closest('.canal, .criterio');
+    if (dono) {
+      contexto = {
+        nome: dono.dataset.nome || $('h3', dono)?.textContent || '',
+        canal: dono.dataset.canal || '',
+        criterio: dono.dataset.criterio || '',
+      };
+    }
+
+    menu.hidden = false;
+    const b = botao.getBoundingClientRect();
+    const largura = menu.offsetWidth;
+    const altura = menu.offsetHeight;
+    let esquerda = b.left;
+    if (esquerda + largura > innerWidth - 8) esquerda = b.right - largura;
+    esquerda = Math.min(Math.max(8, esquerda), innerWidth - largura - 8);
+    let topo = b.bottom + 6;
+    if (topo + altura > innerHeight - 8) topo = Math.max(8, b.top - altura - 6);
+    menu.style.left = `${esquerda}px`;
+    menu.style.top = `${topo}px`;
+    menu.style.transformOrigin = `${b.left + b.width / 2 - esquerda}px ${topo < b.top ? '100%' : '0'}`;
+    botao.setAttribute('aria-expanded', 'true');
+    menuAberto = { menu, botao };
+    $('button, a', menu)?.focus({ preventScroll: true });
+  }
+
+  document.addEventListener('click', (ev) => {
+    const botao = ev.target.closest('[data-menu]');
+    if (botao) {
+      abrirMenu(botao);
+      return;
+    }
+    if (menuAberto && !ev.target.closest('.menu')) fecharMenu(false);
+    else if (menuAberto && ev.target.closest('.menu button, .menu a')) fecharMenu(false);
+  });
+  palco.addEventListener('scroll', () => fecharMenu(false), { passive: true });
+  addEventListener('resize', () => {
+    fecharMenu(false);
+    moverRealce();
+  });
+
+  // ═══════════════════════ gavetas e diálogo ═══════════════════════
+  const veu = $('[data-veu]');
+  let camada = null;
+  let focoAntes = null;
+
+  function abrirCamada(el, gatilho) {
+    fecharMenu(false);
+    if (camada) camada.hidden = true;
+    focoAntes = gatilho && document.contains(gatilho) && gatilho.offsetParent ? gatilho : focoAntes;
+    camada = el;
+    veu.hidden = false;
+    el.hidden = false;
+    const primeiro = $('input:not([type="radio"]):not([type="checkbox"]), textarea, select, [data-fecha]', el);
+    primeiro?.focus({ preventScroll: true });
+  }
+
+  function fecharTudo() {
+    fecharMenu(false);
+    if (!camada) return;
+    camada.hidden = true;
+    veu.hidden = true;
+    camada = null;
+    focoAntes?.focus?.({ preventScroll: true });
+    focoAntes = null;
+  }
+
+  function abrirFolha(id, modo, gatilho) {
+    const folha = document.getElementById(id);
+    const editando = modo === 'editar';
+    const titulo = $('[data-folha-titulo]', folha);
+    if (titulo) titulo.textContent = editando ? `${titulo.dataset.editar} “${contexto.nome}”` : titulo.dataset.novo;
+    for (const e of $$('[data-so-editar]', folha)) e.hidden = !editando;
+    for (const e of $$('[data-so-novo]', folha)) e.hidden = editando;
+    const botao = $('[data-rotulo-novo]', folha);
+    if (botao) botao.textContent = editando ? botao.dataset.rotuloEditar : botao.dataset.rotuloNovo;
+    const form = $('form', folha);
+    form.dataset.modo = editando ? 'editar' : 'novo';
+    const nome = $('[data-preenche="nome"]', folha);
+    if (nome) nome.value = editando ? contexto.nome : '';
+
+    if (id === 'folha-criterio') {
+      const c = CRITERIOS[contexto.criterio];
+      const marcados = editando && c
+        ? ARVORE.flatMap((s) => s.canais).filter((k) => k.criterios.includes(contexto.criterio)).map((k) => k.nome)
+        : !editando && contexto.canalNovo ? [contexto.canalNovo] : [];
+      desenharOndeVale(marcados);
+      const tipo = { estado: 'estado', 'presença': 'presenca', contagem: 'contagem' }[editando && c ? c.tipo : 'estado'] || 'estado';
+      $(`#fcr-t-${tipo}`).checked = true;
+      $('#fcr-texto').value = editando && c ? c.texto : '';
+      ajustarTipo();
+    }
+    abrirCamada(folha, gatilho);
+  }
+
+  const DIALOGOS = {
+    'excluir-canal': {
+      titulo: (n) => `Excluir o canal “${n}”?`,
+      corpo: () => [
+        'O canal some desta tela e <b>deixa de ser verificado</b>. O histórico do que já foi registrado nele continua.',
+        'Os critérios que só valem aqui são desligados e vão para “Sem canal”. Os que valem em outros canais continuam neles.',
+        'Se a ideia é só parar por um tempo, use <b>Editar</b> e mude a situação para “pausado”.',
+      ],
+      confirmar: 'Excluir canal',
+      depois: (n) => `Canal “${n}” excluído. O histórico dele continua guardado.`,
+    },
+    'excluir-criterio': {
+      titulo: (n) => `Excluir o critério “${n}”?`,
+      corpo: () => [
+        'Ele <b>deixa de ser verificado</b> em todos os canais em que vale e some desta tela.',
+        'O histórico do que ele já registrou continua guardado. Para tirar de um canal só, use <b>Tirar deste canal</b>.',
+      ],
+      confirmar: 'Excluir critério',
+      depois: (n) => `“${n}” excluído. O histórico do que ele já registrou continua.`,
+    },
+    'tirar-do-canal': {
+      titulo: (n) => `Tirar “${n}” deste canal?`,
+      corpo: (c) => [
+        `A análise deste critério <b>deixa de ser feita</b> em <b>${c.canal || 'este canal'}</b>.`,
+        'Nos outros canais em que ele vale, nada muda. Se este for o último, o critério é desligado e fica em “Sem canal”.',
+      ],
+      confirmar: 'Tirar do canal',
+      depois: (n, c) => `“${n}” saiu de ${c.canal || 'um canal'}.`,
+    },
+    'novo-setor': {
+      titulo: () => 'Novo setor',
+      corpo: () => [
+        '<span class="campo"><label for="dlg-setor">Nome do setor</label><input class="entrada" id="dlg-setor" placeholder="Cozinha, Salão, Estoque…"></span>',
+      ],
+      confirmar: 'Criar setor',
+      neutro: true,
+      depois: () => 'Setor criado. Agora cadastre os canais dele.',
+    },
+  };
+
+  function abrirDialogo(tipo, gatilho, nome) {
+    const d = DIALOGOS[tipo];
+    if (nome) contexto = { ...contexto, nome };
+    const el = $('#dialogo');
+    $('#dlg-titulo').textContent = d.titulo(contexto.nome);
+    $('#dlg-corpo').innerHTML = d.corpo(contexto).map((p) => `<p>${p}</p>`).join('');
+    const ok = $('[data-confirma]', el);
+    ok.textContent = d.confirmar;
+    ok.className = `btn ${d.neutro ? 'primario' : 'perigo'}`;
+    ok.onclick = () => {
+      const recado = d.depois(contexto.nome, contexto);
+      fecharTudo();
+      avisar(recado);
+    };
+    abrirCamada(el, gatilho);
+    if (!d.neutro) $('[data-fecha]', el).focus({ preventScroll: true });
+  }
+
+  document.addEventListener('click', (ev) => {
+    const folha = ev.target.closest('[data-folha]');
+    if (folha) {
+      const noCanal = folha.closest('.no-canal');
+      contexto.canalNovo = noCanal ? $('b', noCanal).textContent : '';
+      const dono = folha.closest('.criterio');
+      if (dono && folha.dataset.nome) contexto = { ...contexto, nome: folha.dataset.nome, criterio: '' };
+      abrirFolha(folha.dataset.folha, folha.dataset.modo || 'novo', folha.closest('.menu') ? ultimoGatilho : folha);
+      return;
+    }
+    const dlg = ev.target.closest('[data-dialogo]');
+    if (dlg) {
+      abrirDialogo(dlg.dataset.dialogo, dlg.closest('.menu') ? ultimoGatilho : dlg, dlg.dataset.nome);
+      return;
+    }
+    if (ev.target.closest('[data-fecha]') || ev.target === veu) fecharTudo();
+  });
+
+  for (const form of $$('.folha form')) {
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const recado = form.dataset.modo === 'editar' ? form.dataset.sucessoEditar : form.dataset.sucessoNovo;
+      fecharTudo();
+      avisar(recado || 'Salvo.');
+    });
+  }
+
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') {
+      if (menuAberto) fecharMenu(true);
+      else fecharTudo();
+      return;
+    }
+    if (ev.key !== 'Tab' || !camada) return;
+    const focaveis = $$('button, a[href], input, select, textarea', camada).filter(
+      (e) => !e.disabled && e.offsetParent !== null,
+    );
+    if (!focaveis.length) return;
+    const primeiro = focaveis[0];
+    const ultimo = focaveis[focaveis.length - 1];
+    if (ev.shiftKey && document.activeElement === primeiro) {
+      ev.preventDefault();
+      ultimo.focus();
+    } else if (!ev.shiftKey && document.activeElement === ultimo) {
+      ev.preventDefault();
+      primeiro.focus();
+    }
+  });
+
+  // ═══════════════════════ área do canal ═══════════════════════
+  const quadro = $('[data-quadro]');
+  const ret = $('[data-ret]');
+  const fora = $('[data-fora]');
+  const coord = Object.fromEntries($$('[data-coord]').map((e) => [e.dataset.coord, e]));
+  const prender = (v) => Math.min(1, Math.max(0, v));
+  let area = { x1: 0.1, y1: 0.26, x2: 0.9, y2: 0.84 };
+  let arraste = null;
+
+  function desenharArea(escreverCampos = true) {
+    const { x1, y1, x2, y2 } = area;
+    const pc = (v) => `${(v * 100).toFixed(2)}%`;
+    ret.style.left = pc(x1);
+    ret.style.top = pc(y1);
+    ret.style.width = pc(x2 - x1);
+    ret.style.height = pc(y2 - y1);
+    ret.dataset.rotulo = $('#area-nome').value || 'área';
+    fora.style.clipPath =
+      `polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${pc(x1)} ${pc(y1)}, ${pc(x1)} ${pc(y2)}, ` +
+      `${pc(x2)} ${pc(y2)}, ${pc(x2)} ${pc(y1)}, ${pc(x1)} ${pc(y1)})`;
+    if (escreverCampos) for (const k of Object.keys(coord)) coord[k].value = area[k].toFixed(2);
+
+    const largura = Number($('#area-largura').value);
+    const fracao = Math.round((x2 - x1) * (y2 - y1) * 100);
+    const linhas = [`<div><dt>do quadro</dt><dd><span class="mono">${fracao}%</span></dd></div>`, '<div><dt>imagem do canal</dt><dd><span class="mono">1920 px</span></dd></div>'];
+    if (largura > 0) {
+      for (const px of [384, 640, 1000, 1920]) {
+        const v = px / largura;
+        const [nome, cor] =
+          v >= 12.8 ? ['montagem', 'ok'] : v >= 3 ? ['estado', 'ok'] : v >= 1.5 ? ['presença', 'atencao'] : ['insuficiente', 'critico'];
+        linhas.push(
+          `<div><dt>envio de ${px} px</dt><dd><span class="mono">${v.toFixed(1).replace('.', ',')}</span> por cm <span class="chip ${cor}">${nome}</span></dd></div>`,
+        );
+      }
+    }
+    $('[data-sustenta]').innerHTML = linhas.join('');
+  }
+
+  function posicao(ev) {
+    const c = quadro.getBoundingClientRect();
+    return { x: prender((ev.clientX - c.left) / c.width), y: prender((ev.clientY - c.top) / c.height) };
+  }
+  quadro.addEventListener('pointerdown', (ev) => {
+    quadro.setPointerCapture?.(ev.pointerId);
+    arraste = posicao(ev);
+    area = { x1: arraste.x, y1: arraste.y, x2: arraste.x, y2: arraste.y };
+    desenharArea();
+  });
+  quadro.addEventListener('pointermove', (ev) => {
+    if (!arraste) return;
+    const p = posicao(ev);
+    area = {
+      x1: Math.min(arraste.x, p.x), y1: Math.min(arraste.y, p.y),
+      x2: Math.max(arraste.x, p.x), y2: Math.max(arraste.y, p.y),
+    };
+    desenharArea();
+  });
+  const soltar = () => {
+    if (!arraste) return;
+    arraste = null;
+    if (area.x2 - area.x1 < 0.02 || area.y2 - area.y1 < 0.02) area = { x1: 0, y1: 0, x2: 1, y2: 1 };
+    desenharArea();
+  };
+  quadro.addEventListener('pointerup', soltar);
+  quadro.addEventListener('pointercancel', soltar);
+  for (const k of Object.keys(coord)) {
+    coord[k].addEventListener('input', () => {
+      area[k] = prender(Number(coord[k].value));
+      desenharArea(false);
+    });
+  }
+  $('#area-largura').addEventListener('input', () => desenharArea(false));
+  $('#area-nome').addEventListener('input', () => desenharArea(false));
+  $('[data-quadro-inteiro]').addEventListener('click', () => {
+    area = { x1: 0, y1: 0, x2: 1, y2: 1 };
+    desenharArea();
+  });
+  for (const b of $$('[data-atualizar-quadro]')) {
+    b.addEventListener('click', () => {
+      const antes = b.innerHTML;
+      b.disabled = true;
+      b.innerHTML = `${icone('loader-circle', 'p gira')}Pedindo à loja…`;
+      setTimeout(() => {
+        b.disabled = false;
+        b.innerHTML = antes;
+        avisar('Quadro atualizado pelo agente da loja.');
+      }, calmo ? 0 : 1300);
+    });
+  }
+
+  // ═══════════════════════ loja, agente, perfil, tema ═══════════════════════
+  function agente(estado) {
+    const fora = estado === 'fora';
+    app.dataset.agente = estado;
+    for (const e of $$('[data-agente-titulo]')) e.textContent = fora ? 'Agente sem sinal' : 'Agente ativo';
+    for (const e of $$('[data-agente-titulo-curto]')) e.textContent = fora ? 'Sem sinal' : 'Ativo';
+    for (const e of $$('[data-agente-detalhe]')) e.textContent = fora ? 'última batida há 2 h' : 'bateu há 12 s · versão 0.9.4';
+    for (const e of $$('[data-agente-ponto]')) {
+      e.className = fora ? 'ponto critico' : 'ponto ok pulsa';
+      if (e.hasAttribute('aria-label')) e.setAttribute('aria-label', fora ? 'Agente sem sinal' : 'Agente ativo');
+    }
+    for (const e of $$('[data-marca]')) {
+      e.classList.toggle('vivo', !fora);
+      e.classList.toggle('fora', fora);
+    }
+    $('[data-faixa-agente]').hidden = !fora;
+    $('[data-saude-agente]').classList.toggle('ruim', fora);
+    $('[data-agente-fora]').setAttribute('aria-current', String(fora));
+  }
+
+  document.addEventListener('click', (ev) => {
+    const loja = ev.target.closest('[data-entrar-loja]');
+    if (loja) {
+      ev.preventDefault();
+      for (const e of $$('[data-loja-nome]')) e.textContent = loja.dataset.entrarLoja;
+      for (const e of $$('#menu-loja [data-entrar-loja]')) {
+        e.setAttribute('aria-current', String(e.dataset.entrarLoja === loja.dataset.entrarLoja));
+      }
+      agente(loja.dataset.agenteLoja);
+      ir('painel');
+      avisar(`Você está em ${loja.dataset.entrarLoja}.`);
+      return;
+    }
+
+    const sit = ev.target.closest('#menu-proto [data-situacao]');
+    if (sit) {
+      palco.dataset.situacao = sit.dataset.situacao;
+      for (const e of $$('#menu-proto [data-situacao]')) e.setAttribute('aria-current', String(e === sit));
+      return;
+    }
+    if (ev.target.closest('[data-agente-fora]')) {
+      agente(app.dataset.agente === 'fora' ? 'ativo' : 'fora');
+      return;
+    }
+    const perfil = ev.target.closest('#menu-proto [data-perfil]');
+    if (perfil) {
+      app.dataset.perfil = perfil.dataset.perfil;
+      for (const e of $$('#menu-proto [data-perfil]')) e.setAttribute('aria-current', String(e === perfil));
+      for (const e of $$('[data-perfil-nome]')) e.textContent = perfil.dataset.perfil === 'gerente' ? 'gerente' : 'supervisão';
+      if (perfil.dataset.perfil !== 'gerente' && !$('[data-tela="orcamento"]').hidden) ir('painel');
+      moverRealce();
+      return;
+    }
+    if (ev.target.closest('[data-tema]')) {
+      trocarTema();
+      return;
+    }
+    if (ev.target.closest('[data-sair]')) {
+      fecharTudo();
+      app.hidden = true;
+      entrar.hidden = false;
+      $('#entrar-email').focus();
+    }
+  });
+
+  const temaEscuro = () => {
+    const t = document.documentElement.dataset.theme;
+    return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  };
+  function pintarTema() {
+    const escuro = temaEscuro();
+    for (const u of $$('[data-tema-icone]')) u.setAttribute('href', escuro ? '#i-sun' : '#i-moon');
+    for (const r of $$('[data-tema-rotulo]')) r.textContent = escuro ? 'Usar o tema claro' : 'Usar o tema escuro';
+  }
+  function trocarTema() {
+    document.documentElement.dataset.theme = temaEscuro() ? 'light' : 'dark';
+    pintarTema();
+  }
+  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', pintarTema);
+
+  // ═══════════════════════ entrar ═══════════════════════
+  $('#ver-senha').addEventListener('click', (ev) => {
+    const campo = $('#entrar-senha');
+    const mostrar = campo.type === 'password';
+    campo.type = mostrar ? 'text' : 'password';
+    ev.currentTarget.setAttribute('aria-pressed', String(mostrar));
+    ev.currentTarget.setAttribute('aria-label', mostrar ? 'Esconder a senha' : 'Mostrar a senha');
+    $('use', ev.currentTarget).setAttribute('href', mostrar ? '#i-eye-off' : '#i-eye');
+  });
+  $('#f-entrar').addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const erro = $('#entrar-erro');
+    const botao = $('#entrar-botao');
+    if (!$('#entrar-email').value.includes('@') || !$('#entrar-senha').value) {
+      erro.hidden = false;
+      return;
+    }
+    erro.hidden = true;
+    botao.disabled = true;
+    botao.innerHTML = `${icone('loader-circle', 'gira')}Entrando…`;
+    setTimeout(() => {
+      botao.disabled = false;
+      botao.textContent = 'Entrar';
+      entrar.hidden = true;
+      app.hidden = false;
+      ir('painel');
+    }, calmo ? 0 : 700);
+  });
+
+  // ═══════════════════════ partida ═══════════════════════
+  desenharCriterios();
+  desenharOndeVale();
+  ajustarTipo();
+  desenharArea();
+  pintarTema();
+
+  // O endereço manda: #canais abre Canais, #entrar abre a entrada.
+  function seguirEndereco() {
+    const pedido = location.hash.replace('#', '');
+    const naEntrada = pedido === 'entrar';
+    app.hidden = naEntrada;
+    entrar.hidden = !naEntrada;
+    if (!naEntrada) ir(TELAS.includes(pedido) ? pedido : 'painel');
+  }
+  addEventListener('hashchange', seguirEndereco);
+  seguirEndereco();
+  // As fontes chegam depois do primeiro desenho e mudam a altura dos itens.
+  document.fonts?.ready.then(moverRealce);
+  if ('ResizeObserver' in window) new ResizeObserver(moverRealce).observe($('.lado'));
+})();
+
+</script>
+</body>
+</html>

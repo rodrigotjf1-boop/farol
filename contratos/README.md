@@ -9,6 +9,7 @@ Os dois lados têm um teste que lê o **mesmo** arquivo:
 | arquivo | quem produz | quem consome |
 |---|---|---|
 | `evento-do-agente.json` | `agent/testes/test_contrato.py` exige que `evento_para_nuvem` gere exatamente este corpo | `api/testes/contrato-evento.test.ts` manda este corpo para `POST /v1/eventos` e confere coluna por coluna o que foi gravado |
+| `resumo-do-agente.json` | `agent/testes/test_resumo.py` exige que `resumo_para_nuvem` gere exatamente este corpo | `api/testes/resumos.test.ts` manda este corpo para `POST /v1/resumos` e confere coluna por coluna o que foi gravado |
 
 ## Por que isto existe
 

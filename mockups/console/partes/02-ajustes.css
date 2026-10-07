@@ -1,0 +1,67 @@
+/* ──────────────── situações de cada tela ──────────────── */
+.corpo { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+[data-quando="vazio"], [data-quando="carregando"] { display: none; }
+.palco[data-situacao="vazio"] [data-quando="normal"],
+.palco[data-situacao="carregando"] [data-quando="normal"] { display: none; }
+.palco[data-situacao="vazio"] [data-quando="vazio"],
+.palco[data-situacao="carregando"] [data-quando="carregando"] { display: flex; }
+
+/* Quem só vê não recebe botão que a API recusaria. */
+.app[data-perfil="supervisao"] [data-so-config] { display: none !important; }
+.app[data-perfil="supervisao"] .liga { cursor: default; }
+.app[data-perfil="supervisao"] .liga i { display: none; }
+
+/* a entrada de cada tela: cabeçalho e blocos sobem em sequência */
+.tela.entra > * { animation: none; }
+.tela.entra > .cab, .tela.entra > .vazio, .tela.entra > .corpo > * { animation: sobe var(--lento) var(--curva) both; }
+.tela.entra > .corpo > *:nth-child(1) { animation-delay: 50ms; }
+.tela.entra > .corpo > *:nth-child(2) { animation-delay: 100ms; }
+.tela.entra > .corpo > *:nth-child(3) { animation-delay: 150ms; }
+.tela.entra > .corpo > *:nth-child(n+4) { animation-delay: 200ms; }
+
+.menu { position: fixed; left: 0; top: 0; right: auto; z-index: 75; }
+.farol-cena { position: relative; display: grid; place-items: center; align-self: center; }
+.loja { text-decoration: none; }
+.linha-caixa { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.saude .rot { display: block; }
+.sobre a { display: inline-flex; align-items: center; gap: 4px; }
+.no-canal-cab .canal-num { width: 28px; height: 28px; border-radius: 8px; font-size: 11.5px; }
+.orc-cab .canal-num { width: 32px; height: 32px; border-radius: 9px; }
+.ramo-cab .ic:not(.seta) { color: var(--facho-icone); }
+th.num-col { font-family: var(--texto); font-size: 12px; }
+td:first-child .crit { min-width: 200px; }
+
+@media (max-width: 1023px) {
+  .ossos .linha { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767px) {
+  .proto > .btn { width: 44px; padding: 0; }
+  .proto > .btn .txt { display: none; }
+  td:first-child .crit { min-width: 0; }
+}
+
+/* ──────────────── acabamento depois de ver no navegador ──────────────── */
+.canal-chips { flex: 1; align-content: flex-start; }
+.canal-pe > span:first-child { min-width: 0; }
+.canal-pe .elo { white-space: nowrap; flex: none; }
+.lista-dl dd { font-family: var(--texto); font-size: 13px; }
+.opcao .preco { font: 600 14.5px var(--texto); font-variant-numeric: tabular-nums; }
+.entrar-palco svg.palavra { align-self: flex-start; }
+.barras, .eixo-x { gap: var(--vao, 3px); }
+.fora .lg-ponto, .fora .lg-facho { fill: var(--facho); }
+.fora .lg-ponto { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-delay: 0s !important; }
+}
+
+@media (max-width: 767px) {
+  .saude { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .saude li { flex-direction: column; gap: 8px; padding: 12px; }
+  .saude li + li { border-top: 0; border-left: 1px solid var(--borda); }
+  .saude small { display: none; }
+  .saude .selo-ic { width: 30px; height: 30px; border-radius: 9px; }
+  .saude .rot { font-size: 11.5px; line-height: 1.3; }
+  .saude .val { font-size: 14px; }
+}

@@ -31,6 +31,7 @@ mesmo alerta de minuto em minuto, ou nunca mais recebê-lo.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import threading
 from dataclasses import dataclass
@@ -146,7 +147,121 @@ create table if not exists alerta (
 
 create index if not exists idx_alerta_regra on alerta (regra_id, ts desc);
 create index if not exists idx_alerta_envio on alerta (enviado, ts);
+
+-- O que o agente OLHOU, e no que deu, por hora, critério e canal.
+--
+-- Até aqui a nuvem só recebia o "não conforme" que virou alerta. Tudo o
+-- mais — o conforme, o "não deu para avaliar", a câmera sem cena, o
+-- critério sem juiz — ficava nesta máquina e sumia na limpeza. Quem
+-- olhava o console via uma loja calada e não tinha como saber se era
+-- cozinha em ordem ou sistema parado. São coisas opostas e tinham a mesma
+-- cara.
+--
+-- Cada olhada termina em UMA destas: sem_juiz, sem_quadro, sem_cena,
+-- em_silencio, repetidas, ja_julgadas ou enfileiradas. O que foi
+-- enfileirado vira depois conforme, não conforme, não avaliável ou falha.
+--
+-- Os contadores são somados na hora em que a coisa acontece, e não
+-- recontados da tabela `analise`: ela é limpa, e um resumo que dependesse
+-- dela encolheria sozinho.
+--
+-- `versao` sobe a cada soma. A subida só marca "a nuvem tem" se a versão
+-- ainda for a que foi lida — uma soma que chegou no meio não se perde.
+-- `estado`: 0 = a nuvem tem esta versão · 1 = falta subir · 2 = recusada.
+create table if not exists resumo_hora (
+  hora               text    not null,
+  regra_id           text    not null,
+  zona_id            text    not null,
+  capturas           integer not null default 0,
+  sem_juiz           integer not null default 0,
+  sem_quadro         integer not null default 0,
+  sem_cena           integer not null default 0,
+  em_silencio        integer not null default 0,
+  repetidas          integer not null default 0,
+  ja_julgadas        integer not null default 0,
+  enfileiradas       integer not null default 0,
+  conformes          integer not null default 0,
+  nao_conformes      integer not null default 0,
+  nao_avaliaveis     integer not null default 0,
+  falhas             integer not null default 0,
+  alertas            integer not null default 0,
+  soma_confianca     real    not null default 0,
+  com_confianca      integer not null default 0,
+  soma_latencia_ms   integer not null default 0,
+  com_latencia       integer not null default 0,
+  custo_centavos     real    not null default 0,
+  ultimo_resultado   text,
+  ultimo_motivo      text,
+  ultimo_impedimento text,
+  ultima_em          text,
+  versao             integer not null default 0,
+  estado             integer not null default 1,
+  primary key (hora, regra_id, zona_id)
+);
+
+create index if not exists idx_resumo_estado on resumo_hora (estado, hora);
 """
+
+# O que se soma no resumo. Lista fechada: os nomes viram texto de SQL, e
+# nome de coluna que vem de fora não entra em consulta.
+CONTADORES_DO_RESUMO = (
+    "capturas",
+    "sem_juiz",
+    "sem_quadro",
+    "sem_cena",
+    "em_silencio",
+    "repetidas",
+    "ja_julgadas",
+    "enfileiradas",
+    "conformes",
+    "nao_conformes",
+    "nao_avaliaveis",
+    "falhas",
+    "alertas",
+)
+
+_SOMAS_DO_VEREDITO = (
+    "soma_confianca",
+    "com_confianca",
+    "soma_latencia_ms",
+    "com_latencia",
+    "custo_centavos",
+)
+
+_TEXTOS_DO_RESUMO = ("ultimo_resultado", "ultimo_motivo", "ultimo_impedimento", "ultima_em")
+
+_CONTADOR_DO_RESULTADO = {
+    "conforme": "conformes",
+    "nao_conforme": "nao_conformes",
+    "nao_avaliavel": "nao_avaliaveis",
+}
+
+# Texto de erro vem de biblioteca, de modelo e de câmera, e sobe para a
+# nuvem. Endereço com senha embutida e chave de API não podem ir junto.
+_SEGREDOS = (
+    # usuário e senha embutidos no endereço: rtsp://admin:senha@host
+    (re.compile(r"://[^/\s:@]+:[^@\s]+@"), "://…@"),
+    # o cabeçalho de autorização, com o esquema na frente do valor
+    (re.compile(r"(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=\-]{6,}"), r"\1 …"),
+    # chave com cara de chave
+    (re.compile(r"\b(?:sk|key|tok)[-_][A-Za-z0-9_\-]{8,}"), "…"),
+    # nome=valor, inclusive dentro de endereço (…&password=…&channel=1)
+    (
+        re.compile(
+            r"(?i)\b(senha|password|passwd|pwd|token|secret|segredo|api[-_]?key)(\s*[=:]\s*)[^\s&]+"
+        ),
+        r"\1\2…",
+    ),
+)
+
+
+def sem_segredo(texto: str | None, limite: int = 300) -> str | None:
+    """O texto sem o que parece segredo, e curto o bastante para viajar."""
+    if not texto:
+        return None
+    for padrao, troca in _SEGREDOS:
+        texto = padrao.sub(troca, texto)
+    return texto.strip()[:limite] or None
 
 
 # Colunas que entraram depois da primeira instalação. `create table if not
@@ -447,6 +562,172 @@ class Fila:
                 "update alerta set enviado=? where id=?", [(estado, i) for i in ids]
             )
             self._con.commit()
+
+    # ─────────────────────── resumo por hora ────────────────────────
+
+    @staticmethod
+    def hora_de(ts: datetime) -> str:
+        """A hora cheia em que `ts` cai, do jeito que fica gravada."""
+        return _agora_iso(ts.replace(minute=0, second=0, microsecond=0))
+
+    def _somar_no_resumo(
+        self,
+        ts: datetime,
+        regra_id: str,
+        zona_id: str | None,
+        somas: dict[str, float],
+        textos: dict[str, str | None],
+    ) -> None:
+        """Soma numa linha do resumo. Quem chama segura a trava e confirma."""
+        for nome in somas:
+            if nome not in CONTADORES_DO_RESUMO and nome not in _SOMAS_DO_VEREDITO:
+                raise ValueError(f"contador desconhecido no resumo: {nome}")
+        for nome in textos:
+            if nome not in _TEXTOS_DO_RESUMO:
+                raise ValueError(f"campo desconhecido no resumo: {nome}")
+
+        chave = (self.hora_de(ts), regra_id, zona_id or "")
+        self._con.execute(
+            "insert or ignore into resumo_hora (hora, regra_id, zona_id) values (?,?,?)",
+            chave,
+        )
+        partes = [f"{n} = {n} + ?" for n in somas] + [f"{n} = ?" for n in textos]
+        # Linha recusada continua recusada: a nuvem já disse que aquele
+        # critério não é mais desta loja, e somar de novo não muda isso.
+        partes += ["versao = versao + 1", "estado = case when estado = 2 then 2 else 1 end"]
+        self._con.execute(
+            f"update resumo_hora set {', '.join(partes)} "
+            "where hora = ? and regra_id = ? and zona_id = ?",
+            (*somas.values(), *textos.values(), *chave),
+        )
+
+    def contar(
+        self,
+        ts: datetime,
+        regra_id: str,
+        zona_id: str | None,
+        *,
+        impedimento: str | None = None,
+        **somas: int,
+    ) -> None:
+        """Soma contadores numa hora, num critério, num canal."""
+        self.contar_lote([(ts, regra_id, zona_id, somas, impedimento)])
+
+    def contar_lote(
+        self,
+        itens: list[tuple[datetime, str, str | None, dict[str, int], str | None]],
+    ) -> None:
+        """Várias somas de uma vez, gravadas juntas.
+
+        Uma rodada de captura olha todos os critérios de um canal; gravar
+        um por um seria uma ida ao disco por critério, a cada trinta
+        segundos, o dia inteiro.
+        """
+        if not itens:
+            return
+        with self._lock:
+            for ts, regra_id, zona_id, somas, impedimento in itens:
+                texto = sem_segredo(impedimento)
+                self._somar_no_resumo(
+                    ts, regra_id, zona_id, dict(somas),
+                    {"ultimo_impedimento": texto} if texto else {},
+                )
+            self._con.commit()
+
+    def contar_veredito(
+        self,
+        ts: datetime,
+        regra_id: str,
+        zona_id: str | None,
+        veredito: Veredito,
+        julgado_em: datetime,
+        *,
+        alerta: bool = False,
+    ) -> None:
+        """Um julgamento concluído, na hora em que a cena foi CAPTURADA.
+
+        A hora é a da cena, não a do julgamento: um item que esperou a
+        internet voltar pertence ao momento em que aconteceu.
+        """
+        somas: dict[str, float] = {
+            _CONTADOR_DO_RESULTADO[veredito.resultado.value]: 1,
+        }
+        if alerta:
+            somas["alertas"] = 1
+        if veredito.confianca is not None:
+            somas["soma_confianca"] = float(veredito.confianca)
+            somas["com_confianca"] = 1
+        if veredito.latencia_ms is not None:
+            somas["soma_latencia_ms"] = int(veredito.latencia_ms)
+            somas["com_latencia"] = 1
+        if veredito.custo_centavos:
+            somas["custo_centavos"] = float(veredito.custo_centavos)
+        with self._lock:
+            self._somar_no_resumo(
+                ts, regra_id, zona_id, somas,
+                {
+                    "ultimo_resultado": veredito.resultado.value,
+                    "ultimo_motivo": sem_segredo(veredito.motivo),
+                    "ultima_em": _agora_iso(julgado_em),
+                },
+            )
+            self._con.commit()
+
+    def resumos_a_subir(self, limite: int = 200) -> list[dict[str, Any]]:
+        """As linhas que a nuvem ainda não tem, da hora mais antiga à mais nova."""
+        with self._lock:
+            linhas = self._con.execute(
+                "select * from resumo_hora where estado = 1 "
+                "order by hora, regra_id, zona_id limit ?",
+                (limite,),
+            ).fetchall()
+        return [dict(l) for l in linhas]
+
+    def resumos_pendentes(self) -> int:
+        with self._lock:
+            l = self._con.execute(
+                "select count(*) n from resumo_hora where estado = 1"
+            ).fetchone()
+        return int(l["n"])
+
+    def marcar_resumos(self, linhas: list[dict[str, Any]], estado: int = 0) -> None:
+        """`estado=0`: a nuvem tem. `estado=2`: recusou, e não muda repetindo.
+
+        "A nuvem tem" só vale para a VERSÃO que subiu. Se a linha somou
+        mais enquanto o pedido viajava, ela continua esperando a próxima
+        subida — é o que impede uma soma de se perder no caminho.
+        """
+        if not linhas:
+            return
+        with self._lock:
+            if estado == 0:
+                self._con.executemany(
+                    "update resumo_hora set estado = 0 "
+                    "where hora = ? and regra_id = ? and zona_id = ? "
+                    "and versao = ? and estado = 1",
+                    [(l["hora"], l["regra_id"], l["zona_id"], l["versao"]) for l in linhas],
+                )
+            else:
+                self._con.executemany(
+                    "update resumo_hora set estado = ? "
+                    "where hora = ? and regra_id = ? and zona_id = ?",
+                    [(estado, l["hora"], l["regra_id"], l["zona_id"]) for l in linhas],
+                )
+            self._con.commit()
+
+    def limpar_resumos(self, antes_de: datetime) -> int:
+        """Apaga o resumo antigo que a nuvem já tem (ou recusou).
+
+        O que ainda falta subir fica, por mais velho que seja: é o único
+        registro de que aquelas horas foram olhadas.
+        """
+        with self._lock:
+            cur = self._con.execute(
+                "delete from resumo_hora where hora < ? and estado <> 1",
+                (self.hora_de(antes_de),),
+            )
+            self._con.commit()
+            return cur.rowcount
 
     # ──────────────────────────── leitura ─────────────────────────────
 

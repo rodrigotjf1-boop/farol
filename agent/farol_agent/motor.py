@@ -163,14 +163,25 @@ class MotorDeRegras:
         if not regras:
             return preparo
 
-        quadros = fonte.rajada(evento.ts, quantidade=self.rajada)
+        try:
+            quadros = fonte.rajada(evento.ts, quantidade=self.rajada)
+        except Exception as e:  # noqa: BLE001
+            # Câmera que não responde é o caso mais importante de contar:
+            # sem isto o canal morto aparece no console com zero olhadas,
+            # igual a um canal que ninguém mandou verificar.
+            self._contar(evento.ts, [(r, "sem_quadro", str(e)) for r in regras])
+            raise
         if not quadros:
             preparo.sem_quadro = [r.id for r in regras]
+            self._contar(evento.ts, [(r, "sem_quadro", None) for r in regras])
             return preparo
 
+        # No que deu cada olhada, para o resumo por hora. Uma por regra.
+        olhadas: list[tuple[Regra, str, str | None]] = []
         for regra in regras:
             if self._em_silencio(regra, evento.ts):
                 preparo.em_silencio.append(regra.id)
+                olhadas.append((regra, "em_silencio", None))
                 continue
 
             chave, motivo = self._processar_e_enfileirar(
@@ -178,14 +189,43 @@ class MotorDeRegras:
             )
             if chave is not None:
                 preparo.enfileirados.append(regra.id)
+                olhadas.append((regra, "enfileiradas", None))
             elif motivo == "sem_cena":
                 preparo.sem_cena.append(regra.id)
+                olhadas.append(
+                    (regra, "sem_cena", self.sem_cena.get(self._lugar(regra)))
+                )
             elif motivo == "sem_quadro":
                 preparo.sem_quadro.append(regra.id)
+                olhadas.append((regra, "sem_quadro", None))
+            elif motivo == "ja_julgado":
+                preparo.repetidos.append(regra.id)
+                olhadas.append((regra, "ja_julgadas", None))
             else:
                 preparo.repetidos.append(regra.id)
+                olhadas.append((regra, "repetidas", None))
 
+        self._contar(evento.ts, olhadas)
         return preparo
+
+    def _contar(
+        self, ts: datetime, olhadas: Sequence[tuple[Regra, str, str | None]]
+    ) -> None:
+        """Soma as olhadas no resumo da hora. Nunca derruba a auditoria.
+
+        O resumo é o que conta a história; a auditoria é o que a história
+        conta. Disco cheio ou banco travado não podem fazer o agente parar
+        de olhar a cozinha por causa de uma estatística.
+        """
+        try:
+            self.fila.contar_lote(
+                [
+                    (ts, regra.id, regra.zona.id, {"capturas": 1, desfecho: 1}, porque)
+                    for regra, desfecho, porque in olhadas
+                ]
+            )
+        except Exception:  # noqa: BLE001
+            _log.exception("não consegui somar no resumo da hora; a auditoria segue")
 
     def _processar_e_enfileirar(
         self,
@@ -313,15 +353,24 @@ class MotorDeRegras:
                     self.fila.adiar(item, str(e), agora)
                 else:
                     self.fila.adiar(item, str(e), agora + timedelta(days=365))
+                self._contar_falha(item, str(e))
                 continue
             except Exception as e:  # noqa: BLE001
                 _log.exception("erro inesperado ao julgar regra=%s", item.regra_id)
                 self.fila.adiar(item, f"inesperado: {e}", agora)
+                self._contar_falha(item, f"inesperado: {e}")
                 continue
 
             self.fila.concluir(item.id, veredito, agora)
 
             alerta = self._avaliar(regra, item, veredito)
+            try:
+                self.fila.contar_veredito(
+                    item.capturado_em, item.regra_id, item.zona_id, veredito, agora,
+                    alerta=alerta is not None,
+                )
+            except Exception:  # noqa: BLE001
+                _log.exception("não consegui somar o veredito no resumo da hora")
             if alerta is not None:
                 self.fila.registrar_alerta(
                     regra_id=regra.id,
@@ -370,6 +419,16 @@ class MotorDeRegras:
         )
 
     # ──────────────────────────── interno ──────────────────────────────
+
+    def _contar_falha(self, item: ItemFila, porque: str) -> None:
+        """Uma tentativa de julgar que não deu em veredito."""
+        try:
+            self.fila.contar(
+                item.capturado_em, item.regra_id, item.zona_id,
+                falhas=1, impedimento=porque,
+            )
+        except Exception:  # noqa: BLE001
+            _log.exception("não consegui somar a falha no resumo da hora")
 
     def _regra(self, regra_id: str) -> Regra | None:
         for r in self.regras:

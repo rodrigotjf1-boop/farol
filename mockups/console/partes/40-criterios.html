@@ -1,0 +1,49 @@
+    <!-- ═════════════════════════ CRITÉRIOS ═════════════════════════ -->
+    <section class="tela" data-tela="criterios" aria-labelledby="t-criterios" hidden>
+      <header class="cab">
+        <div>
+          <p class="sobre"><svg class="ic p" aria-hidden="true"><use href="#i-store"/></svg><span data-loja-nome>Loja Centro</span></p>
+          <h1 id="t-criterios">Critérios</h1>
+          <p class="sub">Um critério é cadastrado uma vez e vale nos canais que você marcar. Editar muda em todos; tirar de um canal não mexe nos outros.</p>
+        </div>
+        <div class="cab-acoes">
+          <div class="seg" role="group" aria-label="Mostrar">
+            <button type="button" data-filtro="todos" aria-pressed="true">Todos</button>
+            <button type="button" data-filtro="ligados" aria-pressed="false">Ligados</button>
+            <button type="button" data-filtro="desligados" aria-pressed="false">Desligados</button>
+          </div>
+          <button class="btn primario" type="button" data-folha="folha-criterio" data-modo="novo" data-so-config><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Novo critério</button>
+        </div>
+      </header>
+
+      <div class="corpo" data-quando="normal">
+        <div class="arvore" data-arvore></div>
+
+        <section class="secao" aria-labelledby="t-semcanal">
+          <h2 id="t-semcanal">Sem canal <span class="conta">1</span></h2>
+          <p class="nota">Critérios que não valem em canal nenhum e, por isso, não são verificados. Ficam guardados com o histórico: marque canais de novo ou exclua.</p>
+          <article class="criterio desligado">
+            <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-scan-search"/></svg></span>
+            <div class="c-titulo"><b>Porta do estoque fechada</b><span class="chip">estado</span><span class="chip">informativo</span></div>
+            <div class="c-acoes" data-so-config>
+              <button class="btn secundario mini" type="button" data-folha="folha-criterio" data-modo="editar" data-nome="Porta do estoque fechada">Marcar canais</button>
+              <button class="btn perigo-leve mini" type="button" data-dialogo="excluir-criterio" data-nome="Porta do estoque fechada">Excluir</button>
+            </div>
+            <p class="c-texto">A porta do estoque seco está fechada quando não há ninguém dentro.</p>
+          </article>
+        </section>
+      </div>
+
+      <div class="vazio" data-quando="vazio">
+        <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-list-checks"/></svg></span>
+        <h2>Nenhum critério ainda</h2>
+        <p>Um critério descreve, em português, o que é “conforme” naquela câmera. Escreva como você explicaria a alguém que acabou de chegar.</p>
+        <button class="btn primario" type="button" data-folha="folha-criterio" data-modo="novo" data-so-config><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Criar o primeiro critério</button>
+      </div>
+      <div class="ossos" data-quando="carregando" aria-hidden="true">
+        <div class="osso" style="height:52px"></div>
+        <div class="osso" style="height:96px"></div>
+        <div class="osso" style="height:96px"></div>
+        <div class="osso" style="height:52px"></div>
+      </div>
+    </section>
