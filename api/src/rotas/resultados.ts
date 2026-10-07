@@ -113,13 +113,22 @@ export function rotasDeResultados(app: FastifyInstance, pool: pg.Pool): void {
         pool.query(
           `select r.id, r.nome, r.tipo, r.ativa,
                   coalesce(nullif(r.parametros->>'objeto', ''), '') <> '' as tem_objeto,
-                  jsonb_array_length(coalesce(r.janelas, '[]'::jsonb)) = 0 as vale_sempre,
+                  -- "Vale sempre" é o critério que deveria estar sendo olhado a
+                  -- qualquer hora: sem horário próprio, e sem depender do
+                  -- horário da loja. Só desses dá para dizer "nunca foi
+                  -- olhado" sem saber que horas são — critério "no horário"
+                  -- com a loja fechada está certo em não ter sido.
+                  (jsonb_array_length(coalesce(r.janelas, '[]'::jsonb)) = 0
+                   and (r.quando = 'sempre'
+                        or (r.quando = 'no_horario'
+                            and jsonb_array_length(lj.horario_funcionamento) = 0))) as vale_sempre,
                   (select count(distinct z.ponto_id)::integer
                      from regra_alvo ra
                      join zona  z on z.id = ra.zona_id
                      join ponto pt on pt.id = z.ponto_id
                     where ra.regra_id = r.id and pt.excluido_em is null and pt.ativo) as canais
              from regra r
+             join loja lj on lj.id = r.loja_id
             where r.loja_id = $1 and r.excluida_em is null`,
           [id],
         ),

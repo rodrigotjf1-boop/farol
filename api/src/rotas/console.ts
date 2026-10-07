@@ -18,6 +18,7 @@
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
+import { abertaEm, lerHorario } from '../horario.js';
 import { exigirConfigurar, peloMenos } from '../rbac.js';
 import { acharCampoProibido } from './lojas.js';
 import { sessaoDe, type Sessao } from './sessao.js';
@@ -55,6 +56,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
     // entra na conta: loja só com agente por instalar fica com nulo.
     const { rows } = await pool.query(
       `select l.id, l.nome, l.timezone, l.modo_julgamento, l.resolucao_padrao, l.ativa,
+              l.horario_funcionamento,
               (select count(*)::int from setor st where st.loja_id = l.id) as setores,
               (select count(*)::int
                  from ponto p
@@ -101,8 +103,15 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
       }
     }
 
+    // `aberta_agora` sai do relógio do SERVIDOR, no fuso da loja — o do
+    // navegador erra. `null` é "a loja não informou horário".
+    const agora = new Date();
     return {
-      lojas: rows.map((l) => ({ ...l, resultado_24h: porLoja.get(l.id) ?? null })),
+      lojas: rows.map((l) => ({
+        ...l,
+        aberta_agora: abertaEm(l.horario_funcionamento, agora, l.timezone),
+        resultado_24h: porLoja.get(l.id) ?? null,
+      })),
     };
   });
 
@@ -118,7 +127,8 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
     // O filtro por tenant vai na MESMA consulta. Buscar primeiro e
     // conferir depois é como nasce vazamento entre clientes.
     const l = await pool.query(
-      `select id, nome, timezone, modo_julgamento, resolucao_padrao, ativa
+      `select id, nome, timezone, modo_julgamento, resolucao_padrao, ativa,
+              horario_funcionamento
          from loja where id = $1 and tenant_id = $2`,
       [id, s.tenantId],
     );
@@ -191,9 +201,55 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
     );
 
     return {
-      loja: l.rows[0],
+      loja: {
+        ...l.rows[0],
+        aberta_agora: abertaEm(l.rows[0].horario_funcionamento, new Date(), l.rows[0].timezone),
+      },
       setores: [...setores.values()],
       agentes: ag.rows,
+    };
+  });
+
+  // ─────────────────────── horário de funcionamento ───────────────────────
+  //
+  // O horário é da LOJA. Cada critério só diz se é conferido com ela
+  // aberta, fechada ou sempre (`regra.quando`). PUT e não PATCH: o corpo é
+  // o horário inteiro, e mandar de novo dá no mesmo.
+
+  app.put('/v1/lojas/:id/horario', async (req, resposta) => {
+    const s = await quem(req, resposta);
+    if (!s) return;
+    if (!exigirConfigurar(s, resposta)) return;
+
+    const { id } = req.params as { id: string };
+    if (!UUID.test(id)) {
+      return resposta.status(422).send({ erro: 'validacao', mensagem: 'id inválido' });
+    }
+    const corpo = (req.body ?? {}) as Record<string, unknown>;
+    const lido = lerHorario(corpo.horario);
+    if (lido.problema || !lido.faixas) {
+      return resposta.status(422).send({ erro: 'validacao', mensagem: lido.problema });
+    }
+
+    // A versão da configuração sobe NA MESMA linha: é por ela que o agente
+    // sabe que precisa puxar de novo. Em dois comandos, uma queda no meio
+    // deixaria o horário novo no banco e o agente no antigo, sem motivo
+    // para conferir.
+    const { rows } = await pool.query(
+      `update loja
+          set horario_funcionamento = $3::jsonb,
+              config_versao = config_versao + 1,
+              atualizado_em = now()
+        where id = $1 and tenant_id = $2
+        returning horario_funcionamento, timezone`,
+      [id, s.tenantId, JSON.stringify(lido.faixas)],
+    );
+    if (rows.length === 0) {
+      return resposta.status(404).send({ erro: 'nao_encontrada', mensagem: 'loja não encontrada' });
+    }
+    return {
+      horario_funcionamento: rows[0].horario_funcionamento,
+      aberta_agora: abertaEm(rows[0].horario_funcionamento, new Date(), rows[0].timezone),
     };
   });
 

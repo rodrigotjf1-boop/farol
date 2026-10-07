@@ -1,0 +1,33 @@
+{
+  "_": "Horário de funcionamento da loja: os MESMOS casos, conferidos pela API (api/src/horario.ts) e pelo agente (farol_agent/modelos.py). A API usa a conta para dizer 'aberta agora' na tela; o agente, para decidir se é hora de conferir cada critério. Se as duas divergirem, a tela diz 'aberta' e o agente não olha.",
+  "fuso": "America/Sao_Paulo",
+  "horario": [
+    { "dias": [2, 3, 4, 7], "hora_ini": "18:00", "hora_fim": "23:30" },
+    { "dias": [5, 6], "hora_ini": "18:00", "hora_fim": "01:00" }
+  ],
+  "casos": [
+    { "quando": "2026-10-07T17:59", "aberta": false, "porque": "quarta, um minuto antes de abrir" },
+    { "quando": "2026-10-07T18:00", "aberta": true, "porque": "quarta, na hora de abrir" },
+    { "quando": "2026-10-07T21:40", "aberta": true, "porque": "quarta, no meio do expediente" },
+    { "quando": "2026-10-07T23:30", "aberta": true, "porque": "quarta, no minuto de fechar" },
+    { "quando": "2026-10-07T23:31", "aberta": false, "porque": "quarta, um minuto depois de fechar" },
+    { "quando": "2026-10-05T20:00", "aberta": false, "porque": "segunda não abre" },
+    { "quando": "2026-10-09T23:59", "aberta": true, "porque": "sexta, antes da meia-noite" },
+    { "quando": "2026-10-10T00:30", "aberta": true, "porque": "sábado 0h30 ainda é a sexta, que fecha à 1h" },
+    { "quando": "2026-10-10T01:00", "aberta": true, "porque": "sábado 1h, no minuto de fechar a sexta" },
+    { "quando": "2026-10-10T01:01", "aberta": false, "porque": "sábado 1h01, a sexta fechou" },
+    { "quando": "2026-10-10T12:00", "aberta": false, "porque": "sábado ao meio-dia, antes de abrir" },
+    { "quando": "2026-10-11T00:30", "aberta": true, "porque": "domingo 0h30 ainda é o sábado" },
+    { "quando": "2026-10-09T00:30", "aberta": false, "porque": "sexta 0h30 é o resto da quinta, que fechou às 23h30" },
+    { "quando": "2026-10-12T00:30", "aberta": false, "porque": "segunda 0h30 é o resto do domingo, que fechou às 23h30" },
+    { "quando": "2026-10-11T19:00", "aberta": true, "porque": "domingo é o dia 7, não o 0" }
+  ],
+  "conferir": {
+    "_": "aberta -> é hora de conferir? Sem horário informado a loja vale como sempre aberta.",
+    "com_horario": {
+      "aberta": { "no_horario": true, "fora_do_horario": false, "sempre": true },
+      "fechada": { "no_horario": false, "fora_do_horario": true, "sempre": true }
+    },
+    "sem_horario": { "no_horario": true, "fora_do_horario": false, "sempre": true }
+  }
+}

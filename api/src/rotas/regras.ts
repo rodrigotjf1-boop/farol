@@ -41,6 +41,7 @@ import {
   OBJETOS_DO_DETECTOR,
   TIPOS_DO_DETECTOR,
 } from '../detector.js';
+import { QUANDOS } from '../horario.js';
 import { exigirConfigurar } from '../rbac.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 
@@ -87,6 +88,10 @@ function validar(c: Corpo, criando: boolean): string | null {
   }
   if (c.janelas != null && !Array.isArray(c.janelas)) {
     return 'janelas: lista de {dias, hora_ini, hora_fim}';
+  }
+  // Em que horário conferir, em relação ao horário DA LOJA.
+  if (c.quando != null && !(QUANDOS as readonly string[]).includes(String(c.quando))) {
+    return `quando: um de ${QUANDOS.join(', ')}`;
   }
   return null;
 }
@@ -188,16 +193,19 @@ async function criarRegra(
      nova as (
        insert into regra (loja_id, nome, tipo, criterio, processo_descricao,
                           prioridade, severidade, confianca_minima, cooldown_min,
-                          resolucao, janelas, acoes, retencao_midia_dias, parametros)
+                          resolucao, janelas, acoes, retencao_midia_dias, parametros,
+                          quando)
        select dono.loja_id, $5, $6, $7, $8,
               coalesce($9,'intermediaria'), coalesce($10,'atencao'),
               coalesce($11, 0.700), coalesce($12, 15), $13,
               coalesce($14,'[]'::jsonb), coalesce($15,'["registro"]'::jsonb),
-              coalesce($16, 90), $17::jsonb
+              coalesce($16, 90), $17::jsonb,
+              -- O comum é critério de operação: nasce "no horário".
+              coalesce($18, 'no_horario')
          from dono
        returning id, nome, tipo, criterio, criterio_versao, prioridade,
                  severidade, confianca_minima, cooldown_min, resolucao,
-                 janelas, acoes, ativa, parametros
+                 janelas, acoes, ativa, parametros, quando
      ),
      ligados as (
        insert into regra_alvo (regra_id, zona_id)
@@ -215,6 +223,7 @@ async function criarRegra(
       c.acoes ? JSON.stringify(c.acoes) : null,
       c.retencaoMidiaDias ?? null,
       JSON.stringify(parametros),
+      c.quando ?? null,
     ],
   );
   return rows[0] ?? null;
@@ -250,6 +259,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
               r.processo_descricao, r.prioridade, r.severidade,
               r.confianca_minima, r.cooldown_min, r.resolucao,
               r.janelas, r.acoes, r.ativa, r.retencao_midia_dias, r.parametros,
+              r.quando,
               ${ALVOS_DO_CRITERIO} as alvos
          from regra r
          join loja l on l.id = r.loja_id
@@ -439,6 +449,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
                 ativa              = coalesce($13, r.ativa),
                 retencao_midia_dias = coalesce($14, r.retencao_midia_dias),
                 parametros         = coalesce($16::jsonb, r.parametros),
+                quando             = coalesce($17, r.quando),
                 atualizado_em      = now()
            from loja l
           where r.id = $1
@@ -447,7 +458,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
          returning r.id, r.nome, r.tipo, r.criterio, r.criterio_versao,
                    r.prioridade, r.severidade, r.confianca_minima,
                    r.cooldown_min, r.resolucao, r.janelas, r.acoes, r.ativa,
-                   r.parametros, r.loja_id`,
+                   r.parametros, r.quando, r.loja_id`,
         [
           id,
           c.nome != null ? String(c.nome).trim() : null,
@@ -462,6 +473,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
           c.retencaoMidiaDias ?? null,
           s.tenantId,
           novosParametros === null ? null : JSON.stringify(novosParametros),
+          c.quando ?? null,
         ],
       );
       if (rows.length === 0) {
