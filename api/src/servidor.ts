@@ -6,6 +6,7 @@
 // =====================================================================
 
 import { criarApp } from './app.js';
+import { carregarCatalogo } from './catalogo.js';
 import { pool } from './db.js';
 import { conferirEsquema } from './preflight.js';
 import { despacharAgentesCaidos, vigiaPodeAcusar } from './despacho.js';
@@ -25,6 +26,28 @@ async function encerrar(sinal: string) {
 
 for (const sinal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(sinal, () => void encerrar(sinal));
+}
+
+// ─────────────── o catálogo de equipamentos ───────────────
+// A fonte é `catalogo/`, que veio na imagem; o banco guarda a cópia. Copia
+// a cada subida, e de novo quando a guarda de esquema se cura — é assim que
+// um modelo novo chega ao banco sem ninguém rodar nada.
+//
+// Nunca rejeita e nunca segura a subida: catálogo desatualizado é orçamento
+// desatualizado; API fora do ar é loja sem auditoria.
+function copiarCatalogo(): void {
+  void carregarCatalogo(pool)
+    .then((r) => {
+      if (r.ok) {
+        app.log.info(
+          { equipamentos: r.equipamentos, usos: r.usos, foraDoCatalogo: r.foraDoCatalogo },
+          'catálogo de equipamentos copiado para o banco',
+        );
+      } else {
+        app.log.warn({ motivo: r.motivo }, 'catálogo de equipamentos NÃO foi copiado para o banco');
+      }
+    })
+    .catch((e) => app.log.error(e, 'a carga do catálogo falhou'));
 }
 
 // Antes de abrir a porta: o esquema está em dia? Subir com o banco atrás
@@ -75,6 +98,7 @@ if (!esquema.ok) {
         porta.recusando = false;
         porta.aceitaDesde = Date.now();
         app.log.info('esquema em dia; voltando a atender');
+        copiarCatalogo();
       }
     }
     if (!bloqueado) return;
@@ -89,8 +113,10 @@ if (!esquema.ok) {
   });
 } else if (esquema.motivo) {
   app.log.warn({ motivo: esquema.motivo }, 'conferência de esquema pulada');
+  copiarCatalogo();
 } else {
   app.log.info({ aplicadas: esquema.aplicadas }, 'esquema em dia');
+  copiarCatalogo();
 }
 
 // ─────────────── o vigia do vigia ───────────────

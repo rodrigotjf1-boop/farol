@@ -478,7 +478,7 @@ Ao fechar o diagnóstico, o usuário leva cinco coisas:
 | DVR MHDX 3116-C | compra | A2.3 — fontes reais |
 | Câmeras de teste da montagem | compra | A4 — montagem |
 | Pedido chega ao KDS antes da montagem? | confirmar na operação | desenho do laço de montagem |
-| Cabo de rede entre o PC da loja e o gravador negociando a 10 Mbps (placa gigabit) | trocar o cabo | montagem em escala: 4 bancadas em alta + o resto da loja pedem 13,6 Mbps |
+| Cabo de rede entre o PC da loja e o gravador: tem emenda, e a placa só fecha enlace forçada em 10 Mbps Half Duplex (em autonegociação não sobe — testado em 07/10) | o dono troca por um cabo inteiro; depois, devolver a placa à autonegociação | montagem em escala: 4 bancadas em alta + o resto da loja pedem 13,6 Mbps |
 | Distância do PC até a bancada | medir | decide se a USB entra |
 
 ---
@@ -1247,7 +1247,7 @@ olhando imagem; da próxima vez, quem olha é o dono, na tela dele.
 
 ---
 
-## A12 · Base de equipamentos, classe dos canais e orçamento — 🟡 passo 1 de 4 (07/10/2026)
+## A12 · Base de equipamentos, classe dos canais e orçamento — 🟡 passo 2 de 4 (07/10/2026)
 
 **Pedido do dono (07/10/2026):**
 
@@ -1286,7 +1286,7 @@ viraram cadastro.
 | passo | o quê | situação |
 |---|---|---|
 | **1 · a base** | `catalogo/`: 39 modelos, com nível, motivo, para que serve, preço datado e o que foi medido na loja. Conferida por teste a cada envio | ✅ feito |
-| **2 · a carga** | a tabela `equipamento` passa a ser preenchida a partir dos arquivos, no deploy; ganha `nivel`, `medido` e `fontes`. O requisito de cada uso vem para o catálogo | a fazer (migration 015) |
+| **2 · a carga** | a API copia os arquivos para o banco **a cada subida** (`api/src/catalogo.ts`): só a linha que mudou, nunca apaga, e arquivo com defeito não grava nada. A tabela ganha `nivel`, `medido`, `precos` e `fontes`. O requisito de cada uso veio para `catalogo/usos.json`. `/saude` devolve quantos modelos há no banco | ✅ feito (migration 015) |
 | **3 · a classe do canal e o orçamento** | ver abaixo | a fazer |
 | **4 · os canais no navegador do PC de análise** | ver abaixo | a fazer |
 

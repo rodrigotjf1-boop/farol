@@ -197,3 +197,61 @@ describe('catálogo de equipamentos', () => {
     }
   });
 });
+
+// ─────────────────────── o requisito de cada uso ───────────────────────
+
+type Uso = {
+  id: string; tipo_regra: string; variante: string | null;
+  px_por_cm_min: number | null; fps_min: number | null; exige_cor: boolean;
+  exige_wdr_db: number | null; exige_local: boolean; quadros_por_analise: number;
+};
+
+describe('catálogo: o requisito de cada uso (usos.json)', () => {
+  const { usos } = JSON.parse(readFileSync(join(CATALOGO, 'usos.json'), 'utf8')) as { usos: Uso[] };
+
+  it('os usos são exatamente os que niveis.json lista', () => {
+    assert.deepEqual(usos.map((u) => u.id).sort(), [...niveis.usos].sort());
+  });
+
+  it('o id diz o tipo e a variante, e nenhum se repete', () => {
+    const vistos = new Set<string>();
+    for (const u of usos) {
+      assert.equal(u.id, u.variante ? `${u.tipo_regra}:${u.variante}` : u.tipo_regra);
+      assert.ok(!vistos.has(u.id), `uso repetido: ${u.id}`);
+      vistos.add(u.id);
+    }
+  });
+
+  it('nenhum NÚMERO mudou em relação ao que a migration 002 semeou', () => {
+    // O arquivo passa a mandar no banco. Se ele trouxesse um px por cm
+    // diferente do que já estava valendo, o dimensionamento de toda loja
+    // mudaria num deploy, sem ninguém ter decidido isso.
+    const semeados = [...migration002.matchAll(
+      /\('(\w+)', (null|'\w+'), '[^']*', ([\d.]+), ([\d.]+), (true|false), (null|\d+), (true|false), (\d+),/g,
+    )].map((m) => ({
+      id: m[2] === 'null' ? m[1]! : `${m[1]}:${m[2]!.slice(1, -1)}`,
+      px_por_cm_min: Number(m[3]),
+      fps_min: Number(m[4]),
+      exige_cor: m[5] === 'true',
+      exige_wdr_db: m[6] === 'null' ? null : Number(m[6]),
+      exige_local: m[7] === 'true',
+      quadros_por_analise: Number(m[8]),
+    }));
+    assert.equal(semeados.length, 8, `li ${semeados.length} requisitos da migration 002`);
+
+    for (const s of semeados) {
+      const u = usos.find((x) => x.id === s.id);
+      assert.ok(u, `falta em usos.json: ${s.id}`);
+      const numeros = {
+        px_por_cm_min: u.px_por_cm_min,
+        fps_min: u.fps_min,
+        exige_cor: u.exige_cor,
+        exige_wdr_db: u.exige_wdr_db,
+        exige_local: u.exige_local,
+        quadros_por_analise: u.quadros_por_analise,
+      };
+      const { id: _id, ...esperado } = s;
+      assert.deepEqual(numeros, esperado, `${s.id}: o requisito mudou`);
+    }
+  });
+});

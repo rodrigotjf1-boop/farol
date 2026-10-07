@@ -34,6 +34,23 @@ export function criarApp(pool: pg.Pool, opcoes: { logger?: boolean } = {}): Fast
 
   app.get('/', async () => ({ servico: 'farol-api', versao: VERSAO }));
 
+  // Quantos modelos do catálogo de equipamentos estão no banco. É só o
+  // NÚMERO — o catálogo é da distribuição e não sai por rota nenhuma. Serve
+  // para conferir, de fora, que a cópia aconteceu depois do deploy.
+  //
+  // Tolerante: antes da migration 015 a coluna não existe, e a verificação
+  // de saúde não pode cair por causa disso.
+  async function modelosNoCatalogo(): Promise<number | null> {
+    try {
+      const c = await pool.query(
+        'select count(*)::int as n from equipamento where slug is not null',
+      );
+      return c.rows[0].n;
+    } catch {
+      return null;
+    }
+  }
+
   app.get('/saude', async (_req, resposta) => {
     try {
       const { rows } = await pool.query(
@@ -49,6 +66,7 @@ export function criarApp(pool: pg.Pool, opcoes: { logger?: boolean } = {}): Fast
         banco: 'ok',
         ultimaMigracao: ultima?.nome ?? null,
         aplicadaEm: ultima?.aplicada_em ?? null,
+        catalogoModelos: await modelosNoCatalogo(),
       };
     } catch (erro) {
       const e = erro as { code?: string; message: string };
@@ -62,6 +80,7 @@ export function criarApp(pool: pg.Pool, opcoes: { logger?: boolean } = {}): Fast
           versao: VERSAO,
           banco: 'ok',
           ultimaMigracao: null,
+          catalogoModelos: await modelosNoCatalogo(),
           aviso: 'farol_migracao ainda não existe — rode: npm run migrar',
         };
       }
