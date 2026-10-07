@@ -1013,6 +1013,44 @@ td:first-child .crit { min-width: 200px; }
   .saude .val { font-size: 14px; }
 }
 
+/* ───────────── mais de uma área por canal ─────────────
+   A área selecionada é a de borda cheia; as outras ficam tracejadas, cada
+   uma na sua cor, e são clicáveis. A cor da área é a mesma na lista ao lado. */
+.quadro .ret { border-color: var(--cor, #F2B03C); }
+.quadro .ret::after { background: var(--cor, #F2B03C); }
+.quadro .ret.outra {
+  border-style: dashed; pointer-events: auto; cursor: pointer;
+  background: color-mix(in srgb, var(--cor) 16%, transparent);
+}
+.quadro .ret.outra:hover { background: color-mix(in srgb, var(--cor) 28%, transparent); }
+.areas-lista, .area-criterios { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.areas-lista li { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.area-item {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 44px;
+  padding: 7px 10px; border: 1px solid var(--borda); border-radius: var(--raio-p);
+  background: var(--painel-2); color: var(--tinta); font: inherit; text-align: left; cursor: pointer;
+  transition: border-color var(--rapido), background var(--rapido), box-shadow var(--rapido);
+}
+.area-item:hover { border-color: var(--borda-forte); }
+.area-item[aria-pressed="true"] { border-color: var(--marca); background: var(--painel); box-shadow: inset 0 0 0 1px var(--marca); }
+.area-item .cor { flex: none; width: 12px; height: 12px; border-radius: 4px; background: var(--c); box-shadow: 0 0 0 1px rgba(4, 8, 14, .25); }
+.area-item span { min-width: 0; }
+.area-item b, .area-criterios b { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.area-item small, .area-criterios small { display: block; color: var(--suave); font-size: 12px; }
+.area-criterios { gap: 10px; }
+.area-criterios li { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.area-criterios li > span:nth-child(2) { flex: 1; min-width: 0; }
+.area-criterios .selo-ic {
+  flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px;
+  background: var(--realce); color: var(--marca);
+}
+/* na tela de critérios e na gaveta: o canal com áreas mostra as áreas */
+.no-area { display: flex; flex-direction: column; gap: 8px; padding-left: 12px; border-left: 2px solid var(--borda); }
+.no-area-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; color: var(--suave); font-size: 13px; }
+.no-area-cab b { color: var(--tinta); font-weight: 600; }
+.no-area-cab .empurra { margin-left: auto; }
+.arv-canais .arv-canal-nome { flex: 1; min-width: 0; }
+
 </style>
 </head>
 <body>
@@ -1098,7 +1136,7 @@ td:first-child .crit { min-width: 200px; }
         <circle class="lg-tinta" r="18.9"/>
         <circle class="lg-ponto" r="7.88"/>
       </g>
-      <path class="lg-tinta" d="M74.6 212.0V80.0H103.4V212.0ZM88.4 162.6V139.0H165.4V162.6ZM88.4 104.6V80.0H172.8V104.6Z"/><path class="lg-tinta" d="M218.8 214.8Q210.0 214.8 203.2 211.3Q196.4 207.8 192.6 201.2Q188.8 194.6 188.8 184.8Q188.8 176.2 192.1 170.4Q195.4 164.6 201.8 161.0Q208.2 157.4 217.6 155.0Q227.0 152.6 239.0 150.8Q245.4 149.8 249.5 148.9Q253.6 148.0 255.6 145.9Q257.6 143.8 257.6 139.8Q257.6 134.2 253.6 130.2Q249.6 126.2 241.0 126.2Q235.2 126.2 230.3 128.2Q225.4 130.2 221.9 134.2Q218.4 138.2 216.8 144.4L191.4 136.6Q193.8 128.4 198.3 122.4Q202.8 116.4 209.2 112.3Q215.6 108.2 223.8 106.2Q232.0 104.2 241.6 104.2Q257.0 104.2 266.7 109.1Q276.4 114.0 281.2 124.3Q286.0 134.6 286.0 150.8V168.8Q286.0 175.8 286.3 183.0Q286.6 190.2 287.1 197.5Q287.6 204.8 288.2 212.0H262.8Q262.0 207.0 261.3 200.5Q260.6 194.0 260.2 187.4H256.6Q253.8 195.0 248.6 201.2Q243.4 207.4 235.9 211.1Q228.4 214.8 218.8 214.8ZM231.0 194.0Q234.8 194.0 238.7 192.6Q242.6 191.2 246.3 188.7Q250.0 186.2 253.1 182.4Q256.2 178.6 258.2 173.8L257.8 157.0L262.4 158.0Q258.8 160.6 254.0 162.1Q249.2 163.6 244.1 164.4Q239.0 165.2 234.0 166.2Q229.0 167.2 225.1 168.8Q221.2 170.4 218.9 173.1Q216.6 175.8 216.6 180.6Q216.6 186.8 220.6 190.4Q224.6 194.0 231.0 194.0Z"/><path class="lg-tinta" d="M313.6 212.0V161.2V107.0H337.4L337.6 142.8H341.4Q343.0 129.4 346.9 121Q350.8 112.6 357.8 108.6Q364.8 104.6 375.2 104.6Q377.0 104.6 379.1 104.7Q381.2 104.8 384.0 105.4L382.8 136.0Q379.8 134.6 376.2 134.0Q372.6 133.4 369.8 133.4Q362.0 133.4 356.4 137.0Q350.8 140.6 347.3 147.3Q343.8 154.0 342.6 163.6V212.0Z"/><path class="lg-tinta" d="M558.44 212.0V69.0H586.84V212.0Z"/>
+      <path class="lg-tinta" d="M74.6 212.0V80.0H103.4V212.0ZM88.4 162.6V139.0H165.4V162.6ZM88.4 104.6V80.0H172.8V104.6Z"/><path class="lg-tinta" d="M218.8 214.8Q210.0 214.8 203.2 211.3Q196.4 207.8 192.6 201.2Q188.8 194.6 188.8 184.8Q188.8 176.2 192.1 170.4Q195.4 164.6 201.8 161.0Q208.2 157.4 217.6 155.0Q227.0 152.6 239.0 150.8Q245.4 149.8 249.5 148.9Q253.6 148.0 255.6 145.9Q257.6 143.8 257.6 139.8Q257.6 134.2 253.6 130.2Q249.6 126.2 241.0 126.2Q235.2 126.2 230.3 128.2Q225.4 130.2 221.9 134.2Q218.4 138.2 216.8 144.4L191.4 136.6Q193.8 128.4 198.3 122.4Q202.8 116.4 209.2 112.3Q215.6 108.2 223.8 106.2Q232.0 104.2 241.6 104.2Q257.0 104.2 266.7 109.1Q276.4 114.0 281.2 124.3Q286.0 134.6 286.0 150.8V168.8Q286.0 175.8 286.3 183.0Q286.6 190.2 287.1 197.5Q287.6 204.8 288.2 212.0H262.8Q262.0 207.0 261.3 200.5Q260.6 194.0 260.2 187.4H256.6Q253.8 195.0 248.6 201.2Q243.4 207.4 235.9 211.1Q228.4 214.8 218.8 214.8ZM231.0 194.0Q234.8 194.0 238.7 192.6Q242.6 191.2 246.3 188.7Q250.0 186.2 253.1 182.4Q256.2 178.6 258.2 173.8L257.8 157.0L262.4 158.0Q258.8 160.6 254.0 162.1Q249.2 163.6 244.1 164.4Q239.0 165.2 234.0 166.2Q229.0 167.2 225.1 168.8Q221.2 170.4 218.9 173.1Q216.6 175.8 216.6 180.6Q216.6 186.8 220.6 190.4Q224.6 194.0 231.0 194.0Z"/><path class="lg-tinta" d="M313.6 212.0V161.2V107.0H337.4L337.6 142.8H341.4Q343.0 129.4 346.9 121Q350.8 112.6 357.8 108.6Q364.8 104.6 375.2 104.6Q377.0 104.6 379.1 104.7Q381.2 104.8 384.0 105.4L382.8 136.0Q379.8 134.6 376.2 134.0Q372.6 133.4 369.8 133.4Q362.0 133.4 356.4 137.0Q350.8 140.6 347.3 147.3Q343.8 154.0 342.6 163.6V212.0Z"/><path class="lg-tinta" d="M558.44 212.0V69.0H586.84V212.0Z"/>
     </svg>
     <div class="farol-cena">
       <span class="feixe"></span>
@@ -1158,7 +1196,7 @@ td:first-child .crit { min-width: 200px; }
           <circle class="lg-tinta" r="18.9"/>
           <circle class="lg-ponto" r="7.88"/>
         </g>
-        <path class="lg-tinta" d="M74.6 212.0V80.0H103.4V212.0ZM88.4 162.6V139.0H165.4V162.6ZM88.4 104.6V80.0H172.8V104.6Z"/><path class="lg-tinta" d="M218.8 214.8Q210.0 214.8 203.2 211.3Q196.4 207.8 192.6 201.2Q188.8 194.6 188.8 184.8Q188.8 176.2 192.1 170.4Q195.4 164.6 201.8 161.0Q208.2 157.4 217.6 155.0Q227.0 152.6 239.0 150.8Q245.4 149.8 249.5 148.9Q253.6 148.0 255.6 145.9Q257.6 143.8 257.6 139.8Q257.6 134.2 253.6 130.2Q249.6 126.2 241.0 126.2Q235.2 126.2 230.3 128.2Q225.4 130.2 221.9 134.2Q218.4 138.2 216.8 144.4L191.4 136.6Q193.8 128.4 198.3 122.4Q202.8 116.4 209.2 112.3Q215.6 108.2 223.8 106.2Q232.0 104.2 241.6 104.2Q257.0 104.2 266.7 109.1Q276.4 114.0 281.2 124.3Q286.0 134.6 286.0 150.8V168.8Q286.0 175.8 286.3 183.0Q286.6 190.2 287.1 197.5Q287.6 204.8 288.2 212.0H262.8Q262.0 207.0 261.3 200.5Q260.6 194.0 260.2 187.4H256.6Q253.8 195.0 248.6 201.2Q243.4 207.4 235.9 211.1Q228.4 214.8 218.8 214.8ZM231.0 194.0Q234.8 194.0 238.7 192.6Q242.6 191.2 246.3 188.7Q250.0 186.2 253.1 182.4Q256.2 178.6 258.2 173.8L257.8 157.0L262.4 158.0Q258.8 160.6 254.0 162.1Q249.2 163.6 244.1 164.4Q239.0 165.2 234.0 166.2Q229.0 167.2 225.1 168.8Q221.2 170.4 218.9 173.1Q216.6 175.8 216.6 180.6Q216.6 186.8 220.6 190.4Q224.6 194.0 231.0 194.0Z"/><path class="lg-tinta" d="M313.6 212.0V161.2V107.0H337.4L337.6 142.8H341.4Q343.0 129.4 346.9 121Q350.8 112.6 357.8 108.6Q364.8 104.6 375.2 104.6Q377.0 104.6 379.1 104.7Q381.2 104.8 384.0 105.4L382.8 136.0Q379.8 134.6 376.2 134.0Q372.6 133.4 369.8 133.4Q362.0 133.4 356.4 137.0Q350.8 140.6 347.3 147.3Q343.8 154.0 342.6 163.6V212.0Z"/><path class="lg-tinta" d="M558.44 212.0V69.0H586.84V212.0Z"/>
+        <path class="lg-tinta" d="M74.6 212.0V80.0H103.4V212.0ZM88.4 162.6V139.0H165.4V162.6ZM88.4 104.6V80.0H172.8V104.6Z"/><path class="lg-tinta" d="M218.8 214.8Q210.0 214.8 203.2 211.3Q196.4 207.8 192.6 201.2Q188.8 194.6 188.8 184.8Q188.8 176.2 192.1 170.4Q195.4 164.6 201.8 161.0Q208.2 157.4 217.6 155.0Q227.0 152.6 239.0 150.8Q245.4 149.8 249.5 148.9Q253.6 148.0 255.6 145.9Q257.6 143.8 257.6 139.8Q257.6 134.2 253.6 130.2Q249.6 126.2 241.0 126.2Q235.2 126.2 230.3 128.2Q225.4 130.2 221.9 134.2Q218.4 138.2 216.8 144.4L191.4 136.6Q193.8 128.4 198.3 122.4Q202.8 116.4 209.2 112.3Q215.6 108.2 223.8 106.2Q232.0 104.2 241.6 104.2Q257.0 104.2 266.7 109.1Q276.4 114.0 281.2 124.3Q286.0 134.6 286.0 150.8V168.8Q286.0 175.8 286.3 183.0Q286.6 190.2 287.1 197.5Q287.6 204.8 288.2 212.0H262.8Q262.0 207.0 261.3 200.5Q260.6 194.0 260.2 187.4H256.6Q253.8 195.0 248.6 201.2Q243.4 207.4 235.9 211.1Q228.4 214.8 218.8 214.8ZM231.0 194.0Q234.8 194.0 238.7 192.6Q242.6 191.2 246.3 188.7Q250.0 186.2 253.1 182.4Q256.2 178.6 258.2 173.8L257.8 157.0L262.4 158.0Q258.8 160.6 254.0 162.1Q249.2 163.6 244.1 164.4Q239.0 165.2 234.0 166.2Q229.0 167.2 225.1 168.8Q221.2 170.4 218.9 173.1Q216.6 175.8 216.6 180.6Q216.6 186.8 220.6 190.4Q224.6 194.0 231.0 194.0Z"/><path class="lg-tinta" d="M313.6 212.0V161.2V107.0H337.4L337.6 142.8H341.4Q343.0 129.4 346.9 121Q350.8 112.6 357.8 108.6Q364.8 104.6 375.2 104.6Q377.0 104.6 379.1 104.7Q381.2 104.8 384.0 105.4L382.8 136.0Q379.8 134.6 376.2 134.0Q372.6 133.4 369.8 133.4Q362.0 133.4 356.4 137.0Q350.8 140.6 347.3 147.3Q343.8 154.0 342.6 163.6V212.0Z"/><path class="lg-tinta" d="M558.44 212.0V69.0H586.84V212.0Z"/>
       </svg>
       <svg class="selo" viewBox="0 0 512 512" role="img" aria-label="Farol">
         <g transform="translate(256,256)">
@@ -1397,7 +1435,7 @@ td:first-child .crit { min-width: 200px; }
             <li>
               <time datetime="19:55">19:55</time>
               <div>
-                <div class="o-titulo">Fila no balcão <span class="chip vazado"><svg class="ic" aria-hidden="true"><use href="#i-cctv"/></svg>Balcão</span></div>
+                <div class="o-titulo">Fila no balcão <span class="chip vazado"><svg class="ic" aria-hidden="true"><use href="#i-cctv"/></svg>Balcão · Lado do cliente</span></div>
                 <p>8 pessoas na área do balcão; o combinado é no máximo 6.</p>
               </div>
               <div class="o-fim"><span class="chip atencao"><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>aviso mandado</span><span class="mono suave">confiança 0,84</span></div>
@@ -1588,9 +1626,9 @@ td:first-child .crit { min-width: 200px; }
     <section class="tela" data-tela="area" aria-labelledby="t-area" hidden>
       <header class="cab">
         <div>
-          <p class="sobre"><a href="#canais" data-ir="canais"><svg class="ic p" aria-hidden="true"><use href="#i-arrow-left"/></svg> Canais</a> <span>· Cozinha · canal 4</span></p>
-          <h1 id="t-area">Montagem 1</h1>
-          <p class="sub">Marque na imagem a região que importa. Sem área marcada, o quadro inteiro é analisado: custa mais e mostra menos detalhe por centímetro.</p>
+          <p class="sobre"><a href="#canais" data-ir="canais"><svg class="ic p" aria-hidden="true"><use href="#i-arrow-left"/></svg> Canais</a> <span>· Atendimento · canal 1</span></p>
+          <h1 id="t-area">Balcão</h1>
+          <p class="sub">Marque na imagem cada região que importa e diga o que conferir em cada uma. Um canal pode ter mais de uma área: o critério vale só dentro da área em que foi posto.</p>
         </div>
       </header>
 
@@ -1602,34 +1640,56 @@ td:first-child .crit { min-width: 200px; }
               <span class="suave mono">07/10 · 21:40</span>
               <button class="btn secundario mini empurra" type="button" data-atualizar-quadro><svg class="ic p" aria-hidden="true"><use href="#i-refresh-cw"/></svg>Atualizar quadro</button>
             </div>
-            <div class="quadro" data-quadro role="application" aria-label="Quadro do canal Montagem 1. Arraste para marcar a área de análise.">
+            <div class="quadro" data-quadro role="application" aria-label="Quadro do canal Balcão. Arraste para redesenhar a área selecionada.">
               <svg viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-                <rect width="640" height="360" fill="#2A3442"/>
-                <rect x="0" y="0" width="640" height="70" fill="#222B38"/>
-                <rect x="60" y="92" width="520" height="210" rx="6" fill="#8D99A8"/>
-                <rect x="60" y="92" width="520" height="14" fill="#A5B0BD"/>
-                <rect x="92" y="126" width="150" height="100" rx="8" fill="#C9D1DA"/>
-                <circle cx="130" cy="160" r="20" fill="#D9A257"/><circle cx="182" cy="160" r="20" fill="#7FB069"/>
-                <circle cx="130" cy="204" r="16" fill="#C4574B"/><circle cx="182" cy="204" r="16" fill="#E7D9A8"/>
-                <rect x="286" y="140" width="130" height="110" rx="10" fill="#5F6B7A"/>
-                <circle cx="351" cy="195" r="34" fill="#D9A257"/><circle cx="351" cy="195" r="24" fill="#7A4B2A"/>
-                <rect x="452" y="126" width="96" height="60" rx="6" fill="#DDE3EA"/>
-                <rect x="452" y="200" width="96" height="60" rx="6" fill="#DDE3EA"/>
-                <rect x="0" y="318" width="640" height="42" fill="#1D2530"/>
+                <rect width="640" height="360" fill="#C9D1DA"/>
+                <rect x="0" y="0" width="296" height="360" fill="#AEB8C4"/>
+                <rect x="24" y="24" width="120" height="74" rx="6" fill="#7F8B9A"/>
+                <rect x="34" y="34" width="100" height="54" rx="3" fill="#5F6B7A"/>
+                <rect x="40" y="250" width="90" height="80" rx="8" fill="#E2B94B"/>
+                <rect x="286" y="14" width="62" height="332" rx="8" fill="#2A3442"/>
+                <rect x="298" y="52" width="38" height="56" rx="4" fill="#586474"/>
+                <rect x="298" y="212" width="38" height="56" rx="4" fill="#586474"/>
+                <rect x="294" y="130" width="46" height="28" rx="3" fill="#8D99A8"/>
+                <rect x="294" y="288" width="46" height="28" rx="3" fill="#8D99A8"/>
+                <circle cx="222" cy="92" r="26" fill="#12365C"/><circle cx="222" cy="92" r="11" fill="#D9A257"/>
+                <rect x="392" y="0" width="3" height="360" fill="#9AA4B0"/>
+                <rect x="470" y="0" width="3" height="360" fill="#9AA4B0"/>
+                <circle cx="430" cy="92" r="24" fill="#6F7B8A"/><circle cx="430" cy="92" r="10" fill="#E7D9A8"/>
+                <circle cx="432" cy="172" r="24" fill="#8A6F5B"/><circle cx="432" cy="172" r="10" fill="#C99A6B"/>
+                <circle cx="436" cy="252" r="24" fill="#5F7A6B"/><circle cx="436" cy="252" r="10" fill="#E7D9A8"/>
+                <rect x="604" y="110" width="36" height="140" fill="#8D99A8"/>
               </svg>
               <div class="fora" data-fora></div>
-              <div class="ret" data-ret data-rotulo="bancada de montagem"></div>
+              <div data-rets></div>
               <span class="tarja">ilustração · no console aparece o quadro real da câmera</span>
             </div>
-            <p class="nota">Arraste sobre a imagem para marcar a região. O que fica escuro está fora da análise.</p>
+            <p class="nota">Arraste sobre a imagem para redesenhar a área selecionada. Clique em outra área para passar a mexer nela.</p>
           </section>
 
           <aside class="area-lado" aria-label="Ajustes da área">
+            <section class="cartao pad secao" aria-labelledby="t-areas">
+              <div class="secao-cab">
+                <h2 id="t-areas">Áreas deste canal</h2>
+                <button class="btn secundario mini empurra" type="button" data-nova-area data-so-config><svg class="ic p" aria-hidden="true"><use href="#i-plus"/></svg>Nova área</button>
+              </div>
+              <ul class="areas-lista" data-areas aria-label="Áreas deste canal"></ul>
+              <p class="nota">Cada área tem os seus critérios. Presença se confere dentro do balcão; fila, do lado do cliente.</p>
+            </section>
+
+            <section class="cartao pad secao" aria-labelledby="t-area-crit">
+              <div class="secao-cab">
+                <h2 id="t-area-crit" data-area-crit-titulo>Critérios nesta área</h2>
+                <button class="btn secundario mini empurra" type="button" data-folha="folha-criterio" data-modo="novo" data-criterio-na-area data-so-config><svg class="ic p" aria-hidden="true"><use href="#i-plus"/></svg>Critério</button>
+              </div>
+              <ul class="area-criterios" data-area-criterios></ul>
+            </section>
+
             <section class="cartao pad secao">
-              <h2>Área</h2>
+              <h2>Área selecionada</h2>
               <div class="campo">
                 <label for="area-nome">Nome desta área</label>
-                <input class="entrada" id="area-nome" value="bancada de montagem">
+                <input class="entrada" id="area-nome" value="Dentro do balcão">
               </div>
               <div class="pares">
                 <div class="campo"><label for="area-x1">Esquerda</label><input class="entrada mono" id="area-x1" type="number" min="0" max="1" step="0.01" value="0.10" data-coord="x1"></div>
@@ -1656,7 +1716,7 @@ td:first-child .crit { min-width: 200px; }
               <h2>Conexão</h2>
               <div class="pares">
                 <div class="campo"><label for="cx-fab">Fabricante</label><input class="entrada" id="cx-fab" value="intelbras"></div>
-                <div class="campo"><label for="cx-canal">Canal</label><input class="entrada mono" id="cx-canal" type="number" value="4"></div>
+                <div class="campo"><label for="cx-canal">Canal</label><input class="entrada mono" id="cx-canal" type="number" value="1"></div>
                 <div class="campo"><label for="cx-host">Endereço</label><input class="entrada mono" id="cx-host" value="192.168.0.50"></div>
                 <div class="campo"><label for="cx-porta">Porta</label><input class="entrada mono" id="cx-porta" type="number" value="554"></div>
               </div>
@@ -2403,7 +2463,7 @@ td:first-child .crit { min-width: 200px; }
         ['Bancada limpa entre pedidos', 'Montagem 1', 196, 14, 2, '0,87', '1,9 s', '21:42'],
         ['Bancada limpa entre pedidos', 'Montagem 2', 187, 9, 2, '0,85', '1,9 s', '21:38'],
         ['Alguém na chapa no horário de pico', 'Chapa', 251, 11, 2, '0,93', '0,09 s', '21:44'],
-        ['Fila no balcão', 'Balcão', 281, 5, 2, '0,90', '0,09 s', '21:45'],
+        ['Fila no balcão', 'Balcão · Lado do cliente', 281, 5, 2, '0,90', '0,09 s', '21:45'],
         ['Uso de touca', 'Montagem 1', 44, 1, 51, '0,71', '2,1 s', '21:40', 'avalia pouco'],
         ['Uso de touca', 'Montagem 2', 49, 1, 38, '0,73', '2,0 s', '21:36', 'avalia pouco'],
         ['Uso de touca', 'Chapa', 86, 0, 4, '0,82', '2,0 s', '21:41'],
@@ -2422,7 +2482,7 @@ td:first-child .crit { min-width: 200px; }
         ['Bancada limpa entre pedidos', 'Montagem 1', 1432, 112, 16, '0,86', '1,9 s', 'hoje 21:42'],
         ['Bancada limpa entre pedidos', 'Montagem 2', 1352, 84, 14, '0,85', '1,9 s', 'hoje 21:38'],
         ['Alguém na chapa no horário de pico', 'Chapa', 1832, 94, 14, '0,92', '0,09 s', 'hoje 21:44'],
-        ['Fila no balcão', 'Balcão', 2046, 50, 14, '0,90', '0,09 s', 'hoje 21:45'],
+        ['Fila no balcão', 'Balcão · Lado do cliente', 2046, 50, 14, '0,90', '0,09 s', 'hoje 21:45'],
         ['Uso de touca', 'Montagem 1', 316, 14, 370, '0,70', '2,1 s', 'hoje 21:40', 'avalia pouco'],
         ['Uso de touca', 'Montagem 2', 356, 10, 282, '0,72', '2,0 s', 'hoje 21:36', 'avalia pouco'],
         ['Uso de touca', 'Chapa', 627, 8, 28, '0,82', '2,0 s', 'hoje 21:41'],
@@ -2464,6 +2524,12 @@ td:first-child .crit { min-width: 200px; }
       texto: 'Há no máximo 6 pessoas esperando na área do balcão.',
       meta: 'prioridade urgente · confiança mínima 0,75 · silêncio de 10 min · versão 2',
     },
+    posto: {
+      nome: 'Alguém no balcão', tipo: 'presença', gravidade: 'atenção', ligado: true, canais: 1,
+      procura: 'pelo menos 1 × pessoa',
+      texto: 'Há pelo menos um colaborador atrás do balcão de atendimento.',
+      meta: 'prioridade intermediária · confiança mínima 0,70 · silêncio de 15 min · versão 1',
+    },
   };
 
   const ICONE_DO_TIPO = {
@@ -2484,7 +2550,14 @@ td:first-child .crit { min-width: 200px; }
     {
       setor: 'Atendimento',
       canais: [
-        { nome: 'Balcão', num: '01', criterios: ['fila'] },
+        // Um canal, duas áreas: cada critério vale só na sua.
+        {
+          nome: 'Balcão', num: '01', criterios: ['posto', 'fila'],
+          areas: [
+            { nome: 'Dentro do balcão', criterios: ['posto'] },
+            { nome: 'Lado do cliente', criterios: ['fila'] },
+          ],
+        },
         { nome: 'Caixa', num: 'IP', criterios: [] },
       ],
     },
@@ -2721,15 +2794,30 @@ td:first-child .crit { min-width: 200px; }
             : c.semImagem
               ? `<span class="chip critico">${icone('video-off')}sem imagem</span>`
               : '';
-          const corpo = c.criterios.length
-            ? c.criterios.map((k) => cartaoDoCriterio(k, c.nome)).join('')
-            : `<p class="vazio-linha">Nenhum critério neste canal. Nada é verificado aqui.</p>`;
-          const mais = c.pausado
+          const corpo = c.areas
+            ? c.areas
+                .map(
+                  (a) =>
+                    `<div class="no-area"><div class="no-area-cab">${icone('crop', 'p')}<b>${a.nome}</b>` +
+                    `<span>${a.criterios.length ? plural(a.criterios.length, 'critério', 'critérios') : 'sem critério'}</span>` +
+                    `<button class="btn fantasma mini empurra" type="button" data-folha="folha-criterio" data-modo="novo" data-lugar="${c.nome}/${a.nome}" data-so-config>` +
+                    `${icone('plus', 'p')}Critério<span class="so-leitor"> em ${a.nome}, ${c.nome}</span></button></div>` +
+                    (a.criterios.length
+                      ? a.criterios.map((k) => cartaoDoCriterio(k, c.nome)).join('')
+                      : `<p class="vazio-linha">Nenhum critério nesta área. Nada é verificado nela.</p>`) +
+                    `</div>`,
+                )
+                .join('')
+            : c.criterios.length
+              ? c.criterios.map((k) => cartaoDoCriterio(k, c.nome)).join('')
+              : `<p class="vazio-linha">Nenhum critério neste canal. Nada é verificado aqui.</p>`;
+          // Com áreas, o "+ Critério" fica em cada área: é ali que ele vai valer.
+          const mais = c.pausado || c.areas
             ? ''
             : `<button class="btn fantasma mini empurra" type="button" data-folha="folha-criterio" data-modo="novo" data-so-config>${icone('plus', 'p')}Critério<span class="so-leitor"> em ${c.nome}</span></button>`;
           return (
             `<div class="no-canal"><div class="no-canal-cab"><span class="canal-num">${c.num}</span>` +
-            `<b>${c.nome}</b><span>${c.criterios.length ? plural(c.criterios.length, 'critério', 'critérios') : 'sem critério'}</span>${estado}${mais}</div>${corpo}</div>`
+            `<b>${c.nome}</b><span>${c.areas ? `${plural(c.areas.length, 'área', 'áreas')} · ` : ''}${c.criterios.length ? plural(c.criterios.length, 'critério', 'critérios') : 'sem critério'}</span>${estado}${mais}</div>${corpo}</div>`
           );
         })
         .join('');
@@ -2760,10 +2848,28 @@ td:first-child .crit { min-width: 200px; }
       const filhos = s.canais
         .map((c, j) => {
           const id = `onde-${i}-${j}`;
+          const pausado = c.pausado ? ' <span class="suave">· pausado, não é verificado</span>' : '';
+          if (c.areas) {
+            // Canal com mais de uma área: o critério vai para a ÁREA. Marcar
+            // "o canal" não diria em qual delas ele vale.
+            const areas = c.areas
+              .map((a, k) => {
+                const marcada = marcados.includes(`${c.nome}/${a.nome}`) ? 'checked' : '';
+                return (
+                  `<li><div class="linha"><input class="caixa" type="checkbox" id="${id}-${k}" data-area-caixa data-area="${a.nome}" ${marcada}>` +
+                  `<label for="${id}-${k}">${a.nome}</label></div></li>`
+                );
+              })
+              .join('');
+            return (
+              `<li data-canal-no data-canal="${c.nome}"><div class="linha"><span class="arv-canal-nome">${c.nome}${pausado}</span>` +
+              `<span class="fim">${plural(c.areas.length, 'área', 'áreas')} · escolha onde</span></div><ul>${areas}</ul></li>`
+            );
+          }
           const marcado = marcados.includes(c.nome) ? 'checked' : '';
           return (
-            `<li><div class="linha"><input class="caixa" type="checkbox" id="${id}" data-canal-caixa ${marcado}>` +
-            `<label for="${id}">${c.nome}${c.pausado ? ' <span class="suave">· pausado, não é verificado</span>' : ''}</label></div></li>`
+            `<li data-canal-no data-canal="${c.nome}"><div class="linha"><input class="caixa" type="checkbox" id="${id}" data-canal-caixa ${marcado}>` +
+            `<label for="${id}">${c.nome}${pausado}</label></div></li>`
           );
         })
         .join('');
@@ -2777,23 +2883,36 @@ td:first-child .crit { min-width: 200px; }
 
   function atualizarOndeVale() {
     let total = 0;
+    const emAreas = [];
     for (const no of $$('[data-setor-no]')) {
-      const caixas = $$('[data-canal-caixa]', no);
-      const n = caixas.filter((c) => c.checked).length;
+      const canais = $$('[data-canal-no]', no);
+      let n = 0;
+      for (const canal of canais) {
+        const caixas = $$('input.caixa', canal);
+        const marcadas = caixas.filter((c) => c.checked);
+        if (marcadas.length) n += 1;
+        const deArea = marcadas.filter((c) => c.matches('[data-area-caixa]'));
+        if (deArea.length && deArea.length < caixas.length) {
+          emAreas.push(`em ${canal.dataset.canal}, só ${deArea.map((c) => `“${c.dataset.area}”`).join(' e ')}`);
+        }
+      }
       total += n;
+      const todas = $$('[data-canal-no] input.caixa', no);
+      const marcadasNoSetor = todas.filter((c) => c.checked).length;
       const pai = $('[data-setor-caixa]', no);
-      pai.checked = n === caixas.length;
-      pai.indeterminate = n > 0 && n < caixas.length;
-      $('[data-setor-conta]', no).textContent = `${n} de ${caixas.length}`;
+      pai.checked = todas.length > 0 && marcadasNoSetor === todas.length;
+      pai.indeterminate = marcadasNoSetor > 0 && marcadasNoSetor < todas.length;
+      $('[data-setor-conta]', no).textContent = `${n} de ${canais.length}`;
     }
+    const base = total === 1 ? 'Vale em 1 canal' : `Vale em ${total} canais`;
     $('[data-arv-conta]').textContent =
-      total === 0 ? 'Nenhum canal marcado.' : total === 1 ? 'Vale em 1 canal.' : `Vale em ${total} canais.`;
+      total === 0 ? 'Nenhum canal marcado.' : `${base}${emAreas.length ? ` — ${emAreas.join('; ')}` : ''}.`;
   }
 
   $('[data-arv-canais]').addEventListener('change', (ev) => {
     if (ev.target.matches('[data-setor-caixa]')) {
       const no = ev.target.closest('[data-setor-no]');
-      for (const c of $$('[data-canal-caixa]', no)) c.checked = ev.target.checked;
+      for (const c of $$('[data-canal-no] input.caixa', no)) c.checked = ev.target.checked;
     }
     atualizarOndeVale();
   });
@@ -3001,7 +3120,12 @@ td:first-child .crit { min-width: 200px; }
     if (id === 'folha-criterio') {
       const c = CRITERIOS[contexto.criterio];
       const marcados = editando && c
-        ? ARVORE.flatMap((s) => s.canais).filter((k) => k.criterios.includes(contexto.criterio)).map((k) => k.nome)
+        ? ARVORE.flatMap((s) => s.canais).flatMap((k) =>
+            // canal com áreas: o critério está marcado NA ÁREA em que vale
+            k.areas
+              ? k.areas.filter((a) => a.criterios.includes(contexto.criterio)).map((a) => `${k.nome}/${a.nome}`)
+              : k.criterios.includes(contexto.criterio) ? [k.nome] : [],
+          )
         : !editando && contexto.canalNovo ? [contexto.canalNovo] : [];
       desenharOndeVale(marcados);
       const tipo = { estado: 'estado', 'presença': 'presenca', contagem: 'contagem' }[editando && c ? c.tipo : 'estado'] || 'estado';
@@ -3041,6 +3165,28 @@ td:first-child .crit { min-width: 200px; }
       confirmar: 'Tirar do canal',
       depois: (n, c) => `“${n}” saiu de ${c.canal || 'um canal'}.`,
     },
+    'excluir-area': {
+      titulo: (n) => `Excluir a área “${n}”?`,
+      corpo: (c) => {
+        const a = areas.find((x) => x.nome === c.nome);
+        const nomes = a ? a.criterios.map((k) => `“${CRITERIOS[k].nome}”`) : [];
+        const um = nomes.length === 1;
+        return [
+          nomes.length
+            ? `${nomes.join(' e ')} <b>${um ? 'deixa' : 'deixam'} de ser ${um ? 'verificado' : 'verificados'} neste canal</b>. ` +
+              `Se era o único lugar ${um ? 'dele' : 'deles'}, o critério é desligado e fica em “Sem canal”.`
+            : 'Nenhum critério vale nesta área.',
+          'O que já foi registrado nela continua no histórico. As outras áreas deste canal não mudam.',
+        ];
+      },
+      confirmar: 'Excluir área',
+      depois: (n) => {
+        areas = areas.filter((x) => x.nome !== n);
+        sel = 0;
+        desenharArea();
+        return `Área “${n}” excluída.`;
+      },
+    },
     'novo-setor': {
       titulo: () => 'Novo setor',
       corpo: () => [
@@ -3074,7 +3220,10 @@ td:first-child .crit { min-width: 200px; }
     const folha = ev.target.closest('[data-folha]');
     if (folha) {
       const noCanal = folha.closest('.no-canal');
-      contexto.canalNovo = noCanal ? $('b', noCanal).textContent : '';
+      // "+ Critério" de uma ÁREA já abre com ela marcada.
+      contexto.canalNovo =
+        folha.dataset.lugar ||
+        (folha.dataset.criterioNaArea !== undefined ? `Balcão/${areas[sel].nome}` : noCanal ? $('b', noCanal).textContent : '');
       const dono = folha.closest('.criterio');
       if (dono && folha.dataset.nome) contexto = { ...contexto, nome: folha.dataset.nome, criterio: '' };
       abrirFolha(folha.dataset.folha, folha.dataset.modo || 'novo', folha.closest('.menu') ? ultimoGatilho : folha);
@@ -3119,38 +3268,89 @@ td:first-child .crit { min-width: 200px; }
     }
   });
 
-  // ═══════════════════════ área do canal ═══════════════════════
+  // ═══════════════════════ áreas do canal ═══════════════════════
+  // Um canal pode ter mais de uma área, e cada área tem os seus critérios:
+  // presença se confere dentro do balcão; fila, do lado do cliente.
   const quadro = $('[data-quadro]');
-  const ret = $('[data-ret]');
+  const rets = $('[data-rets]');
   const fora = $('[data-fora]');
   const coord = Object.fromEntries($$('[data-coord]').map((e) => [e.dataset.coord, e]));
   const prender = (v) => Math.min(1, Math.max(0, v));
-  let area = { x1: 0.1, y1: 0.26, x2: 0.9, y2: 0.84 };
+  const limpo = (v) => String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const CORES_DE_AREA = ['#F2B03C', '#5AA9FF', '#7FD08A', '#C792EA'];
+  let areas = [
+    { nome: 'Dentro do balcão', x1: 0.04, y1: 0.07, x2: 0.44, y2: 0.95, largura: 220, criterios: ['posto'] },
+    { nome: 'Lado do cliente', x1: 0.56, y1: 0.07, x2: 0.93, y2: 0.95, largura: 260, criterios: ['fila'] },
+  ];
+  let sel = 0;
   let arraste = null;
 
   function desenharArea(escreverCampos = true) {
-    const { x1, y1, x2, y2 } = area;
+    if (sel >= areas.length) sel = areas.length - 1;
+    const a = areas[sel];
+    const { x1, y1, x2, y2 } = a;
     const pc = (v) => `${(v * 100).toFixed(2)}%`;
-    ret.style.left = pc(x1);
-    ret.style.top = pc(y1);
-    ret.style.width = pc(x2 - x1);
-    ret.style.height = pc(y2 - y1);
-    ret.dataset.rotulo = $('#area-nome').value || 'área';
+    const cor = (i) => CORES_DE_AREA[i % CORES_DE_AREA.length];
+
+    // todas as áreas no quadro; a selecionada é a de borda cheia
+    rets.innerHTML = areas
+      .map(
+        (r, i) =>
+          `<div class="ret${i === sel ? '' : ' outra'}" data-ret-i="${i}" data-rotulo="${limpo(r.nome)}" ` +
+          `style="left:${pc(r.x1)};top:${pc(r.y1)};width:${pc(r.x2 - r.x1)};height:${pc(r.y2 - r.y1)};--cor:${cor(i)}"></div>`,
+      )
+      .join('');
     fora.style.clipPath =
       `polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${pc(x1)} ${pc(y1)}, ${pc(x1)} ${pc(y2)}, ` +
       `${pc(x2)} ${pc(y2)}, ${pc(x2)} ${pc(y1)}, ${pc(x1)} ${pc(y1)})`;
-    if (escreverCampos) for (const k of Object.keys(coord)) coord[k].value = area[k].toFixed(2);
+    if (escreverCampos) {
+      for (const k of Object.keys(coord)) coord[k].value = a[k].toFixed(2);
+      $('#area-nome').value = a.nome;
+      $('#area-largura').value = a.largura || '';
+    }
 
-    const largura = Number($('#area-largura').value);
+    // a lista de áreas do canal
+    const unica = areas.length === 1;
+    $('[data-areas]').innerHTML = areas
+      .map((r, i) => {
+        const n = r.criterios.length;
+        const excluir = unica
+          ? 'disabled title="O canal precisa de pelo menos uma área"'
+          : `data-dialogo="excluir-area" data-nome="${limpo(r.nome)}"`;
+        return (
+          `<li><button type="button" class="area-item" aria-pressed="${i === sel}" data-area-item="${i}">` +
+          `<i class="cor" style="--c:${cor(i)}"></i>` +
+          `<span><b>${limpo(r.nome)}</b><small>${n ? plural(n, 'critério', 'critérios') : 'sem critério'}</small></span></button>` +
+          `<button class="btn fantasma quadrado mini" type="button" data-so-config ${excluir} aria-label="Excluir a área ${limpo(r.nome)}">${icone('trash-2')}</button></li>`
+        );
+      })
+      .join('');
+
+    // os critérios da área selecionada
+    $('[data-area-crit-titulo]').textContent = `Critérios em “${a.nome}”`;
+    $('[data-area-criterios]').innerHTML = a.criterios.length
+      ? a.criterios
+          .map((k) => {
+            const c = CRITERIOS[k];
+            return (
+              `<li><span class="selo-ic">${icone(ICONE_DO_TIPO[c.tipo])}</span>` +
+              `<span><b>${c.nome}</b><small>${c.tipo}${c.procura ? ` · ${c.procura}` : ''}</small></span>` +
+              `<span class="chip ${c.ligado ? 'ok' : ''}">${c.ligado ? 'ligado' : 'desligado'}</span></li>`
+            );
+          })
+          .join('')
+      : '<li class="vazio-linha">Nenhum critério nesta área. Nada é verificado nela.</li>';
+
+    const largura = Number(a.largura);
     const fracao = Math.round((x2 - x1) * (y2 - y1) * 100);
     const linhas = [`<div><dt>do quadro</dt><dd><span class="mono">${fracao}%</span></dd></div>`, '<div><dt>imagem do canal</dt><dd><span class="mono">1920 px</span></dd></div>'];
     if (largura > 0) {
       for (const px of [384, 640, 1000, 1920]) {
         const v = px / largura;
-        const [nome, cor] =
+        const [nome, corDoChip] =
           v >= 12.8 ? ['montagem', 'ok'] : v >= 3 ? ['estado', 'ok'] : v >= 1.5 ? ['presença', 'atencao'] : ['insuficiente', 'critico'];
         linhas.push(
-          `<div><dt>envio de ${px} px</dt><dd><span class="mono">${v.toFixed(1).replace('.', ',')}</span> por cm <span class="chip ${cor}">${nome}</span></dd></div>`,
+          `<div><dt>envio de ${px} px</dt><dd><span class="mono">${v.toFixed(1).replace('.', ',')}</span> por cm <span class="chip ${corDoChip}">${nome}</span></dd></div>`,
         );
       }
     }
@@ -3162,39 +3362,69 @@ td:first-child .crit { min-width: 200px; }
     return { x: prender((ev.clientX - c.left) / c.width), y: prender((ev.clientY - c.top) / c.height) };
   }
   quadro.addEventListener('pointerdown', (ev) => {
+    // clicar em OUTRA área seleciona; arrastar redesenha a selecionada
+    const outra = ev.target.closest('[data-ret-i]');
+    if (outra && Number(outra.dataset.retI) !== sel) {
+      sel = Number(outra.dataset.retI);
+      desenharArea();
+      return;
+    }
     quadro.setPointerCapture?.(ev.pointerId);
     arraste = posicao(ev);
-    area = { x1: arraste.x, y1: arraste.y, x2: arraste.x, y2: arraste.y };
+    Object.assign(areas[sel], { x1: arraste.x, y1: arraste.y, x2: arraste.x, y2: arraste.y });
     desenharArea();
   });
   quadro.addEventListener('pointermove', (ev) => {
     if (!arraste) return;
     const p = posicao(ev);
-    area = {
+    Object.assign(areas[sel], {
       x1: Math.min(arraste.x, p.x), y1: Math.min(arraste.y, p.y),
       x2: Math.max(arraste.x, p.x), y2: Math.max(arraste.y, p.y),
-    };
+    });
     desenharArea();
   });
   const soltar = () => {
     if (!arraste) return;
     arraste = null;
-    if (area.x2 - area.x1 < 0.02 || area.y2 - area.y1 < 0.02) area = { x1: 0, y1: 0, x2: 1, y2: 1 };
+    const a = areas[sel];
+    if (a.x2 - a.x1 < 0.02 || a.y2 - a.y1 < 0.02) Object.assign(a, { x1: 0, y1: 0, x2: 1, y2: 1 });
     desenharArea();
   };
   quadro.addEventListener('pointerup', soltar);
   quadro.addEventListener('pointercancel', soltar);
   for (const k of Object.keys(coord)) {
     coord[k].addEventListener('input', () => {
-      area[k] = prender(Number(coord[k].value));
+      areas[sel][k] = prender(Number(coord[k].value));
       desenharArea(false);
     });
   }
-  $('#area-largura').addEventListener('input', () => desenharArea(false));
-  $('#area-nome').addEventListener('input', () => desenharArea(false));
+  $('#area-largura').addEventListener('input', () => {
+    areas[sel].largura = Number($('#area-largura').value) || 0;
+    desenharArea(false);
+  });
+  $('#area-nome').addEventListener('input', () => {
+    areas[sel].nome = $('#area-nome').value.trim() || 'área';
+    desenharArea(false);
+  });
   $('[data-quadro-inteiro]').addEventListener('click', () => {
-    area = { x1: 0, y1: 0, x2: 1, y2: 1 };
+    Object.assign(areas[sel], { x1: 0, y1: 0, x2: 1, y2: 1 });
     desenharArea();
+  });
+  $('[data-areas]').addEventListener('click', (ev) => {
+    const item = ev.target.closest('[data-area-item]');
+    if (!item) return;
+    sel = Number(item.dataset.areaItem);
+    desenharArea();
+  });
+  $('[data-nova-area]').addEventListener('click', () => {
+    let n = areas.length + 1;
+    while (areas.some((x) => x.nome === `Área ${n}`)) n += 1;
+    areas.push({ nome: `Área ${n}`, x1: 0.3, y1: 0.3, x2: 0.7, y2: 0.7, largura: 0, criterios: [] });
+    sel = areas.length - 1;
+    desenharArea();
+    $('#area-nome').focus();
+    $('#area-nome').select();
+    avisar('Área criada. Arraste na imagem para posicionar, dê um nome e salve.');
   });
   for (const b of $$('[data-atualizar-quadro]')) {
     b.addEventListener('click', () => {

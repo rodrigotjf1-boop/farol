@@ -32,7 +32,7 @@
         ['Bancada limpa entre pedidos', 'Montagem 1', 196, 14, 2, '0,87', '1,9 s', '21:42'],
         ['Bancada limpa entre pedidos', 'Montagem 2', 187, 9, 2, '0,85', '1,9 s', '21:38'],
         ['Alguém na chapa no horário de pico', 'Chapa', 251, 11, 2, '0,93', '0,09 s', '21:44'],
-        ['Fila no balcão', 'Balcão', 281, 5, 2, '0,90', '0,09 s', '21:45'],
+        ['Fila no balcão', 'Balcão · Lado do cliente', 281, 5, 2, '0,90', '0,09 s', '21:45'],
         ['Uso de touca', 'Montagem 1', 44, 1, 51, '0,71', '2,1 s', '21:40', 'avalia pouco'],
         ['Uso de touca', 'Montagem 2', 49, 1, 38, '0,73', '2,0 s', '21:36', 'avalia pouco'],
         ['Uso de touca', 'Chapa', 86, 0, 4, '0,82', '2,0 s', '21:41'],
@@ -51,7 +51,7 @@
         ['Bancada limpa entre pedidos', 'Montagem 1', 1432, 112, 16, '0,86', '1,9 s', 'hoje 21:42'],
         ['Bancada limpa entre pedidos', 'Montagem 2', 1352, 84, 14, '0,85', '1,9 s', 'hoje 21:38'],
         ['Alguém na chapa no horário de pico', 'Chapa', 1832, 94, 14, '0,92', '0,09 s', 'hoje 21:44'],
-        ['Fila no balcão', 'Balcão', 2046, 50, 14, '0,90', '0,09 s', 'hoje 21:45'],
+        ['Fila no balcão', 'Balcão · Lado do cliente', 2046, 50, 14, '0,90', '0,09 s', 'hoje 21:45'],
         ['Uso de touca', 'Montagem 1', 316, 14, 370, '0,70', '2,1 s', 'hoje 21:40', 'avalia pouco'],
         ['Uso de touca', 'Montagem 2', 356, 10, 282, '0,72', '2,0 s', 'hoje 21:36', 'avalia pouco'],
         ['Uso de touca', 'Chapa', 627, 8, 28, '0,82', '2,0 s', 'hoje 21:41'],
@@ -93,6 +93,12 @@
       texto: 'Há no máximo 6 pessoas esperando na área do balcão.',
       meta: 'prioridade urgente · confiança mínima 0,75 · silêncio de 10 min · versão 2',
     },
+    posto: {
+      nome: 'Alguém no balcão', tipo: 'presença', gravidade: 'atenção', ligado: true, canais: 1,
+      procura: 'pelo menos 1 × pessoa',
+      texto: 'Há pelo menos um colaborador atrás do balcão de atendimento.',
+      meta: 'prioridade intermediária · confiança mínima 0,70 · silêncio de 15 min · versão 1',
+    },
   };
 
   const ICONE_DO_TIPO = {
@@ -113,7 +119,14 @@
     {
       setor: 'Atendimento',
       canais: [
-        { nome: 'Balcão', num: '01', criterios: ['fila'] },
+        // Um canal, duas áreas: cada critério vale só na sua.
+        {
+          nome: 'Balcão', num: '01', criterios: ['posto', 'fila'],
+          areas: [
+            { nome: 'Dentro do balcão', criterios: ['posto'] },
+            { nome: 'Lado do cliente', criterios: ['fila'] },
+          ],
+        },
         { nome: 'Caixa', num: 'IP', criterios: [] },
       ],
     },
@@ -350,15 +363,30 @@
             : c.semImagem
               ? `<span class="chip critico">${icone('video-off')}sem imagem</span>`
               : '';
-          const corpo = c.criterios.length
-            ? c.criterios.map((k) => cartaoDoCriterio(k, c.nome)).join('')
-            : `<p class="vazio-linha">Nenhum critério neste canal. Nada é verificado aqui.</p>`;
-          const mais = c.pausado
+          const corpo = c.areas
+            ? c.areas
+                .map(
+                  (a) =>
+                    `<div class="no-area"><div class="no-area-cab">${icone('crop', 'p')}<b>${a.nome}</b>` +
+                    `<span>${a.criterios.length ? plural(a.criterios.length, 'critério', 'critérios') : 'sem critério'}</span>` +
+                    `<button class="btn fantasma mini empurra" type="button" data-folha="folha-criterio" data-modo="novo" data-lugar="${c.nome}/${a.nome}" data-so-config>` +
+                    `${icone('plus', 'p')}Critério<span class="so-leitor"> em ${a.nome}, ${c.nome}</span></button></div>` +
+                    (a.criterios.length
+                      ? a.criterios.map((k) => cartaoDoCriterio(k, c.nome)).join('')
+                      : `<p class="vazio-linha">Nenhum critério nesta área. Nada é verificado nela.</p>`) +
+                    `</div>`,
+                )
+                .join('')
+            : c.criterios.length
+              ? c.criterios.map((k) => cartaoDoCriterio(k, c.nome)).join('')
+              : `<p class="vazio-linha">Nenhum critério neste canal. Nada é verificado aqui.</p>`;
+          // Com áreas, o "+ Critério" fica em cada área: é ali que ele vai valer.
+          const mais = c.pausado || c.areas
             ? ''
             : `<button class="btn fantasma mini empurra" type="button" data-folha="folha-criterio" data-modo="novo" data-so-config>${icone('plus', 'p')}Critério<span class="so-leitor"> em ${c.nome}</span></button>`;
           return (
             `<div class="no-canal"><div class="no-canal-cab"><span class="canal-num">${c.num}</span>` +
-            `<b>${c.nome}</b><span>${c.criterios.length ? plural(c.criterios.length, 'critério', 'critérios') : 'sem critério'}</span>${estado}${mais}</div>${corpo}</div>`
+            `<b>${c.nome}</b><span>${c.areas ? `${plural(c.areas.length, 'área', 'áreas')} · ` : ''}${c.criterios.length ? plural(c.criterios.length, 'critério', 'critérios') : 'sem critério'}</span>${estado}${mais}</div>${corpo}</div>`
           );
         })
         .join('');
@@ -389,10 +417,28 @@
       const filhos = s.canais
         .map((c, j) => {
           const id = `onde-${i}-${j}`;
+          const pausado = c.pausado ? ' <span class="suave">· pausado, não é verificado</span>' : '';
+          if (c.areas) {
+            // Canal com mais de uma área: o critério vai para a ÁREA. Marcar
+            // "o canal" não diria em qual delas ele vale.
+            const areas = c.areas
+              .map((a, k) => {
+                const marcada = marcados.includes(`${c.nome}/${a.nome}`) ? 'checked' : '';
+                return (
+                  `<li><div class="linha"><input class="caixa" type="checkbox" id="${id}-${k}" data-area-caixa data-area="${a.nome}" ${marcada}>` +
+                  `<label for="${id}-${k}">${a.nome}</label></div></li>`
+                );
+              })
+              .join('');
+            return (
+              `<li data-canal-no data-canal="${c.nome}"><div class="linha"><span class="arv-canal-nome">${c.nome}${pausado}</span>` +
+              `<span class="fim">${plural(c.areas.length, 'área', 'áreas')} · escolha onde</span></div><ul>${areas}</ul></li>`
+            );
+          }
           const marcado = marcados.includes(c.nome) ? 'checked' : '';
           return (
-            `<li><div class="linha"><input class="caixa" type="checkbox" id="${id}" data-canal-caixa ${marcado}>` +
-            `<label for="${id}">${c.nome}${c.pausado ? ' <span class="suave">· pausado, não é verificado</span>' : ''}</label></div></li>`
+            `<li data-canal-no data-canal="${c.nome}"><div class="linha"><input class="caixa" type="checkbox" id="${id}" data-canal-caixa ${marcado}>` +
+            `<label for="${id}">${c.nome}${pausado}</label></div></li>`
           );
         })
         .join('');
@@ -406,23 +452,36 @@
 
   function atualizarOndeVale() {
     let total = 0;
+    const emAreas = [];
     for (const no of $$('[data-setor-no]')) {
-      const caixas = $$('[data-canal-caixa]', no);
-      const n = caixas.filter((c) => c.checked).length;
+      const canais = $$('[data-canal-no]', no);
+      let n = 0;
+      for (const canal of canais) {
+        const caixas = $$('input.caixa', canal);
+        const marcadas = caixas.filter((c) => c.checked);
+        if (marcadas.length) n += 1;
+        const deArea = marcadas.filter((c) => c.matches('[data-area-caixa]'));
+        if (deArea.length && deArea.length < caixas.length) {
+          emAreas.push(`em ${canal.dataset.canal}, só ${deArea.map((c) => `“${c.dataset.area}”`).join(' e ')}`);
+        }
+      }
       total += n;
+      const todas = $$('[data-canal-no] input.caixa', no);
+      const marcadasNoSetor = todas.filter((c) => c.checked).length;
       const pai = $('[data-setor-caixa]', no);
-      pai.checked = n === caixas.length;
-      pai.indeterminate = n > 0 && n < caixas.length;
-      $('[data-setor-conta]', no).textContent = `${n} de ${caixas.length}`;
+      pai.checked = todas.length > 0 && marcadasNoSetor === todas.length;
+      pai.indeterminate = marcadasNoSetor > 0 && marcadasNoSetor < todas.length;
+      $('[data-setor-conta]', no).textContent = `${n} de ${canais.length}`;
     }
+    const base = total === 1 ? 'Vale em 1 canal' : `Vale em ${total} canais`;
     $('[data-arv-conta]').textContent =
-      total === 0 ? 'Nenhum canal marcado.' : total === 1 ? 'Vale em 1 canal.' : `Vale em ${total} canais.`;
+      total === 0 ? 'Nenhum canal marcado.' : `${base}${emAreas.length ? ` — ${emAreas.join('; ')}` : ''}.`;
   }
 
   $('[data-arv-canais]').addEventListener('change', (ev) => {
     if (ev.target.matches('[data-setor-caixa]')) {
       const no = ev.target.closest('[data-setor-no]');
-      for (const c of $$('[data-canal-caixa]', no)) c.checked = ev.target.checked;
+      for (const c of $$('[data-canal-no] input.caixa', no)) c.checked = ev.target.checked;
     }
     atualizarOndeVale();
   });
@@ -630,7 +689,12 @@
     if (id === 'folha-criterio') {
       const c = CRITERIOS[contexto.criterio];
       const marcados = editando && c
-        ? ARVORE.flatMap((s) => s.canais).filter((k) => k.criterios.includes(contexto.criterio)).map((k) => k.nome)
+        ? ARVORE.flatMap((s) => s.canais).flatMap((k) =>
+            // canal com áreas: o critério está marcado NA ÁREA em que vale
+            k.areas
+              ? k.areas.filter((a) => a.criterios.includes(contexto.criterio)).map((a) => `${k.nome}/${a.nome}`)
+              : k.criterios.includes(contexto.criterio) ? [k.nome] : [],
+          )
         : !editando && contexto.canalNovo ? [contexto.canalNovo] : [];
       desenharOndeVale(marcados);
       const tipo = { estado: 'estado', 'presença': 'presenca', contagem: 'contagem' }[editando && c ? c.tipo : 'estado'] || 'estado';
@@ -670,6 +734,28 @@
       confirmar: 'Tirar do canal',
       depois: (n, c) => `“${n}” saiu de ${c.canal || 'um canal'}.`,
     },
+    'excluir-area': {
+      titulo: (n) => `Excluir a área “${n}”?`,
+      corpo: (c) => {
+        const a = areas.find((x) => x.nome === c.nome);
+        const nomes = a ? a.criterios.map((k) => `“${CRITERIOS[k].nome}”`) : [];
+        const um = nomes.length === 1;
+        return [
+          nomes.length
+            ? `${nomes.join(' e ')} <b>${um ? 'deixa' : 'deixam'} de ser ${um ? 'verificado' : 'verificados'} neste canal</b>. ` +
+              `Se era o único lugar ${um ? 'dele' : 'deles'}, o critério é desligado e fica em “Sem canal”.`
+            : 'Nenhum critério vale nesta área.',
+          'O que já foi registrado nela continua no histórico. As outras áreas deste canal não mudam.',
+        ];
+      },
+      confirmar: 'Excluir área',
+      depois: (n) => {
+        areas = areas.filter((x) => x.nome !== n);
+        sel = 0;
+        desenharArea();
+        return `Área “${n}” excluída.`;
+      },
+    },
     'novo-setor': {
       titulo: () => 'Novo setor',
       corpo: () => [
@@ -703,7 +789,10 @@
     const folha = ev.target.closest('[data-folha]');
     if (folha) {
       const noCanal = folha.closest('.no-canal');
-      contexto.canalNovo = noCanal ? $('b', noCanal).textContent : '';
+      // "+ Critério" de uma ÁREA já abre com ela marcada.
+      contexto.canalNovo =
+        folha.dataset.lugar ||
+        (folha.dataset.criterioNaArea !== undefined ? `Balcão/${areas[sel].nome}` : noCanal ? $('b', noCanal).textContent : '');
       const dono = folha.closest('.criterio');
       if (dono && folha.dataset.nome) contexto = { ...contexto, nome: folha.dataset.nome, criterio: '' };
       abrirFolha(folha.dataset.folha, folha.dataset.modo || 'novo', folha.closest('.menu') ? ultimoGatilho : folha);
@@ -748,38 +837,89 @@
     }
   });
 
-  // ═══════════════════════ área do canal ═══════════════════════
+  // ═══════════════════════ áreas do canal ═══════════════════════
+  // Um canal pode ter mais de uma área, e cada área tem os seus critérios:
+  // presença se confere dentro do balcão; fila, do lado do cliente.
   const quadro = $('[data-quadro]');
-  const ret = $('[data-ret]');
+  const rets = $('[data-rets]');
   const fora = $('[data-fora]');
   const coord = Object.fromEntries($$('[data-coord]').map((e) => [e.dataset.coord, e]));
   const prender = (v) => Math.min(1, Math.max(0, v));
-  let area = { x1: 0.1, y1: 0.26, x2: 0.9, y2: 0.84 };
+  const limpo = (v) => String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const CORES_DE_AREA = ['#F2B03C', '#5AA9FF', '#7FD08A', '#C792EA'];
+  let areas = [
+    { nome: 'Dentro do balcão', x1: 0.04, y1: 0.07, x2: 0.44, y2: 0.95, largura: 220, criterios: ['posto'] },
+    { nome: 'Lado do cliente', x1: 0.56, y1: 0.07, x2: 0.93, y2: 0.95, largura: 260, criterios: ['fila'] },
+  ];
+  let sel = 0;
   let arraste = null;
 
   function desenharArea(escreverCampos = true) {
-    const { x1, y1, x2, y2 } = area;
+    if (sel >= areas.length) sel = areas.length - 1;
+    const a = areas[sel];
+    const { x1, y1, x2, y2 } = a;
     const pc = (v) => `${(v * 100).toFixed(2)}%`;
-    ret.style.left = pc(x1);
-    ret.style.top = pc(y1);
-    ret.style.width = pc(x2 - x1);
-    ret.style.height = pc(y2 - y1);
-    ret.dataset.rotulo = $('#area-nome').value || 'área';
+    const cor = (i) => CORES_DE_AREA[i % CORES_DE_AREA.length];
+
+    // todas as áreas no quadro; a selecionada é a de borda cheia
+    rets.innerHTML = areas
+      .map(
+        (r, i) =>
+          `<div class="ret${i === sel ? '' : ' outra'}" data-ret-i="${i}" data-rotulo="${limpo(r.nome)}" ` +
+          `style="left:${pc(r.x1)};top:${pc(r.y1)};width:${pc(r.x2 - r.x1)};height:${pc(r.y2 - r.y1)};--cor:${cor(i)}"></div>`,
+      )
+      .join('');
     fora.style.clipPath =
       `polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${pc(x1)} ${pc(y1)}, ${pc(x1)} ${pc(y2)}, ` +
       `${pc(x2)} ${pc(y2)}, ${pc(x2)} ${pc(y1)}, ${pc(x1)} ${pc(y1)})`;
-    if (escreverCampos) for (const k of Object.keys(coord)) coord[k].value = area[k].toFixed(2);
+    if (escreverCampos) {
+      for (const k of Object.keys(coord)) coord[k].value = a[k].toFixed(2);
+      $('#area-nome').value = a.nome;
+      $('#area-largura').value = a.largura || '';
+    }
 
-    const largura = Number($('#area-largura').value);
+    // a lista de áreas do canal
+    const unica = areas.length === 1;
+    $('[data-areas]').innerHTML = areas
+      .map((r, i) => {
+        const n = r.criterios.length;
+        const excluir = unica
+          ? 'disabled title="O canal precisa de pelo menos uma área"'
+          : `data-dialogo="excluir-area" data-nome="${limpo(r.nome)}"`;
+        return (
+          `<li><button type="button" class="area-item" aria-pressed="${i === sel}" data-area-item="${i}">` +
+          `<i class="cor" style="--c:${cor(i)}"></i>` +
+          `<span><b>${limpo(r.nome)}</b><small>${n ? plural(n, 'critério', 'critérios') : 'sem critério'}</small></span></button>` +
+          `<button class="btn fantasma quadrado mini" type="button" data-so-config ${excluir} aria-label="Excluir a área ${limpo(r.nome)}">${icone('trash-2')}</button></li>`
+        );
+      })
+      .join('');
+
+    // os critérios da área selecionada
+    $('[data-area-crit-titulo]').textContent = `Critérios em “${a.nome}”`;
+    $('[data-area-criterios]').innerHTML = a.criterios.length
+      ? a.criterios
+          .map((k) => {
+            const c = CRITERIOS[k];
+            return (
+              `<li><span class="selo-ic">${icone(ICONE_DO_TIPO[c.tipo])}</span>` +
+              `<span><b>${c.nome}</b><small>${c.tipo}${c.procura ? ` · ${c.procura}` : ''}</small></span>` +
+              `<span class="chip ${c.ligado ? 'ok' : ''}">${c.ligado ? 'ligado' : 'desligado'}</span></li>`
+            );
+          })
+          .join('')
+      : '<li class="vazio-linha">Nenhum critério nesta área. Nada é verificado nela.</li>';
+
+    const largura = Number(a.largura);
     const fracao = Math.round((x2 - x1) * (y2 - y1) * 100);
     const linhas = [`<div><dt>do quadro</dt><dd><span class="mono">${fracao}%</span></dd></div>`, '<div><dt>imagem do canal</dt><dd><span class="mono">1920 px</span></dd></div>'];
     if (largura > 0) {
       for (const px of [384, 640, 1000, 1920]) {
         const v = px / largura;
-        const [nome, cor] =
+        const [nome, corDoChip] =
           v >= 12.8 ? ['montagem', 'ok'] : v >= 3 ? ['estado', 'ok'] : v >= 1.5 ? ['presença', 'atencao'] : ['insuficiente', 'critico'];
         linhas.push(
-          `<div><dt>envio de ${px} px</dt><dd><span class="mono">${v.toFixed(1).replace('.', ',')}</span> por cm <span class="chip ${cor}">${nome}</span></dd></div>`,
+          `<div><dt>envio de ${px} px</dt><dd><span class="mono">${v.toFixed(1).replace('.', ',')}</span> por cm <span class="chip ${corDoChip}">${nome}</span></dd></div>`,
         );
       }
     }
@@ -791,39 +931,69 @@
     return { x: prender((ev.clientX - c.left) / c.width), y: prender((ev.clientY - c.top) / c.height) };
   }
   quadro.addEventListener('pointerdown', (ev) => {
+    // clicar em OUTRA área seleciona; arrastar redesenha a selecionada
+    const outra = ev.target.closest('[data-ret-i]');
+    if (outra && Number(outra.dataset.retI) !== sel) {
+      sel = Number(outra.dataset.retI);
+      desenharArea();
+      return;
+    }
     quadro.setPointerCapture?.(ev.pointerId);
     arraste = posicao(ev);
-    area = { x1: arraste.x, y1: arraste.y, x2: arraste.x, y2: arraste.y };
+    Object.assign(areas[sel], { x1: arraste.x, y1: arraste.y, x2: arraste.x, y2: arraste.y });
     desenharArea();
   });
   quadro.addEventListener('pointermove', (ev) => {
     if (!arraste) return;
     const p = posicao(ev);
-    area = {
+    Object.assign(areas[sel], {
       x1: Math.min(arraste.x, p.x), y1: Math.min(arraste.y, p.y),
       x2: Math.max(arraste.x, p.x), y2: Math.max(arraste.y, p.y),
-    };
+    });
     desenharArea();
   });
   const soltar = () => {
     if (!arraste) return;
     arraste = null;
-    if (area.x2 - area.x1 < 0.02 || area.y2 - area.y1 < 0.02) area = { x1: 0, y1: 0, x2: 1, y2: 1 };
+    const a = areas[sel];
+    if (a.x2 - a.x1 < 0.02 || a.y2 - a.y1 < 0.02) Object.assign(a, { x1: 0, y1: 0, x2: 1, y2: 1 });
     desenharArea();
   };
   quadro.addEventListener('pointerup', soltar);
   quadro.addEventListener('pointercancel', soltar);
   for (const k of Object.keys(coord)) {
     coord[k].addEventListener('input', () => {
-      area[k] = prender(Number(coord[k].value));
+      areas[sel][k] = prender(Number(coord[k].value));
       desenharArea(false);
     });
   }
-  $('#area-largura').addEventListener('input', () => desenharArea(false));
-  $('#area-nome').addEventListener('input', () => desenharArea(false));
+  $('#area-largura').addEventListener('input', () => {
+    areas[sel].largura = Number($('#area-largura').value) || 0;
+    desenharArea(false);
+  });
+  $('#area-nome').addEventListener('input', () => {
+    areas[sel].nome = $('#area-nome').value.trim() || 'área';
+    desenharArea(false);
+  });
   $('[data-quadro-inteiro]').addEventListener('click', () => {
-    area = { x1: 0, y1: 0, x2: 1, y2: 1 };
+    Object.assign(areas[sel], { x1: 0, y1: 0, x2: 1, y2: 1 });
     desenharArea();
+  });
+  $('[data-areas]').addEventListener('click', (ev) => {
+    const item = ev.target.closest('[data-area-item]');
+    if (!item) return;
+    sel = Number(item.dataset.areaItem);
+    desenharArea();
+  });
+  $('[data-nova-area]').addEventListener('click', () => {
+    let n = areas.length + 1;
+    while (areas.some((x) => x.nome === `Área ${n}`)) n += 1;
+    areas.push({ nome: `Área ${n}`, x1: 0.3, y1: 0.3, x2: 0.7, y2: 0.7, largura: 0, criterios: [] });
+    sel = areas.length - 1;
+    desenharArea();
+    $('#area-nome').focus();
+    $('#area-nome').select();
+    avisar('Área criada. Arraste na imagem para posicionar, dê um nome e salve.');
   });
   for (const b of $$('[data-atualizar-quadro]')) {
     b.addEventListener('click', () => {
