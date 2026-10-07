@@ -160,6 +160,7 @@ class Auditoria:
             url_do_ponto(ponto),
             url_sub=url_do_ponto(ponto, sub=True),
             abrir_sub=True,
+            alcance=(ponto.host, int(ponto.porta or 554)) if ponto.host else None,
         )
 
     @staticmethod

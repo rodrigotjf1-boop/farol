@@ -1032,6 +1032,27 @@ def cmd_servir(args: argparse.Namespace) -> int:
         auditoria.iniciar()
         print(f"auditoria ligada: captura a cada {args.intervalo_captura:g}s")
 
+    visor = None
+    if args.visor:
+        from datetime import datetime
+
+        from farol_agent.visor import Visor
+
+        def _emprestado(ponto_id: str):
+            # Canal que a auditoria já mantém aberto: a página usa o quadro
+            # dela em vez de abrir uma segunda conexão com o gravador.
+            fonte = auditoria.fontes.get(ponto_id) if auditoria is not None else None
+            if fonte is None or not getattr(fonte, "url_sub", None):
+                return None
+            f = fonte.quadro(datetime.now(), stream="sub")
+            return (f.ts, f.imagem) if f is not None else None
+
+        visor = Visor(lambda: sincronizador.config, porta=args.visor_porta, emprestado=_emprestado)
+        if visor.iniciar():
+            print(f"canais no navegador DESTE computador: {visor.endereco}")
+        else:
+            visor = None
+
     try:
         laco(
             sincronizador,
@@ -1043,6 +1064,8 @@ def cmd_servir(args: argparse.Namespace) -> int:
     except KeyboardInterrupt:
         print("\n  parado\n")
     finally:
+        if visor is not None:
+            visor.parar()
         if auditoria is not None:
             auditoria.parar()
     return 0
@@ -1199,7 +1222,11 @@ def main(argv: list[str] | None = None) -> int:
                     help="segundos entre capturas de cada canal (padrão 30)")
     sv.add_argument("--sem-auditoria", dest="sem_auditoria", action="store_true",
                     help="só sincroniza e atende comandos, sem analisar nada")
-    sv.set_defaults(func=cmd_servir, sem_auditoria=False)
+    sv.add_argument("--visor", action="store_true",
+                    help="abre a página dos canais no navegador DESTE computador (só 127.0.0.1)")
+    sv.add_argument("--visor-porta", type=int, default=8765, dest="visor_porta",
+                    help="porta da página dos canais (padrão 8765)")
+    sv.set_defaults(func=cmd_servir, sem_auditoria=False, visor=False)
 
     args = p.parse_args(argv)
     return int(args.func(args))
