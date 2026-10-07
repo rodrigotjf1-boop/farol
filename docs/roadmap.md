@@ -1247,7 +1247,7 @@ olhando imagem; da próxima vez, quem olha é o dono, na tela dele.
 
 ---
 
-## A12 · Base de equipamentos, classe dos canais e orçamento — 🟡 passo 2 de 4 (07/10/2026)
+## A12 · Base de equipamentos, classe dos canais e orçamento — 🟡 3 de 4 passos (07/10/2026)
 
 **Pedido do dono (07/10/2026):**
 
@@ -1288,7 +1288,7 @@ viraram cadastro.
 | **1 · a base** | `catalogo/`: 39 modelos, com nível, motivo, para que serve, preço datado e o que foi medido na loja. Conferida por teste a cada envio | ✅ feito |
 | **2 · a carga** | a API copia os arquivos para o banco **a cada subida** (`api/src/catalogo.ts`): só a linha que mudou, nunca apaga, e arquivo com defeito não grava nada. A tabela ganha `nivel`, `medido`, `precos` e `fontes`. O requisito de cada uso veio para `catalogo/usos.json`. `/saude` devolve quantos modelos há no banco | ✅ feito (migration 015) |
 | **3 · a classe do canal e o orçamento** | ver abaixo | a fazer |
-| **4 · os canais no navegador do PC de análise** | ver abaixo | a fazer |
+| **4 · os canais no navegador do PC de análise** | `farol-agent servir --visor`: o mosaico em `http://127.0.0.1:8765`, só neste computador | ✅ feito |
 
 ### Passo 3 — a classe de cada canal sai do uso, e o orçamento sai da classe
 
@@ -1310,16 +1310,33 @@ tem, e apresenta **opções** — até três por canal, uma por nível, só entr
 equipamentos que servem àquele uso. É o "motor de dimensionamento" que este
 roadmap já descrevia, agora com dado para rodar.
 
-### Passo 4 — os canais no navegador, no PC de análise
+### Passo 4 — os canais no navegador, no PC de análise ✅
 
-Uma página local, servida pelo próprio agente, com o mosaico dos canais.
+`farol-agent servir --visor` (porta em `--visor-porta`, padrão 8765). A
+página é servida pelo próprio agente — `agent/farol_agent/visor.py` — e
+mostra o mosaico dos canais **cadastrados no console**, cada um com o nome e
+quantos critérios valem nele. Clicar num canal amplia.
 
-- **Só no próprio PC** (`127.0.0.1`), como padrão: a imagem não sai da loja e
-  não passa pela nuvem. É o mesmo que olhar a tela do gravador.
-- Usa o fluxo reduzido, que o agente já sabe abrir. Medido: os 14 canais
-  juntos gastam 4% do processador e 2,4 Mbps.
-- Abre os canais quando a página está aberta e fecha quando ninguém olha — o
-  gravador tem limite de fluxos simultâneos.
+- **Só no próprio PC.** O servidor escuta em `127.0.0.1` e **não tem opção**
+  para abrir na rede: a imagem não sai do computador e nada passa pela nuvem.
+  É o mesmo que olhar a tela do gravador — por isso aqui não há borrão de
+  rosto. Pedido que chega com nome de outro site é recusado.
+- **Só abre câmera enquanto alguém olha.** O canal abre no primeiro quadro
+  pedido e fecha depois de 20 s sem pedido; aba escondida não pede. Se a
+  auditoria já tem o canal aberto, a página usa o quadro dela em vez de abrir
+  uma segunda conexão com o gravador.
+- **Não é MJPEG, de propósito.** O navegador limita em seis as conexões com o
+  mesmo endereço; dezesseis fluxos contínuos mostrariam seis. Cada quadro é
+  um pedido curto: medido com 16 canais na tela, 4 quadros por segundo em
+  cada um.
+- **A página não leva o cadastro do gravador:** endereço, usuário e
+  referência de senha não saem do agente.
+- Diz o que está acontecendo: "abrindo o canal…", "sem sinal" (a tela preta
+  do gravador), ou o motivo de não abrir ("senha da câmera não encontrada").
+
+**O que não faz:** não mostra canal que não está cadastrado no console (o
+mosaico é do que a loja cadastrou, não dos 16 do gravador); não grava; e não
+abre fora do PC — ver de outro computador é outra funcionalidade, com senha.
 
 ---
 
