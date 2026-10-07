@@ -121,6 +121,13 @@ export type Zona = { id: string; nome: string; principal?: boolean };
 
 export type Setor = { id: string; nome: string; ordem: number; pontos: Ponto[] };
 
+/** Quando a loja abre. `dias`: 1 = segunda … 7 = domingo. `hora_fim` menor
+ *  ou igual a `hora_ini` quer dizer que fecha no dia seguinte. */
+export type FaixaDeHorario = { dias: number[]; hora_ini: string; hora_fim: string };
+
+/** Em que horário o critério é conferido, em relação ao horário DA LOJA. */
+export type Quando = 'no_horario' | 'fora_do_horario' | 'sempre';
+
 export type Regra = {
   id: string;
   nome: string;
@@ -140,6 +147,8 @@ export type Regra = {
   /** O que o detector local procura, nos critérios de presença e de
    *  contagem. Vazio nos tipos que usam só o texto. */
   parametros: ParametrosDoDetector;
+  /** Com a loja aberta, fechada ou sempre. */
+  quando: Quando;
 };
 
 export type ParametrosDoDetector = {
@@ -188,6 +197,12 @@ export type LojaResumo = {
   /** O que foi julgado nas últimas 24 horas. Nulo para quem não vê
    *  resultados, e para loja que ainda não mandou nenhum. */
   resultado_24h: { conformes: number; naoConformes: number; naoAvaliaveis: number } | null;
+  /** Quando a loja abre. Vazio = não informado, e ela vale como sempre aberta. */
+  horario_funcionamento: FaixaDeHorario[];
+  /** Pelo relógio do SERVIDOR, no fuso da loja. Nulo = sem horário informado. */
+  aberta_agora: boolean | null;
+  /** Até que horas fica aberta, quando está aberta agora. */
+  fecha_as: string | null;
 };
 
 export type Loja = Omit<LojaResumo, 'setores' | 'pontos'>;
@@ -215,6 +230,13 @@ export const consoleApi = {
 
   /** O orçamento por uso da loja: carga de cada canal, opções por nível e três pacotes. */
   orcamento: (lojaId: string) => pedir<Orcamento>(`/lojas/${lojaId}/orcamento`),
+
+  /** O horário inteiro da loja. Mandar de novo dá no mesmo. */
+  salvarHorario: (lojaId: string, horario: FaixaDeHorario[]) =>
+    pedir<{ horario_funcionamento: FaixaDeHorario[]; aberta_agora: boolean | null; fecha_as: string | null }>(
+      `/lojas/${lojaId}/horario`,
+      { method: 'PUT', body: JSON.stringify({ horario }) },
+    ),
 
   /** Exclui o canal. Pausar é outra coisa: `editarPonto(id, { ativo: false })`. */
   excluirPonto: (id: string) =>
@@ -354,6 +376,16 @@ export type EstadoDoPreview = {
   } | null;
 };
 
+/** Um critério visto de dentro da área em que vale. */
+export type CriterioDaArea = {
+  id: string;
+  nome: string;
+  tipo: Regra['tipo'];
+  ativa: boolean;
+  quando: Quando;
+  parametros: ParametrosDoDetector;
+};
+
 export type ZonaCompleta = {
   id: string;
   ponto_id: string;
@@ -361,6 +393,9 @@ export type ZonaCompleta = {
   poligono: [number, number][];
   principal: boolean;
   largura_cena_cm: string | number | null;
+  /** Os critérios que valem NESTA área. Um canal pode ter mais de uma, e
+   *  cada uma tem os seus. */
+  criterios: CriterioDaArea[];
 };
 
 export type PontoCompleto = {
@@ -416,10 +451,21 @@ export const previewApi = {
     larguraCenaCm?: number | null;
     principal?: boolean;
   }) =>
-    pedir<ZonaCompleta>(`/zonas/${zonaId}`, {
+    pedir<Omit<ZonaCompleta, 'criterios'>>(`/zonas/${zonaId}`, {
       method: 'PATCH',
       body: JSON.stringify(dados),
     }),
+
+  /** Mais uma área no mesmo canal. Sem desenho, nasce no meio do quadro. */
+  criarArea: (pontoId: string, dados: { nome: string; poligono?: [number, number][] }) =>
+    pedir<ZonaCompleta>(`/pontos/${pontoId}/zonas`, { method: 'POST', body: JSON.stringify(dados) }),
+
+  /** Exclui a área. Os critérios dela saem deste canal; o histórico fica. */
+  excluirArea: (zonaId: string) =>
+    pedir<{ excluida: boolean; criteriosTirados: number; criteriosDesligados: string[] }>(
+      `/zonas/${zonaId}`,
+      { method: 'DELETE' },
+    ),
 };
 
 // ───────────────── alertas: destinos, política, envios ─────────────────
@@ -537,6 +583,8 @@ export type LinhaDeResultado = {
   pontoNome: string;
   canal: number | null;
   setor: string;
+  /** Em que área do canal — nulo quando o canal tem uma área só. */
+  areaNome: string | null;
   /** Critério ou canal excluído depois: a linha é só histórico. */
   historico: boolean;
   capturas: number;
@@ -560,6 +608,8 @@ export type Ocorrencia = {
   regraNome: string | null;
   pontoNome: string | null;
   canal: number | null;
+  /** Em que área do canal — nulo quando o canal tem uma área só. */
+  areaNome: string | null;
   motivo: string | null;
   confianca: number | null;
   /** O que houve com o aviso desta ocorrência; nulo = não gerou aviso. */

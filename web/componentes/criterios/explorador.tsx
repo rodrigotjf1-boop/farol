@@ -10,9 +10,13 @@
 // O mesmo critério aparece debaixo de cada canal em que vale — é o MESMO
 // cadastro, e a linha diz em quantos canais ele está. Editar em qualquer
 // um edita em todos; "tirar deste canal" tira só daquele.
+//
+// Canal com mais de uma área mostra os critérios POR ÁREA: presença dentro
+// do balcão e fila do lado do cliente são a mesma câmera e critérios
+// diferentes.
 // =====================================================================
 
-import { ChevronRight, CircleMinus, Ellipsis, Folder, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react';
+import { ChevronRight, CircleMinus, Clock, Crop, Ellipsis, Folder, Moon, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 
 import { plural } from '@/componentes/formatos';
@@ -21,7 +25,7 @@ import { CARTAO, Chip, Liga, Titulo } from '@/componentes/ui/pecas';
 import { DivisorDeMenu, ITEM_DE_MENU, Menu } from '@/componentes/ui/sobreposto';
 import type { Ponto, Regra, Setor } from '@/lib/api';
 
-import { criteriosDoCanal, emOrdem, rotuloDoCanal } from './canais';
+import { criteriosDoCanal, emOrdem, rotuloDoCanal, temVariasAreas } from './canais';
 import {
   iconeDoTipo,
   nomeDaPrioridade,
@@ -35,7 +39,8 @@ export type Filtro = 'todos' | 'ligados' | 'desligados';
 
 type Acoes = {
   configura: boolean;
-  aoAdicionar: (ponto: Ponto) => void;
+  /** "+ critério" no canal — ou numa área dele, quando tem mais de uma. */
+  aoAdicionar: (ponto: Ponto, zonaId?: string) => void;
   aoEditar: (regra: Regra) => void;
   aoTirar: (regra: Regra, ponto: Ponto, zonaId: string) => void;
   aoExcluir: (regra: Regra) => void;
@@ -79,6 +84,17 @@ function Etiquetas({ regra }: { regra: Regra }) {
           vale em {n} canais
         </Chip>
       )}
+      {/* "No horário" é o comum e não leva etiqueta; o que foge dele, leva. */}
+      {regra.quando === 'fora_do_horario' && (
+        <Chip tom="vazado" icone={Moon} title="Só é conferido com a loja fechada">
+          fora do horário
+        </Chip>
+      )}
+      {regra.quando === 'sempre' && (
+        <Chip tom="vazado" icone={Clock} title="Conferido com a loja aberta ou fechada">
+          sempre
+        </Chip>
+      )}
     </>
   );
 }
@@ -108,13 +124,12 @@ function CartaoDoCriterio({
   regra,
   ponto,
   zonaId,
-  zonaNome,
   configura,
   aoEditar,
   aoTirar,
   aoExcluir,
   aoAlternar,
-}: { regra: Regra; ponto: Ponto; zonaId: string; zonaNome: string } & Omit<Acoes, 'aoAdicionar'>) {
+}: { regra: Regra; ponto: Ponto; zonaId: string } & Omit<Acoes, 'aoAdicionar'>) {
   const Icone = iconeDoTipo(regra.tipo);
 
   return (
@@ -167,7 +182,7 @@ function CartaoDoCriterio({
                   }}
                 >
                   <CircleMinus className="h-[18px] w-[18px]" aria-hidden />
-                  Tirar deste canal
+                  {temVariasAreas(ponto) ? 'Tirar desta área' : 'Tirar deste canal'}
                 </button>
                 <DivisorDeMenu />
                 <button
@@ -190,7 +205,6 @@ function CartaoDoCriterio({
 
       <p className="col-span-2 line-clamp-2 text-[13px] text-farol-suave md:col-start-2">{regra.criterio}</p>
       <p className="col-span-2 text-xs text-farol-suave md:col-start-2">
-        {ponto.zonas.length > 1 && <>área: {zonaNome} · </>}
         prioridade {nomeDaPrioridade(regra.prioridade)} · confiança mínima{' '}
         {Number(regra.confianca_minima).toFixed(2).replace('.', ',')} · silêncio de {regra.cooldown_min} min · versão{' '}
         {regra.criterio_versao}
@@ -199,10 +213,84 @@ function CartaoDoCriterio({
   );
 }
 
+type DoCanal = ReturnType<typeof criteriosDoCanal>;
+
+function ListaDeCriterios({ itens, ponto, acoes }: { itens: DoCanal; ponto: Ponto; acoes: Acoes }) {
+  return (
+    <ul className="flex flex-col gap-2">
+      {itens.map((c) => (
+        <CartaoDoCriterio
+          key={`${c.regra.id}-${c.zonaId}`}
+          regra={c.regra}
+          ponto={ponto}
+          zonaId={c.zonaId}
+          configura={acoes.configura}
+          aoEditar={acoes.aoEditar}
+          aoTirar={acoes.aoTirar}
+          aoExcluir={acoes.aoExcluir}
+          aoAlternar={acoes.aoAlternar}
+        />
+      ))}
+    </ul>
+  );
+}
+
+/** Uma área do canal, com os critérios que valem NELA. */
+function AreaDoCanal({
+  ponto,
+  zona,
+  todos,
+  filtro,
+  acoes,
+}: {
+  ponto: Ponto;
+  zona: Ponto['zonas'][number];
+  todos: DoCanal;
+  filtro: Filtro;
+  acoes: Acoes;
+}) {
+  const daArea = todos.filter((c) => c.zonaId === zona.id);
+  const visiveis = daArea.filter((c) => passa(c.regra, filtro));
+
+  return (
+    <li className="flex flex-col gap-2 border-l-2 border-farol-borda pl-3">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px] text-farol-suave">
+        <Crop className="h-[15px] w-[15px] shrink-0" aria-hidden />
+        <b className="min-w-0 break-words font-semibold text-farol-tinta">{zona.nome}</b>
+        <span>{daArea.length === 0 ? 'sem critério' : plural(daArea.length, 'critério', 'critérios')}</span>
+        {acoes.configura && ponto.ativo && (
+          <Botao variante="fantasma" mini className="ml-auto" onClick={() => acoes.aoAdicionar(ponto, zona.id)}>
+            <Plus className="h-[15px] w-[15px]" aria-hidden />
+            Critério
+            <span className="sr-only">
+              {' '}
+              em {zona.nome}, {rotuloDoCanal(ponto)}
+            </span>
+          </Botao>
+        )}
+      </div>
+
+      {daArea.length === 0 ? (
+        <p className="text-[13px] text-farol-suave">Nenhum critério nesta área. Nada é verificado nela.</p>
+      ) : visiveis.length === 0 ? (
+        <p className="text-[13px] text-farol-suave">
+          Nenhum critério {filtro === 'ligados' ? 'ligado' : 'desligado'} nesta área.
+        </p>
+      ) : (
+        <ListaDeCriterios itens={visiveis} ponto={ponto} acoes={acoes} />
+      )}
+    </li>
+  );
+}
+
 function Canal({ ponto, regras, filtro, ...acoes }: { ponto: Ponto; regras: Regra[]; filtro: Filtro } & Acoes) {
   const todos = criteriosDoCanal(regras, ponto.id);
   const visiveis = todos.filter((c) => passa(c.regra, filtro));
   const { configura, aoAdicionar } = acoes;
+  // Canal com mais de uma área: o critério é da ÁREA. A lista vem por
+  // área, e o "+ critério" fica em cada uma — é ali que ele vai valer.
+  const porArea = temVariasAreas(ponto);
+  const distintos = new Set(todos.map((c) => c.regra.id)).size;
 
   return (
     <li className="flex flex-col gap-2">
@@ -214,9 +302,12 @@ function Canal({ ponto, regras, filtro, ...acoes }: { ponto: Ponto; regras: Regr
           {ponto.canal != null ? String(ponto.canal).padStart(2, '0') : 'IP'}
         </span>
         <b className="min-w-0 break-words font-semibold text-farol-tinta">{ponto.nome}</b>
-        <span>{todos.length === 0 ? 'sem critério' : plural(todos.length, 'critério', 'critérios')}</span>
+        <span>
+          {porArea && `${ponto.zonas.length} áreas · `}
+          {distintos === 0 ? 'sem critério' : plural(distintos, 'critério', 'critérios')}
+        </span>
         {!ponto.ativo && <Chip tom="atencao">pausado, não é verificado</Chip>}
-        {configura && ponto.ativo && ponto.zonas.length > 0 && (
+        {configura && ponto.ativo && ponto.zonas.length > 0 && !porArea && (
           <Botao variante="fantasma" mini className="ml-auto" onClick={() => aoAdicionar(ponto)}>
             <Plus className="h-[15px] w-[15px]" aria-hidden />
             Critério<span className="sr-only"> em {rotuloDoCanal(ponto)}</span>
@@ -224,29 +315,20 @@ function Canal({ ponto, regras, filtro, ...acoes }: { ponto: Ponto; regras: Regr
         )}
       </div>
 
-      {todos.length === 0 ? (
+      {porArea ? (
+        <ul className="flex flex-col gap-3">
+          {ponto.zonas.map((z) => (
+            <AreaDoCanal key={z.id} ponto={ponto} zona={z} todos={todos} filtro={filtro} acoes={acoes} />
+          ))}
+        </ul>
+      ) : todos.length === 0 ? (
         <p className="text-[13px] text-farol-suave">Nenhum critério neste canal. Nada é verificado aqui.</p>
       ) : visiveis.length === 0 ? (
         <p className="text-[13px] text-farol-suave">
           Nenhum critério {filtro === 'ligados' ? 'ligado' : 'desligado'} neste canal.
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {visiveis.map((c) => (
-            <CartaoDoCriterio
-              key={`${c.regra.id}-${c.zonaId}`}
-              regra={c.regra}
-              ponto={ponto}
-              zonaId={c.zonaId}
-              zonaNome={c.zonaNome}
-              configura={configura}
-              aoEditar={acoes.aoEditar}
-              aoTirar={acoes.aoTirar}
-              aoExcluir={acoes.aoExcluir}
-              aoAlternar={acoes.aoAlternar}
-            />
-          ))}
-        </ul>
+        <ListaDeCriterios itens={visiveis} ponto={ponto} acoes={acoes} />
       )}
     </li>
   );

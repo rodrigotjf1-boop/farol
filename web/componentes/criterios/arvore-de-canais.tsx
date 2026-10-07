@@ -5,7 +5,8 @@
 // =====================================================================
 // Como num explorador de arquivos: o setor é a pasta, o canal é o que
 // está dentro. Marcar a pasta marca tudo o que há nela; abrir a pasta
-// deixa marcar um canal só.
+// deixa marcar um canal só. Canal com mais de uma área mostra as áreas, e
+// é nelas que se marca.
 //
 // O que está marcado aqui é EXATAMENTE o que é gravado. Não existe "o
 // setor inteiro" guardado como vínculo: câmera instalada depois aparece
@@ -23,9 +24,10 @@ import {
   alternarSetor,
   canaisDoSetor,
   canalMarcado,
-  contarCanais,
   estadoDoSetor,
+  resumoDeOndeVale,
   rotuloDoCanal,
+  temVariasAreas,
 } from './canais';
 
 type Props = {
@@ -93,37 +95,23 @@ function LinhaDoCanal({
   aoMudar: (novo: Set<string>) => void;
   prefixo: string;
 }) {
-  const [aberto, setAberto] = useState(false);
-  const variasAreas = ponto.zonas.length > 1;
-  const marcado = canalMarcado(ponto, marcadas);
-  const idCaixa = `${prefixo}-canal-${ponto.id}`;
+  const pausado = !ponto.ativo && <span className="ml-2 text-xs text-farol-facho-tinta">pausado, não é verificado</span>;
 
-  return (
-    <li>
-      <div className="flex min-h-[34px] min-w-0 items-center gap-2">
-        {variasAreas ? (
-          <Seta
-            aberta={aberto}
-            aoClicar={() => setAberto((a) => !a)}
-            rotulo={`${aberto ? 'Recolher' : 'Abrir'} as áreas de ${rotuloDoCanal(ponto)}`}
-          />
-        ) : (
+  // Canal com mais de uma área: o critério vai para a ÁREA. O canal não
+  // tem caixa — marcá-lo não diria em qual das áreas o critério vale — e
+  // as áreas ficam sempre à vista, para a escolha não se esconder.
+  if (temVariasAreas(ponto)) {
+    return (
+      <li>
+        <div className="flex min-h-[34px] min-w-0 items-center gap-2">
           <span className="w-5 shrink-0" aria-hidden />
-        )}
-        <Caixa
-          id={idCaixa}
-          marcada={marcado}
-          aoClicar={() => aoMudar(alternarCanal(ponto, marcadas))}
-          rotulo={rotuloDoCanal(ponto)}
-        />
-        <label htmlFor={idCaixa} className="min-w-0 flex-1 cursor-pointer break-words">
-          {rotuloDoCanal(ponto)}
-          {!ponto.ativo && <span className="ml-2 text-xs text-farol-facho-tinta">pausado, não é verificado</span>}
-        </label>
-      </div>
-
-      {variasAreas && aberto && (
-        <ul className="ml-11 border-l border-farol-borda pl-3">
+          <span className="min-w-0 flex-1 break-words">
+            {rotuloDoCanal(ponto)}
+            {pausado}
+          </span>
+          <span className="shrink-0 text-xs text-farol-suave">{ponto.zonas.length} áreas · escolha onde</span>
+        </div>
+        <ul className="ml-[38px] border-l border-farol-borda pl-3" aria-label={`Áreas de ${rotuloDoCanal(ponto)}`}>
           {ponto.zonas.map((z) => {
             const idArea = `${prefixo}-area-${z.id}`;
             return (
@@ -137,17 +125,37 @@ function LinhaDoCanal({
                     else novo.add(z.id);
                     aoMudar(novo);
                   }}
-                  rotulo={`${z.nome} em ${rotuloDoCanal(ponto)}`}
+                  rotulo={`${z.nome}, em ${rotuloDoCanal(ponto)}`}
                 />
-                <label htmlFor={idArea} className="min-w-0 cursor-pointer break-words text-farol-suave">
+                <label htmlFor={idArea} className="min-w-0 flex-1 cursor-pointer break-words">
                   {z.nome}
-                  {z.principal && <span className="ml-2 text-xs">área principal</span>}
                 </label>
               </li>
             );
           })}
         </ul>
-      )}
+      </li>
+    );
+  }
+
+  const marcado = canalMarcado(ponto, marcadas);
+  const idCaixa = `${prefixo}-canal-${ponto.id}`;
+
+  return (
+    <li>
+      <div className="flex min-h-[34px] min-w-0 items-center gap-2">
+        <span className="w-5 shrink-0" aria-hidden />
+        <Caixa
+          id={idCaixa}
+          marcada={marcado}
+          aoClicar={() => aoMudar(alternarCanal(ponto, marcadas))}
+          rotulo={rotuloDoCanal(ponto)}
+        />
+        <label htmlFor={idCaixa} className="min-w-0 flex-1 cursor-pointer break-words">
+          {rotuloDoCanal(ponto)}
+          {pausado}
+        </label>
+      </div>
     </li>
   );
 }
@@ -212,8 +220,6 @@ function PastaDoSetor({
 }
 
 export function ArvoreDeCanais({ setores, marcadas, aoMudar, prefixo }: Props) {
-  const total = contarCanais(setores, marcadas);
-
   return (
     <div className="flex flex-col gap-[5px]">
       <ul className="rounded-[10px] border border-farol-borda-forte bg-farol-painel px-2 py-1.5">
@@ -222,7 +228,7 @@ export function ArvoreDeCanais({ setores, marcadas, aoMudar, prefixo }: Props) {
         ))}
       </ul>
       <p className="text-xs text-farol-suave" aria-live="polite">
-        {total === 0 ? 'Nenhum canal marcado.' : total === 1 ? 'Vale em 1 canal.' : `Vale em ${total} canais.`}
+        {resumoDeOndeVale(setores, marcadas)}
       </p>
     </div>
   );

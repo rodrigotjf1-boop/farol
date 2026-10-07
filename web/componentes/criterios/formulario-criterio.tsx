@@ -14,11 +14,12 @@ import { Botao } from '@/componentes/ui/botao';
 import { Campo, Escolhas, GRADE, Grupo, ROTULO } from '@/componentes/ui/campo';
 import { Alerta } from '@/componentes/ui/pecas';
 import { Gaveta } from '@/componentes/ui/sobreposto';
-import { ErroDaApi, regrasApi, type Regra, type Setor } from '@/lib/api';
+import { resumoDoHorario } from '@/componentes/horario/semana';
+import { ErroDaApi, regrasApi, type FaixaDeHorario, type Quando, type Regra, type Setor } from '@/lib/api';
 
 import { ArvoreDeCanais } from './arvore-de-canais';
 import { contarCanais } from './canais';
-import { nomeDaSeveridade, PRIORIDADES, SEVERIDADES, TIPOS, TIPOS_DO_DETECTOR } from './opcoes';
+import { nomeDaSeveridade, PRIORIDADES, QUANDOS, SEVERIDADES, TIPOS, TIPOS_DO_DETECTOR } from './opcoes';
 
 type Props = {
   lojaId: string;
@@ -29,6 +30,8 @@ type Props = {
   marcadasDeInicio: string[];
   /** O que o detector local sabe procurar. Vem da API, junto com os critérios. */
   objetosDoDetector: string[];
+  /** Quando a loja abre. É por ele que "no horário" e "fora do horário" valem. */
+  horarioDaLoja: FaixaDeHorario[];
   aoSalvar: (mensagem: string) => Promise<void>;
   aoFechar: () => void;
 };
@@ -39,6 +42,7 @@ export function GavetaDoCriterio({
   regra,
   marcadasDeInicio,
   objetosDoDetector,
+  horarioDaLoja,
   aoSalvar,
   aoFechar,
 }: Props) {
@@ -52,6 +56,8 @@ export function GavetaDoCriterio({
   const [severidade, setSeveridade] = useState<string>(regra?.severidade ?? 'atencao');
   const [confiancaMinima, setConfiancaMinima] = useState(regra ? Number(regra.confianca_minima) : 0.7);
   const [cooldownMin, setCooldownMin] = useState(regra?.cooldown_min ?? 15);
+  // Quase todo critério é de operação: nasce valendo com a loja aberta.
+  const [quando, setQuando] = useState<Quando>(regra?.quando ?? 'no_horario');
 
   // O que o detector procura. Só vale nos tipos julgados na loja.
   const [objeto, setObjeto] = useState(regra?.parametros?.objeto ?? 'pessoa');
@@ -79,6 +85,7 @@ export function GavetaDoCriterio({
   }
 
   const canais = contarCanais(setores, marcadas);
+  const resumoDaLoja = resumoDoHorario(horarioDaLoja);
   const canaisAntes = regra ? new Set(regra.alvos.map((a) => a.ponto_id)).size : 0;
 
   async function enviar(e: React.FormEvent) {
@@ -96,6 +103,7 @@ export function GavetaDoCriterio({
         cooldownMin,
         zonaIds: [...marcadas],
         parametros: parametros(),
+        quando,
       };
       if (regra) {
         const r = await regrasApi.editar(regra.id, corpo);
@@ -268,12 +276,36 @@ export function GavetaDoCriterio({
           <span className={ROTULO}>Onde vale</span>
           <p className="text-xs text-farol-suave">
             Marque o setor para valer em todos os canais dele, ou abra o setor e marque só os canais que quiser.
+            Canal com mais de uma área: marque a área em que o critério vale.
           </p>
           <ArvoreDeCanais setores={setores} marcadas={marcadas} aoMudar={setMarcadas} prefixo={p} />
           {editando && canais === 0 && (
             <Alerta tom="atencao" icone={TriangleAlert} papel="alert">
               Sem nenhum canal, este critério deixa de ser verificado em qualquer lugar e é desligado. Ele fica
               guardado em “Sem canal”.
+            </Alerta>
+          )}
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-[5px]">
+          <Escolhas
+            nome={`${p}-quando`}
+            rotulo="Em que horário conferir"
+            opcoes={QUANDOS}
+            valor={quando}
+            aoMudar={setQuando}
+          />
+          <p className="text-xs text-farol-suave">
+            {resumoDaLoja
+              ? `O horário é o da loja: ${resumoDaLoja}. Mudou lá, mudou para todos os critérios.`
+              : 'A loja ainda não informou horário, então vale como sempre aberta.'}
+          </p>
+          {/* Sem horário a loja nunca está "fechada": este critério ficaria
+              cadastrado, ligado e sem ser conferido — tem que estar dito. */}
+          {!resumoDaLoja && quando === 'fora_do_horario' && (
+            <Alerta tom="atencao" icone={TriangleAlert} papel="alert">
+              Sem horário informado, a loja nunca está fechada: este critério só começa a ser conferido depois que
+              o horário de funcionamento for informado, na tela de critérios.
             </Alerta>
           )}
         </div>

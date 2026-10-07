@@ -1,8 +1,8 @@
 // As opções de um critério, com o texto que explica cada uma na tela.
 
-import { Hash, Layers, ListOrdered, ScanSearch, UserRoundCheck, type LucideIcon } from 'lucide-react';
+import { Clock, Hash, Layers, ListOrdered, Moon, ScanSearch, Store, UserRoundCheck, type LucideIcon } from 'lucide-react';
 
-import type { ParametrosDoDetector, Regra } from '@/lib/api';
+import type { ParametrosDoDetector, Quando, Regra } from '@/lib/api';
 
 export const TIPOS: ReadonlyArray<{ valor: Regra['tipo']; titulo: string; ajuda: string; icone: LucideIcon }> = [
   { valor: 'estado', titulo: 'Estado', ajuda: 'limpeza, organização, uso de touca e luva', icone: ScanSearch },
@@ -13,6 +13,13 @@ export const TIPOS: ReadonlyArray<{ valor: Regra['tipo']; titulo: string; ajuda:
 ];
 
 export const iconeDoTipo = (v: string): LucideIcon => TIPOS.find((t) => t.valor === v)?.icone ?? ScanSearch;
+
+/** Em que horário o critério é conferido, em relação ao horário DA LOJA. */
+export const QUANDOS: ReadonlyArray<{ valor: Quando; titulo: string; ajuda: string; icone: LucideIcon }> = [
+  { valor: 'no_horario', titulo: 'No horário', ajuda: 'só com a loja aberta', icone: Store },
+  { valor: 'fora_do_horario', titulo: 'Fora do horário', ajuda: 'só com a loja fechada', icone: Moon },
+  { valor: 'sempre', titulo: 'Sempre', ajuda: 'aberta ou fechada', icone: Clock },
+];
 
 export const SEVERIDADES = ['info', 'atencao', 'critico', 'emergencia'] as const;
 
