@@ -1,0 +1,20 @@
+{
+  "id": "sms--pro-1500va",
+  "categoria": "nobreak",
+  "fabricante": "SMS",
+  "modelo": "Pro 1500VA",
+  "nivel": null,
+  "nivel_motivo": null,
+  "status": "descartado",
+  "observacao": "ARMADILHA: a ficha diz senoidal por aproximação (retangular PWM). Fonte com PFC ativo reclama ou desliga. Mais barato, não serve.",
+  "specs": {
+    "va": 1500,
+    "onda": "aproximada",
+    "armadilha": "nao_e_senoidal_pura"
+  },
+  "medido": [],
+  "precos": [],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "intel--i7-10a-geracao-com-uhd-630",
+  "categoria": "computador",
+  "fabricante": "Intel",
+  "modelo": "i7 10a geracao com UHD 630",
+  "nivel": "intermediario",
+  "nivel_motivo": "Decodifica os 16 canais e roda o detector local; sem placa dedicada, não roda modelo de visão.",
+  "status": "recomendado",
+  "observacao": "QuickSync decodifica H.264 e H.265 por hardware. A pesquisa dizia 'nunca a versão F: sem iGPU não há decode' — a medição de 07/10/2026 mostrou que, até 4 fluxos em 1080p mais 14 no reduzido, a versão F decodifica por software com folga (ver o item do i7-10700F). A ressalva vale para dezenas de fluxos em alta.",
+  "specs": {
+    "tem_igpu": true,
+    "quicksync": true,
+    "decode_streams_1080p": 16,
+    "inferencias_s": 50
+  },
+  "medido": [],
+  "precos": [],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026"
+  ]
+}

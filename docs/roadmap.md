@@ -1204,6 +1204,82 @@ olhando imagem; da próxima vez, quem olha é o dono, na tela dele.
 
 ---
 
+## A12 · Base de equipamentos, classe dos canais e orçamento — 🟡 passo 1 de 4 (07/10/2026)
+
+**Pedido do dono (07/10/2026):**
+
+> Vamos montar uma base de dados de todos os equipamentos que já encontramos em
+> pesquisas e nas verificações locais, com as especificações e as entregas
+> reais. Não é informação sensível: pode ser JSON, bem leve, por modelo. Serve
+> para montar orçamento conforme as respostas do usuário e o uso lógico de cada
+> um. Classificar o equipamento em básico, intermediário, avançado. Classificar
+> as câmeras, o setor ou o canal conforme a importância e a quantidade de usos
+> de análise. Opção de deixar os canais rodando no PC de análise, pelo navegador.
+>
+> A base é de uso do projeto Monitor Farol, e não do usuário. Ao usuário só são
+> apresentadas soluções e opções.
+
+### O que já existia, e ninguém via
+
+A migration 002 já tinha uma tabela `equipamento` com 21 modelos, o requisito
+de cada tipo de análise (`requisito_uso`) e as tabelas do levantamento e do
+diagnóstico. Sem tela, sem as medições de campo, sem nível. E o documento de
+arquitetura de agosto tinha mais 15 modelos com faixa de preço que nunca
+viraram cadastro.
+
+### Decisões
+
+- **A base é da distribuição.** O usuário não vê nem edita o catálogo; recebe
+  soluções e opções. Nenhuma rota do console devolve o catálogo.
+- **Um arquivo JSON por modelo é a fonte da verdade** (`catalogo/`). O banco
+  guarda uma cópia, porque o orçamento cruza equipamento com loja. Modelo novo
+  é arquivo novo — sem migration.
+- **`medido` é separado de `specs`, e vence.** A ficha dizia "nunca o i7 versão
+  F"; o PC da loja é um i7-10700F e sobra.
+- **Preço sempre com data, fonte e confiança.**
+
+### Os quatro passos
+
+| passo | o quê | situação |
+|---|---|---|
+| **1 · a base** | `catalogo/`: 39 modelos, com nível, motivo, para que serve, preço datado e o que foi medido na loja. Conferida por teste a cada envio | ✅ feito |
+| **2 · a carga** | a tabela `equipamento` passa a ser preenchida a partir dos arquivos, no deploy; ganha `nivel`, `medido` e `fontes`. O requisito de cada uso vem para o catálogo | a fazer (migration 015) |
+| **3 · a classe do canal e o orçamento** | ver abaixo | a fazer |
+| **4 · os canais no navegador do PC de análise** | ver abaixo | a fazer |
+
+### Passo 3 — a classe de cada canal sai do uso, e o orçamento sai da classe
+
+Cada canal ganha duas leituras, calculadas dos critérios que valem nele:
+
+- **quanto ele é usado** — quantos critérios, e com que frequência cada um
+  roda. Dá a carga: *leve*, *moderada*, *intensa*. É o que dimensiona
+  computador e rede;
+- **o que ele precisa enxergar** — o uso mais exigente entre os critérios dele
+  (presença pede pouco; montagem pede enquadramento fechado, cor e 12,8 px por
+  cm). É o que dimensiona a câmera.
+
+Mais um campo que só o dono sabe: a **importância** do canal (crítico, normal,
+baixo) — decide a ordem em que o orçamento resolve as coisas quando o dinheiro
+não dá para tudo.
+
+O orçamento então compara, canal a canal, o que ele precisa com o que a loja
+tem, e apresenta **opções** — até três por canal, uma por nível, só entre os
+equipamentos que servem àquele uso. É o "motor de dimensionamento" que este
+roadmap já descrevia, agora com dado para rodar.
+
+### Passo 4 — os canais no navegador, no PC de análise
+
+Uma página local, servida pelo próprio agente, com o mosaico dos canais.
+
+- **Só no próprio PC** (`127.0.0.1`), como padrão: a imagem não sai da loja e
+  não passa pela nuvem. É o mesmo que olhar a tela do gravador.
+- Usa o fluxo reduzido, que o agente já sabe abrir. Medido: os 14 canais
+  juntos gastam 4% do processador e 2,4 Mbps.
+- Abre os canais quando a página está aberta e fecha quando ninguém olha — o
+  gravador tem limite de fluxos simultâneos.
+
+---
+
 ## A8 · Busca investigativa nas gravações (plano)
 
 **Definição do dono (06/10/2026):** não é monitoramento. É pergunta

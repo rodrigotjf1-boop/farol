@@ -1,0 +1,35 @@
+{
+  "id": "hikvision--ds-2cd2043g2-li2u",
+  "categoria": "camera_ip",
+  "fabricante": "Hikvision",
+  "modelo": "DS-2CD2043G2-LI2U",
+  "nivel": "intermediario",
+  "nivel_motivo": "4 MP com classificação de pessoa a bordo; lente fixa de 2,8 mm.",
+  "status": "recomendado",
+  "observacao": "AcuSense: classifica pessoa a bordo e faz POST no webhook via ISAPI httpHosts, com detectionTarget já resolvido. Smart Hybrid Light e microfone.",
+  "serve_para": [
+    "presenca",
+    "contagem",
+    "comparacao",
+    "estado"
+  ],
+  "specs": {
+    "resolucao_h": 2688,
+    "mp": 4,
+    "lente_min_mm": 2.8,
+    "lente_max_mm": 2.8,
+    "ia_embarcada": true,
+    "protocolo_evento": "isapi",
+    "luz_branca": true,
+    "interface": "ip_poe",
+    "onvif": [
+      "S",
+      "G"
+    ]
+  },
+  "medido": [],
+  "precos": [],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026"
+  ]
+}

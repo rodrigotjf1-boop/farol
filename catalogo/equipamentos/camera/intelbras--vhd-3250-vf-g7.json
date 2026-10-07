@@ -1,0 +1,42 @@
+{
+  "id": "intelbras--vhd-3250-vf-g7",
+  "categoria": "camera_analogica",
+  "fabricante": "Intelbras",
+  "modelo": "VHD 3250 VF G7",
+  "nivel": "intermediario",
+  "nivel_motivo": "2 MP com lente varifocal manual: fecha o enquadramento na bancada. Sem WDR real e sem cor à noite.",
+  "status": "recomendado",
+  "observacao": "Varifocal MANUAL — vantagem em inspeção fixa: ajusta uma vez, trava, não desalinha. A motorizada pode refazer o autofoco no boot e quebrar o classificador treinado. Escolhida para o teste de montagem pelo gravador.",
+  "serve_para": [
+    "presenca",
+    "contagem",
+    "comparacao",
+    "estado"
+  ],
+  "specs": {
+    "resolucao_h": 1920,
+    "mp": 2,
+    "sensor_pol": 0.357,
+    "sensor_mm": 5.0,
+    "lente_min_mm": 2.7,
+    "lente_max_mm": 12,
+    "lente_motorizada": false,
+    "wdr": "DWDR",
+    "cor_24h": false,
+    "interface": "analogica_4em1",
+    "corpo": "bullet_metal"
+  },
+  "medido": [],
+  "precos": [
+    {
+      "preco": 534.76,
+      "confianca": "indice",
+      "cotado_em": "2026-10-03",
+      "fonte": "docs/roadmap.md — hardware do teste de montagem"
+    }
+  ],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026",
+    "docs/roadmap.md — hardware do teste de montagem"
+  ]
+}

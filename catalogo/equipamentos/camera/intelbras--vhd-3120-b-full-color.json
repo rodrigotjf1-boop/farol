@@ -1,0 +1,34 @@
+{
+  "id": "intelbras--vhd-3120-b-full-color",
+  "categoria": "camera_analogica",
+  "fabricante": "Intelbras",
+  "modelo": "VHD 3120 B Full Color",
+  "nivel": "intermediario",
+  "nivel_motivo": "Cor 24 h no analógico.",
+  "status": "aceitavel",
+  "observacao": "Cor 24 h no cabo coaxial — opção intermediária, com qualidade abaixo do ColorVu IP.",
+  "serve_para": [
+    "presenca",
+    "contagem",
+    "comparacao",
+    "estado",
+    "estado:cor"
+  ],
+  "specs": {
+    "cor_24h": true,
+    "interface": "analogica_4em1"
+  },
+  "medido": [],
+  "precos": [
+    {
+      "preco_min": 400,
+      "preco_max": 500,
+      "confianca": "estimado",
+      "cotado_em": "2026-08-11",
+      "fonte": "docs/FAROL-Mapeamento-Arquitetura-e-Orcamento.md §7.6"
+    }
+  ],
+  "fontes": [
+    "docs/FAROL-Mapeamento-Arquitetura-e-Orcamento.md §7.6"
+  ]
+}

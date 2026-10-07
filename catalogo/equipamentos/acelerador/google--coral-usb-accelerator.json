@@ -1,0 +1,27 @@
+{
+  "id": "google--coral-usb-accelerator",
+  "categoria": "acelerador",
+  "fabricante": "Google",
+  "modelo": "Coral USB Accelerator",
+  "nivel": null,
+  "nivel_motivo": null,
+  "status": "descartado",
+  "observacao": "Projeto abandonado na prática: última notícia oficial em 2022, e o driver não compila em kernels recentes. A documentação do Frigate retirou a recomendação. Não roda modelos com atenção.",
+  "specs": {
+    "tops": 4,
+    "status": "abandonado"
+  },
+  "medido": [],
+  "precos": [
+    {
+      "preco_min": 1117,
+      "preco_max": 2160,
+      "confianca": "estimado",
+      "cotado_em": "2026-10-03",
+      "fonte": "migration 002 — pesquisa de 01 a 03/10/2026"
+    }
+  ],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026"
+  ]
+}

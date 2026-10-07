@@ -1,0 +1,19 @@
+{
+  "id": "intelbras--mhdx-1204-c",
+  "categoria": "gravador_dvr",
+  "fabricante": "Intelbras",
+  "modelo": "MHDX 1204-C",
+  "nivel": "basico",
+  "nivel_motivo": "Grava 1080N: metade da resolução horizontal real.",
+  "status": "descartado",
+  "observacao": "Grava 1080N: 960×1080 esticado. Metade da resolução horizontal real.",
+  "specs": {
+    "grava_1080n": true,
+    "armadilha": "1080N"
+  },
+  "medido": [],
+  "precos": [],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026"
+  ]
+}

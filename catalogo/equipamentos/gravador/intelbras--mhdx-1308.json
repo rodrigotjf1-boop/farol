@@ -1,0 +1,19 @@
+{
+  "id": "intelbras--mhdx-1308",
+  "categoria": "gravador_dvr",
+  "fabricante": "Intelbras",
+  "modelo": "MHDX 1308",
+  "nivel": "basico",
+  "nivel_motivo": "Grava 1080N por padrão: metade da resolução horizontal.",
+  "status": "descartado",
+  "observacao": "ARMADILHA: grava 1080p Lite (960×1080 esticado) por padrão. O modo Full HD existe, mas ativá-lo DESABILITA a detecção inteligente e os canais IP — escolhe resolução ou IA, nunca os dois.",
+  "specs": {
+    "grava_1080n": true,
+    "armadilha": "1080N"
+  },
+  "medido": [],
+  "precos": [],
+  "fontes": [
+    "migration 002 — pesquisa de 01 a 03/10/2026"
+  ]
+}
