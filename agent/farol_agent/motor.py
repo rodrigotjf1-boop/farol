@@ -300,7 +300,7 @@ class MotorDeRegras:
 
         chave = Fila.chave_idempotente(
             regra.id, regra.criterio_versao, evento.ponto_id, ph, f.ts,
-            por_olhada=continuo,
+            por_olhada=continuo, zona_id=regra.zona.id,
         )
 
         # Já julgamos esta cena exata? Então não paga de novo — mas o
@@ -310,9 +310,13 @@ class MotorDeRegras:
             self.sem_cena.pop(self._lugar(regra), None)
             return None, "ja_julgado"
 
+        # A ÁREA entra no nome: o mesmo critério pode valer em duas áreas do
+        # mesmo canal, e as duas saem da mesma olhada, no mesmo segundo. Com
+        # canal + critério só, o segundo recorte gravava por cima do primeiro
+        # antes de ele ser julgado — e a área A era julgada com a imagem da B.
         destino = (
             self.fila.spool
-            / f"{f.ts:%Y%m%d_%H%M%S}_{evento.ponto_id}_{regra.id}.jpg"
+            / f"{f.ts:%Y%m%d_%H%M%S}_{evento.ponto_id}_{regra.zona.id}_{regra.id}.jpg"
         )
         imagens.escrever(str(destino), f.imagem, [cv2.IMWRITE_JPEG_QUALITY, self.jpeg])
 
