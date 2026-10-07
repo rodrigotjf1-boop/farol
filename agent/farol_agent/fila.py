@@ -321,9 +321,19 @@ class Fila:
         ponto_id: str,
         phash: int,
         ts: datetime,
+        *,
+        por_olhada: bool = False,
     ) -> str:
-        """Determinística: a mesma cena, na mesma regra, no mesmo minuto."""
-        bruto = f"{regra_id}:{criterio_versao}:{ponto_id}:{phash:016x}:{ts:%Y%m%d%H%M}"
+        """Determinística: a mesma cena, na mesma regra, no mesmo minuto.
+
+        `por_olhada` troca o minuto pelo segundo: é para os critérios em
+        que cada olhada conta como medida (presença, contagem). O posto
+        vazio dá a MESMA cena duas vezes no minuto, e com a chave por
+        minuto a segunda olhada sumia como "já julgada". Continua
+        determinística — a mesma olhada, repetida, dá a mesma chave.
+        """
+        quando = f"{ts:%Y%m%d%H%M%S}" if por_olhada else f"{ts:%Y%m%d%H%M}"
+        bruto = f"{regra_id}:{criterio_versao}:{ponto_id}:{phash:016x}:{quando}"
         return sha256(bruto.encode("utf-8")).hexdigest()[:32]
 
     # ──────────────────────────── escrita ─────────────────────────────
