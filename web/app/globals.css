@@ -2,16 +2,125 @@
 @tailwind components;
 @tailwind utilities;
 
-/* O console é olhado de relance, numa cozinha, por alguém que está
-   fazendo outra coisa. Fundo escuro cansa menos em tela que fica ligada
-   o turno inteiro, e deixa o alerta saltar sem precisar piscar. */
+/* =====================================================================
+   As cores do Farol, nos dois temas
+   =====================================================================
+   Os valores vêm do kit de marca: azul-marinho #12365C, âmbar #F0A832
+   (#F2B03C sobre fundo escuro) e o claro #DCE8F5.
+
+   Cada variável guarda os três canais, sem `rgb()`, para o Tailwind
+   poder aplicar opacidade (`bg-farol-ok/15`).
+
+   O tema segue o aparelho. Quem escolher um no botão grava a escolha em
+   `data-tema` no <html>, e ela vence nos dois sentidos.
+
+   O contraste foi conferido: texto secundário (`suave`) dá 6,3:1 sobre o
+   painel claro e 6,7:1 sobre o escuro; os textos coloridos das pastilhas
+   ficam acima de 4,5:1 sobre o próprio fundo.
+   ===================================================================== */
 
 :root {
+  --fundo: 242 245 249;
+  --painel: 255 255 255;
+  --painel-2: 247 249 252;
+  --realce: 233 238 245;
+  --borda: 221 229 238;
+  --borda-forte: 197 208 221;
+  --tinta: 15 37 64;
+  --suave: 82 97 116;
+  --marca: 18 54 92;
+  --sobre-marca: 255 255 255;
+  --facho: 240 168 50;
+  --facho-tinta: 138 90 0;
+  --facho-icone: 201 131 0;
+  --facho-leve: 252 241 217;
+  --ok: 21 115 71;
+  --ok-leve: 225 243 233;
+  --critico: 190 47 69;
+  --critico-leve: 251 230 233;
+  --sobre-critico: 255 255 255;
+  --graf-ok: 159 212 183;
+  --graf-na: 195 206 218;
+  --palco: 18 54 92;
+  --palco-tinta: 255 255 255;
+  --palco-suave: 185 203 224;
+  --sombra-1: 0 1px 2px rgb(15 37 64 / 0.06);
+  --sombra-2: 0 18px 48px -12px rgb(15 37 64 / 0.28);
+  --veu: rgb(15 37 64 / 0.42);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema='claro']) {
+    --fundo: 10 17 27;
+    --painel: 17 26 39;
+    --painel-2: 14 22 34;
+    --realce: 26 38 55;
+    --borda: 30 43 61;
+    --borda-forte: 45 61 84;
+    --tinta: 230 237 245;
+    --suave: 147 163 183;
+    --marca: 220 232 245;
+    --sobre-marca: 15 37 64;
+    --facho: 242 176 60;
+    --facho-tinta: 242 176 60;
+    --facho-icone: 242 176 60;
+    --facho-leve: 43 36 18;
+    --ok: 76 199 144;
+    --ok-leve: 18 41 31;
+    --critico: 244 124 140;
+    --critico-leve: 50 22 27;
+    --sobre-critico: 42 10 16;
+    --graf-ok: 34 98 74;
+    --graf-na: 51 68 90;
+    --palco: 14 42 73;
+    --palco-tinta: 255 255 255;
+    --palco-suave: 169 189 214;
+    --sombra-1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --sombra-2: 0 18px 48px -12px rgb(0 0 0 / 0.7);
+    --veu: rgb(2 6 12 / 0.62);
+    color-scheme: dark;
+  }
+}
+
+:root[data-tema='escuro'] {
+  --fundo: 10 17 27;
+  --painel: 17 26 39;
+  --painel-2: 14 22 34;
+  --realce: 26 38 55;
+  --borda: 30 43 61;
+  --borda-forte: 45 61 84;
+  --tinta: 230 237 245;
+  --suave: 147 163 183;
+  --marca: 220 232 245;
+  --sobre-marca: 15 37 64;
+  --facho: 242 176 60;
+  --facho-tinta: 242 176 60;
+  --facho-icone: 242 176 60;
+  --facho-leve: 43 36 18;
+  --ok: 76 199 144;
+  --ok-leve: 18 41 31;
+  --critico: 244 124 140;
+  --critico-leve: 50 22 27;
+  --sobre-critico: 42 10 16;
+  --graf-ok: 34 98 74;
+  --graf-na: 51 68 90;
+  --palco: 14 42 73;
+  --palco-tinta: 255 255 255;
+  --palco-suave: 169 189 214;
+  --sombra-1: 0 1px 2px rgb(0 0 0 / 0.4);
+  --sombra-2: 0 18px 48px -12px rgb(0 0 0 / 0.7);
+  --veu: rgb(2 6 12 / 0.62);
   color-scheme: dark;
 }
 
+html,
 body {
-  @apply bg-farol-fundo text-farol-tinta antialiased;
+  height: 100%;
+}
+
+body {
+  @apply bg-farol-fundo font-sans text-sm text-farol-tinta antialiased;
 }
 
 /* Foco sempre visível: quem usa teclado precisa saber onde está, e numa
@@ -20,11 +129,64 @@ body {
   @apply outline-none ring-2 ring-farol-facho ring-offset-2 ring-offset-farol-fundo;
 }
 
+/* O <dialog> do navegador traz margem, borda e limite de tamanho próprios.
+   A gaveta e o diálogo definem os seus. */
+dialog {
+  @apply text-farol-tinta;
+}
+dialog::backdrop {
+  background: var(--veu);
+}
+
+@layer components {
+  /* O campo de formulário, igual em toda tela. */
+  .entrada {
+    @apply min-h-10 w-full rounded-[10px] border border-farol-borda-forte bg-farol-painel px-3 py-2 text-sm text-farol-tinta transition-colors placeholder:text-farol-suave/75 hover:border-farol-suave focus:border-farol-marca disabled:opacity-60;
+  }
+
+  /* A linha fina sob um link de ação: "Ver o canal →". */
+  .elo {
+    @apply inline-flex items-center gap-1 border-b border-farol-borda-forte font-semibold text-farol-tinta no-underline transition-colors hover:border-farol-facho;
+  }
+
+  /* O esqueleto de quem ainda está carregando. */
+  .osso {
+    @apply animate-brilho rounded-[10px];
+    background: linear-gradient(
+      90deg,
+      rgb(var(--realce)) 25%,
+      rgb(var(--painel-2)) 45%,
+      rgb(var(--realce)) 65%
+    );
+    background-size: 300% 100%;
+  }
+
+  /* Os blocos de uma tela sobem em sequência quando ela abre. */
+  .entra > * {
+    @apply animate-sobe;
+  }
+  .entra > *:nth-child(2) {
+    animation-delay: 50ms;
+  }
+  .entra > *:nth-child(3) {
+    animation-delay: 100ms;
+  }
+  .entra > *:nth-child(4) {
+    animation-delay: 150ms;
+  }
+  .entra > *:nth-child(n + 5) {
+    animation-delay: 200ms;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

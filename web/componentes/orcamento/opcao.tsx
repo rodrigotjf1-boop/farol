@@ -1,34 +1,41 @@
 // Uma solução: marca, modelo, por que é deste nível, e quanto custa.
 
+import { BadgeCheck } from 'lucide-react';
+
+import { Chip } from '@/componentes/ui/pecas';
 import type { Opcao } from '@/lib/api';
 
 import { faixa, NOME_DO_NIVEL, origemDoPreco } from './rotulos';
 
 export function CartaoDaOpcao({ opcao }: { opcao: Opcao }) {
   return (
-    <div className="rounded-lg border border-farol-borda/70 bg-farol-fundo/60 p-3">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="rounded bg-farol-borda/60 px-1.5 py-0.5 text-xs text-farol-suave">
-          {NOME_DO_NIVEL[opcao.nivel]}
-        </span>
+    <div
+      className={`flex min-w-0 flex-col gap-1.5 rounded-xl border p-3 ${
+        opcao.recomendado
+          ? 'border-farol-marca bg-farol-painel shadow-[inset_0_0_0_1px_rgb(var(--marca))]'
+          : 'border-farol-borda bg-farol-painel-2'
+      }`}
+    >
+      <div className="flex flex-wrap gap-1.5">
+        <Chip>{NOME_DO_NIVEL[opcao.nivel]}</Chip>
         {opcao.recomendado && (
-          <span className="rounded bg-farol-ok/15 px-1.5 py-0.5 text-xs text-farol-ok">
-            recomendado
-          </span>
+          <Chip tom="ok" icone={BadgeCheck}>
+            indicada
+          </Chip>
         )}
       </div>
-      <p className="mt-2 break-words text-sm font-medium">
+      <b className="break-words font-semibold">
         {opcao.fabricante} {opcao.modelo}
-      </p>
-      <p className="mt-1 text-xs text-farol-suave">{opcao.porque}</p>
-      <p className="mt-2 text-sm">
+      </b>
+      <p className="text-[12.5px] text-farol-suave">{opcao.porque}</p>
+      <p className="mt-auto pt-1 text-[14.5px] font-semibold tabular-nums">
         {opcao.preco ? (
           <>
-            {faixa(opcao.preco)}{' '}
-            <span className="text-xs text-farol-suave">· {origemDoPreco(opcao.preco)}</span>
+            {faixa(opcao.preco)}
+            <small className="block text-[11.5px] font-normal text-farol-suave">{origemDoPreco(opcao.preco)}</small>
           </>
         ) : (
-          <span className="text-xs text-farol-suave">sem preço no catálogo</span>
+          <small className="text-xs font-normal text-farol-suave">sem preço no catálogo</small>
         )}
       </p>
     </div>

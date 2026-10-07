@@ -1,5 +1,6 @@
 // Como o orçamento fala com quem lê: os nomes e o dinheiro.
 
+import type { Tom } from '@/componentes/ui/pecas';
 import type { Carga, FaixaDePreco, Importancia, Nivel } from '@/lib/api';
 
 export const NOME_DO_NIVEL: Record<Nivel, string> = {
@@ -15,18 +16,18 @@ export const NOME_DA_CARGA: Record<Carga, string> = {
   intensa: 'uso intenso',
 };
 
-/** A cor da carga segue o peso: quanto mais usado, mais chama. */
-export const COR_DA_CARGA: Record<Carga, string> = {
-  sem_uso: 'bg-farol-borda/60 text-farol-suave',
-  leve: 'bg-farol-ok/15 text-farol-ok',
-  moderada: 'bg-farol-facho/15 text-farol-facho',
-  intensa: 'bg-farol-critico/15 text-farol-critico',
+/** O tom da carga segue o peso: quanto mais usado, mais chama. */
+export const TOM_DA_CARGA: Record<Carga, Tom> = {
+  sem_uso: 'neutro',
+  leve: 'ok',
+  moderada: 'atencao',
+  intensa: 'critico',
 };
 
 export const NOME_DA_IMPORTANCIA: Record<Importancia, string> = {
-  critico: 'crítico',
+  critico: 'crítica',
   normal: 'normal',
-  baixo: 'baixo',
+  baixo: 'baixa',
 };
 
 export const NOME_DO_USO: Record<string, string> = {

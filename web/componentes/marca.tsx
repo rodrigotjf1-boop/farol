@@ -1,0 +1,63 @@
+// O logotipo do Farol, do kit de marca, sem redesenho.
+//
+// As letras e o anel usam a cor do texto (`currentColor`): quem usa o
+// componente escolhe com `text-…`. O facho é sempre o âmbar.
+//
+// `vivo` faz o ponto central pulsar devagar — é o sinal de "ao vivo", e o
+// único movimento em laço do console além do ponto do agente.
+
+const LETRAS = [
+  // F
+  'M74.6 212.0V80.0H103.4V212.0ZM88.4 162.6V139.0H165.4V162.6ZM88.4 104.6V80.0H172.8V104.6Z',
+  // a
+  'M218.8 214.8Q210.0 214.8 203.2 211.3Q196.4 207.8 192.6 201.2Q188.8 194.6 188.8 184.8Q188.8 176.2 192.1 170.4Q195.4 164.6 201.8 161.0Q208.2 157.4 217.6 155.0Q227.0 152.6 239.0 150.8Q245.4 149.8 249.5 148.9Q253.6 148.0 255.6 145.9Q257.6 143.8 257.6 139.8Q257.6 134.2 253.6 130.2Q249.6 126.2 241.0 126.2Q235.2 126.2 230.3 128.2Q225.4 130.2 221.9 134.2Q218.4 138.2 216.8 144.4L191.4 136.6Q193.8 128.4 198.3 122.4Q202.8 116.4 209.2 112.3Q215.6 108.2 223.8 106.2Q232.0 104.2 241.6 104.2Q257.0 104.2 266.7 109.1Q276.4 114.0 281.2 124.3Q286.0 134.6 286.0 150.8V168.8Q286.0 175.8 286.3 183.0Q286.6 190.2 287.1 197.5Q287.6 204.8 288.2 212.0H262.8Q262.0 207.0 261.3 200.5Q260.6 194.0 260.2 187.4H256.6Q253.8 195.0 248.6 201.2Q243.4 207.4 235.9 211.1Q228.4 214.8 218.8 214.8ZM231.0 194.0Q234.8 194.0 238.7 192.6Q242.6 191.2 246.3 188.7Q250.0 186.2 253.1 182.4Q256.2 178.6 258.2 173.8L257.8 157.0L262.4 158.0Q258.8 160.6 254.0 162.1Q249.2 163.6 244.1 164.4Q239.0 165.2 234.0 166.2Q229.0 167.2 225.1 168.8Q221.2 170.4 218.9 173.1Q216.6 175.8 216.6 180.6Q216.6 186.8 220.6 190.4Q224.6 194.0 231.0 194.0Z',
+  // r
+  'M313.6 212.0V161.2V107.0H337.4L337.6 142.8H341.4Q343.0 129.4 346.9 121Q350.8 112.6 357.8 108.6Q364.8 104.6 375.2 104.6Q377.0 104.6 379.1 104.7Q381.2 104.8 384.0 105.4L382.8 136.0Q379.8 134.6 376.2 134.0Q372.6 133.4 369.8 133.4Q362.0 133.4 356.4 137.0Q350.8 140.6 347.3 147.3Q343.8 154.0 342.6 163.6V212.0Z',
+  // l
+  'M558.44 212.0V69.0H586.84V212.0Z',
+];
+
+type Props = {
+  className?: string;
+  /** O ponto central pulsa: o sistema está olhando. */
+  vivo?: boolean;
+  /** Para leitor de tela. Sem isto, o desenho é decorativo. */
+  rotulo?: string;
+};
+
+const acessivel = (rotulo?: string) =>
+  rotulo ? ({ role: 'img', 'aria-label': rotulo } as const) : ({ 'aria-hidden': true } as const);
+
+/** A palavra "Farol", com o farol no lugar do "o". */
+export function Palavra({ className = '', vivo = false, rotulo }: Props) {
+  return (
+    <svg viewBox="70 62 522 172" className={className} {...acessivel(rotulo)}>
+      <g transform="translate(465.42,159.5)">
+        <path className="fill-farol-facho" d="M0 0 L75.97 -33.82 A83.16 83.16 0 0 1 75.97 33.82 Z" />
+        <circle r="63" fill="none" stroke="currentColor" strokeWidth="11.02" />
+        <circle r="18.9" fill="currentColor" />
+        <circle r="7.88" className={`fill-farol-facho ${vivo ? 'animate-pulso' : ''}`} />
+      </g>
+      {LETRAS.map((d) => (
+        <path key={d.slice(0, 12)} d={d} fill="currentColor" />
+      ))}
+    </svg>
+  );
+}
+
+/** Só o farol: anel, miolo e facho. `varre` faz o facho balançar. */
+export function Selo({ className = '', vivo = false, rotulo, varre = false }: Props & { varre?: boolean }) {
+  return (
+    <svg viewBox="0 0 512 512" className={className} {...acessivel(rotulo)}>
+      <g transform="translate(256,256)">
+        <path
+          className={`fill-farol-facho ${varre ? 'animate-varre' : ''}`}
+          d="M0 0 L217.5 -96.84 A238.08 238.08 0 0 1 217.5 96.84 Z"
+        />
+        <circle r="153.6" fill="none" stroke="currentColor" strokeWidth="26.88" />
+        <circle r="46.08" fill="currentColor" />
+        <circle r="19.2" className={`fill-farol-facho ${vivo ? 'animate-pulso' : ''}`} />
+      </g>
+    </svg>
+  );
+}
