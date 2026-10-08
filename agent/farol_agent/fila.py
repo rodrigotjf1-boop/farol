@@ -115,7 +115,9 @@ create table if not exists analise (
   modelo          text,
   custo_centavos  real,
   latencia_ms     integer,
-  julgado_em      text
+  julgado_em      text,
+  -- o que o juiz mediu na cena (o detector: quantos objetos viu)
+  medida          real
 );
 
 create index if not exists idx_analise_proxima
@@ -192,6 +194,9 @@ create table if not exists resumo_hora (
   custo_centavos     real    not null default 0,
   julgadas_loja      integer not null default 0,
   julgadas_nuvem     integer not null default 0,
+  soma_medida        real    not null default 0,
+  com_medida         integer not null default 0,
+  max_medida         real,
   ultimo_resultado   text,
   ultimo_motivo      text,
   ultimo_impedimento text,
@@ -262,7 +267,14 @@ _SOMAS_DO_VEREDITO = (
     # Onde o julgamento foi feito. A soma das duas é a dos três resultados.
     "julgadas_loja",
     "julgadas_nuvem",
+    # A medida da cena (quantos o detector viu): soma e quantidade, para a
+    # média da hora. O maior valor vai à parte, em `_MAXIMOS_DO_RESUMO`.
+    "soma_medida",
+    "com_medida",
 )
+
+# O que se guarda como MAIOR valor da hora, e não como soma.
+_MAXIMOS_DO_RESUMO = ("max_medida",)
 
 _TEXTOS_DO_RESUMO = ("ultimo_resultado", "ultimo_motivo", "ultimo_impedimento", "ultima_em")
 
@@ -310,6 +322,10 @@ _COLUNAS_NOVAS = (
     ("alerta", "evento", "text"),
     ("resumo_hora", "julgadas_loja", "integer not null default 0"),
     ("resumo_hora", "julgadas_nuvem", "integer not null default 0"),
+    ("analise", "medida", "real"),
+    ("resumo_hora", "soma_medida", "real not null default 0"),
+    ("resumo_hora", "com_medida", "integer not null default 0"),
+    ("resumo_hora", "max_medida", "real"),
 )
 
 
@@ -472,7 +488,7 @@ class Fila:
                 """update analise
                       set estado='concluido', resultado=?, confianca=?, motivo=?,
                           via=?, modelo=?, custo_centavos=?, latencia_ms=?,
-                          julgado_em=?, erro=null
+                          medida=?, julgado_em=?, erro=null
                     where id=?""",
                 (
                     veredito.resultado.value,
@@ -482,6 +498,7 @@ class Fila:
                     veredito.modelo,
                     veredito.custo_centavos,
                     veredito.latencia_ms,
+                    veredito.medida,
                     _agora_iso(agora),
                     item_id,
                 ),
@@ -536,6 +553,7 @@ class Fila:
             modelo=l["modelo"],
             custo_centavos=l["custo_centavos"],
             latencia_ms=l["latencia_ms"],
+            medida=l["medida"],
         )
 
     # ──────────────────────────── alertas ─────────────────────────────
@@ -633,8 +651,16 @@ class Fila:
         zona_id: str | None,
         somas: dict[str, float],
         textos: dict[str, str | None],
+        maximos: dict[str, float] | None = None,
     ) -> None:
-        """Soma numa linha do resumo. Quem chama segura a trava e confirma."""
+        """Soma numa linha do resumo. Quem chama segura a trava e confirma.
+
+        `maximos` guarda o MAIOR valor da hora em vez de somar.
+        """
+        maximos = maximos or {}
+        for nome in maximos:
+            if nome not in _MAXIMOS_DO_RESUMO:
+                raise ValueError(f"máximo desconhecido no resumo: {nome}")
         for nome in somas:
             if nome not in CONTADORES_DO_RESUMO and nome not in _SOMAS_DO_VEREDITO:
                 raise ValueError(f"contador desconhecido no resumo: {nome}")
@@ -647,14 +673,23 @@ class Fila:
             "insert or ignore into resumo_hora (hora, regra_id, zona_id) values (?,?,?)",
             chave,
         )
-        partes = [f"{n} = {n} + ?" for n in somas] + [f"{n} = ?" for n in textos]
+        partes = (
+            [f"{n} = {n} + ?" for n in somas]
+            + [f"{n} = ?" for n in textos]
+            + [f"{n} = max(coalesce({n}, ?), ?)" for n in maximos]
+        )
         # Linha recusada continua recusada: a nuvem já disse que aquele
         # critério não é mais desta loja, e somar de novo não muda isso.
         partes += ["versao = versao + 1", "estado = case when estado = 2 then 2 else 1 end"]
         self._con.execute(
             f"update resumo_hora set {', '.join(partes)} "
             "where hora = ? and regra_id = ? and zona_id = ?",
-            (*somas.values(), *textos.values(), *chave),
+            (
+                *somas.values(),
+                *textos.values(),
+                *(v for m in maximos.values() for v in (m, m)),
+                *chave,
+            ),
         )
 
     def contar(
@@ -722,6 +757,13 @@ class Fila:
         # local e comparação rodam no computador dela — é a diferença que
         # interessa a quem paga a conta e a quem pergunta se a imagem saiu.
         somas["julgadas_nuvem" if veredito.via is Via.NUVEM else "julgadas_loja"] = 1
+        # A medida da cena, quando o juiz mede (o detector: quantos viu).
+        # "Não mediu" não entra na quantidade — não vira zero na média.
+        maximos: dict[str, float] = {}
+        if veredito.medida is not None:
+            somas["soma_medida"] = float(veredito.medida)
+            somas["com_medida"] = 1
+            maximos["max_medida"] = float(veredito.medida)
         with self._lock:
             self._somar_no_resumo(
                 ts, regra_id, zona_id, somas,
@@ -730,6 +772,7 @@ class Fila:
                     "ultimo_motivo": sem_segredo(veredito.motivo),
                     "ultima_em": _agora_iso(julgado_em),
                 },
+                maximos,
             )
             self._con.commit()
 

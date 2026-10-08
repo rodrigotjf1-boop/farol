@@ -184,7 +184,8 @@ describe('análises por hora (Postgres real)', { skip: !URL_DO_BANCO && 'sem DAT
   const linha = (regraId: string, zonaId: string, quando: string, mais: Record<string, unknown>) => {
     const { julgadasLoja: _a, julgadasNuvem: _b, ...base } = RESUMO;
     const zeros = Object.fromEntries(Object.entries(base).map(([k, v]) => [k, typeof v === 'number' ? 0 : v]));
-    return { ...zeros, regraId, zonaId, hora: quando, ultimoResultado: null, ultimoMotivo: null, ultimoImpedimento: null, ultimaEm: null, ...mais };
+    // `maxMedida` zerado seria "mediu e viu zero"; linha sem medida tem o maior valor NULO.
+    return { ...zeros, maxMedida: null, regraId, zonaId, hora: quando, ultimoResultado: null, ultimoMotivo: null, ultimoImpedimento: null, ultimaEm: null, ...mais };
   };
 
   const mandar = async (resumos: unknown[], comToken = token) => {

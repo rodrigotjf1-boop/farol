@@ -74,6 +74,11 @@ export type ResumoEntrada = {
   /** Onde foi julgado. Agente anterior à migration 020 não manda. */
   julgadasLoja?: number;
   julgadasNuvem?: number;
+  /** O que o juiz mediu nas cenas da hora (o detector: quantos viu). Agente
+   *  anterior à migration 022 não manda. */
+  somaMedida?: number;
+  comMedida?: number;
+  maxMedida?: number | null;
 } & Record<(typeof CONTADORES)[number], number>;
 
 export function validarResumo(r: unknown, i: number): string | null {
@@ -136,6 +141,30 @@ export function validarResumo(r: unknown, i: number): string | null {
     return `${onde}.julgadasLoja + julgadasNuvem: maior que o que foi julgado (${julgadas})`;
   }
 
+  // A medida da cena (o detector: quantos objetos viu). Opcional, como
+  // "onde foi julgado": agente antigo não manda. Quando vem, a conta tem
+  // de fechar — sem medida não há maior valor, com medida há, e a média
+  // não passa dele. Pegar isto aqui evita "3,7 pessoas no pico de 2".
+  const comMedida = v.comMedida ?? 0;
+  if (typeof comMedida !== 'number' || !Number.isInteger(comMedida) || comMedida < 0 || comMedida > julgadas) {
+    return `${onde}.comMedida: inteiro de 0 ao que foi julgado (${julgadas})`;
+  }
+  const somaMedida = v.somaMedida ?? 0;
+  if (typeof somaMedida !== 'number' || !Number.isFinite(somaMedida) || somaMedida < 0) {
+    return `${onde}.somaMedida: número a partir de 0`;
+  }
+  const maxMedida = v.maxMedida ?? null;
+  if (maxMedida !== null && (typeof maxMedida !== 'number' || !Number.isFinite(maxMedida) || maxMedida < 0)) {
+    return `${onde}.maxMedida: número a partir de 0, ou nulo`;
+  }
+  if (comMedida === 0 && (maxMedida !== null || somaMedida > 0)) {
+    return `${onde}.comMedida: sem medida não há soma nem maior valor`;
+  }
+  if (comMedida > 0 && maxMedida === null) return `${onde}.maxMedida: com medida, o maior valor é obrigatório`;
+  if (comMedida > 0 && maxMedida !== null && somaMedida / comMedida > maxMedida + 0.01) {
+    return `${onde}.somaMedida: média maior que o maior valor`;
+  }
+
   if (v.ultimoResultado != null) {
     if (typeof v.ultimoResultado !== 'string' || !RESULTADOS.has(v.ultimoResultado)) {
       return `${onde}.ultimoResultado: um de ${[...RESULTADOS].join(', ')}`;
@@ -192,6 +221,9 @@ export async function gravarResumos(
     custo_centavos: r.custoCentavos,
     julgadas_loja: r.julgadasLoja ?? 0,
     julgadas_nuvem: r.julgadasNuvem ?? 0,
+    soma_medida: r.somaMedida ?? 0,
+    com_medida: r.comMedida ?? 0,
+    max_medida: r.maxMedida ?? null,
     ultimo_resultado: r.ultimoResultado ?? null,
     ultimo_motivo: cortar(r.ultimoMotivo),
     ultimo_impedimento: cortar(r.ultimoImpedimento),
@@ -216,6 +248,7 @@ export async function gravarResumos(
         ja_julgadas, enfileiradas, conformes, nao_conformes, nao_avaliaveis,
         falhas, alertas, soma_confianca, com_confianca, soma_latencia_ms,
         com_latencia, custo_centavos, julgadas_loja, julgadas_nuvem,
+        soma_medida, com_medida, max_medida,
         ultimo_resultado, ultimo_motivo, ultimo_impedimento, ultima_em)
      select distinct on (e.regra_id, e.zona_id, e.hora)
             $1, $2, $3, e.regra_id, e.zona_id, e.hora,
@@ -223,6 +256,7 @@ export async function gravarResumos(
             e.ja_julgadas, e.enfileiradas, e.conformes, e.nao_conformes, e.nao_avaliaveis,
             e.falhas, e.alertas, e.soma_confianca, e.com_confianca, e.soma_latencia_ms,
             e.com_latencia, e.custo_centavos, e.julgadas_loja, e.julgadas_nuvem,
+            e.soma_medida, e.com_medida, e.max_medida,
             e.ultimo_resultado, e.ultimo_motivo, e.ultimo_impedimento, e.ultima_em
        from jsonb_to_recordset($4::jsonb) as e(
             i integer, regra_id uuid, zona_id uuid, hora timestamptz,
@@ -232,7 +266,8 @@ export async function gravarResumos(
             nao_avaliaveis integer, falhas integer, alertas integer,
             soma_confianca numeric, com_confianca integer, soma_latencia_ms bigint,
             com_latencia integer, custo_centavos numeric,
-            julgadas_loja integer, julgadas_nuvem integer, ultimo_resultado text,
+            julgadas_loja integer, julgadas_nuvem integer,
+            soma_medida numeric, com_medida integer, max_medida numeric, ultimo_resultado text,
             ultimo_motivo text, ultimo_impedimento text, ultima_em timestamptz)
        join regra r on r.id = e.regra_id and r.loja_id = $2
        join zona  z on z.id = e.zona_id
@@ -260,6 +295,9 @@ export async function gravarResumos(
         custo_centavos = excluded.custo_centavos,
         julgadas_loja = excluded.julgadas_loja,
         julgadas_nuvem = excluded.julgadas_nuvem,
+        soma_medida = excluded.soma_medida,
+        com_medida = excluded.com_medida,
+        max_medida = excluded.max_medida,
         ultimo_resultado = excluded.ultimo_resultado,
         ultimo_motivo = excluded.ultimo_motivo,
         ultimo_impedimento = excluded.ultimo_impedimento,
