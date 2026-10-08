@@ -725,6 +725,42 @@ export type AvisoDaAnalise = {
   aviso: 'entregue' | 'enviado' | 'pendente' | 'falhou' | null;
 };
 
+/** O uso da máquina de análise (o computador da loja) numa hora. De cada
+ *  peça vêm a soma e a quantidade de amostras — para a tela juntar várias
+ *  horas sem errar a média — e o pico. Zero amostras = a peça não foi medida. */
+export type HoraDeUso = {
+  agenteId: string;
+  /** Dia e hora no relógio DA LOJA. */
+  dia: string;
+  hora: number;
+  amostras: number;
+  cpuSoma: number;
+  cpuAmostras: number;
+  cpuMax: number | null;
+  memSoma: number;
+  memAmostras: number;
+  memMax: number | null;
+  gpuSoma: number;
+  gpuAmostras: number;
+  gpuMax: number | null;
+  /** A parte do Farol (o processo do agente) no processador da máquina. */
+  farolCpuSoma: number;
+  farolCpuAmostras: number;
+  farolCpuMax: number | null;
+  farolMemMaxMb: number | null;
+  discoLivreGb: number | null;
+  discoTotalGb: number | null;
+};
+
+export type MaquinaDaLoja = {
+  id: string;
+  nome: string;
+  processador: string | null;
+  nucleos: number | null;
+  memoriaGb: number | null;
+  placaDeVideo: string | null;
+};
+
 export type Analises = {
   loja: { id: string; nome: string; timezone: string; horario_funcionamento: FaixaDeHorario[] };
   /** O intervalo devolvido, em dias do calendário da loja. */
@@ -737,6 +773,8 @@ export type Analises = {
   canais: Array<{ id: string; nome: string; canal: number | null; setor: string; ativo: boolean; excluido: boolean }>;
   criterios: Array<{ id: string; nome: string; tipo: string; ligado: boolean; excluido: boolean }>;
   celulas: CelulaDeAnalise[];
+  /** As máquinas da loja e o uso delas nas mesmas horas. */
+  maquina?: { agentes: MaquinaDaLoja[]; horas: HoraDeUso[] };
   /** Quantos avisos o intervalo teve; `avisos` traz os mais recentes. */
   totalDeAvisos: number;
   avisos: AvisoDaAnalise[];

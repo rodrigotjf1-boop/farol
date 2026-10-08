@@ -11,7 +11,7 @@
 // repetida — não entra em nada desta tela.
 // =====================================================================
 
-import type { Analises, AvisoDaAnalise, CelulaDeAnalise } from '@/lib/api';
+import type { Analises, AvisoDaAnalise, CelulaDeAnalise, HoraDeUso } from '@/lib/api';
 
 export type Periodo = 'hoje' | 'ontem' | '7d' | 'dia';
 export type Onde = 'tudo' | 'loja' | 'nuvem';
@@ -263,3 +263,111 @@ const reaisFinos = new Intl.NumberFormat('pt-BR', {
 export const dinheiro = (centavos: number): string => reais.format(centavos / 100);
 /** "R$ 0,013" — o custo de UMA análise precisa da terceira casa. */
 export const dinheiroFino = (centavos: number): string => reaisFinos.format(centavos / 100);
+
+// ───────────────────────── a máquina de análise ─────────────────────────
+// O uso é da máquina INTEIRA: segue o período e as horas do recorte, não o
+// canal nem o critério. O que acompanha canal e critério é o TEMPO que a
+// máquina passou julgando — e esse sai das próprias análises.
+
+export type Peca = 'cpu' | 'mem' | 'gpu';
+
+/** A média e o pico de uma peça. `null` = não foi medida: nunca vira zero. */
+export type Medida = { media: number | null; pico: number | null };
+
+export type Uso = {
+  amostras: number;
+  cpu: Medida;
+  mem: Medida;
+  gpu: Medida;
+  /** Quanto do processador da máquina o próprio Farol usou. */
+  farol: Medida;
+  farolMemMaxMb: number | null;
+};
+
+const maiorDe = (valores: Array<number | null>): number | null => {
+  const medidos = valores.filter((v): v is number => v !== null);
+  return medidos.length ? Math.max(...medidos) : null;
+};
+
+/**
+ * Junta várias horas de uso. A média pesa pela quantidade de amostras de
+ * CADA peça (hora com metade das amostras pesa metade); o pico é o maior.
+ */
+export function juntarUso(horas: HoraDeUso[]): Uso | null {
+  if (horas.length === 0) return null;
+  const medida = (soma: (h: HoraDeUso) => number, n: (h: HoraDeUso) => number, max: (h: HoraDeUso) => number | null): Medida => {
+    const amostras = horas.reduce((a, h) => a + n(h), 0);
+    return {
+      media: amostras > 0 ? horas.reduce((a, h) => a + soma(h), 0) / amostras : null,
+      pico: maiorDe(horas.map(max)),
+    };
+  };
+  return {
+    amostras: horas.reduce((a, h) => a + h.amostras, 0),
+    cpu: medida((h) => h.cpuSoma, (h) => h.cpuAmostras, (h) => h.cpuMax),
+    mem: medida((h) => h.memSoma, (h) => h.memAmostras, (h) => h.memMax),
+    gpu: medida((h) => h.gpuSoma, (h) => h.gpuAmostras, (h) => h.gpuMax),
+    farol: medida((h) => h.farolCpuSoma, (h) => h.farolCpuAmostras, (h) => h.farolCpuMax),
+    farolMemMaxMb: maiorDe(horas.map((h) => h.farolMemMaxMb)),
+  };
+}
+
+/** As horas de uso de UMA máquina dentro do intervalo de horas do recorte. */
+export function usoDoRecorte(horas: HoraDeUso[], agenteId: string, f: Pick<Filtros, 'de' | 'ate'>): HoraDeUso[] {
+  return horas.filter((h) => h.agenteId === agenteId && h.hora >= f.de && h.hora < f.ate);
+}
+
+/**
+ * O uso de cada barra do gráfico — as MESMAS barras do gráfico de análises.
+ * Num dia só, cada hora do dia (mesmo fora do intervalo escolhido, que fica
+ * apagada); em vários dias, cada dia já dentro das horas escolhidas.
+ */
+export function usoPorBalde(osBaldes: Balde[], horas: HoraDeUso[], agenteId: string, f: Pick<Filtros, 'de' | 'ate'>): Array<Uso | null> {
+  const daMaquina = horas.filter((h) => h.agenteId === agenteId);
+  return osBaldes.map((b) =>
+    b.hora !== undefined
+      ? juntarUso(daMaquina.filter((h) => h.hora === b.hora))
+      : juntarUso(daMaquina.filter((h) => h.dia === b.dia && h.hora >= f.de && h.hora < f.ate)),
+  );
+}
+
+/** O disco é uma posição, não uma média: vale a leitura mais recente. */
+export function discoMaisRecente(horas: HoraDeUso[]): { livreGb: number; totalGb: number | null } | null {
+  const comDisco = horas.filter((h) => h.discoLivreGb !== null);
+  if (comDisco.length === 0) return null;
+  const ultima = comDisco.reduce((a, h) => (h.dia > a.dia || (h.dia === a.dia && h.hora > a.hora) ? h : a));
+  return { livreGb: ultima.discoLivreGb!, totalGb: ultima.discoTotalGb };
+}
+
+/**
+ * Quanto o disco encolhe por dia, pelo que o intervalo mostra. Só se diz com
+ * pelo menos seis horas entre a primeira e a última leitura: menos que isso
+ * é ruído de arquivo temporário, não tendência.
+ */
+export function discoPorDia(horas: HoraDeUso[]): number | null {
+  const comDisco = horas.filter((h) => h.discoLivreGb !== null);
+  if (comDisco.length < 2) return null;
+  const quando = (h: HoraDeUso) => emDias(h.dia) * 24 + h.hora;
+  const primeira = comDisco.reduce((a, h) => (quando(h) < quando(a) ? h : a));
+  const ultima = comDisco.reduce((a, h) => (quando(h) > quando(a) ? h : a));
+  const passou = quando(ultima) - quando(primeira);
+  if (passou < 6) return null;
+  return ((primeira.discoLivreGb! - ultima.discoLivreGb!) / passou) * 24;
+}
+
+/** "45 s", "5 min 14 s", "2 h 03 min". */
+export function duracao(ms: number): string {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s} s`;
+  if (s < 3600) return `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')} s`;
+  return `${Math.floor(s / 3600)} h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')} min`;
+}
+
+/** O tempo que a máquina passou julgando NA LOJA, dentro do recorte de análises. */
+export function tempoJulgandoNaLoja(celulas: CelulaDeAnalise[]): { ms: number; analises: number } {
+  const daLoja = celulas.filter((c) => ladoDaCelula(c) === 'loja');
+  return {
+    ms: daLoja.reduce((a, c) => a + c.somaLatenciaMs, 0),
+    analises: daLoja.reduce((a, c) => a + c.analises, 0),
+  };
+}

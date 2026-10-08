@@ -1832,8 +1832,12 @@ máquina e 355 MB de memória.
   período e as horas, não o canal nem o critério. O que responde a canal e
   critério é o TEMPO que a máquina passou julgando, que sai das próprias
   análises (a latência somada das julgadas na loja).
-- **A tela**: o bloco "Máquina de análise", dentro de Análises, está no
-  protótipo esperando a aprovação do dono.
+- **A tela**: o bloco "Máquina de análise", dentro de Análises —
+  **aprovado pelo dono em 07/10/2026 e portado para `web/`**. Usa as
+  mesmas colunas do gráfico de análises e também escolhe a hora; com mais
+  de uma máquina na loja, aparece um seletor. O ritmo do disco ("0,6 GB a
+  menos por dia") só é dito com seis horas ou mais entre a primeira e a
+  última leitura do recorte.
 
 ### Fica para o fim (por decisão do dono)
 
