@@ -27,6 +27,7 @@ import type { FastifyInstance } from 'fastify';
 import pg from 'pg';
 
 import { criarApp } from '../src/app.js';
+import type { Subida } from '../src/guarda.js';
 import { acharMigrations, conferirEsquema } from '../src/preflight.js';
 
 const URL_DO_BANCO = process.env.DATABASE_URL;
@@ -50,8 +51,8 @@ describe('a saúde e o banco atrás do código (Postgres real)', { skip: !URL_DO
     return pasta;
   }
 
-  async function saude(pastaDeMigrations: string | null) {
-    const app = criarApp(pool, { logger: false, pastaDeMigrations });
+  async function saude(pastaDeMigrations: string | null, subida?: Subida) {
+    const app = criarApp(pool, { logger: false, pastaDeMigrations, subida });
     apps.push(app);
     await app.ready();
     const r = await app.inject({ method: 'GET', url: '/saude' });
@@ -130,6 +131,34 @@ describe('a saúde e o banco atrás do código (Postgres real)', { skip: !URL_DO
     assert.equal(corpo.ok, true);
     assert.deepEqual(corpo.pendentes, []);
     assert.equal(corpo.ultimaNoCodigo, null);
+  });
+
+  it('conta o que a subida aplicou', async () => {
+    const { corpo } = await saude(emDia, { migracao: { ok: true, aplicadas: ['002_segunda.sql', '003_terceira.sql'] } });
+    assert.deepEqual(corpo.migracaoNaSubida, { aplicadas: ['002_segunda.sql', '003_terceira.sql'] });
+    assert.equal(corpo.ok, true);
+  });
+
+  it('subida que não conseguiu aplicar: diz em qual arquivo parou e o código do banco — e só isso', async () => {
+    const { status, corpo } = await saude(adiantada, {
+      migracao: { ok: false, motivo: 'falhou', arquivo: A_MAIS, codigo: '42P07' },
+    });
+    assert.equal(status, 200);
+    assert.equal(corpo.ok, false);
+    assert.deepEqual(corpo.migracaoNaSubida, { falhou: A_MAIS, motivo: 'falhou', codigo: '42P07' });
+    assert.deepEqual(corpo.pendentes, [A_MAIS]);
+  });
+
+  it('banco que não respondeu na subida: sem arquivo e sem código, mas com o motivo', async () => {
+    const { corpo } = await saude(emDia, { migracao: { ok: false, motivo: 'conexao' } });
+    assert.deepEqual(corpo.migracaoNaSubida, { falhou: null, motivo: 'conexao', codigo: null });
+  });
+
+  it('sem subida (o teste, ou a aplicação automática desligada), o campo não aparece', async () => {
+    const { corpo } = await saude(emDia);
+    assert.equal('migracaoNaSubida' in corpo, false);
+    const desligada = await saude(emDia, { migracao: null });
+    assert.equal('migracaoNaSubida' in desligada.corpo, false);
   });
 
   it('a conferência devolve a última migration do código nos dois casos', async () => {

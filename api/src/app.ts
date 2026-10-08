@@ -7,6 +7,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
 import { instalarTratamentoDeErros } from './erros.js';
+import type { Subida } from './guarda.js';
 import { acharMigrations, conferirEsquema } from './preflight.js';
 import { rotasDeAgentes } from './rotas/agentes.js';
 import { rotasDeAlertas } from './rotas/alertas.js';
@@ -28,7 +29,7 @@ export const VERSAO = process.env.APP_VERSION ?? '0.1.0';
 
 export function criarApp(
   pool: pg.Pool,
-  opcoes: { logger?: boolean; pastaDeMigrations?: string | null } = {},
+  opcoes: { logger?: boolean; pastaDeMigrations?: string | null; subida?: Subida } = {},
 ): FastifyInstance {
   const app = Fastify({
     logger: opcoes.logger === false ? false : { level: process.env.LOG_LEVEL ?? 'info' },
@@ -94,11 +95,26 @@ export function criarApp(
         // é por aqui que se sabe, de fora, qual deploy ficou.
         ultimaNoCodigo: esquema.noCodigo,
         pendentes,
+        // O que a subida deste processo fez com as migrations: quais
+        // aplicou, ou em qual parou. Só o nome do arquivo e o código do
+        // banco — o texto do erro fica no log do contêiner.
+        ...(opcoes.subida?.migracao
+          ? {
+              migracaoNaSubida: opcoes.subida.migracao.ok
+                ? { aplicadas: opcoes.subida.migracao.aplicadas }
+                : {
+                    falhou: opcoes.subida.migracao.arquivo ?? null,
+                    motivo: opcoes.subida.migracao.motivo,
+                    codigo: opcoes.subida.migracao.codigo ?? null,
+                  },
+            }
+          : {}),
         ...(pendentes.length > 0
           ? {
               aviso:
-                'o banco está atrás do código: a API recusa os pedidos com 503 até ' +
-                'alguém rodar `npm run migrar` no console deste serviço',
+                'o banco está atrás do código: a API recusa os pedidos com 503 até as ' +
+                'migrations pendentes serem aplicadas. `npm run migrar`, no console ' +
+                'deste serviço, aplica e mostra o motivo se não conseguir',
             }
           : {}),
         catalogoModelos: await modelosNoCatalogo(),
