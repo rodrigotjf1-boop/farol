@@ -1848,7 +1848,7 @@ prazo de guarda.
 
 ---
 
-## A16 · Local primeiro, o ambiente e o padrão da loja (aprovado em 08/10/2026 — fases 1, 2, 3 e 4 feitas)
+## A16 · Local primeiro, o ambiente e o padrão da loja (aprovado em 08/10/2026 — as cinco fases feitas)
 
 Na noite de 07/10/2026, com a loja em operação e a tela de Análises no ar, o
 dono deu a direção das próximas semanas, em cinco pedidos:
@@ -2181,7 +2181,9 @@ cada pergunta, e o efeito só aparece comparando antes e depois numa loja
 com a planta desenhada. As decisões estão em `docs/decisoes.md`
 (08/10/2026, "A planta da loja").
 
-**Fase 5 · O especialista: padrão, anomalia, tendência e correção.**
+**Fase 5 · O especialista: padrão, anomalia, tendência e correção — feita
+(08/10/2026, migration 029).** Em Análises → Padrões. O que entrou, o que
+ficou de fora e como conferir estão depois da lista do que foi pedido.
 
 | lente | o que responde | de que é feita | quando dá para dizer |
 |---|---|---|---|
@@ -2203,6 +2205,67 @@ com a planta desenhada. As decisões estão em `docs/decisoes.md`
 - **Sugestões do especialista**: o que os números mostram sobre os próprios
   critérios — "este não consegue avaliar em 90% das vezes: marque a área",
   "este nunca fica fora do critério: vale manter?".
+
+**O que entrou.** A aba **Padrões** dentro de Análises, com a contagem das
+saídas do padrão que esperam resposta. Aparece com 7 dias de análises; o
+padrão é feito dos 28 dias antes de hoje, refeito cada vez que a tela abre.
+
+- **Parecer**: uma frase por lente, cada uma levando ao dado de onde saiu.
+- **Frequência**: cada setor em palavras (o movimento e o pico, as duas
+  maiores taxas fora do critério, os dois canais que menos conseguem
+  avaliar); a **semana típica** de um indicador, por dia da semana e hora;
+  e **o que anda junto** — "com menos de 2 na chapa, a bancada fica mais
+  tempo fora do critério", comparando a mesma hora do dia nas duas
+  situações, e "a touca fica sem avaliar com a loja cheia ou vazia: não é
+  o movimento".
+- **Anomalias**: a hora muito diferente do que costuma ser naquele dia da
+  semana e naquela hora, mesmo sem aviso de critério. Quem configura a
+  loja responde *era esperado* ("acontece sempre" ensina o padrão; "foi
+  só desta vez" tira a hora da conta) ou *é problema* (o que houve, o que
+  foi feito). Do problema nasce um critério — proposto com o costume
+  daquela hora como limite, e que nasce desligado — ou abre-se o que já
+  existe para ajuste.
+- **Tendência**: hoje contra o normal do mesmo dia da semana, hora a
+  hora, com o que se espera daqui em diante; e, semana a semana, a hora
+  mais cheia, a taxa fora do critério de cada critério, o gasto com a
+  nuvem e o disco da máquina ("nesse ritmo enche em N dias").
+- **Sugestões**: marcar a área onde o critério não consegue avaliar;
+  conferir só com alguém na área; usar a foto padrão; criar o critério
+  que uma relação forte mostra (com a faixa de horas em que ela foi
+  medida); e "nunca ficou fora do critério: vale manter?" — esta última
+  só para os dois critérios de mais olhadas.
+
+*Como conferir:* em Análises, a aba Padrões. Com menos de 7 dias de
+análises a tela diz quantos já tem. Com o padrão formado: tocar num quadro
+da semana típica mostra de que ele é feito; em Anomalias, "Era esperado"
+e "É problema" abrem as duas gavetas; a resposta tira a saída de "A
+rever" e ela passa a aparecer em "Revistas", com quem respondeu.
+
+**Ficou de fora, e por quê:**
+
+- **"Abre às 18h, de terça a domingo"** na descrição do setor. O exemplo
+  do plano e o do protótipo traziam essa frase; a descrição da tela começa
+  pelo movimento. O horário em que há análise não é o horário da loja (um
+  critério pode valer só numa faixa de horas), e repetir o horário
+  cadastrado da loja em cada setor não diz nada novo.
+- **O parecer escrito por modelo de linguagem.** As frases são montadas
+  dos números, sempre no mesmo formato. Se entra modelo, e com que
+  frequência, é a decisão 3 abaixo.
+- **Saída do padrão por aviso.** Elas aparecem na tela (e a aba conta
+  quantas esperam resposta); mandar por aviso é a decisão 2 abaixo.
+- **Anomalias na planta.** A planta continua mostrando a situação de
+  agora de cada câmera.
+- **O que mudou no critério depois de "ajustar".** A revisão guarda que
+  o critério foi aberto para ajuste, e não o que foi mudado nele.
+
+**Não foi medido:** os limites do que é "muito diferente do normal" numa
+loja de verdade. São valores de partida (para a medida, meio objeto além
+da faixa e 0,6 do meio; para as taxas, 10 pontos além da faixa e 15 do
+meio), postos para que "o posto que costuma ter dois ficou com um"
+apareça e "1,9 em vez de 2,0" não. A loja tinha dois dias de medida
+quando a fase saiu: quantas saídas do padrão por dia isso dá, e quantas
+delas o responsável acha que valem, só as primeiras semanas dizem. As
+decisões estão em `docs/decisoes.md` (08/10/2026, "O especialista").
 
 ### Como o especialista é feito
 
@@ -2228,6 +2291,12 @@ da hora que foi olhada, e diz quando ela é pequena. Com a comparação na
 loja (fase 2), o critério pode continuar sendo conferido durante o
 silêncio, sem custo.
 
+*Na fase 5:* a taxa é feita das olhadas que o critério fez, e a saída do
+padrão de uma taxa diz quando o silêncio tirou um quarto das olhadas da
+hora, ou mais ("depois de avisar, ele ficou em silêncio em 10 das 30
+olhadas da hora: a taxa é só das que ele fez"). A descrição do setor, a
+semana típica e a tendência ainda não dizem.
+
 ### Os protótipos (aprovados pelo dono em 08/10/2026)
 
 Em `mockups/farol-console.html`:
@@ -2244,8 +2313,16 @@ O que o protótipo mostra e depende de coisa que ainda não existe:
 
 - **A lista de saídas do padrão é a do exemplo.** A regra que decide o que
   é "muito diferente do normal" (mediana e dispersão por dia da semana e
-  hora) se escolhe com a primeira semana de dados da loja, medindo quantas
-  aponta por dia — anomalia demais vira ruído.
+  hora) entrou com a fase 5, com limites de partida; afinam-se com as
+  primeiras semanas de dados da loja, medindo quantas aponta por dia —
+  anomalia demais vira ruído.
+- **As frases de Padrões** eram, no protótipo aprovado, exemplos escritos
+  à mão ("Balcão com uma pessoa no pico", "a fila estoura mais"). A tela
+  monta cada frase dos números da loja, sempre no mesmo formato; com a
+  fase 5 o protótipo passou a mostrar as frases nesse formato, com os
+  números do exemplo. O que mais a tela tem de diferente do protótipo
+  aprovado foi levado a ele no mesmo trabalho e está listado em
+  `docs/decisoes.md` ("O especialista").
 - **"Nada a conferir"** (a olhada que o porteiro segurou) entrou na tela
   Análises com a fase 1, como uma linha à parte: não é análise, e por isso
   não virou fatia das barras. Essa linha não estava no protótipo aprovado —
@@ -2266,7 +2343,8 @@ O que o protótipo mostra e depende de coisa que ainda não existe:
   padrão"; o campo do nome do setor novo; e o botão de excluir, com a
   pergunta.
 - **A planta** pede tabelas novas.
-- **O parecer** do protótipo é montado dos números, sem modelo de linguagem.
+- **O parecer** do protótipo é montado dos números, sem modelo de linguagem
+  — e o da tela também.
 
 ### O que vale para todas as fases
 
@@ -2281,8 +2359,11 @@ O que o protótipo mostra e depende de coisa que ainda não existe:
 1. A ordem das fases. *Decidido em 08/10/2026: "aplicar todas as etapas até
    o final", na ordem proposta.*
 2. Quem recebe as saídas do padrão (o gerente da loja? a diretoria?) e por
-   onde (só na tela, ou também pelo aviso).
+   onde (só na tela, ou também pelo aviso). *Como saiu na fase 5: só na
+   tela; vê quem vê as análises (supervisão para cima) e responde quem
+   configura a loja (gerência para cima).*
 3. Se o parecer escrito por modelo de linguagem entra, e com que frequência.
+   *Como saiu na fase 5: sem modelo.*
 4. As fotos do inventário e a foto padrão sobem para a nuvem (para a
    análise única e para o console mostrar). São imagens da loja, sem
    pessoas: o detector avisa quando há alguém no quadro, mas quem decide

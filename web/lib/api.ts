@@ -853,6 +853,171 @@ export const resultadosApi = {
   },
 };
 
+// ───────────────────────── padrões ─────────────────────────
+// O especialista: o padrão de funcionamento da loja, tirado dos números
+// guardados por hora. A conta é toda do servidor (`api/src/especialista.ts`);
+// a tela só desenha o que chega.
+
+/** Um pedaço de frase: texto corrido, ou um trecho em destaque. */
+export type Trecho = string | { forte: string };
+export type Frase = Trecho[];
+
+export type TipoDeIndicador = 'medida' | 'fora' | 'na';
+
+export type IndicadorDoPadrao = {
+  id: string;
+  tipo: TipoDeIndicador;
+  regraId: string;
+  zonaId: string;
+  setorId: string;
+  nome: string;
+  /** O que o número conta: "pessoas", "fora do critério". */
+  curto: string;
+  onde: string;
+  noSeletor: boolean;
+};
+
+export type NormalDaHora = { n: number; noMiolo: number; media: number; mediana: number; min: number; max: number; base: 'dia' | 'hora' };
+export type CelulaDaSemana = { diaDaSemana: number; hora: number; n: number; media: number; min: number; max: number };
+export type DescricaoDoSetor = { setorId: string; setor: string; texto: string | null; fatos: Array<[string, string]> };
+export type RelacaoDoPadrao = {
+  setorId: string;
+  pergunta: string;
+  titulo: string;
+  forca: 'forte' | 'moderada' | 'nenhuma';
+  /** [rótulo, taxa em %, é o lado calmo?] */
+  linhas: Array<[string, number, boolean]>;
+  sufixo: string;
+  pe: string;
+};
+
+/** Um critério de contagem que o especialista propõe: o costume de uma hora virando limite. */
+export type CriterioProposto = {
+  nome: string;
+  tipo: 'contagem';
+  objeto: string;
+  minimo: number;
+  maximo: number | null;
+  zonaId: string;
+  lugar: string;
+  janela: [string, string];
+  regra: string;
+  texto: string;
+};
+
+export type SaidaDoPadrao = {
+  id: string;
+  indicadorId: string;
+  tipo: TipoDeIndicador;
+  regraId: string;
+  zonaId: string;
+  pontoId: string;
+  setorId: string;
+  /** O dia da operação (a madrugada pertence à noite anterior), AAAA-MM-DD. */
+  dia: string;
+  hora: number;
+  onde: string;
+  titulo: string;
+  grave: boolean;
+  estado: 'rever' | 'esperado' | 'problema';
+  visto: number;
+  normal: NormalDaHora;
+  conta: Frase;
+  curto: string;
+  mais: string | null;
+  camera: boolean;
+  criterio: CriterioProposto | null;
+  ajustar: { regraId: string; nome: string } | null;
+  revisao: { quem: string | null; em: string; texto: string; virou: string | null; soDestaVez: boolean } | null;
+};
+
+export type HojeContraONormal = {
+  indicadorId: string;
+  /** O nome do critério — com o canal, quando ele vale em mais de um. */
+  rotulo: string;
+  diaDaSemana: number;
+  horas: Array<{ hora: number; min: number; max: number; media: number; visto: number | null; completa: boolean }>;
+  nota: string;
+};
+
+export type TendenciaDoPadrao = {
+  setorId: string;
+  titulo: string;
+  serie: number[];
+  sentido: 'sobe' | 'cai' | 'estável';
+  seguidas: number;
+  ruim: 'sobe' | 'cai';
+  limite: number | null;
+  valor: string;
+  legenda: string;
+  texto: Frase;
+};
+
+export type SugestaoDoPadrao = {
+  setorId: string;
+  icone: 'area' | 'pessoa' | 'foto' | 'criterio' | 'duvida';
+  titulo: string;
+  texto: Frase;
+  acao:
+    | { tipo: 'area'; rotulo: string; pontoId: string }
+    | { tipo: 'criterio'; rotulo: string; regraId: string; porteiro?: 'pessoa' }
+    | { tipo: 'criar'; rotulo: string; criterio: CriterioProposto };
+};
+
+export type Padroes = {
+  loja: { id: string; nome: string; timezone: string };
+  /** O dia da operação de agora, no relógio da loja. */
+  hoje: string;
+  base: { dias: number; de: string | null; ate: string | null; firme: boolean };
+  /** Menos de sete dias medidos: não há padrão para mostrar. */
+  suficiente: boolean;
+  setores: Array<{ id: string; nome: string }>;
+  indicadores: IndicadorDoPadrao[];
+  descricoes: DescricaoDoSetor[];
+  semana: Record<string, CelulaDaSemana[]>;
+  relacoes: RelacaoDoPadrao[];
+  anomalias: SaidaDoPadrao[];
+  aRever: number;
+  hojeContraONormal: HojeContraONormal[];
+  tendencias: TendenciaDoPadrao[];
+  sugestoes: SugestaoDoPadrao[];
+  parecer: { frequencia: string | null; anomalias: Frase; tendencia: Frase | null };
+};
+
+/** O que o responsável responde a uma saída do padrão. */
+export type RespostaAoPadrao =
+  | { anomaliaId: string; estado: 'esperado'; soDestaVez: boolean; nota: string }
+  | { anomaliaId: string; estado: 'problema'; oQueHouve: string; oQueFoiFeito: string; depois: 'criar' | 'ajustar' | 'nada' };
+
+// A aba "Padrões" mostra quantas saídas esperam revisão também na tela de
+// análises: um pedido serve às duas, e vale por meio minuto.
+const padroesGuardados = new Map<string, { em: number; promessa: Promise<Padroes> }>();
+
+export const especialistaApi = {
+  obter(lojaId: string, forcar = false): Promise<Padroes> {
+    const tem = padroesGuardados.get(lojaId);
+    if (!forcar && tem && Date.now() - tem.em < VALIDADE_MS) return tem.promessa;
+    const promessa = pedir<Padroes>(`/lojas/${lojaId}/especialista`);
+    padroesGuardados.set(lojaId, { em: Date.now(), promessa });
+    promessa.catch(() => {
+      if (padroesGuardados.get(lojaId)?.promessa === promessa) padroesGuardados.delete(lojaId);
+    });
+    return promessa;
+  },
+
+  /** Guarda a resposta e devolve a tela inteira de novo, já com ela. */
+  async responder(lojaId: string, resposta: RespostaAoPadrao): Promise<Padroes> {
+    const novo = await pedir<Padroes>(`/lojas/${lojaId}/especialista/revisoes`, { method: 'POST', body: JSON.stringify(resposta) });
+    padroesGuardados.set(lojaId, { em: Date.now(), promessa: Promise.resolve(novo) });
+    return novo;
+  },
+
+  /** Depois de mexer em critério, área ou foto padrão, o que estava guardado envelheceu. */
+  esquecer(lojaId: string): void {
+    padroesGuardados.delete(lojaId);
+  },
+};
+
 // ───────────────────────── a planta ─────────────────────────
 // Os ambientes, os móveis e cada câmera no seu lugar, em metros. A conta
 // (o que cada câmera alcança, a perspectiva) mora em `lib/planta.ts`.

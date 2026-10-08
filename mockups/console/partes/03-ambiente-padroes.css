@@ -158,7 +158,11 @@
 /* tendência */
 .tend-grade { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .tend-hoje { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 12px; }
-.tend-hoje .secao-cab .seg button { min-height: 30px; }
+.tend-hoje .secao-cab .seg button { min-height: 30px; flex: 1 1 auto; }
+/* As opções são nomes de critério, do tamanho que a loja escreveu: quando não cabem lado a lado, o
+   seletor quebra a linha (cada nome inteiro) em vez de espremer ou de passar da tela. */
+.tend-hoje .secao-cab .seg { flex-wrap: wrap; max-width: 100%; }
+@media (max-width: 767px) { .tend-hoje .secao-cab .seg { display: flex; width: 100%; } }
 .hn { display: block; max-width: 100%; overflow: visible; }
 .hn text { fill: var(--suave); font: 11px var(--mono); }
 .hn .grade { stroke: var(--borda); stroke-width: 1; }

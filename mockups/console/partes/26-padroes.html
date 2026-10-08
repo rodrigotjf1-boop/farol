@@ -30,6 +30,7 @@
             <button type="button" data-pd-setor="todos" aria-pressed="true">Todos</button>
             <button type="button" data-pd-setor="Atendimento" aria-pressed="false">Atendimento</button>
             <button type="button" data-pd-setor="Cozinha" aria-pressed="false">Cozinha</button>
+            <button type="button" data-pd-setor="Estoque" aria-pressed="false">Estoque</button>
           </div>
         </section>
 
@@ -64,17 +65,18 @@
                 <h2 id="t-pd-semana">Semana típica</h2>
                 <p class="nota">Cada quadro é a média daquela hora naquele dia da semana. Toque num quadro para ver de que ele é feito.</p>
               </div>
-              <div class="filtro">
+              <div class="filtro" data-pd-com-indicador>
                 <label for="pd-indicador">O que olhar</label>
                 <select class="entrada" id="pd-indicador"></select>
               </div>
             </div>
-            <div class="calor-rola"><div class="calor" data-pd-calor role="group" aria-label="Semana típica, por dia e hora"></div></div>
-            <div class="calor-pe">
+            <p class="nota" data-pd-calor-vazio hidden>Nenhum indicador deste setor tem números para uma semana típica.</p>
+            <div class="calor-rola" data-pd-com-indicador><div class="calor" data-pd-calor role="group" aria-label="Semana típica, por dia e hora"></div></div>
+            <div class="calor-pe" data-pd-com-indicador>
               <span class="calor-escala" data-pd-escala></span>
               <span data-pd-calor-resumo></span>
             </div>
-            <p class="calor-detalhe" data-pd-calor-detalhe aria-live="polite"></p>
+            <p class="calor-detalhe" data-pd-calor-detalhe data-pd-com-indicador aria-live="polite"></p>
           </section>
 
           <section class="secao" aria-labelledby="t-pd-relacoes">
@@ -112,14 +114,14 @@
             <section class="cartao pad tend-hoje" aria-labelledby="t-pd-hoje">
               <div class="secao-cab">
                 <h2 id="t-pd-hoje" data-pd-hoje-titulo>Hoje contra o normal</h2>
-                <div class="seg empurra" role="group" aria-label="O que comparar" data-pd-hoje-seg></div>
+                <div class="seg empurra" role="group" aria-label="O que comparar" data-pd-hoje-seg data-pd-com-medida></div>
               </div>
-              <div class="legenda" aria-hidden="true">
+              <div class="legenda" aria-hidden="true" data-pd-com-medida>
                 <span><i class="cor-banda"></i>faixa do normal</span>
                 <span><i class="cor-tracejada"></i>o esperado</span>
                 <span><i class="cor-linha"></i>hoje, até agora</span>
               </div>
-              <div data-pd-hoje></div>
+              <div data-pd-hoje data-pd-com-medida></div>
               <p class="nota" data-pd-hoje-nota></p>
             </section>
             <div class="tend-grade" style="grid-column:1 / -1" data-pd-tendencias></div>
@@ -142,7 +144,7 @@
       <div class="vazio" data-quando="vazio">
         <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-repeat"/></svg></span>
         <h2>O padrão aparece com 7 dias de análises</h2>
-        <p>Com uma semana já dá para dizer como é cada hora. O padrão por dia da semana fica firme com três. Enquanto isso, o que foi julgado está na outra aba.</p>
+        <p>Com uma semana já dá para dizer como é cada hora. O padrão por dia da semana fica firme com três. Enquanto isso, o que foi julgado está na outra aba. Até agora: 4 dias com análise.</p>
         <a class="btn primario" href="#analises" data-ir="analises"><svg class="ic" aria-hidden="true"><use href="#i-chart-column"/></svg>Ver o que foi julgado</a>
       </div>
       <div class="ossos" data-quando="carregando" aria-hidden="true">

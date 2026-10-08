@@ -1130,3 +1130,206 @@ cabe; o nome do ambiente desvia do marcador das câmeras.
 O efeito da frase no veredito da nuvem. Ela custa uns cem caracteres por
 pergunta nos canais que estão na planta; se ajuda, só comparando antes e
 depois numa loja com a planta desenhada.
+## 08/10/2026 · O especialista: o padrão da loja
+
+Fase 5 do A16. "Com uma semana de uso, verificar as análises e ir criando um
+padrão de funcionamento; liberar descrição de funcionamento por setor; e o
+que saiu do padrão, para análise e correção do responsável pela loja"
+(pedido do dono). Tela: Análises → Padrões.
+
+### Só número, e nada guardado além da resposta
+
+Tudo sai do que já é guardado por hora (`resumo_hora`): a medida de cada
+olhada, o que ficou fora do critério e o que não deu para avaliar. Nenhuma
+imagem entra, e nenhum modelo de linguagem: as frases são montadas dos
+números.
+
+O padrão não é guardado: é refeito a cada pedido, dos 28 dias antes de
+hoje — alguns milhares de linhas já somadas por hora. Guardar o padrão
+pronto pediria uma rotina para refazê-lo e um jeito de saber que
+envelheceu; refazer na hora não envelhece. A única tabela nova é a da
+resposta do responsável (`padrao_revisao`, migration 029).
+
+O custo, medido no banco de teste (9 critérios em áreas, 24 dias, 1.152
+linhas de hora): 17 ms de busca e 81 ms de conta. Cresce com critérios ×
+horas; o console guarda a resposta por meio minuto. Se uma loja grande
+pesar, o primeiro passo é montar as amostras de cada hora uma vez só — a
+conta as refaz a cada comparação.
+
+A conta mora num arquivo sem banco (`api/src/especialista.ts`); a rota só
+busca o que ela precisa.
+
+### O dia é o da operação
+
+Loja que fecha à 1h não tem dois dias: a madrugada pertence à noite que
+começou. O dia vira às 6h, no relógio da loja, e quem corta é o banco. Hoje
+não entra no padrão. Com menos de 7 dias medidos não há padrão para
+mostrar; com 21, ele é chamado de firme (três de cada dia da semana).
+
+### A taxa é da rotina, e da parte que foi olhada
+
+- A olhada extra do vigia (fase 3) cai quando algo mudou, e não num
+  instante qualquer: "fora do critério em X% das olhadas" é feita só das
+  olhadas de rotina, para a semana de antes do vigia e a de depois serem
+  comparáveis.
+- Depois de avisar, o critério de nuvem fica o período de silêncio sem
+  olhar. A taxa é das olhadas que ele fez; a saída do padrão diz quando o
+  silêncio tirou um quarto das olhadas da hora, ou mais.
+- Hora com menos de 5 olhadas (ou 3 medidas) não tem valor: é acaso.
+
+### O normal de uma hora
+
+O normal é o **daquele dia da semana e daquela hora**, e é o que era
+costume **antes** daquele dia. Com os dias de depois na conta, o passado
+mudaria de cara: se o balcão passou a ter quatro pessoas aos sábados, os
+sábados antigos, com duas, virariam "menos do que o normal".
+
+A faixa do normal é a do **miolo** (mediana, e o que fica a até três
+desvios medianos dela, com um piso): o dia que já tinha fugido do costume
+não a alarga. Sem isso, a segunda vez que algo acontece esconderia a
+primeira — e as duas sumiriam da lista antes de alguém rever.
+
+Pede três dias iguais medidos (e dois que contem). Sem isso, vale "aquela
+hora em qualquer dia", com cinco dias ou mais — mas só em loja nova, ou na
+hora que já tem resposta. Em loja com o padrão firme, comparar a sexta com
+"qualquer dia" apontaria toda sexta de três semanas atrás.
+
+### O que é saída do padrão
+
+A hora que passa da faixa do normal por mais do que uma folga **e** fica
+longe do meio:
+
+| | além da faixa | longe do meio |
+|---|---|---|
+| medida (pessoas na área) | 0,5 | 0,6 |
+| taxas (% das olhadas) | 10 pontos | 15 pontos |
+
+São valores de partida. Medida aponta nos dois sentidos; taxa, só para
+cima (taxa menor que o normal é boa notícia). "Muito fora do normal":
+metade ou o dobro, na medida; 40 pontos acima, na taxa. Medida e taxa do
+mesmo critério na mesma hora viram uma saída só, a da medida.
+
+A frase diz por que o critério não avisou, quando é o caso: "ele olha o
+limite de 6, não o que é costume nessa hora".
+
+### O que a resposta faz
+
+- **Era esperado, acontece sempre**: aquela hora passa a fazer parte da
+  faixa do normal, por mais longe que esteja. Foi ensinada.
+- **Era esperado, foi só desta vez**, e **é problema**: a hora fica de
+  fora da conta do padrão. Problema que se repete não pode virar o normal.
+- Uma resposta por hora: há índice único, e a segunda pessoa a responder
+  recebe "já foi revista por outra pessoa" (o erro fica na gaveta, com o
+  que ela escreveu).
+- Quem grava é a API, que refaz a conta e tira dela — nunca do pedido — o
+  critério, a área, o dia e a hora.
+- **O critério proposto** leva o costume como limite (com gente de menos, o
+  meio do normal; com gente demais, o teto dele) e **nasce desligado**. Se
+  a hora é do pico do setor e as outras horas do pico pedem o mesmo limite,
+  ele vale para o pico inteiro ("pelo menos 2 no pico"); senão, só para
+  aquela hora — um limite só não serve a horas diferentes. Não se propõe o
+  que o critério já pede.
+
+### O que anda junto
+
+A mesma taxa em duas situações, comparadas **dentro da mesma hora do dia**:
+"às 20h, nos dias com um no balcão" contra "às 20h, nos dias com dois".
+Juntar todas as horas diria só que o pico é diferente da hora vazia. O
+limiar é um número inteiro de objetos ("menos de 2" se entende, "menos de
+1,7" não), e só se diz com amostra (oito horas de cada lado). Os dois casos
+têm de ser dois casos de verdade: os dias "com menos" ficam pelo menos meio
+objeto abaixo dos outros — com o costume em volta de 2,5, dividir os dias
+em "menos de 3" e "3 ou mais" separaria 2,4 de 2,6, que é ruído. Relação entre
+duas taxas que são zero não é relação; a medida e a taxa do mesmo critério
+andam juntas por definição, e ficam de fora.
+
+A segunda relação é a do "não deu para avaliar" com o movimento: quando a
+taxa é a mesma no pico e fora dele, não é o movimento que atrapalha — é o
+que a câmera mostra. A frase só manda olhar a sugestão de marcar a área
+quando essa sugestão existe.
+
+Da relação forte em que **menos gente** piora o critério nasce a sugestão
+de criar "pelo menos N" — com a faixa de horas em que a relação foi
+medida. Sem a faixa, o critério avisaria o dia todo: fora do pico, ter
+menos gente é o normal.
+
+### Tendência
+
+Quatro semanas, e o rumo é o da reta ajustada (o primeiro contra o último
+seria ruído: uma série que só oscila pareceria queda). Para dizer "sobe" ou
+"cai" a reta tem de andar 6% do valor **e** um mínimo em valor (0,3 objeto;
+3 pontos de taxa; 1 GB de disco): um ponto percentual a mais não é subida.
+A taxa é um cartão por critério, juntando os canais do setor.
+
+### Sugestões e descrição, curtas de propósito
+
+- No máximo oito sugestões. "Nunca ficou fora do critério: vale manter?"
+  está no plano aprovado, mas numa loja nova quase todo critério passa
+  semanas sem ficar fora: valem só as duas de mais olhadas, por último.
+- A descrição do setor leva o movimento, as duas maiores taxas fora do
+  critério (por critério, juntando os canais) e os dois canais que menos
+  conseguem avaliar. Uma frase por critério e canal virava um parágrafo
+  sem fim com a touca em três canais e a bancada em dois.
+
+### O que a tela tem e o protótipo aprovado não tinha
+
+Levado ao protótipo no mesmo trabalho:
+
+1. **As frases no formato do servidor.** O protótipo aprovado tinha frases
+   escritas à mão; passou a mostrar o que a tela escreve: o título de cada
+   saída do padrão (`“Alguém no balcão”: menos pessoas do que o normal`), o
+   nome do critério proposto (`Pelo menos 2 em Balcão · Dentro do balcão no
+   pico`), a descrição de cada setor, as relações, as tendências e as
+   sugestões.
+2. **"Nas 3 quartas anteriores"**, no lugar de "nos outros 3 dias iguais":
+   o normal é o de antes daquela hora.
+3. **O setor sem critério na faixa de setores** (Estoque), e o que cada
+   lente diz para ele: "nenhum indicador deste setor tem números para uma
+   semana típica", "ainda não há relação para mostrar", "aparece quando um
+   critério de presença ou de contagem…", "nenhuma sugestão agora". E, em
+   "Todas", "nenhuma saída do padrão neste período".
+4. **A base**: "refeito cada vez que esta tela abre · o dia vira às 6h"
+   (era "refeito toda madrugada, às 6h" — não há rotina de madrugada).
+5. **"Até agora: N dias com análise"**, na loja que ainda não tem padrão.
+6. **O seletor "O que olhar"** lista a taxa de cada canal (o critério em
+   dois canais aparece duas vezes, com o canal no nome) e o "sem conseguir
+   avaliar"; o de **"O que comparar"** leva o nome do critério e quebra a
+   linha no celular, em vez de espremer.
+7. **A foto padrão sugerida por canal**, com o canal no título.
+8. **Por que o critério não avisou** ("ele só pede 1…"), e **quanto da hora
+   ficou em silêncio**, na saída do padrão.
+9. **"Nunca ficou fora do critério: vale manter?"** — estava no plano e
+   não no protótipo.
+10. **"Sem análise"** na grade, onde o protótipo dizia "fechada": a tela
+    sabe que não houve análise, não que a loja estava fechada.
+11. **"Por dia com análise"** no gasto, onde o protótipo dizia "por dia
+    aberto".
+
+Saiu do protótipo: "quanto isso economiza sai do ensaio com as imagens já
+guardadas", na sugestão da foto padrão — esse ensaio não existe.
+
+### O que os testes acharam antes de sair
+
+- **Salvar um critério aberto por esta tela tirava-o de todos os canais.**
+  A gaveta do critério, na edição, marcava os canais que a tela que a abriu
+  passava — e esta passava lista vazia. A gaveta passou a tirar os canais
+  do próprio critério; salvar sem mexer em nada deixa tudo onde está.
+- **Dois cartões de tendência com o mesmo título** (o critério em dois
+  canais): a tela usa o título como chave, e um cartão ficava na tela ao
+  trocar de setor.
+- **O critério sugerido pela relação nascia sem faixa de horas.**
+- **Dias divididos por ruído viravam "relação"** (o costume em volta de
+  2,5 separado em "menos de 3" e "3 ou mais"). Apareceu porque uma troca
+  de linha no motor passou sem teste acusando — e o teste dela só passava
+  porque a relação nem chegava a existir.
+- **Um teste que não testava**: a série era mexida antes de gerar os
+  números, o gerador não a reconhecia, e a conferência passava por não
+  haver número nenhum. Foi a troca de uma linha no motor, sem teste
+  nenhum acusando, que mostrou.
+
+### O que não foi medido
+
+Os limites do que é saída do padrão, numa loja de verdade: a loja tinha
+dois dias de medida quando a fase saiu. Quantas saídas por dia eles dão,
+quantas o responsável acha que valem, e se as sugestões acertam, só as
+primeiras semanas dizem.

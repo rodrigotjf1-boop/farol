@@ -46,10 +46,25 @@ type Props = {
   setores: Setor[];
   /** O critério em edição. Ausente = criando um novo. */
   regra?: Regra;
-  /** Áreas que já vêm marcadas ao abrir — o canal onde se clicou "+ critério". */
+  /** Num critério NOVO: as áreas que já vêm marcadas ao abrir — o canal onde se clicou "+ critério".
+   *  Na edição não vale: os canais marcados são os do próprio critério. */
   marcadasDeInicio: string[];
-  /** Um critério NOVO que já nasce preenchido (sugerido pelo inventário). Na edição não vale. */
-  inicial?: { nome?: string; criterio?: string; porteiro?: Porteiro; comPadrao?: boolean };
+  /** Um critério NOVO que já nasce preenchido (sugerido pelo inventário ou pelos padrões). Na edição não vale. */
+  inicial?: {
+    nome?: string;
+    criterio?: string;
+    porteiro?: Porteiro;
+    comPadrao?: boolean;
+    tipo?: Regra['tipo'];
+    /** O que o detector procura e quantos são aceitáveis (presença e contagem). */
+    objeto?: string;
+    minimo?: number;
+    maximo?: number | null;
+    /** A faixa de horas em que ele é conferido. */
+    faixa?: { de: string; ate: string };
+  };
+  /** Na EDIÇÃO: a opção de "quando vale conferir" que os padrões sugerem. Só entra se a pessoa salvar. */
+  porteiroSugerido?: Porteiro;
   /** O que o detector local sabe procurar. Vem da API, junto com os critérios. */
   objetosDoDetector: string[];
   /** Quando a loja abre. É por ele que "no horário" e "fora do horário" valem. */
@@ -64,6 +79,7 @@ export function GavetaDoCriterio({
   regra,
   marcadasDeInicio,
   inicial,
+  porteiroSugerido,
   objetosDoDetector,
   horarioDaLoja,
   aoSalvar,
@@ -71,9 +87,11 @@ export function GavetaDoCriterio({
 }: Props) {
   const editando = regra !== undefined;
   const p = useId();
-  const [marcadas, setMarcadas] = useState<Set<string>>(() => new Set(marcadasDeInicio));
+  // Na edição, os canais são os do critério — nunca o que a tela que abriu a gaveta lembrou de passar: salvar
+  // sem mexer em nada tem de deixar o critério onde ele está (sem isto, uma lista vazia o tirava de todos).
+  const [marcadas, setMarcadas] = useState<Set<string>>(() => new Set(regra ? regra.alvos.map((a) => a.zona_id) : marcadasDeInicio));
   const [nome, setNome] = useState(regra?.nome ?? inicial?.nome ?? '');
-  const [tipo, setTipo] = useState<Regra['tipo']>(regra?.tipo ?? 'estado');
+  const [tipo, setTipo] = useState<Regra['tipo']>(regra?.tipo ?? inicial?.tipo ?? 'estado');
   const [criterio, setCriterio] = useState(regra?.criterio ?? inicial?.criterio ?? '');
   const [prioridade, setPrioridade] = useState<string>(regra?.prioridade ?? 'intermediaria');
   const [severidade, setSeveridade] = useState<string>(regra?.severidade ?? 'atencao');
@@ -87,24 +105,26 @@ export function GavetaDoCriterio({
   // mexer aqui — por isso a faixa só sobe quando foi mexida.
   const faixaGuardada = faixaSimples(regra?.janelas);
   const faixaDetalhada = faixaGuardada === 'detalhada';
-  const [comFaixa, setComFaixa] = useState(faixaGuardada !== null && !faixaDetalhada);
-  const [faixaDe, setFaixaDe] = useState(faixaGuardada && !faixaDetalhada ? faixaGuardada.de : '20:00');
-  const [faixaAte, setFaixaAte] = useState(faixaGuardada && !faixaDetalhada ? faixaGuardada.ate : '22:00');
+  const faixaInicial = regra ? undefined : inicial?.faixa;
+  const [comFaixa, setComFaixa] = useState((faixaGuardada !== null && !faixaDetalhada) || Boolean(faixaInicial));
+  const [faixaDe, setFaixaDe] = useState(faixaGuardada && !faixaDetalhada ? faixaGuardada.de : (faixaInicial?.de ?? '20:00'));
+  const [faixaAte, setFaixaAte] = useState(faixaGuardada && !faixaDetalhada ? faixaGuardada.ate : (faixaInicial?.ate ?? '22:00'));
   const [mexeuNaFaixa, setMexeuNaFaixa] = useState(false);
 
   // Quando vale a pena conferir: a loja decide, com o detector, antes de
   // perguntar à nuvem.
-  const [porteiro, setPorteiro] = useState<Porteiro>(regra?.porteiro ?? inicial?.porteiro ?? 'sempre');
+  const [porteiro, setPorteiro] = useState<Porteiro>((regra ? (porteiroSugerido ?? regra.porteiro) : inicial?.porteiro) ?? 'sempre');
   // Em quantas olhadas seguidas fora do critério ele avisa.
   const [confirmarEm, setConfirmarEm] = useState(regra?.confirmar_em ?? 1);
   // Critério de estado: a foto padrão do canal vai junto à nuvem.
   const [comPadrao, setComPadrao] = useState(regra?.com_padrao ?? inicial?.comPadrao ?? false);
 
   // O que o detector procura. Só vale nos tipos julgados na loja.
-  const [objeto, setObjeto] = useState(regra?.parametros?.objeto ?? 'pessoa');
-  const [deveHaver, setDeveHaver] = useState(regra?.parametros?.maximo !== 0);
-  const [minimo, setMinimo] = useState(String(regra?.parametros?.minimo ?? 0));
-  const [maximo, setMaximo] = useState(regra?.parametros?.maximo == null ? '' : String(regra.parametros.maximo));
+  const doDetector = regra ? regra.parametros : inicial;
+  const [objeto, setObjeto] = useState(doDetector?.objeto ?? 'pessoa');
+  const [deveHaver, setDeveHaver] = useState(doDetector?.maximo !== 0);
+  const [minimo, setMinimo] = useState(String(doDetector?.minimo ?? 0));
+  const [maximo, setMaximo] = useState(doDetector?.maximo == null ? '' : String(doDetector.maximo));
 
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
