@@ -32,7 +32,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from farol_agent.juizes.base import ErroDoJuiz, bloco_dos_equipamentos
+from farol_agent.juizes.base import ErroDoJuiz, bloco_do_lugar, bloco_dos_equipamentos
 from farol_agent.modelos import Resultado, Veredito, Via
 
 
@@ -410,6 +410,10 @@ def _montar_pedido(criterio: str, contexto: dict[str, Any] | None) -> str:
         contexto.pop(chave, None)
     if contexto.pop("fora_da_area", None):
         partes.append(AVISO_DA_AREA)
+    # Onde a câmera fica (planta da loja): situa a cena antes de tudo.
+    lugar = bloco_do_lugar(contexto.pop("lugar", None))
+    if lugar:
+        partes.append(lugar)
     # O que a loja sabe dos equipamentos desta área (inventário).
     equipamentos = bloco_dos_equipamentos(contexto.pop("equipamentos", None))
     if equipamentos:

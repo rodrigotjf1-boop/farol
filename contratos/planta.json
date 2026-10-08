@@ -1,0 +1,305 @@
+{
+  "_": [
+    "A planta de exemplo (a mesma do protótipo aprovado) e o que se tira dela.",
+    "Lido por api/testes/planta.test.ts — que confere a conta da API (api/src/planta.ts) E a do console (web/lib/planta.ts) — e por agent/testes/test_lugar.py.",
+    "Mudou a conta de um lado? Este arquivo muda junto, e o outro lado tem de acompanhar."
+  ],
+  "canais": {
+    "00000000-0000-4000-8000-000000000011": "chapa",
+    "00000000-0000-4000-8000-000000000012": "fritadeira",
+    "00000000-0000-4000-8000-000000000013": "montagem1",
+    "00000000-0000-4000-8000-000000000014": "montagem2",
+    "00000000-0000-4000-8000-000000000015": "balcao",
+    "00000000-0000-4000-8000-000000000016": "caixa",
+    "00000000-0000-4000-8000-000000000017": "estoque",
+    "00000000-0000-4000-8000-000000000018": "recebimento"
+  },
+  "planta": {
+    "ambientes": [
+      {
+        "id": "coz",
+        "nome": "Cozinha",
+        "setorId": "00000000-0000-4000-8000-000000000001",
+        "x": 0,
+        "y": 0,
+        "w": 7.5,
+        "h": 5.5
+      },
+      {
+        "id": "est",
+        "nome": "Estoque",
+        "setorId": "00000000-0000-4000-8000-000000000002",
+        "x": 0,
+        "y": 5.5,
+        "w": 4.5,
+        "h": 3.5
+      },
+      {
+        "id": "rec",
+        "nome": "Recebimento",
+        "setorId": "00000000-0000-4000-8000-000000000002",
+        "x": 4.5,
+        "y": 5.5,
+        "w": 3,
+        "h": 3.5
+      },
+      {
+        "id": "atd",
+        "nome": "Atendimento",
+        "setorId": "00000000-0000-4000-8000-000000000003",
+        "x": 7.5,
+        "y": 0,
+        "w": 6.5,
+        "h": 9
+      }
+    ],
+    "moveis": [
+      {
+        "id": "chapa",
+        "nome": "Chapa",
+        "itemId": "00000000-0000-4000-8000-000000000021",
+        "x": 0.5,
+        "y": 0.3,
+        "w": 1.8,
+        "h": 0.8,
+        "alt": 0.9
+      },
+      {
+        "id": "fritadeira",
+        "nome": "Fritadeira",
+        "itemId": "00000000-0000-4000-8000-000000000022",
+        "x": 2.7,
+        "y": 0.3,
+        "w": 1,
+        "h": 0.8,
+        "alt": 0.9
+      },
+      {
+        "id": "geladeira",
+        "nome": "Geladeira",
+        "itemId": "00000000-0000-4000-8000-000000000023",
+        "x": 6.3,
+        "y": 0.3,
+        "w": 0.9,
+        "h": 0.8,
+        "alt": 1.9
+      },
+      {
+        "id": "montagem1",
+        "nome": "Montagem 1",
+        "itemId": "00000000-0000-4000-8000-000000000024",
+        "x": 1,
+        "y": 2.7,
+        "w": 2.3,
+        "h": 0.8,
+        "alt": 0.9
+      },
+      {
+        "id": "montagem2",
+        "nome": "Montagem 2",
+        "itemId": "00000000-0000-4000-8000-000000000025",
+        "x": 4,
+        "y": 2.7,
+        "w": 2.3,
+        "h": 0.8,
+        "alt": 0.9
+      },
+      {
+        "id": "prateleira",
+        "nome": "Prateleiras",
+        "itemId": "00000000-0000-4000-8000-000000000026",
+        "x": 0.3,
+        "y": 6,
+        "w": 0.6,
+        "h": 2.6,
+        "alt": 1.8
+      },
+      {
+        "id": "balcao",
+        "nome": "Balcão",
+        "itemId": "00000000-0000-4000-8000-000000000027",
+        "x": 9.4,
+        "y": 0.8,
+        "w": 0.7,
+        "h": 5.4,
+        "alt": 1.1
+      },
+      {
+        "id": "caixa",
+        "nome": "Caixa",
+        "itemId": "00000000-0000-4000-8000-000000000028",
+        "x": 9.4,
+        "y": 6.8,
+        "w": 0.7,
+        "h": 1.2,
+        "alt": 1.1
+      },
+      {
+        "id": "mesa1",
+        "nome": "Mesa",
+        "itemId": null,
+        "x": 11.6,
+        "y": 1.2,
+        "w": 1,
+        "h": 1,
+        "alt": 0.75
+      },
+      {
+        "id": "mesa2",
+        "nome": "Mesa",
+        "itemId": null,
+        "x": 11.6,
+        "y": 3.6,
+        "w": 1,
+        "h": 1,
+        "alt": 0.75
+      },
+      {
+        "id": "mesa3",
+        "nome": "Mesa",
+        "itemId": null,
+        "x": 11.6,
+        "y": 6,
+        "w": 1,
+        "h": 1,
+        "alt": 0.75
+      }
+    ],
+    "cameras": [
+      {
+        "pontoId": "00000000-0000-4000-8000-000000000011",
+        "x": 1.4,
+        "y": 2.2,
+        "alt": 2.6,
+        "dir": 270,
+        "abertura": 80,
+        "alcance": 2.6
+      },
+      {
+        "pontoId": "00000000-0000-4000-8000-000000000012",
+        "x": 3.2,
+        "y": 2.2,
+        "alt": 2.6,
+        "dir": 270,
+        "abertura": 70,
+        "alcance": 2.4
+      },
+      {
+        "pontoId": "00000000-0000-4000-8000-000000000013",
+        "x": 2.15,
+        "y": 5.1,
+        "alt": 2.6,
+        "dir": 270,
+        "abertura": 80,
+        "alcance": 3
+      },
+      {
+        "pontoId": "00000000-0000-4000-8000-000000000014",
+        "x": 5.15,
+        "y": 5.1,
+        "alt": 2.6,
+        "dir": 270,
+        "abertura": 80,
+        "alcance": 3
+      },
+      {
+        "pontoId": "00000000-0000-4000-8000-000000000015",
+        "x": 13.6,
+        "y": 0.4,
+        "alt": 2.7,
+        "dir": 142,
+        "abertura": 92,
+        "alcance": 8.2
+      },
+      {
+        "pontoId": "00000000-0000-4000-8000-000000000016",
+        "x": 7.9,
+        "y": 8.6,
+        "alt": 2.6,
+        "dir": 322,
+        "abertura": 70,
+        "alcance": 3.6
+      },
+      {
+        "pontoId": "00000000-0000-4000-8000-000000000017",
+        "x": 4.2,
+        "y": 5.8,
+        "alt": 2.5,
+        "dir": 135,
+        "abertura": 88,
+        "alcance": 4.6
+      },
+      {
+        "pontoId": "00000000-0000-4000-8000-000000000018",
+        "x": 7.2,
+        "y": 5.8,
+        "alt": 2.5,
+        "dir": 125,
+        "abertura": 80,
+        "alcance": 3.6
+      }
+    ]
+  },
+  "nomeDoItem": {
+    "00000000-0000-4000-8000-000000000021": "Chapa",
+    "00000000-0000-4000-8000-000000000022": "Fritadeira",
+    "00000000-0000-4000-8000-000000000023": "Geladeira",
+    "00000000-0000-4000-8000-000000000024": "Bancada de montagem 1",
+    "00000000-0000-4000-8000-000000000025": "Bancada de montagem 2",
+    "00000000-0000-4000-8000-000000000026": "Prateleiras do estoque seco",
+    "00000000-0000-4000-8000-000000000027": "Balcão de atendimento",
+    "00000000-0000-4000-8000-000000000028": "Caixa"
+  },
+  "esperado": {
+    "veem": {
+      "00000000-0000-4000-8000-000000000011": [
+        "chapa"
+      ],
+      "00000000-0000-4000-8000-000000000012": [
+        "fritadeira"
+      ],
+      "00000000-0000-4000-8000-000000000013": [
+        "montagem1"
+      ],
+      "00000000-0000-4000-8000-000000000014": [
+        "montagem2"
+      ],
+      "00000000-0000-4000-8000-000000000015": [
+        "mesa1",
+        "mesa2",
+        "balcao",
+        "mesa3",
+        "caixa"
+      ],
+      "00000000-0000-4000-8000-000000000016": [
+        "caixa"
+      ],
+      "00000000-0000-4000-8000-000000000017": [
+        "prateleira"
+      ],
+      "00000000-0000-4000-8000-000000000018": []
+    },
+    "lugares": {
+      "00000000-0000-4000-8000-000000000011": "Câmera no ambiente Cozinha, a 2,6 m do chão. No campo de visão: chapa.",
+      "00000000-0000-4000-8000-000000000012": "Câmera no ambiente Cozinha, a 2,6 m do chão. No campo de visão: fritadeira.",
+      "00000000-0000-4000-8000-000000000013": "Câmera no ambiente Cozinha, a 2,6 m do chão. No campo de visão: bancada de montagem 1.",
+      "00000000-0000-4000-8000-000000000014": "Câmera no ambiente Cozinha, a 2,6 m do chão. No campo de visão: bancada de montagem 2.",
+      "00000000-0000-4000-8000-000000000015": "Câmera no ambiente Atendimento, a 2,7 m do chão. No campo de visão: mesa (3), balcão de atendimento e caixa.",
+      "00000000-0000-4000-8000-000000000016": "Câmera no ambiente Atendimento, a 2,6 m do chão. No campo de visão: caixa.",
+      "00000000-0000-4000-8000-000000000017": "Câmera no ambiente Estoque, a 2,5 m do chão. No campo de visão: prateleiras do estoque seco.",
+      "00000000-0000-4000-8000-000000000018": "Câmera no ambiente Recebimento, a 2,5 m do chão."
+    },
+    "cobertura": {
+      "coz": 0.4667,
+      "est": 0.7302,
+      "rec": 0.7619,
+      "atd": 0.7906
+    },
+    "coberturaSemOBalcao": {
+      "coz": 0.4667,
+      "est": 0.7302,
+      "rec": 0.7619,
+      "atd": 0.1282
+    }
+  }
+}

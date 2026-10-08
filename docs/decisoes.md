@@ -994,3 +994,139 @@ pico não sobe.
 - O efeito no processador com a loja cheia. A conta diz pouco (quatro
   áreas × 90 ms a cada 10 s é menos de 4% de um núcleo), e o freio existe
   para o caso de a conta estar errada.
+
+
+## 08/10/2026 · A planta da loja
+
+Fase 4 do A16. "Um desenho do ambiente onde os canais estão e o
+posicionamento nesse ambiente, como se fosse algo 3D" (pedido do dono).
+Tela: Canais → Planta.
+
+### Retângulos em metros, e não uma imagem
+
+A planta são três listas: ambientes, móveis e câmeras, cada coisa com
+posição e tamanho em metros. Uma foto da planta baixa seria mais rápida de
+pôr na tela e não serviria para nada além de olhar: é por ser feita de
+retângulos que dá para calcular o que cada câmera alcança, o que nenhuma
+vê, e escrever onde cada câmera está.
+
+A "perspectiva" é a mesma planta girada 45° e deitada: não há modelo 3D,
+biblioteca nem arquivo de imagem. O que é alto (parede do fundo, móvel,
+poste da câmera) é desenhado em pé, cortado em pedaços de até um metro e
+pintado do mais distante para o mais próximo.
+
+### Um documento por loja, salvo inteiro
+
+A tabela `planta` tem uma linha por loja, com o documento em JSON. Não há
+uma tabela por ambiente, móvel e câmera:
+
+- a tela edita tudo e salva de uma vez ("Concluir edição"). Salvar por
+  partes deixaria a planta pela metade quando a rede caísse no meio;
+- "Descartar mudanças" é só não salvar.
+
+O preço de não ter chave estrangeira é pago em dois lugares, de propósito:
+na **gravação**, a API confere que o setor de cada ambiente, o equipamento
+de cada móvel e o canal de cada câmera são desta loja; na **leitura**, tira
+a câmera cujo canal foi excluído e solta o móvel do equipamento que saiu do
+inventário e o ambiente do setor que deixou de existir. A planta guardada
+não é reescrita por isso — quem a reescreve é o próximo salvamento.
+
+### Quem salva diz a versão que leu
+
+Dois gerentes editando a mesma planta: o segundo a salvar apagaria o
+desenho do primeiro sem saber. Cada salvamento manda a versão que tinha na
+mão; a gravação é uma instrução só, que só grava se a versão ainda for
+aquela. Senão, 409, nada é gravado, a edição continua aberta e a tela diz o
+que houve. "Descartar mudanças" recarrega o que está guardado.
+
+### O que a câmera vê
+
+O campo de visão é um setor de círculo (posição, direção, abertura da
+lente e alcance), **cortado nas paredes do ambiente em que a câmera está**.
+"Ver" um móvel é o centro dele estar nesse desenho.
+
+É estimativa, e a tela diz: móvel alto na frente da câmera não faz sombra,
+e a altura da câmera não entra na conta do chão. Serve para achar o canto
+que ninguém olha, não para laudo.
+
+### A frase do lugar
+
+De cada câmera sai uma frase, escrita pela API:
+
+    Câmera no ambiente Atendimento, a 2,7 m do chão. No campo de visão:
+    mesa (3), balcão de atendimento e caixa.
+
+- É a MESMA frase na tela e no agente: a tela mostra o que o servidor
+  escreveu, e é isso que desce na configuração (`pontos[].lugar`).
+- O nome de cada móvel é o do **inventário** quando ele está ligado a um
+  equipamento; senão, o que foi escrito na planta.
+- Do mais perto ao mais longe, no máximo oito nomes ("e mais N"). É texto
+  pago a cada análise.
+- **"mesa (3)", e não "3 mesas"**: o plural de um nome escrito por alguém
+  não se adivinha ("balcão", "freezer").
+- **Sem móvel na frente, a frase não diz "não há equipamento"**: a imagem
+  pode mostrar um que ninguém desenhou, e uma frase assim faria o modelo
+  duvidar do que vê. (O protótipo aprovado dizia; a tela e o protótipo
+  foram mudados juntos.)
+- No pedido ao modelo ela vai num bloco próprio, que diz de onde veio e que
+  a planta pode estar incompleta: "na dúvida, vale o que a imagem mostra".
+  Só nos tipos que leem texto (estado, ação, comparação); o detector não
+  leva. Vai no pedido, e não nas instruções fixas (que ficam em cache).
+
+### Duas cópias da mesma conta
+
+O cone e "o que a câmera vê" existem na API (que escreve a frase) e no
+console (que desenha o cone enquanto a câmera é arrastada). Os dois
+programas não compartilham código. O que mantém as cópias iguais é um teste
+só: `api/testes/planta.test.ts` importa o arquivo do console
+(`web/lib/planta.ts`, que por isso não importa nada) e exige a mesma
+resposta das duas, no exemplo de `contratos/planta.json` e em quatrocentas
+câmeras sorteadas.
+
+### O que sobe a versão da configuração
+
+O agente consome a frase. Então sobe a versão: salvar a planta com
+documento diferente; e mudar o nome (ou excluir) um equipamento do
+inventário **que está na planta**. Salvar a mesma planta de novo, ou
+renomear um equipamento que não está em frase nenhuma, não acorda o agente.
+
+### "Situação agora"
+
+A câmera é pintada com o que o console já sabe: canal pausado, sinal de
+"sem imagem", critérios ligados (e se valem com a loja aberta ou fechada) e
+ocorrência nos últimos dez minutos. Duas regras para não afirmar à toa:
+
+- com o computador da loja sem bater, nenhuma câmera aparece "conferindo";
+- perfil que não vê resultados não recebe sinais nem ocorrências: para ele
+  a planta não acusa "sem imagem" nem "aviso".
+
+### O que a tela tem e o protótipo aprovado não tinha
+
+Levado ao protótipo no mesmo trabalho:
+
+1. **Ligar o móvel a um equipamento do inventário** (um campo na edição).
+   O protótipo tinha móveis já ligados no exemplo, e nenhum jeito de ligar.
+2. **"Tirar da planta" para a câmera.** Sem isso, câmera posta por engano
+   não saía mais.
+3. **Canal fora da planta, na lista de câmeras**: "pôr na planta" na
+   edição (tocar o põe no meio do primeiro ambiente), "fora da planta" fora
+   dela. No exemplo do protótipo todos os canais já estavam postos.
+4. A frase do lugar, como descrito acima.
+
+Só na tela (não muda o desenho): as setas do teclado movem o que está
+escolhido; "computador da loja sem sinal" e "nenhum critério ligado" como
+motivos de "sem conferência agora"; o nome do móvel aparece sempre que
+cabe; o nome do ambiente desvia do marcador das câmeras.
+
+### O que ficou de fora
+
+- **Portas.** O exemplo do protótipo desenha duas, mas não há ferramenta
+  para criá-las, e inventar uma seria tela sem protótipo. A planta de
+  verdade não tem porta, e a frase não fala delas.
+- **Anomalias e resultados no chão.** Vêm com a fase 5.
+
+### O que não foi medido
+
+O efeito da frase no veredito da nuvem. Ela custa uns cem caracteres por
+pergunta nos canais que estão na planta; se ajuda, só comparando antes e
+depois numa loja com a planta desenhada.

@@ -26,6 +26,7 @@ import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
+import { lugaresDaLoja } from './planta.js';
 
 export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
   app.get('/v1/agentes/configuracao', async (req, resposta) => {
@@ -180,6 +181,10 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
       equipamentosPorZona.set(e.zona_id, lista);
     }
 
+    // Onde cada câmera fica e o que tem na frente dela, tirado da planta
+    // da loja. É a mesma frase que a tela da planta mostra.
+    const lugares = await lugaresDaLoja(pool, quem.lojaId);
+
     const zonasPorPonto = new Map<string, unknown[]>();
     for (const z of zonas.rows) {
       const lista = zonasPorPonto.get(z.ponto_id) ?? [];
@@ -217,6 +222,9 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
         id: p.id,
         nome: p.nome,
         setor: p.setor,
+        // Nulo = o canal não está na planta. Vai junto com a pergunta feita
+        // a um modelo sobre este canal; o agente antigo ignora.
+        lugar: lugares.get(p.id) ?? null,
         origem: p.origem,
         fabricante: p.fabricante,
         canal: p.canal,

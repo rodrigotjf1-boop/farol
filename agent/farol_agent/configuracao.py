@@ -74,6 +74,9 @@ class PontoConfig:
     # As fotos padrão deste canal: o que a loja tem de ter em disco para
     # comparar. Da mais nova para a mais antiga.
     padroes: list[PadraoRef] = field(default_factory=list)
+    # Onde a câmera fica e o que tem na frente dela, tirado da planta da
+    # loja. Vazio = o canal não está na planta (ou a nuvem é antiga).
+    lugar: str = ""
 
     @property
     def zona_principal(self) -> Zona | None:
@@ -286,6 +289,8 @@ def de_json(dados: dict[str, Any]) -> ConfigDaLoja:
                 optica=p.get("optica") or {},
                 zona_principal_id=principal_id,
                 padroes=_padroes(p.get("padroes")),
+                # Uma linha só: vai para dentro de um pedido a um modelo.
+                lugar=" ".join(str(p.get("lugar") or "").split()),
             )
         )
 

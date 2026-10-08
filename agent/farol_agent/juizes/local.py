@@ -23,7 +23,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from farol_agent.juizes.base import ErroDoJuiz, bloco_dos_equipamentos
+from farol_agent.juizes.base import ErroDoJuiz, bloco_do_lugar, bloco_dos_equipamentos
 from farol_agent.juizes.nuvem import INSTRUCOES
 from farol_agent.modelos import Resultado, Veredito, Via
 
@@ -150,6 +150,9 @@ class JuizLocal:
 
 def _pedido(criterio: str, contexto: dict[str, Any] | None) -> str:
     partes = [f"CRITÉRIO A AUDITAR:\n{criterio.strip()}"]
+    lugar = bloco_do_lugar((contexto or {}).get("lugar"))
+    if lugar:
+        partes.append(lugar)
     equipamentos = bloco_dos_equipamentos((contexto or {}).get("equipamentos"))
     if equipamentos:
         partes.append(equipamentos)
@@ -158,7 +161,7 @@ def _pedido(criterio: str, contexto: dict[str, Any] | None) -> str:
             f"- {k}: {v}"
             for k, v in contexto.items()
             # Endereço e marcas do agente não são contexto da operação.
-            if v not in (None, "") and k not in ("base_id", "zona_id", "ponto_id", "foto_padrao", "fora_da_area", "equipamentos", "olhada_extra")
+            if v not in (None, "") and k not in ("base_id", "zona_id", "ponto_id", "foto_padrao", "fora_da_area", "equipamentos", "olhada_extra", "lugar")
         ]
         if linhas:
             partes.append("CONTEXTO DA OPERAÇÃO:\n" + "\n".join(linhas))

@@ -138,12 +138,15 @@ class JuizPorRegra:
         seletor: SeletorDeJuiz,
         regras: dict[str, Regra],
         equipamentos: dict[str, list] | None = None,
+        lugares: dict[str, str] | None = None,
     ) -> None:
         self.seletor = seletor
         self.regras = regras
         # Por ÁREA (não por regra: o mesmo critério vale em várias áreas,
         # e cada uma tem os seus equipamentos).
         self.equipamentos = equipamentos or {}
+        # Por CANAL: a frase do lugar da câmera, tirada da planta da loja.
+        self.lugares = lugares or {}
 
     def julgar(
         self,
@@ -178,6 +181,10 @@ class JuizPorRegra:
             da_area = self.equipamentos.get(str(ctx.get("zona_id")))
             if da_area:
                 ctx = {**ctx, "equipamentos": da_area}
+            # E onde a câmera DESTE canal fica, pela planta da loja.
+            lugar = self.lugares.get(str(ctx.get("ponto_id")))
+            if lugar:
+                ctx = {**ctx, "lugar": lugar}
 
         padrao = getattr(self.seletor, "padrao", None)
         if juiz is padrao:

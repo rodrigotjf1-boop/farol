@@ -1848,7 +1848,7 @@ prazo de guarda.
 
 ---
 
-## A16 · Local primeiro, o ambiente e o padrão da loja (aprovado em 08/10/2026 — fases 1, 2 e 3 feitas)
+## A16 · Local primeiro, o ambiente e o padrão da loja (aprovado em 08/10/2026 — fases 1, 2, 3 e 4 feitas)
 
 Na noite de 07/10/2026, com a loja em operação e a tela de Análises no ar, o
 dono deu a direção das próximas semanas, em cinco pedidos:
@@ -2140,13 +2140,46 @@ quantas olhadas extras por hora o vigia faz numa noite de movimento, e
 quantas delas deram em algo, só a primeira noite diz. As decisões estão em
 `docs/decisoes.md` (08/10/2026, "O vigia").
 
-**Fase 4 · Esquema do ambiente.** A planta da loja desenhada no console:
-ambientes, móveis fixos e cada câmera na sua posição, com a direção para
-onde olha — vista de cima para editar, em perspectiva para ler. Serve a três
-coisas: (a) achar o lugar — resultados, anomalias e canais mostrados ONDE
-acontecem; (b) cobertura — o que nenhuma câmera vê; (c) contexto para o
-julgamento — "câmera no teto sobre o caixa, olhando para o balcão; a porta
-fica à esquerda" vai junto com a imagem. *Tela nova.*
+**Fase 4 · Esquema do ambiente — feita (08/10/2026, migration 028).** A
+planta da loja desenhada no console (Canais → Planta): ambientes, móveis e
+cada câmera na sua posição, com a direção para onde olha — vista de cima
+para editar, em perspectiva para ler. Serve a três coisas:
+
+- **(a) achar o lugar** — cada câmera aparece onde está, pintada pela
+  situação de agora (conferindo, aviso nos últimos 10 minutos, sem
+  conferência, sem imagem ou pausada). Tocar nela mostra o canal, o que ele
+  confere e leva a "Quadro e área" e às Análises daquele canal.
+- **(b) cobertura** — o que nenhuma câmera vê, pintado no chão, e a parte
+  coberta de cada ambiente. Canal sem imagem ou pausado não cobre.
+- **(c) contexto para o julgamento** — de cada câmera sai uma frase,
+  escrita da planta: "Câmera no ambiente Atendimento, a 2,7 m do chão. No
+  campo de visão: mesa (3), balcão de atendimento e caixa." A tela mostra a
+  frase, e ela vai junto com cada análise daquele canal feita por um modelo
+  (nuvem ou modelo da loja).
+
+A planta é feita de retângulos em metros — é isso que permite a conta de
+cobertura e a frase. O móvel pode ser ligado a um equipamento do inventário
+(fase 2): aí o nome que vai na frase é o do inventário, e tocar no móvel
+mostra o que o inventário sabe dele.
+
+Edita-se tudo de uma vez: "Concluir edição" salva a planta inteira,
+"Descartar mudanças" volta ao que está guardado. Quem salva diz a versão
+que leu; se outra pessoa salvou no meio, nada é gravado e a tela avisa.
+
+*Como conferir:* em Canais → Planta, "Desenhar a planta": o botão
+"Ambiente" e arrastar para desenhar a cozinha; "Equipamento" para a chapa;
+na lista de câmeras, tocar num canal para pô-lo na planta, arrastar para o
+lugar e girar a bolinha âmbar. "Concluir edição". Tocar na câmera mostra a
+frase do lugar; "Cobertura" mostra o que ninguém vê.
+
+**Ficou de fora, e por quê:** as **portas** (o exemplo do protótipo as
+desenha, mas não há ferramenta para criá-las — a frase "a porta fica à
+esquerda" não é escrita); e resultados e anomalias mostrados na planta além
+da situação de cada câmera (a fase 5 é que traz as anomalias). **Não foi
+medido:** se a frase do lugar muda o veredito da nuvem — é texto a mais em
+cada pergunta, e o efeito só aparece comparando antes e depois numa loja
+com a planta desenhada. As decisões estão em `docs/decisoes.md`
+(08/10/2026, "A planta da loja").
 
 **Fase 5 · O especialista: padrão, anomalia, tendência e correção.**
 
