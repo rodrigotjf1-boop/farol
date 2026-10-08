@@ -364,8 +364,23 @@ def _conteudo(
     return conteudo
 
 
+# Quando a área marcada não é um retângulo, o agente apaga o que fica fora
+# dela (cinza liso). Vai aqui, e não nas instruções, porque as instruções
+# são o que fica em cache: mexer nelas invalida o cache de todas as lojas.
+AVISO_DA_AREA = (
+    "ÁREA DE ANÁLISE:\n"
+    "O cinza liso em volta está FORA da área e foi apagado de propósito. "
+    "Julgue só o que aparece. O cinza não é defeito da imagem nem motivo "
+    "para `nao_avaliavel`."
+)
+
+
 def _montar_pedido(criterio: str, contexto: dict[str, Any] | None) -> str:
     partes = [f"CRITÉRIO A AUDITAR:\n{criterio.strip()}"]
+
+    contexto = dict(contexto or {})
+    if contexto.pop("fora_da_area", None):
+        partes.append(AVISO_DA_AREA)
 
     # O contexto é o que o Regem sabe e a imagem não mostra: qual pedido está
     # em produção, qual a ficha técnica, que horas são na operação. É ele que

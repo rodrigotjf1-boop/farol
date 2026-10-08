@@ -53,6 +53,69 @@ def recortar_zona(
     return frame.copia_com(recorte)
 
 
+# O que fica fora da área é trocado por este cinza liso — o mesmo do
+# enchimento de quadro dos detectores. Nem preto, que é a cara da tela de
+# "sem sinal", nem branco, que é a de luz estourada.
+COR_DE_FORA = (114, 114, 114)
+
+
+def recortar_area(frame: Frame, zona: Zona) -> tuple[Frame, np.ndarray | None]:
+    """O recorte EXATO da área e, dentro dele, o que é a área.
+
+    A área é o desenho de quem configurou a loja: um polígono. O recorte é
+    o retângulo que o envolve, **sem folga** — os 5% de folga faziam a
+    borda da área vizinha entrar junto. O que a pessoa marcou é a resposta
+    dela.
+
+    O segundo valor é a máscara do polígono dentro do recorte (255 = é da
+    área), ou `None` quando o polígono É o retângulo inteiro e não há nada
+    a apagar.
+    """
+    x1, y1, x2, y2 = zona.bbox(frame.largura, frame.altura, 0.0)
+    if x2 <= x1 or y2 <= y1:
+        return frame, None
+
+    recorte = frame.imagem[y1:y2, x1:x2].copy()
+    h, w = recorte.shape[:2]
+    pontos = np.array(
+        [[int(px * frame.largura) - x1, int(py * frame.altura) - y1] for px, py in zona.poligono],
+        dtype=np.int32,
+    )
+    dentro = np.zeros((h, w), dtype=np.uint8)
+    cv2.fillPoly(dentro, [pontos], 255)
+    # Tudo dentro: o desenho É o retângulo, e não há o que apagar.
+    if int(cv2.countNonZero(dentro)) == h * w:
+        return frame.copia_com(recorte), None
+    return frame.copia_com(recorte), dentro
+
+
+def miolo(frame: Frame, dentro: np.ndarray | None) -> np.ndarray:
+    """Só os pontos DA ÁREA, como uma imagem de uma coluna.
+
+    É o que as medidas de qualidade têm de olhar. Medir o recorte inteiro
+    contaria o que está fora do desenho: uma área estreita sobre um fundo
+    claro pareceria ter cena mesmo com a câmera dela tampada.
+    """
+    if dentro is None:
+        return frame.imagem
+    pontos = frame.imagem[dentro > 0]
+    return pontos.reshape(-1, 1, 3) if frame.imagem.ndim == 3 else pontos.reshape(-1, 1)
+
+
+def apagar_fora(frame: Frame, dentro: np.ndarray | None) -> Frame:
+    """Troca por cinza liso o que está fora da área.
+
+    Depois daqui, o que não foi marcado não chega a ninguém: nem ao
+    detector (que contaria a pessoa da área ao lado), nem à nuvem, nem ao
+    disco.
+    """
+    if dentro is None:
+        return frame
+    imagem = frame.imagem.copy()
+    imagem[dentro == 0] = COR_DE_FORA if imagem.ndim == 3 else COR_DE_FORA[0]
+    return frame.copia_com(imagem)
+
+
 def redimensionar(frame: Frame, lado_maior: int) -> Frame:
     """Reduz para que o maior lado tenha `lado_maior` pixels.
 

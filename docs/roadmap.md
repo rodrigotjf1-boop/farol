@@ -2133,6 +2133,21 @@ O que o protótipo mostra e depende de coisa que ainda não existe:
 
 ---
 
+## A17 · A área por pontos (feito em 08/10/2026)
+
+Pedido do dono no meio da fase 1 do A16, usando a tela: a marcação da área
+tinha de ser flexível, "para uma área não invadir outra". A área deixou de
+ser só retângulo: é um contorno de pontos, o agente recorta exatamente o
+desenho (sem os 5% de folga) e apaga o que fica fora dele antes de analisar.
+O que mudou, as escolhas e o que falta medir estão em `docs/decisoes.md`
+(08/10/2026, "A área é o desenho").
+
+Fica mais fácil, com isso, o que o A16 quer: critério mais exato pergunta
+menos e erra menos. A planta (fase 4) e a comparação com a foto padrão
+(fase 2) passam a usar o mesmo desenho.
+
+---
+
 ## A8 · Busca investigativa nas gravações (plano)
 
 **Definição do dono (06/10/2026):** não é monitoramento. É pergunta

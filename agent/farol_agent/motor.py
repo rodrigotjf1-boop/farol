@@ -307,9 +307,13 @@ class MotorDeRegras:
         if melhor is None:
             return None, "sem_quadro"
 
-        # A ordem importa: recorta, borra, deduplica, e só então reduz.
-        # Reduzir antes jogaria fora o detalhe que se pagou na câmera.
-        f = recorte.recortar_zona(melhor, regra.zona)
+        # A ordem importa: recorta, apaga o que é de fora, borra, deduplica,
+        # e só então reduz. Reduzir antes jogaria fora o detalhe que se
+        # pagou na câmera.
+        #
+        # O recorte é EXATO: a área é o desenho de quem configurou a loja.
+        # `dentro` é o que, do retângulo, pertence ao desenho.
+        f, dentro = recorte.recortar_area(melhor, regra.zona)
 
         # Porta que não existia e custou descobrir: câmera sem sinal faz o
         # gravador transmitir uma tela preta com logotipo e relógio. Ela
@@ -317,11 +321,19 @@ class MotorDeRegras:
         # perguntado se a bancada está limpa a respeito de um retângulo
         # preto — custo real, resposta absurda, e um "não conforme" sobre
         # nada viraria alerta para a cozinha.
-        utilizavel, porque = qualidade.cena_utilizavel(f.imagem)
+        #
+        # Medida só no que é DA ÁREA: o que está fora do desenho não diz
+        # se há cena nela.
+        utilizavel, porque = qualidade.cena_utilizavel(recorte.miolo(f, dentro))
         if not utilizavel:
             _log.info("regra=%s sem cena para julgar: %s", regra.id, porque)
             self.sem_cena[self._lugar(regra)] = porque
             return None, "sem_cena"
+
+        # Daqui em diante ninguém vê o que ficou fora do desenho: nem o
+        # porteiro, nem a memória de cena repetida (movimento na área ao
+        # lado não é cena nova desta), nem o juiz, nem o disco.
+        f = recorte.apagar_fora(f, dentro)
 
         # Em presença e contagem, cena igual à anterior NÃO é atalho: o
         # posto vazio é a mesma imagem por meia hora, e é essa meia hora
@@ -385,6 +397,10 @@ class MotorDeRegras:
         ctx["regra_id"] = regra.id
         if regra.base_id:
             ctx["base_id"] = regra.base_id
+        if dentro is not None:
+            # O juiz precisa saber que o cinza em volta foi posto de
+            # propósito — senão lê como defeito da imagem.
+            ctx["fora_da_area"] = "apagado"
 
         novo = self.fila.enfileirar(
             chave=chave,

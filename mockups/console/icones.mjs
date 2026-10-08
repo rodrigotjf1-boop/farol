@@ -25,7 +25,7 @@ zap package badge-check lock-keyhole circle-help circle-minus sliders-horizontal
 maximize building-2 loader-circle circle-slash unplug scan-eye history
 chart-column cloud coins filter-x memory-stick gpu
 repeat trending-up trending-down lightbulb calendar-days list map box square image columns-2
-camera users flag wrench minus`
+camera users flag wrench minus undo-2`
   .split(/\s+/)
   .filter(Boolean);
 
