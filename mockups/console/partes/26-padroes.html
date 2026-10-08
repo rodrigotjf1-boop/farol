@@ -1,0 +1,154 @@
+    <!-- ═════════════════════════ PADRÕES ═════════════════════════ -->
+    <!-- Análises responde "o que foi julgado". Esta tela responde o que vem
+         depois: como a loja costuma funcionar (frequência), o que fugiu disso
+         (anomalia), para onde os números apontam (tendência) e o que fazer
+         com os critérios (sugestões). Tudo aqui sai de número guardado por
+         hora — a medida de cada olhada (quantas pessoas o detector viu), o
+         que ficou fora do critério e o que não deu para avaliar. Nenhuma
+         imagem entra na conta. -->
+    <section class="tela" data-tela="padroes" aria-labelledby="t-padroes" hidden>
+      <header class="cab">
+        <div>
+          <p class="sobre"><svg class="ic p" aria-hidden="true"><use href="#i-store"/></svg><span data-loja-nome>Loja Centro</span></p>
+          <h1 id="t-padroes">Padrões</h1>
+          <p class="sub">Como a loja costuma funcionar, o que fugiu disso e para onde os números apontam.</p>
+        </div>
+      </header>
+      <nav class="abas" aria-label="Vistas das análises">
+        <a href="#analises" data-ir="analises"><svg class="ic" aria-hidden="true"><use href="#i-chart-column"/></svg>O que foi julgado</a>
+        <a href="#padroes" data-ir="padroes" aria-current="page"><svg class="ic" aria-hidden="true"><use href="#i-repeat"/></svg>Padrões<span class="conta" data-pd-rever><span class="so-leitor">saídas do padrão para rever: </span>0</span></a>
+      </nav>
+
+      <div class="corpo" data-quando="normal">
+        <section class="cartao pd-faixa" aria-label="De que o padrão é feito">
+          <span class="selo-ic"><svg class="ic" aria-hidden="true"><use href="#i-calendar-days"/></svg></span>
+          <div class="pd-faixa-texto">
+            <b data-pd-base></b>
+            <p data-pd-base-nota></p>
+          </div>
+          <div class="seg" role="group" aria-label="Setor">
+            <button type="button" data-pd-setor="todos" aria-pressed="true">Todos</button>
+            <button type="button" data-pd-setor="Atendimento" aria-pressed="false">Atendimento</button>
+            <button type="button" data-pd-setor="Cozinha" aria-pressed="false">Cozinha</button>
+          </div>
+        </section>
+
+        <section class="cartao pad pd-parecer" aria-labelledby="t-pd-parecer">
+          <div class="secao-cab">
+            <h2 id="t-pd-parecer">Parecer</h2>
+            <span class="nota empurra">Escrito a partir dos números. Cada frase leva ao dado de onde saiu.</span>
+          </div>
+          <div class="pd-frases" data-pd-parecer></div>
+        </section>
+
+        <div class="seg pd-lentes" role="group" aria-label="O que olhar">
+          <button type="button" data-pd-lente="frequencia" aria-pressed="true"><svg class="ic" aria-hidden="true"><use href="#i-repeat"/></svg>Frequência</button>
+          <button type="button" data-pd-lente="anomalias" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-triangle-alert"/></svg>Anomalias<span class="conta" data-pd-rever-setor>0</span></button>
+          <button type="button" data-pd-lente="tendencia" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-trending-up"/></svg>Tendência</button>
+          <button type="button" data-pd-lente="sugestoes" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-lightbulb"/></svg>Sugestões<span class="conta" data-pd-sugestoes-conta>0</span></button>
+        </div>
+
+        <!-- ── FREQUÊNCIA: o que se repete ── -->
+        <div class="pd-painel" data-pd-painel="frequencia">
+          <section class="secao" aria-labelledby="t-pd-setores">
+            <div class="secao-cab">
+              <h2 id="t-pd-setores">Como cada setor funciona</h2>
+              <span class="nota empurra">A descrição é montada dos números do período.</span>
+            </div>
+            <div class="setores-grade" data-pd-setores></div>
+          </section>
+
+          <section class="cartao pad calor-cartao" aria-labelledby="t-pd-semana">
+            <div class="calor-cab">
+              <div style="flex:1 1 220px;min-width:0">
+                <h2 id="t-pd-semana">Semana típica</h2>
+                <p class="nota">Cada quadro é a média daquela hora naquele dia da semana. Toque num quadro para ver de que ele é feito.</p>
+              </div>
+              <div class="filtro">
+                <label for="pd-indicador">O que olhar</label>
+                <select class="entrada" id="pd-indicador"></select>
+              </div>
+            </div>
+            <div class="calor-rola"><div class="calor" data-pd-calor role="group" aria-label="Semana típica, por dia e hora"></div></div>
+            <div class="calor-pe">
+              <span class="calor-escala" data-pd-escala></span>
+              <span data-pd-calor-resumo></span>
+            </div>
+            <p class="calor-detalhe" data-pd-calor-detalhe aria-live="polite"></p>
+          </section>
+
+          <section class="secao" aria-labelledby="t-pd-relacoes">
+            <div class="secao-cab">
+              <h2 id="t-pd-relacoes">O que anda junto</h2>
+              <span class="nota empurra">Relação não é causa: é uma pista para investigar.</span>
+            </div>
+            <div class="relacoes" data-pd-relacoes></div>
+          </section>
+        </div>
+
+        <!-- ── ANOMALIAS: o que fugiu do padrão ── -->
+        <div class="pd-painel" data-pd-painel="anomalias" hidden>
+          <section class="secao" aria-labelledby="t-pd-anomalias">
+            <div class="secao-cab">
+              <h2 id="t-pd-anomalias">Saídas do padrão</h2>
+              <div class="seg empurra" role="group" aria-label="Mostrar">
+                <button type="button" data-pd-filtro="rever" aria-pressed="true">A rever</button>
+                <button type="button" data-pd-filtro="revistas" aria-pressed="false">Revistas</button>
+                <button type="button" data-pd-filtro="todas" aria-pressed="false">Todas</button>
+              </div>
+            </div>
+            <p class="nota">Uma saída do padrão é uma hora muito diferente do que costuma ser naquele dia e naquela hora — mesmo quando nenhum critério avisou. Você diz se era esperado ou se é problema; a resposta ensina o padrão ou vira critério.</p>
+            <div class="regua-legenda" aria-hidden="true">
+              <span><i></i>o que é normal naquele dia e hora</span>
+              <span><i class="pt"></i>o que foi visto</span>
+            </div>
+            <ul class="anomalias cartao" data-pd-anomalias></ul>
+          </section>
+        </div>
+
+        <!-- ── TENDÊNCIA: para onde vai ── -->
+        <div class="pd-painel" data-pd-painel="tendencia" hidden>
+          <div class="tend-grade">
+            <section class="cartao pad tend-hoje" aria-labelledby="t-pd-hoje">
+              <div class="secao-cab">
+                <h2 id="t-pd-hoje" data-pd-hoje-titulo>Hoje contra o normal</h2>
+                <div class="seg empurra" role="group" aria-label="O que comparar" data-pd-hoje-seg></div>
+              </div>
+              <div class="legenda" aria-hidden="true">
+                <span><i class="cor-banda"></i>faixa do normal</span>
+                <span><i class="cor-tracejada"></i>o esperado</span>
+                <span><i class="cor-linha"></i>hoje, até agora</span>
+              </div>
+              <div data-pd-hoje></div>
+              <p class="nota" data-pd-hoje-nota></p>
+            </section>
+            <div class="tend-grade" style="grid-column:1 / -1" data-pd-tendencias></div>
+          </div>
+          <p class="nota">Tendência feita de quatro semanas é indício, não previsão: quanto mais semanas, mais firme ela fica.</p>
+        </div>
+
+        <!-- ── SUGESTÕES: o que fazer com os critérios ── -->
+        <div class="pd-painel" data-pd-painel="sugestoes" hidden>
+          <section class="secao" aria-labelledby="t-pd-sugestoes">
+            <div class="secao-cab">
+              <h2 id="t-pd-sugestoes">Para melhorar o controle</h2>
+              <span class="nota empurra">O que os números mostram sobre os próprios critérios.</span>
+            </div>
+            <ul class="sugestoes cartao" data-pd-sugestoes></ul>
+          </section>
+        </div>
+      </div>
+
+      <div class="vazio" data-quando="vazio">
+        <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-repeat"/></svg></span>
+        <h2>O padrão aparece com 7 dias de análises</h2>
+        <p>Com uma semana já dá para dizer como é cada hora. O padrão por dia da semana fica firme com três. Enquanto isso, o que foi julgado está na outra aba.</p>
+        <a class="btn primario" href="#analises" data-ir="analises"><svg class="ic" aria-hidden="true"><use href="#i-chart-column"/></svg>Ver o que foi julgado</a>
+      </div>
+      <div class="ossos" data-quando="carregando" aria-hidden="true">
+        <div class="osso" style="height:66px"></div>
+        <div class="osso" style="height:150px"></div>
+        <div class="osso" style="height:44px"></div>
+        <div class="linha"><div class="osso" style="height:180px"></div><div class="osso" style="height:180px"></div><div class="osso" style="height:180px"></div><div class="osso" style="height:180px"></div></div>
+      </div>
+    </section>

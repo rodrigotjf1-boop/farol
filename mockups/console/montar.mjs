@@ -27,7 +27,7 @@ const letras = readFileSync(join(AQUI, 'letras.html'), 'utf8')
   .join('');
 if ((letras.match(/<path/g) ?? []).length !== 4) throw new Error('esperava as 4 letras do logotipo');
 
-const css = ['01-estilo.css', '02-ajustes.css'].map(ler).join('\n');
+const css = ['01-estilo.css', '02-ajustes.css', '03-ambiente-padroes.css'].map(ler).join('\n');
 const js = ler('90-comportamento.js');
 const html = readdirSync(PARTES)
   .filter((f) => f.endsWith('.html'))

@@ -11,6 +11,11 @@
           <button class="btn primario" type="button" data-folha="folha-canal" data-modo="novo"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Novo canal</button>
         </div>
       </header>
+      <nav class="abas" aria-label="Vistas dos canais">
+        <a href="#canais" data-ir="canais" aria-current="page"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg>Lista</a>
+        <a href="#ambiente" data-ir="ambiente"><svg class="ic" aria-hidden="true"><use href="#i-map"/></svg>Planta</a>
+        <a href="#inventario" data-ir="inventario"><svg class="ic" aria-hidden="true"><use href="#i-package"/></svg>Inventário</a>
+      </nav>
 
       <div class="corpo" data-quando="normal">
 
@@ -95,10 +100,10 @@
                 <button class="btn fantasma quadrado mini" type="button" data-menu="menu-canal" data-so-config aria-haspopup="menu" aria-expanded="false" aria-label="Ações do canal Caixa"><svg class="ic" aria-hidden="true"><use href="#i-ellipsis"/></svg></button>
               </div>
               <div class="canal-chips">
-                <span class="chip"><span class="ponto"></span>sem critério</span>
+                <span class="chip ok"><span class="ponto ok"></span>com imagem</span>
                 <span class="chip">importância baixa</span>
               </div>
-              <div class="canal-pe"><span>Nada é verificado aqui</span><a class="elo" href="#area" data-ir="area">Quadro e área<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a></div>
+              <div class="canal-pe"><span>1 critério</span><a class="elo" href="#area" data-ir="area">Quadro e área<svg class="ic p" aria-hidden="true"><use href="#i-arrow-right"/></svg></a></div>
             </article>
           </div>
         </section>
@@ -173,7 +178,15 @@
               <span class="suave mono">07/10 · 21:40</span>
               <button class="btn secundario mini empurra" type="button" data-atualizar-quadro><svg class="ic p" aria-hidden="true"><use href="#i-refresh-cw"/></svg>Atualizar quadro</button>
             </div>
-            <div class="quadro" data-quadro role="application" aria-label="Quadro do canal Balcão. Arraste para redesenhar a área selecionada.">
+            <div class="quadro-vista">
+              <div class="seg" role="group" aria-label="O que o quadro mostra">
+                <button type="button" data-quadro-vista="agora" aria-pressed="true"><svg class="ic p" aria-hidden="true"><use href="#i-crop"/></svg>Agora</button>
+                <button type="button" data-quadro-vista="padrao" aria-pressed="false"><svg class="ic p" aria-hidden="true"><use href="#i-image"/></svg>Foto padrão</button>
+                <button type="button" data-quadro-vista="comparar" aria-pressed="false"><svg class="ic p" aria-hidden="true"><use href="#i-columns-2"/></svg>Comparar</button>
+              </div>
+              <span class="nota" data-quadro-qual></span>
+            </div>
+            <div class="quadro" data-quadro data-vista="agora" role="application" aria-label="Quadro do canal Balcão. Arraste para redesenhar a área selecionada.">
               <svg viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
                 <rect width="640" height="360" fill="#C9D1DA"/>
                 <rect x="0" y="0" width="296" height="360" fill="#AEB8C4"/>
@@ -195,9 +208,12 @@
               </svg>
               <div class="fora" data-fora></div>
               <div data-rets></div>
+              <span class="rotulo-lado esq" data-rotulo-agora hidden>agora</span>
+              <span class="rotulo-lado dir" data-rotulo-padrao hidden>foto padrão</span>
+              <button class="cortina" type="button" data-cortina hidden role="slider" aria-orientation="horizontal" aria-valuemin="4" aria-valuemax="96" aria-valuenow="50" aria-label="Divisor entre o quadro de agora e a foto padrão. Use as setas para mover."></button>
               <span class="tarja">ilustração · no console aparece o quadro real da câmera</span>
             </div>
-            <p class="nota">Arraste sobre a imagem para redesenhar a área selecionada. Clique em outra área, sem arrastar, para passar a mexer nela.</p>
+            <p class="nota" data-quadro-nota>Arraste sobre a imagem para redesenhar a área selecionada. Clique em outra área, sem arrastar, para passar a mexer nela.</p>
           </section>
 
           <aside class="area-lado" aria-label="Ajustes da área">
@@ -216,6 +232,15 @@
                 <button class="btn secundario mini empurra" type="button" data-folha="folha-criterio" data-modo="novo" data-criterio-na-area data-so-config><svg class="ic p" aria-hidden="true"><use href="#i-plus"/></svg>Critério</button>
               </div>
               <ul class="area-criterios" data-area-criterios></ul>
+            </section>
+
+            <section class="cartao pad secao" aria-labelledby="t-padrao-canal">
+              <div class="secao-cab">
+                <h2 id="t-padrao-canal">Foto padrão deste canal</h2>
+                <button class="btn secundario mini empurra" type="button" data-folha="folha-padrao" data-modo="novo" data-so-config><svg class="ic p" aria-hidden="true"><use href="#i-camera"/></svg>Guardar a de agora</button>
+              </div>
+              <ul class="padroes-lista" data-padroes></ul>
+              <p class="nota">É o ambiente limpo, organizado e sem ninguém na frente. Vale para todas as áreas do canal: cada critério de comparação olha o recorte da sua área. Guarde uma para cada situação de luz.</p>
             </section>
 
             <section class="cartao pad secao">
