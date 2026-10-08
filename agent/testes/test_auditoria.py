@@ -90,8 +90,17 @@ class NuvemDeTeste:
         self.recusar_resumos = recusar_resumos or (lambda corpo: [])
         self.resumos_enviados: list[dict] = []
         self.tentativas_de_resumo = 0
+        # O uso da máquina também tem conta própria, pelo mesmo motivo.
+        self.usos_enviados: list[dict] = []
+        self.tentativas_de_uso = 0
 
     def _pedir(self, metodo, caminho, corpo=None):
+        if caminho == "/v1/uso":
+            self.tentativas_de_uso += 1
+            if self.erro:
+                raise self.erro
+            self.usos_enviados.append(corpo)
+            return {"aceitos": len(corpo["horas"])}
         if caminho == "/v1/resumos":
             self.tentativas_de_resumo += 1
             if self.erro:

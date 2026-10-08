@@ -20,6 +20,7 @@ import { rotasDeOrcamento } from './rotas/orcamento.js';
 import { rotasDeAnalises } from './rotas/analises.js';
 import { rotasDeResultados } from './rotas/resultados.js';
 import { rotasDeResumos } from './rotas/resumos.js';
+import { rotasDeUso } from './rotas/uso.js';
 import { rotasDeSessao } from './rotas/sessao.js';
 
 export const VERSAO = process.env.APP_VERSION ?? '0.1.0';
@@ -112,6 +113,7 @@ export function criarApp(pool: pg.Pool, opcoes: { logger?: boolean } = {}): Fast
   rotasDePreview(app, pool);
   rotasDeEventos(app, pool);
   rotasDeResumos(app, pool);
+  rotasDeUso(app, pool);
   rotasDeResultados(app, pool);
   rotasDeAnalises(app, pool);
   rotasDeAlertas(app, pool);
