@@ -202,6 +202,37 @@ create table if not exists resumo_hora (
 );
 
 create index if not exists idx_resumo_estado on resumo_hora (estado, hora);
+
+-- O uso da máquina de análise (este computador), por hora.
+--
+-- De cada peça ficam a soma e a quantidade de amostras — para a média — e
+-- o maior valor, que é o pico. Peça que não deu para medir numa amostra
+-- não entra na quantidade DELA: "não medi" não vira zero na média.
+-- O disco é uma posição, não uma média: vale a última leitura da hora.
+--
+-- `versao` e `estado` funcionam como no resumo: a linha da hora corrente
+-- sobe várias vezes, e só fica "a nuvem tem" se nada somou no caminho.
+create table if not exists uso_hora (
+  hora            text    primary key,
+  amostras        integer not null default 0,
+  cpu_soma        real    not null default 0,
+  cpu_n           integer not null default 0,
+  cpu_max         real,
+  mem_soma        real    not null default 0,
+  mem_n           integer not null default 0,
+  mem_max         real,
+  gpu_soma        real    not null default 0,
+  gpu_n           integer not null default 0,
+  gpu_max         real,
+  proc_cpu_soma   real    not null default 0,
+  proc_cpu_n      integer not null default 0,
+  proc_cpu_max    real,
+  proc_mem_max_mb real,
+  disco_livre_gb  real,
+  disco_total_gb  real,
+  versao          integer not null default 0,
+  estado          integer not null default 1
+);
 """
 
 # O que se soma no resumo. Lista fechada: os nomes viram texto de SQL, e
@@ -753,6 +784,81 @@ class Fila:
         with self._lock:
             cur = self._con.execute(
                 "delete from resumo_hora where hora < ? and estado <> 1",
+                (self.hora_de(antes_de),),
+            )
+            self._con.commit()
+            return cur.rowcount
+
+    # ─────────────────────── o uso da máquina ───────────────────────
+
+    # As peças medidas em porcentagem: a coluna e o campo da amostra.
+    _PECAS_DO_USO = (
+        ("cpu", "cpu"),
+        ("mem", "memoria"),
+        ("gpu", "gpu"),
+        ("proc_cpu", "processo_cpu"),
+    )
+
+    def somar_uso(self, ts: datetime, amostra: Any) -> None:
+        """Uma amostra do uso da máquina, na hora em que foi tirada."""
+        hora = self.hora_de(ts)
+        partes = ["amostras = amostras + 1", "versao = versao + 1", "estado = 1"]
+        valores: list[float] = []
+        for coluna, campo in self._PECAS_DO_USO:
+            valor = getattr(amostra, campo)
+            if valor is None:
+                continue
+            partes += [
+                f"{coluna}_soma = {coluna}_soma + ?",
+                f"{coluna}_n = {coluna}_n + 1",
+                f"{coluna}_max = max(coalesce({coluna}_max, 0), ?)",
+            ]
+            valores += [float(valor), float(valor)]
+        if amostra.processo_mem_mb is not None:
+            partes.append("proc_mem_max_mb = max(coalesce(proc_mem_max_mb, 0), ?)")
+            valores.append(float(amostra.processo_mem_mb))
+        for coluna, valor in (
+            ("disco_livre_gb", amostra.disco_livre_gb),
+            ("disco_total_gb", amostra.disco_total_gb),
+        ):
+            if valor is not None:
+                partes.append(f"{coluna} = ?")
+                valores.append(float(valor))
+        with self._lock:
+            self._con.execute("insert or ignore into uso_hora (hora) values (?)", (hora,))
+            self._con.execute(
+                f"update uso_hora set {', '.join(partes)} where hora = ?", (*valores, hora)
+            )
+            self._con.commit()
+
+    def usos_a_subir(self, limite: int = 200) -> list[dict[str, Any]]:
+        """As horas de uso que a nuvem ainda não tem, da mais antiga à mais nova."""
+        with self._lock:
+            linhas = self._con.execute(
+                "select * from uso_hora where estado = 1 order by hora limit ?", (limite,)
+            ).fetchall()
+        return [dict(l) for l in linhas]
+
+    def marcar_usos(self, linhas: list[dict[str, Any]]) -> None:
+        """A nuvem tem estas horas — NA VERSÃO que subiu.
+
+        Se a hora somou mais uma amostra enquanto o pedido viajava, ela
+        continua esperando a próxima subida.
+        """
+        if not linhas:
+            return
+        with self._lock:
+            self._con.executemany(
+                "update uso_hora set estado = 0 where hora = ? and versao = ? and estado = 1",
+                [(l["hora"], l["versao"]) for l in linhas],
+            )
+            self._con.commit()
+
+    def limpar_usos(self, antes_de: datetime) -> int:
+        """Apaga o uso antigo que a nuvem já tem. O que falta subir fica."""
+        with self._lock:
+            cur = self._con.execute(
+                "delete from uso_hora where hora < ? and estado <> 1",
                 (self.hora_de(antes_de),),
             )
             self._con.commit()

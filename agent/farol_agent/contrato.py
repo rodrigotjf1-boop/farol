@@ -126,3 +126,54 @@ def resumo_para_nuvem(linha: dict[str, Any]) -> dict[str, Any]:
         "ultimoImpedimento": linha["ultimo_impedimento"],
         "ultimaEm": _instante(linha["ultima_em"]),
     }
+
+
+def _arredondado(valor: Any, casas: int = 2) -> float | None:
+    return None if valor is None else round(float(valor), casas)
+
+
+def uso_para_nuvem(linha: dict[str, Any]) -> dict[str, Any]:
+    """O corpo de UMA hora em `POST /v1/uso`.
+
+    Recebe uma linha de `fila.usos_a_subir()`. As chaves são as de
+    `contratos/uso-da-maquina.json` (campo `hora`), lido também pelo teste
+    da API. Como no resumo, sobem números ABSOLUTOS da hora: a mesma hora
+    sobe várias vezes, e a nuvem troca o valor antigo pelo novo.
+
+    De cada peça vão a soma e a quantidade, não a média: quem junta várias
+    horas é a nuvem, e média de média erra quando as horas têm quantidades
+    de amostras diferentes. `…Max` é o pico; nulo = a peça não foi medida.
+    """
+    return {
+        "hora": _instante(linha["hora"]),
+        "amostras": linha["amostras"],
+        # Processador e memória da máquina inteira, em porcentagem.
+        "cpuSoma": _arredondado(linha["cpu_soma"]),
+        "cpuAmostras": linha["cpu_n"],
+        "cpuMax": _arredondado(linha["cpu_max"]),
+        "memSoma": _arredondado(linha["mem_soma"]),
+        "memAmostras": linha["mem_n"],
+        "memMax": _arredondado(linha["mem_max"]),
+        # A placa de vídeo, quando a máquina tem como medir.
+        "gpuSoma": _arredondado(linha["gpu_soma"]),
+        "gpuAmostras": linha["gpu_n"],
+        "gpuMax": _arredondado(linha["gpu_max"]),
+        # Quanto do processador da MÁQUINA o agente usou, e a memória dele.
+        "processoCpuSoma": _arredondado(linha["proc_cpu_soma"]),
+        "processoCpuAmostras": linha["proc_cpu_n"],
+        "processoCpuMax": _arredondado(linha["proc_cpu_max"]),
+        "processoMemMaxMb": _arredondado(linha["proc_mem_max_mb"], 1),
+        # O disco onde ficam a fila e as imagens: a última leitura da hora.
+        "discoLivreGb": _arredondado(linha["disco_livre_gb"]),
+        "discoTotalGb": _arredondado(linha["disco_total_gb"]),
+    }
+
+
+def maquina_para_nuvem(pecas: dict[str, Any]) -> dict[str, Any]:
+    """De que é feita a máquina, para a tela dizer do que está falando."""
+    return {
+        "processador": pecas.get("processador"),
+        "nucleos": pecas.get("nucleos"),
+        "memoriaGb": pecas.get("memoria_gb"),
+        "placaDeVideo": pecas.get("placa_de_video"),
+    }

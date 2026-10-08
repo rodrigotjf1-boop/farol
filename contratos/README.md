@@ -10,6 +10,7 @@ Os dois lados têm um teste que lê o **mesmo** arquivo:
 |---|---|---|
 | `evento-do-agente.json` | `agent/testes/test_contrato.py` exige que `evento_para_nuvem` gere exatamente este corpo | `api/testes/contrato-evento.test.ts` manda este corpo para `POST /v1/eventos` e confere coluna por coluna o que foi gravado |
 | `resumo-do-agente.json` | `agent/testes/test_resumo.py` exige que `resumo_para_nuvem` gere exatamente este corpo | `api/testes/resumos.test.ts` manda este corpo para `POST /v1/resumos` e confere coluna por coluna o que foi gravado |
+| `uso-da-maquina.json` | `agent/testes/test_uso.py` exige que `uso_para_nuvem` gere exatamente o campo `hora` e que `maquina_para_nuvem` tenha as chaves de `maquina` | `api/testes/uso.test.ts` manda este corpo para `POST /v1/uso` e confere coluna por coluna o que foi gravado |
 | `horario-de-funcionamento.json` | não é uma mensagem: são os **casos** de "a loja está aberta?" e "é hora de conferir?". `agent/testes/test_horario.py` confere a conta do agente (`modelos.py`), que é quem decide se confere | `api/testes/horario.test.ts` confere a conta da API (`horario.ts`), que é quem diz "aberta agora" na tela |
 
 ## Por que isto existe

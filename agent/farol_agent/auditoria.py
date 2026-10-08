@@ -48,11 +48,17 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from farol_agent.configuracao import ConfigDaLoja, PontoConfig
-from farol_agent.contrato import evento_para_nuvem, resumo_para_nuvem
+from farol_agent.contrato import (
+    evento_para_nuvem,
+    maquina_para_nuvem,
+    resumo_para_nuvem,
+    uso_para_nuvem,
+)
 from farol_agent.fila import Fila
 from farol_agent.modelos import EventoGatilho
 from farol_agent.motor import MotorDeRegras
 from farol_agent.nuvem import ErroDaNuvem
+from farol_agent.uso import Medidor
 
 _log = logging.getLogger(__name__)
 
@@ -128,6 +134,7 @@ class Auditoria:
         intervalo_captura: float = INTERVALO_CAPTURA_PADRAO,
         construir_fonte=None,
         construir_juiz=None,
+        medidor="padrao",
     ) -> None:
         self.cliente = cliente
         self.fila = Fila(caminho_fila)
@@ -159,6 +166,15 @@ class Auditoria:
         self._erro_de_resumo: str | None = None
         self._resumo_suspenso_ate: datetime | None = None
         self._proximo_resumo: datetime | None = None
+
+        # O uso da máquina (processador, memória, placa de vídeo, disco). Uma
+        # amostra por volta, somada por hora, com subida e estado próprios:
+        # nuvem antiga, sem a rota, não pode custar um evento nem um resumo.
+        # `medidor=None` desliga (o teste que não quer medir a máquina dele).
+        self.medidor = Medidor(self.fila.spool) if medidor == "padrao" else medidor
+        self._erro_de_uso: str | None = None
+        self._uso_suspenso_ate: datetime | None = None
+        self._proximo_uso: datetime | None = None
 
         self._parar = threading.Event()
         self._thread: threading.Thread | None = None
@@ -402,6 +418,10 @@ class Auditoria:
             # O resumo nunca pode custar um evento: se algo inesperado
             # acontecer aqui, o que já subiu continua contado.
             _log.exception("erro inesperado ao subir o resumo por hora")
+        try:
+            self._subir_uso(agora)
+        except Exception:  # noqa: BLE001
+            _log.exception("erro inesperado ao subir o uso da máquina")
         return subidos
 
     def _subir_eventos(self, agora: datetime) -> int:
@@ -512,9 +532,72 @@ class Auditoria:
             self.fila.limpar_resumos(agora - timedelta(days=GUARDA_DO_RESUMO_DIAS))
         return len(aceitas)
 
+    def medir(self, agora: datetime | None = None) -> None:
+        """Uma amostra do uso da máquina, somada na hora corrente.
+
+        Medir nunca pode atrapalhar a auditoria: qualquer falha aqui vira
+        uma linha de log, e a volta segue.
+        """
+        if self.medidor is None:
+            return
+        try:
+            self.fila.somar_uso(agora or datetime.now(), self.medidor.amostra())
+        except Exception:  # noqa: BLE001
+            _log.exception("não consegui medir o uso da máquina; seguindo")
+
+    def _subir_uso(self, agora: datetime) -> int:
+        """Manda as horas de uso que a nuvem ainda não tem.
+
+        Tudo ou nada: a nuvem não recusa uma hora e aceita outra (não há
+        critério nem canal envolvido). Pedido que falhou não marca nada.
+        """
+        if self.medidor is None:
+            return 0
+        if self._uso_suspenso_ate is not None and agora < self._uso_suspenso_ate:
+            return 0
+        if self._proximo_uso is not None and agora < self._proximo_uso:
+            return 0
+
+        linhas = self.fila.usos_a_subir(LIMITE_DE_RESUMOS)
+        if not linhas:
+            return 0
+        try:
+            self.cliente._pedir(
+                "POST",
+                "/v1/uso",
+                {
+                    "maquina": maquina_para_nuvem(self.medidor.pecas()),
+                    "horas": [uso_para_nuvem(l) for l in linhas],
+                },
+            )
+        except ErroDaNuvem as e:
+            if not e.recuperavel:
+                # Nuvem sem a rota (versão anterior) ou corpo recusado:
+                # insistir a cada volta não muda a resposta.
+                self._uso_suspenso_ate = agora + timedelta(minutes=PAUSA_APOS_RECUSA_MIN)
+            if str(e) != self._erro_de_uso:
+                self._erro_de_uso = str(e)
+                _log.warning(
+                    "o uso da máquina ficou sem subir: %s — fica guardado e sobe "
+                    "quando a nuvem aceitar",
+                    e,
+                )
+            return 0
+
+        if self._erro_de_uso is not None:
+            _log.info("a nuvem voltou a aceitar o uso da máquina")
+        self._erro_de_uso = None
+        self._uso_suspenso_ate = None
+        self.fila.marcar_usos(linhas)
+        if len(linhas) < LIMITE_DE_RESUMOS:
+            self._proximo_uso = agora + timedelta(minutes=INTERVALO_DE_RESUMO_MIN)
+            self.fila.limpar_usos(agora - timedelta(days=GUARDA_DO_RESUMO_DIAS))
+        return len(linhas)
+
     def passo(self, agora: datetime | None = None) -> dict[str, int]:
-        """Uma volta completa: captura, julga, sobe."""
+        """Uma volta completa: mede a máquina, captura, julga, sobe."""
         agora = agora or datetime.now()
+        self.medir(agora)
         enfileirados = self.capturar(agora)
         alertas = self.julgar(agora)
         subidos = self.subir(agora)
@@ -558,6 +641,8 @@ class Auditoria:
         self._parar.set()
         if self._thread is not None:
             self._thread.join(timeout=5)
+        if self.medidor is not None:
+            self.medidor.fechar()
             self._thread = None
         self._fechar(self.fontes.values())
         self.fontes = {}

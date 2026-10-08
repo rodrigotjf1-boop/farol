@@ -1,0 +1,27 @@
+{
+  "maquina": {
+    "processador": "Intel(R) Core(TM) i7-10700F CPU @ 2.90GHz",
+    "nucleos": 16,
+    "memoriaGb": 15.9,
+    "placaDeVideo": "Radeon RX 560 Series"
+  },
+  "hora": {
+    "hora": "2026-10-07T20:00:00-03:00",
+    "amostras": 96,
+    "cpuSoma": 1728.5,
+    "cpuAmostras": 96,
+    "cpuMax": 64.25,
+    "memSoma": 4896.0,
+    "memAmostras": 96,
+    "memMax": 55.1,
+    "gpuSoma": 768.0,
+    "gpuAmostras": 95,
+    "gpuMax": 57.3,
+    "processoCpuSoma": 220.8,
+    "processoCpuAmostras": 95,
+    "processoCpuMax": 6.4,
+    "processoMemMaxMb": 355.2,
+    "discoLivreGb": 64.12,
+    "discoTotalGb": 223.0
+  }
+}
