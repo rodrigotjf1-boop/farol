@@ -140,9 +140,11 @@ const NOME_DA_PRIORIDADE: Record<string, string> = {
 
 export const nomeDaSeveridade = (v: string): string => NOME_DA_SEVERIDADE[v] ?? v;
 export const nomeDaPrioridade = (v: string): string => NOME_DA_PRIORIDADE[v] ?? v;
-/** Os ajustes de um critério numa linha: "prioridade intermediária · confiança mínima 0,70 · silêncio de 15 min · versão 3". */
+/** A fração guardada (0,725) em porcento, sem perder a casa que existe (72,5) e sem o ruído da conta (28,999… → 29). */
+export const porcentoExato = (fracao: number | string): number => Number((Number(fracao) * 100).toFixed(1));
+/** Os ajustes de um critério numa linha: "prioridade intermediária · confiança mínima 70% · silêncio de 15 min · versão 3". */
 export const ajustesEmLinha = (r: Pick<Regra, 'prioridade' | 'confianca_minima' | 'cooldown_min' | 'criterio_versao'>): string =>
-  `prioridade ${nomeDaPrioridade(r.prioridade)} · confiança mínima ${Number(r.confianca_minima).toFixed(2).replace('.', ',')} · silêncio de ${r.cooldown_min} min · versão ${r.criterio_versao}`;
+  `prioridade ${nomeDaPrioridade(r.prioridade)} · confiança mínima ${String(porcentoExato(r.confianca_minima)).replace('.', ',')}% · silêncio de ${r.cooldown_min} min · versão ${r.criterio_versao}`;
 export const nomeDoTipo = (v: string): string =>
   TIPOS.find((t) => t.valor === v)?.titulo.toLowerCase() ?? v;
 

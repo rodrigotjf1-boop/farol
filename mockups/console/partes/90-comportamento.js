@@ -64,52 +64,52 @@
     bancada: {
       nome: 'Bancada limpa entre pedidos', tipo: 'estado', gravidade: 'atenção', ligado: true, canais: 2,
       texto: 'A superfície de trabalho está livre de restos de alimento, embalagens descartadas e utensílios sujos.',
-      meta: 'prioridade intermediária · confiança mínima 0,70 · silêncio de 15 min · versão 3',
+      meta: 'prioridade intermediária · confiança mínima 70% · silêncio de 15 min · versão 3',
     },
     touca: {
       nome: 'Uso de touca', tipo: 'estado', gravidade: 'crítico', grave: true, ligado: true, canais: 3,
       texto: 'Toda pessoa na área de preparo está com o cabelo coberto por touca ou boné.',
-      meta: 'prioridade intermediária · confiança mínima 0,70 · silêncio de 30 min · versão 2',
+      meta: 'prioridade intermediária · confiança mínima 70% · silêncio de 30 min · versão 2',
     },
     produto: {
       nome: 'Produto na bancada', tipo: 'contagem', gravidade: 'informativo', ligado: false, canais: 1, falta: true,
       texto: 'Há produto montado esperando na bancada.',
-      meta: 'prioridade leve · confiança mínima 0,70 · silêncio de 15 min · versão 1',
+      meta: 'prioridade leve · confiança mínima 70% · silêncio de 15 min · versão 1',
     },
     chapa: {
       nome: 'Alguém na chapa no horário de pico', tipo: 'presença', gravidade: 'crítico', grave: true, ligado: true, canais: 1,
       procura: 'pelo menos 1 × pessoa',
       texto: 'Entre 11h30 e 14h30 e entre 18h30 e 22h, há alguém operando a chapa.',
-      meta: 'prioridade urgente · confiança mínima 0,80 · silêncio de 10 min · versão 1',
+      meta: 'prioridade urgente · confiança mínima 80% · silêncio de 10 min · versão 1',
     },
     cesto: {
       nome: 'Cesto fora do óleo com a fritadeira parada', tipo: 'estado', gravidade: 'atenção', ligado: true, canais: 1,
       texto: 'Quando não há fritura em andamento, o cesto está pendurado fora do óleo.',
-      meta: 'prioridade intermediária · confiança mínima 0,70 · silêncio de 20 min · versão 1',
+      meta: 'prioridade intermediária · confiança mínima 70% · silêncio de 20 min · versão 1',
     },
     fila: {
       nome: 'Fila no balcão', tipo: 'contagem', gravidade: 'atenção', ligado: true, canais: 1,
       procura: 'no máximo 6 × pessoa',
       texto: 'Há no máximo 6 pessoas esperando na área do balcão.',
-      meta: 'prioridade urgente · confiança mínima 0,75 · silêncio de 10 min · versão 2',
+      meta: 'prioridade urgente · confiança mínima 75% · silêncio de 10 min · versão 2',
     },
     vazio: {
       nome: 'Ninguém no caixa com a loja fechada', tipo: 'presença', gravidade: 'crítico', grave: true, ligado: true, canais: 1,
       quando: 'fora', procura: 'não deve haver × pessoa',
       texto: 'Com a loja fechada, não há ninguém na área do caixa.',
-      meta: 'prioridade urgente · confiança mínima 0,80 · silêncio de 10 min · versão 1',
+      meta: 'prioridade urgente · confiança mínima 80% · silêncio de 10 min · versão 1',
     },
     posto: {
       nome: 'Alguém no balcão', tipo: 'presença', gravidade: 'atenção', ligado: true, canais: 1,
       procura: 'pelo menos 1 × pessoa',
       texto: 'Há pelo menos um colaborador atrás do balcão de atendimento.',
-      meta: 'prioridade intermediária · confiança mínima 0,70 · silêncio de 15 min · versão 1',
+      meta: 'prioridade intermediária · confiança mínima 70% · silêncio de 15 min · versão 1',
     },
     // comparação num canal que ainda não tem foto padrão: cadastrado, e não conferido ali
     arrumada: {
       nome: 'Área da fritadeira como no padrão', tipo: 'comparação', gravidade: 'atenção', ligado: true, canais: 1, faltaFoto: true,
       texto: 'A área da fritadeira está como na foto padrão: sem caixas no chão e sem utensílios fora do lugar.',
-      meta: 'prioridade leve · confiança mínima 0,70 · silêncio de 30 min · versão 1',
+      meta: 'prioridade leve · confiança mínima 70% · silêncio de 30 min · versão 1',
     },
   };
 
@@ -820,7 +820,7 @@
               `<span class="chip vazado">${icone('cctv')}${canal.nome}${s.area ? ` · ${s.area}` : ''}</span>` +
               `<span class="chip ${nuvem ? 'atencao' : ''}">${icone(nuvem ? 'cloud' : 'cpu')}${nuvem ? 'na nuvem' : 'na loja'}</span></div>` +
               `<p>${frases[Math.floor(sorte(c.d, c.si, c.h, 60 + j) * frases.length)]}</p></div>` +
-              `<div class="o-fim">${aviso}<span class="mono suave">confiança ${(0.72 + 0.23 * sorte(c.d, c.si, c.h, 80 + j)).toFixed(2).replace('.', ',')}</span></div></li>`
+              `<div class="o-fim">${aviso}<span class="mono suave">confiança ${Math.round((0.72 + 0.23 * sorte(c.d, c.si, c.h, 80 + j)) * 100)}%</span></div></li>`
             );
           })
           .join('') +

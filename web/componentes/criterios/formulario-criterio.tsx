@@ -32,6 +32,7 @@ import {
   faixaDeTodosOsDias,
   faixaSimples,
   nomeDaSeveridade,
+  porcentoExato,
   porteirosDoTipo,
   PRIORIDADES,
   QUANDOS,
@@ -95,7 +96,9 @@ export function GavetaDoCriterio({
   const [criterio, setCriterio] = useState(regra?.criterio ?? inicial?.criterio ?? '');
   const [prioridade, setPrioridade] = useState<string>(regra?.prioridade ?? 'intermediaria');
   const [severidade, setSeveridade] = useState<string>(regra?.severidade ?? 'atencao');
-  const [confiancaMinima, setConfiancaMinima] = useState(regra ? Number(regra.confianca_minima) : 0.7);
+  // Em porcento, como aparece na tela. A API guarda a fração, com três casas: a conversão é feita
+  // ao salvar, e o que abre para editar não é arredondado (72,5% continua 72,5%).
+  const [confiancaMinima, setConfiancaMinima] = useState(regra ? porcentoExato(regra.confianca_minima) : 70);
   const [cooldownMin, setCooldownMin] = useState(regra?.cooldown_min ?? 15);
   // Quase todo critério é de operação: nasce valendo com a loja aberta.
   const [quando, setQuando] = useState<Quando>(regra?.quando ?? 'no_horario');
@@ -183,7 +186,7 @@ export function GavetaDoCriterio({
         criterio,
         prioridade,
         severidade,
-        confiancaMinima,
+        confiancaMinima: Number((Math.min(100, Math.max(0, confiancaMinima)) / 100).toFixed(3)),
         cooldownMin,
         zonaIds: [...marcadas],
         parametros: parametros(),
@@ -534,7 +537,7 @@ export function GavetaDoCriterio({
               </select>
             </Campo>
             <Campo
-              rotulo="Confiança mínima"
+              rotulo="Confiança mínima, em %"
               htmlFor={`${p}-confianca`}
               ajuda="Abaixo disso o resultado é registrado, mas não vira aviso."
             >
@@ -542,8 +545,8 @@ export function GavetaDoCriterio({
                 id={`${p}-confianca`}
                 type="number"
                 min={0}
-                max={1}
-                step={0.05}
+                max={100}
+                step="any"
                 className="entrada font-mono"
                 value={confiancaMinima}
                 onChange={(e) => setConfiancaMinima(Number(e.target.value))}

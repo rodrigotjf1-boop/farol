@@ -23,9 +23,9 @@ export function porcento(parte: number, total: number): number {
   return total > 0 ? Math.round((parte / total) * 100) : 0;
 }
 
-/** "0,87" — confiança é fração, com vírgula. */
-export function fracao(v: number | null, casas = 2): string {
-  return v === null ? '—' : v.toFixed(casas).replace('.', ',');
+/** "87%" — a confiança é guardada como fração (de 0 a 1) e mostrada em porcento, sem casas. */
+export function confiancaEmPorcento(v: number | null): string {
+  return v === null ? '—' : `${Math.round(v * 100)}%`;
 }
 
 /** "0,09 s", "1,9 s" — tempo médio de um julgamento. */

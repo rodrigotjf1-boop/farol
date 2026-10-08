@@ -36,8 +36,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { haQuanto, LIMITE_DO_AGENTE_SEG, useConsole } from '@/componentes/console';
 import {
+  confiancaEmPorcento,
   desdeAHora,
-  fracao,
   horaNaLoja,
   numero,
   plural,
@@ -270,7 +270,7 @@ function PorCriterio({ r }: { r: Resultados }) {
               {numero(l.naoAvaliaveis)}
             </Celula>
             <Celula rotulo="Confiança média" numero>
-              {fracao(l.confiancaMedia)}
+              {confiancaEmPorcento(l.confiancaMedia)}
             </Celula>
             <Celula rotulo="Tempo médio" numero>
               {segundos(l.latenciaMediaMs)}
@@ -321,7 +321,7 @@ function Ocorrencias({ r }: { r: Resultados }) {
           <div className="col-start-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 md:col-start-3 md:flex-col md:items-end">
             <Aviso estado={o.aviso} />
             {o.confianca !== null && (
-              <span className="font-mono text-xs text-farol-suave">confiança {fracao(o.confianca)}</span>
+              <span className="font-mono text-xs text-farol-suave">confiança {confiancaEmPorcento(o.confianca)}</span>
             )}
           </div>
         </li>

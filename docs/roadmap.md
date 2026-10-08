@@ -2458,7 +2458,7 @@ decisões opostas.
 
 ---
 
-## A18 · O momento do ocorrido, o ambiente que calcula e a cara do produto (plano — aguarda aprovação)
+## A18 · O momento do ocorrido, o ambiente que calcula e a cara do produto (plano — aguarda aprovação; onda 0 feita em 08/10/2026)
 
 **Pedido do dono (08/10/2026).** Dez coisas, cada uma numa linha:
 
@@ -2862,10 +2862,10 @@ Tamanho: **P** = até meio dia de trabalho; **M** = um dia; **G** = dois a três
 
 | onda | o quê | tamanho | depende de |
 |---|---|---|---|
-| 0 | Confiança em %; cliente do gravador sem travar; relógio medido; base de equipamentos corrigida (o gravador comprime em H.265, a base dizia H.264) | P | — |
+| 0 ✅ | Confiança em %; cliente do gravador sem travar; base de equipamentos corrigida (o gravador comprime em H.265, a base dizia H.264) | P | — |
 | 1 | Critérios que respondem: saúde do critério, recorte nativo, rajada, episódios, caixas do detector | G | o "pode" do teste pago (≈ R$ 5); o dono desenhar as áreas e ligar o porteiro |
 | 2 | **Protótipo da cara nova**, já com as telas novas das ondas 3, 4 e 6 | G | aprovação do dono |
-| 3 | O momento do ocorrido: prova de bancada → captura automática → guarda → subida → "Ver o momento" | G | onde guardar na nuvem; recomendações do gravador |
+| 3 | O momento do ocorrido: prova de bancada → relógio medido a cada busca → captura automática → guarda → subida → "Ver o momento" | G | onde guardar na nuvem; recomendações do gravador |
 | 4 | Relatórios e resumos; o início "fora do critério primeiro"; índice da loja | G | o transportador (Regem/n8n) entregando; modelo de WhatsApp aprovado na Meta |
 | 5 | Porte da cara nova para o app, por partes | G | onda 2 aprovada |
 | 6 | O ambiente que calcula (5.1 a 5.8), a forma livre (5.9) e o rascunho (5.10) | G + M + M | teste dos 5 rascunhos |
@@ -2873,6 +2873,14 @@ Tamanho: **P** = até meio dia de trabalho; **M** = um dia; **G** = dois a três
 | 8 | Busca investigativa (A8), que reaproveita a onda 3 | G | HD maior |
 
 As ondas 1 e 2 andam juntas: uma é do agente e da API, a outra é desenho.
+
+**Onda 0 — feita em 08/10/2026.** A confiança aparece em porcento no painel da loja, nas
+Análises, na linha de ajustes de cada critério e no campo da gaveta ("Confiança mínima, em
+%"); a API continua guardando a fração, com três casas, e o que abre para editar não é
+arredondado (72,5% vai e volta inteiro). O protótipo foi atualizado junto. O cliente do
+gravador zera a conta de tentativas a cada pedido (ERR-053 do registro de erros). A medida
+do relógio do gravador saiu desta onda: ela só tem uso junto da busca do trecho, e foi
+para a onda 3.
 
 ### Ideias acrescentadas
 
