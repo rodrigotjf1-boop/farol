@@ -23,6 +23,7 @@ import type pg from 'pg';
 
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import { exigirConfigurar } from '../rbac.js';
+import { validarPoligono } from '../poligono.js';
 import { sessaoDe } from './sessao.js';
 
 // 1280 px de largura basta de sobra para desenhar um retângulo, e segura
@@ -664,28 +665,5 @@ function ehNomeRepetido(e: unknown): boolean {
 function nomeDeAreaInvalido(valor: unknown): string | null {
   if (typeof valor !== 'string' || !valor.trim()) return 'diga o nome da área';
   if (valor.trim().length > 60) return 'o nome da área tem no máximo 60 caracteres';
-  return null;
-}
-
-function validarPoligono(valor: unknown): string | null {
-  if (!Array.isArray(valor)) return 'o polígono tem que ser uma lista de pontos';
-  if (valor.length < 3) return 'o polígono precisa de ao menos 3 pontos';
-  if (valor.length > 64) return 'o polígono tem pontos demais (máximo 64)';
-
-  for (const ponto of valor) {
-    if (!Array.isArray(ponto) || ponto.length !== 2) {
-      return 'cada ponto é um par [x, y]';
-    }
-    for (const c of ponto) {
-      if (typeof c !== 'number' || !Number.isFinite(c)) {
-        return 'as coordenadas têm que ser números';
-      }
-      // Fração do quadro, não pixel: assim o mesmo desenho vale se a
-      // resolução do canal mudar.
-      if (c < 0 || c > 1) {
-        return 'as coordenadas vão de 0 a 1 (fração do quadro), não em pixels';
-      }
-    }
-  }
   return null;
 }

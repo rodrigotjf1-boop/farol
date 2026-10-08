@@ -261,3 +261,42 @@ button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: v
   .uso-numeros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .uso-item .num { font-size: 21px; }
 }
+
+/* ───────────── a área desenhada por pontos ─────────────
+   O contorno (polígono) é desenhado num svg por cima do quadro; a caixa
+   `.ret` de cada área fica só para carregar a etiqueta com o nome e para o
+   clique. Os pontos e os "meios" são botões: arrastam, e têm teclado. */
+.quadro .ret, .quadro .ret.outra, .quadro .ret.outra:hover { border-color: transparent; box-shadow: none; background: none; }
+.quadro .ar-desenho { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.quadro .ar-desenho polygon { vector-effect: non-scaling-stroke; }
+.ar-ponto, .ar-meio {
+  position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center;
+  border: 0; background: none; padding: 0; border-radius: 50%; touch-action: none;
+}
+.ar-ponto { width: 28px; height: 28px; cursor: grab; }
+.ar-ponto::before {
+  content: ""; width: 14px; height: 14px; border-radius: 50%; background: var(--cor, #F2B03C);
+  border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(4, 8, 14, .6);
+}
+.ar-ponto[aria-pressed="true"]::before { width: 18px; height: 18px; }
+.ar-meio { width: 24px; height: 24px; cursor: copy; }
+.ar-meio::before {
+  content: ""; width: 10px; height: 10px; border-radius: 50%;
+  background: rgba(4, 8, 14, .5); border: 1px solid rgba(255, 255, 255, .9);
+}
+.ar-ponto:focus-visible, .ar-meio:focus-visible { outline: 2px solid #fff; outline-offset: 0; }
+/* A tarja "ilustração" é só um rótulo: não pode ficar entre o ponteiro e um
+   ponto do contorno que esteja embaixo dela. */
+.quadro .tarja { pointer-events: none; }
+.quadro[data-vista="padrao"] .ar-desenho, .quadro[data-vista="comparar"] .ar-desenho,
+.quadro[data-vista="padrao"] [data-ar-alcas], .quadro[data-vista="comparar"] [data-ar-alcas] { display: none; }
+.ar-barra { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.ar-barra .empurra { margin-left: auto; }
+.ar-invasoes { display: flex; flex-direction: column; gap: 8px; }
+.ar-invasoes:empty { display: none; }
+.ar-numeros { border: 1px solid var(--borda); border-radius: 10px; padding: 8px 12px; }
+.ar-numeros summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+.ar-numeros ol { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ar-numeros li { display: grid; grid-template-columns: 1.5rem minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; gap: 6px; }
+.ar-numeros li > span { font: 12.5px var(--mono); color: var(--suave); }
+.ar-atalhos { display: flex; flex-wrap: wrap; gap: 6px 16px; }

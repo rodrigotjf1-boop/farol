@@ -475,3 +475,81 @@ de desenvolvimento (montado à mão, sem a tabela de controle e sem pgvector)
 agora cria a tabela de controle vazia, a 001 falha e a guarda fecha a porta.
 Não é defeito — é a guarda fazendo o que deve num banco que ela não conhece.
 Para esse banco, a API sobe com `MIGRAR_NA_SUBIDA=nao`.
+
+---
+
+## 08/10/2026 · A área é o desenho: marcação por pontos, recorte exato
+
+Pedido do dono, usando a tela de área do canal 15 (imagem de olho de peixe):
+"a criação das áreas marcadas teria que ser mais flexível, para uma área não
+invadir outra (…) a marcação tem que ser flexível para ser mais exata e
+facilitar o critério ser mais eficiente". E a pergunta: "o critério se aplica
+somente a essa área? o frame é cortado e analisado somente o corte?"
+
+### O que era verdade até aqui
+
+Sim, o critério vale só na área e só o recorte é analisado. Mas com duas
+folgas, e era por elas que uma área invadia a outra:
+
+1. a tela só desenhava **retângulo** — numa imagem torta, o retângulo pega o
+   que não é da área;
+2. o agente recortava o retângulo com **5% de folga para cada lado**
+   (`Zona.bbox`, margem padrão) — a borda da área vizinha entrava junto.
+
+O banco, a API e o agente já guardavam a área como polígono (lista de pontos
+em fração do quadro). Faltava a tela desenhar, e o agente respeitar.
+
+### O que passou a valer
+
+**A área é o desenho de quem configurou a loja.** Nada fora dele é analisado.
+
+- **Tela:** o contorno é feito de pontos. Arrastar um ponto ajusta; o ponto
+  menor, no meio de cada lado, cria um ponto novo; arrastar sobre a imagem
+  continua redesenhando como retângulo (o começo mais rápido). Há desfazer,
+  teclado (setas movem, Delete tira, Enter cria) e os números de cada ponto.
+  Até 24 pontos pela tela (a API aceita 64).
+- **Agente:** o recorte é o retângulo que envolve o desenho, **sem folga**, e
+  o que fica fora do polígono é trocado por cinza liso antes de qualquer
+  coisa. Daí em diante ninguém vê o que ficou de fora: nem o porteiro, nem a
+  memória de cena repetida (movimento na área ao lado deixou de ser "cena
+  nova" desta), nem o detector, nem a nuvem, nem o disco.
+- **Área retangular** (todas as que existiam): não há o que apagar; muda só a
+  folga de 5%, que sai.
+
+### Escolhas, e por quê
+
+- **Cinza liso (114), e não preto.** Preto é a cara da tela de "sem sinal" do
+  gravador, e uma área estreita com 90% de preto em volta seria lida como
+  câmera sem sinal por quem medisse o recorte depois. Branco é a de luz
+  estourada. O cinza é o do enchimento de quadro dos detectores.
+- **"Tem cena?" é medido só dentro do desenho.** Medindo o retângulo inteiro,
+  a cena em volta faria parecer que há imagem numa área cuja parte da câmera
+  está tampada.
+- **O juiz da nuvem é avisado.** Quando algo foi apagado, o pedido leva uma
+  linha: o cinza está fora da área, foi posto de propósito e não é motivo
+  para "não avaliável". Vai no pedido, e não nas instruções, porque as
+  instruções são o que fica em cache — mexer nelas invalida o cache de todas
+  as lojas.
+- **Contorno que se cruza e desenho sem tamanho são recusados** — na tela
+  (enquanto se desenha, com o motivo) e na API (422). Um laço não diz o que
+  é dentro e o que é fora. A menor área aceita é um quadradinho de 1% de
+  lado.
+- **Sobreposição é dita, não proibida.** Área dentro de área existe de
+  propósito (o salão inteiro e, dentro dele, o balcão). A tela avisa quando
+  parte da área também está dentro de outra **que tem critério**: ali os
+  critérios da outra enxergam a mesma coisa.
+- **As ferramentas de bancada não mudaram** (`farol-agent analisar`, o
+  sandbox): seguem com a margem explícita delas.
+
+### O que falta medir
+
+O efeito de apagar o entorno sobre o julgamento da nuvem não foi medido com
+imagem de loja — só com imagem sintética nos testes. A primeira área
+desenhada por pontos em produção é a medida: comparar "não deu para avaliar"
+do critério antes e depois.
+
+### Depende do agente novo
+
+Enquanto a loja estiver com o agente anterior, ele segue recortando o
+retângulo em volta do desenho, com a folga. O desenho por pontos só passa a
+valer por inteiro com o agente desta versão instalado.

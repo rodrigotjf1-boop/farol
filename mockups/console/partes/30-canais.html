@@ -186,7 +186,7 @@
               </div>
               <span class="nota" data-quadro-qual></span>
             </div>
-            <div class="quadro" data-quadro data-vista="agora" role="application" aria-label="Quadro do canal Balcão. Arraste para redesenhar a área selecionada.">
+            <div class="quadro" data-quadro data-vista="agora" role="application" aria-label="Quadro do canal Balcão. Arraste um ponto para ajustar o contorno da área selecionada.">
               <svg viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
                 <rect width="640" height="360" fill="#C9D1DA"/>
                 <rect x="0" y="0" width="296" height="360" fill="#AEB8C4"/>
@@ -208,12 +208,22 @@
               </svg>
               <div class="fora" data-fora></div>
               <div data-rets></div>
+              <svg class="ar-desenho" data-ar-desenho viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+              <div data-ar-alcas data-so-config></div>
               <span class="rotulo-lado esq" data-rotulo-agora hidden>agora</span>
               <span class="rotulo-lado dir" data-rotulo-padrao hidden>foto padrão</span>
               <button class="cortina" type="button" data-cortina hidden role="slider" aria-orientation="horizontal" aria-valuemin="4" aria-valuemax="96" aria-valuenow="50" aria-label="Divisor entre o quadro de agora e a foto padrão. Use as setas para mover."></button>
               <span class="tarja">ilustração · no console aparece o quadro real da câmera</span>
             </div>
-            <p class="nota" data-quadro-nota>Arraste sobre a imagem para redesenhar a área selecionada. Clique em outra área, sem arrastar, para passar a mexer nela.</p>
+            <div class="ar-barra" data-ar-barra data-so-config>
+              <span class="nota mono" data-ar-conta>4 pontos</span>
+              <button class="btn secundario mini" type="button" data-ar-acrescentar><svg class="ic p" aria-hidden="true"><use href="#i-plus"/></svg>Acrescentar ponto</button>
+              <button class="btn secundario mini" type="button" data-ar-tirar disabled><svg class="ic p" aria-hidden="true"><use href="#i-trash-2"/></svg>Tirar este ponto</button>
+              <button class="btn secundario mini empurra" type="button" data-ar-desfazer disabled><svg class="ic p" aria-hidden="true"><use href="#i-undo-2"/></svg>Desfazer</button>
+            </div>
+            <p class="aviso critico" data-ar-problema role="alert" hidden><svg class="ic" aria-hidden="true"><use href="#i-triangle-alert"/></svg><span></span></p>
+            <div class="ar-invasoes" data-ar-invasoes></div>
+            <p class="nota" data-quadro-nota><span data-so-config>Arraste um ponto para ajustar o contorno. O ponto menor, no meio de cada lado, cria um ponto novo. Arrastar sobre a imagem redesenha a área como um retângulo. </span>O que fica escuro está fora da área: o agente apaga antes de analisar. Clique em outra área, sem arrastar, para passar a mexer nela.</p>
           </section>
 
           <aside class="area-lado" aria-label="Ajustes da área">
@@ -249,19 +259,22 @@
                 <label for="area-nome">Nome desta área</label>
                 <input class="entrada" id="area-nome" value="Dentro do balcão">
               </div>
-              <div class="pares">
-                <div class="campo"><label for="area-x1">Esquerda</label><input class="entrada mono" id="area-x1" type="number" min="0" max="1" step="0.01" value="0.10" data-coord="x1"></div>
-                <div class="campo"><label for="area-y1">Topo</label><input class="entrada mono" id="area-y1" type="number" min="0" max="1" step="0.01" value="0.26" data-coord="y1"></div>
-                <div class="campo"><label for="area-x2">Direita</label><input class="entrada mono" id="area-x2" type="number" min="0" max="1" step="0.01" value="0.90" data-coord="x2"></div>
-                <div class="campo"><label for="area-y2">Base</label><input class="entrada mono" id="area-y2" type="number" min="0" max="1" step="0.01" value="0.84" data-coord="y2"></div>
+              <details class="ar-numeros" data-ar-numeros>
+                <summary>Ajustar pelos números (<span data-ar-n>4</span> pontos)</summary>
+                <p class="nota">A posição de cada ponto, em % do quadro: da esquerda e do topo.</p>
+                <ol data-ar-lista></ol>
+              </details>
+              <div class="ar-atalhos" data-so-config>
+                <button class="elo" type="button" data-quadro-inteiro>Usar o quadro inteiro</button>
+                <button class="elo" type="button" data-ar-retangulo>Voltar a um retângulo</button>
               </div>
-              <button class="elo" type="button" data-quadro-inteiro style="align-self:flex-start">Usar o quadro inteiro</button>
               <div class="campo">
                 <label for="area-largura">Largura real desta área, em cm</label>
                 <input class="entrada mono" id="area-largura" type="number" min="1" step="1" value="150" placeholder="meça com fita">
                 <small>É o que permite saber quantos pontos de imagem cabem em cada centímetro. Medir com fita é mais confiável que a conta pela lente.</small>
               </div>
-              <button class="btn primario" type="button" data-toast="Área salva. O agente usa a nova na próxima batida." data-so-config>Salvar área</button>
+              <p class="aviso critico" data-ar-recusa role="alert" hidden></p>
+              <button class="btn primario" type="button" data-ar-salvar data-so-config>Salvar área</button>
             </section>
 
             <section class="cartao pad secao">

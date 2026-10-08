@@ -1691,53 +1691,227 @@
   const quadro = $('[data-quadro]');
   const rets = $('[data-rets]');
   const fora = $('[data-fora]');
-  const coord = Object.fromEntries($$('[data-coord]').map((e) => [e.dataset.coord, e]));
   const prender = (v) => Math.min(1, Math.max(0, v));
   const limpo = (v) => String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const CORES_DE_AREA = ['#F2B03C', '#5AA9FF', '#7FD08A', '#C792EA'];
+  // A área é um CONTORNO de pontos, em fração do quadro (0 a 1). O agente
+  // recorta esse desenho e apaga o que fica fora dele antes de analisar — é
+  // o que impede uma área de invadir a outra.
+  const ret = (x1, y1, x2, y2) => [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
+  const MAX_PONTOS = 24;
   let areas = [
-    { nome: 'Dentro do balcão', x1: 0.04, y1: 0.07, x2: 0.44, y2: 0.95, largura: 220, criterios: ['posto'] },
-    { nome: 'Lado do cliente', x1: 0.56, y1: 0.07, x2: 0.93, y2: 0.95, largura: 260, criterios: ['fila'] },
+    { nome: 'Dentro do balcão', pts: ret(0.04, 0.07, 0.44, 0.95), largura: 220, criterios: ['posto'] },
+    { nome: 'Lado do cliente', pts: ret(0.56, 0.07, 0.93, 0.95), largura: 260, criterios: ['fila'] },
   ];
   let sel = 0;
   let arraste = null;
+  let ativo = null;      // o ponto em que se está mexendo
+  let historia = [];     // os desenhos de antes de cada gesto, para o "desfazer"
+  let recusado = false;  // tentou salvar com o desenho torto
+  let desenhada = null;  // a área que estava na tela: trocou, o "desfazer" recomeça
+
+  // ── a conta do desenho: a mesma do console e do servidor ──
+  const caixaDe = (pts) => {
+    const xs = pts.map((p) => p[0]);
+    const ys = pts.map((p) => p[1]);
+    return { x1: Math.min(...xs), y1: Math.min(...ys), x2: Math.max(...xs), y2: Math.max(...ys) };
+  };
+  const areaDe = (pts) => {
+    let soma = 0;
+    pts.forEach(([x1, y1], i) => {
+      const [x2, y2] = pts[(i + 1) % pts.length];
+      soma += x1 * y2 - x2 * y1;
+    });
+    return Math.abs(soma) / 2;
+  };
+  const contem = (pts, x, y) => {
+    let dentro = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i, i += 1) {
+      const [xi, yi] = pts[i];
+      const [xj, yj] = pts[j];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) dentro = !dentro;
+    }
+    return dentro;
+  };
+  const ladoDe = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  const atravessam = (a, b, c, d) => {
+    const d1 = ladoDe(a, b, c);
+    const d2 = ladoDe(a, b, d);
+    const d3 = ladoDe(c, d, a);
+    const d4 = ladoDe(c, d, b);
+    return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+  };
+  const seCruza = (pts) => {
+    const n = pts.length;
+    for (let i = 0; i < n; i += 1) {
+      for (let j = i + 1; j < n; j += 1) {
+        if (atravessam(pts[i], pts[(i + 1) % n], pts[j], pts[(j + 1) % n])) return true;
+      }
+    }
+    return false;
+  };
+  const problemaDoDesenho = (pts) =>
+    seCruza(pts) ? 'O contorno passa por cima dele mesmo. Arraste os pontos até as linhas não se cruzarem.'
+    : areaDe(pts) < 0.0001 ? 'A área ficou sem tamanho: os pontos estão em linha, ou em cima uns dos outros.'
+    : null;
+  const meioDoLado = (pts, i) => {
+    const [x1, y1] = pts[i];
+    const [x2, y2] = pts[(i + 1) % pts.length];
+    return [(x1 + x2) / 2, (y1 + y2) / 2];
+  };
+  /** Quanto de `a` também está dentro de `b`, de 0 a 1, por amostragem. */
+  const sobreposicao = (a, b, grade = 40) => {
+    const c = caixaDe(a);
+    let dentroDeA = 0;
+    let nosDois = 0;
+    for (let i = 0; i < grade; i += 1) {
+      for (let j = 0; j < grade; j += 1) {
+        const x = c.x1 + ((i + 0.5) / grade) * (c.x2 - c.x1);
+        const y = c.y1 + ((j + 0.5) / grade) * (c.y2 - c.y1);
+        if (!contem(a, x, y)) continue;
+        dentroDeA += 1;
+        if (contem(b, x, y)) nosDois += 1;
+      }
+    }
+    return dentroDeA ? nosDois / dentroDeA : 0;
+  };
+
+  const guardar = () => {
+    historia.push(areas[sel].pts.map((p) => [...p]));
+    if (historia.length > 40) historia.shift();
+  };
+  const mudar = (pts) => {
+    guardar();
+    areas[sel].pts = pts;
+    ativo = null;
+    desenharArea();
+  };
+  const focarPonto = (i) => $(`[data-ar-ponto="${i}"]`)?.focus();
 
   function desenharArea(escreverCampos = true) {
     if (sel >= areas.length) sel = areas.length - 1;
     const a = areas[sel];
-    const { x1, y1, x2, y2 } = a;
+    if (a !== desenhada) {
+      desenhada = a;
+      historia = [];
+      ativo = null;
+      recusado = false;
+    }
+    const n = a.pts.length;
     const pc = (v) => `${(v * 100).toFixed(2)}%`;
     const cor = (i) => CORES_DE_AREA[i % CORES_DE_AREA.length];
+    const noSvg = (pts) => pts.map(([x, y]) => `${(x * 100).toFixed(2)},${(y * 100).toFixed(2)}`).join(' ');
+    const problema = problemaDoDesenho(a.pts);
+    const traco = problema ? '#FF5A5F' : cor(sel);
 
-    // todas as áreas no quadro; a selecionada é a de borda cheia
+    // As caixas carregam a etiqueta com o nome e o clique; o contorno de
+    // cada área é desenhado no svg. A selecionada é a de traço cheio; as
+    // outras ficam tracejadas, cada uma na sua cor.
     rets.innerHTML = areas
-      .map(
-        (r, i) =>
+      .map((r, i) => {
+        const c = caixaDe(r.pts);
+        return (
           `<div class="ret${i === sel ? '' : ' outra'}" data-ret-i="${i}" data-rotulo="${limpo(r.nome)}" ` +
-          `style="left:${pc(r.x1)};top:${pc(r.y1)};width:${pc(r.x2 - r.x1)};height:${pc(r.y2 - r.y1)};--cor:${cor(i)}"></div>`,
-      )
+          `style="left:${pc(c.x1)};top:${pc(c.y1)};width:${pc(c.x2 - c.x1)};height:${pc(c.y2 - c.y1)};--cor:${cor(i)}"></div>`
+        );
+      })
       .join('');
+    $('[data-ar-desenho]').innerHTML =
+      areas
+        .map((r, i) =>
+          i === sel ? '' : `<polygon data-ar-outra="${i}" points="${noSvg(r.pts)}" fill="${cor(i)}" fill-opacity="0.18" stroke="${cor(i)}" stroke-width="2" stroke-dasharray="6 4"/>`,
+        )
+        .join('') +
+      `<polygon points="${noSvg(a.pts)}" fill="none" stroke="rgba(4,8,14,.55)" stroke-width="4"/>` +
+      `<polygon data-ar-sel points="${noSvg(a.pts)}" fill="none" stroke="${traco}" stroke-width="2" stroke-linejoin="round"/>`;
+    // o que está FORA do contorno escurece: é o que o agente apaga
     fora.style.clipPath =
-      `polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${pc(x1)} ${pc(y1)}, ${pc(x1)} ${pc(y2)}, ` +
-      `${pc(x2)} ${pc(y2)}, ${pc(x2)} ${pc(y1)}, ${pc(x1)} ${pc(y1)})`;
+      `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ` +
+      `${a.pts.map(([x, y]) => `${pc(x)} ${pc(y)}`).join(', ')}, ${pc(a.pts[0][0])} ${pc(a.pts[0][1])})`;
+
+    // os pontos do contorno e, no meio de cada lado, o ponto que cria outro
+    $('[data-ar-alcas]').innerHTML =
+      (n < MAX_PONTOS
+        ? a.pts
+            .map((p, i) => {
+              const q = a.pts[(i + 1) % n];
+              if (Math.hypot(q[0] - p[0], q[1] - p[1]) < 0.07) return '';
+              const m = meioDoLado(a.pts, i);
+              return (
+                `<button type="button" class="ar-meio" data-ar-meio="${i}" style="left:${pc(m[0])};top:${pc(m[1])}" ` +
+                `title="Arraste para criar um ponto aqui" aria-label="Criar um ponto entre o ${i + 1} e o ${((i + 1) % n) + 1}"></button>`
+              );
+            })
+            .join('')
+        : '') +
+      a.pts
+        .map(
+          ([x, y], i) =>
+            `<button type="button" class="ar-ponto" data-ar-ponto="${i}" aria-pressed="${ativo === i}" ` +
+            `style="left:${pc(x)};top:${pc(y)};--cor:${traco}" ` +
+            `aria-label="Ponto ${i + 1} de ${n}: a ${Math.round(x * 100)}% da esquerda e ${Math.round(y * 100)}% do topo. As setas movem${n > 3 ? '; Delete tira' : ''}."></button>`,
+        )
+        .join('');
+
+    // a barra do desenho e os avisos
+    $('[data-ar-conta]').textContent = ativo !== null && ativo < n ? `ponto ${ativo + 1} de ${n}` : `${n} pontos`;
+    $('[data-ar-acrescentar]').disabled = n >= MAX_PONTOS;
+    $('[data-ar-tirar]').disabled = ativo === null || ativo >= n || n <= 3;
+    $('[data-ar-desfazer]').disabled = historia.length === 0;
+    $('[data-ar-problema]').hidden = !problema;
+    $('span', $('[data-ar-problema]')).textContent = problema || '';
+    $('[data-ar-recusa]').hidden = !(recusado && problema);
+    $('[data-ar-recusa]').textContent = problema ? `Não salvei. ${problema}` : '';
+    // O que desta área também está dentro de OUTRA que tem critério: ali os
+    // critérios da outra enxergam a mesma coisa. Dito, não proibido.
+    $('[data-ar-invasoes]').innerHTML = problema
+      ? ''
+      : areas
+          .map((r, i) => {
+            if (i === sel || r.criterios.length === 0) return '';
+            const parte = sobreposicao(a.pts, r.pts);
+            if (parte < 0.03) return '';
+            return (
+              `<p class="aviso">${icone('triangle-alert')}<span>${Math.round(parte * 100)}% desta área também está dentro de “${limpo(r.nome)}”, ` +
+              `que tem ${plural(r.criterios.length, 'critério', 'critérios')}: o que acontecer ali também é visto por ` +
+              `${r.criterios.length === 1 ? 'ele' : 'eles'}. Para separar, ajuste o contorno de uma das duas.</span></p>`
+            );
+          })
+          .join('');
+
+    $('[data-ar-n]').textContent = String(n);
     if (escreverCampos) {
-      for (const k of Object.keys(coord)) coord[k].value = a[k].toFixed(2);
       $('#area-nome').value = a.nome;
       $('#area-largura').value = a.largura || '';
+      $('[data-ar-lista]').innerHTML = a.pts
+        .map(
+          (p, i) =>
+            `<li><span>${i + 1}</span>` +
+            p
+              .map(
+                (v, eixo) =>
+                  `<input class="entrada mono" type="number" min="0" max="100" step="0.5" value="${Math.round(v * 1000) / 10}" ` +
+                  `data-ar-num="${i}" data-eixo="${eixo}" aria-label="Ponto ${i + 1}: % ${eixo === 0 ? 'da esquerda' : 'do topo'}">`,
+              )
+              .join('') +
+            `<button class="btn fantasma quadrado mini" type="button" data-so-config data-ar-tirar-num="${i}" ${n <= 3 ? 'disabled' : ''} ` +
+            `aria-label="Tirar o ponto ${i + 1}">${icone('trash-2')}</button></li>`,
+        )
+        .join('');
     }
 
     // a lista de áreas do canal
     const unica = areas.length === 1;
     $('[data-areas]').innerHTML = areas
       .map((r, i) => {
-        const n = r.criterios.length;
+        const quantos = r.criterios.length;
         const excluir = unica
           ? 'disabled title="O canal precisa de pelo menos uma área"'
           : `data-dialogo="excluir-area" data-nome="${limpo(r.nome)}"`;
         return (
           `<li><button type="button" class="area-item" aria-pressed="${i === sel}" data-area-item="${i}">` +
           `<i class="cor" style="--c:${cor(i)}"></i>` +
-          `<span><b>${limpo(r.nome)}</b><small>${n ? plural(n, 'critério', 'critérios') : 'sem critério'}</small></span></button>` +
+          `<span><b>${limpo(r.nome)}</b><small>${quantos ? plural(quantos, 'critério', 'critérios') : 'sem critério'}</small></span></button>` +
           `<button class="btn fantasma quadrado mini" type="button" data-so-config ${excluir} aria-label="Excluir a área ${limpo(r.nome)}">${icone('trash-2')}</button></li>`
         );
       })
@@ -1759,7 +1933,7 @@
       : '<li class="vazio-linha">Nenhum critério nesta área. Nada é verificado nela.</li>';
 
     const largura = Number(a.largura);
-    const fracao = Math.round((x2 - x1) * (y2 - y1) * 100);
+    const fracao = Math.round(areaDe(a.pts) * 100);
     const linhas = [`<div><dt>do quadro</dt><dd><span class="mono">${fracao}%</span></dd></div>`, '<div><dt>imagem do canal</dt><dd><span class="mono">1920 px</span></dd></div>'];
     if (largura > 0) {
       for (const px of [384, 640, 1000, 1920]) {
@@ -1778,53 +1952,83 @@
     const c = quadro.getBoundingClientRect();
     return { x: prender((ev.clientX - c.left) / c.width), y: prender((ev.clientY - c.top) / c.height) };
   }
-  // CLIQUE seleciona, ARRASTO desenha — e o arrasto pode começar em cima de
-  // outra área. Toda loja nova tem a área "Quadro inteiro" cobrindo a imagem
-  // toda: se apertar sobre ela já trocasse a seleção, não sobrava onde
-  // começar a desenhar a segunda.
+  // Três gestos: arrastar um PONTO ajusta o contorno; arrastar o ponto do
+  // MEIO de um lado cria um ponto novo; arrastar sobre a IMAGEM redesenha a
+  // área como um retângulo. CLIQUE (sem arrastar) seleciona — e o arrasto
+  // pode começar em cima de outra área: toda loja nova tem a área "Quadro
+  // inteiro" cobrindo a imagem toda, e se apertar sobre ela já trocasse a
+  // seleção, não sobrava onde começar a desenhar a segunda.
   quadro.addEventListener('pointerdown', (ev) => {
     // as áreas se desenham no quadro de agora, não na foto padrão
     if (quadro.dataset.vista !== 'agora') return;
+    const soLe = app.dataset.perfil === 'supervisao';
+    const noPonto = soLe ? null : ev.target.closest('[data-ar-ponto]');
+    const noMeio = soLe ? null : ev.target.closest('[data-ar-meio]');
     quadro.setPointerCapture?.(ev.pointerId);
-    const a = areas[sel];
-    arraste = {
-      ...posicao(ev),
-      telaX: ev.clientX,
-      telaY: ev.clientY,
-      antes: { x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2 },
-      desenhou: false,
-    };
+    const base = { ...posicao(ev), telaX: ev.clientX, telaY: ev.clientY, soLe };
+    if (noPonto) {
+      ativo = Number(noPonto.dataset.arPonto);
+      arraste = { ...base, tipo: 'ponto', i: ativo, mexeu: false };
+      desenharArea();
+      return;
+    }
+    if (noMeio) {
+      // apertar o ponto do meio já cria o ponto, e o mesmo gesto o arrasta
+      const i = Number(noMeio.dataset.arMeio);
+      guardar();
+      areas[sel].pts.splice(i + 1, 0, meioDoLado(areas[sel].pts, i));
+      ativo = i + 1;
+      arraste = { ...base, tipo: 'ponto', i: ativo, mexeu: true };
+      desenharArea();
+      return;
+    }
+    arraste = { ...base, tipo: 'desenho', mexeu: false };
   });
   quadro.addEventListener('pointermove', (ev) => {
     if (!arraste) return;
     // mão que treme num clique não é arrasto
-    if (!arraste.desenhou && Math.hypot(ev.clientX - arraste.telaX, ev.clientY - arraste.telaY) < 6) return;
-    arraste.desenhou = true;
+    if (!arraste.mexeu && Math.hypot(ev.clientX - arraste.telaX, ev.clientY - arraste.telaY) < 6) return;
+    if (arraste.soLe) {
+      // quem só vê não desenha — e o arrasto dele também não é um clique
+      arraste.mexeu = true;
+      return;
+    }
+    if (!arraste.mexeu) {
+      arraste.mexeu = true;
+      guardar();
+    }
     const p = posicao(ev);
-    Object.assign(areas[sel], {
-      x1: Math.min(arraste.x, p.x), y1: Math.min(arraste.y, p.y),
-      x2: Math.max(arraste.x, p.x), y2: Math.max(arraste.y, p.y),
-    });
+    if (arraste.tipo === 'ponto') {
+      areas[sel].pts[arraste.i] = [p.x, p.y];
+    } else {
+      ativo = null;
+      areas[sel].pts = ret(Math.min(arraste.x, p.x), Math.min(arraste.y, p.y), Math.max(arraste.x, p.x), Math.max(arraste.y, p.y));
+    }
     desenharArea();
   });
   const soltar = (ev) => {
     if (!arraste) return;
     const gesto = arraste;
     arraste = null;
-    if (gesto.desenhou) {
-      // risco fino: volta a área como estava
-      const a = areas[sel];
-      if (a.x2 - a.x1 < 0.02 || a.y2 - a.y1 < 0.02) Object.assign(a, gesto.antes);
+    if (gesto.tipo === 'ponto') {
+      if (gesto.mexeu) focarPonto(gesto.i);
+      return;
+    }
+    if (gesto.mexeu) {
+      if (gesto.soLe) return;
+      // risco fino: volta a área como estava, e esquece o "desfazer" dele
+      const c = caixaDe(areas[sel].pts);
+      if (c.x2 - c.x1 < 0.02 || c.y2 - c.y1 < 0.02) areas[sel].pts = historia.pop();
       desenharArea();
       return;
     }
     if (ev.type !== 'pointerup') return;
-    // foi um clique: vale a MENOR área que contém o ponto
+    // foi um clique: vale a MENOR área cujo contorno contém o ponto
     let alvo = -1;
     let menor = Infinity;
     areas.forEach((r, i) => {
-      if (gesto.x < r.x1 || gesto.x > r.x2 || gesto.y < r.y1 || gesto.y > r.y2) return;
-      const tamanho = (r.x2 - r.x1) * (r.y2 - r.y1);
+      if (!contem(r.pts, gesto.x, gesto.y)) return;
+      const tamanho = areaDe(r.pts);
       if (tamanho < menor || (tamanho === menor && i === sel)) {
         menor = tamanho;
         alvo = i;
@@ -1837,12 +2041,116 @@
   };
   quadro.addEventListener('pointerup', soltar);
   quadro.addEventListener('pointercancel', soltar);
-  for (const k of Object.keys(coord)) {
-    coord[k].addEventListener('input', () => {
-      areas[sel][k] = prender(Number(coord[k].value));
-      desenharArea(false);
+
+  // o teclado: as setas movem o ponto em foco (Shift anda mais); Delete tira
+  $('[data-ar-alcas]').addEventListener('keydown', (ev) => {
+    const ponto = ev.target.closest('[data-ar-ponto]');
+    if (!ponto) return;
+    const i = Number(ponto.dataset.arPonto);
+    const a = areas[sel];
+    const passo = ev.shiftKey ? 0.02 : 0.005;
+    const [x, y] = a.pts[i];
+    const para = { ArrowLeft: [x - passo, y], ArrowRight: [x + passo, y], ArrowUp: [x, y - passo], ArrowDown: [x, y + passo] }[ev.key];
+    if (para) {
+      ev.preventDefault();
+      guardar();
+      a.pts[i] = [prender(para[0]), prender(para[1])];
+      ativo = i;
+      desenharArea();
+      focarPonto(i);
+      return;
+    }
+    if ((ev.key === 'Delete' || ev.key === 'Backspace') && a.pts.length > 3) {
+      ev.preventDefault();
+      guardar();
+      a.pts.splice(i, 1);
+      ativo = Math.max(0, i - 1);
+      desenharArea();
+      focarPonto(ativo);
+    }
+  });
+  $('[data-ar-alcas]').addEventListener('focusin', (ev) => {
+    const ponto = ev.target.closest('[data-ar-ponto]');
+    if (!ponto || arraste) return;
+    const i = Number(ponto.dataset.arPonto);
+    if (ativo === i) return;
+    ativo = i;
+    desenharArea();
+    focarPonto(i);
+  });
+  // Enter no ponto do meio (teclado) cria o ponto ali
+  $('[data-ar-alcas]').addEventListener('click', (ev) => {
+    const meio = ev.target.closest('[data-ar-meio]');
+    if (!meio || ev.detail !== 0 || areas[sel].pts.length >= MAX_PONTOS) return;
+    const i = Number(meio.dataset.arMeio);
+    guardar();
+    areas[sel].pts.splice(i + 1, 0, meioDoLado(areas[sel].pts, i));
+    ativo = i + 1;
+    desenharArea();
+    focarPonto(ativo);
+  });
+
+  const tirarPonto = (i) => {
+    if (areas[sel].pts.length <= 3) return;
+    guardar();
+    areas[sel].pts.splice(i, 1);
+    ativo = null;
+    desenharArea();
+  };
+  $('[data-ar-acrescentar]').addEventListener('click', () => {
+    const a = areas[sel];
+    if (a.pts.length >= MAX_PONTOS) return;
+    // no meio do lado mais comprido: é onde um ponto novo faz mais falta
+    let i = 0;
+    let maior = -1;
+    a.pts.forEach((p, k) => {
+      const q = a.pts[(k + 1) % a.pts.length];
+      const d = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      if (d > maior) {
+        maior = d;
+        i = k;
+      }
     });
-  }
+    guardar();
+    a.pts.splice(i + 1, 0, meioDoLado(a.pts, i));
+    ativo = i + 1;
+    desenharArea();
+  });
+  $('[data-ar-tirar]').addEventListener('click', () => {
+    if (ativo !== null) tirarPonto(ativo);
+  });
+  $('[data-ar-desfazer]').addEventListener('click', () => {
+    const antes = historia.pop();
+    if (!antes) return;
+    areas[sel].pts = antes;
+    ativo = null;
+    desenharArea();
+  });
+  $('[data-ar-lista]').addEventListener('input', (ev) => {
+    const campo = ev.target.closest('[data-ar-num]');
+    if (!campo) return;
+    const v = Number(campo.value) / 100;
+    if (!Number.isFinite(v)) return;
+    const i = Number(campo.dataset.arNum);
+    guardar();
+    areas[sel].pts[i][Number(campo.dataset.eixo)] = prender(v);
+    ativo = i;
+    desenharArea(false);
+  });
+  $('[data-ar-lista]').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-ar-tirar-num]');
+    if (b) tirarPonto(Number(b.dataset.arTirarNum));
+  });
+  $('[data-ar-retangulo]').addEventListener('click', () => {
+    const c = caixaDe(areas[sel].pts);
+    mudar(ret(c.x1, c.y1, c.x2, c.y2));
+  });
+  $('[data-ar-salvar]').addEventListener('click', () => {
+    // as mesmas recusas do servidor, ditas ao lado do botão
+    recusado = problemaDoDesenho(areas[sel].pts) !== null;
+    desenharArea(false);
+    if (!recusado) avisar('Área salva. O agente usa a nova na próxima batida.');
+  });
   $('#area-largura').addEventListener('input', () => {
     areas[sel].largura = Number($('#area-largura').value) || 0;
     desenharArea(false);
@@ -1851,10 +2159,7 @@
     areas[sel].nome = $('#area-nome').value.trim() || 'área';
     desenharArea(false);
   });
-  $('[data-quadro-inteiro]').addEventListener('click', () => {
-    Object.assign(areas[sel], { x1: 0, y1: 0, x2: 1, y2: 1 });
-    desenharArea();
-  });
+  $('[data-quadro-inteiro]').addEventListener('click', () => mudar(ret(0, 0, 1, 1)));
   $('[data-areas]').addEventListener('click', (ev) => {
     const item = ev.target.closest('[data-area-item]');
     if (!item) return;
@@ -1864,12 +2169,12 @@
   $('[data-nova-area]').addEventListener('click', () => {
     let n = areas.length + 1;
     while (areas.some((x) => x.nome === `Área ${n}`)) n += 1;
-    areas.push({ nome: `Área ${n}`, x1: 0.3, y1: 0.3, x2: 0.7, y2: 0.7, largura: 0, criterios: [] });
+    areas.push({ nome: `Área ${n}`, pts: ret(0.3, 0.3, 0.7, 0.7), largura: 0, criterios: [] });
     sel = areas.length - 1;
     desenharArea();
     $('#area-nome').focus();
     $('#area-nome').select();
-    avisar('Área criada. Arraste na imagem para posicionar, dê um nome e salve.');
+    avisar('Área criada. Arraste os pontos para marcar o contorno, dê um nome e salve.');
   });
   for (const b of $$('[data-atualizar-quadro]')) {
     b.addEventListener('click', () => {
@@ -2030,8 +2335,11 @@
     $('[data-quadro-qual]').textContent = !tem
       ? 'Este canal ainda não tem foto padrão.'
       : v === 'agora' ? '' : `Foto padrão: ${PADROES_DO_CANAL[0].nome}, guardada em ${PADROES_DO_CANAL[0].quando}.`;
-    $('[data-quadro-nota]').textContent =
-      v === 'agora' ? 'Arraste sobre a imagem para redesenhar a área selecionada. Clique em outra área, sem arrastar, para passar a mexer nela.'
+    $('[data-quadro-nota]').innerHTML =
+      v === 'agora'
+        ? '<span data-so-config>Arraste um ponto para ajustar o contorno. O ponto menor, no meio de cada lado, cria um ponto novo. ' +
+          'Arrastar sobre a imagem redesenha a área como um retângulo. </span>' +
+          'O que fica escuro está fora da área: o agente apaga antes de analisar. Clique em outra área, sem arrastar, para passar a mexer nela.'
       : v === 'padrao' ? 'É com esta imagem que a loja compara. As áreas se desenham no quadro de agora.'
       : 'Arraste o divisor: à esquerda, o quadro de agora; à direita, a foto padrão.';
     $('[data-padroes]').innerHTML = tem
