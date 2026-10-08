@@ -244,6 +244,48 @@ versão certa" deixam de ser a mesma aposta — o `/saude` responde as duas.
 é o que permite o `COPY database ./database`. No EasyPanel isso é *Build Path*
 `/` na aba Source e `api/Dockerfile` na aba Build.
 
+### 07/10/2026 · A saúde tem de dizer que a porta está fechada
+
+Três PRs entraram na `main` em 44 segundos (#51, #52 e #53), e o #52 levava
+a migration 022. O deploy subiu com o código novo e a guarda de partida fez
+o que devia: recusou todo pedido com 503 até a migration ser aplicada, três
+minutos depois. O agente da loja guardou o que tinha e subiu em seguida;
+nada se perdeu.
+
+O que estava errado era a saúde. `/saude` fica de fora da guarda — de
+propósito, para responder mesmo com a porta fechada — e dizia `ok: true`
+com a API recusando tudo. A frase acima, "o `/saude` responde as duas",
+era verdade só pela metade: ele dizia o que o banco tinha, não o que o
+código esperava.
+
+**Agora** `/saude` devolve também:
+
+| campo | o que diz |
+|---|---|
+| `ok` | `false` quando há migration pendente — a API está recusando |
+| `pendentes` | os arquivos que o código tem e o banco não |
+| `ultimaNoCodigo` | a última migration que o código **no ar** conhece |
+| `aviso` | o comando que resolve, só quando há pendência |
+
+O status segue **200**: verificação de saúde que derruba contêiner levaria
+junto o console de onde se roda a migration. Quem diz que não está bem é o
+corpo.
+
+`ultimaNoCodigo` responde a outra pergunta daquela noite — "qual deploy
+ficou?". `versao` é fixa (`0.1.0`); com três implantações seguidas e uma
+delas atropelada pela seguinte, não havia como saber de fora qual código
+estava rodando, a não ser provocando o 503 numa rota qualquer.
+
+**Regra de processo:** PR com migration é mesclado **sozinho e por
+último**, e o `npm run migrar` vem logo em seguida. Com mais de um PR
+aberto, a ordem vai dita na mensagem a quem mescla, não só na descrição do
+PR.
+
+**Em aberto (decisão do dono):** aplicar a migration sozinho, na subida do
+serviço, acabaria com a janela de 503. O runner já tem o que isso pede —
+trava, checksum, uma transação por arquivo. O que se perde é o momento em
+que alguém confere antes de aplicar.
+
 ## 05/10/2026 — Primeira medição de acurácia com câmera e juiz de verdade
 
 Seis análises contra a TWG no canal 1, recorte 640×170, Haiku 4.5, critério

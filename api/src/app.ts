@@ -7,6 +7,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
 import { instalarTratamentoDeErros } from './erros.js';
+import { acharMigrations, conferirEsquema } from './preflight.js';
 import { rotasDeAgentes } from './rotas/agentes.js';
 import { rotasDeAlertas } from './rotas/alertas.js';
 import { rotasDoConsole } from './rotas/console.js';
@@ -25,7 +26,10 @@ import { rotasDeSessao } from './rotas/sessao.js';
 
 export const VERSAO = process.env.APP_VERSION ?? '0.1.0';
 
-export function criarApp(pool: pg.Pool, opcoes: { logger?: boolean } = {}): FastifyInstance {
+export function criarApp(
+  pool: pg.Pool,
+  opcoes: { logger?: boolean; pastaDeMigrations?: string | null } = {},
+): FastifyInstance {
   const app = Fastify({
     logger: opcoes.logger === false ? false : { level: process.env.LOG_LEVEL ?? 'info' },
     // O agente manda lote; 500 eventos com embedding de 768 passam folgado
@@ -65,12 +69,38 @@ export function criarApp(pool: pg.Pool, opcoes: { logger?: boolean } = {}): Fast
           limit 1`,
       );
       const ultima = rows[0];
+
+      // O banco responder não quer dizer que a API atende. Com o banco
+      // atrás do código, a guarda de partida recusa TODO o resto com 503
+      // — e esta rota, que fica de fora da guarda, dizia `ok: true`. Em
+      // 07/10/2026 foram três minutos assim: quem olhava a saúde via
+      // verde, e a loja levava 503 em cada batida.
+      //
+      // O status segue 200 de propósito: quem derruba contêiner por
+      // verificação de saúde levaria junto o console de onde se roda a
+      // migration. Quem diz que não está bem é o corpo.
+      const esquema = await conferirEsquema(
+        pool,
+        opcoes.pastaDeMigrations === undefined ? acharMigrations() : opcoes.pastaDeMigrations,
+      );
+      const pendentes = esquema.ok ? [] : esquema.pendentes;
       return {
-        ok: true,
+        ok: pendentes.length === 0,
         versao: VERSAO,
         banco: 'ok',
         ultimaMigracao: ultima?.nome ?? null,
         aplicadaEm: ultima?.aplicada_em ?? null,
+        // A última migration que o código NO AR conhece. `versao` é fixa;
+        // é por aqui que se sabe, de fora, qual deploy ficou.
+        ultimaNoCodigo: esquema.noCodigo,
+        pendentes,
+        ...(pendentes.length > 0
+          ? {
+              aviso:
+                'o banco está atrás do código: a API recusa os pedidos com 503 até ' +
+                'alguém rodar `npm run migrar` no console deste serviço',
+            }
+          : {}),
         catalogoModelos: await modelosNoCatalogo(),
       };
     } catch (erro) {
