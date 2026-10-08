@@ -26,7 +26,7 @@
  * errado em produção.
  */
 
-import { ArrowLeft, Crop, Plus, RefreshCw, Trash2, TriangleAlert, Undo2 } from 'lucide-react';
+import { ArrowLeft, Columns2, Crop, Image as Imagem, Plus, RefreshCw, Trash2, TriangleAlert, Undo2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -46,6 +46,9 @@ import {
   sobreposicao,
   type Ponto,
 } from '@/componentes/areas/poligono';
+import { FotosPadrao } from '@/componentes/areas/fotos-padrao';
+import { GavetaDaFotoPadrao } from '@/componentes/areas/gaveta-da-foto-padrao';
+import { QuadroComPadrao } from '@/componentes/areas/quadro-com-padrao';
 import { QuadroDasAreas } from '@/componentes/areas/quadro-das-areas';
 import { useConsole } from '@/componentes/console';
 import { GavetaDoCriterio } from '@/componentes/criterios/formulario-criterio';
@@ -54,15 +57,17 @@ import { diaEHora, plural } from '@/componentes/formatos';
 import { useAvisar } from '@/componentes/ui/avisos';
 import { Botao } from '@/componentes/ui/botao';
 import { AJUDA, Campo } from '@/componentes/ui/campo';
-import { Alerta, Cabecalho, CARTAO, Chip, Ossos, Titulo, Vazio } from '@/componentes/ui/pecas';
+import { Alerta, Cabecalho, CARTAO, Chip, Ossos, Segmentado, Titulo, Vazio } from '@/componentes/ui/pecas';
 import { Dialogo } from '@/componentes/ui/sobreposto';
 import {
   consoleApi,
   ErroDaApi,
+  padroesApi,
   previewApi,
   regrasApi,
   resultadosApi,
   type EstadoDoPreview,
+  type FotoPadrao,
   type PontoCompleto,
   type Setor,
   type ZonaCompleta,
@@ -112,6 +117,10 @@ const CONEXAO = [
 /** O que a gaveta de critério precisa da loja; buscado só quando ela abre. */
 type DaLoja = { setores: Setor[]; objetos: string[] };
 
+/** O que o quadro mostra: a cena de agora (onde se desenha), a foto padrão, ou as duas lado a lado. */
+type Vista = 'agora' | 'padrao' | 'comparar';
+const SEM_FOTO = 'Este canal ainda não tem foto padrão';
+
 export default function AreaDoCanal() {
   const { id } = useParams<{ id: string }>();
   const { loja, configura, definirLoja, atualizar } = useConsole();
@@ -147,6 +156,18 @@ export default function AreaDoCanal() {
   const [criterioNovo, setCriterioNovo] = useState<(DaLoja & { zonaId: string; chave: string }) | null>(null);
   const [abrindoCriterio, setAbrindoCriterio] = useState(false);
 
+  /** As fotos padrão do canal, da mais nova para a mais antiga. `null` = carregando. */
+  const [fotos, setFotos] = useState<FotoPadrao[] | null>(null);
+  const [maximoDeFotos, setMaximoDeFotos] = useState(4);
+  const [erroDasFotos, setErroDasFotos] = useState<string | null>(null);
+  const [vista, setVista] = useState<Vista>('agora');
+  /** A foto escolhida para aparecer no quadro. Sem escolha, a mais nova. */
+  const [fotoEscolhida, setFotoEscolhida] = useState<string | null>(null);
+  const [guardandoFoto, setGuardandoFoto] = useState(false);
+  const [excluindoFoto, setExcluindoFoto] = useState<FotoPadrao | null>(null);
+  const [excluindoFotoAgora, setExcluindoFotoAgora] = useState(false);
+  const [erroAoExcluirFoto, setErroAoExcluirFoto] = useState<string | null>(null);
+
   const campoDoNome = useRef<HTMLInputElement>(null);
 
   const zona = zonas.find((z) => z.id === zonaId) ?? null;
@@ -170,6 +191,24 @@ export default function AreaDoCanal() {
   useEffect(() => {
     void carregar();
   }, [carregar]);
+
+  // As fotos padrão vêm à parte: a lista não muda enquanto a tela pergunta
+  // pelo quadro de dois em dois segundos, e falhar aqui não pode derrubar o
+  // desenho das áreas.
+  const carregarFotos = useCallback(async () => {
+    try {
+      const r = await padroesApi.listar(id);
+      setFotos(r.padroes);
+      setMaximoDeFotos(r.maximo);
+      setErroDasFotos(null);
+    } catch (e) {
+      setErroDasFotos(e instanceof ErroDaApi ? e.message : 'não consegui carregar as fotos padrão');
+    }
+  }, [id]);
+
+  useEffect(() => {
+    void carregarFotos();
+  }, [carregarFotos]);
 
   // O endereço desta tela não diz de que loja é o canal. A moldura precisa
   // saber, para mostrar a loja certa e marcar "Canais" na navegação.
@@ -320,6 +359,38 @@ export default function AreaDoCanal() {
     }
   }
 
+  /** Clicar numa foto da lista: é ela que aparece no quadro. */
+  function verFoto(f: FotoPadrao) {
+    setFotoEscolhida(f.id);
+    if (vista === 'agora') setVista('padrao');
+  }
+
+  async function fotoGuardada(f: FotoPadrao) {
+    setGuardandoFoto(false);
+    setFotoEscolhida(f.id);
+    await carregarFotos();
+    avisar('Foto padrão guardada. O agente recebe na próxima batida.');
+  }
+
+  async function confirmarExclusaoDaFoto() {
+    if (!excluindoFoto) return;
+    setExcluindoFotoAgora(true);
+    setErroAoExcluirFoto(null);
+    try {
+      const r = await padroesApi.excluir(excluindoFoto.id);
+      setExcluindoFoto(null);
+      // Sem foto não há o que mostrar ao lado: o quadro volta ao de agora, e
+      // fica lá quando outra for guardada.
+      if (r.restantes === 0) setVista('agora');
+      await carregarFotos();
+      avisar(`Foto padrão “${r.nome}” excluída.`);
+    } catch (e) {
+      setErroAoExcluirFoto(e instanceof ErroDaApi ? e.message : 'não deu certo');
+    } finally {
+      setExcluindoFotoAgora(false);
+    }
+  }
+
   async function salvarConexao() {
     setSalvandoConexao(true);
     setErro(null);
@@ -399,6 +470,12 @@ export default function AreaDoCanal() {
   const variasAreas = zonas.length > 1;
   const nomesDosCriterios = excluindo?.criterios.map((c) => `“${c.nome}”`) ?? [];
 
+  // A foto que aparece no quadro: a escolhida na lista; sem escolha (ou se
+  // ela foi excluída), a mais nova. Canal sem foto só tem a vista "agora".
+  const fotoNoQuadro = fotos?.find((f) => f.id === fotoEscolhida) ?? fotos?.[0] ?? null;
+  const vistaDeFato: Vista = fotoNoQuadro ? vista : 'agora';
+  const semFoto = fotoNoQuadro ? null : SEM_FOTO;
+
   return (
     <>
       <Cabecalho
@@ -453,7 +530,39 @@ export default function AreaDoCanal() {
               </Botao>
             </div>
 
-            {estado?.temPreview ? (
+            {estado?.temPreview && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2" data-vista-do-quadro>
+                <Segmentado<Vista>
+                  rotulo="O que o quadro mostra"
+                  opcoes={[
+                    { valor: 'agora', rotulo: 'Agora', icone: Crop },
+                    { valor: 'padrao', rotulo: 'Foto padrão', icone: Imagem, desativada: semFoto },
+                    { valor: 'comparar', rotulo: 'Comparar', icone: Columns2, desativada: semFoto },
+                  ]}
+                  valor={vistaDeFato}
+                  aoMudar={setVista}
+                />
+                <span className="min-w-0 text-[12.5px] text-farol-suave" data-qual-foto>
+                  {fotos === null
+                    ? ''
+                    : !fotoNoQuadro
+                      ? `${SEM_FOTO}.`
+                      : vistaDeFato === 'agora'
+                        ? ''
+                        : `Foto padrão: ${fotoNoQuadro.nome}, guardada em ${diaEHora(fotoNoQuadro.criadaEm)}.`}
+                </span>
+              </div>
+            )}
+
+            {estado?.temPreview && fotoNoQuadro && vistaDeFato !== 'agora' ? (
+              <QuadroComPadrao
+                modo={vistaDeFato}
+                agora={previewApi.url(id, selo)}
+                padrao={padroesApi.url(fotoNoQuadro.id)}
+                nomeDaFoto={fotoNoQuadro.nome}
+                nomeDoCanal={ponto.nome}
+              />
+            ) : estado?.temPreview ? (
               <QuadroDasAreas
                 src={previewApi.url(id, selo)}
                 alt={`Quadro do canal ${ponto.nome}, para marcar as áreas de análise`}
@@ -487,7 +596,7 @@ export default function AreaDoCanal() {
               </Vazio>
             )}
 
-            {estado?.temPreview && configura && (
+            {estado?.temPreview && configura && vistaDeFato === 'agora' && (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2" data-barra-do-desenho>
                 <span className="font-mono text-[12.5px] text-farol-suave">
                   {ativo !== null && ativo < pontos.length ? `ponto ${ativo + 1} de ${pontos.length}` : `${pontos.length} pontos`}
@@ -525,13 +634,21 @@ export default function AreaDoCanal() {
               </Alerta>
             ))}
 
-            <p className="text-[12.5px] text-farol-suave">
-              {configura
-                ? 'Arraste um ponto para ajustar o contorno. O ponto menor, no meio de cada lado, cria um ponto novo. Arrastar sobre a imagem redesenha a área como um retângulo. '
-                : ''}
-              O que fica escuro está fora da área: o agente apaga antes de analisar.
-              {variasAreas && ' Clique em outra área, sem arrastar, para passar a mexer nela.'}
-            </p>
+            {vistaDeFato === 'agora' ? (
+              <p className="text-[12.5px] text-farol-suave">
+                {configura
+                  ? 'Arraste um ponto para ajustar o contorno. O ponto menor, no meio de cada lado, cria um ponto novo. Arrastar sobre a imagem redesenha a área como um retângulo. '
+                  : ''}
+                O que fica escuro está fora da área: o agente apaga antes de analisar.
+                {variasAreas && ' Clique em outra área, sem arrastar, para passar a mexer nela.'}
+              </p>
+            ) : (
+              <p className="text-[12.5px] text-farol-suave" data-nota-da-vista>
+                {vistaDeFato === 'padrao'
+                  ? 'É com esta imagem que a loja compara. As áreas se desenham no quadro de agora.'
+                  : 'Arraste o divisor: à esquerda, o quadro de agora; à direita, a foto padrão.'}
+              </p>
+            )}
           </section>
 
           {/* ───────────────────── ao lado ───────────────────── */}
@@ -646,6 +763,22 @@ export default function AreaDoCanal() {
                 )}
               </section>
             )}
+
+            {/* as fotos padrão do canal */}
+            <FotosPadrao
+              fotos={fotos}
+              maximo={maximoDeFotos}
+              erro={erroDasFotos}
+              noQuadro={vistaDeFato === 'agora' ? null : (fotoNoQuadro?.id ?? null)}
+              configura={configura}
+              temQuadro={Boolean(estado?.temPreview)}
+              aoVer={verFoto}
+              aoGuardar={() => setGuardandoFoto(true)}
+              aoExcluir={(f) => {
+                setErroAoExcluirFoto(null);
+                setExcluindoFoto(f);
+              }}
+            />
 
             {/* a área selecionada */}
             <section className={`${CARTAO} flex flex-col gap-3 p-4`}>
@@ -847,6 +980,42 @@ export default function AreaDoCanal() {
             avisar(mensagem);
           }}
         />
+      )}
+
+      {guardandoFoto && (
+        <GavetaDaFotoPadrao
+          pontoId={id}
+          capturadoEm={estado?.capturadoEm ?? null}
+          pessoas={estado?.pessoas ?? null}
+          aoGuardar={fotoGuardada}
+          aoFechar={() => setGuardandoFoto(false)}
+        />
+      )}
+
+      {excluindoFoto && (
+        <Dialogo
+          titulo={`Excluir a foto padrão “${excluindoFoto.nome}”?`}
+          rotuloConfirmar="Excluir foto"
+          rotuloOcupado="Excluindo…"
+          ocupado={excluindoFotoAgora}
+          erro={erroAoExcluirFoto}
+          aoConfirmar={confirmarExclusaoDaFoto}
+          aoCancelar={() => setExcluindoFoto(null)}
+        >
+          {(fotos?.length ?? 0) <= 1 ? (
+            <p>
+              É a única foto padrão deste canal.{' '}
+              <strong>Sem ela, critério de comparação deixa de ser conferido aqui</strong> e fica marcado com “falta a
+              foto padrão”. Critério de estado que manda a foto junto passa a perguntar sem ela.
+            </p>
+          ) : (
+            <p>
+              O canal continua com {plural((fotos?.length ?? 1) - 1, 'foto padrão', 'fotos padrão')}: a loja compara
+              com a que mais se parecer com a cena.
+            </p>
+          )}
+          <p>A imagem é apagada da nuvem e, na próxima batida do agente, do computador da loja.</p>
+        </Dialogo>
       )}
 
       {excluindo && (

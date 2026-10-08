@@ -23,6 +23,7 @@ import {
   Crop,
   Ellipsis,
   Folder,
+  Image as Imagem,
   Moon,
   Pencil,
   Plus,
@@ -40,7 +41,9 @@ import type { Ponto, Regra, Setor } from '@/lib/api';
 
 import { criteriosDoCanal, emOrdem, rotuloDoCanal, temVariasAreas } from './canais';
 import {
+  faltaAFotoPadrao,
   iconeDoTipo,
+  mandaAFotoPadrao,
   nomeDaPrioridade,
   nomeDaSeveridade,
   etiquetaDoPorteiro,
@@ -72,16 +75,25 @@ function canaisDe(regra: Regra): number {
 const passa = (regra: Regra, filtro: Filtro): boolean =>
   filtro === 'todos' || (filtro === 'ligados' ? regra.ativa : !regra.ativa);
 
-function Etiquetas({ regra }: { regra: Regra }) {
+/** `pontoId`: o canal em que o cartão está — ausente na lista "Sem canal". */
+function Etiquetas({ regra, pontoId }: { regra: Regra; pontoId?: string }) {
   const grave = regra.severidade === 'emergencia' || regra.severidade === 'critico';
   const peloDetector = TIPOS_DO_DETECTOR.includes(regra.tipo);
   const procura = resumoDaProcura(regra.parametros);
   const n = canaisDe(regra);
   const porteiro = etiquetaDoPorteiro(regra);
   const faixa = resumoDaFaixa(regra.janelas);
+  const faltaFoto = faltaAFotoPadrao(regra, pontoId);
 
   return (
     <>
+      {/* Comparação em canal sem foto padrão: está cadastrado e NÃO é
+          conferido ali. Como "falta dizer o que procurar": aparece na lista. */}
+      {faltaFoto && (
+        <Chip tom="atencao" icone={TriangleAlert} title="Guarde a foto padrão em Canais, na tela “Quadro e área” deste canal">
+          falta a foto padrão
+        </Chip>
+      )}
       {peloDetector && procura && (
         <Chip tom="ok" title="Julgado dentro da loja pelo detector, sem internet">
           {procura}
@@ -121,6 +133,11 @@ function Etiquetas({ regra }: { regra: Regra }) {
       {faixa && (
         <Chip tom="vazado" icone={Clock} title="Só é conferido dentro desta faixa de horas">
           {faixa}
+        </Chip>
+      )}
+      {mandaAFotoPadrao(regra) && (
+        <Chip tom="vazado" icone={Imagem} title="A foto padrão do canal vai junto à nuvem, para ela comparar">
+          com a foto padrão
         </Chip>
       )}
     </>
@@ -172,7 +189,7 @@ function CartaoDoCriterio({
 
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
         <b className="min-w-0 break-words font-semibold">{regra.nome}</b>
-        <Etiquetas regra={regra} />
+        <Etiquetas regra={regra} pontoId={ponto.id} />
       </div>
 
       <div className="col-span-2 flex items-center justify-between gap-1.5 max-md:order-last max-md:border-t max-md:border-farol-borda max-md:pt-2 md:col-span-1 md:justify-end">

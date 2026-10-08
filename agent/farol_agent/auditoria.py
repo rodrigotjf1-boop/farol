@@ -45,6 +45,7 @@ import logging
 import threading
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from farol_agent.configuracao import ConfigDaLoja, PontoConfig
@@ -55,9 +56,10 @@ from farol_agent.contrato import (
     uso_para_nuvem,
 )
 from farol_agent.fila import Fila
-from farol_agent.modelos import EventoGatilho
+from farol_agent.modelos import EventoGatilho, TipoRegra
 from farol_agent.motor import MotorDeRegras
 from farol_agent.nuvem import ErroDaNuvem
+from farol_agent.padroes import Padroes
 from farol_agent.uso import Medidor
 
 _log = logging.getLogger(__name__)
@@ -123,6 +125,23 @@ def _detector_local():
     return _detector
 
 
+# De quanto em quanto tempo o agente tenta de novo baixar a foto padrão que
+# ainda não desceu (rede fora, nuvem reiniciando).
+NOVA_BUSCA_DE_PADROES = timedelta(seconds=60)
+
+
+def _relogios_do_gravador(ponto: PontoConfig) -> dict[int, tuple[float, float, float, float]]:
+    """Pergunta ao gravador onde ele escreve o relógio, por canal.
+
+    A senha sai do cofre local e não é registrada em lugar nenhum.
+    """
+    from farol_agent import cofre
+    from farol_agent.dvr.dahua import ClienteDahua
+
+    cliente = ClienteDahua(str(ponto.host), ponto.usuario or "admin", cofre.resolver(ponto.segredo_ref))
+    return cliente.relogios()
+
+
 class Auditoria:
     """Mantém o motor em dia com a configuração e roda o laço de análise."""
 
@@ -150,6 +169,17 @@ class Auditoria:
         # processo (ver `_o_porteiro`). O detector dele é injetável.
         self._porteiro = None
         self._detector_do_porteiro = _detector_local
+        # As fotos padrão dos canais, em disco, ao lado da fila. Quem
+        # baixa é o cliente da nuvem; sem ele (teste, bancada), a loja
+        # compara só com o que já tiver.
+        self.padroes = Padroes(
+            Path(self.fila.caminho).parent / "padroes", baixar=getattr(cliente, "baixar_padrao", None)
+        )
+        self._proxima_busca_de_padroes: datetime | None = None
+        # Onde cada gravador escreve o relógio, por canal. Perguntado uma
+        # vez por gravador; injetável para o teste não precisar de um.
+        self._perguntar_relogios = _relogios_do_gravador
+        self._relogios_por_gravador: dict[str, dict[int, tuple[float, float, float, float]]] = {}
         self.fontes: dict[str, Any] = {}
         self.versao_montada: int | None = None
         self.ultimo_erro: str | None = None
@@ -202,14 +232,19 @@ class Auditoria:
             alcance=(ponto.host, int(ponto.porta or 554)) if ponto.host else None,
         )
 
-    @staticmethod
-    def _juiz_padrao(config: ConfigDaLoja):
+    def _juiz_padrao(self, config: ConfigDaLoja):
         """O SELETOR, nunca um juiz direto.
 
         Ligar `JuizNuvem` aqui furaria a proteção que o desenho tem: a
-        categoria da regra decide o juiz, e `presenca`, `contagem` e
-        `comparacao` **não podem sair da loja** — é promessa do produto,
-        não preferência.
+        categoria da regra decide o juiz, e `presenca` e `contagem`
+        **não podem sair da loja** — é promessa do produto, não
+        preferência.
+
+        `comparacao` é decidida na loja sempre que a cena é igual à foto
+        padrão. Só o que NÃO é igual sai — com a foto padrão ao lado, e só
+        em loja que usa a nuvem (decisão de 08/10/2026, no protótipo
+        aprovado: "só vai à nuvem quando a loja ficar em dúvida"). Em loja
+        de modo `local`, nada sai: a resposta é "não deu para avaliar".
 
         E não é só privacidade: a medição de 05/10 mostrou o modelo de
         nuvem lendo um mouse como controle remoto, duas vezes, com 95% de
@@ -229,10 +264,66 @@ class Auditoria:
             # atendida, e regra de nuvem falha dizendo o que falta.
             _log.warning("juiz de nuvem indisponível: %s", e)
 
+        from farol_agent.juizes.padrao import JuizDoPadrao
+
+        # O juiz da foto padrão compara na loja. O que não for igual ele
+        # passa à nuvem com a foto ao lado — menos em loja de modo
+        # `local`, de onde nada sai: ali a resposta é "não deu para
+        # avaliar".
+        padrao = JuizDoPadrao(
+            self.padroes,
+            {z.id: z for p in config.pontos for z in p.zonas},
+            relogios=self._relogios(config),
+            escalar_para=nuvem if config.modo_julgamento != "local" else None,
+        )
         seletor = SeletorDeJuiz(
-            config.modo_julgamento, nuvem=nuvem, detector=_detector_local()
+            config.modo_julgamento, nuvem=nuvem, detector=_detector_local(), padrao=padrao
         )
         return JuizPorRegra(seletor, {r.id: r for r in config.regras})
+
+    def _relogios(self, config: ConfigDaLoja) -> dict[str, tuple[float, float, float, float]]:
+        """Por canal, o retângulo em que o gravador escreve data e hora.
+
+        Só pergunta quando alguém vai comparar com foto padrão, e só aos
+        gravadores dos canais que têm foto. Gravador que não responde (ou
+        que não é desta família) fica sem retângulo: a comparação segue,
+        e área com o relógio dentro vai dar "diferente" — pergunta a
+        mais, não veredito errado.
+        """
+        if not any(r.tipo is TipoRegra.COMPARACAO or r.com_padrao for r in config.regras):
+            return {}
+        saida: dict[str, tuple[float, float, float, float]] = {}
+        for ponto in config.pontos:
+            if not (ponto.padroes and ponto.host and ponto.canal) or ponto.origem != "dvr":
+                continue
+            por_canal = self._relogios_por_gravador.get(ponto.host)
+            if por_canal is None:
+                try:
+                    por_canal = self._perguntar_relogios(ponto)
+                except Exception as e:  # noqa: BLE001
+                    # Não fica guardado: a próxima montagem pergunta de novo.
+                    _log.warning(
+                        "o gravador %s não disse onde escreve o relógio (%s): área com o relógio "
+                        "dentro vai dar diferente da foto padrão", ponto.host, e,
+                    )
+                    continue
+                self._relogios_por_gravador[ponto.host] = por_canal
+            retangulo = por_canal.get(int(ponto.canal))
+            if retangulo is not None:
+                saida[ponto.id] = retangulo
+        return saida
+
+    def _buscar_padroes(self, agora: datetime | None = None, *, ja: bool = False) -> None:
+        """Baixa as fotos padrão que faltam. Rede fora não derruba nada."""
+        agora = agora or datetime.now()
+        if not ja and self._proxima_busca_de_padroes is not None and agora < self._proxima_busca_de_padroes:
+            return
+        self._proxima_busca_de_padroes = agora + NOVA_BUSCA_DE_PADROES
+        try:
+            if self.padroes.faltam():
+                self.padroes.baixar_o_que_falta()
+        except Exception:  # noqa: BLE001
+            _log.exception("erro inesperado ao buscar as fotos padrão; a auditoria segue")
 
     def _o_porteiro(self, regras):
         """O porteiro, se algum critério pede um — e sempre o MESMO.
@@ -260,6 +351,12 @@ class Auditoria:
         """(Re)constrói motor, juiz e fontes a partir da configuração."""
         if config.versao == self.versao_montada:
             return
+
+        # As fotos padrão: o que cada canal tem de ter em disco, segundo a
+        # configuração. Baixa já o que falta — a primeira olhada depois de
+        # guardar uma foto já tem com o que comparar.
+        self.padroes.declarar({p.id: p.padroes for p in config.pontos})
+        self._buscar_padroes(ja=True)
 
         # O juiz vem primeiro: é ele que sabe dizer quais regras alguém
         # consegue julgar.
@@ -625,6 +722,7 @@ class Auditoria:
     def passo(self, agora: datetime | None = None) -> dict[str, int]:
         """Uma volta completa: mede a máquina, captura, julga, sobe."""
         agora = agora or datetime.now()
+        self._buscar_padroes(agora)
         self.medir(agora)
         enfileirados = self.capturar(agora)
         alertas = self.julgar(agora)

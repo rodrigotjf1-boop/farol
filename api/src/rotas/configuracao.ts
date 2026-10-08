@@ -89,7 +89,7 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
               r.processo_descricao, r.prioridade, r.severidade,
               r.confianca_minima, r.cooldown_min, r.resolucao, r.janelas,
               r.acoes, r.base_id, r.retencao_midia_dias, r.parametros, r.quando,
-              r.porteiro, r.confirmar_em
+              r.porteiro, r.confirmar_em, r.com_padrao
          from regra r
          join regra_alvo a on a.regra_id = r.id
          join zona z on z.id = a.zona_id
@@ -133,8 +133,29 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
         // antigo ignora os dois e segue como era.
         porteiro: r.porteiro,
         confirmarEm: r.confirmar_em,
+        // Quando a pergunta vai à nuvem, a foto padrão do canal vai junto.
+        comPadrao: r.com_padrao,
       });
       regrasPorZona.set(r.zona_id, lista);
+    }
+
+    // As fotos padrão de cada canal: só o id, o nome e o resumo da imagem.
+    // O agente guarda cada uma em disco pelo resumo e baixa (por
+    // `GET /v1/agentes/padroes/:id`) só a que ainda não tem.
+    const fotos = await pool.query(
+      `select f.id, f.ponto_id, f.nome, f.sha256
+         from foto_padrao f
+         join ponto p on p.id = f.ponto_id
+         join setor st on st.id = p.setor_id
+        where st.loja_id = $1 and p.ativo and p.excluido_em is null
+        order by f.criada_em desc`,
+      [quem.lojaId],
+    );
+    const fotosPorPonto = new Map<string, unknown[]>();
+    for (const f of fotos.rows) {
+      const lista = fotosPorPonto.get(f.ponto_id) ?? [];
+      lista.push({ id: f.id, nome: f.nome, sha256: f.sha256 });
+      fotosPorPonto.set(f.ponto_id, lista);
     }
 
     const zonasPorPonto = new Map<string, unknown[]>();
@@ -191,6 +212,8 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
           resolucaoH: p.resolucao_h,
           larguraCenaCm: p.largura_cena_cm ? Number(p.largura_cena_cm) : null,
         },
+        // As fotos padrão deste canal, da mais nova para a mais antiga.
+        padroes: fotosPorPonto.get(p.id) ?? [],
         zonas: zonasPorPonto.get(p.id) ?? [],
       })),
     };

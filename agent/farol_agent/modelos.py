@@ -210,6 +210,8 @@ class Regra:
     # Em quantas olhadas SEGUIDAS o critério tem de ficar fora para virar
     # aviso. 1 = avisa na primeira, como sempre foi.
     confirmar_em: int = 1
+    # Quando a pergunta vai à nuvem, a foto padrão do canal vai junto.
+    com_padrao: bool = False
 
     def vale_agora(self, ts: datetime) -> bool:
         if not self.ativa:

@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import threading
 import time
 import urllib.request
 from dataclasses import dataclass
@@ -379,6 +380,11 @@ class MotorOnnx:
             self._sessao = ort.InferenceSession(
                 str(self.caminho), providers=["CPUExecutionProvider"]
             )
+        # A placa de vídeo (DirectML) não aceita duas inferências ao mesmo
+        # tempo na mesma sessão. Quem usa o detector são duas linhas de
+        # execução — a auditoria e o quadro de preview —, então a chamada
+        # é uma de cada vez.
+        self._uma_por_vez = threading.Lock()
         self.onde = self._sessao.get_providers()[0]
         self._entrada = self._sessao.get_inputs()[0].name
         saidas = [o.name for o in self._sessao.get_outputs()]
@@ -391,7 +397,8 @@ class MotorOnnx:
         rgb = cv2.cvtColor(imagem_bgr, cv2.COLOR_BGR2RGB)
         r = cv2.resize(rgb, (_LADO, _LADO), interpolation=cv2.INTER_LINEAR)
         tensor = np.transpose(r.astype(np.float32) / 255.0, (2, 0, 1))[None]
-        (logits,) = self._sessao.run(["logits"], {self._entrada: tensor})
+        with self._uma_por_vez:
+            (logits,) = self._sessao.run(["logits"], {self._entrada: tensor})
         return interpretar_saida(logits, classe)
 
 

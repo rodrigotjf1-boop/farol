@@ -1,0 +1,13 @@
+{
+  "configuracao": {
+    "padroesDoPonto": [
+      {
+        "id": "0b6f3a1e-5d2c-4e8f-9a17-3c4d5e6f7a80",
+        "nome": "Noite, loja aberta",
+        "sha256": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae"
+      }
+    ],
+    "regra": { "comPadrao": true }
+  },
+  "quadro": { "pessoas": 2 }
+}

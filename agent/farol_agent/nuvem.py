@@ -101,6 +101,10 @@ class ClienteNuvem:
     def configuracao(self) -> dict[str, Any]:
         return self._pedir("GET", "/v1/agentes/configuracao")
 
+    def baixar_padrao(self, foto_id: str) -> bytes:
+        """A imagem de uma foto padrão desta loja, para comparar aqui."""
+        return self._buscar("GET", f"/v1/agentes/padroes/{foto_id}", None, aceita="image/*")
+
     def responder(
         self,
         comando_id: str,
@@ -124,6 +128,19 @@ class ClienteNuvem:
     # ───────────────────────────── interno ─────────────────────────────
 
     def _pedir(self, metodo: str, caminho: str, corpo: Any = None) -> dict[str, Any]:
+        bruto = self._buscar(metodo, caminho, corpo)
+        if not bruto:
+            return {}
+        try:
+            return json.loads(bruto)
+        except json.JSONDecodeError as e:
+            # Resposta que não é JSON quase sempre é portal de rede ou
+            # proxy devolvendo HTML. Tratar como "deu certo e veio vazio"
+            # esconderia isso (ERR-002).
+            raise ErroDaNuvem(f"resposta de {caminho} não é JSON: {e}") from None
+
+    def _buscar(self, metodo: str, caminho: str, corpo: Any = None, *, aceita: str = "application/json") -> bytes:
+        """O pedido em si, com os erros traduzidos. Devolve os bytes da resposta."""
         dados = json.dumps(corpo).encode("utf-8") if corpo is not None else None
         req = urllib.request.Request(
             f"{self.base_url}{caminho}",
@@ -132,7 +149,7 @@ class ClienteNuvem:
             headers={
                 "authorization": f"Bearer {self._token}",
                 "content-type": "application/json",
-                "accept": "application/json",
+                "accept": aceita,
                 "user-agent": self.user_agent,
             },
         )
@@ -162,16 +179,7 @@ class ClienteNuvem:
             raise ErroDaNuvem(f"não cheguei na nuvem: {e.reason}") from None
         except TimeoutError:
             raise ErroDaNuvem(f"a nuvem não respondeu em {self.timeout:g}s") from None
-
-        if not bruto:
-            return {}
-        try:
-            return json.loads(bruto)
-        except json.JSONDecodeError as e:
-            # Resposta que não é JSON quase sempre é portal de rede ou
-            # proxy devolvendo HTML. Tratar como "deu certo e veio vazio"
-            # esconderia isso (ERR-002).
-            raise ErroDaNuvem(f"resposta de {caminho} não é JSON: {e}") from None
+        return bruto
 
     @staticmethod
     def _detalhe(e: urllib.error.HTTPError) -> str:

@@ -105,6 +105,12 @@
       texto: 'Há pelo menos um colaborador atrás do balcão de atendimento.',
       meta: 'prioridade intermediária · confiança mínima 0,70 · silêncio de 15 min · versão 1',
     },
+    // comparação num canal que ainda não tem foto padrão: cadastrado, e não conferido ali
+    arrumada: {
+      nome: 'Área da fritadeira como no padrão', tipo: 'comparação', gravidade: 'atenção', ligado: true, canais: 1, faltaFoto: true,
+      texto: 'A área da fritadeira está como na foto padrão: sem caixas no chão e sem utensílios fora do lugar.',
+      meta: 'prioridade leve · confiança mínima 0,70 · silêncio de 30 min · versão 1',
+    },
   };
 
   const ICONE_DO_TIPO = {
@@ -119,7 +125,7 @@
         { nome: 'Montagem 1', num: '04', criterios: ['bancada', 'touca', 'produto'] },
         { nome: 'Montagem 2', num: '05', criterios: ['bancada', 'touca'] },
         { nome: 'Chapa', num: '03', criterios: ['chapa', 'touca'] },
-        { nome: 'Fritadeira', num: '06', criterios: ['cesto'], semImagem: true },
+        { nome: 'Fritadeira', num: '06', criterios: ['cesto', 'arrumada'], semImagem: true },
       ],
     },
     {
@@ -1075,6 +1081,7 @@
     const chips = [
       c.procura ? `<span class="chip ok" title="Julgado dentro da loja, sem internet">${c.procura}</span>` : '',
       c.falta ? `<span class="chip atencao">${icone('triangle-alert')}falta dizer o que procurar</span>` : '',
+      c.faltaFoto ? `<span class="chip atencao" title="Guarde a foto padrão em Canais, na tela “Quadro e área” deste canal">${icone('triangle-alert')}falta a foto padrão</span>` : '',
       `<span class="chip">${c.tipo}</span>`,
       `<span class="chip ${c.grave ? 'critico' : ''}">${c.gravidade}</span>`,
       c.canais > 1 ? `<span class="chip vazado" title="É um cadastro só: editar aqui muda em todos os canais">vale em ${c.canais} canais</span>` : '',
@@ -1242,6 +1249,8 @@
     for (const e of $$('[data-so-contagem]')) e.hidden = tipo !== 'contagem';
     $('[data-ajuda-texto]').textContent = peloDetector
       ? 'Aqui o texto não é enviado a modelo nenhum: ele descreve a regra para quem ler o aviso. Quem decide são os campos acima.'
+      : tipo === 'comparacao'
+        ? 'Quando a cena não é igual à foto padrão, este texto vai ao modelo como pergunta, com a foto ao lado. Descreva o que se vê, não o rótulo: “a superfície tem restos no canto” funciona melhor que “sujeira”.'
       : 'Este texto vai direto ao modelo como pergunta. Descreva o que se vê, não o rótulo: “a superfície tem restos no canto” funciona melhor que “sujeira”.';
     ajustarCamposNovos();
   }
@@ -1446,7 +1455,7 @@
           )
         : !editando && contexto.canalNovo ? [contexto.canalNovo] : [];
       desenharOndeVale(marcados);
-      const tipo = { estado: 'estado', 'presença': 'presenca', contagem: 'contagem' }[editando && c ? c.tipo : 'estado'] || 'estado';
+      const tipo = { estado: 'estado', 'presença': 'presenca', contagem: 'contagem', 'comparação': 'comparacao', 'ação': 'acao' }[editando && c ? c.tipo : 'estado'] || 'estado';
       $(`#fcr-t-${tipo}`).checked = true;
       $('#fcr-texto').value = editando && c ? c.texto : '';
       $(`#fcr-q-${editando && c && c.quando ? c.quando : 'no'}`).checked = true;
@@ -1505,6 +1514,27 @@
         sel = 0;
         desenharArea();
         return `Área “${n}” excluída.`;
+      },
+    },
+    'excluir-padrao': {
+      titulo: (n) => `Excluir a foto padrão “${n}”?`,
+      corpo: () => {
+        const sobram = PADROES_DO_CANAL.length - 1;
+        return [
+          sobram <= 0
+            ? 'É a única foto padrão deste canal. <b>Sem ela, critério de comparação deixa de ser conferido aqui</b> e fica marcado com “falta a foto padrão”. Critério de estado que manda a foto junto passa a perguntar sem ela.'
+            : `O canal continua com ${plural(sobram, 'foto padrão', 'fotos padrão')}: a loja compara com a que mais se parecer com a cena.`,
+          'A imagem é apagada da nuvem e, na próxima batida do agente, do computador da loja.',
+        ];
+      },
+      confirmar: 'Excluir foto',
+      depois: (n) => {
+        PADROES_DO_CANAL = PADROES_DO_CANAL.filter((f) => f.nome !== n);
+        // sem foto não há o que mostrar ao lado: o quadro volta ao de agora
+        if (!PADROES_DO_CANAL.length) padrao.vista = 'agora';
+        padrao.foto = 0;
+        desenharPadrao();
+        return `Foto padrão “${n}” excluída.`;
       },
     },
     'novo-setor': {
@@ -2303,11 +2333,15 @@
   // referência. A loja compara o quadro de agora com ela antes de perguntar
   // à nuvem; e, quando pergunta, a foto padrão vai junto. No protótipo a
   // "foto" é a mesma ilustração do quadro, sem as pessoas.
+  //
+  // Nenhuma é "a que vale": a loja compara com a que mais se parecer com a
+  // cena. Clicar numa foto só escolhe qual aparece no quadro.
+  const MAX_PADROES = 4;
   let PADROES_DO_CANAL = [
     { nome: 'Noite, loja aberta', quando: '02/10 · 22:10', quem: 'Ana Souza' },
-    { nome: 'Antes de abrir', quando: '02/10 · 17:20', quem: 'Ana Souza' },
+    { nome: 'Antes de abrir', quando: '02/10 · 17:20', quem: 'Ana Souza', pessoas: 1 },
   ];
-  const padrao = { vista: 'agora', corte: 50 };
+  const padrao = { vista: 'agora', corte: 50, foto: 0 };
   const cenaDoQuadro = $('svg', quadro);
   const cenaLimpa = cenaDoQuadro.cloneNode(true);
   for (const pessoa of $$('circle', cenaLimpa)) pessoa.remove();
@@ -2320,6 +2354,8 @@
   function desenharPadrao() {
     const tem = PADROES_DO_CANAL.length > 0;
     if (!tem) padrao.vista = 'agora';
+    if (padrao.foto >= PADROES_DO_CANAL.length) padrao.foto = 0;
+    const noQuadro = PADROES_DO_CANAL[padrao.foto];
     const v = padrao.vista;
     quadro.dataset.vista = v;
     for (const b of $$('[data-quadro-vista]')) {
@@ -2334,7 +2370,7 @@
     cortina.setAttribute('aria-valuenow', String(Math.round(padrao.corte)));
     $('[data-quadro-qual]').textContent = !tem
       ? 'Este canal ainda não tem foto padrão.'
-      : v === 'agora' ? '' : `Foto padrão: ${PADROES_DO_CANAL[0].nome}, guardada em ${PADROES_DO_CANAL[0].quando}.`;
+      : v === 'agora' ? '' : `Foto padrão: ${noQuadro.nome}, guardada em ${noQuadro.quando}.`;
     $('[data-quadro-nota]').innerHTML =
       v === 'agora'
         ? '<span data-so-config>Arraste um ponto para ajustar o contorno. O ponto menor, no meio de cada lado, cria um ponto novo. ' +
@@ -2345,11 +2381,19 @@
     $('[data-padroes]').innerHTML = tem
       ? PADROES_DO_CANAL.map(
           (f, i) =>
-            `<li><span class="retrato">${cenaLimpa.outerHTML.replace('class="padrao-camada"', '').replace(' hidden=""', '')}</span>` +
-            `<span><b>${limpo(f.nome)}</b><small>${f.quando} · ${f.quem}${i === 0 ? ' · em uso agora' : ''}</small></span>` +
-            `<button class="btn fantasma quadrado mini" type="button" data-padrao-excluir="${i}" data-so-config aria-label="Excluir a foto padrão ${limpo(f.nome)}">${icone('trash-2')}</button></li>`,
+            `<li><button class="padrao-ver" type="button" data-padrao-ver="${i}" aria-pressed="${v !== 'agora' && i === padrao.foto}" title="Ver esta foto no quadro">` +
+            `<span class="retrato">${cenaLimpa.outerHTML.replace('class="padrao-camada"', '').replace(' hidden=""', '')}</span>` +
+            // foto guardada com gente na frente compara pior: fica dito
+            `<span><b>${limpo(f.nome)}</b><small>${f.quando} · ${f.quem}${f.pessoas ? ` · ${plural(f.pessoas, 'pessoa', 'pessoas')} no quadro` : ''}</small></span></button>` +
+            `<button class="btn fantasma quadrado mini" type="button" data-dialogo="excluir-padrao" data-nome="${limpo(f.nome)}" data-so-config aria-label="Excluir a foto padrão ${limpo(f.nome)}">${icone('trash-2')}</button></li>`,
         ).join('')
       : '<li class="vazio-linha">Nenhuma foto padrão. Sem ela, critério de comparação não é conferido neste canal.</li>';
+    // o canal guarda poucas: com o limite cheio, não há como guardar outra
+    const cheio = PADROES_DO_CANAL.length >= MAX_PADROES;
+    const guardar = $('[data-folha="folha-padrao"]');
+    guardar.disabled = cheio;
+    guardar.title = cheio ? `O canal já tem ${MAX_PADROES} fotos padrão: exclua uma para guardar outra` : '';
+    $('[data-padroes-limite]').hidden = !cheio;
   }
 
   document.addEventListener('click', (ev) => {
@@ -2359,11 +2403,11 @@
       desenharPadrao();
       return;
     }
-    const excluir = ev.target.closest('[data-padrao-excluir]');
-    if (excluir) {
-      const [fora] = PADROES_DO_CANAL.splice(Number(excluir.dataset.padraoExcluir), 1);
+    const ver = ev.target.closest('[data-padrao-ver]');
+    if (ver) {
+      padrao.foto = Number(ver.dataset.padraoVer);
+      if (padrao.vista === 'agora') padrao.vista = 'padrao';
       desenharPadrao();
-      avisar(`Foto padrão “${fora.nome}” excluída.`);
     }
   });
 
@@ -2390,7 +2434,8 @@
   });
 
   $('#f-padrao').addEventListener('submit', () => {
-    PADROES_DO_CANAL.unshift({ nome: $('#fpa-nome').value.trim(), quando: '07/10 · 21:40', quem: 'Ana Souza' });
+    PADROES_DO_CANAL.unshift({ nome: $('#fpa-nome').value.trim(), quando: '07/10 · 21:40', quem: 'Ana Souza', pessoas: 4 });
+    padrao.foto = 0;
     desenharPadrao();
   }, { capture: true });
   document.addEventListener('click', (ev) => {

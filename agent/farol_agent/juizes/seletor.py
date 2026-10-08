@@ -37,6 +37,9 @@ _log = logging.getLogger(__name__)
 
 MODOS = ("nuvem", "local", "hibrido")
 
+# O que o motor põe no contexto para o agente se achar, e não para o juiz ler.
+CHAVES_DE_ROTA = ("zona_id", "ponto_id")
+
 # As que nunca saem da loja.
 SEMPRE_LOCAIS = (TipoRegra.PRESENCA, TipoRegra.CONTAGEM, TipoRegra.COMPARACAO)
 
@@ -51,6 +54,7 @@ class SeletorDeJuiz:
         comparacao: Juiz | None = None,
         binario: Juiz | None = None,
         detector: Juiz | None = None,
+        padrao: Juiz | None = None,
     ) -> None:
         if modo not in MODOS:
             raise ValueError(f"modo_julgamento inválido: {modo!r}. Válidos: {MODOS}")
@@ -60,10 +64,20 @@ class SeletorDeJuiz:
         self.comparacao = comparacao
         self.binario = binario
         self.detector = detector
+        # O juiz da foto padrão: compara na loja e só passa adiante o que
+        # não é igual. Atende `comparacao`, e escolhe a foto que vai junto
+        # nos critérios que pedem "mandar a foto padrão".
+        self.padrao = padrao
 
     def para(self, regra: Regra) -> Juiz:
         """O juiz desta regra, ou erro dizendo o que falta configurar."""
         if regra.tipo is TipoRegra.COMPARACAO:
+            if self.padrao is not None:
+                # "Este canal tem foto padrão?" é perguntado AQUI, na
+                # montagem: sem foto o critério não é capturado, e o
+                # console mostra o motivo.
+                self.padrao.atende(regra)
+                return self.padrao
             return self._exigir(self.comparacao, "comparacao", regra)
 
         if regra.tipo in SEMPRE_LOCAIS:
@@ -148,4 +162,23 @@ class JuizPorRegra:
         # procurar", a análise que estava na fila já usa a correção.
         if regra.parametros:
             ctx = {**ctx, "parametros": regra.parametros}
+
+        padrao = getattr(self.seletor, "padrao", None)
+        if juiz is padrao:
+            # Ele precisa da área e do canal, que vêm no contexto.
+            return juiz.julgar(imagem, criterio, contexto=ctx)
+
+        # "Mandar a foto padrão junto": o recorte da foto mais parecida
+        # vai ao lado da cena, nos critérios de estado e de ação.
+        referencias = None
+        if regra.com_padrao and padrao is not None and regra.tipo in (TipoRegra.ESTADO, TipoRegra.ACAO):
+            achado = padrao.referencia_para(imagem, ctx)
+            if achado is not None:
+                referencias = [achado[0]]
+                ctx = {**ctx, "foto_padrao": achado[1].ref.nome}
+
+        # A área e o canal são endereço do agente: não vão ao modelo.
+        ctx = {k: v for k, v in ctx.items() if k not in CHAVES_DE_ROTA}
+        if referencias:
+            return juiz.julgar(imagem, criterio, contexto=ctx, referencias=referencias)
         return juiz.julgar(imagem, criterio, contexto=ctx)

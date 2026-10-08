@@ -118,6 +118,10 @@ function validar(c: Corpo, criando: boolean): string | null {
   if (c.porteiro != null && !PORTEIROS.includes(String(c.porteiro))) {
     return `porteiro: um de ${PORTEIROS.join(', ')}`;
   }
+  // Liga e desliga: só `true` ou `false`. "sim", 1 ou "false" não são.
+  if (c.comPadrao != null && typeof c.comPadrao !== 'boolean') {
+    return 'comPadrao: verdadeiro ou falso';
+  }
   if (c.confirmarEm != null) {
     const v = Number(c.confirmarEm);
     if (!Number.isInteger(v) || v < 1 || v > MAX_CONFIRMAR_EM) {
@@ -167,6 +171,7 @@ const ALVOS_DO_CRITERIO = `
              'zona_id', z.id, 'zona_nome', z.nome, 'principal', z.principal,
              'ponto_id', p.id, 'ponto_nome', p.nome, 'canal', p.canal,
              'ponto_ativo', p.ativo,
+             'ponto_padroes', (select count(*)::int from foto_padrao f where f.ponto_id = p.id),
              'setor_id', st.id, 'setor_nome', st.nome)
            order by st.ordem, st.nome, p.canal nulls last, p.nome, z.principal desc, z.nome)
       from regra_alvo ra
@@ -235,7 +240,7 @@ async function criarRegra(
        insert into regra (loja_id, nome, tipo, criterio, processo_descricao,
                           prioridade, severidade, confianca_minima, cooldown_min,
                           resolucao, janelas, acoes, retencao_midia_dias, parametros,
-                          quando, porteiro, confirmar_em)
+                          quando, porteiro, confirmar_em, com_padrao)
        select dono.loja_id, $5, $6, $7, $8,
               coalesce($9,'intermediaria'), coalesce($10,'atencao'),
               coalesce($11, 0.700), coalesce($12, 15), $13,
@@ -244,11 +249,11 @@ async function criarRegra(
               -- O comum é critério de operação: nasce "no horário".
               coalesce($18, 'no_horario'),
               -- E nasce perguntando em toda olhada e avisando na primeira.
-              coalesce($19, 'sempre'), coalesce($20, 1)
+              coalesce($19, 'sempre'), coalesce($20, 1), coalesce($21, false)
          from dono
        returning id, nome, tipo, criterio, criterio_versao, prioridade,
                  severidade, confianca_minima, cooldown_min, resolucao,
-                 janelas, acoes, ativa, parametros, quando, porteiro, confirmar_em
+                 janelas, acoes, ativa, parametros, quando, porteiro, confirmar_em, com_padrao
      ),
      ligados as (
        insert into regra_alvo (regra_id, zona_id)
@@ -269,6 +274,7 @@ async function criarRegra(
       c.quando ?? null,
       c.porteiro ?? null,
       c.confirmarEm ?? null,
+      typeof c.comPadrao === 'boolean' ? c.comPadrao : null,
     ],
   );
   return rows[0] ?? null;
@@ -304,7 +310,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
               r.processo_descricao, r.prioridade, r.severidade,
               r.confianca_minima, r.cooldown_min, r.resolucao,
               r.janelas, r.acoes, r.ativa, r.retencao_midia_dias, r.parametros,
-              r.quando, r.porteiro, r.confirmar_em,
+              r.quando, r.porteiro, r.confirmar_em, r.com_padrao,
               ${ALVOS_DO_CRITERIO} as alvos
          from regra r
          join loja l on l.id = r.loja_id
@@ -506,6 +512,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
                 quando             = coalesce($17, r.quando),
                 porteiro           = coalesce($18, r.porteiro),
                 confirmar_em       = coalesce($19, r.confirmar_em),
+                com_padrao         = coalesce($20, r.com_padrao),
                 atualizado_em      = now()
            from loja l
           where r.id = $1
@@ -514,7 +521,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
          returning r.id, r.nome, r.tipo, r.criterio, r.criterio_versao,
                    r.prioridade, r.severidade, r.confianca_minima,
                    r.cooldown_min, r.resolucao, r.janelas, r.acoes, r.ativa,
-                   r.parametros, r.quando, r.porteiro, r.confirmar_em, r.loja_id`,
+                   r.parametros, r.quando, r.porteiro, r.confirmar_em, r.com_padrao, r.loja_id`,
         [
           id,
           c.nome != null ? String(c.nome).trim() : null,
@@ -532,6 +539,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
           c.quando ?? null,
           c.porteiro ?? null,
           c.confirmarEm ?? null,
+          typeof c.comPadrao === 'boolean' ? c.comPadrao : null,
         ],
       );
       if (rows.length === 0) {
