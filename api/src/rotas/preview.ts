@@ -24,6 +24,7 @@ import type pg from 'pg';
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import { exigirConfigurar } from '../rbac.js';
 import { validarPoligono } from '../poligono.js';
+import { registrarDescricao } from './inventario.js';
 import { sessaoDe } from './sessao.js';
 
 // 1280 px de largura basta de sobra para desenhar um retângulo, e segura
@@ -548,7 +549,7 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
     // O comando tem que ser DESTE agente. Sem isso, um token de loja
     // qualquer poderia gravar imagem no ponto de outra.
     const c = await pool.query(
-      `select id, ponto_id, estado from comando_agente
+      `select id, ponto_id, estado, tipo from comando_agente
         where id = $1 and agente_id = $2`,
       [id, quem.agenteId],
     );
@@ -570,6 +571,13 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
         [id, String(corpo.erro).slice(0, 500)],
       );
       return { ok: true, registrado: 'falha' };
+    }
+
+    // O comando de descrever equipamento devolve TEXTO, não imagem: a
+    // sugestão fica guardada no comando, e quem a lê é o inventário.
+    if (c.rows[0].tipo === 'descrever_item') {
+      const r = await registrarDescricao(pool, id, req.body);
+      return resposta.status(r.status).send(r.corpo);
     }
 
     if (!corpo.imagemBase64) {

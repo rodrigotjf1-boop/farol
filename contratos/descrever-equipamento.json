@@ -1,0 +1,31 @@
+{
+  "comando": {
+    "tipo": "descrever_item",
+    "parametros": {
+      "itemId": "7c1d0f2e-9b3a-4c5d-8e6f-0a1b2c3d4e5f",
+      "nome": "Chapa",
+      "tipo": "chapa",
+      "setor": "Cozinha",
+      "fotos": [
+        {
+          "id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+          "origem": "canal",
+          "recorte": [[0.1, 0.2], [0.6, 0.2], [0.6, 0.8], [0.1, 0.8]],
+          "sha256": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae"
+        },
+        {
+          "id": "9f8e7d6c-5b4a-4c3d-9e2f-1a0b9c8d7e6f",
+          "origem": "envio",
+          "recorte": null,
+          "sha256": "fcde2b2edba56bf408601fb721fe9b5c338d10ee429ea04fae5511b68fbf8fb9"
+        }
+      ]
+    }
+  },
+  "resposta": {
+    "descricao": "Chapa elétrica de inox, com duas tampas, encostada na parede do fundo. Limpa: superfície clara, sem resíduo escuro; tampas abaixadas quando não está em uso.",
+    "conferir": ["Tampas abaixadas quando a chapa não está em uso", "Nada apoiado em cima da chapa"],
+    "modelo": "claude-sonnet-5-5",
+    "custoCentavos": 14.58
+  }
+}

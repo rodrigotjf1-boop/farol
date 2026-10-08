@@ -155,9 +155,33 @@ def capturar_quadro(ponto: PontoConfig) -> dict[str, Any]:
     return resultado
 
 
-def atender(comando: dict[str, Any], sincronizador: Sincronizador) -> dict[str, Any]:
+def descrever_equipamento(comando: dict[str, Any], sincronizador: Sincronizador, cliente) -> dict[str, Any]:
+    """Atende `descrever_item`: a análise única das fotos de um equipamento.
+
+    Quem baixa as fotos é o cliente da nuvem (com o token desta loja); quem
+    pergunta ao modelo é este computador, com a chave que está aqui. Loja
+    em modo local recusa: nada sai dela.
+    """
+    from farol_agent import descrever
+
+    baixar = getattr(cliente, "baixar_foto_do_inventario", None)
+    if baixar is None:
+        raise ErroDoComando("este agente não tem como baixar as fotos do equipamento")
+    modo = sincronizador.config.modo_julgamento if sincronizador.config else "hibrido"
+    try:
+        return descrever.descrever_item(comando.get("parametros") or {}, baixar=baixar, modo_julgamento=modo)
+    except descrever.ErroAoDescrever as e:
+        raise ErroDoComando(str(e)) from None
+    except ErroDaNuvem as e:
+        raise ErroDoComando(f"não consegui baixar as fotos do equipamento: {e}") from None
+
+
+def atender(comando: dict[str, Any], sincronizador: Sincronizador, cliente=None) -> dict[str, Any]:
     """Executa um comando e devolve o corpo da resposta à nuvem."""
     tipo = comando.get("tipo")
+
+    if tipo == "descrever_item":
+        return descrever_equipamento(comando, sincronizador, cliente)
 
     if tipo != "capturar_quadro":
         # Comando que esta versão não conhece: a nuvem é mais nova que o
@@ -205,7 +229,7 @@ def passo(sincronizador: Sincronizador, cliente, auditoria=None) -> int:
     for comando in comandos:
         cid = str(comando.get("id"))
         try:
-            resultado = atender(comando, sincronizador)
+            resultado = atender(comando, sincronizador, cliente)
         except ErroDoComando as e:
             _log.warning("comando %s falhou: %s", cid, e)
             _responder(cliente, cid, erro=str(e))

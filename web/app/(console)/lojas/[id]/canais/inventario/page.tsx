@@ -163,7 +163,7 @@ export default function Inventario() {
           }
         >
           Comece pelo que mais importa conferir: a chapa, a bancada, o caixa. Para cada um, até {maximoDeFotos} fotos dele
-          limpo e a descrição de como ele deve ficar.
+          limpo e uma descrição que o Farol escreve para você.
         </Vazio>
       )}
 

@@ -574,6 +574,27 @@ export type CamposDoEquipamento = {
   setorId: string;
   descricao: string;
   conferir: string[];
+  /** A descrição salva veio desta análise das fotos (o id do pedido). */
+  daAnalise: string;
+};
+
+/** O pedido de análise das fotos, do jeito que a loja o deixou. */
+export type PedidoDeDescricao = {
+  id: string;
+  estado: 'pendente' | 'entregue' | 'concluido' | 'falhou' | 'expirado';
+  erro: string | null;
+  criadoEm: string;
+  concluidoEm: string | null;
+};
+
+/** O que a análise devolveu e ainda espera alguém ler e salvar. */
+export type DescricaoSugerida = {
+  comandoId: string;
+  descricao: string;
+  conferir: string[];
+  modelo: string | null;
+  custoCentavos: number | null;
+  feitaEm: string;
 };
 
 export const inventarioApi = {
@@ -608,6 +629,14 @@ export const inventarioApi = {
 
   /** A imagem de uma foto. O id nunca muda de imagem: o navegador guarda. */
   urlDaFoto: (fotoId: string) => `/api/inventario/fotos/${fotoId}/imagem`,
+
+  /** "Analisar as fotos e descrever": um pedido ao computador da loja. Repetir devolve o mesmo. */
+  pedirDescricao: (id: string) =>
+    pedir<{ comandoId: string; jaPedido: boolean; expiraEm?: string }>(`/inventario/${id}/descricao`, { method: 'POST' }),
+
+  /** Em que pé está a análise, e a sugestão que ainda espera alguém ler. */
+  descricao: (id: string) =>
+    pedir<{ pedido: PedidoDeDescricao | null; sugestao: DescricaoSugerida | null }>(`/inventario/${id}/descricao`),
 
   tirarFoto: (fotoId: string) =>
     pedir<{ excluida: boolean; item: Equipamento }>(`/inventario/fotos/${fotoId}`, { method: 'DELETE' }),

@@ -12,14 +12,21 @@
 // tudo num fechar de gaveta. Por isso, num equipamento novo, a primeira foto
 // já cria o cadastro com o nome que estiver escrito.
 //
+// **"Analisar as fotos e descrever"** é um pedido ao computador da loja (é
+// ele que tem a chave do modelo). O que volta é uma SUGESTÃO: vai para os
+// campos, a pessoa lê, corrige e salva. Fechar sem salvar não a perde — ela
+// volta a aparecer na próxima vez que o cadastro for aberto.
+//
 // **Quem só vê abre para LER**: os campos ficam travados e os botões somem.
 // =====================================================================
 
-import { Cctv, Image as Imagem, ScanSearch, Trash2, X } from 'lucide-react';
+import { Cctv, Image as Imagem, ScanEye, ScanSearch, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
-import { useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
+import { dinheiro } from '@/componentes/analises/conta';
 import { emOrdem, rotuloDoCanal } from '@/componentes/criterios/canais';
+import { diaEHora, plural } from '@/componentes/formatos';
 import { useAvisar } from '@/componentes/ui/avisos';
 import { Botao } from '@/componentes/ui/botao';
 import { AJUDA, Campo, GRADE, Grupo, ROTULO } from '@/componentes/ui/campo';
@@ -29,7 +36,9 @@ import {
   consoleApi,
   ErroDaApi,
   inventarioApi,
+  type DescricaoSugerida,
   type Equipamento,
+  type PedidoDeDescricao,
   type Setor,
   type TipoDeEquipamento,
 } from '@/lib/api';
@@ -82,6 +91,15 @@ export function GavetaDoEquipamento({
   const [criados, setCriados] = useState<Setor[]>([]);
   const [tipo, setTipo] = useState<TipoDeEquipamento>(item?.tipo ?? 'chapa');
   const [descricao, setDescricao] = useState(item?.descricao ?? '');
+  const [conferir, setConferir] = useState<string[]>(item?.conferir ?? []);
+
+  /** O último pedido de análise das fotos, e a sugestão que os campos estão mostrando. */
+  const [pedido, setPedido] = useState<PedidoDeDescricao | null>(null);
+  const [sugestao, setSugestao] = useState<DescricaoSugerida | null>(null);
+  const [pedindo, setPedindo] = useState(false);
+  const [erroDaAnalise, setErroDaAnalise] = useState<string | null>(null);
+  /** A sugestão que já foi posta nos campos: perguntar de novo não a põe outra vez por cima do que foi corrigido. */
+  const sugestaoVista = useRef<string | null>(null);
 
   const [escolhendoCanal, setEscolhendoCanal] = useState(false);
   const [zonaEscolhida, setZonaEscolhida] = useState('');
@@ -111,6 +129,77 @@ export function GavetaDoEquipamento({
   }, [todosOsSetores, setorId]);
 
   const dizer = (e: unknown, padrao: string) => setErro(e instanceof ErroDaApi || e instanceof Error ? e.message : padrao);
+
+  // ───────────────────── a análise das fotos ─────────────────────
+
+  /** O que a nuvem diz da análise. A sugestão que ainda espera alguém ler vai para os campos. */
+  const acompanhar = useCallback(
+    async (id: string, avisando: boolean) => {
+      const r = await inventarioApi.descricao(id);
+      setPedido(r.pedido);
+      if (r.sugestao && r.sugestao.comandoId !== sugestaoVista.current) {
+        sugestaoVista.current = r.sugestao.comandoId;
+        setSugestao(r.sugestao);
+        setDescricao(r.sugestao.descricao);
+        setConferir(r.sugestao.conferir);
+        if (avisando) avisar('Descrição pronta. Leia e corrija o que não bater antes de salvar.');
+      }
+      if (!avisando) return;
+      if (r.pedido?.estado === 'falhou') setErroDaAnalise(`A análise não deu certo: ${r.pedido.erro ?? 'a loja não disse o motivo'}`);
+      if (r.pedido?.estado === 'expirado') setErroDaAnalise('O pedido expirou sem a loja responder. O computador da loja está ligado?');
+    },
+    [avisar],
+  );
+
+  // Ao abrir um cadastro que já existe: há sugestão esperando, ou pedido em andamento?
+  const idDeInicio = item?.id;
+  useEffect(() => {
+    if (idDeInicio && configura) void acompanhar(idDeInicio, false).catch(() => {});
+  }, [idDeInicio, configura, acompanhar]);
+
+  // Enquanto o pedido está a caminho, pergunta de dois em dois segundos.
+  // Para sozinho quando conclui, falha ou expira.
+  const emVoo = pedido?.estado === 'pendente' || pedido?.estado === 'entregue';
+  const idDoCadastro = atual?.id;
+  useEffect(() => {
+    if (!emVoo || !idDoCadastro) return;
+    const t = setInterval(() => void acompanhar(idDoCadastro, true).catch(() => {}), 2000);
+    return () => clearInterval(t);
+  }, [emVoo, idDoCadastro, acompanhar]);
+
+  async function pedirAnalise() {
+    setErro(null);
+    if (!atual || atual.fotos.length === 0) return setErroDaAnalise('Ponha pelo menos uma foto: é dela que a descrição sai.');
+    setErroDaAnalise(null);
+    setPedindo(true);
+    try {
+      await inventarioApi.pedirDescricao(atual.id);
+      await acompanhar(atual.id, true);
+    } catch (e) {
+      setErroDaAnalise(e instanceof ErroDaApi ? e.message : 'não consegui pedir a análise');
+    } finally {
+      setPedindo(false);
+    }
+  }
+
+  /** "Manter a que estava": a sugestão é deixada de lado e os campos voltam ao que está salvo. */
+  async function deixarASugestao() {
+    if (!atual) return;
+    setErro(null);
+    setOcupado('salvar');
+    try {
+      // Salvar a descrição que já estava é o que resolve a sugestão no servidor.
+      const salvo = await inventarioApi.editar(atual.id, { descricao: atual.descricao });
+      mudou(salvo);
+      setSugestao(null);
+      setDescricao(salvo.descricao);
+      setConferir(salvo.conferir);
+    } catch (e) {
+      dizer(e, 'não consegui deixar a sugestão de lado');
+    } finally {
+      setOcupado(null);
+    }
+  }
 
   /** O setor escolhido — criando-o antes, se foi "cadastrar novo setor". */
   async function oSetor(): Promise<string | null> {
@@ -204,9 +293,12 @@ export function GavetaDoEquipamento({
     try {
       const setor = await oSetor();
       if (!setor) return setOcupado(null);
-      const campos = { nome: nome.trim(), tipo, setorId: setor, descricao: descricao.trim() };
-      const salvo = atual ? await inventarioApi.editar(atual.id, campos) : await inventarioApi.criar(lojaId, campos);
+      const campos = { nome: nome.trim(), tipo, setorId: setor, descricao: descricao.trim(), conferir };
+      const salvo = atual
+        ? await inventarioApi.editar(atual.id, { ...campos, ...(sugestao ? { daAnalise: sugestao.comandoId } : {}) })
+        : await inventarioApi.criar(lojaId, campos);
       mudou(salvo);
+      setSugestao(null);
       await aoSalvar(`“${salvo.nome}” salvo no inventário.`);
     } catch (e) {
       dizer(e, 'não consegui salvar o equipamento');
@@ -455,8 +547,9 @@ export function GavetaDoEquipamento({
         {/* ───────────── a descrição ───────────── */}
         <Grupo titulo="Descrição">
           <p className="text-[12.5px] text-farol-suave">
-            Como ele é e como fica quando está limpo e no lugar. Vai junto com cada pergunta feita à nuvem sobre a área em
-            que ele aparece.
+            Feita <strong className="font-semibold text-farol-tinta">uma vez</strong>, na nuvem, a partir das fotos. Custa
+            centavos. Vai junto com cada pergunta feita à nuvem sobre a área em que ele aparece, e você pode corrigir o
+            texto.
           </p>
           <textarea
             id={`${p}-descricao`}
@@ -469,11 +562,39 @@ export function GavetaDoEquipamento({
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
           />
-          {atual && atual.conferir.length > 0 && (
+          {sugestao && (
+            <Alerta tom="ok" icone={ScanEye}>
+              <span data-sugestao>
+                Descrição feita pela análise das fotos em <span className="font-mono">{diaEHora(sugestao.feitaEm)}</span>
+                {sugestao.custoCentavos != null ? ` · custou ${dinheiro(sugestao.custoCentavos)}` : ''}.{' '}
+                <strong className="font-semibold">Ainda não está salva:</strong> leia, corrija o que não bater e salve.
+              </span>{' '}
+              {configura && (
+                <button type="button" className="elo text-[13px]" onClick={() => void deixarASugestao()} disabled={ocupado !== null}>
+                  Manter a que estava
+                </button>
+              )}
+            </Alerta>
+          )}
+          {configura && (
+            <>
+              <Botao className="self-start" onClick={() => void pedirAnalise()} ocupado={pedindo || emVoo} disabled={ocupado !== null} data-analisar>
+                {!(pedindo || emVoo) && <ScanEye className="h-[18px] w-[18px]" aria-hidden />}
+                {pedindo || emVoo ? `Analisando ${plural(fotos.length, 'foto', 'fotos')}…` : 'Analisar as fotos e descrever'}
+              </Botao>
+              <p className={AJUDA}>Quem analisa é o computador da loja: ele precisa estar ligado. Leva até um minuto.</p>
+            </>
+          )}
+          {erroDaAnalise && (
+            <Alerta tom="critico" papel="alert">
+              {erroDaAnalise}
+            </Alerta>
+          )}
+          {atual && conferir.length > 0 && (
             <div className="flex min-w-0 flex-col gap-2" data-o-que-conferir>
               <span className={ROTULO}>O que vale conferir neste equipamento</span>
               <ul className="flex flex-col gap-2.5">
-                {atual.conferir.map((frase) => (
+                {conferir.map((frase) => (
                   <li key={frase} className="flex min-w-0 items-center gap-2.5">
                     <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-farol-realce text-farol-marca">
                       <ScanSearch className="h-[18px] w-[18px]" aria-hidden />

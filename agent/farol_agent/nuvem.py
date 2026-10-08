@@ -105,6 +105,10 @@ class ClienteNuvem:
         """A imagem de uma foto padrão desta loja, para comparar aqui."""
         return self._buscar("GET", f"/v1/agentes/padroes/{foto_id}", None, aceita="image/*")
 
+    def baixar_foto_do_inventario(self, foto_id: str) -> bytes:
+        """A imagem de uma foto de equipamento desta loja, para a análise única dela."""
+        return self._buscar("GET", f"/v1/agentes/inventario/fotos/{foto_id}", None, aceita="image/*")
+
     def responder(
         self,
         comando_id: str,
