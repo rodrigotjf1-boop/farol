@@ -1848,6 +1848,194 @@ prazo de guarda.
 
 ---
 
+## A16 · Local primeiro, o ambiente e o padrão da loja (plano — aguarda aprovação)
+
+Na noite de 07/10/2026, com a loja em operação e a tela de Análises no ar, o
+dono deu a direção das próximas semanas, em cinco pedidos:
+
+1. **Esquema do ambiente** — "um desenho do ambiente onde os canais estão e o
+   posicionamento nesse ambiente, como se fosse algo 3D".
+2. **Foto padrão** — "uma foto padrão do ambiente limpo e organizado para
+   padrão de comparação".
+3. **Local primeiro** — "temos que melhorar a análise local e depender da
+   nuvem em último caso; melhorar a programação de análise, já que está
+   gastando pouco do PC servidor".
+4. **Motor de padrões** — "com uma semana de uso verificar as análises e ir
+   criando um padrão de funcionamento; liberar descrição de funcionamento por
+   setor; e o que saiu do padrão, para análise e correção do responsável pela
+   loja — as correções servem para aprimorar ou até criar critérios".
+5. **As três lentes e o especialista** — frequência ("comportamentos,
+   frequências e dados recorrentes; tem relação entre os dados X e Y?"),
+   anomalia ("algo que fuja completamente do comportamento padrão e mereça
+   atenção"), tendência ("o que esses dados sugerem sobre o que pode
+   acontecer a seguir"); "como se estivesse um especialista em análises de
+   comportamento embutido no projeto, definindo padrões, saídas do padrão,
+   sugestões de ação", ajudando a "aprimorar os critérios e melhorar o
+   controle".
+
+### O que o primeiro dia mediu
+
+Lido na fila do agente da loja às 23h07 de 07/10/2026, só números, com o dia
+ainda correndo.
+
+| | |
+|---|---|
+| Análises na nuvem no dia | 856 |
+| …que voltaram "não deu para avaliar" | **802 (94%)** |
+| Gasto do dia na nuvem | R$ 11,24 |
+| …gasto em "não deu para avaliar" | **R$ 10,56 (94%)** |
+| Análises na loja (detector) | 2.073, sem custo |
+| Uso da máquina com a loja aberta | processador ~3%, placa de vídeo < 1%, memória 50% |
+
+Por critério de nuvem:
+
+| critério | canal | análises | deram veredito | gasto |
+|---|---|---|---|---|
+| Uso da gaveta do caixa (ação) | 2 | 374 | 14 (4%) | R$ 4,97 |
+| Uniforme (estado) | 6 | 246 | 25 (10%) | R$ 3,15 |
+| Uso da chapa (ação) | 6 | 236 | 15 (6%) | R$ 3,12 |
+
+E o cruzamento que justifica o porteiro, no canal 6 (o único em que o
+detector também olha): das 482 chamadas à nuvem, **271 foram feitas sem
+ninguém na imagem — e nenhuma delas deu veredito**; 195 tinham alguém; 16 não
+tinham olhada do detector por perto para comparar.
+
+Três causas, e cada uma pede um remédio diferente:
+
+1. **Ninguém na imagem** (271 de 482 no canal 6). A loja já sabia, de graça.
+   → o porteiro (fase 1).
+2. **"O ângulo e a resolução não permitem"** — tirando as chamadas sem
+   ninguém, o canal 6 ainda só deu veredito em 40 das 211 que sobram, e a
+   gaveta do caixa em 14 de 374. A pergunta é feita sobre o quadro inteiro,
+   pequeno. → área marcada (já existe, falta desenhar) e foto padrão (fase 2).
+3. **A ação não estava acontecendo naquele instante** ("não há proteína sendo
+   colocada na chapa no momento"). Um quadro solto não julga uma ação: na
+   maior parte do tempo não há o que avaliar, e isso hoje é cobrado e contado
+   como "não deu para avaliar". → só perguntar quando houver movimento na
+   área (fase 3) e, no limite, a análise de sequência do roteiro original.
+
+O porteiro, sozinho, não resolve: no canal 6 ele tira 56% das chamadas, e as
+que sobram ainda voltam sem veredito quatro vezes em cinco. No canal 2 não dá
+para dizer quanto tira — nenhum critério de pessoa olha aquele canal hoje.
+
+### O que já existe e não está ligado
+
+O desenho de "local primeiro" já está no código desde a A2.4 e a A3.5:
+
+- **Base de conhecimento** (`base_conhecimento`, `base_frame`, migration 001):
+  tipo `padrao` = "a cena inteira num estado (bancada limpa, passagem
+  livre)". É a "foto padrão" do pedido 2.
+- **`JuizComparacao`**: compara o quadro com a base e decide em três faixas —
+  parecido → conforme, de graça; **na dúvida → escala para um modelo**;
+  muito diferente → destoa. "Nuvem em último caso" é o comportamento dele.
+- **Referência no pedido à nuvem** (`juizes/nuvem.py`, feito): a foto padrão
+  vai junto com a cena, e a pergunta deixa de ser "está limpo?" para ser "o
+  que mudou em relação a isto?".
+- **Falta**: a tela para capturar o padrão, levar as fotos ao agente, o
+  modelo de comparação instalado na loja, e montar o juiz no serviço.
+- **Não cabe nesta máquina como está**: o juiz local por modelo de linguagem
+  com visão (`JuizLocal`) foi previsto com um modelo de 9 bilhões de
+  parâmetros; a Radeon RX 560 da loja tem 4 GB de memória de vídeo. Um
+  modelo menor que caiba é medição a fazer no ensaio, não promessa.
+
+### As fases, na ordem proposta
+
+A ordem é de quanto cada uma devolve e do que depende — a do dono pode ser
+outra, e é dele a decisão.
+
+**Fase 0 · Coletar a medida — feito (PR #52, migration 022).** O agente
+passa a guardar, por hora e por área, quantas pessoas o detector viu (soma,
+quantidade e maior valor), e não só "conforme / fora". Sem isso o padrão não
+tem do que ser feito. A semana de dados corre a partir da troca do agente.
+
+**Fase 1 · O porteiro: a loja decide se vale chamar a nuvem.** Cada critério
+de nuvem passa a dizer quando a pergunta faz sentido: "só conferir com pessoa
+na área" (uniforme, gaveta, uso da chapa) ou "só conferir com a área livre"
+(bancada limpa, que uma pessoa na frente esconde). Quem responde é o
+detector, de graça. Sem a condição, a olhada é contada como "sem ninguém na
+área" — não é análise, não custa, e aparece na tela com esse nome. Pelo que o
+primeiro dia mediu, no canal 6 tira 56% das chamadas sem perder veredito
+nenhum; nos outros canais o próprio porteiro passa a medir. *Tela: uma opção
+no formulário do critério.*
+
+**Fase 2 · Foto padrão e comparação na loja.** Em cada área, o responsável
+escolhe o quadro que representa o ambiente limpo, organizado e sem ninguém
+(mais de um: manhã, noite). A comparação é feita na loja: parecido com o
+padrão → conforme, sem custo; diferente → vai à nuvem **com a foto padrão ao
+lado**; diferente por várias olhadas seguidas → aviso. **Antes de prometer
+acerto, medir**: com as imagens que a loja já guardou e o veredito da nuvem
+como gabarito (`farol-agent ensaio`), comparar os métodos e escolher o
+limiar. *Tela: a foto padrão na tela do canal; "comparar com o padrão" no
+critério.*
+
+**Fase 3 · Programação de análise pela folga da máquina.** Com o processador
+a 3%, o que é julgado na loja pode ser olhado a cada 5 a 10 segundos em vez
+de 30 a 45 — é o que permite pegar evento de segundos (o detector leva 88 ms
+por quadro nesta placa, medido em 06/10). O que vai à nuvem continua espaçado
+e só depois do porteiro. Critério de **ação** só pergunta quando houve
+movimento na área — sem movimento, "nada a avaliar", sem custo. "Só avisa se
+continuar" por N olhadas. E um freio automático: processador acima de 60% por
+minutos faz o agente espaçar de novo (o uso já é medido — migration 021).
+*Sem tela nova, além do "só avisa se continuar" no critério.*
+
+**Fase 4 · Esquema do ambiente.** A planta da loja desenhada no console:
+ambientes, móveis fixos e cada câmera na sua posição, com a direção para
+onde olha — vista de cima para editar, em perspectiva para ler. Serve a três
+coisas: (a) achar o lugar — resultados, anomalias e canais mostrados ONDE
+acontecem; (b) cobertura — o que nenhuma câmera vê; (c) contexto para o
+julgamento — "câmera no teto sobre o caixa, olhando para o balcão; a porta
+fica à esquerda" vai junto com a imagem. *Tela nova.*
+
+**Fase 5 · O especialista: padrão, anomalia, tendência e correção.**
+
+| lente | o que responde | de que é feita | quando dá para dizer |
+|---|---|---|---|
+| **Frequência** | o que se repete: ocupação típica de cada setor por hora, a hora de pico, o que acontece toda sexta | média e maior valor da medida, taxa de fora do critério, por setor × dia da semana × hora | por hora: 1 semana; por dia da semana: 3 semanas |
+| **Relação** | X anda junto com Y? "quando a fila passa de 3, o balcão está com 1 atendente em 80% das vezes" | as horas em que os dois foram medidos, lado a lado; só se diz com amostra mínima | 2 semanas |
+| **Anomalia** | o que fugiu do padrão e merece atenção | a hora comparada com o normal daquela hora e daquele dia (mediana e dispersão, não média) | 1 semana |
+| **Tendência** | o que vem a seguir: "a fila do pico cresce há 3 semanas", "o disco enche em 3 meses", "hoje o pico deve ser às 20h" | a mesma hora ao longo das semanas | 2 a 4 semanas |
+
+- **Descrição de funcionamento por setor**: um texto curto, gerado dos
+  números — "Atendimento: abre às 18h; pico das 20h às 21h, com 2 pessoas no
+  balcão; fila acima de 3 em 4% do tempo".
+- **Saídas do padrão vão para o responsável**, que responde uma de duas
+  coisas: *era esperado* (e o padrão aprende — "às sextas é assim") ou *é
+  problema* (e registra a correção: o que houve, o que foi feito).
+- **A correção vira controle**: da saída do padrão nasce um critério
+  ("balcão sem atendente por mais de 5 minutos entre 20h e 22h") ou o ajuste
+  de um que já existe. É o caminho para o critério que ninguém pensou em
+  cadastrar.
+- **Sugestões do especialista**: o que os números mostram sobre os próprios
+  critérios — "este não consegue avaliar em 90% das vezes: marque a área",
+  "este nunca fica fora do critério: vale manter?".
+
+### Como o especialista é feito
+
+**Números primeiro; modelo de linguagem só para escrever.** Padrão, anomalia
+e tendência são conta — mediana, dispersão, comparação semana a semana — feita
+no servidor, sempre igual, sem custo por análise e sem imagem. O texto do
+parecer ("o que isso quer dizer, o que fazer") pode ser escrito por um modelo
+de linguagem a partir desses números, uma vez por dia ou por semana — texto
+sobre contagem, centavos por loja. O modelo não vê imagem e não inventa
+número: cada frase aponta o dado de onde saiu.
+
+### O que vale para todas as fases
+
+- Imagem de loja não sai da loja além do que já sai hoje; tudo aqui é número.
+- "Não medi" não é zero. Padrão com pouca amostra diz que tem pouca amostra.
+- Medir antes de prometer: cada método de julgamento local passa pelo ensaio
+  com gabarito antes de ligar em loja.
+- Tela nova passa por protótipo aprovado.
+
+### Decisões que são do dono
+
+1. A ordem das fases.
+2. Quem recebe as saídas do padrão (o gerente da loja? a diretoria?) e por
+   onde (só na tela, ou também pelo aviso).
+3. Se o parecer escrito por modelo de linguagem entra, e com que frequência.
+
+---
+
 ## A8 · Busca investigativa nas gravações (plano)
 
 **Definição do dono (06/10/2026):** não é monitoramento. É pergunta
