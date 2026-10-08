@@ -95,10 +95,13 @@ def resumo_para_nuvem(linha: dict[str, Any]) -> dict[str, Any]:
         "hora": _instante(linha["hora"]),
         # Quantas vezes o critério foi olhado neste canal...
         "capturas": linha["capturas"],
-        # ...e no que deu cada olhada. A soma destas sete é `capturas`.
+        # ...e no que deu cada olhada. A soma destas oito é `capturas`.
         "semJuiz": linha["sem_juiz"],
         "semQuadro": linha["sem_quadro"],
         "semCena": linha["sem_cena"],
+        # A olhada que o porteiro segurou: o critério pedia gente na área (ou
+        # a área livre, ou movimento) e a condição não valia. Não foi à nuvem.
+        "semCondicao": linha["sem_condicao"],
         "emSilencio": linha["em_silencio"],
         "repetidas": linha["repetidas"],
         "jaJulgadas": linha["ja_julgadas"],

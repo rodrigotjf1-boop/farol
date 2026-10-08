@@ -154,6 +154,36 @@ export function horasCom(celulas: CelulaDeAnalise[], tem: (c: CelulaDeAnalise) =
   return new Set(celulas.filter(tem).map((c) => `${c.dia}-${c.hora}`)).size;
 }
 
+// ───────────────────────── nada a conferir ─────────────────────────
+
+export type NadaAConferir = { total: number; porCriterio: Array<{ regraId: string; quantas: number }> };
+
+/**
+ * As olhadas que a loja segurou no recorte: o critério pedia gente na área
+ * (ou a área livre, ou movimento), a condição não valia e a pergunta não
+ * foi feita. Não são análise — por isso ficam fora de todos os outros
+ * números da tela —, mas são o que explica um critério com poucas análises.
+ *
+ * Segue as horas, o canal e o critério do recorte. "Onde foi julgado" não
+ * se aplica: o que foi segurado não foi julgado em lugar nenhum.
+ */
+export function nadaAConferir(celulas: CelulaDeAnalise[], f: Filtros): NadaAConferir {
+  const porRegra = new Map<string, number>();
+  for (const c of celulas) {
+    // API de antes da migration 023 não manda o campo.
+    const n = c.semCondicao ?? 0;
+    if (n <= 0) continue;
+    if (c.hora < f.de || c.hora >= f.ate) continue;
+    if (f.canal && c.pontoId !== f.canal) continue;
+    if (f.criterio && c.regraId !== f.criterio) continue;
+    porRegra.set(c.regraId, (porRegra.get(c.regraId) ?? 0) + n);
+  }
+  const porCriterio = [...porRegra.entries()]
+    .map(([regraId, quantas]) => ({ regraId, quantas }))
+    .sort((a, b) => b.quantas - a.quantas);
+  return { total: porCriterio.reduce((a, c) => a + c.quantas, 0), porCriterio };
+}
+
 // ───────────────────────── as barras ─────────────────────────
 
 export type Balde = {

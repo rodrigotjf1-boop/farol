@@ -103,6 +103,8 @@ export function rotasDeAnalises(app: FastifyInstance, pool: pg.Pool): void {
                 extract(hour from h.hora at time zone $4)::integer as hora,
                 h.regra_id, r.tipo, z.ponto_id, h.zona_id,
                 sum(h.capturas)::integer as capturas,
+                sum(h.sem_condicao)::integer as sem_condicao,
+                sum(h.em_silencio)::integer as em_silencio,
                 sum(h.conformes)::integer as conformes,
                 sum(h.nao_conformes)::integer as nao_conformes,
                 sum(h.nao_avaliaveis)::integer as nao_avaliaveis,
@@ -295,6 +297,11 @@ export function rotasDeAnalises(app: FastifyInstance, pool: pg.Pool): void {
           zonaId: c.zona_id as string,
           areaNome: areaNome(c.ponto_id as string, c.zona_id as string),
           capturas: c.capturas as number,
+          // Olhadas que NÃO viraram análise por decisão da loja: o
+          // porteiro segurou (a condição do critério não valia) ou o
+          // critério estava no silêncio depois de um aviso.
+          semCondicao: c.sem_condicao as number,
+          emSilencio: c.em_silencio as number,
           analises,
           conformes: c.conformes as number,
           naoConformes: c.nao_conformes as number,

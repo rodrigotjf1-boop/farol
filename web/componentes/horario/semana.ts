@@ -62,7 +62,7 @@ export function paraFaixas(semana: Dia[]): FaixaDeHorario[] {
 }
 
 /** [2, 3, 4, 7] → "ter a qui e dom". */
-function juntarDias(dias: number[]): string {
+export function juntarDias(dias: number[]): string {
   const grupos: [number, number][] = [];
   for (const d of [...dias].sort((a, b) => a - b)) {
     const ultimo = grupos[grupos.length - 1];

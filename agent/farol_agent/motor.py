@@ -30,6 +30,17 @@ alerta** é este arquivo.
    canal. Abaixo disso é registrado mas não toca a sineta: o que destrói a
    confiança da loja no sistema não é errar pouco, é berrar errado.
    `nao_avaliavel` nunca alerta — vira indicador de câmera.
+
+   Quando o critério pede **"só avisar se continuar"** (`confirmar_em`
+   maior que 1), o primeiro fora do critério não avisa: fica esperando
+   as olhadas seguintes. Conta como "continua" tanto um novo veredito
+   fora do critério quanto a cena que não mudou desde o último. Um
+   conforme no meio zera a espera.
+
+Entre a 1 e a 2 fica **o porteiro** (porteiro.py): para o que pode ir à
+nuvem, a loja confere antes se a pergunta faz sentido — gente na área,
+área livre, algo se mexeu. Quando não faz, a olhada é contada como "nada
+a conferir" e nem entra na fila.
 """
 
 from __future__ import annotations
@@ -55,6 +66,7 @@ from farol_agent.modelos import (
     Veredito,
 )
 from farol_agent.pipeline import dedupe, qualidade, recorte
+from farol_agent.porteiro import Porteiro
 
 _log = logging.getLogger(__name__)
 
@@ -93,10 +105,22 @@ class Alerta:
 
 
 @dataclass
+class _EmConfirmacao:
+    """Um fora do critério esperando continuar para virar aviso."""
+
+    quantas: int
+    # O último julgamento fora do critério: é com ele que o aviso sai.
+    item: ItemFila
+    veredito: Veredito
+
+
+@dataclass
 class Preparo:
     """Resultado de preparar um gatilho: o que foi enfileirado e o que não."""
 
     enfileirados: list[str] = field(default_factory=list)
+    # O porteiro segurou: a pergunta não fazia sentido nesta olhada.
+    sem_condicao: list[str] = field(default_factory=list)
     em_silencio: list[str] = field(default_factory=list)
     repetidos: list[str] = field(default_factory=list)
     sem_quadro: list[str] = field(default_factory=list)
@@ -118,9 +142,19 @@ class MotorDeRegras:
         limiar_dedupe: int = 6,
         memoria_dedupe_seg: int = 30,
         serializar: Callable[["Alerta"], dict[str, Any]] | None = None,
+        porteiro: Porteiro | None = None,
     ) -> None:
         self.fila = fila
         self.regras: list[Regra] = list(regras)
+        # Quem confere se vale perguntar. Sem porteiro (modo de bancada, ou
+        # agente sem detector), todo critério pergunta em toda olhada.
+        self._porteiro = porteiro
+        # Por que o porteiro segurou, na última vez, em cada lugar.
+        self.sem_condicao: dict[str, str | None] = {}
+        # "Só avisar se continuar": o que está esperando, por lugar, e o
+        # que já continuou o bastante e vai virar aviso no próximo despacho.
+        self._seguidas: dict[str, _EmConfirmacao] = {}
+        self._confirmados: list[tuple[Regra, ItemFila, Veredito, datetime]] = []
         # Transforma o alerta no corpo que sobe para a nuvem. O motor não
         # conhece o formato — só sabe que ele tem que ser gravado na MESMA
         # linha do alerta, para o evento sobreviver a queda de internet e a
@@ -207,6 +241,13 @@ class MotorDeRegras:
             if chave is not None:
                 preparo.enfileirados.append(regra.id)
                 olhadas.append((regra, "enfileiradas", None))
+            elif motivo == "sem_condicao":
+                preparo.sem_condicao.append(regra.id)
+                olhadas.append((regra, "sem_condicao", None))
+                # Sem ninguém na área, o que estava fora do critério numa
+                # PESSOA deixou de estar: a espera recomeça do zero.
+                if regra.porteiro == "pessoa":
+                    self._seguidas.pop(self._lugar(regra), None)
             elif motivo == "sem_cena":
                 preparo.sem_cena.append(regra.id)
                 olhadas.append(
@@ -218,9 +259,11 @@ class MotorDeRegras:
             elif motivo == "ja_julgado":
                 preparo.repetidos.append(regra.id)
                 olhadas.append((regra, "ja_julgadas", None))
+                self._continua(regra, evento.ts)
             else:
                 preparo.repetidos.append(regra.id)
                 olhadas.append((regra, "repetidas", None))
+                self._continua(regra, evento.ts)
 
         self._contar(evento.ts, olhadas)
         return preparo
@@ -280,13 +323,28 @@ class MotorDeRegras:
             self.sem_cena[self._lugar(regra)] = porque
             return None, "sem_cena"
 
-        if regra.borrar_rosto:
-            f, _ = recorte.borrar_rostos(f)
-
         # Em presença e contagem, cena igual à anterior NÃO é atalho: o
         # posto vazio é a mesma imagem por meia hora, e é essa meia hora
         # que se quer medir. Cada olhada entra, com chave própria.
         continuo = regra.tipo in CONTINUOS
+
+        # O porteiro, ANTES do borrão e da fila: a imagem ainda não saiu
+        # de lugar nenhum, e o detector conta melhor no recorte inteiro.
+        # Presença e contagem não passam por ele — já são da loja.
+        if not continuo and regra.porteiro != "sempre" and self._porteiro is not None:
+            decisao = self._porteiro.decidir(
+                regra.porteiro, f.imagem,
+                lugar=self._lugar(regra), area=f"{evento.ponto_id}:{regra.zona.id}", ts=f.ts,
+            )
+            if not decisao.vale:
+                # A câmera está entregando cena: não é defeito, é só que
+                # não havia o que perguntar.
+                self.sem_cena.pop(self._lugar(regra), None)
+                self.sem_condicao[self._lugar(regra)] = decisao.motivo
+                return None, "sem_condicao"
+
+        if regra.borrar_rosto:
+            f, _ = recorte.borrar_rostos(f)
 
         chave_dedupe = f"{evento.ponto_id}:{regra.zona.id}:{regra.id}"
         if not continuo and self._dedup.repetido(chave_dedupe, f.imagem, f.ts):
@@ -357,6 +415,29 @@ class MotorDeRegras:
         """Drena a fila: julga o que está pronto e devolve os alertas."""
         alertas: list[Alerta] = []
 
+        # O que continuou fora do critério sem novo julgamento (a cena não
+        # mudou) e chegou à quantidade pedida: vira aviso aqui, com o
+        # julgamento que estava esperando.
+        confirmados, self._confirmados = self._confirmados, []
+        for regra, item, veredito, quando in confirmados:
+            alerta = self._alerta(regra, item, veredito)
+            try:
+                self.fila.contar(item.capturado_em, item.regra_id, item.zona_id, alertas=1)
+            except Exception:  # noqa: BLE001
+                _log.exception("não consegui somar o aviso no resumo da hora")
+            # O silêncio conta a partir da olhada que CONFIRMOU, não da
+            # que foi julgada: entre uma e outra podem ter passado
+            # minutos, e o aviso acabou de sair. O evento em si leva o
+            # instante da imagem, que é o que ele mostra.
+            self.fila.registrar_alerta(
+                regra_id=regra.id,
+                zona_id=item.zona_id,
+                ts=quando,
+                chave=item.chave,
+                evento=self._serializar(alerta) if self._serializar else None,
+            )
+            alertas.append(alerta)
+
         for item in self.fila.proximos(agora, limite=limite):
             regra = self._regra(item.regra_id)
             if regra is None:
@@ -414,7 +495,13 @@ class MotorDeRegras:
         self, regra: Regra, item: ItemFila, veredito: Veredito
     ) -> Alerta | None:
         """A terceira porta: este veredito merece acordar alguém?"""
+        lugar = f"{regra.id}@{item.zona_id}"
+        if veredito.resultado is Resultado.CONFORME:
+            # Voltou a ficar em ordem: o que esperava confirmação não continua.
+            self._seguidas.pop(lugar, None)
+            return None
         if veredito.resultado is not Resultado.NAO_CONFORME:
+            # "Não deu para avaliar" não confirma nem desmente.
             return None
 
         confianca = veredito.confianca or 0.0
@@ -438,6 +525,42 @@ class MotorDeRegras:
             )
             return None
 
+        # "Só avisar se continuar": este fora do critério é o primeiro, ou
+        # mais um de uma sequência? Avisa só ao chegar na quantidade pedida.
+        if regra.confirmar_em > 1:
+            espera = self._seguidas.get(lugar)
+            quantas = (espera.quantas if espera else 0) + 1
+            if quantas < regra.confirmar_em:
+                self._seguidas[lugar] = _EmConfirmacao(quantas, item, veredito)
+                _log.info(
+                    "regra=%s fora do critério %d de %d: espera continuar para avisar",
+                    regra.id, quantas, regra.confirmar_em,
+                )
+                return None
+            self._seguidas.pop(lugar, None)
+
+        return self._alerta(regra, item, veredito)
+
+    def _continua(self, regra: Regra, ts: datetime) -> None:
+        """A cena não mudou desde um fora do critério: é mais uma olhada em que ele continua.
+
+        Sem isto, "avisar só se continuar" nunca avisaria justamente do
+        que continua: a bancada suja parada é a MESMA imagem, e imagem
+        repetida não é julgada de novo.
+        """
+        lugar = self._lugar(regra)
+        espera = self._seguidas.get(lugar)
+        if espera is None or regra.confirmar_em <= 1:
+            return
+        if self._calado(regra, regra.zona.id, ts):
+            return
+        espera.quantas += 1
+        if espera.quantas >= regra.confirmar_em:
+            del self._seguidas[lugar]
+            self._confirmados.append((regra, espera.item, espera.veredito, ts))
+
+    @staticmethod
+    def _alerta(regra: Regra, item: ItemFila, veredito: Veredito) -> Alerta:
         return Alerta(
             regra_id=regra.id,
             regra_nome=regra.nome,

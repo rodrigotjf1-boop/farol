@@ -1848,7 +1848,7 @@ prazo de guarda.
 
 ---
 
-## A16 · Local primeiro, o ambiente e o padrão da loja (plano — aguarda aprovação)
+## A16 · Local primeiro, o ambiente e o padrão da loja (aprovado em 08/10/2026 — fase 1 feita)
 
 Na noite de 07/10/2026, com a loja em operação e a tela de Análises no ar, o
 dono deu a direção das próximas semanas, em cinco pedidos:
@@ -1949,15 +1949,37 @@ quantidade e maior valor), e não só "conforme / fora". Sem isso o padrão não
 tem do que ser feito. O agente da loja foi trocado em 07/10/2026, às 23h19: a
 semana de dados corre desde então.
 
-**Fase 1 · O porteiro: a loja decide se vale chamar a nuvem.** Cada critério
-de nuvem passa a dizer quando a pergunta faz sentido: "só conferir com pessoa
-na área" (uniforme, gaveta, uso da chapa) ou "só conferir com a área livre"
-(bancada limpa, que uma pessoa na frente esconde). Quem responde é o
-detector, de graça. Sem a condição, a olhada é contada como "sem ninguém na
-área" — não é análise, não custa, e aparece na tela com esse nome. Pelo que o
-primeiro dia mediu, no canal 6 tira 56% das chamadas sem perder veredito
-nenhum; nos outros canais o próprio porteiro passa a medir. *Tela: uma opção
-no formulário do critério.*
+**Fase 1 · O porteiro: a loja decide se vale chamar a nuvem — feito
+(08/10/2026, migration 023).** Cada critério que pode ir à nuvem diz quando
+a pergunta faz sentido, em "Quando vale a pena conferir":
+
+| opção | segura a olhada quando | para |
+|---|---|---|
+| em toda olhada | nunca (como era) | — |
+| com pessoa na área | o detector não viu nem um "talvez" de pessoa | uniforme, touca, uso de equipamento |
+| com a área livre | o detector viu alguém com certeza | limpeza e organização |
+| quando algo se mexe | menos de 1,2% da cena mudou desde a olhada anterior | critério de ação |
+
+Quem responde é o detector, de graça, dentro da loja. A olhada segurada é
+contada como **"nada a conferir"** (`sem_condicao`, o oitavo desfecho de uma
+olhada): não é análise, não vai à nuvem, não custa e não entra em "não deu
+para avaliar". A tela de Análises diz quantas foram, por critério. Presença
+e contagem não têm a escolha — já são julgadas na loja em toda olhada.
+
+Junto vieram duas coisas da mesma gaveta, que estavam no protótipo aprovado:
+
+- **"Avisar só se continuar"** (`confirmar_em`): o critério só avisa depois
+  de ficar fora por 2, 3 ou 5 olhadas seguidas. Vale para todos os tipos.
+- **A faixa de horas do critério** (`regra.janelas`, que já existia no
+  banco, na API e no agente): ganhou o campo na tela.
+
+*Como conferir:* no critério, escolher "Com pessoa na área" e ligar; em
+Análises, a linha "N olhadas ficaram em nada a conferir" passa a aparecer, e
+"não deu para avaliar" e o custo da nuvem daquele critério caem. Pelo que o
+primeiro dia mediu, no canal 6 isso tira 56% das chamadas sem perder
+veredito nenhum; nos outros canais é o próprio porteiro que passa a medir.
+As decisões de desenho estão em `docs/decisoes.md` (08/10/2026, "O
+porteiro").
 
 **Fase 2 · Inventário, foto padrão e comparação na loja.** Duas referências
 do que é "limpo e no lugar", guardadas uma vez:
@@ -2062,7 +2084,7 @@ da hora que foi olhada, e diz quando ela é pequena. Com a comparação na
 loja (fase 2), o critério pode continuar sendo conferido durante o
 silêncio, sem custo.
 
-### Os protótipos (em aprovação desde 08/10/2026)
+### Os protótipos (aprovados pelo dono em 08/10/2026)
 
 Em `mockups/farol-console.html`:
 
@@ -2080,11 +2102,11 @@ O que o protótipo mostra e depende de coisa que ainda não existe:
   é "muito diferente do normal" (mediana e dispersão por dia da semana e
   hora) se escolhe com a primeira semana de dados da loja, medindo quantas
   aponta por dia — anomalia demais vira ruído.
-- **"Nada a conferir"** (a olhada que o porteiro segurou) é um quarto
-  resultado. Na tela Análises ele entra como mais uma fatia; o desenho
-  disso vem com a fase 1.
-- **A faixa de horas do critério** já existe no banco, na API e no agente
-  (`regra.janelas`); falta só o campo na tela.
+- **"Nada a conferir"** (a olhada que o porteiro segurou) entrou na tela
+  Análises com a fase 1, como uma linha à parte: não é análise, e por isso
+  não virou fatia das barras. Essa linha não estava no protótipo aprovado —
+  foi acrescentada a ele no mesmo trabalho.
+- **A faixa de horas do critério** ganhou o campo na tela com a fase 1.
 - **A planta, o inventário e a foto padrão** pedem tabelas novas e o envio
   de imagem pelo console.
 - **O parecer** do protótipo é montado dos números, sem modelo de linguagem.
@@ -2099,7 +2121,8 @@ O que o protótipo mostra e depende de coisa que ainda não existe:
 
 ### Decisões que são do dono
 
-1. A ordem das fases.
+1. A ordem das fases. *Decidido em 08/10/2026: "aplicar todas as etapas até
+   o final", na ordem proposta.*
 2. Quem recebe as saídas do padrão (o gerente da loja? a diretoria?) e por
    onde (só na tela, ou também pelo aviso).
 3. Se o parecer escrito por modelo de linguagem entra, e com que frequência.

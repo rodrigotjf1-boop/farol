@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from farol_agent.porteiro import PORTEIROS
 from farol_agent.modelos import (
     RESOLUCOES,
     Janela,
@@ -163,6 +164,20 @@ def _regra(dados: dict[str, Any], zona: Zona, horario_da_loja: list[Janela] | No
             f"{onde}: quando={quando!r} inválido. Válidos: {', '.join(QUANDOS)}"
         )
 
+    # O porteiro e a confirmação são novos. Nuvem antiga não manda: fica
+    # como era (pergunta em toda olhada, avisa na primeira). E valor que
+    # este agente não conhece — um modo que a nuvem ganhe depois — NÃO
+    # derruba a configuração inteira: o critério volta a perguntar sempre,
+    # que é o lado seguro.
+    porteiro = str(dados.get("porteiro") or "sempre")
+    if porteiro not in PORTEIROS:
+        _log.warning("%s: porteiro=%r desconhecido; o critério pergunta em toda olhada", onde, porteiro)
+        porteiro = "sempre"
+    try:
+        confirmar_em = max(1, int(dados.get("confirmarEm") or 1))
+    except (TypeError, ValueError):
+        confirmar_em = 1
+
     return Regra(
         id=str(dados["id"]),
         zona=zona,
@@ -193,6 +208,8 @@ def _regra(dados: dict[str, Any], zona: Zona, horario_da_loja: list[Janela] | No
         parametros=dict(dados.get("parametros") or {}),
         quando=quando,
         horario_da_loja=list(horario_da_loja or []),
+        porteiro=porteiro,
+        confirmar_em=confirmar_em,
     )
 
 

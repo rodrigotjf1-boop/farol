@@ -128,6 +128,9 @@ export type FaixaDeHorario = { dias: number[]; hora_ini: string; hora_fim: strin
 /** Em que horário o critério é conferido, em relação ao horário DA LOJA. */
 export type Quando = 'no_horario' | 'fora_do_horario' | 'sempre';
 
+/** Quando vale a pena conferir. Quem responde é o detector, dentro da loja. */
+export type Porteiro = 'sempre' | 'pessoa' | 'livre' | 'movimento';
+
 export type Regra = {
   id: string;
   nome: string;
@@ -149,6 +152,12 @@ export type Regra = {
   parametros: ParametrosDoDetector;
   /** Com a loja aberta, fechada ou sempre. */
   quando: Quando;
+  /** A faixa de horas em que o critério é conferido. Vazia = sem faixa. */
+  janelas: FaixaDeHorario[];
+  /** Quando vale a pena conferir — só nos tipos que podem ir à nuvem. */
+  porteiro: Porteiro;
+  /** Em quantas olhadas seguidas fora do critério ele avisa. 1 = na primeira. */
+  confirmar_em: number;
 };
 
 export type ParametrosDoDetector = {
@@ -690,6 +699,11 @@ export type CelulaDeAnalise = {
   /** A área do canal — nulo quando o canal tem uma área só. */
   areaNome: string | null;
   capturas: number;
+  /** Olhadas que a loja segurou: a condição do critério não valia e a
+   *  pergunta não foi feita. Não são análise. */
+  semCondicao: number;
+  /** Olhadas dentro do silêncio depois de um aviso. Não são análise. */
+  emSilencio: number;
   /** O que terminou em veredito: conformes + naoConformes + naoAvaliaveis. */
   analises: number;
   conformes: number;

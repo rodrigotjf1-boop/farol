@@ -146,6 +146,10 @@ class Auditoria:
 
         self.motor: MotorDeRegras | None = None
         self.juiz = None
+        # Quem confere se vale perguntar à nuvem. Um só para a vida do
+        # processo (ver `_o_porteiro`). O detector dele é injetável.
+        self._porteiro = None
+        self._detector_do_porteiro = _detector_local
         self.fontes: dict[str, Any] = {}
         self.versao_montada: int | None = None
         self.ultimo_erro: str | None = None
@@ -230,6 +234,28 @@ class Auditoria:
         )
         return JuizPorRegra(seletor, {r.id: r for r in config.regras})
 
+    def _o_porteiro(self, regras):
+        """O porteiro, se algum critério pede um — e sempre o MESMO.
+
+        Ele guarda a cena anterior de cada lugar (para medir movimento):
+        recriá-lo a cada mudança de configuração apagaria essa memória.
+        Usa o motor do detector local quando há; sem detector, o porteiro
+        deixa passar o que não consegue conferir.
+        """
+        if not any(getattr(r, "porteiro", "sempre") != "sempre" for r in regras):
+            return None
+        if self._porteiro is None:
+            from farol_agent.juizes.detector import CERTEZA, DUVIDA, OBJETOS
+            from farol_agent.porteiro import Porteiro
+
+            detector = self._detector_do_porteiro()
+            self._porteiro = Porteiro(
+                getattr(detector, "motor", None),
+                classe_pessoa=OBJETOS["pessoa"], certeza=CERTEZA, duvida=DUVIDA,
+            )
+        self._porteiro.esquecer({f"{r.id}@{r.zona.id}" for r in regras})
+        return self._porteiro
+
     def montar(self, config: ConfigDaLoja) -> None:
         """(Re)constrói motor, juiz e fontes a partir da configuração."""
         if config.versao == self.versao_montada:
@@ -247,7 +273,9 @@ class Auditoria:
         regras = self._com_juiz(config)
         # Com o serializador, o motor grava o corpo do evento na mesma
         # linha do alerta: é o que faz o evento sobreviver a internet fora.
-        self.motor = MotorDeRegras(self.fila, regras, serializar=evento_para_nuvem)
+        self.motor = MotorDeRegras(
+            self.fila, regras, serializar=evento_para_nuvem, porteiro=self._o_porteiro(regras),
+        )
 
         # Fontes só para pontos que têm regra: abrir câmera que ninguém
         # audita é fluxo do gravador gasto à toa.

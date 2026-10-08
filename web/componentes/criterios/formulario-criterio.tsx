@@ -15,11 +15,31 @@ import { Campo, Escolhas, GRADE, Grupo, ROTULO } from '@/componentes/ui/campo';
 import { Alerta } from '@/componentes/ui/pecas';
 import { Gaveta } from '@/componentes/ui/sobreposto';
 import { resumoDoHorario } from '@/componentes/horario/semana';
-import { ErroDaApi, regrasApi, type FaixaDeHorario, type Quando, type Regra, type Setor } from '@/lib/api';
+import {
+  ErroDaApi,
+  regrasApi,
+  type FaixaDeHorario,
+  type Porteiro,
+  type Quando,
+  type Regra,
+  type Setor,
+} from '@/lib/api';
 
 import { ArvoreDeCanais } from './arvore-de-canais';
 import { contarCanais } from './canais';
-import { nomeDaSeveridade, PRIORIDADES, QUANDOS, SEVERIDADES, TIPOS, TIPOS_DO_DETECTOR } from './opcoes';
+import {
+  CONFIRMACOES,
+  faixaDeTodosOsDias,
+  faixaSimples,
+  nomeDaSeveridade,
+  porteirosDoTipo,
+  PRIORIDADES,
+  QUANDOS,
+  resumoDaFaixa,
+  SEVERIDADES,
+  TIPOS,
+  TIPOS_DO_DETECTOR,
+} from './opcoes';
 
 type Props = {
   lojaId: string;
@@ -59,6 +79,22 @@ export function GavetaDoCriterio({
   // Quase todo critério é de operação: nasce valendo com a loja aberta.
   const [quando, setQuando] = useState<Quando>(regra?.quando ?? 'no_horario');
 
+  // A faixa de horas. A gaveta edita UMA faixa, todos os dias; o que foi
+  // gravado com mais detalhe (dias diferentes) continua valendo até alguém
+  // mexer aqui — por isso a faixa só sobe quando foi mexida.
+  const faixaGuardada = faixaSimples(regra?.janelas);
+  const faixaDetalhada = faixaGuardada === 'detalhada';
+  const [comFaixa, setComFaixa] = useState(faixaGuardada !== null && !faixaDetalhada);
+  const [faixaDe, setFaixaDe] = useState(faixaGuardada && !faixaDetalhada ? faixaGuardada.de : '20:00');
+  const [faixaAte, setFaixaAte] = useState(faixaGuardada && !faixaDetalhada ? faixaGuardada.ate : '22:00');
+  const [mexeuNaFaixa, setMexeuNaFaixa] = useState(false);
+
+  // Quando vale a pena conferir: a loja decide, com o detector, antes de
+  // perguntar à nuvem.
+  const [porteiro, setPorteiro] = useState<Porteiro>(regra?.porteiro ?? 'sempre');
+  // Em quantas olhadas seguidas fora do critério ele avisa.
+  const [confirmarEm, setConfirmarEm] = useState(regra?.confirmar_em ?? 1);
+
   // O que o detector procura. Só vale nos tipos julgados na loja.
   const [objeto, setObjeto] = useState(regra?.parametros?.objeto ?? 'pessoa');
   const [deveHaver, setDeveHaver] = useState(regra?.parametros?.maximo !== 0);
@@ -69,6 +105,20 @@ export function GavetaDoCriterio({
   const [salvando, setSalvando] = useState(false);
 
   const peloDetector = TIPOS_DO_DETECTOR.includes(tipo);
+  const porteiros = porteirosDoTipo(tipo);
+
+  /** Trocar o tipo larga a escolha que não cabe no novo (a mesma regra do servidor). */
+  function mudarTipo(novo: Regra['tipo']) {
+    setTipo(novo);
+    if (!porteirosDoTipo(novo).some((o) => o.valor === porteiro)) setPorteiro('sempre');
+  }
+
+  function mudarFaixa(parte: { com?: boolean; de?: string; ate?: string }) {
+    if (parte.com !== undefined) setComFaixa(parte.com);
+    if (parte.de !== undefined) setFaixaDe(parte.de);
+    if (parte.ate !== undefined) setFaixaAte(parte.ate);
+    setMexeuNaFaixa(true);
+  }
 
   /** Os parâmetros que sobem, ou `undefined` quando o tipo não usa detector. */
   function parametros(): Record<string, unknown> | undefined {
@@ -91,6 +141,15 @@ export function GavetaDoCriterio({
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
     setErro(null);
+    // A faixa só sobe quando é nova ou foi mexida: ausente, o servidor
+    // mantém a que está guardada.
+    const mandaFaixa = !regra || mexeuNaFaixa;
+    if (mandaFaixa && comFaixa) {
+      if (!faixaDe || !faixaAte) return setErro('Diga a hora de início e a de fim da faixa de horas.');
+      if (faixaDe === faixaAte) {
+        return setErro('A faixa de horas começa e termina na mesma hora. Escolha horas diferentes, ou desmarque a faixa.');
+      }
+    }
     setSalvando(true);
     try {
       const corpo = {
@@ -104,6 +163,11 @@ export function GavetaDoCriterio({
         zonaIds: [...marcadas],
         parametros: parametros(),
         quando,
+        // Vai sempre, já acertado para o tipo: o servidor recusa presença
+        // ou contagem com outra coisa que não "em toda olhada".
+        porteiro: porteiros.some((o) => o.valor === porteiro) ? porteiro : 'sempre',
+        confirmarEm,
+        ...(mandaFaixa ? { janelas: comFaixa ? faixaDeTodosOsDias(faixaDe, faixaAte) : [] } : {}),
       };
       if (regra) {
         const r = await regrasApi.editar(regra.id, corpo);
@@ -179,7 +243,7 @@ export function GavetaDoCriterio({
           />
         </Campo>
 
-        <Escolhas nome={`${p}-tipo`} rotulo="O que conferir" opcoes={TIPOS} valor={tipo} aoMudar={setTipo} />
+        <Escolhas nome={`${p}-tipo`} rotulo="O que conferir" opcoes={TIPOS} valor={tipo} aoMudar={mudarTipo} />
 
         {/* Presença e contagem são julgadas dentro da loja, pelo detector.
             Ele não lê o texto: trabalha com o objeto e a quantidade. Sem
@@ -308,7 +372,76 @@ export function GavetaDoCriterio({
               o horário de funcionamento for informado, na tela de critérios.
             </Alerta>
           )}
+
+          <label htmlFor={`${p}-faixa`} className="mt-1.5 flex cursor-pointer items-center gap-2.5">
+            <input
+              id={`${p}-faixa`}
+              type="checkbox"
+              checked={comFaixa}
+              onChange={(e) => mudarFaixa({ com: e.target.checked })}
+              className="h-[17px] w-[17px] shrink-0 accent-farol-marca"
+            />
+            Só numa faixa de horas
+          </label>
+          {comFaixa && (
+            <>
+              <div className="grid grid-cols-2 gap-3.5">
+                <Campo rotulo="Das" htmlFor={`${p}-faixa-de`}>
+                  <input
+                    id={`${p}-faixa-de`}
+                    type="time"
+                    required
+                    className="entrada font-mono"
+                    value={faixaDe}
+                    onChange={(e) => mudarFaixa({ de: e.target.value })}
+                  />
+                </Campo>
+                <Campo rotulo="Às" htmlFor={`${p}-faixa-ate`}>
+                  <input
+                    id={`${p}-faixa-ate`}
+                    type="time"
+                    required
+                    className="entrada font-mono"
+                    value={faixaAte}
+                    onChange={(e) => mudarFaixa({ ate: e.target.value })}
+                  />
+                </Campo>
+              </div>
+              <p className="text-xs text-farol-suave">
+                Todos os dias, dentro do horário escolhido acima.
+                {faixaDe && faixaAte && faixaAte < faixaDe && ` Passa da meia-noite: vai até as ${faixaAte} do dia seguinte.`}
+              </p>
+            </>
+          )}
+          {/* Faixa gravada com mais detalhe do que a gaveta edita: dita, e
+              mantida enquanto ninguém mexer. */}
+          {faixaDetalhada && !mexeuNaFaixa && (
+            <Alerta>
+              Este critério já tem uma faixa de horas com dias diferentes: {resumoDaFaixa(regra?.janelas)}. Ela continua
+              valendo. Marcar a caixa acima troca por uma faixa só, igual em todos os dias.
+            </Alerta>
+          )}
         </div>
+
+        {/* O porteiro vale para o que pode ir à nuvem. Presença e contagem
+            já são julgadas na loja em toda olhada: não têm a escolha. */}
+        {porteiros.length > 0 && (
+          <Grupo titulo="Quando vale a pena conferir">
+            <Escolhas
+              nome={`${p}-porteiro`}
+              rotulo="Quando vale a pena conferir"
+              rotuloOculto
+              opcoes={porteiros}
+              valor={porteiro}
+              aoMudar={setPorteiro}
+            />
+            <p className="text-[12.5px] text-farol-suave">
+              Quem responde é o detector, dentro da loja e sem custo. Quando a condição não vale, a olhada conta como{' '}
+              <strong className="font-semibold text-farol-tinta">“nada a conferir”</strong>: não vai à nuvem e não entra
+              em “não deu para avaliar”.
+            </p>
+          </Grupo>
+        )}
 
         <Grupo titulo="Quando avisar">
           <div className={GRADE}>
@@ -369,6 +502,30 @@ export function GavetaDoCriterio({
                 value={cooldownMin}
                 onChange={(e) => setCooldownMin(Number(e.target.value))}
               />
+            </Campo>
+            <Campo
+              rotulo="Avisar só se continuar"
+              htmlFor={`${p}-continua`}
+              ajuda="Evita aviso por algo que durou um instante."
+              largo
+            >
+              <select
+                id={`${p}-continua`}
+                className="entrada"
+                value={confirmarEm}
+                onChange={(e) => setConfirmarEm(Number(e.target.value))}
+              >
+                {CONFIRMACOES.map((o) => (
+                  <option key={o.v} value={o.v}>
+                    {o.r}
+                  </option>
+                ))}
+                {/* Valor gravado fora da lista (pela API): aparece, em vez de
+                    a gaveta trocá-lo calada ao salvar. */}
+                {!CONFIRMACOES.some((o) => o.v === confirmarEm) && (
+                  <option value={confirmarEm}>por {confirmarEm} olhadas seguidas</option>
+                )}
+              </select>
             </Campo>
           </div>
         </Grupo>

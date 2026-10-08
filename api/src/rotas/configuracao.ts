@@ -88,7 +88,8 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
       `select r.id, a.zona_id, r.nome, r.tipo, r.criterio, r.criterio_versao,
               r.processo_descricao, r.prioridade, r.severidade,
               r.confianca_minima, r.cooldown_min, r.resolucao, r.janelas,
-              r.acoes, r.base_id, r.retencao_midia_dias, r.parametros, r.quando
+              r.acoes, r.base_id, r.retencao_midia_dias, r.parametros, r.quando,
+              r.porteiro, r.confirmar_em
          from regra r
          join regra_alvo a on a.regra_id = r.id
          join zona z on z.id = a.zona_id
@@ -127,6 +128,11 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
         // Em que horário conferir, em relação ao horário da loja (que desce
         // em `loja.horarioFuncionamento`). O agente antigo ignora os dois.
         quando: r.quando,
+        // Quando vale a pena conferir, e em quantas olhadas seguidas o
+        // critério tem de ficar fora para avisar (migration 023). O agente
+        // antigo ignora os dois e segue como era.
+        porteiro: r.porteiro,
+        confirmarEm: r.confirmar_em,
       });
       regrasPorZona.set(r.zona_id, lista);
     }
