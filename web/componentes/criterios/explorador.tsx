@@ -41,10 +41,10 @@ import type { Ponto, Regra, Setor } from '@/lib/api';
 
 import { criteriosDoCanal, emOrdem, rotuloDoCanal, temVariasAreas } from './canais';
 import {
+  ajustesEmLinha,
   faltaAFotoPadrao,
   iconeDoTipo,
   mandaAFotoPadrao,
-  nomeDaPrioridade,
   nomeDaSeveridade,
   etiquetaDoPorteiro,
   nomeDoTipo,
@@ -249,11 +249,7 @@ function CartaoDoCriterio({
       </div>
 
       <p className="col-span-2 line-clamp-2 text-[13px] text-farol-suave md:col-start-2">{regra.criterio}</p>
-      <p className="col-span-2 text-xs text-farol-suave md:col-start-2">
-        prioridade {nomeDaPrioridade(regra.prioridade)} · confiança mínima{' '}
-        {Number(regra.confianca_minima).toFixed(2).replace('.', ',')} · silêncio de {regra.cooldown_min} min · versão{' '}
-        {regra.criterio_versao}
-      </p>
+      <p className="col-span-2 text-xs text-farol-suave md:col-start-2">{ajustesEmLinha(regra)}</p>
     </li>
   );
 }

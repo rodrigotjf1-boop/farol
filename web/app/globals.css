@@ -391,6 +391,156 @@ dialog::backdrop {
   pointer-events: none;
 }
 
+/* =====================================================================
+   Padrões (Análises → Padrões)
+   =====================================================================
+   Três desenhos montados pela tela: a semana típica (um quadro por dia e
+   hora, mais escuro quanto maior o número), "hoje contra o normal" e o fio
+   de cada tendência. As cores são as do tema, misturadas aqui. Fora de
+   `@layer`, como a planta: os nomes são montados em tempo de execução.
+   ===================================================================== */
+.calor {
+  --rampa: var(--marca);
+  display: grid;
+  gap: 4px;
+  min-width: calc(48px + var(--n) * 38px);
+  grid-template-columns: 48px repeat(var(--n), minmax(34px, 1fr));
+  font-variant-numeric: tabular-nums;
+}
+.calor.ruim {
+  --rampa: var(--critico);
+}
+.calor-cel {
+  --f: 0;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  background: color-mix(in srgb, rgb(var(--rampa)) calc(var(--f) * 88%), rgb(var(--realce)));
+  color: rgb(var(--tinta));
+  font-family: theme('fontFamily.mono');
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: box-shadow 0.16s;
+}
+.calor-cel.forte {
+  color: rgb(var(--sobre-marca));
+}
+.calor.ruim .calor-cel.forte {
+  color: rgb(var(--sobre-critico));
+}
+.calor-cel:hover {
+  box-shadow: inset 0 0 0 2px rgb(var(--borda-forte));
+}
+.calor-cel[aria-pressed='true'] {
+  box-shadow:
+    0 0 0 2px rgb(var(--painel)),
+    0 0 0 4px rgb(var(--facho));
+}
+.calor-cel.maior::after {
+  content: '';
+  display: block;
+  width: 5px;
+  height: 5px;
+  margin: 1px auto 0;
+  border-radius: 50%;
+  background: rgb(var(--facho));
+}
+.calor-escala {
+  display: block;
+  width: 96px;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgb(var(--realce)), color-mix(in srgb, rgb(var(--rampa, var(--marca))) 88%, rgb(var(--realce))));
+}
+.hn {
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+}
+.hn text {
+  fill: rgb(var(--suave));
+  font-family: theme('fontFamily.mono');
+  font-size: 11px;
+}
+.hn .grade {
+  stroke: rgb(var(--borda));
+  stroke-width: 1;
+}
+.hn .base {
+  stroke: rgb(var(--borda-forte));
+  stroke-width: 1;
+}
+.hn .banda {
+  fill: rgb(var(--graf-ok));
+  opacity: 0.55;
+}
+.hn .normal {
+  fill: none;
+  stroke: rgb(var(--ok));
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+  stroke-linecap: round;
+}
+.hn .hoje {
+  fill: none;
+  stroke: rgb(var(--marca));
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.hn .hoje-pt {
+  fill: rgb(var(--marca));
+  stroke: rgb(var(--painel));
+  stroke-width: 2;
+}
+.hn .hoje-pt.parcial {
+  fill: rgb(var(--painel));
+  stroke: rgb(var(--marca));
+}
+.hn .agora {
+  stroke: rgb(var(--facho));
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+.hn .agora-txt {
+  fill: rgb(var(--facho-tinta));
+  font-family: theme('fontFamily.sans');
+  font-weight: 600;
+}
+.hn .depois {
+  fill: rgb(var(--realce));
+  opacity: 0.6;
+}
+.fio {
+  width: 132px;
+  height: 44px;
+  flex: none;
+  overflow: visible;
+}
+.fio polyline {
+  fill: none;
+  stroke: rgb(var(--marca));
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.fio circle {
+  fill: rgb(var(--painel));
+  stroke: rgb(var(--marca));
+  stroke-width: 2;
+}
+.fio circle.ultimo {
+  fill: rgb(var(--facho));
+  stroke: rgb(var(--painel));
+}
+.fio .limite {
+  stroke: rgb(var(--critico));
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

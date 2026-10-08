@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { abasDeAnalises } from '@/componentes/analises/abas-de-analises';
 import {
   baldes as montarBaldes,
   dinheiro,
@@ -51,10 +52,11 @@ import { PorCanal } from '@/componentes/analises/por-canal';
 import { AvisosDoRecorte, PorCriterioECanal } from '@/componentes/analises/tabela-e-avisos';
 import { useConsole } from '@/componentes/console';
 import { horaNaLoja, numero, plural, porcento } from '@/componentes/formatos';
+import { Abas } from '@/componentes/ui/abas';
 import { useAvisar } from '@/componentes/ui/avisos';
 import { Botao } from '@/componentes/ui/botao';
 import { Alerta, Cabecalho, CARTAO, Ossos, Ponto, Titulo, Vazio } from '@/componentes/ui/pecas';
-import { analisesApi, ErroDaApi, type Analises } from '@/lib/api';
+import { analisesApi, especialistaApi, ErroDaApi, type Analises } from '@/lib/api';
 
 /** De quanto em quanto tempo a tela se atualiza sozinha, com a aba à vista. */
 const ATUALIZA_MS = 60_000;
@@ -204,6 +206,19 @@ export default function AnalisesDaLoja() {
   const avisar = useAvisar();
 
   const [filtros, setFiltros] = useState<Filtros>({ ...FILTROS_PADRAO, dia: '' });
+  // Quantas saídas do padrão esperam revisão: é o número ao lado da aba "Padrões". Se não vier, a aba fica sem ele.
+  const [aRever, setARever] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    if (!veResultados) return;
+    let vivo = true;
+    especialistaApi
+      .obter(id)
+      .then((p) => vivo && setARever(p.aRever))
+      .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
+  }, [id, veResultados]);
   // Quem chega da planta ("Análises deste canal") traz o canal no endereço.
   // Lido depois do primeiro desenho, que é igual no servidor e no navegador.
   useEffect(() => {
@@ -273,32 +288,35 @@ export default function AnalisesDaLoja() {
   const doPeriodo = dados && (!esperado || (dados.de === esperado.de && dados.ate === esperado.ate));
 
   const cabecalho = (
-    <Cabecalho
-      sobre={
-        <>
-          <Store className="h-[15px] w-[15px]" aria-hidden />
-          {loja?.nome ?? dados?.loja.nome ?? 'Loja'}
-        </>
-      }
-      titulo="Análises"
-      acoes={
-        veResultados && (
-          <Botao
-            variante="fantasma"
-            quadrado
-            aria-label="Atualizar agora"
-            title="Atualizar agora"
-            onClick={() => void buscar(true)}
-            disabled={buscando}
-            className="!flex-none"
-          >
-            <RefreshCw className={`h-[18px] w-[18px] ${buscando ? 'animate-spin' : ''}`} aria-hidden />
-          </Botao>
-        )
-      }
-    >
-      O que foi julgado nas câmeras, hora a hora: em que canal, onde foi julgado e quanto custou.
-    </Cabecalho>
+    <>
+      <Cabecalho
+        sobre={
+          <>
+            <Store className="h-[15px] w-[15px]" aria-hidden />
+            {loja?.nome ?? dados?.loja.nome ?? 'Loja'}
+          </>
+        }
+        titulo="Análises"
+        acoes={
+          veResultados && (
+            <Botao
+              variante="fantasma"
+              quadrado
+              aria-label="Atualizar agora"
+              title="Atualizar agora"
+              onClick={() => void buscar(true)}
+              disabled={buscando}
+              className="!flex-none"
+            >
+              <RefreshCw className={`h-[18px] w-[18px] ${buscando ? 'animate-spin' : ''}`} aria-hidden />
+            </Botao>
+          )
+        }
+      >
+        O que foi julgado nas câmeras, hora a hora: em que canal, onde foi julgado e quanto custou.
+      </Cabecalho>
+      {veResultados && !erro?.semPermissao && <Abas rotulo="Vistas das análises" abas={abasDeAnalises(id, aRever)} />}
+    </>
   );
 
   if (!veResultados || erro?.semPermissao) {

@@ -2527,17 +2527,19 @@
   // O que dá para olhar: a medida (pessoas por olhada) ou a parte das
   // olhadas que ficou fora do critério / sem avaliar.
   const PD_INDICADORES = {
-    fila: { nome: 'Pessoas na fila do balcão', curto: 'na fila', setor: 'Atendimento', series: [SI['fila-bal']], tipo: 'medida' },
-    posto: { nome: 'Pessoas atrás do balcão', curto: 'atrás do balcão', setor: 'Atendimento', series: [SI['posto-bal']], tipo: 'medida' },
-    chapa: { nome: 'Pessoas na chapa', curto: 'na chapa', setor: 'Cozinha', series: [SI['chapa-chp']], tipo: 'medida' },
-    bancada: { nome: 'Bancada fora do critério', curto: 'fora do critério', setor: 'Cozinha', series: [SI['bancada-m1'], SI['bancada-m2']], tipo: 'fora' },
-    // usados nas contas e nas anomalias; não entram no seletor
+    // `nome` é o que o seletor da semana típica mostra; `rotulo`, o nome do critério
+    fila: { nome: 'Fila no balcão: pessoas', rotulo: 'Fila no balcão', curto: 'pessoas', setor: 'Atendimento', series: [SI['fila-bal']], tipo: 'medida' },
+    posto: { nome: 'Alguém no balcão: pessoas', rotulo: 'Alguém no balcão', curto: 'pessoas', setor: 'Atendimento', series: [SI['posto-bal']], tipo: 'medida' },
+    chapa: { nome: 'Alguém na chapa no horário de pico: pessoas', rotulo: 'Alguém na chapa no horário de pico', curto: 'pessoas', setor: 'Cozinha', series: [SI['chapa-chp']], tipo: 'medida' },
+    // a taxa é de cada canal: o critério que vale em dois canais aparece duas vezes, com o canal no nome
+    bancada1: { nome: 'Bancada limpa entre pedidos fora do critério · Montagem 1', curto: 'fora do critério', setor: 'Cozinha', series: [SI['bancada-m1']], tipo: 'fora' },
+    bancada2: { nome: 'Bancada limpa entre pedidos fora do critério · Montagem 2', curto: 'fora do critério', setor: 'Cozinha', series: [SI['bancada-m2']], tipo: 'fora' },
+    toucaM1: { nome: 'Uso de touca sem conseguir avaliar · Montagem 1', curto: 'sem avaliar', setor: 'Cozinha', series: [SI['touca-m1']], tipo: 'na' },
+    // usados nas contas (a tendência junta os canais do critério); não entram no seletor
+    bancada: { setor: 'Cozinha', series: [SI['bancada-m1'], SI['bancada-m2']], tipo: 'fora' },
     filaFora: { setor: 'Atendimento', series: [SI['fila-bal']], tipo: 'fora' },
-    bancada1: { setor: 'Cozinha', series: [SI['bancada-m1']], tipo: 'fora' },
-    bancada2: { setor: 'Cozinha', series: [SI['bancada-m2']], tipo: 'fora' },
-    toucaM1: { setor: 'Cozinha', series: [SI['touca-m1']], tipo: 'na' },
   };
-  const PD_NO_SELETOR = ['fila', 'posto', 'chapa', 'bancada'];
+  const PD_NO_SELETOR = ['fila', 'posto', 'chapa', 'bancada1', 'bancada2', 'toucaM1'];
 
   const pd = { setor: 'todos', lente: 'frequencia', indicador: 'fila', celula: '', filtro: 'rever', hoje: 'fila', alvo: null };
 
@@ -2561,11 +2563,14 @@
   const pdForaDaConta = (ind, d, h) =>
     PD_ANOMALIAS.some((a) => a.soDestaVez && a.d === d && a.h === h && PD_INDICADORES[a.ind].series.join() === ind.series.join());
 
-  /** O normal de um dia da semana e uma hora, feito dos outros dias iguais. */
-  function pdNormal(ind, dia, h, menosODia = -1) {
+  /**
+   * O normal de um dia da semana e uma hora. Com `antesDe` (há quantos dias foi a hora que se está
+   * comparando), é o que era costume ANTES dela: com os dias de depois na conta, o passado mudaria de cara.
+   */
+  function pdNormal(ind, dia, h, antesDe = -1) {
     const valores = [];
     for (let d = 1; d <= PD_DIAS; d += 1) {
-      if (d === menosODia || diaDaOperacao(d, h) !== dia || pdForaDaConta(ind, d, h)) continue;
+      if ((antesDe >= 0 && d <= antesDe) || diaDaOperacao(d, h) !== dia || pdForaDaConta(ind, d, h)) continue;
       const v = pdValor(ind, d, h);
       if (v !== null) valores.push(v);
     }
@@ -2589,33 +2594,35 @@
   const PD_ANOMALIAS = [
     {
       id: 'balcao-1', d: 1, h: 20, ind: 'posto', onde: 'Balcão · Dentro do balcão', setor: 'Atendimento', grave: true, estado: 'rever',
-      titulo: 'Balcão com uma pessoa no pico',
+      titulo: '“Alguém no balcão”: menos pessoas do que o normal',
+      // as 20h são do pico, e às 21h o costume pede o mesmo: o critério proposto vale para o pico inteiro
       criterio: {
-        nome: 'Pelo menos 2 no balcão no pico', tipo: 'contagem', minimo: 2, lugar: 'Balcão/Dentro do balcão', janela: ['20:00', '22:00'],
-        regra: 'pelo menos 2 × pessoa', texto: 'Entre 20h e 22h há pelo menos duas pessoas atrás do balcão.',
+        nome: 'Pelo menos 2 em Balcão · Dentro do balcão no pico', tipo: 'contagem', minimo: 2, lugar: 'Balcão/Dentro do balcão', janela: ['20:00', '22:00'],
+        regra: 'pelo menos 2 × pessoa', texto: 'Das 20h às 22h há pelo menos 2 pessoas em Balcão · Dentro do balcão.',
       },
     },
     {
       id: 'fila-abertura', d: 5, h: 18, ind: 'fila', onde: 'Balcão · Lado do cliente', setor: 'Atendimento', estado: 'rever',
-      titulo: 'Fila logo na abertura',
+      titulo: '“Fila no balcão”: mais pessoas do que o normal',
+      // fora do pico, o critério proposto é só daquela hora
       criterio: {
-        nome: 'Fila na primeira hora', tipo: 'contagem', maximo: 3, lugar: 'Balcão/Lado do cliente', janela: ['18:00', '19:00'],
-        regra: 'no máximo 3 × pessoa', texto: 'Na primeira hora há no máximo três pessoas esperando no balcão.',
+        nome: 'No máximo 3 em Balcão · Lado do cliente às 18h', tipo: 'contagem', maximo: 3, lugar: 'Balcão/Lado do cliente', janela: ['18:00', '19:00'],
+        regra: 'no máximo 3 × pessoa', texto: 'Das 18h às 19h há no máximo 3 pessoas em Balcão · Lado do cliente.',
       },
     },
-    { id: 'bancada-m2', d: 3, h: 21, ind: 'bancada2', onde: 'Montagem 2', setor: 'Cozinha', estado: 'rever', titulo: 'Bancada fora do critério por muito mais tempo', ajustar: 'bancada' },
+    { id: 'bancada-m2', d: 3, h: 21, ind: 'bancada2', onde: 'Montagem 2', setor: 'Cozinha', estado: 'rever', titulo: '“Bancada limpa entre pedidos” fora do critério por muito mais tempo', ajustar: 'bancada' },
     { id: 'touca-m1', d: 0, h: 19, ind: 'toucaM1', onde: 'Montagem 1', setor: 'Cozinha', estado: 'rever', camera: true, titulo: '“Uso de touca” quase parou de conseguir avaliar', ajustar: 'touca' },
     {
       id: 'balcao-cheio', d: 11, h: 22, ind: 'posto', onde: 'Balcão · Dentro do balcão', setor: 'Atendimento', estado: 'esperado', soDestaVez: true,
-      titulo: 'Balcão com quatro pessoas',
-      revisao: { quem: 'Ana Souza', quando: '27/09', texto: 'Foi só desta vez: jogo na TV, reforcei o balcão. Esta hora ficou de fora da conta do padrão.' },
+      titulo: '“Alguém no balcão”: mais pessoas do que o normal',
+      revisao: { quem: 'Ana Souza', quando: '27/09', texto: 'Jogo na TV: reforcei o balcão. Foi só desta vez: esta hora ficou de fora da conta do padrão.' },
     },
     {
       id: 'bancada-m1', d: 12, h: 21, ind: 'bancada1', onde: 'Montagem 1', setor: 'Cozinha', estado: 'problema',
-      titulo: 'Bancada fora do critério por muito mais tempo',
+      titulo: '“Bancada limpa entre pedidos” fora do critério por muito mais tempo',
       revisao: {
         quem: 'Ana Souza', quando: '26/09', texto: 'Estávamos com um a menos na montagem. Passei a escalar três às sextas.',
-        virou: 'Ajustou “Bancada limpa entre pedidos”: silêncio entre avisos de 15 para 10 minutos.',
+        virou: 'Abriu “Bancada limpa entre pedidos” para ajuste.',
       },
     },
   ];
@@ -2630,7 +2637,9 @@
     const visto = pdValor(ind, a.d, a.h);
     const normal = pdNormal(ind, dia, a.h, a.d);
     const nome = `${PD_ARTIGO[dia]} ${PD_DIAS_PLURAL[dia]} às ${hh(a.h)}`;
-    const faixa = `de ${pdTexto(ind, normal.min)} a ${pdTexto(ind, normal.max)} ${normal.n === 1 ? 'no outro dia igual' : `nos outros ${normal.n} dias iguais`}`;
+    const masculino = PD_ARTIGO[dia] === 'dos';
+    const anteriores = normal.n === 1 ? `n${masculino ? 'o' : 'a'} ${PD_DIA[dia]} anterior` : `n${masculino ? 'os' : 'as'} ${normal.n} ${PD_DIAS_PLURAL[dia]} anteriores`;
+    const faixa = `de ${pdTexto(ind, normal.min)} a ${pdTexto(ind, normal.max)} ${anteriores}`;
     const conta =
       ind.tipo === 'medida'
         ? `Visto: <b>${pessoas(visto)}</b> em média. Normal ${nome}: <b>${umaCasa(normal.mediana)}</b> (${faixa}).`
@@ -2646,20 +2655,22 @@
 
   /** O que mais dá para dizer daquela hora, tirado dos mesmos números. */
   function pdMais(a) {
-    if (a.id === 'balcao-1') {
-      const v = pdValor(PD_INDICADORES.filaFora, a.d, a.h);
-      return v === null ? '' : `Na mesma hora, a fila passou do combinado em ${Math.round(v)}% das olhadas.`;
+    const ind = PD_INDICADORES[a.ind];
+    const [c] = pdCelulas(ind, a.d, a.h);
+    if (ind.tipo === 'medida') {
+      // O critério olha o limite dele, e não o costume: é por isso que a hora fugiu do padrão sem (ou quase
+      // sem) aviso. A frase só entra quando o que foi visto não passou do limite.
+      const limite = { 'balcao-1': ' Ele só pede 1, não o que é costume nessa hora.', 'fila-abertura': ' Ele olha o limite de 6, não o que é costume nessa hora.' }[a.id] ?? '';
+      return `Na mesma hora, o critério ficou fora em ${Math.round((c.fora / c.n) * 100)}% das olhadas e avisou ${plural(c.avisos, 'vez', 'vezes')}.${limite}`;
     }
-    if (a.id === 'fila-abertura') {
-      const [c] = pdCelulas(PD_INDICADORES.fila, a.d, a.h);
-      return `Nessa hora o critério “Fila no balcão” gerou ${plural(c.avisos, 'aviso', 'avisos')}: ele olha o limite de 6 pessoas, não o que é costume na abertura.`;
+    if (ind.tipo === 'fora') {
+      // Depois de avisar, o critério fica o período de silêncio sem olhar: a taxa é só da parte da hora que
+      // foi olhada. Quando o silêncio tirou um quarto das olhadas, ou mais, a frase diz.
+      const emSilencio = a.id === 'bancada-m2' ? Math.round(c.n * 0.4) : 0;
+      const oSilencio = emSilencio ? ` Depois de avisar, ele ficou em silêncio em ${emSilencio} das ${c.n + emSilencio} olhadas da hora: a taxa é só das que ele fez.` : '';
+      return `Foram ${c.fora} olhadas fora do critério em ${c.n}; o critério avisou ${plural(c.avisos, 'vez', 'vezes')} — uma por período de silêncio.${oSilencio}`;
     }
-    if (a.id === 'bancada-m2' || a.id === 'bancada-m1') {
-      const [c] = pdCelulas(PD_INDICADORES[a.ind], a.d, a.h);
-      return `Foram ${c.fora} olhadas fora do critério em ${c.n}; o critério avisou ${plural(c.avisos, 'vez', 'vezes')} — uma por período de silêncio.`;
-    }
-    if (a.camera) return 'Quando é a avaliação que some de uma hora para outra, costuma ser a câmera: mexeram nela ou algo ficou na frente.';
-    return '';
+    return 'Quando é a avaliação que some de uma hora para outra, costuma ser a câmera: mexeram nela ou algo ficou na frente.';
   }
 
   const pdARever = () => PD_ANOMALIAS.filter((a) => a.estado === 'rever');
@@ -2686,54 +2697,105 @@
   }
 
   /** O que se repete num setor, dito em frases feitas dos números. */
+  /** As horas seguidas, em volta da mais alta, que ficam perto dela: é o pico (a mesma conta do servidor). */
+  function pdPico(grade) {
+    const porHora = new Map();
+    for (const [chave, v] of grade) {
+      const h = Number(chave.split('|')[1]);
+      porHora.set(h, [...(porHora.get(h) ?? []), v.media]);
+    }
+    const ordem = (h) => (h - 6 + 24) % 24; // o dia da operação vira às 6h
+    const perfil = [...porHora].map(([h, vs]) => [h, soma(vs) / vs.length]).sort((a, b) => ordem(a[0]) - ordem(b[0]));
+    if (perfil.length < 3) return null;
+    const topo = perfil.reduce((a, b) => (b[1] > a[1] ? b : a));
+    const i = perfil.indexOf(topo);
+    let [de, ate] = [i, i];
+    const perto = (k) => perfil[k][1] >= topo[1] * 0.75;
+    while (de > 0 && perto(de - 1)) de -= 1;
+    while (ate < perfil.length - 1 && perto(ate + 1)) ate += 1;
+    // pico que é o dia inteiro não é pico
+    if (ate - de + 1 > perfil.length * 0.6) return null;
+    const doPico = perfil.slice(de, ate + 1);
+    return { de: doPico[0][0], ate: doPico[doPico.length - 1][0], horas: new Set(doPico.map((x) => x[0])), media: soma(doPico.map((x) => x[1])) / doPico.length };
+  }
+
+  /**
+   * Cada setor em frases, montadas dos números: o movimento (a medida), as duas maiores taxas "fora do
+   * critério" (por critério, juntando os canais do setor) e os dois canais que menos conseguem avaliar.
+   */
   function pdSetores() {
-    const semanaDe = (k) => pdSemana(PD_INDICADORES[k]);
-    const mediaDaHora = (grade, h) => {
-      const vs = [...grade].filter(([k]) => Number(k.split('|')[1]) === h).map(([, v]) => v.media);
-      return vs.length ? soma(vs) / vs.length : 0;
-    };
-    const maiorDe = (grade) => [...grade].reduce((a, b) => (b[1].media > a[1].media ? b : a));
+    const celulasDe = (series) => pdPeriodo((c) => series.includes(c.si));
     const taxa = (cs, campo) => (soma(cs.map((c) => c[campo])) / Math.max(1, soma(cs.map((c) => c.n)))) * 100;
-
-    const fila = semanaDe('fila');
-    const posto = semanaDe('posto');
-    const [chaveFila, topoFila] = maiorDe(fila);
-    const [diaCheio, horaCheia] = chaveFila.split('|').map(Number);
-    const filaTodas = pdPeriodo((c) => c.si === SI['fila-bal']);
-
-    const chapa = semanaDe('chapa');
-    const [chaveChapa, topoChapa] = maiorDe(chapa);
-    const diaDaChapa = Number(chaveChapa.split('|')[0]);
-    const bancadaTodas = pdPeriodo((c) => PD_INDICADORES.bancada.series.includes(c.si));
-    const bancadaPico = bancadaTodas.filter((c) => c.h === 20 || c.h === 21);
-    const toucaM1 = pdPeriodo((c) => c.si === SI['touca-m1']);
+    const descrever = ({ setor, medidas, foras, nas }) => {
+      const frases = [];
+      const fatos = [];
+      let pico = null;
+      medidas.forEach(({ k, onde }, n) => {
+        const ind = PD_INDICADORES[k];
+        const grade = pdSemana(ind);
+        const p = pdPico(grade);
+        if (n === 0) pico = p;
+        if (p) {
+          frases.push(`Em ${onde}, o movimento tem pico das ${hh(p.de)} às ${hh((p.ate + 1) % 24)}: ${pessoas(p.media)}, em média.`);
+          if (n === 0) fatos.push(['Pico', `${hh(p.de)} às ${hh((p.ate + 1) % 24)}`]);
+        } else {
+          frases.push(`Em ${onde} há ${pessoas(pdJuntar(ind, celulasDe(ind.series)))}, em média, sem hora de pico marcada.`);
+        }
+        const [chave, topo] = [...grade].reduce((a, b) => (b[1].media > a[1].media ? b : a));
+        const [dia, h] = chave.split('|').map(Number);
+        fatos.push([n === 0 ? 'Hora mais cheia' : `Hora mais cheia · ${onde}`, `${PD_DIA[dia]} às ${hh(h)}, ${pessoas(topo.media)}`]);
+      });
+      foras
+        .map((f) => {
+          const cs = celulasDe(f.series);
+          return { ...f, geral: taxa(cs, 'fora'), noPico: pico ? taxa(cs.filter((c) => pico.horas.has(c.h)), 'fora') : null };
+        })
+        .filter((f) => f.geral >= 1)
+        .sort((a, b) => b.geral - a.geral)
+        .slice(0, 2)
+        .forEach((f) => {
+          const comPico = f.noPico !== null && Math.abs(f.noPico - f.geral) >= 2;
+          frases.push(`“${f.nome}”${f.onde ? ` (${f.onde})` : ''} fica fora do critério em ${Math.round(f.geral)}% das olhadas${comPico ? ` — ${Math.round(f.noPico)}% no pico.` : '.'}`);
+          if (fatos.length < 4) fatos.push([`${f.nome} fora do critério`, comPico ? `${Math.round(f.geral)}% · ${Math.round(f.noPico)}% no pico` : `${Math.round(f.geral)}%`]);
+        });
+      nas
+        .map((x) => ({ ...x, geral: taxa(celulasDe(x.series), 'na') }))
+        .filter((x) => x.geral >= 30)
+        .sort((a, b) => b.geral - a.geral)
+        .slice(0, 2)
+        .forEach((x) => {
+          frases.push(`Em ${x.onde}, “${x.nome}” não dá para avaliar em ${Math.round(x.geral)}% das olhadas.`);
+          if (fatos.length < 4) fatos.push([`${x.nome} sem avaliar (${x.onde})`, `${Math.round(x.geral)}% das olhadas`]);
+        });
+      return { setor, texto: frases.join(' '), fatos };
+    };
 
     return [
-      {
+      descrever({
         setor: 'Atendimento',
-        texto:
-          `Abre às 18h, de terça a domingo; sexta e sábado vai até 1h. O movimento tem um pico só, das 20h às 22h: ` +
-          `${umaCasa(mediaDaHora(fila, 20))} pessoas na fila e ${umaCasa(mediaDaHora(posto, 20))} atrás do balcão, em média. ` +
-          `Antes das 19h e a partir das 23h o balcão fica com uma pessoa.`,
-        fatos: [
-          ['Pico', '20h às 22h'],
-          ['Dia mais cheio', `${PD_DIA[diaCheio]}, ${umaCasa(topoFila.media)} na fila às ${hh(horaCheia)}`],
-          ['No pico', `${umaCasa(mediaDaHora(posto, 20))} atrás do balcão`],
-          ['Fila acima do combinado', `${umaCasa(taxa(filaTodas, 'fora'))}% das olhadas`],
+        medidas: [{ k: 'fila', onde: 'Balcão · Lado do cliente' }, { k: 'posto', onde: 'Balcão · Dentro do balcão' }],
+        // num canal só, e numa área que tem nome, a frase diz onde
+        foras: [
+          { nome: 'Fila no balcão', onde: 'Balcão · Lado do cliente', series: [SI['fila-bal']] },
+          { nome: 'Alguém no balcão', onde: 'Balcão · Dentro do balcão', series: [SI['posto-bal']] },
         ],
-      },
-      {
+        nas: [],
+      }),
+      descrever({
         setor: 'Cozinha',
-        texto:
-          `Na chapa há uma pessoa quase o tempo todo; no pico de ${PD_DIA[diaDaChapa]} chega a ${umaCasa(topoChapa.media)}. ` +
-          `A bancada fica fora do critério em ${Math.round(taxa(bancadaTodas, 'fora'))}% das olhadas — ${Math.round(taxa(bancadaPico, 'fora'))}% no pico. ` +
-          `Em Montagem 1, o uso de touca não dá para avaliar em ${Math.round(taxa(toucaM1, 'na'))}% das olhadas.`,
-        fatos: [
-          ['Na chapa, no pico', `${umaCasa(topoChapa.media)} em média (${PD_DIA[diaDaChapa]})`],
-          ['Bancada fora do critério', `${Math.round(taxa(bancadaTodas, 'fora'))}% · ${Math.round(taxa(bancadaPico, 'fora'))}% no pico`],
-          ['Touca sem avaliar (Montagem 1)', `${Math.round(taxa(toucaM1, 'na'))}% das olhadas`],
+        medidas: [{ k: 'chapa', onde: 'Chapa' }],
+        foras: [
+          { nome: 'Bancada limpa entre pedidos', series: [SI['bancada-m1'], SI['bancada-m2']] },
+          { nome: 'Alguém na chapa no horário de pico', series: [SI['chapa-chp']] },
+          { nome: 'Uso de touca', series: [SI['touca-chp'], SI['touca-m1'], SI['touca-m2']] },
+          { nome: 'Cesto fora do óleo com a fritadeira parada', series: [SI['cesto-fri']] },
         ],
-      },
+        nas: [
+          { nome: 'Uso de touca', onde: 'Chapa', series: [SI['touca-chp']] },
+          { nome: 'Uso de touca', onde: 'Montagem 1', series: [SI['touca-m1']] },
+          { nome: 'Uso de touca', onde: 'Montagem 2', series: [SI['touca-m2']] },
+        ],
+      }),
       { setor: 'Estoque', vazio: 'Nenhum critério mede este setor: não há do que fazer um padrão. Um critério de presença ou de contagem já basta para começar.' },
     ];
   }
@@ -2757,8 +2819,8 @@
     const bastante = fila.filter((c) => medidaDaHora(SI['posto-bal'], c.d, c.h) >= 1.5);
     const r1 = [taxaEm(pouca, 'fora'), taxaEm(bastante, 'fora')];
 
-    // 2 · cozinha cheia × bancada fora do critério
-    const bancada = pdPeriodo((c) => PD_INDICADORES.bancada.series.includes(c.si) && noPico(c));
+    // 2 · gente na chapa × bancada fora do critério em Montagem 1 (a relação é de cada canal)
+    const bancada = pdPeriodo((c) => c.si === SI['bancada-m1'] && noPico(c));
     const cheia = bancada.filter((c) => medidaDaHora(SI['chapa-chp'], c.d, c.h) >= 1.5);
     const normal = bancada.filter((c) => medidaDaHora(SI['chapa-chp'], c.d, c.h) < 1.5);
     const r2 = [taxaEm(cheia, 'fora'), taxaEm(normal, 'fora')];
@@ -2770,23 +2832,26 @@
     const r3 = [taxaEm(comMovimento, 'na'), taxaEm(semMovimento, 'na')];
 
     const horas = (cs) => new Set(cs.map((c) => `${c.d}|${c.h}`)).size;
+    const mesmasHoras = 'comparando as mesmas horas do dia (19h, 20h, 21h, 22h)';
+    // relação que não é relação: as duas barras calmas
+    const calma = (r, i) => forca(...r) === 'nenhuma' || r[i] <= r[1 - i];
     return [
       {
-        setor: 'Atendimento', pergunta: 'Gente atrás do balcão × fila acima do combinado', forca: forca(...r1),
-        titulo: 'Com menos de duas pessoas no balcão, a fila estoura mais',
-        linhas: [['Com menos de 2 atrás do balcão', r1[0], false], ['Com 2 ou mais', r1[1], true]],
-        pe: `${horas(pouca)} horas com menos de 2 · ${horas(bastante)} com 2 ou mais · das 19h às 23h`, sufixo: 'das olhadas com fila acima de 6',
+        setor: 'Atendimento', pergunta: 'Pessoas em Balcão · Dentro do balcão × “Fila no balcão”', forca: forca(...r1),
+        titulo: 'Com menos de 2 em Balcão · Dentro do balcão, “Fila no balcão” fica mais tempo fora do critério',
+        linhas: [['Com menos de 2 em Balcão · Dentro do balcão', r1[0], calma(r1, 0)], ['Com 2 ou mais', r1[1], calma(r1, 1)]],
+        pe: `${plural(horas(pouca), 'hora', 'horas')} com menos de 2 · ${horas(bastante)} com 2 ou mais · ${mesmasHoras}`, sufixo: 'das olhadas de “Fila no balcão” fora do critério',
       },
       {
-        setor: 'Cozinha', pergunta: 'Movimento na cozinha × bancada limpa', forca: forca(...r2),
-        titulo: 'Com a cozinha cheia, a bancada fica mais tempo fora do critério',
-        linhas: [['Com 2 pessoas na chapa', r2[0], false], ['Com 1 pessoa', r2[1], true]],
-        pe: `${horas(cheia)} horas com a cozinha cheia · ${horas(normal)} com ela normal · das 19h às 23h`, sufixo: 'das olhadas da bancada fora do critério',
+        setor: 'Cozinha', pergunta: 'Pessoas em Chapa × “Bancada limpa entre pedidos” em Montagem 1', forca: forca(...r2),
+        titulo: 'Com 2 ou mais em Chapa, “Bancada limpa entre pedidos” em Montagem 1 fica mais tempo fora do critério',
+        linhas: [['Com menos de 2 em Chapa', r2[1], calma(r2, 1)], ['Com 2 ou mais', r2[0], calma(r2, 0)]],
+        pe: `${plural(horas(normal), 'hora', 'horas')} com menos de 2 · ${horas(cheia)} com 2 ou mais · ${mesmasHoras}`, sufixo: 'das olhadas de “Bancada limpa entre pedidos” em Montagem 1 fora do critério',
       },
       {
-        setor: 'Cozinha', pergunta: 'Movimento × touca sem avaliar em Montagem 1', forca: forca(...r3),
-        titulo: 'A touca fica sem avaliar com a loja cheia ou vazia: não é o movimento',
-        linhas: [['Das 19h às 23h', r3[0], true], ['Nas outras horas', r3[1], true]],
+        setor: 'Cozinha', pergunta: 'Movimento × “Uso de touca” sem avaliar em Montagem 1', forca: forca(...r3),
+        titulo: '“Uso de touca” em Montagem 1 fica sem avaliar com a loja cheia ou vazia: não é o movimento',
+        linhas: [['Das 19h às 23h', r3[0], calma(r3, 0)], ['Nas outras horas', r3[1], calma(r3, 1)]],
         pe: 'Quando a taxa não muda com a hora, o problema é o que a câmera mostra — veja a sugestão de marcar a área.', sufixo: 'das olhadas sem conseguir avaliar',
       },
     ];
@@ -2836,7 +2901,7 @@
     const setas = (serie, f) => serie.map(f).join(' → ');
     return [
       {
-        setor: 'Atendimento', titulo: 'Fila no pico de sábado', serie: sabados, rumo: rFila, limite: 6, ruim: 'sobe',
+        setor: 'Atendimento', titulo: 'Fila no balcão no pico de sábado', serie: sabados, rumo: rFila, limite: 6, ruim: 'sobe',
         valor: `${umaCasa(sabados[3])}<small> pessoas, sábado às 20h</small>`,
         texto:
           `<b>${setas(sabados, umaCasa)}</b> nos últimos quatro sábados. ` +
@@ -2845,13 +2910,13 @@
             : 'Sem mudança que peça ação.'),
       },
       {
-        setor: 'Cozinha', titulo: 'Bancada fora do critério', serie: bancada, rumo: rBancada, ruim: 'sobe',
+        setor: 'Cozinha', titulo: 'Bancada limpa entre pedidos fora do critério', serie: bancada, rumo: rBancada, ruim: 'sobe',
         valor: `${Math.round(bancada[3])}%<small> das olhadas, na última semana</small>`,
-        texto: `<b>${setas(bancada, (v) => `${Math.round(v)}%`)}</b> nas últimas quatro semanas, em Montagem 1 e 2. Há uma correção registrada em 26/09 para a Montagem 1.`,
+        texto: `<b>${setas(bancada, (v) => `${Math.round(v)}%`)}</b> nas últimas quatro semanas, em Montagem 1 e Montagem 2. Há uma correção registrada em 26/09, em Montagem 1.`,
       },
       {
         setor: 'loja', titulo: 'Gasto com a nuvem', serie: custo, rumo: rCusto, ruim: 'sobe',
-        valor: `${dinheiro(custo[3])}<small> por dia aberto</small>`,
+        valor: `${dinheiro(custo[3])}<small> por dia com análise</small>`,
         texto: `<b>${setas(custo, dinheiro)}</b> por dia, semana a semana. ${rCusto.sentido === 'estável' ? 'Não mudou: o gasto acompanha o número de critérios que vão à nuvem, não o movimento.' : ''}`,
       },
       {
@@ -2915,7 +2980,7 @@
 
     $('[data-pd-hoje-titulo]').textContent = `Hoje contra o normal ${PD_ARTIGO[dia]} ${PD_DIAS_PLURAL[dia]}`;
     $('[data-pd-hoje]').innerHTML =
-      `<svg class="hn" viewBox="0 0 ${L} ${A}" width="${L}" height="${A}" role="img" aria-label="${ind.nome}: hoje até agora, comparado com a faixa do normal ${PD_ARTIGO[dia]} ${PD_DIAS_PLURAL[dia]}.">` +
+      `<svg class="hn" viewBox="0 0 ${L} ${A}" width="${L}" height="${A}" role="img" aria-label="${ind.rotulo}: hoje até agora, comparado com a faixa do normal ${PD_ARTIGO[dia]} ${PD_DIAS_PLURAL[dia]}.">` +
       [teto, teto / 2].map((v) => `<line class="grade" x1="${m.e}" x2="${L - m.d}" y1="${y(v)}" y2="${y(v)}"/><text x="${m.e - 6}" y="${y(v) + 4}" text-anchor="end">${String(v).replace('.', ',')}</text>`).join('') +
       `<line class="base" x1="${m.e}" x2="${L - m.d}" y1="${y(0)}" y2="${y(0)}"/><text x="${m.e - 6}" y="${y(0) + 4}" text-anchor="end">0</text>` +
       `<rect class="depois" x="${agoraX.toFixed(1)}" y="${m.c}" width="${(L - m.d - agoraX).toFixed(1)}" height="${A - m.c - m.b}"/>` +
@@ -2935,47 +3000,74 @@
       (fora.length ? `Fora da faixa do normal: ${fora.map(hh).join(', ')}. ` : 'Até agora, o dia está dentro do normal. ') +
       (frente.length
         ? `O esperado daqui em diante: ${frente.map(([h, n]) => `${pdTexto(ind, n.media)} às ${hh(h)}`).join(', ')}.`
-        : 'Não há mais hora aberta hoje.') +
+        : 'Não há mais hora com padrão hoje.') +
       ' A hora corrente ainda está incompleta.';
-    $('[data-pd-hoje-seg]').innerHTML = ['fila', 'posto', 'chapa']
-      .filter((k) => pdDoSetor(PD_INDICADORES[k]))
-      .map((k) => `<button type="button" data-pd-hoje-ind="${k}" aria-pressed="${pd.hoje === k}">${{ fila: 'Fila', posto: 'Balcão', chapa: 'Chapa' }[k]}</button>`)
+    // as opções levam o nome do critério; com uma só não há o que escolher
+    const doSetor = ['fila', 'posto', 'chapa'].filter((k) => pdDoSetor(PD_INDICADORES[k]));
+    $('[data-pd-hoje-seg]').hidden = doSetor.length < 2;
+    $('[data-pd-hoje-seg]').innerHTML = doSetor
+      .map((k) => `<button type="button" data-pd-hoje-ind="${k}" aria-pressed="${pd.hoje === k}">${PD_INDICADORES[k].rotulo}</button>`)
       .join('');
   }
 
   // ── sugestões ──
   function pdSugestoes() {
     const taxa = (cs, campo) => (soma(cs.map((c) => c[campo])) / Math.max(1, soma(cs.map((c) => c.n)))) * 100;
+    const semResposta = (cs) => soma(cs.map((c) => (c.custo * c.na) / c.n));
     const toucaM1 = pdPeriodo((c) => c.si === SI['touca-m1']);
-    const semResposta = soma(toucaM1.map((c) => (c.custo * c.na) / c.n));
-    const toucaChapa = pdPeriodo((c) => c.si === SI['touca-chp']);
-    const chapaVazia = taxa(pdPeriodo((c) => c.si === SI['chapa-chp']), 'fora');
-    const bancada = pdPeriodo((c) => PD_INDICADORES.bancada.series.includes(c.si));
+    const toucaM2 = pdPeriodo((c) => c.si === SI['touca-m2']);
     const descoberto = pdPeriodo((c) => c.si === SI['posto-bal'] && (c.h === 20 || c.h === 21) && medidaDaHora(c.si, c.d, c.h) < 1.5).length;
     const [r1] = pdRelacoes();
     const balcao = PD_ANOMALIAS.find((a) => a.id === 'balcao-1');
+    // a foto padrão é de cada canal: o critério que vale em dois dá duas sugestões, com o canal no título
+    const fotoPadrao = (canal, si) => {
+      const cs = pdPeriodo((c) => c.si === si);
+      return {
+        setor: 'Cozinha', icone: 'image', titulo: `Use a foto padrão em “Bancada limpa entre pedidos” (${canal})`,
+        texto: `Hoje cada olhada de ${canal} vai à nuvem: <b>${numero.format(soma(cs.map((c) => c.n)))} análises e ${dinheiro(soma(cs.map((c) => c.custo)))}</b> em 28 dias. Com a foto padrão do canal guardada, a loja compara sozinha e só pergunta à nuvem quando a cena está diferente.`,
+        acao: { rotulo: 'Ver a foto padrão', ir: 'area' },
+      };
+    };
 
+    // O critério ligado que, no período, nunca ficou fora nem avisou — e que consegue avaliar. Só os dois de
+    // mais olhadas: numa loja nova seriam quase todos, e a lista viraria só isso.
+    const olhadas = (cs) => soma(cs.map((c) => c.n));
+    const duvidas = AN_SERIES.map((s, si) => ({ s, cs: pdPeriodo((c) => c.si === si) }))
+      .filter(({ cs }) => olhadas(cs) >= 500 && soma(cs.map((c) => c.fora)) === 0 && soma(cs.map((c) => c.avisos)) === 0 && taxa(cs, 'na') < 30)
+      .sort((a, b) => olhadas(b.cs) - olhadas(a.cs))
+      .slice(0, 2)
+      .map(({ s, cs }) => {
+        const canal = AN_CANAIS.find((c) => c.id === s.canal).nome;
+        return {
+          setor: ARVORE.find((g) => g.canais.some((c) => c.nome === canal)).setor, icone: 'circle-help',
+          titulo: `“${CRITERIOS[s.crit].nome}” nunca ficou fora do critério: vale manter?`,
+          texto: `Em 28 dias foram <b>${numero.format(olhadas(cs))} olhadas</b> em ${canal} e nenhuma fora do critério. Se o limite está folgado demais, ele não avisa do que importa; se está certo, é só a confirmação de que vai bem.`,
+          acao: { rotulo: 'Ver o critério', editar: s.crit },
+        };
+      });
+    const duvidasDe = (setor) => duvidas.filter((d) => d.setor === setor);
+
+    // na ordem dos setores; dentro de cada um, pelo título, com a dúvida por último — como o servidor entrega
     return [
       {
-        setor: 'Cozinha', icone: 'crop', titulo: 'Marque a área da bancada em Montagem 1',
-        texto: `“Uso de touca” não consegue avaliar em <b>${Math.round(taxa(toucaM1, 'na'))}% das olhadas</b> neste canal. Em 28 dias, <b>${dinheiro(semResposta)}</b> foram gastos em perguntas que voltaram sem resposta. A pergunta é feita sobre o quadro inteiro; com a área marcada, a imagem que sobe é só o que importa.`,
+        setor: 'Atendimento', icone: 'hash', titulo: `Crie o critério “${balcao.criterio.nome}”`,
+        texto: `Em 28 dias, Balcão · Dentro do balcão ficou com menos de 2 em <b>${plural(descoberto, 'hora', 'horas')}</b>. Nessas horas “Fila no balcão” fica fora do critério em <b>${Math.round(r1.linhas[0][1])}% das olhadas</b>; com 2 ou mais, em ${Math.round(r1.linhas[1][1])}%. Hoje “Alguém no balcão” só pede 1.`,
+        acao: { rotulo: 'Criar critério', criterio: balcao.criterio },
+      },
+      ...duvidasDe('Atendimento'),
+      {
+        setor: 'Cozinha', icone: 'crop', titulo: 'Marque a área em Montagem 1',
+        texto: `“Uso de touca” não consegue avaliar em <b>${Math.round(taxa(toucaM1, 'na'))}% das olhadas</b> neste canal. Em 28 dias, <b>${dinheiro(semResposta(toucaM1))}</b> foram gastos em perguntas que voltaram sem resposta. A pergunta é feita sobre o quadro inteiro; com a área marcada, a imagem que sobe é só o que importa.`,
         acao: { rotulo: 'Abrir quadro e área', ir: 'area' },
       },
       {
-        setor: 'Cozinha', icone: 'user-round-check', titulo: 'Só confira a touca com alguém na área',
-        texto: `Touca só dá para avaliar com gente na imagem. Na Chapa, onde o detector também olha, a área ficou vazia em <b>${umaCasa(chapaVazia)}% das olhadas</b> — cerca de <b>${dinheiro((soma(toucaChapa.map((c) => c.custo)) * chapaVazia) / 100)}</b> em 28 dias. Nos outros canais não há essa medida ainda: ligando a opção, a loja passa a contar.`,
+        setor: 'Cozinha', icone: 'user-round-check', titulo: 'Só confira “Uso de touca” com alguém na área',
+        texto: `Em Montagem 2, ele não dá para avaliar em <b>${Math.round(taxa(toucaM2, 'na'))}% das olhadas</b> — cerca de <b>${dinheiro(semResposta(toucaM2))}</b> em 28 dias. Se ele depende de gente na imagem, ligue “Com pessoa na área”: a loja confere antes, sem custo, e só pergunta quando há alguém.`,
         acao: { rotulo: 'Ajustar o critério', porteiro: 'touca' },
       },
-      {
-        setor: 'Cozinha', icone: 'image', titulo: 'Use a foto padrão na “Bancada limpa”',
-        texto: `Hoje cada olhada da bancada vai à nuvem: <b>${numero.format(soma(bancada.map((c) => c.n)))} análises e ${dinheiro(soma(bancada.map((c) => c.custo)))}</b> em 28 dias. Com a foto padrão, a loja compara sozinha e só pergunta à nuvem na dúvida. Quanto isso economiza sai do ensaio com as imagens já guardadas — antes de ligar.`,
-        acao: { rotulo: 'Ver a foto padrão', ir: 'area' },
-      },
-      {
-        setor: 'Atendimento', icone: 'hash', titulo: `Crie o critério “${balcao.criterio.nome}”`,
-        texto: `Em 28 dias, o balcão ficou com menos de duas pessoas em <b>${plural(descoberto, 'hora', 'horas')} do pico</b>. Nessas horas a fila passa do combinado em <b>${Math.round(r1.linhas[0][1])}% das olhadas</b>; com duas ou mais, em ${Math.round(r1.linhas[1][1])}%. Hoje nenhum critério avisa disso: “Alguém no balcão” só pede uma pessoa.`,
-        acao: { rotulo: 'Criar critério', criterio: balcao.criterio },
-      },
+      fotoPadrao('Montagem 1', SI['bancada-m1']),
+      fotoPadrao('Montagem 2', SI['bancada-m2']),
+      ...duvidasDe('Cozinha'),
     ];
   }
 
@@ -2984,7 +3076,7 @@
     pdContarRever();
     const dataDe = (d) => rotuloDoDia(d).split(' ')[1];
     $('[data-pd-base]').textContent = `Padrão feito de ${PD_DIAS} dias de análises, de ${dataDe(PD_DIAS)} a ${dataDe(1)}`;
-    $('[data-pd-base-nota]').textContent = 'Quatro de cada dia da semana em que a loja abre · refeito toda madrugada, às 6h · hoje não entra na conta';
+    $('[data-pd-base-nota]').textContent = 'Já há três de cada dia da semana · refeito cada vez que esta tela abre · o dia vira às 6h, e hoje não entra na conta';
     for (const b of $$('[data-pd-setor]')) b.setAttribute('aria-pressed', String(b.dataset.pdSetor === pd.setor));
     for (const b of $$('[data-pd-lente]')) b.setAttribute('aria-pressed', String(b.dataset.pdLente === pd.lente));
     for (const p of $$('[data-pd-painel]')) p.hidden = p.dataset.pdPainel !== pd.lente;
@@ -2996,6 +3088,7 @@
     $('[data-pd-rever-setor]').textContent = String(doSetorARever);
     const tendencias = pdTendencias().filter(pdDoSetor);
     const sugestoes = pdSugestoes().filter(pdDoSetor);
+    $('[data-pd-sugestoes-conta]').hidden = sugestoes.length === 0;
     $('[data-pd-sugestoes-conta]').textContent = String(sugestoes.length);
 
     // ── o parecer: uma frase por lente ──
@@ -3004,7 +3097,12 @@
     const forte = aRever.find((a) => a.grave) ?? aRever[0];
     const sobe = tendencias.find((t) => t.rumo.sentido === t.ruim) ?? tendencias[0];
     const frases = [
-      ['frequencia', 'repeat', 'Frequência', setores.find((s) => !s.vazio)?.texto.split('. ').slice(0, 2).join('. ') + '.', 'Ver a semana típica'],
+      [
+        'frequencia', 'repeat', 'Frequência',
+        // o começo da descrição do primeiro setor que tem número; setor sem critério não tem o que dizer
+        `${(setores.find((s) => !s.vazio)?.texto.split('. ').slice(0, 2).join('. ') ?? 'Ainda não há medida que conte o movimento de um setor').replace(/\.$/, '')}.`,
+        'Ver a semana típica',
+      ],
       [
         'anomalias', 'triangle-alert', 'Anomalias',
         aRever.length
@@ -3038,52 +3136,56 @@
 
     // ── frequência: a semana típica ──
     const opcoes = PD_NO_SELETOR.filter((k) => pdDoSetor(PD_INDICADORES[k]));
-    if (!opcoes.includes(pd.indicador)) { pd.indicador = opcoes[0]; pd.celula = ''; }
-    $('#pd-indicador').innerHTML = opcoes.map((k) => `<option value="${k}">${PD_INDICADORES[k].nome}</option>`).join('');
-    $('#pd-indicador').value = pd.indicador;
-    const ind = PD_INDICADORES[pd.indicador];
-    const grade = pdSemana(ind);
-    const medias = [...grade.values()].map((v) => v.media);
-    const maior = Math.max(...medias);
-    const menor = Math.min(...medias);
-    const [chaveMaior] = [...grade].find(([, v]) => v.media === maior);
-    const [chaveMenor] = [...grade].find(([, v]) => v.media === menor);
-    if (!grade.has(pd.celula)) pd.celula = chaveMaior;
-    const calor = $('[data-pd-calor]');
-    calor.style.setProperty('--n', String(PD_HORAS.length));
-    calor.classList.toggle('ruim', ind.tipo !== 'medida');
-    calor.innerHTML =
-      `<span></span>${PD_HORAS.map((h) => `<span class="eixo">${hh(h)}</span>`).join('')}` +
-      PD_DIA.map((nomeDoDia, dia) => {
-        const rotulo = `<span class="dia">${nomeDoDia.slice(0, 3)}</span>`;
-        if (!HORARIO[dia].abre) return `${rotulo}<span class="sem fechada">fechada</span>`;
-        return (
-          rotulo +
-          PD_HORAS.map((h) => {
-            const v = grade.get(`${dia}|${h}`);
-            if (!v) return `<span class="sem" title="fechada nesta hora">—</span>`;
-            const f = maior > menor ? (v.media - menor) / (maior - menor) : 0;
-            const chave = `${dia}|${h}`;
-            return (
-              `<button type="button" class="calor-cel${f > 0.55 ? ' forte' : ''}${chave === chaveMaior ? ' maior' : ''}" style="--f:${f.toFixed(3)}" ` +
-              `data-pd-cel="${chave}" aria-pressed="${pd.celula === chave}" ` +
-              `aria-label="${nomeDoDia}, ${pdHoras(h)}: ${pdTexto(ind, v.media)} ${ind.curto}, média de ${plural(v.n, 'dia', 'dias')}">${pdTexto(ind, v.media)}</button>`
-            );
-          }).join('')
-        );
-      }).join('');
-    $('[data-pd-escala]').innerHTML = `${pdTexto(ind, menor)}<i style="--rampa:var(${ind.tipo === 'medida' ? '--marca' : '--critico'})"></i>${pdTexto(ind, maior)}`;
-    const nomeDaChave = (chave) => {
-      const [dia, h] = chave.split('|').map(Number);
-      return `${PD_DIA[dia]} às ${hh(h)}`;
-    };
-    $('[data-pd-calor-resumo]').textContent = `Mais alto: ${nomeDaChave(chaveMaior)} (${pdTexto(ind, maior)}). Mais baixo: ${nomeDaChave(chaveMenor)} (${pdTexto(ind, menor)}).`;
-    const sel = grade.get(pd.celula);
-    const [diaSel, horaSel] = pd.celula.split('|').map(Number);
-    $('[data-pd-calor-detalhe]').innerHTML =
-      `<b>${PD_DIA[diaSel][0].toUpperCase()}${PD_DIA[diaSel].slice(1)}, das ${pdHoras(horaSel)}:</b> ${pdTexto(ind, sel.media)} ${ind.curto}, em média — ` +
-      `de ${pdTexto(ind, sel.min)} a ${pdTexto(ind, sel.max)} ${sel.n === 1 ? 'no único dia medido' : `nos ${sel.n} dias medidos`}.` +
-      (sel.n < 3 ? ' Poucos dias: ainda não é padrão firme.' : '');
+    $('[data-pd-calor-vazio]').hidden = opcoes.length > 0;
+    for (const e of $$('[data-pd-com-indicador]')) e.hidden = opcoes.length === 0;
+    if (opcoes.length) {
+      if (!opcoes.includes(pd.indicador)) { pd.indicador = opcoes[0]; pd.celula = ''; }
+      $('#pd-indicador').innerHTML = opcoes.map((k) => `<option value="${k}">${PD_INDICADORES[k].nome}</option>`).join('');
+      $('#pd-indicador').value = pd.indicador;
+      const ind = PD_INDICADORES[pd.indicador];
+      const grade = pdSemana(ind);
+      const medias = [...grade.values()].map((v) => v.media);
+      const maior = Math.max(...medias);
+      const menor = Math.min(...medias);
+      const [chaveMaior] = [...grade].find(([, v]) => v.media === maior);
+      const [chaveMenor] = [...grade].find(([, v]) => v.media === menor);
+      if (!grade.has(pd.celula)) pd.celula = chaveMaior;
+      const calor = $('[data-pd-calor]');
+      calor.style.setProperty('--n', String(PD_HORAS.length));
+      calor.classList.toggle('ruim', ind.tipo !== 'medida');
+      calor.innerHTML =
+        `<span></span>${PD_HORAS.map((h) => `<span class="eixo">${hh(h)}</span>`).join('')}` +
+        PD_DIA.map((nomeDoDia, dia) => {
+          const rotulo = `<span class="dia">${nomeDoDia.slice(0, 3)}</span>`;
+          if (!HORARIO[dia].abre) return `${rotulo}<span class="sem fechada">sem análise</span>`;
+          return (
+            rotulo +
+            PD_HORAS.map((h) => {
+              const v = grade.get(`${dia}|${h}`);
+              if (!v) return `<span class="sem" title="sem análise nesta hora">—</span>`;
+              const f = maior > menor ? (v.media - menor) / (maior - menor) : 0;
+              const chave = `${dia}|${h}`;
+              return (
+                `<button type="button" class="calor-cel${f > 0.55 ? ' forte' : ''}${chave === chaveMaior ? ' maior' : ''}" style="--f:${f.toFixed(3)}" ` +
+                `data-pd-cel="${chave}" aria-pressed="${pd.celula === chave}" ` +
+                `aria-label="${nomeDoDia}, ${pdHoras(h)}: ${pdTexto(ind, v.media)} ${ind.curto}, média de ${plural(v.n, 'dia', 'dias')}">${pdTexto(ind, v.media)}</button>`
+              );
+            }).join('')
+          );
+        }).join('');
+      $('[data-pd-escala]').innerHTML = `${pdTexto(ind, menor)}<i style="--rampa:var(${ind.tipo === 'medida' ? '--marca' : '--critico'})"></i>${pdTexto(ind, maior)}`;
+      const nomeDaChave = (chave) => {
+        const [dia, h] = chave.split('|').map(Number);
+        return `${PD_DIA[dia]} às ${hh(h)}`;
+      };
+      $('[data-pd-calor-resumo]').textContent = `Mais alto: ${nomeDaChave(chaveMaior)} (${pdTexto(ind, maior)}). Mais baixo: ${nomeDaChave(chaveMenor)} (${pdTexto(ind, menor)}).`;
+      const sel = grade.get(pd.celula);
+      const [diaSel, horaSel] = pd.celula.split('|').map(Number);
+      $('[data-pd-calor-detalhe]').innerHTML =
+        `<b>${PD_DIA[diaSel][0].toUpperCase()}${PD_DIA[diaSel].slice(1)}, das ${pdHoras(horaSel)}:</b> ${pdTexto(ind, sel.media)} ${ind.curto}, em média — ` +
+        `de ${pdTexto(ind, sel.min)} a ${pdTexto(ind, sel.max)} ${sel.n === 1 ? 'no único dia medido' : `nos ${sel.n} dias medidos`}.` +
+        (sel.n < 3 ? ' Poucos dias: ainda não é padrão firme.' : '');
+    }
 
     // ── frequência: o que anda junto ──
     $('[data-pd-relacoes]').innerHTML = pdRelacoes()
@@ -3099,7 +3201,8 @@
           `<span class="nota">${r.sufixo}</span><div class="pe">${chip}<span>${r.pe}</span></div></article>`
         );
       })
-      .join('');
+      .join('') ||
+      '<p class="nota" style="grid-column:1 / -1">Ainda não há relação para mostrar. Ela aparece quando, na mesma hora do dia, houve dias com mais e dias com menos gente — e um critério do mesmo setor para comparar.</p>';
 
     // ── anomalias ──
     const mostradas = anomalias.filter((a) => pd.filtro === 'todas' || (pd.filtro === 'rever' ? a.estado === 'rever' : a.estado !== 'rever'));
@@ -3136,11 +3239,18 @@
             );
           })
           .join('')
-      : `<li class="anomalia"><div class="quando"></div><div class="a-corpo"><p class="a-mais">${pd.filtro === 'rever' ? 'Nada para rever. O que fugir do padrão aparece aqui.' : 'Nenhuma saída do padrão revista ainda.'}</p></div></li>`;
+      : `<li class="anomalia"><div class="quando"></div><div class="a-corpo"><p class="a-mais">${pd.filtro === 'rever' ? 'Nada para rever. O que fugir do padrão aparece aqui.' : pd.filtro === 'revistas' ? 'Nenhuma saída do padrão revista ainda.' : 'Nenhuma saída do padrão neste período.'}</p></div></li>`;
 
     // ── tendência ──
-    if (!pdDoSetor(PD_INDICADORES[pd.hoje])) pd.hoje = ['fila', 'posto', 'chapa'].find((k) => pdDoSetor(PD_INDICADORES[k]));
-    pdHoje();
+    // o setor sem critério de presença ou de contagem não tem "hoje contra o normal"
+    const comMedida = ['fila', 'posto', 'chapa'].filter((k) => pdDoSetor(PD_INDICADORES[k]));
+    if (!comMedida.includes(pd.hoje)) [pd.hoje] = comMedida;
+    for (const e of $$('[data-pd-com-medida]')) e.hidden = comMedida.length === 0;
+    if (comMedida.length) pdHoje();
+    else {
+      $('[data-pd-hoje-titulo]').textContent = 'Hoje contra o normal';
+      $('[data-pd-hoje-nota]').textContent = 'Aparece quando um critério de presença ou de contagem deste setor tem padrão para o dia da semana de hoje.';
+    }
     $('[data-pd-tendencias]').innerHTML = tendencias
       .map((t) => {
         const ruim = t.rumo.sentido === t.ruim;
@@ -3159,7 +3269,7 @@
           `<li class="sugestao"><span class="selo-ic">${icone(s.icone)}</span><h3>${s.titulo}</h3><p>${s.texto}</p>` +
           `<button class="btn secundario mini" type="button" data-pd-sugestao="${i}" ${s.acao.ir ? '' : 'data-so-config'}>${s.acao.rotulo}${icone('arrow-right', 'p')}</button></li>`,
       )
-      .join('');
+      .join('') || '<li class="sugestao"><p style="grid-column:1 / -1">Nenhuma sugestão agora: os números não apontam ajuste nos critérios.</p></li>';
     pd.sugestoes = sugestoes;
   }
 
@@ -3248,6 +3358,10 @@
         contexto = { ...contexto, nome: CRITERIOS[acao.porteiro].nome, criterio: acao.porteiro, canal: '' };
         abrirFolha('folha-criterio', 'editar', sugestao);
         $('#fcr-p-pessoa').checked = true;
+      } else if (acao.editar) {
+        // "ver o critério": abre o que existe, sem mudar nada
+        contexto = { ...contexto, nome: CRITERIOS[acao.editar].nome, criterio: acao.editar, canal: '' };
+        abrirFolha('folha-criterio', 'editar', sugestao);
       }
     }
   });
@@ -4370,7 +4484,7 @@
   // a planta é desenhada no tamanho em que aparece: mudou a janela, redesenha
   if ('ResizeObserver' in window) {
     new ResizeObserver(() => { if (!$('[data-tela="ambiente"]').hidden) desenharPlanta(); }).observe($('[data-planta]'));
-    new ResizeObserver(() => { if ($('[data-pd-hoje]').clientWidth > 0) pdHoje(); }).observe($('[data-pd-hoje]'));
+    new ResizeObserver(() => { if ($('[data-pd-hoje]').clientWidth > 0 && pd.hoje) pdHoje(); }).observe($('[data-pd-hoje]'));
   }
 
   // O endereço manda: #canais abre Canais, #entrar abre a entrada.
