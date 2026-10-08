@@ -128,6 +128,53 @@
             </section>
           </div>
 
+          <!-- A máquina que julga: o computador da loja. Segue o período e as
+               horas do recorte; o canal e o critério só mudam o tempo de
+               julgamento, que sai das próprias análises. -->
+          <section class="cartao pad maquina" aria-labelledby="t-an-maquina">
+            <div class="secao-cab">
+              <h2 id="t-an-maquina">Máquina de análise</h2>
+              <span class="nota empurra" data-an-maq-nome></span>
+            </div>
+            <div class="uso-grade">
+              <div class="uso-numeros" role="group" aria-label="O que o gráfico da máquina mostra">
+                <button type="button" class="uso-item" data-an-uso="cpu" aria-pressed="true">
+                  <span class="rot"><svg class="ic p" aria-hidden="true"><use href="#i-cpu"/></svg>Processador</span>
+                  <span class="num"><span data-an-uso-num="cpu">0</span><small>%</small></span>
+                  <span class="pe" data-an-uso-pe="cpu"></span>
+                </button>
+                <button type="button" class="uso-item" data-an-uso="mem" aria-pressed="false">
+                  <span class="rot"><svg class="ic p" aria-hidden="true"><use href="#i-memory-stick"/></svg>Memória</span>
+                  <span class="num"><span data-an-uso-num="mem">0</span><small>%</small></span>
+                  <span class="pe" data-an-uso-pe="mem"></span>
+                </button>
+                <button type="button" class="uso-item" data-an-uso="gpu" aria-pressed="false">
+                  <span class="rot"><svg class="ic p" aria-hidden="true"><use href="#i-gpu"/></svg>Placa de vídeo</span>
+                  <span class="num"><span data-an-uso-num="gpu">0</span><small>%</small></span>
+                  <span class="pe" data-an-uso-pe="gpu"></span>
+                </button>
+                <div class="uso-item">
+                  <span class="rot"><svg class="ic p" aria-hidden="true"><use href="#i-hard-drive"/></svg>Disco</span>
+                  <span class="num"><span data-an-uso-num="disco">0</span><small> GB livres</small></span>
+                  <span class="pe" data-an-uso-pe="disco"></span>
+                </div>
+              </div>
+              <div class="uso-grafico">
+                <div class="legenda" aria-hidden="true">
+                  <span><i class="cor-loja"></i>média</span>
+                  <span><i class="cor-pico"></i>pico</span>
+                </div>
+                <div class="barras-area" data-an-uso-area>
+                  <div class="eixo-y" aria-hidden="true"><span>100%</span><span>50%</span><span>0</span></div>
+                  <div class="barras tocaveis" data-an-uso-barras></div>
+                  <div class="eixo-x" aria-hidden="true" data-an-uso-eixo-x></div>
+                  <div class="dica" data-an-uso-dica hidden></div>
+                </div>
+              </div>
+            </div>
+            <p class="nota" data-an-uso-nota></p>
+          </section>
+
           <section class="secao" aria-labelledby="t-an-tabela" data-an-so-com-dado>
             <div class="secao-cab">
               <h2 id="t-an-tabela">Por critério e canal</h2>

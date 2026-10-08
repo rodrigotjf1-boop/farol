@@ -465,7 +465,7 @@
     return celulas;
   }
 
-  const an = { periodo: 'hoje', dia: '2026-10-05', de: 0, ate: 24, canal: '', crit: '', onde: 'tudo', vista: 'resultado' };
+  const an = { periodo: 'hoje', dia: '2026-10-05', de: 0, ate: 24, canal: '', crit: '', onde: 'tudo', vista: 'resultado', uso: 'cpu' };
   const AN_PADRAO = { ...an };
 
   function diasDoRecorte() {
@@ -597,6 +597,7 @@
       ? (umaHora ? `Mostrando só das ${hh(an.de)} às ${hh(an.ate)}. Toque na mesma barra para voltar ao dia inteiro.` : 'Toque numa barra para ver só aquela hora.')
       : 'Toque num dia para abri-lo hora a hora.';
     an.baldes = baldes;
+    desenharMaquina(recorte);
 
     // ── com ou sem dado: os números, a tabela e as ocorrências somem; o
     //    gráfico e os canais ficam ──
@@ -763,17 +764,14 @@
   $('#an-criterio').addEventListener('change', (ev) => { an.crit = ev.target.value; desenharAnalises(true); });
   for (const b of $$('[data-an-limpar]')) {
     b.addEventListener('click', () => {
-      Object.assign(an, AN_PADRAO, { vista: an.vista });
+      Object.assign(an, AN_PADRAO, { vista: an.vista, uso: an.uso });
       desenharAnalises(true);
       avisar('Filtros limpos: hoje, o dia inteiro, todos os canais.');
     });
   }
 
   // O gráfico também é filtro: tocar numa hora mostra só ela; num dia, abre o dia.
-  $('[data-an-barras]').addEventListener('click', (ev) => {
-    const col = ev.target.closest('.col');
-    if (!col) return;
-    const b = an.baldes[Number(col.dataset.i)];
+  function escolherBalde(b) {
     if (b.h !== undefined) {
       const jaEra = an.de === b.h && an.ate === b.h + 1;
       an.de = jaEra ? 0 : b.h;
@@ -785,6 +783,12 @@
       an.dia = new Date(AN_HOJE - b.d * 86400000).toISOString().slice(0, 10);
     }
     desenharAnalises(true);
+  }
+  $('[data-an-barras]').addEventListener('click', (ev) => {
+    const col = ev.target.closest('.col');
+    if (!col) return;
+    const b = an.baldes[Number(col.dataset.i)];
+    escolherBalde(b);
     // o desenho refaz as barras: o foco volta para a mesma coluna
     if (b.h !== undefined) $(`[data-an-barras] .col[data-i="${b.h}"]`)?.focus({ preventScroll: true });
   });
@@ -827,6 +831,157 @@
   anArea.addEventListener('pointerleave', () => mostrarDicaDaAnalise(null));
   anArea.addEventListener('focusin', (ev) => mostrarDicaDaAnalise(ev.target.closest('.col')));
   anArea.addEventListener('focusout', () => mostrarDicaDaAnalise(null));
+
+  // ── a máquina de análise: o computador da loja, que é quem julga ──
+  // Processador, memória e placa de vídeo são da máquina INTEIRA: seguem o
+  // período e as horas do recorte, não o canal nem o critério. O que muda
+  // com o canal e o critério é o TEMPO que a máquina passou julgando —
+  // esse sai das próprias análises.
+  const AN_MAQUINA = {
+    nome: 'PC da loja', processador: 'Intel Core i7-10700F', memoriaGb: 16, placa: 'Radeon RX 560',
+    discoGb: 223, discoLivreHojeGb: 64, discoPorDiaGb: 0.6,
+  };
+  const AN_USOS = {
+    cpu: { nome: 'processador', media: 'cpu', pico: 'cpuPico' },
+    mem: { nome: 'memória', media: 'mem', pico: 'memPico' },
+    gpu: { nome: 'placa de vídeo', media: 'gpu', pico: 'gpuPico' },
+  };
+
+  /** O uso na hora `h` do dia `d`: média e pico de cada peça, e a parte do Farol. */
+  function usoDaHora(d, h) {
+    const visto = d === 0 ? Math.max(0, Math.min(60, AN_AGORA_MIN - h * 60)) : 60;
+    if (visto === 0) return null;
+    const aberta = Math.min(minutosAberta(d, h), visto) / visto;
+    const movimento = (pico(h) - 0.55) / 0.9; // 0 = calmo, 1 = pico do jantar
+    const r = (k) => sorte(d, 97, h, k);
+    const cpu = 4 + 2 * r(1) + aberta * (11 + 9 * movimento);
+    const mem = 44 + 2 * r(2) + aberta * 6;
+    const gpu = 1 + r(3) + aberta * (5 + 5 * movimento);
+    return {
+      visto,
+      cpu, cpuPico: Math.min(98, cpu + 10 + aberta * (28 + 22 * r(4))),
+      mem, memPico: mem + 2 + 3 * r(5),
+      gpu, gpuPico: aberta > 0 ? 36 + 24 * r(6) : 5 + 4 * r(6),
+      farol: 0.8 + aberta * (1.6 + r(7)),
+    };
+  }
+
+  /** Junta várias horas: a média pesa pelo tempo visto; o pico é o maior. */
+  function juntarUso(horas) {
+    const vistas = horas.filter(Boolean);
+    const tempo = vistas.reduce((a, u) => a + u.visto, 0);
+    if (!tempo) return null;
+    const media = (k) => vistas.reduce((a, u) => a + u[k] * u.visto, 0) / tempo;
+    const maior = (k) => Math.max(...vistas.map((u) => u[k]));
+    return {
+      cpu: media('cpu'), cpuPico: maior('cpuPico'), mem: media('mem'), memPico: maior('memPico'),
+      gpu: media('gpu'), gpuPico: maior('gpuPico'), farol: media('farol'),
+    };
+  }
+
+  const duracao = (ms) => {
+    const s = Math.round(ms / 1000);
+    if (s < 60) return `${s} s`;
+    if (s < 3600) return `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')} s`;
+    return `${Math.floor(s / 3600)} h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')} min`;
+  };
+
+  function desenharMaquina(recorte) {
+    const umDia = an.periodo !== '7d';
+    const dias = diasDoRecorte();
+    const horasDoRecorte = (d) => Array.from({ length: an.ate - an.de }, (_, i) => usoDaHora(d, an.de + i));
+    const total = juntarUso(dias.flatMap(horasDoRecorte));
+
+    $('[data-an-maq-nome]').textContent =
+      `${AN_MAQUINA.nome} · ${AN_MAQUINA.processador} · ${AN_MAQUINA.memoriaGb} GB de memória · ${AN_MAQUINA.placa}`;
+    for (const [chave, u] of Object.entries(AN_USOS)) {
+      $(`[data-an-uso="${chave}"]`).setAttribute('aria-pressed', String(an.uso === chave));
+      $(`[data-an-uso-num="${chave}"]`).textContent = total ? String(Math.round(total[u.media])) : '—';
+      $(`[data-an-uso-pe="${chave}"]`).textContent = total ? `em média · pico de ${Math.round(total[u.pico])}%` : 'sem medida neste recorte';
+    }
+    // o disco é o do dia mais recente do recorte: é uma posição, não uma média
+    const recente = Math.min(...dias);
+    $('[data-an-uso-num="disco"]').textContent = numero.format(Math.round(AN_MAQUINA.discoLivreHojeGb + AN_MAQUINA.discoPorDiaGb * recente));
+    $('[data-an-uso-pe="disco"]').textContent =
+      `de ${AN_MAQUINA.discoGb} GB · ${String(AN_MAQUINA.discoPorDiaGb).replace('.', ',')} GB a menos por dia`;
+
+    // o gráfico: as mesmas colunas do gráfico de cima (horas do dia, ou dias)
+    const u = AN_USOS[an.uso];
+    const colunas = an.baldes.map((b) => (b.h !== undefined ? usoDaHora(dias[0], b.h) && juntarUso([usoDaHora(dias[0], b.h)]) : juntarUso(horasDoRecorte(b.d))));
+    const umaHora = umDia && an.ate - an.de === 1;
+    $('[data-an-uso-area]').style.setProperty('--vao', umDia ? '3px' : 'clamp(8px, 3%, 28px)');
+    $('[data-an-uso-barras]').innerHTML = an.baldes
+      .map((b, i) => {
+        const c = colunas[i];
+        const dentro = !umDia || (b.h >= an.de && b.h < an.ate);
+        const marcada = umaHora && b.h === an.de;
+        const leitura = c
+          ? `${b.rotulo}: ${u.nome} em ${Math.round(c[u.media])}% na média, pico de ${Math.round(c[u.pico])}%.`
+          : `${b.rotulo}: sem medida.`;
+        return (
+          `<button type="button" class="col${dentro ? '' : ' apagada'}${c ? '' : ' vazia'}" data-i="${i}" aria-pressed="${marcada}" aria-label="${leitura}">` +
+          (c
+            ? `<span class="barra-col" style="height:${c[u.media]}%;animation-delay:${i * 14}ms"><i class="cor-loja" style="flex:1 1 0"></i></span>` +
+              `<span class="pico" style="bottom:${Math.min(98.5, c[u.pico])}%"></span>`
+            : '') +
+          `</button>`
+        );
+      })
+      .join('');
+    $('[data-an-uso-eixo-x]').innerHTML = an.baldes.map((b) => `<span>${b.mostra ? b.rotulo : ''}</span>`).join('');
+    an.usos = colunas;
+
+    // o que muda com o canal e o critério: o tempo que a máquina passou julgando
+    const naLoja = recorte.filter((c) => AN_SERIES[c.si].onde === 'loja');
+    const julgando = naLoja.reduce((a, c) => a + c.ms, 0);
+    const analises = naLoja.reduce((a, c) => a + c.n, 0);
+    const partes = [];
+    if (total) partes.push(`O Farol ocupou, em média, ${total.farol.toFixed(1).replace('.', ',')}% do processador desta máquina neste recorte.`);
+    partes.push(
+      analises
+        ? `Tempo julgando na loja: ${duracao(julgando)}, em ${numero.format(analises)} análises — este número acompanha os filtros de canal e de critério.`
+        : 'Nenhuma análise foi julgada na loja neste recorte.',
+    );
+    partes.push('Processador, memória e placa de vídeo são da máquina inteira: seguem o período e as horas, não o canal nem o critério.');
+    $('[data-an-uso-nota]').textContent = partes.join(' ');
+  }
+
+  for (const b of $$('[data-an-uso]')) b.addEventListener('click', () => { an.uso = b.dataset.anUso; desenharAnalises(false); });
+
+  // o gráfico da máquina também escolhe a hora (ou abre o dia), como o de cima
+  $('[data-an-uso-barras]').addEventListener('click', (ev) => {
+    const col = ev.target.closest('.col');
+    if (!col) return;
+    const b = an.baldes[Number(col.dataset.i)];
+    escolherBalde(b);
+    if (b.h !== undefined) $(`[data-an-uso-barras] .col[data-i="${b.h}"]`)?.focus({ preventScroll: true });
+  });
+
+  const anUsoDica = $('[data-an-uso-dica]');
+  const anUsoArea = $('[data-an-uso-area]');
+  function mostrarDicaDoUso(col) {
+    const c = col ? an.usos[Number(col.dataset.i)] : null;
+    if (!c) {
+      anUsoDica.hidden = true;
+      return;
+    }
+    const b = an.baldes[Number(col.dataset.i)];
+    const p = (v) => `${Math.round(v)}%`;
+    anUsoDica.innerHTML =
+      `<b>${b.rotulo}</b> · média e pico<br>` +
+      `processador ${p(c.cpu)} · ${p(c.cpuPico)}<br>memória ${p(c.mem)} · ${p(c.memPico)}<br>placa de vídeo ${p(c.gpu)} · ${p(c.gpuPico)}`;
+    anUsoDica.hidden = false;
+    const base = anUsoArea.getBoundingClientRect();
+    const caixa = col.getBoundingClientRect();
+    const meio = caixa.left + caixa.width / 2 - base.left;
+    const metade = anUsoDica.offsetWidth / 2;
+    anUsoDica.style.left = `${Math.min(Math.max(meio, metade), base.width - metade)}px`;
+    anUsoDica.style.top = `${anUsoDica.offsetHeight + 4}px`;
+  }
+  anUsoArea.addEventListener('pointermove', (ev) => mostrarDicaDoUso(ev.target.closest('.col')));
+  anUsoArea.addEventListener('pointerleave', () => mostrarDicaDoUso(null));
+  anUsoArea.addEventListener('focusin', (ev) => mostrarDicaDoUso(ev.target.closest('.col')));
+  anUsoArea.addEventListener('focusout', () => mostrarDicaDoUso(null));
 
   // ═══════════════════════ critérios ═══════════════════════
   function cartaoDoCriterio(chave, canal) {

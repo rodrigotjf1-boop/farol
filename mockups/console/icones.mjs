@@ -23,7 +23,7 @@ folder hash scan-search layers list-ordered user-round-check message-circle mail
 triangle-alert circle-alert circle-check circle-x clock activity info send check-check hourglass
 zap package badge-check lock-keyhole circle-help circle-minus sliders-horizontal bell-off
 maximize building-2 loader-circle circle-slash unplug scan-eye history
-chart-column cloud coins filter-x`
+chart-column cloud coins filter-x memory-stick gpu`
   .split(/\s+/)
   .filter(Boolean);
 

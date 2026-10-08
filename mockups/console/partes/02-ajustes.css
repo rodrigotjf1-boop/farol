@@ -229,3 +229,36 @@ tfoot td:last-child { border-bottom-right-radius: var(--raio); }
   [data-tela="analises"] .em-cartoes td { padding: 0; }
   [data-tela="analises"] td:first-child .crit { min-width: 0; }
 }
+
+/* ──────────────── análises: a máquina de análise ──────────────── */
+.maquina { display: flex; flex-direction: column; gap: 14px; }
+.uso-grade { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); align-items: start; }
+.uso-numeros { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.uso-item {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 12px 14px;
+  border: 1px solid var(--borda); border-radius: var(--raio-p); background: var(--painel-2);
+  color: inherit; text-align: left;
+}
+button.uso-item { cursor: pointer; transition: border-color var(--rapido), background var(--rapido); }
+button.uso-item:hover { border-color: var(--borda-forte); }
+button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: var(--painel); box-shadow: inset 0 0 0 1px var(--marca); }
+.uso-item .rot { display: flex; align-items: center; gap: 7px; color: var(--suave); font-size: 12.5px; }
+.uso-item .num { font: 600 24px/1.2 var(--titulo); letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.uso-item .num small { font: 500 13px var(--texto); color: var(--suave); letter-spacing: 0; }
+.uso-item .pe { color: var(--suave); font-size: 12px; }
+.uso-grafico { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.uso-grafico .barras, .uso-grafico .eixo-y { height: 136px; }
+.cor-pico { background: var(--facho); }
+.barras.tocaveis > .col .pico {
+  position: absolute; left: 10%; right: 10%; height: 3px; margin-bottom: -1.5px; border-radius: 2px;
+  background: var(--facho); pointer-events: none;
+}
+.barras.tocaveis > .col.apagada .pico { opacity: .3; }
+@media (max-width: 1180px) {
+  .uso-grade { grid-template-columns: minmax(0, 1fr); }
+  .uso-numeros { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+  .uso-numeros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .uso-item .num { font-size: 21px; }
+}
