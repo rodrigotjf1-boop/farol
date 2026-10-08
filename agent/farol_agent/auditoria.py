@@ -293,6 +293,7 @@ class Auditoria:
             seletor,
             {r.id: r for r in config.regras},
             equipamentos={z.id: z.equipamentos for p in config.pontos for z in p.zonas if z.equipamentos},
+            lugares={p.id: p.lugar for p in config.pontos if p.lugar},
         )
 
     def _relogios(self, config: ConfigDaLoja) -> dict[str, tuple[float, float, float, float]]:

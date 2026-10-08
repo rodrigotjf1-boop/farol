@@ -179,6 +179,218 @@ dialog::backdrop {
   }
 }
 
+/* =====================================================================
+   A planta da loja (Canais → Planta)
+   =====================================================================
+   O desenho é um SVG montado pela tela: o chão de cada ambiente, o que
+   cada câmera alcança, os móveis e as câmeras. As cores são as do tema,
+   misturadas aqui — por isso moram em classes, e não em atributos do SVG.
+   Fora de `@layer` de propósito: os nomes são montados em tempo de
+   execução (`pl-cone ok`), e o Tailwind jogaria fora o que não visse
+   escrito inteiro.
+   ===================================================================== */
+.planta svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: manipulation;
+}
+.planta.editando svg {
+  touch-action: none;
+  cursor: crosshair;
+}
+.pl-piso {
+  fill: rgb(var(--painel));
+  stroke: rgb(var(--borda-forte));
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+.pl-piso.sel {
+  stroke: rgb(var(--marca));
+  stroke-width: 2;
+}
+.pl-parede,
+.pl-movel {
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+.pl-parede {
+  color: color-mix(in srgb, rgb(var(--realce)) 70%, rgb(var(--painel)));
+}
+.pl-parede.flanco {
+  color: color-mix(in srgb, rgb(var(--borda-forte)) 55%, rgb(var(--realce)));
+}
+.pl-movel.tampo {
+  color: color-mix(in srgb, rgb(var(--marca)) 13%, rgb(var(--painel)));
+}
+.pl-movel.frente {
+  color: color-mix(in srgb, rgb(var(--marca)) 20%, rgb(var(--painel)));
+}
+.pl-movel.flanco {
+  color: color-mix(in srgb, rgb(var(--marca)) 30%, rgb(var(--painel)));
+}
+.pl-movel.toca {
+  cursor: pointer;
+}
+.pl-contorno {
+  fill: none;
+  stroke: color-mix(in srgb, rgb(var(--suave)) 50%, rgb(var(--borda-forte)));
+  stroke-width: 1;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.pl-contorno.sel {
+  stroke: rgb(var(--marca));
+  stroke-width: 2.2;
+}
+.pl-nome,
+.pl-movel-nome {
+  fill: rgb(var(--suave));
+  font-family: theme('fontFamily.sans');
+  text-anchor: middle;
+  pointer-events: none;
+}
+.pl-nome {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.pl-nome.pq {
+  font-size: 10px;
+  letter-spacing: 0;
+}
+.pl-movel-nome {
+  font-size: 10px;
+  font-weight: 500;
+}
+.pl-cone {
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  transition: opacity 0.16s;
+  pointer-events: none;
+}
+.pl-cone.ok {
+  fill: color-mix(in srgb, rgb(var(--ok)) 20%, transparent);
+  stroke: rgb(var(--ok));
+}
+.pl-cone.alerta {
+  fill: color-mix(in srgb, rgb(var(--critico)) 22%, transparent);
+  stroke: rgb(var(--critico));
+}
+.pl-cone.semcrit {
+  fill: color-mix(in srgb, rgb(var(--suave)) 12%, transparent);
+  stroke: rgb(var(--suave));
+  stroke-dasharray: 4 3;
+}
+.pl-cone.semimagem,
+.pl-cone.pausado {
+  fill: none;
+  stroke: rgb(var(--suave));
+  stroke-dasharray: 2 4;
+  opacity: 0.7;
+}
+.pl-cone.sel {
+  stroke-width: 2.5;
+}
+.pl-cone.apagado {
+  opacity: 0.35;
+}
+.pl-poste {
+  stroke: rgb(var(--suave));
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+  pointer-events: none;
+}
+.pl-chao {
+  fill: rgb(var(--suave));
+  pointer-events: none;
+}
+.pl-cam {
+  cursor: pointer;
+  outline: none;
+}
+/* O anel âmbar do desenho já é o foco: o contorno do navegador, quadrado
+   em volta de um círculo, só atrapalharia. */
+.pl-cam:focus-visible {
+  box-shadow: none;
+}
+.pl-cam .miolo {
+  fill: rgb(var(--painel));
+  stroke: rgb(var(--suave));
+  stroke-width: 2;
+}
+.pl-cam.ok .miolo {
+  stroke: rgb(var(--ok));
+}
+.pl-cam.alerta .miolo {
+  stroke: rgb(var(--critico));
+  fill: rgb(var(--critico-leve));
+}
+.pl-cam.semimagem .miolo {
+  stroke: rgb(var(--critico));
+  stroke-dasharray: 3 2;
+}
+.pl-cam.pausado .miolo {
+  stroke: rgb(var(--facho));
+  stroke-dasharray: 3 2;
+}
+.pl-cam text {
+  fill: rgb(var(--tinta));
+  font-family: theme('fontFamily.mono');
+  font-size: 10.5px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+.pl-cam.pq text {
+  font-size: 9px;
+}
+.pl-cam .toque {
+  fill: transparent;
+}
+.pl-cam .anel {
+  fill: none;
+  stroke: rgb(var(--facho));
+  stroke-width: 2.5;
+  opacity: 0;
+}
+.pl-cam.sel .anel,
+.pl-cam:focus-visible .anel {
+  opacity: 1;
+}
+.pl-cam:hover .miolo {
+  stroke-width: 3;
+}
+.pl-alca {
+  fill: rgb(var(--facho));
+  stroke: rgb(var(--painel));
+  stroke-width: 2;
+  cursor: grab;
+}
+.pl-mira {
+  stroke: rgb(var(--facho));
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+}
+.pl-cego {
+  fill: color-mix(in srgb, rgb(var(--critico)) 26%, transparent);
+  stroke: none;
+  pointer-events: none;
+}
+.pl-rascunho {
+  fill: color-mix(in srgb, rgb(var(--facho)) 22%, transparent);
+  stroke: rgb(var(--facho));
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

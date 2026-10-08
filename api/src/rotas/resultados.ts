@@ -236,7 +236,7 @@ export function rotasDeResultados(app: FastifyInstance, pool: pg.Pool): void {
         // aviso. "Chegou" ganha de "mandado", que ganha de "na fila".
         pool.query(
           `select e.id, e.ocorrido_em, e.motivo, e.confianca,
-                  r.nome as regra_nome, pt.nome as ponto_nome, pt.canal,
+                  r.nome as regra_nome, pt.id as ponto_id, pt.nome as ponto_nome, pt.canal,
                   z.nome as zona_nome,
                   (select count(*)::integer from zona zz
                     where zz.ponto_id = pt.id and zz.excluida_em is null) as areas_do_canal,
@@ -373,6 +373,8 @@ export function rotasDeResultados(app: FastifyInstance, pool: pg.Pool): void {
         id: o.id as string,
         ocorridoEm: new Date(o.ocorrido_em).toISOString(),
         regraNome: (o.regra_nome as string | null) ?? null,
+        // Em que canal foi: é o que a planta usa para acender a câmera.
+        pontoId: (o.ponto_id as string | null) ?? null,
         pontoNome: (o.ponto_nome as string | null) ?? null,
         canal: (o.canal as number | null) ?? null,
         areaNome: (o.areas_do_canal as number | null) && (o.areas_do_canal as number) > 1

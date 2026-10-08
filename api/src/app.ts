@@ -15,6 +15,7 @@ import { rotasDoConsole } from './rotas/console.js';
 import { rotasDeConfiguracao } from './rotas/configuracao.js';
 import { rotasDeDiagnostico } from './rotas/diagnostico.js';
 import { rotasDeInventario } from './rotas/inventario.js';
+import { rotasDePlanta } from './rotas/planta.js';
 import { rotasDePadroes } from './rotas/padroes.js';
 import { rotasDePreview } from './rotas/preview.js';
 import { rotasDeRegras } from './rotas/regras.js';
@@ -161,6 +162,7 @@ export function criarApp(
   rotasDePreview(app, pool);
   rotasDePadroes(app, pool);
   rotasDeInventario(app, pool);
+  rotasDePlanta(app, pool);
   rotasDeEventos(app, pool);
   rotasDeResumos(app, pool);
   rotasDeUso(app, pool);

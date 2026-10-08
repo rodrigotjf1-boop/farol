@@ -6,6 +6,8 @@
  * de sessão — e, por ser do mesmo domínio, não há CORS no caminho.
  */
 
+import type { Planta } from '@/lib/planta';
+
 export class ErroDaApi extends Error {
   constructor(
     readonly status: number,
@@ -780,6 +782,8 @@ export type Ocorrencia = {
   id: string;
   ocorridoEm: string;
   regraNome: string | null;
+  /** Em que canal foi. Nulo quando o canal já não existe. */
+  pontoId: string | null;
   pontoNome: string | null;
   canal: number | null;
   /** Em que área do canal — nulo quando o canal tem uma área só. */
@@ -847,6 +851,28 @@ export const resultadosApi = {
       if (chave.startsWith(`${lojaId}:`)) guardados.delete(chave);
     }
   },
+};
+
+// ───────────────────────── a planta ─────────────────────────
+// Os ambientes, os móveis e cada câmera no seu lugar, em metros. A conta
+// (o que cada câmera alcança, a perspectiva) mora em `lib/planta.ts`.
+
+export type PlantaDaLoja = {
+  /** Nulo = a loja ainda não tem planta. */
+  planta: Planta | null;
+  /** A versão que foi lida: volta no salvar, e é o que impede um apagar o desenho do outro. */
+  versao: number | null;
+  atualizadaEm: string | null;
+  /** A frase do lugar de cada câmera, pelo canal — a mesma que vai junto com a análise. */
+  lugares: Record<string, string>;
+};
+
+export const plantaApi = {
+  obter: (lojaId: string) => pedir<PlantaDaLoja>(`/lojas/${lojaId}/planta`),
+
+  /** Salva a planta INTEIRA. `versao` é a que veio no `obter` (nula na primeira vez). */
+  salvar: (lojaId: string, planta: Planta, versao: number | null) =>
+    pedir<PlantaDaLoja>(`/lojas/${lojaId}/planta`, { method: 'PUT', body: JSON.stringify({ versao, planta }) }),
 };
 
 // ───────────────────────── análises ─────────────────────────

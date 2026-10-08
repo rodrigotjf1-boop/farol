@@ -7290,12 +7290,14 @@ button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: v
     const nomes = [...new Set(vistos.map((m) => (EQUIPAMENTOS[m.equip]?.nome ?? m.nome).toLowerCase()))];
     const contagem = nomes.map((n) => {
       const quantos = vistos.filter((m) => (EQUIPAMENTOS[m.equip]?.nome ?? m.nome).toLowerCase() === n).length;
-      return quantos > 1 ? `${quantos} ${n}s` : n;
+      // "mesa (3)", e não "3 mesas": o plural de um nome escrito por alguém não se adivinha
+      return quantos > 1 ? `${n} (${quantos})` : n;
     });
     const lista = contagem.length > 1 ? `${contagem.slice(0, -1).join(', ')} e ${contagem[contagem.length - 1]}` : contagem[0];
     return (
-      `Câmera ${a ? `no ambiente ${a.nome}` : 'fora dos ambientes desenhados'}, a ${String(cam.alt).replace('.', ',')} m do chão. ` +
-      (lista ? `No campo de visão: ${lista}.` : 'Nenhum equipamento cadastrado no campo de visão.')
+      // sem móvel na frente a frase não diz "não há equipamento": a imagem pode mostrar um que ninguém desenhou
+      `Câmera ${a ? `no ambiente ${a.nome}` : 'fora dos ambientes desenhados'}, a ${String(cam.alt).replace('.', ',')} m do chão.` +
+      (lista ? ` No campo de visão: ${lista}.` : '')
     );
   }
 
@@ -7558,9 +7560,13 @@ button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: v
         doSetor
           .map((c) => {
             const sit = situacaoDoCanal(c);
+            // canal que ainda não está na planta: na edição, tocar nele o põe; fora dela, não há o que mostrar
+            const posta = PLANTA.cameras.some((x) => x.canal === c.id);
             return (
-              `<li><button type="button" class="area-item" data-amb-cam="${c.id}" aria-pressed="${amb.sel?.tipo === 'camera' && amb.sel.id === c.id}">` +
-              `<span class="canal-num">${c.num}</span><span><b>${c.nome}</b></span><span class="chip ${sit.chip}">${sit.texto}</span></button></li>`
+              `<li><button type="button" class="area-item" data-amb-cam="${c.id}" aria-pressed="${amb.sel?.tipo === 'camera' && amb.sel.id === c.id}"${posta || amb.editando ? '' : ' disabled title="Este canal ainda não está na planta."'}>` +
+              `<span class="canal-num">${c.num}</span><span><b>${c.nome}</b></span>` +
+              (posta ? `<span class="chip ${sit.chip}">${sit.texto}</span>` : `<span class="chip vazado">${amb.editando ? 'pôr na planta' : 'fora da planta'}</span>`) +
+              `</button></li>`
             );
           })
           .join('')
@@ -7601,7 +7607,8 @@ button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: v
         `<div class="canal-chips"><span class="chip ${sit.chip}">${sit.texto}</span>${c.areas ? `<span class="chip vazado">${icone('crop')}${plural(c.areas.length, 'área', 'áreas')}</span>` : ''}</div>` +
         (amb.editando
           ? faixa('dir', 'Direção', 0, 359, 1, '°') + faixa('abertura', 'Abertura', 40, 120, 1, '°') + faixa('alcance', 'Alcance', 1, 12, 0.1, ' m') + faixa('alt', 'Altura', 2, 4, 0.1, ' m') +
-            '<p class="nota">A abertura é a da lente: uma lente de 2,8 mm abre perto de 100°; uma de 3,6 mm, perto de 80°.</p>'
+            '<p class="nota">A abertura é a da lente: uma lente de 2,8 mm abre perto de 100°; uma de 3,6 mm, perto de 80°.</p>' +
+            `<button class="btn perigo-leve mini" type="button" data-amb-excluir style="align-self:flex-start">${icone('trash-2', 'p')}Tirar da planta</button>`
           : `<h2>O que confere</h2>${criterios}` +
             `<div class="cam-descricao">${descricaoDoLugar(cam)}<small>Escrita a partir da planta. Vai junto com a imagem em cada análise deste canal que sobe à nuvem.</small></div>` +
             `<div class="cam-elos"><a class="elo" href="#area" data-ir="area">Quadro e área${icone('arrow-right', 'p')}</a>` +
@@ -7617,6 +7624,13 @@ button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: v
         `<div class="cam-topo"><span class="canal-num">${icone('package')}</span><div><h3>${limpo(e?.nome ?? m.nome)}</h3><p>${e ? `${e.tipo} · ${e.setor}` : 'móvel, sem cadastro no inventário'}</p></div></div>` +
         (amb.editando
           ? `<div class="campo"><label for="amb-nome">Nome</label><input class="entrada" id="amb-nome" value="${limpo(m.nome)}" data-amb-campo="nome"></div>` +
+            // um equipamento está num lugar só: os que já estão em outro móvel não entram na lista
+            `<div class="campo"><label for="amb-equip">Equipamento do inventário</label><select class="entrada" id="amb-equip" data-amb-campo="equip"><option value="">nenhum — é só um móvel</option>` +
+            Object.entries(EQUIPAMENTOS)
+              .filter(([id]) => id === m.equip || !PLANTA.moveis.some((x) => x.equip === id))
+              .map(([id, eq]) => `<option value="${id}"${id === m.equip ? ' selected' : ''}>${eq.nome} · ${eq.setor}</option>`)
+              .join('') +
+            `</select><small>Ligado a um equipamento, o nome dele vai na descrição do lugar da câmera que o vê.</small></div>` +
             `<div class="pares">${numeroDoCampo('amb-w', 'Largura, em m', m.w)}${numeroDoCampo('amb-h', 'Comprimento, em m', m.h)}${numeroDoCampo('amb-alt', 'Altura, em m', m.alt)}</div>` +
             `<button class="btn perigo-leve mini" type="button" data-amb-excluir style="align-self:flex-start">${icone('trash-2', 'p')}Tirar da planta</button>`
           : (e
@@ -7677,6 +7691,13 @@ button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: v
     if (camada) { amb.camada = camada.dataset.ambCamada; desenharAmbiente(); return; }
     const daLista = ev.target.closest('[data-amb-cam]');
     if (daLista) {
+      if (!PLANTA.cameras.some((x) => x.canal === daLista.dataset.ambCam)) {
+        if (!amb.editando) return;
+        // entra no meio do primeiro ambiente, no teto, com uma lente comum
+        const [x, y] = PLANTA.ambientes[0] ? centro(PLANTA.ambientes[0]) : [7, 4.5];
+        PLANTA.cameras.push({ canal: daLista.dataset.ambCam, x, y, alt: 2.6, dir: 90, abertura: 80, alcance: 3 });
+        avisar('Câmera posta na planta. Arraste para o lugar dela e gire a bolinha âmbar para onde ela olha.');
+      }
       selecionarNaPlanta('camera', daLista.dataset.ambCam);
       $(`[data-amb-cam="${daLista.dataset.ambCam}"]`)?.focus({ preventScroll: true });
       return;
@@ -7716,9 +7737,10 @@ button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: v
     }
     if (ev.target.closest('[data-amb-excluir]')) {
       const { tipo, id } = amb.sel;
-      if (tipo === 'movel') PLANTA.moveis = PLANTA.moveis.filter((m) => m.id !== id);
+      if (tipo === 'camera') PLANTA.cameras = PLANTA.cameras.filter((c) => c.canal !== id);
+      else if (tipo === 'movel') PLANTA.moveis = PLANTA.moveis.filter((m) => m.id !== id);
       else PLANTA.ambientes = PLANTA.ambientes.filter((a) => a.id !== id);
-      avisar(tipo === 'movel' ? 'Tirado da planta. O cadastro no inventário continua.' : 'Ambiente excluído.');
+      avisar(tipo === 'camera' ? 'Câmera tirada da planta. O canal continua cadastrado.' : tipo === 'movel' ? 'Tirado da planta. O cadastro no inventário continua.' : 'Ambiente excluído.');
       selecionarNaPlanta('', '');
     }
   });
@@ -7737,6 +7759,13 @@ button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: v
     const campo = ev.target.dataset.ambCampo;
     if (!campo || !sel) return;
     const item = (sel.tipo === 'movel' ? PLANTA.moveis : PLANTA.ambientes).find((x) => x.id === sel.id);
+    if (campo === 'equip') {
+      item.equip = ev.target.value || undefined;
+      // ligar a um equipamento dá ao móvel o nome dele, se o móvel ainda não tinha um
+      if (item.equip && item.nome === 'Equipamento') item.nome = EQUIPAMENTOS[item.equip].nome;
+      desenharAmbiente();
+      return;
+    }
     if (campo === 'nome' || campo === 'setor') item[campo] = ev.target.value.trim() || item[campo];
     else if (Number(ev.target.value) > 0) item[campo] = Number(ev.target.value);
     desenharPlanta();

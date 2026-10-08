@@ -13,7 +13,7 @@
 
 import { Folder, Info, Package, Plus, Store } from 'lucide-react';
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useConsole } from '@/componentes/console';
 import { GavetaDoCriterio } from '@/componentes/criterios/formulario-criterio';
@@ -74,6 +74,19 @@ export default function Inventario() {
   }, [carregar]);
 
   const abrir = (item?: Equipamento) => setAberta({ item, chave: `${item?.id ?? 'novo'}-${Date.now()}` });
+
+  // Quem chega da planta ("Abrir no inventário") traz o equipamento no
+  // endereço: a gaveta dele abre assim que a lista chega. Uma vez só — o
+  // endereço é limpo, para a gaveta não reabrir ao recarregar.
+  const pedido = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (pedido.current === undefined) pedido.current = new URLSearchParams(window.location.search).get('equipamento');
+    if (!pedido.current || !itens) return;
+    const item = itens.find((x) => x.id === pedido.current);
+    pedido.current = null;
+    window.history.replaceState(null, '', window.location.pathname);
+    if (item) abrir(item);
+  }, [itens]);
 
   /** O cadastro mudou no servidor com a gaveta aberta (criou, pôs ou tirou foto): a lista acompanha. */
   function acompanhar(item: Equipamento) {

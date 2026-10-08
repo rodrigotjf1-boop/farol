@@ -204,6 +204,12 @@ export default function AnalisesDaLoja() {
   const avisar = useAvisar();
 
   const [filtros, setFiltros] = useState<Filtros>({ ...FILTROS_PADRAO, dia: '' });
+  // Quem chega da planta ("Análises deste canal") traz o canal no endereço.
+  // Lido depois do primeiro desenho, que é igual no servidor e no navegador.
+  useEffect(() => {
+    const canal = new URLSearchParams(window.location.search).get('canal');
+    if (canal) setFiltros((f) => ({ ...f, canal }));
+  }, []);
   const [vista, setVista] = useState<Vista>('resultado');
   const [dados, setDados] = useState<Analises | null>(null);
   /** O dia de hoje NA LOJA, dito pelo servidor na primeira resposta. */

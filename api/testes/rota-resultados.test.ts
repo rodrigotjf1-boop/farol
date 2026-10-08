@@ -316,6 +316,7 @@ describe('resultados da loja (Postgres real)', { skip: !URL_DO_BANCO && 'sem DAT
 
     assert.equal(ocorrencias.length, 2, 'o conforme não é ocorrência');
     assert.deepEqual(ocorrencias.map((o: { pontoNome: string }) => o.pontoNome), ['Chapa', 'Montagem'], 'a mais nova primeiro, cada uma no seu canal');
+    assert.deepEqual(ocorrencias.map((o: { pontoId: string }) => o.pontoId), [chapa.pontoId, montagem.pontoId], 'e diz QUAL canal, não só o nome');
     assert.equal(ocorrencias[0].regraNome, 'Bancada limpa');
     assert.equal(ocorrencias[0].motivo, 'utensílio sujo');
     assert.equal(ocorrencias[0].confianca, 0.91);

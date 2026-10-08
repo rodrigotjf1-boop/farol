@@ -38,6 +38,30 @@ MAX_EQUIPAMENTOS_NO_PEDIDO = 4
 MAX_DESCRICAO_NO_PEDIDO = 500
 
 
+# Quanto da frase do lugar vai junto com a pergunta. A API já a escreve
+# curta; o corte aqui é a segunda trava de um texto pago a cada análise.
+MAX_LUGAR_NO_PEDIDO = 400
+
+
+def bloco_do_lugar(lugar: Any) -> str | None:
+    """O trecho do pedido que diz onde a câmera fica — ou nada.
+
+    A frase vem da planta que alguém desenhou, e a planta pode estar
+    incompleta ou velha: o trecho diz ao modelo que ela situa a cena e
+    que, na dúvida, vale a imagem.
+    """
+    texto = " ".join(str(lugar or "").split())
+    if not texto:
+        return None
+    if len(texto) > MAX_LUGAR_NO_PEDIDO:
+        texto = texto[: MAX_LUGAR_NO_PEDIDO - 1].rstrip() + "…"
+    return (
+        "ONDE ESTA CÂMERA FICA — tirado da planta da loja (serve para situar a cena; não é o "
+        "critério, e a planta pode estar incompleta: na dúvida, vale o que a imagem mostra):\n"
+        + texto
+    )
+
+
 def bloco_dos_equipamentos(equipamentos: Any) -> str | None:
     """O trecho do pedido que apresenta os equipamentos da área — ou nada.
 
