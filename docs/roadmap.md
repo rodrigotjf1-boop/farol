@@ -1785,6 +1785,49 @@ de R$ 1,50 a R$ 2,60 por hora com três critérios de nuvem).
   ele. O que acompanha canal e critério é o TEMPO de julgamento, que sai
   das próprias análises — o uso da máquina é dela inteira.
 
+### O uso da máquina de análise (migration 021)
+
+Pedido do dono ao aprovar a tela de Análises: "incluir análise de uso do
+servidor de análise, a máquina local; opção de analisar uso junto com os
+filtros". A pergunta por trás é de capacidade: o computador da loja está
+dando conta? cabe mais uma câmera, mais um critério?
+
+A máquina da loja de teste: Intel Core i7-10700F (8 núcleos, 16 fios),
+16 GB de memória, Radeon RX 560, disco de 223 GB com 64 livres. Numa noite
+com 7 critérios o processo do agente ficou perto de 2% do processador da
+máquina e 355 MB de memória.
+
+- **O agente mede a cada volta** (uns trinta segundos) e guarda por hora:
+  processador, memória e placa de vídeo da máquina inteira; a parte do
+  próprio agente (processador e memória); e o disco livre onde ficam a
+  fila e as imagens.
+- **Sem dependência nova.** O pacote do agente é trocado na loja sem
+  instalar nada pela rede, então nada de `psutil`: no Windows os números
+  vêm das chamadas que o Gerenciador de Tarefas usa (`kernel32`, `psapi` e
+  os contadores `GPU Engine`), por `ctypes`; no Linux, de `/proc`.
+- **"Não medi" não é zero.** Cada peça tem a sua quantidade de amostras;
+  máquina sem contador de placa de vídeo manda zero amostras dela e a tela
+  diz "sem medida". Peça que falha três vezes seguidas para de ser tentada.
+- **O pico é carga sustentada**: a maior média de meio minuto da hora, não
+  um estouro de meio segundo. É o que interessa a quem decide comprar
+  máquina.
+- **A placa de vídeo é o maior motor**, somando os processos de cada um —
+  a conta do Gerenciador de Tarefas. Somar motores diferentes passaria de
+  100% numa placa fazendo duas coisas.
+- **Medir nunca derruba a auditoria**: toda leitura é protegida, e a subida
+  do uso tem estado próprio — nuvem antiga, sem a rota, não custa um
+  evento nem um resumo.
+- **`POST /v1/uso`** recebe o acumulado da hora e troca (como o resumo);
+  **`GET /v1/lojas/:id/analises`** devolve o uso das mesmas horas, por
+  máquina, com soma, quantidade e pico de cada peça, e de que a máquina é
+  feita (`agente.maquina`).
+- **O que acompanha os filtros.** O uso é da máquina inteira: segue o
+  período e as horas, não o canal nem o critério. O que responde a canal e
+  critério é o TEMPO que a máquina passou julgando, que sai das próprias
+  análises (a latência somada das julgadas na loja).
+- **A tela**: o bloco "Máquina de análise", dentro de Análises, está no
+  protótipo esperando a aprovação do dono.
+
 ### Fica para o fim (por decisão do dono)
 
 Ocultar a pessoa na imagem que vai à nuvem; limpeza das imagens julgadas no

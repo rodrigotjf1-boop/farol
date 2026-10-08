@@ -22,6 +22,14 @@
 // avaliar". É a mesma conta do Painel. Olhada que não chegou a ser
 // julgada (cena repetida, câmera sem imagem) aparece em `capturas`.
 //
+// ## A máquina de análise
+//
+// Junto vai o USO do computador da loja nas mesmas horas (migration 021):
+// processador, memória, placa de vídeo e disco, por máquina. Vêm a soma e
+// a quantidade de amostras de cada peça, para a tela juntar várias horas
+// sem errar a média, e o pico. É da máquina inteira: acompanha o período e
+// as horas, não o canal nem o critério.
+//
 // ## Quem vê
 //
 // Supervisão para cima, e o suporte — como os resultados.
@@ -87,7 +95,7 @@ export function rotasDeAnalises(app: FastifyInstance, pool: pg.Pool): void {
     const naJanela = (coluna: string) =>
       `${coluna} >= ($2::date::timestamp at time zone $4) and ${coluna} < (($3::date + 1)::timestamp at time zone $4)`;
 
-    const [celulas, canais, criterios, avisos, totalDeAvisos, zonas] = await Promise.all([
+    const [celulas, canais, criterios, avisos, totalDeAvisos, zonas, uso, maquinas] = await Promise.all([
       // Uma linha por dia, hora, critério e área — somando os agentes: uma
       // reinstalação no meio da hora deixa duas linhas para a mesma hora.
       pool.query(
@@ -184,6 +192,31 @@ export function rotasDeAnalises(app: FastifyInstance, pool: pg.Pool): void {
           where st.loja_id = $1`,
         [id],
       ),
+
+      // O uso da máquina, hora a hora e por máquina, no relógio da loja.
+      pool.query(
+        `select u.agente_id,
+                to_char(u.hora at time zone $4, 'YYYY-MM-DD') as dia,
+                extract(hour from u.hora at time zone $4)::integer as hora,
+                u.amostras,
+                u.cpu_soma::float8 as cpu_soma, u.cpu_amostras, u.cpu_max::float8 as cpu_max,
+                u.mem_soma::float8 as mem_soma, u.mem_amostras, u.mem_max::float8 as mem_max,
+                u.gpu_soma::float8 as gpu_soma, u.gpu_amostras, u.gpu_max::float8 as gpu_max,
+                u.proc_cpu_soma::float8 as proc_cpu_soma, u.proc_cpu_amostras,
+                u.proc_cpu_max::float8 as proc_cpu_max, u.proc_mem_max_mb::float8 as proc_mem_max_mb,
+                u.disco_livre_gb::float8 as disco_livre_gb, u.disco_total_gb::float8 as disco_total_gb
+           from uso_hora u
+          where u.loja_id = $1
+            and ${naJanela('u.hora')}
+          order by u.agente_id, u.hora`,
+        [id, de, ate, loja.timezone],
+      ),
+
+      // As máquinas da loja e de que são feitas.
+      pool.query(
+        `select id, nome, maquina from agente where loja_id = $1 order by criado_em`,
+        [id],
+      ),
     ]);
 
     // As áreas de cada canal: as que existem hoje e as que aparecem no
@@ -274,6 +307,40 @@ export function rotasDeAnalises(app: FastifyInstance, pool: pg.Pool): void {
           comConfianca: c.com_confianca as number,
         };
       }),
+
+      maquina: {
+        // Só a máquina que mediu algo no intervalo, ou que já disse de
+        // que é feita: agente cadastrado e nunca instalado não é máquina.
+        agentes: maquinas.rows
+          .filter((m) => m.maquina != null || uso.rows.some((u) => u.agente_id === m.id))
+          .map((m) => {
+            const p = (m.maquina ?? {}) as Record<string, unknown>;
+            return {
+              id: m.id as string,
+              nome: m.nome as string,
+              processador: (p.processador as string | null) ?? null,
+              nucleos: (p.nucleos as number | null) ?? null,
+              memoriaGb: (p.memoriaGb as number | null) ?? null,
+              placaDeVideo: (p.placaDeVideo as string | null) ?? null,
+            };
+          }),
+        horas: uso.rows.map((u) => ({
+          agenteId: u.agente_id as string,
+          dia: u.dia as string,
+          hora: u.hora as number,
+          amostras: u.amostras as number,
+          cpuSoma: u.cpu_soma as number, cpuAmostras: u.cpu_amostras as number, cpuMax: (u.cpu_max as number | null) ?? null,
+          memSoma: u.mem_soma as number, memAmostras: u.mem_amostras as number, memMax: (u.mem_max as number | null) ?? null,
+          gpuSoma: u.gpu_soma as number, gpuAmostras: u.gpu_amostras as number, gpuMax: (u.gpu_max as number | null) ?? null,
+          // A parte do Farol (o processo do agente) no processador da máquina.
+          farolCpuSoma: u.proc_cpu_soma as number,
+          farolCpuAmostras: u.proc_cpu_amostras as number,
+          farolCpuMax: (u.proc_cpu_max as number | null) ?? null,
+          farolMemMaxMb: (u.proc_mem_max_mb as number | null) ?? null,
+          discoLivreGb: (u.disco_livre_gb as number | null) ?? null,
+          discoTotalGb: (u.disco_total_gb as number | null) ?? null,
+        })),
+      },
 
       totalDeAvisos: totalDeAvisos.rows[0]!.n,
       avisos: avisos.rows.map((a) => ({
