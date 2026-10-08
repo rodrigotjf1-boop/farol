@@ -1650,6 +1650,13 @@ olhada no silêncio — lá cada uma custa.
     cada — o relógio que o gravador escreve na imagem muda o quadro — para
     responder "não há ninguém".
 
+> **Estudo do Frigate** (07/10/2026), a pedido do dono:
+> [`estudo-frigate.md`](estudo-frigate.md). Conclusão: não substitui o agente
+> (Linux, vídeo contínuo, sem critério em linguagem natural), mas três
+> ideias dele atacam os itens 1, 6, 7 e 10 desta lista — estado ensinado
+> com exemplos da loja, gatilho por movimento na área e permanência
+> seguindo o objeto. Aguardando decisão.
+
 ### Horário de funcionamento (migration 018)
 
 Pedido do dono, na mesma noite: "colocar horário de funcionamento da loja.
