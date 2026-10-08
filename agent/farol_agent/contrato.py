@@ -116,6 +116,10 @@ def resumo_para_nuvem(linha: dict[str, Any]) -> dict[str, Any]:
         "somaLatenciaMs": int(linha["soma_latencia_ms"]),
         "comLatencia": linha["com_latencia"],
         "custoCentavos": round(float(linha["custo_centavos"]), 4),
+        # Onde foi julgado: no computador da loja ou na nuvem. A soma das
+        # duas é conformes + naoConformes + naoAvaliaveis.
+        "julgadasLoja": linha["julgadas_loja"],
+        "julgadasNuvem": linha["julgadas_nuvem"],
         "ultimoResultado": linha["ultimo_resultado"],
         "ultimoMotivo": linha["ultimo_motivo"],
         # Por que NÃO deu para julgar, na última vez em que não deu.

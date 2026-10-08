@@ -71,6 +71,9 @@ export type ResumoEntrada = {
   ultimoMotivo: string | null;
   ultimoImpedimento: string | null;
   ultimaEm: string | null;
+  /** Onde foi julgado. Agente anterior à migration 020 não manda. */
+  julgadasLoja?: number;
+  julgadasNuvem?: number;
 } & Record<(typeof CONTADORES)[number], number>;
 
 export function validarResumo(r: unknown, i: number): string | null {
@@ -113,6 +116,24 @@ export function validarResumo(r: unknown, i: number): string | null {
   // quantidade. Pegar isto aqui evita uma média de 3,7 na tela.
   if ((v.somaConfianca as number) > (v.comConfianca as number) + 1e-6) {
     return `${onde}.somaConfianca: maior que comConfianca`;
+  }
+
+  // Onde foi julgado: na loja ou na nuvem. Os dois são opcionais — o
+  // agente de antes da migration 020 não manda, e não pode passar a ser
+  // recusado por isso. Quando vêm, não passam do que foi julgado: cada
+  // julgamento concluído aconteceu em UM lugar.
+  let julgadasComLugar = 0;
+  for (const campo of ['julgadasLoja', 'julgadasNuvem'] as const) {
+    const n = v[campo];
+    if (n == null) continue;
+    if (typeof n !== 'number' || !Number.isInteger(n) || n < 0 || n > TETO_DO_CONTADOR) {
+      return `${onde}.${campo}: inteiro de 0 a ${TETO_DO_CONTADOR}`;
+    }
+    julgadasComLugar += n;
+  }
+  const julgadas = (v.conformes as number) + (v.naoConformes as number) + (v.naoAvaliaveis as number);
+  if (julgadasComLugar > julgadas) {
+    return `${onde}.julgadasLoja + julgadasNuvem: maior que o que foi julgado (${julgadas})`;
   }
 
   if (v.ultimoResultado != null) {
@@ -169,6 +190,8 @@ export async function gravarResumos(
     soma_latencia_ms: Math.round(r.somaLatenciaMs),
     com_latencia: r.comLatencia,
     custo_centavos: r.custoCentavos,
+    julgadas_loja: r.julgadasLoja ?? 0,
+    julgadas_nuvem: r.julgadasNuvem ?? 0,
     ultimo_resultado: r.ultimoResultado ?? null,
     ultimo_motivo: cortar(r.ultimoMotivo),
     ultimo_impedimento: cortar(r.ultimoImpedimento),
@@ -192,15 +215,15 @@ export async function gravarResumos(
         capturas, sem_juiz, sem_quadro, sem_cena, em_silencio, repetidas,
         ja_julgadas, enfileiradas, conformes, nao_conformes, nao_avaliaveis,
         falhas, alertas, soma_confianca, com_confianca, soma_latencia_ms,
-        com_latencia, custo_centavos, ultimo_resultado, ultimo_motivo,
-        ultimo_impedimento, ultima_em)
+        com_latencia, custo_centavos, julgadas_loja, julgadas_nuvem,
+        ultimo_resultado, ultimo_motivo, ultimo_impedimento, ultima_em)
      select distinct on (e.regra_id, e.zona_id, e.hora)
             $1, $2, $3, e.regra_id, e.zona_id, e.hora,
             e.capturas, e.sem_juiz, e.sem_quadro, e.sem_cena, e.em_silencio, e.repetidas,
             e.ja_julgadas, e.enfileiradas, e.conformes, e.nao_conformes, e.nao_avaliaveis,
             e.falhas, e.alertas, e.soma_confianca, e.com_confianca, e.soma_latencia_ms,
-            e.com_latencia, e.custo_centavos, e.ultimo_resultado, e.ultimo_motivo,
-            e.ultimo_impedimento, e.ultima_em
+            e.com_latencia, e.custo_centavos, e.julgadas_loja, e.julgadas_nuvem,
+            e.ultimo_resultado, e.ultimo_motivo, e.ultimo_impedimento, e.ultima_em
        from jsonb_to_recordset($4::jsonb) as e(
             i integer, regra_id uuid, zona_id uuid, hora timestamptz,
             capturas integer, sem_juiz integer, sem_quadro integer, sem_cena integer,
@@ -208,7 +231,8 @@ export async function gravarResumos(
             enfileiradas integer, conformes integer, nao_conformes integer,
             nao_avaliaveis integer, falhas integer, alertas integer,
             soma_confianca numeric, com_confianca integer, soma_latencia_ms bigint,
-            com_latencia integer, custo_centavos numeric, ultimo_resultado text,
+            com_latencia integer, custo_centavos numeric,
+            julgadas_loja integer, julgadas_nuvem integer, ultimo_resultado text,
             ultimo_motivo text, ultimo_impedimento text, ultima_em timestamptz)
        join regra r on r.id = e.regra_id and r.loja_id = $2
        join zona  z on z.id = e.zona_id
@@ -234,6 +258,8 @@ export async function gravarResumos(
         soma_latencia_ms = excluded.soma_latencia_ms,
         com_latencia = excluded.com_latencia,
         custo_centavos = excluded.custo_centavos,
+        julgadas_loja = excluded.julgadas_loja,
+        julgadas_nuvem = excluded.julgadas_nuvem,
         ultimo_resultado = excluded.ultimo_resultado,
         ultimo_motivo = excluded.ultimo_motivo,
         ultimo_impedimento = excluded.ultimo_impedimento,

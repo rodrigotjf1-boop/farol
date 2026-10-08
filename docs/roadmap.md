@@ -1722,6 +1722,52 @@ o critério, mesmo sendo no canal, fica destinado à área marcada".
   desenhar "dentro do balcão", deixar folga do lado de dentro, não em cima
   da linha do balcão.
 
+### Análises: hora a hora, onde foi julgado e quanto custou (migration 020)
+
+Pedido do dono, com a loja em operação: apresentar melhor o resultado das
+análises — "usando gráficos, filtrar por horas, análises de somente um
+canal, em determinada hora; das análises, quais foram locais e quais foram
+nuvem", e "média de custo, total de custos dentro do período apresentado,
+quando análises na nuvem". Perguntou também se valia criar um agente local
+para tratar e apresentar os resultados.
+
+**O que a primeira noite mediu** (07/10, das 16h às 20h, 7 critérios):
+1.061 análises julgadas na loja pelo detector (0,09 s cada, sem custo por
+análise) e 503 na nuvem (2,1 s cada; R$ 6,59 no total, 1,3 centavo cada —
+de R$ 1,50 a R$ 2,60 por hora com três critérios de nuvem).
+
+- **Não é preciso outro agente para apresentar.** Os números já sobem
+  prontos, por hora, critério e área; faltavam dois contadores e a tela.
+  Um resumo escrito por IA ("o que aconteceu no turno") pode vir depois,
+  por cima dos MESMOS números — texto sobre contagem, sem imagem — e não
+  entra antes de a tela de números existir.
+- **O resumo por hora passa a dizer onde julgou**: `julgadas_loja` e
+  `julgadas_nuvem`. "Na loja" é o que roda no computador dela (detector,
+  modelo local, comparação); só a nuvem manda a imagem para fora e tem
+  custo por análise.
+- **Sem preenchimento retroativo.** O que o agente não informou — linha
+  antiga, agente antigo, a hora da atualização — é repartido NA LEITURA
+  pelo tipo do critério (presença, contagem e comparação na loja; estado e
+  ação na nuvem), que é o que o serviço fazia até aqui. A regra mora num
+  lugar só (`api/src/analises.ts`) e a soma loja + nuvem fecha sempre com
+  o que foi julgado.
+- **`GET /v1/lojas/:id/analises?de=&ate=`** entrega o miúdo: uma célula por
+  dia, hora, critério e área (até 31 dias), no relógio da loja, com
+  análises, resultado, loja × nuvem, custo e tempo. A tela recorta e soma
+  sem voltar ao servidor a cada filtro.
+- **O custo é estimativa**: o preço de tabela do modelo, convertido com o
+  dólar fixo do agente (`FAROL_DOLAR`, R$ 5,40). A conta de verdade é a
+  fatura do provedor. A tela tem de dizer isso.
+- **"Fora do critério" é contagem; "aviso" é registro.** Toda olhada fora
+  do critério é contada. Só vira aviso — com hora, motivo e imagem — a que
+  passa pela confiança mínima e pelo silêncio do critério. A lista da tela
+  é de avisos, e o número ao lado dela é o de avisos, não o de "fora".
+- **A tela** ("Análises", item novo na navegação): filtros de período,
+  horas, canal, critério e onde foi julgado; seis números do recorte; um
+  gráfico hora a hora que também é filtro, com três vistas (resultado,
+  onde julgou, custo); por canal; por critério e canal; avisos do recorte.
+  **Protótipo em aprovação** (branch `feat/analises-graficos`).
+
 ### Fica para o fim (por decisão do dono)
 
 Ocultar a pessoa na imagem que vai à nuvem; limpeza das imagens julgadas no
