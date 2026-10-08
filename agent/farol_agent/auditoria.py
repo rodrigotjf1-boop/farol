@@ -279,7 +279,11 @@ class Auditoria:
         seletor = SeletorDeJuiz(
             config.modo_julgamento, nuvem=nuvem, detector=_detector_local(), padrao=padrao
         )
-        return JuizPorRegra(seletor, {r.id: r for r in config.regras})
+        return JuizPorRegra(
+            seletor,
+            {r.id: r for r in config.regras},
+            equipamentos={z.id: z.equipamentos for p in config.pontos for z in p.zonas if z.equipamentos},
+        )
 
     def _relogios(self, config: ConfigDaLoja) -> dict[str, tuple[float, float, float, float]]:
         """Por canal, o retângulo em que o gravador escreve data e hora.

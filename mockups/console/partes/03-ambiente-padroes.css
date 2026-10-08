@@ -364,6 +364,8 @@
 .fotos-grade .foto.vazia { background: none; box-shadow: none; border: 1px dashed var(--borda-forte); display: grid; place-items: center; }
 .fotos-grade .foto.vazia > span { position: static; background: none; color: var(--suave); text-align: center; white-space: normal; }
 .fotos-acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.escolher-canal { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--borda); border-radius: 10px; background: var(--painel-2); }
+.escolher-canal[hidden] { display: none; }
 /* a gaveta fica fora do console: quem só vê lê o cadastro, sem os botões de quem configura */
 .folha[data-leitura="true"] [data-so-config] { display: none !important; }
 .seg button:disabled { opacity: .5; cursor: not-allowed; }

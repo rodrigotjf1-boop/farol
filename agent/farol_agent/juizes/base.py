@@ -32,6 +32,36 @@ class Juiz(Protocol):
         ...
 
 
+# Quanto dos equipamentos da área vai junto com a pergunta. É texto pago a
+# cada análise: o bastante para reconhecer, não o cadastro inteiro.
+MAX_EQUIPAMENTOS_NO_PEDIDO = 4
+MAX_DESCRICAO_NO_PEDIDO = 500
+
+
+def bloco_dos_equipamentos(equipamentos: Any) -> str | None:
+    """O trecho do pedido que apresenta os equipamentos da área — ou nada.
+
+    Aceita o que vier no contexto (objetos com `nome`/`tipo`/`descricao`,
+    ou dicionários): o contexto atravessa a fila em JSON.
+    """
+    linhas: list[str] = []
+    for e in list(equipamentos or [])[:MAX_EQUIPAMENTOS_NO_PEDIDO]:
+        ler = e.get if isinstance(e, dict) else (lambda k, _e=e: getattr(_e, k, None))
+        nome, descricao = str(ler("nome") or "").strip(), str(ler("descricao") or "").strip()
+        if not nome or not descricao:
+            continue
+        if len(descricao) > MAX_DESCRICAO_NO_PEDIDO:
+            descricao = descricao[: MAX_DESCRICAO_NO_PEDIDO - 1].rstrip() + "…"
+        linhas.append(f"- {nome}: {descricao}")
+    if not linhas:
+        return None
+    return (
+        "EQUIPAMENTOS NESTA ÁREA — como cada um é e como fica quando está limpo e no lugar "
+        "(descrição guardada pela loja; serve para reconhecer o que aparece, não é o critério):\n"
+        + "\n".join(linhas)
+    )
+
+
 class ErroDoJuiz(Exception):
     """Falha ao julgar.
 

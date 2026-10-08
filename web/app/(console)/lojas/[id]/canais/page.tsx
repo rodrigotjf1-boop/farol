@@ -32,7 +32,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { useConsole } from '@/componentes/console';
 import { criteriosDoCanal, emOrdem } from '@/componentes/criterios/canais';
 import { desdeAHora, plural } from '@/componentes/formatos';
+import { abasDeCanais } from '@/componentes/pontos/abas-de-canais';
 import { GavetaDoCanal } from '@/componentes/pontos/formulario-ponto';
+import { Abas } from '@/componentes/ui/abas';
 import { useAvisar } from '@/componentes/ui/avisos';
 import { Botao } from '@/componentes/ui/botao';
 import { Campo } from '@/componentes/ui/campo';
@@ -347,6 +349,8 @@ export default function Canais() {
       >
         As câmeras desta loja, por setor. Um canal é uma câmera do gravador ou uma câmera IP ligada direto na rede.
       </Cabecalho>
+
+      <Abas rotulo="Vistas dos canais" abas={abasDeCanais(id)} />
 
       {erro && (
         <Alerta tom="critico" papel="alert">

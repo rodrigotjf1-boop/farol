@@ -518,6 +518,101 @@ export const padroesApi = {
     pedir<{ excluida: boolean; nome: string; restantes: number }>(`/padroes/${id}`, { method: 'DELETE' }),
 };
 
+// ───────────────────── o inventário de equipamentos ─────────────────────
+
+export type TipoDeEquipamento =
+  | 'chapa' | 'fritadeira' | 'bancada' | 'geladeira' | 'balcao' | 'caixa' | 'prateleira' | 'pia' | 'outro';
+
+/** `canal` = o quadro do canal, com o desenho da área em `recorte`; `envio` = foto mandada pelo console. */
+export type FotoDoEquipamento = {
+  id: string;
+  origem: 'canal' | 'envio';
+  pontoId: string | null;
+  zonaId: string | null;
+  /** O desenho da área no instante da foto, em fração do quadro. */
+  recorte: [number, number][] | null;
+  largura: number | null;
+  altura: number | null;
+};
+
+/** Onde o equipamento aparece: o canal e a área das fotos tiradas do quadro. */
+export type LugarDoEquipamento = {
+  pontoId: string;
+  pontoNome: string;
+  canal: number | null;
+  zonaId: string;
+  zonaNome: string;
+  /** O canal tem mais de uma área: aí o nome da área diz alguma coisa. */
+  variasAreas: boolean;
+  /** Quantas fotos padrão o canal tem. */
+  fotosPadrao: number;
+};
+
+export type Equipamento = {
+  id: string;
+  lojaId: string;
+  setorId: string;
+  setorNome: string;
+  nome: string;
+  tipo: TipoDeEquipamento;
+  /** Como ele é e como fica limpo e no lugar. Vai junto com a pergunta à nuvem. */
+  descricao: string;
+  /** O que vale conferir nele. Cada frase pode virar um critério. */
+  conferir: string[];
+  descritoEm: string | null;
+  descritoPor: string | null;
+  atualizadoEm: string;
+  fotos: FotoDoEquipamento[];
+  aparece: LugarDoEquipamento[];
+  /** Aparece num canal que tem foto padrão: comparação ali é julgada na loja. */
+  comparaNaLoja: boolean;
+};
+
+export type CamposDoEquipamento = {
+  nome: string;
+  tipo: TipoDeEquipamento;
+  setorId: string;
+  descricao: string;
+  conferir: string[];
+};
+
+export const inventarioApi = {
+  listar: (lojaId: string) =>
+    pedir<{ itens: Equipamento[]; tipos: TipoDeEquipamento[]; maximoDeFotos: number; maximoAConferir: number }>(
+      `/lojas/${lojaId}/inventario`,
+    ),
+
+  criar: (lojaId: string, dados: Partial<CamposDoEquipamento> & { nome: string; setorId: string }) =>
+    pedir<Equipamento>(`/lojas/${lojaId}/inventario`, { method: 'POST', body: JSON.stringify(dados) }),
+
+  /** Campo ausente mantém o que está guardado. */
+  editar: (id: string, dados: Partial<CamposDoEquipamento>) =>
+    pedir<Equipamento>(`/inventario/${id}`, { method: 'PATCH', body: JSON.stringify(dados) }),
+
+  /** Leva as fotos junto. */
+  excluir: (id: string) => pedir<{ excluido: boolean; nome: string }>(`/inventario/${id}`, { method: 'DELETE' }),
+
+  /** Copia o quadro que o canal tem agora, com o desenho da área. */
+  fotoDoCanal: (id: string, zonaId: string) =>
+    pedir<{ fotoId: string; item: Equipamento }>(`/inventario/${id}/fotos`, {
+      method: 'POST',
+      body: JSON.stringify({ origem: 'canal', zonaId }),
+    }),
+
+  /** Uma foto mandada daqui, já reduzida e em JPEG. */
+  fotoEnviada: (id: string, imagemBase64: string) =>
+    pedir<{ fotoId: string; item: Equipamento }>(`/inventario/${id}/fotos`, {
+      method: 'POST',
+      body: JSON.stringify({ origem: 'envio', imagemBase64 }),
+    }),
+
+  /** A imagem de uma foto. O id nunca muda de imagem: o navegador guarda. */
+  urlDaFoto: (fotoId: string) => `/api/inventario/fotos/${fotoId}/imagem`,
+
+  tirarFoto: (fotoId: string) =>
+    pedir<{ excluida: boolean; item: Equipamento }>(`/inventario/fotos/${fotoId}`, { method: 'DELETE' }),
+};
+
 // ───────────────── alertas: destinos, política, envios ─────────────────
 
 export type Destino = {

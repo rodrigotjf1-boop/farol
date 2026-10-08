@@ -133,9 +133,17 @@ class JuizPorRegra:
 
     nome = "por-regra"
 
-    def __init__(self, seletor: SeletorDeJuiz, regras: dict[str, Regra]) -> None:
+    def __init__(
+        self,
+        seletor: SeletorDeJuiz,
+        regras: dict[str, Regra],
+        equipamentos: dict[str, list] | None = None,
+    ) -> None:
         self.seletor = seletor
         self.regras = regras
+        # Por ÁREA (não por regra: o mesmo critério vale em várias áreas,
+        # e cada uma tem os seus equipamentos).
+        self.equipamentos = equipamentos or {}
 
     def julgar(
         self,
@@ -162,6 +170,14 @@ class JuizPorRegra:
         # procurar", a análise que estava na fila já usa a correção.
         if regra.parametros:
             ctx = {**ctx, "parametros": regra.parametros}
+
+        # O que a loja sabe dos equipamentos DESTA área vai com a pergunta
+        # feita a um modelo. O detector não lê texto: não leva.
+        # Comparação leva: o que não é igual à foto padrão vai à nuvem.
+        if regra.tipo in (TipoRegra.ESTADO, TipoRegra.ACAO, TipoRegra.COMPARACAO):
+            da_area = self.equipamentos.get(str(ctx.get("zona_id")))
+            if da_area:
+                ctx = {**ctx, "equipamentos": da_area}
 
         padrao = getattr(self.seletor, "padrao", None)
         if juiz is padrao:

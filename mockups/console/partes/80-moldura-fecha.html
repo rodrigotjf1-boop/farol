@@ -348,6 +348,7 @@
     <div class="campos">
       <div class="campo largo"><label for="feq-nome">Nome</label><input class="entrada" id="feq-nome" placeholder="Chapa" required></div>
       <div class="campo"><label for="feq-setor">Setor</label><select class="entrada" id="feq-setor"><option>Cozinha</option><option>Atendimento</option><option>Estoque</option><option>＋ cadastrar novo setor</option></select></div>
+      <div class="campo largo" data-feq-setor-novo hidden><label for="feq-setor-nome">Nome do setor novo</label><input class="entrada" id="feq-setor-nome" placeholder="Cozinha, Salão, Estoque…"></div>
       <div class="campo"><label for="feq-tipo">Tipo</label><select class="entrada" id="feq-tipo"><option>chapa</option><option>fritadeira</option><option>bancada</option><option>geladeira ou freezer</option><option>balcão</option><option>caixa</option><option>prateleira</option><option>pia</option><option>outro</option></select></div>
     </div>
     <div class="campo">
@@ -357,7 +358,11 @@
         <button class="btn secundario mini" type="button" data-feq-foto="canal"><svg class="ic p" aria-hidden="true"><use href="#i-cctv"/></svg>Usar o quadro de um canal</button>
         <button class="btn secundario mini" type="button" data-feq-foto="celular"><svg class="ic p" aria-hidden="true"><use href="#i-image"/></svg>Enviar foto</button>
       </div>
-      <small>Sem ninguém na frente. A foto tirada do quadro do canal é a que a loja usa para comparar sozinha; a do celular, de perto, serve para descrever.</small>
+      <div class="escolher-canal" data-feq-escolher data-so-config hidden>
+        <div class="campo"><label for="feq-quadro">De que canal</label><select class="entrada" id="feq-quadro"></select><small>É o quadro que o canal tem agora, no recorte da área. Para outra cena, atualize o quadro em “Quadro e área” antes.</small></div>
+        <div class="fotos-acoes"><button class="btn primario mini" type="button" data-feq-usar>Usar este quadro</button><button class="btn secundario mini" type="button" data-feq-desistir>Cancelar</button></div>
+      </div>
+      <small>Sem ninguém na frente. A foto tirada do quadro do canal diz onde o equipamento aparece; a enviada, de perto, serve para descrever.</small>
     </div>
     <div class="campo">
       <span class="rotulo">Onde aparece</span>
@@ -377,6 +382,7 @@
   <footer class="folha-pe">
     <button class="btn primario" type="submit" form="f-equip" data-so-config>Salvar equipamento</button>
     <button class="btn secundario" type="button" data-fecha>Fechar</button>
+    <button class="btn perigo-leve" type="button" data-feq-excluir data-so-config><svg class="ic p" aria-hidden="true"><use href="#i-trash-2"/></svg>Excluir</button>
   </footer>
 </section>
 

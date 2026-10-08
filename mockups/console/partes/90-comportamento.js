@@ -1537,6 +1537,27 @@
         return `Foto padrão “${n}” excluída.`;
       },
     },
+    'excluir-equip': {
+      titulo: (n) => `Excluir o equipamento “${n}”?`,
+      corpo: () => {
+        const e = EQUIPAMENTOS[feq.id];
+        const n = e?.fotos.length ?? 0;
+        return [
+          n ? `${n === 1 ? 'A foto dele é apagada' : `As ${n} fotos dele são apagadas`}, junto com o cadastro.` : 'O cadastro é apagado. Ele ainda não tem foto.',
+          ...(e?.descricao && e.aparece.length
+            ? [`<b>A descrição dele deixa de ir junto</b> com as perguntas feitas à nuvem sobre ${e.aparece.map(([c]) => canalDe(c).nome).join(' e ')}.`]
+            : []),
+          'Os critérios que já existem continuam como estão.',
+        ];
+      },
+      confirmar: 'Excluir equipamento',
+      depois: (n) => {
+        delete EQUIPAMENTOS[feq.id];
+        desenharInventario();
+        if (!$('[data-tela="ambiente"]').hidden) desenharAmbiente();
+        return `“${n}” excluído do inventário.`;
+      },
+    },
     'novo-setor': {
       titulo: () => 'Novo setor',
       corpo: () => [
@@ -3373,6 +3394,10 @@
   const pinoDa = (cam) => Math.min(cam.alt, 1.3);
   const rad = (g) => (g * Math.PI) / 180;
   const canalDe = (id) => AMB_CANAIS.find((c) => c.id === id);
+  // Os canais que têm foto padrão guardada (dados de exemplo). É o que decide
+  // "compara na loja": critério de comparação é julgado na loja quando o
+  // CANAL tem foto padrão — não por o equipamento ter foto própria.
+  const CANAIS_COM_FOTO_PADRAO = new Set(['chp', 'm1', 'cx', 'bal']);
   const ambienteEm = (x, y) => PLANTA.ambientes.find((a) => x >= a.x && x <= a.x + a.w && y >= a.y && y <= a.y + a.h);
   const centro = (r) => [r.x + r.w / 2, r.y + r.h / 2];
 
@@ -4070,13 +4095,13 @@
       const doSetor = Object.entries(EQUIPAMENTOS).filter(([, e]) => e.setor === s.setor);
       const cartoes = doSetor
         .map(([id, e]) => {
-          const pronta = e.fotos.includes('canal') && e.aparece.length > 0;
+          const pronta = e.aparece.some(([c]) => CANAIS_COM_FOTO_PADRAO.has(c));
           return (
             `<article class="equip cartao"><div class="equip-foto">${e.fotos.length ? miniDoEquip(e.tipo, e.fotos[0]) : `<span>${icone('image', 'g')}</span>`}</div>` +
             `<div class="equip-corpo"><h3>${e.nome}</h3><p>${e.tipo}${e.aparece.length ? ` · ${e.aparece.map(lugar).join(', ')}` : ' · nenhuma câmera marcada'}</p>` +
             `<div class="canal-chips"><span class="chip ${e.fotos.length ? 'ok' : 'atencao'}">${e.fotos.length ? `${plural(e.fotos.length, 'foto', 'fotos')} de 4` : 'sem foto'}</span>` +
             `<span class="chip ${e.descricao ? 'ok' : ''}">${e.descricao ? 'descrito' : 'sem descrição'}</span>` +
-            (pronta ? `<span class="chip vazado" title="Tem a foto tirada do quadro do canal e o lugar marcado">${icone('cpu')}compara na loja</span>` : '') +
+            (pronta ? `<span class="chip vazado" title="O canal em que ele aparece tem foto padrão: critério de comparação nessa área é julgado na loja, sem custo">${icone('cpu')}compara na loja</span>` : '') +
             `</div></div>` +
             `<div class="canal-pe"><span>${e.conferir.length ? `${plural(e.conferir.length, 'ponto', 'pontos')} a conferir` : 'nada a conferir ainda'}</span>` +
             `<button class="elo" type="button" data-equip-abrir="${id}">Abrir${icone('arrow-right', 'p')}</button></div></article>`
@@ -4092,14 +4117,56 @@
     }).join('');
   }
 
-  const feq = { id: '', fotos: [], conferir: [] };
+  const feq = { id: '', fotos: [], conferir: [], aparece: [] };
+  const setorDoEquip = () => {
+    const v = $('#feq-setor').value;
+    return v.startsWith('＋') ? $('#feq-setor-nome').value.trim() : v;
+  };
+  function desenharOndeAparece() {
+    $('[data-feq-aparece]').innerHTML = feq.aparece.length
+      ? feq.aparece
+          .map(([canal, area]) => `<li><span class="selo-ic">${icone('cctv')}</span><span><b>${canalDe(canal).nome}</b><small>canal ${canalDe(canal).num} · ${area}${CANAIS_COM_FOTO_PADRAO.has(canal) ? ' · com foto padrão' : ''}</small></span><a class="elo" href="#area" data-ir="area">Ver</a></li>`)
+          .join('')
+      : '<li class="vazio-linha">Nenhuma câmera marcada. Use “Usar o quadro de um canal” para dizer onde ele aparece.</li>';
+  }
+  /** O cadastro como está na tela vai para a lista — é o que "guardar na hora" quer dizer. */
+  function guardarEquip() {
+    const antes = EQUIPAMENTOS[feq.id];
+    EQUIPAMENTOS[feq.id] = {
+      ...(antes ?? { descricao: '', conferir: [] }),
+      nome: antes?.nome ?? $('#feq-nome').value.trim(),
+      setor: antes?.setor ?? (setorDoEquip() || 'Cozinha'),
+      tipo: antes?.tipo ?? $('#feq-tipo').value,
+      fotos: [...feq.fotos],
+      aparece: feq.aparece.map((x) => [...x]),
+    };
+    $('[data-feq-titulo]').textContent = EQUIPAMENTOS[feq.id].nome;
+    $('[data-feq-excluir]').hidden = false;
+    desenharInventario();
+  }
+  /** As fotos são guardadas NA HORA: num equipamento novo, a primeira já cria o cadastro. */
+  function porFotoNoEquip(origem, canal) {
+    if (!$('#feq-nome').value.trim()) {
+      avisar('Dê um nome ao equipamento antes de pôr a foto.');
+      $('#feq-nome').focus({ preventScroll: true });
+      return false;
+    }
+    if (!feq.id) feq.id = `equip-${Date.now().toString(36)}`;
+    feq.fotos.push(origem);
+    if (origem === 'canal' && !feq.aparece.some(([c]) => c === canal)) feq.aparece.push([canal, 'quadro inteiro']);
+    guardarEquip();
+    desenharFotosDoEquip();
+    desenharOndeAparece();
+    avisar(origem === 'canal' ? 'Quadro do canal guardado como foto.' : 'Foto enviada.');
+    return true;
+  }
   function desenharFotosDoEquip() {
     const tipo = $('#feq-tipo').value;
     $('[data-feq-conta]').textContent = `· ${feq.fotos.length} de 4`;
     $('[data-feq-fotos]').innerHTML = Array.from({ length: 4 }, (_, i) => {
       const origem = feq.fotos[i];
       return origem
-        ? `<li class="foto">${miniDoEquip(tipo, origem)}<span>${origem === 'canal' ? 'do quadro do canal' : 'do celular'}</span>` +
+        ? `<li class="foto">${miniDoEquip(tipo, origem)}<span>${origem === 'canal' ? 'do quadro do canal' : 'foto enviada'}</span>` +
           `<button class="btn fantasma quadrado mini" type="button" data-feq-tirar="${i}" data-so-config aria-label="Tirar a foto ${i + 1}">${icone('x')}</button></li>`
         : `<li class="foto vazia"><span>${i === feq.fotos.length ? 'próxima foto' : ''}</span></li>`;
     }).join('');
@@ -4121,6 +4188,7 @@
     feq.id = id;
     feq.fotos = e ? [...e.fotos] : [];
     feq.conferir = e ? [...e.conferir] : [];
+    feq.aparece = e ? e.aparece.map((x) => [...x]) : [];
     contexto = { ...contexto, nome: e?.nome ?? '' };
     abrirFolha('folha-equip', e ? 'editar' : 'novo', gatilho);
     $('[data-feq-titulo]').textContent = e ? e.nome : 'Novo equipamento';
@@ -4128,11 +4196,13 @@
     $('#feq-setor').value = e?.setor ?? 'Cozinha';
     $('#feq-tipo').value = e?.tipo ?? 'chapa';
     $('#feq-desc').value = e?.descricao ?? '';
-    $('[data-feq-aparece]').innerHTML = e?.aparece.length
-      ? e.aparece
-          .map(([canal, area]) => `<li><span class="selo-ic">${icone('cctv')}</span><span><b>${canalDe(canal).nome}</b><small>canal ${canalDe(canal).num} · ${area}</small></span><a class="elo" href="#area" data-ir="area">Ver</a></li>`)
-          .join('')
-      : '<li class="vazio-linha">Nenhuma câmera marcada. Ponha o equipamento na planta, ou marque a área dele no quadro de um canal.</li>';
+    desenharOndeAparece();
+    // a escolha do canal abre fechada, com os canais da loja; o setor novo, sem o campo do nome
+    $('[data-feq-escolher]').hidden = true;
+    $('#feq-quadro').innerHTML = AMB_CANAIS.map((c) => `<option value="${c.id}">${c.nome} (${c.num})</option>`).join('');
+    $('[data-feq-setor-novo]').hidden = true;
+    $('#feq-setor-nome').value = '';
+    $('[data-feq-excluir]').hidden = !e;
     // Quem só vê abre o cadastro para LER: a gaveta fica fora do console,
     // então a regra que esconde os botões de quem configura não chega nela.
     const soLe = app.dataset.perfil === 'supervisao';
@@ -4148,13 +4218,34 @@
     if (abrir) { abrirEquipamento(abrir.dataset.equipAbrir, abrir); return; }
     const foto = ev.target.closest('[data-feq-foto]');
     if (foto) {
-      feq.fotos.push(foto.dataset.feqFoto);
-      desenharFotosDoEquip();
-      avisar(foto.dataset.feqFoto === 'canal' ? 'Recorte do quadro do canal guardado como foto.' : 'Foto enviada.');
+      // o quadro de QUAL canal: a escolha abre embaixo dos botões
+      if (foto.dataset.feqFoto === 'canal') $('[data-feq-escolher]').hidden = !$('[data-feq-escolher]').hidden;
+      else porFotoNoEquip('celular');
+      return;
+    }
+    if (ev.target.closest('[data-feq-desistir]')) { $('[data-feq-escolher]').hidden = true; return; }
+    if (ev.target.closest('[data-feq-usar]')) {
+      if (porFotoNoEquip('canal', $('#feq-quadro').value)) $('[data-feq-escolher]').hidden = true;
       return;
     }
     const tirar = ev.target.closest('[data-feq-tirar]');
-    if (tirar) { feq.fotos.splice(Number(tirar.dataset.feqTirar), 1); desenharFotosDoEquip(); return; }
+    if (tirar) {
+      feq.fotos.splice(Number(tirar.dataset.feqTirar), 1);
+      // sem foto tirada de canal, não há mais como dizer onde ele aparece
+      if (!feq.fotos.includes('canal')) feq.aparece = [];
+      if (EQUIPAMENTOS[feq.id]) guardarEquip();
+      desenharFotosDoEquip();
+      desenharOndeAparece();
+      avisar('Foto tirada.');
+      return;
+    }
+    const excluirEquip = ev.target.closest('[data-feq-excluir]');
+    if (excluirEquip) {
+      const nome = EQUIPAMENTOS[feq.id]?.nome ?? '';
+      fecharTudo();
+      abrirDialogo('excluir-equip', null, nome);
+      return;
+    }
     const analisar = ev.target.closest('[data-feq-analisar]');
     if (analisar) {
       if (!feq.fotos.length) { avisar('Ponha pelo menos uma foto: é dela que a descrição sai.'); return; }
@@ -4187,13 +4278,32 @@
     }
   });
   $('#feq-tipo').addEventListener('change', desenharFotosDoEquip);
-  $('#f-equip').addEventListener('submit', () => {
+  $('#feq-setor').addEventListener('change', () => {
+    $('[data-feq-setor-novo]').hidden = !$('#feq-setor').value.startsWith('＋');
+    if (!$('[data-feq-setor-novo]').hidden) $('#feq-setor-nome').focus({ preventScroll: true });
+  });
+  $('#f-equip').addEventListener('submit', (ev) => {
     const nome = $('#feq-nome').value.trim();
+    const setor = setorDoEquip();
+    if (!setor) {
+      // "cadastrar novo setor" sem o nome: não salva, e diz por quê
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      avisar('Diga o nome do setor novo.');
+      $('#feq-setor-nome').focus({ preventScroll: true });
+      return;
+    }
+    if (!ARVORE.some((s) => s.setor === setor)) {
+      ARVORE.push({ setor, canais: [] });
+      const opcao = document.createElement('option');
+      opcao.textContent = setor;
+      $('#feq-setor').lastElementChild.before(opcao);
+    }
     const id = feq.id || `equip-${Date.now().toString(36)}`;
     EQUIPAMENTOS[id] = {
-      ...(EQUIPAMENTOS[id] ?? { aparece: [] }),
-      nome, setor: $('#feq-setor').value.startsWith('＋') ? 'Cozinha' : $('#feq-setor').value, tipo: $('#feq-tipo').value,
-      fotos: [...feq.fotos], descricao: $('#feq-desc').value.trim(), conferir: [...feq.conferir],
+      ...(EQUIPAMENTOS[id] ?? {}),
+      nome, setor, tipo: $('#feq-tipo').value,
+      fotos: [...feq.fotos], aparece: feq.aparece.map((x) => [...x]), descricao: $('#feq-desc').value.trim(), conferir: [...feq.conferir],
     };
     $('#f-equip').dataset.sucessoNovo = $('#f-equip').dataset.sucessoEditar = `“${nome}” salvo no inventário.`;
     desenharInventario();
