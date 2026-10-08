@@ -9,8 +9,9 @@
 //   1 · Que recorte estou olhando?      (os filtros e a frase do recorte)
 //   2 · Quanto foi, e no que deu?       (os números)
 //   3 · Em que hora? Em que canal?      (os dois gráficos, que também filtram)
-//   4 · Em que critério, e a que custo? (a tabela)
-//   5 · O que virou aviso?              (a lista)
+//   4 · A máquina está dando conta?     (o uso do computador da loja)
+//   5 · Em que critério, e a que custo? (a tabela)
+//   6 · O que virou aviso?              (a lista)
 //
 // A API entrega o miúdo do período e a tela recorta aqui: trocar hora,
 // canal, critério ou "onde foi julgado" responde na hora, sem ir ao
@@ -43,6 +44,7 @@ import {
 } from '@/componentes/analises/conta';
 import { FiltrosDasAnalises } from '@/componentes/analises/filtros';
 import { GraficoDeHoras } from '@/componentes/analises/grafico-de-horas';
+import { MaquinaDeAnalise } from '@/componentes/analises/maquina';
 import { PorCanal } from '@/componentes/analises/por-canal';
 import { AvisosDoRecorte, PorCriterioECanal } from '@/componentes/analises/tabela-e-avisos';
 import { useConsole } from '@/componentes/console';
@@ -422,6 +424,10 @@ export default function AnalisesDaLoja() {
             aoEscolher={(canal) => mudar({ canal })}
           />
         </div>
+
+        {/* A máquina aparece sempre, com ou sem análise no recorte: o uso é
+            dela inteira, não do canal nem do critério escolhidos. */}
+        <MaquinaDeAnalise dados={dados} filtros={filtros} baldes={osBaldes} recorte={recorte} aoEscolher={escolher} />
 
         {total.analises > 0 && (
           <>
