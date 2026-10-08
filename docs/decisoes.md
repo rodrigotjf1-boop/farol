@@ -808,10 +808,71 @@ critérios como os outros: continuam.
 
 ### O que falta, e o que não foi medido
 
-- **A análise única das fotos** ("Analisar as fotos e descrever") e a lista
-  do que vale conferir: próxima entrega. A tela já mostra a lista, com
-  "Criar critério" em cada ponto, quando ela existe.
+- **A análise única das fotos** entrou em seguida (seção abaixo).
 - **O efeito da descrição sobre o veredito da nuvem** não foi medido com
   imagem de loja.
 - **Depende do agente novo**: o agente anterior ignora os equipamentos da
   configuração e pergunta como sempre perguntou.
+
+---
+
+## 08/10/2026 · A análise única das fotos do equipamento
+
+"Uma única análise dele completa e sua descrição ficava guardada na base"
+(pedido do dono). É o botão "Analisar as fotos e descrever" do inventário.
+
+### Quem pergunta ao modelo é o computador da loja
+
+A chave do modelo mora no computador da loja, e a nuvem do Farol não tem
+nenhuma. Em vez de dar uma chave à API (segredo novo em produção, e imagem de
+loja passando por mais um lugar), a análise virou **um comando para o
+agente**, como "capturar quadro": o console pede, o agente recebe na batida,
+baixa as fotos do equipamento (conferindo o resumo de cada uma), pergunta ao
+modelo uma vez e devolve a descrição e a lista do que vale conferir.
+
+Consequências aceitas: precisa do agente ligado (a tela diz), e a batida do
+agente fica parada enquanto ele espera o modelo — até um minuto. O limite
+para o agente ser dado como fora do ar é de cinco minutos.
+
+### A resposta é uma sugestão
+
+O que o agente devolve fica guardado **no comando**, e não mexe no cadastro.
+A tela põe a sugestão nos campos; a pessoa lê, corrige e salva. Só aí ela
+vira a descrição do equipamento — e passa a ir junto com as perguntas à
+nuvem.
+
+- Gravar direto apagaria, sem pergunta, o que alguém escreveu à mão.
+- Descrição de modelo que ninguém leu iria junto com toda análise daquela
+  área dali em diante: um erro na descrição viraria erro em todo veredito.
+- Fechar a gaveta sem salvar não perde a sugestão (ela volta ao reabrir), e
+  "Manter a que estava" a deixa de lado.
+- Salvar a descrição é decidir qual ela é: as sugestões que esperavam ficam
+  resolvidas. Se o texto salvo veio de uma, o cadastro guarda quando e por
+  qual modelo foi escrita.
+
+### O que vai ao modelo, e o que volta
+
+- Até quatro fotos, reduzidas a 1000 pontos. A foto de canal vai recortada
+  pela área, com o entorno apagado e o aviso do cinza — a mesma conta de toda
+  análise. A foto enviada pelo console passa pelo borrão de rosto antes (a do
+  canal já passou na captura); é mitigação, não garantia.
+- O modelo mais capaz, porque é uma vez só. Quatro fotos e uma resposta curta
+  custam centavos; o custo vai na resposta e aparece na tela.
+- A resposta é pedida por ferramenta (campos fixos) e **cortada**, não
+  recusada, quando passa do tamanho: a pessoa vai ler de qualquer jeito, e
+  jogar fora uma análise já paga por uma frase comprida seria desperdício.
+  Sem descrição nenhuma, aí é erro, com a frase do que faltou nas fotos.
+- O erro do provedor não vai para a tela: vai o tipo dele (chave, limite,
+  rede). O texto completo fica no log do computador da loja.
+
+### Loja em modo local
+
+Nenhuma imagem sai dela, nem para descrever equipamento. A API recusa o
+pedido na hora e o agente recusa de novo se o comando chegar: são duas
+portas para a mesma promessa.
+
+### O que não foi medido
+
+A qualidade da descrição com fotos de loja de verdade. Os testes usam um
+modelo de mentira; a primeira análise feita na loja é a medida, e é por isso
+que ela passa por uma pessoa antes de valer.

@@ -19,6 +19,11 @@
 //
 // **A listagem nunca traz os bytes.**
 //
+// **A descrição pode ser feita pela análise das fotos** — um comando para
+// o agente da loja (é ele que tem a chave do modelo; a API não tem
+// nenhuma). O que volta é uma SUGESTÃO, guardada no comando: só vira a
+// descrição do equipamento quando alguém lê e salva.
+//
 // **"Compara na loja"** é dito pela mesma regra do agente: critério de
 // comparação é julgado na loja quando o CANAL tem foto padrão
 // (`JuizDoPadrao.atende`). Então o equipamento "compara na loja" quando
@@ -30,6 +35,7 @@ import { createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type pg from 'pg';
 
+import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import { exigirConfigurar } from '../rbac.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 
@@ -45,6 +51,64 @@ export const MAX_CONFERIR = 8;
 const MAX_FRASE = 160;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** O que a análise das fotos devolve: a descrição e o que vale conferir. */
+export type DescricaoSugerida = {
+  descricao: string;
+  conferir: string[];
+  modelo: string | null;
+  custoCentavos: number | null;
+};
+
+/**
+ * Lê o que o agente devolveu. É texto escrito por um modelo: o que passa do
+ * tamanho é CORTADO, não recusado — a pessoa vai ler e corrigir antes de
+ * salvar, e recusar a resposta inteira por uma frase comprida jogaria fora
+ * uma análise já paga. Sem descrição, aí sim, não há o que guardar.
+ */
+export function lerDescricaoDoAgente(corpo: unknown): { sugestao?: DescricaoSugerida; problema?: string } {
+  const c = (corpo ?? {}) as Record<string, unknown>;
+  if (typeof c.descricao !== 'string' || !c.descricao.trim()) {
+    return { problema: 'mande descricao (texto) ou erro' };
+  }
+  const conferir: string[] = [];
+  if (Array.isArray(c.conferir)) {
+    for (const f of c.conferir) {
+      if (typeof f !== 'string') continue;
+      const limpa = f.trim().slice(0, MAX_FRASE).trim();
+      if (limpa && !conferir.includes(limpa) && conferir.length < MAX_CONFERIR) conferir.push(limpa);
+    }
+  }
+  return {
+    sugestao: {
+      descricao: c.descricao.trim().slice(0, MAX_DESCRICAO).trim(),
+      conferir,
+      modelo: typeof c.modelo === 'string' && c.modelo.trim() ? c.modelo.trim().slice(0, 80) : null,
+      custoCentavos:
+        typeof c.custoCentavos === 'number' && Number.isFinite(c.custoCentavos) && c.custoCentavos >= 0
+          ? Math.round(c.custoCentavos * 1000) / 1000
+          : null,
+    },
+  };
+}
+
+/**
+ * O agente respondeu um comando `descrever_item`: guarda a sugestão NO
+ * COMANDO. O cadastro do equipamento não muda aqui.
+ */
+export async function registrarDescricao(
+  pool: pg.Pool,
+  comandoId: string,
+  corpo: unknown,
+): Promise<{ status: number; corpo: Record<string, unknown> }> {
+  const lido = lerDescricaoDoAgente(corpo);
+  if (lido.problema) return { status: 422, corpo: { erro: 'validacao', mensagem: lido.problema } };
+  await pool.query(
+    `update comando_agente set estado = 'concluido', concluido_em = now(), erro = null, resultado = $2::jsonb where id = $1`,
+    [comandoId, JSON.stringify(lido.sugestao)],
+  );
+  return { status: 200, corpo: { ok: true, pontosAConferir: lido.sugestao!.conferir.length } };
+}
 
 // ───────────────────────── o que entra ─────────────────────────
 
@@ -337,6 +401,28 @@ export function rotasDeInventario(app: FastifyInstance, pool: pg.Pool): void {
       if (!existe) return naoAchei(resposta);
       return resposta.status(422).send({ erro: 'validacao', mensagem: 'o setor escolhido não é desta loja' });
     }
+
+    // Salvar a descrição é a pessoa dizendo qual ela é: as sugestões da
+    // análise que estavam esperando ficam resolvidas. Se o texto salvo
+    // veio de uma delas (`daAnalise`), o cadastro guarda quando e por qual
+    // modelo foi escrita.
+    if (c.descricao !== undefined) {
+      const daAnalise = (req.body as { daAnalise?: unknown } | null)?.daAnalise;
+      const resolvidas = await pool.query<{ id: string; resultado: DescricaoSugerida | null }>(
+        `update comando_agente
+            set aplicado_em = now()
+          where item_id = $1 and tipo = 'descrever_item' and estado = 'concluido' and aplicado_em is null
+        returning id, resultado`,
+        [id],
+      );
+      const usada = typeof daAnalise === 'string' ? resolvidas.rows.find((x) => x.id === daAnalise) : undefined;
+      if (usada) {
+        await pool.query('update inventario_item set descrito_em = now(), descrito_por = $2 where id = $1', [
+          id,
+          usada.resultado?.modelo ?? null,
+        ]);
+      }
+    }
     return paraTela((await umItem(pool, id, s.tenantId))!);
   });
 
@@ -361,6 +447,184 @@ export function rotasDeInventario(app: FastifyInstance, pool: pg.Pool): void {
     if (r.rowCount === 0) return naoAchei(resposta);
     req.log.info({ item: id, por: s.usuarioId }, 'equipamento EXCLUÍDO do inventário');
     return { excluido: true, nome: r.rows[0].nome as string };
+  });
+
+  // ───────────────── a análise das fotos (a descrição) ─────────────────
+
+  app.post('/v1/inventario/:id/descricao', async (req, resposta) => {
+    const s = await quem(req, resposta);
+    if (!s) return;
+    if (!exigirConfigurar(s, resposta)) return;
+    const { id } = req.params as { id: string };
+    if (!UUID.test(id)) return naoAchei(resposta);
+
+    const cliente = await pool.connect();
+    try {
+      await cliente.query('begin');
+      // A linha do equipamento fica travada: dois cliques ao mesmo tempo
+      // não viram duas análises pagas.
+      const item = await cliente.query(
+        `select i.id, i.loja_id, i.nome, i.tipo, st.nome as setor, l.modo_julgamento
+           from inventario_item i
+           join loja  l  on l.id  = i.loja_id
+           join setor st on st.id = i.setor_id
+          where i.id = $1 and l.tenant_id = $2
+            for update of i`,
+        [id, s.tenantId],
+      );
+      const recusar = async (status: number, erro: string, mensagem: string) => {
+        await cliente.query('rollback');
+        return resposta.status(status).send({ erro, mensagem });
+      };
+      if (item.rowCount === 0) return await recusar(404, 'nao_encontrado', 'equipamento não encontrado');
+      const i = item.rows[0];
+
+      const fotos = await cliente.query(
+        `select f.id, f.origem, f.recorte, f.sha256 from inventario_foto f where f.item_id = $1 order by f.criada_em, f.id`,
+        [id],
+      );
+      if (fotos.rowCount === 0) {
+        return await recusar(409, 'sem_foto', 'ponha pelo menos uma foto: é dela que a descrição sai');
+      }
+      // Loja em modo local: nenhuma imagem sai dela. A descrição continua
+      // podendo ser escrita à mão.
+      if (i.modo_julgamento === 'local') {
+        return await recusar(
+          409,
+          'modo_local',
+          'esta loja julga tudo dentro dela: nenhuma imagem sai, nem para descrever um equipamento. Escreva a descrição à mão.',
+        );
+      }
+
+      // Pedido repetido não empilha: enquanto um estiver a caminho, é ele.
+      const pendente = await cliente.query(
+        `select id, expira_em from comando_agente
+          where item_id = $1 and tipo = 'descrever_item'
+            and estado in ('pendente', 'entregue') and expira_em > now()
+          order by criado_em desc limit 1`,
+        [id],
+      );
+      if ((pendente.rowCount ?? 0) > 0) {
+        await cliente.query('commit');
+        return resposta.status(202).send({ comandoId: pendente.rows[0].id, expiraEm: pendente.rows[0].expira_em, jaPedido: true });
+      }
+
+      // Quem analisa é um agente ATIVO da loja — o que bateu por último.
+      const a = await cliente.query(
+        `select id from agente where loja_id = $1 and estado = 'ativo' order by ultimo_heartbeat desc nulls last limit 1`,
+        [i.loja_id],
+      );
+      if (a.rowCount === 0) {
+        return await recusar(
+          409,
+          'sem_agente',
+          'nenhum agente ativo nesta loja. Quem analisa as fotos é o computador da loja — sem ele não há como descrever.',
+        );
+      }
+
+      // O agente recebe o que precisa para trabalhar: o que é o
+      // equipamento e quais fotos baixar (com o resumo de cada uma, para
+      // conferir o que desceu).
+      const parametros = {
+        itemId: id,
+        nome: i.nome,
+        tipo: i.tipo,
+        setor: i.setor,
+        fotos: fotos.rows.map((f) => ({ id: f.id, origem: f.origem, recorte: f.recorte, sha256: f.sha256 })),
+      };
+      const c = await cliente.query(
+        `insert into comando_agente (agente_id, tipo, item_id, parametros, criado_por, expira_em)
+         values ($1, 'descrever_item', $2, $3::jsonb, $4, now() + interval '3 minutes')
+         returning id, expira_em`,
+        [a.rows[0].id, id, JSON.stringify(parametros), s.usuarioId],
+      );
+      await cliente.query('commit');
+      req.log.info({ item: id, comando: c.rows[0].id, fotos: fotos.rowCount, por: s.usuarioId }, 'análise das fotos PEDIDA');
+      return resposta.status(202).send({ comandoId: c.rows[0].id, expiraEm: c.rows[0].expira_em, jaPedido: false });
+    } catch (e) {
+      await cliente.query('rollback').catch(() => {});
+      throw e;
+    } finally {
+      cliente.release();
+    }
+  });
+
+  /** Em que pé está a análise, e a sugestão que ainda espera alguém ler. */
+  app.get('/v1/inventario/:id/descricao', async (req, resposta) => {
+    const s = await quem(req, resposta);
+    if (!s) return;
+    const { id } = req.params as { id: string };
+    if (!UUID.test(id)) return naoAchei(resposta);
+
+    const dono = await pool.query(
+      'select 1 from inventario_item i join loja l on l.id = i.loja_id where i.id = $1 and l.tenant_id = $2',
+      [id, s.tenantId],
+    );
+    if (dono.rowCount === 0) return naoAchei(resposta);
+
+    const ultimo = await pool.query(
+      `select id, estado, erro, criado_em, concluido_em, (expira_em < now()) as vencido
+         from comando_agente
+        where item_id = $1 and tipo = 'descrever_item'
+        order by criado_em desc limit 1`,
+      [id],
+    );
+    const pendente = await pool.query<{ id: string; resultado: DescricaoSugerida; concluido_em: Date }>(
+      `select id, resultado, concluido_em
+         from comando_agente
+        where item_id = $1 and tipo = 'descrever_item' and estado = 'concluido'
+          and aplicado_em is null and resultado is not null
+        order by concluido_em desc limit 1`,
+      [id],
+    );
+
+    const cmd = ultimo.rows[0];
+    const sug = pendente.rows[0];
+    return {
+      pedido: cmd
+        ? {
+            id: cmd.id as string,
+            // Pedido que passou do prazo sem resposta é pedido perdido — a
+            // loja não buscou, ou o agente caiu no meio. Dizer "esperando"
+            // para sempre esconderia isso.
+            estado: (cmd.estado === 'pendente' || cmd.estado === 'entregue') && cmd.vencido ? 'expirado' : (cmd.estado as string),
+            erro: cmd.erro as string | null,
+            criadoEm: cmd.criado_em as Date,
+            concluidoEm: cmd.concluido_em as Date | null,
+          }
+        : null,
+      sugestao: sug ? { comandoId: sug.id, ...sug.resultado, feitaEm: sug.concluido_em } : null,
+    };
+  });
+
+  // ───────────────── agente: baixa a foto para analisar ─────────────────
+
+  app.get('/v1/agentes/inventario/fotos/:id', async (req, resposta) => {
+    let agente;
+    try {
+      agente = await autenticarAgente(pool, req.headers.authorization);
+    } catch (e) {
+      if (e instanceof ErroDeAuth) return resposta.status(e.status).send({ erro: e.motivo, mensagem: e.message });
+      throw e;
+    }
+    const { id } = req.params as { id: string };
+    if (!UUID.test(id)) return naoAchei(resposta, 'foto não encontrada');
+
+    // A foto tem de ser de um equipamento DESTA loja: o token de uma loja
+    // não baixa a imagem de outra.
+    const r = await pool.query(
+      `select f.imagem, f.tipo, f.sha256
+         from inventario_foto f
+         join inventario_item i on i.id = f.item_id
+        where f.id = $1 and i.loja_id = $2`,
+      [id, agente.lojaId],
+    );
+    if (r.rowCount === 0) return naoAchei(resposta, 'foto não encontrada');
+    return resposta
+      .header('content-type', r.rows[0].tipo || 'image/jpeg')
+      .header('x-farol-sha256', r.rows[0].sha256)
+      .header('cache-control', 'no-store')
+      .send(r.rows[0].imagem);
   });
 
   // ───────────────────── fotos ─────────────────────

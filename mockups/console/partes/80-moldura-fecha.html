@@ -370,9 +370,11 @@
     </div>
     <fieldset>
       <legend>Descrição</legend>
-      <p class="nota">Feita <b>uma vez</b>, na nuvem, a partir das fotos. Custa centavos. Vai junto com cada análise deste equipamento, e você pode corrigir o texto.</p>
+      <p class="nota">Feita <b>uma vez</b>, na nuvem, a partir das fotos. Custa centavos. Vai junto com cada pergunta feita à nuvem sobre a área em que ele aparece, e você pode corrigir o texto.</p>
       <textarea class="entrada" id="feq-desc" rows="5" placeholder="Ainda sem descrição." aria-label="Descrição do equipamento"></textarea>
+      <p class="aviso ok" data-feq-sugestao hidden><svg class="ic" aria-hidden="true"><use href="#i-scan-eye"/></svg><span>Descrição feita pela análise das fotos em <span class="mono">07/10 21:41</span> · custou R$ 0,15. <b>Ainda não está salva:</b> leia, corrija o que não bater e salve. <button class="elo" type="button" data-feq-manter data-so-config>Manter a que estava</button></span></p>
       <button class="btn secundario" type="button" data-feq-analisar data-so-config style="align-self:flex-start"><svg class="ic" aria-hidden="true"><use href="#i-scan-eye"/></svg>Analisar as fotos e descrever</button>
+      <small data-so-config>Quem analisa é o computador da loja: ele precisa estar ligado. Leva até um minuto.</small>
       <div class="campo" data-feq-conferir hidden>
         <span class="rotulo">O que vale conferir neste equipamento</span>
         <ul class="area-criterios" data-feq-conferir-lista></ul>

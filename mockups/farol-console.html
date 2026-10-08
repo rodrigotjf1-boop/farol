@@ -379,6 +379,8 @@ textarea.entrada { resize: vertical; min-height: 84px; line-height: 1.5; }
 }
 .aviso.critico { background: var(--critico-leve); color: var(--critico); }
 .aviso.neutro { background: var(--painel-2); color: var(--suave); border: 1px solid var(--borda); }
+.aviso.ok { background: var(--ok-leve); color: var(--ok); }
+.aviso[hidden] { display: none; }
 .aviso .ic { margin-top: 1px; }
 .aviso b { color: inherit; }
 
@@ -3735,9 +3737,11 @@ button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: v
     </div>
     <fieldset>
       <legend>Descrição</legend>
-      <p class="nota">Feita <b>uma vez</b>, na nuvem, a partir das fotos. Custa centavos. Vai junto com cada análise deste equipamento, e você pode corrigir o texto.</p>
+      <p class="nota">Feita <b>uma vez</b>, na nuvem, a partir das fotos. Custa centavos. Vai junto com cada pergunta feita à nuvem sobre a área em que ele aparece, e você pode corrigir o texto.</p>
       <textarea class="entrada" id="feq-desc" rows="5" placeholder="Ainda sem descrição." aria-label="Descrição do equipamento"></textarea>
+      <p class="aviso ok" data-feq-sugestao hidden><svg class="ic" aria-hidden="true"><use href="#i-scan-eye"/></svg><span>Descrição feita pela análise das fotos em <span class="mono">07/10 21:41</span> · custou R$ 0,15. <b>Ainda não está salva:</b> leia, corrija o que não bater e salve. <button class="elo" type="button" data-feq-manter data-so-config>Manter a que estava</button></span></p>
       <button class="btn secundario" type="button" data-feq-analisar data-so-config style="align-self:flex-start"><svg class="ic" aria-hidden="true"><use href="#i-scan-eye"/></svg>Analisar as fotos e descrever</button>
+      <small data-so-config>Quem analisa é o computador da loja: ele precisa estar ligado. Leva até um minuto.</small>
       <div class="campo" data-feq-conferir hidden>
         <span class="rotulo">O que vale conferir neste equipamento</span>
         <ul class="area-criterios" data-feq-conferir-lista></ul>
@@ -7980,7 +7984,10 @@ button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: v
     $('#feq-nome').value = e?.nome ?? '';
     $('#feq-setor').value = e?.setor ?? 'Cozinha';
     $('#feq-tipo').value = e?.tipo ?? 'chapa';
-    $('#feq-desc').value = e?.descricao ?? '';
+    // sugestão da análise que ainda não foi salva: volta aos campos
+    $('#feq-desc').value = e?.sugestao?.descricao ?? e?.descricao ?? '';
+    if (e?.sugestao) feq.conferir = [...e.sugestao.conferir];
+    $('[data-feq-sugestao]').hidden = !e?.sugestao;
     desenharOndeAparece();
     // a escolha do canal abre fechada, com os canais da loja; o setor novo, sem o campo do nome
     $('[data-feq-escolher]').hidden = true;
@@ -8024,6 +8031,16 @@ button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: v
       avisar('Foto tirada.');
       return;
     }
+    if (ev.target.closest('[data-feq-manter]')) {
+      // a sugestão é deixada de lado: os campos voltam ao que está salvo
+      const e = EQUIPAMENTOS[feq.id];
+      if (e) delete e.sugestao;
+      $('#feq-desc').value = e?.descricao ?? '';
+      feq.conferir = e ? [...e.conferir] : [];
+      $('[data-feq-sugestao]').hidden = true;
+      desenharConferirDoEquip();
+      return;
+    }
     const excluirEquip = ev.target.closest('[data-feq-excluir]');
     if (excluirEquip) {
       const nome = EQUIPAMENTOS[feq.id]?.nome ?? '';
@@ -8041,8 +8058,12 @@ button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: v
         analisar.disabled = false;
         analisar.innerHTML = antes;
         const modelo = Object.values(EQUIPAMENTOS).find((e) => e.tipo === $('#feq-tipo').value && e.descricao) ?? EQUIPAMENTOS.montagem1;
+        // A resposta é uma SUGESTÃO: fica guardada no cadastro até alguém
+        // salvar — fechar a gaveta não a perde.
+        if (EQUIPAMENTOS[feq.id]) EQUIPAMENTOS[feq.id].sugestao = { descricao: modelo.descricao, conferir: [...modelo.conferir] };
         $('#feq-desc').value = modelo.descricao;
         feq.conferir = [...modelo.conferir];
+        $('[data-feq-sugestao]').hidden = false;
         desenharConferirDoEquip();
         avisar('Descrição pronta. Leia e corrija o que não bater antes de salvar.');
       }, calmo ? 0 : 1500);
@@ -8090,6 +8111,8 @@ button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: v
       nome, setor, tipo: $('#feq-tipo').value,
       fotos: [...feq.fotos], aparece: feq.aparece.map((x) => [...x]), descricao: $('#feq-desc').value.trim(), conferir: [...feq.conferir],
     };
+    // salvar é decidir qual é a descrição: a sugestão fica resolvida
+    delete EQUIPAMENTOS[id].sugestao;
     $('#f-equip').dataset.sucessoNovo = $('#f-equip').dataset.sucessoEditar = `“${nome}” salvo no inventário.`;
     desenharInventario();
     if (!$('[data-tela="ambiente"]').hidden) desenharAmbiente();

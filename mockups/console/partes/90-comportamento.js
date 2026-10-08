@@ -4195,7 +4195,10 @@
     $('#feq-nome').value = e?.nome ?? '';
     $('#feq-setor').value = e?.setor ?? 'Cozinha';
     $('#feq-tipo').value = e?.tipo ?? 'chapa';
-    $('#feq-desc').value = e?.descricao ?? '';
+    // sugestão da análise que ainda não foi salva: volta aos campos
+    $('#feq-desc').value = e?.sugestao?.descricao ?? e?.descricao ?? '';
+    if (e?.sugestao) feq.conferir = [...e.sugestao.conferir];
+    $('[data-feq-sugestao]').hidden = !e?.sugestao;
     desenharOndeAparece();
     // a escolha do canal abre fechada, com os canais da loja; o setor novo, sem o campo do nome
     $('[data-feq-escolher]').hidden = true;
@@ -4239,6 +4242,16 @@
       avisar('Foto tirada.');
       return;
     }
+    if (ev.target.closest('[data-feq-manter]')) {
+      // a sugestão é deixada de lado: os campos voltam ao que está salvo
+      const e = EQUIPAMENTOS[feq.id];
+      if (e) delete e.sugestao;
+      $('#feq-desc').value = e?.descricao ?? '';
+      feq.conferir = e ? [...e.conferir] : [];
+      $('[data-feq-sugestao]').hidden = true;
+      desenharConferirDoEquip();
+      return;
+    }
     const excluirEquip = ev.target.closest('[data-feq-excluir]');
     if (excluirEquip) {
       const nome = EQUIPAMENTOS[feq.id]?.nome ?? '';
@@ -4256,8 +4269,12 @@
         analisar.disabled = false;
         analisar.innerHTML = antes;
         const modelo = Object.values(EQUIPAMENTOS).find((e) => e.tipo === $('#feq-tipo').value && e.descricao) ?? EQUIPAMENTOS.montagem1;
+        // A resposta é uma SUGESTÃO: fica guardada no cadastro até alguém
+        // salvar — fechar a gaveta não a perde.
+        if (EQUIPAMENTOS[feq.id]) EQUIPAMENTOS[feq.id].sugestao = { descricao: modelo.descricao, conferir: [...modelo.conferir] };
         $('#feq-desc').value = modelo.descricao;
         feq.conferir = [...modelo.conferir];
+        $('[data-feq-sugestao]').hidden = false;
         desenharConferirDoEquip();
         avisar('Descrição pronta. Leia e corrija o que não bater antes de salvar.');
       }, calmo ? 0 : 1500);
@@ -4305,6 +4322,8 @@
       nome, setor, tipo: $('#feq-tipo').value,
       fotos: [...feq.fotos], aparece: feq.aparece.map((x) => [...x]), descricao: $('#feq-desc').value.trim(), conferir: [...feq.conferir],
     };
+    // salvar é decidir qual é a descrição: a sugestão fica resolvida
+    delete EQUIPAMENTOS[id].sugestao;
     $('#f-equip').dataset.sucessoNovo = $('#f-equip').dataset.sucessoEditar = `“${nome}” salvo no inventário.`;
     desenharInventario();
     if (!$('[data-tela="ambiente"]').hidden) desenharAmbiente();

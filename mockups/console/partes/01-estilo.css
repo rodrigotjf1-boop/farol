@@ -371,6 +371,8 @@ textarea.entrada { resize: vertical; min-height: 84px; line-height: 1.5; }
 }
 .aviso.critico { background: var(--critico-leve); color: var(--critico); }
 .aviso.neutro { background: var(--painel-2); color: var(--suave); border: 1px solid var(--borda); }
+.aviso.ok { background: var(--ok-leve); color: var(--ok); }
+.aviso[hidden] { display: none; }
 .aviso .ic { margin-top: 1px; }
 .aviso b { color: inherit; }
 

@@ -1848,7 +1848,7 @@ prazo de guarda.
 
 ---
 
-## A16 · Local primeiro, o ambiente e o padrão da loja (aprovado em 08/10/2026 — fase 1 e foto padrão feitas)
+## A16 · Local primeiro, o ambiente e o padrão da loja (aprovado em 08/10/2026 — fases 1 e 2 feitas)
 
 Na noite de 07/10/2026, com a loja em operação e a tela de Análises no ar, o
 dono deu a direção das próximas semanas, em cinco pedidos:
@@ -1981,9 +1981,9 @@ veredito nenhum; nos outros canais é o próprio porteiro que passa a medir.
 As decisões de desenho estão em `docs/decisoes.md` (08/10/2026, "O
 porteiro").
 
-**Fase 2 · Inventário, foto padrão e comparação na loja — a foto padrão e a
-comparação estão feitas (08/10/2026, migration 024); o inventário é a parte
-seguinte.** Duas referências do que é "limpo e no lugar", guardadas uma vez:
+**Fase 2 · Inventário, foto padrão e comparação na loja — feita (08/10/2026,
+migrations 024, 025 e 026).** Duas referências do que é "limpo e no lugar",
+guardadas uma vez:
 
 - **Foto padrão do canal** — o quadro do ambiente limpo, organizado e sem
   ninguém (mais de uma: dia, noite). Vale para todas as áreas do canal:
@@ -2061,11 +2061,31 @@ canal dela como foto e escrever a descrição. A próxima pergunta à nuvem de
 um critério de estado naquela área leva a descrição junto (com o agente
 desta versão instalado).
 
-**O que falta da fase 2:** "Analisar as fotos e descrever" — a descrição
-feita uma vez a partir das fotos, com a lista do que vale conferir (cada
-ponto vira critério com um clique; a tela já mostra a lista quando ela
-existe). Quem faz a análise é o computador da loja, com a chave que já
-está lá.
+**"Analisar as fotos e descrever" — feito (08/10/2026, migration 026).** A
+descrição feita **uma vez** a partir das fotos, com a lista do que vale
+conferir (cada ponto vira critério com um clique, já com "com a área livre"
+e a foto padrão junto).
+
+- **Quem analisa é o computador da loja**, com a chave que já está lá: é um
+  comando novo para o agente (`descrever_item`), como "capturar quadro". A
+  nuvem do Farol continua sem chave de modelo.
+- **A resposta é uma sugestão.** Vai para os campos; a pessoa lê, corrige e
+  salva. Fechar sem salvar não a perde; "Manter a que estava" a deixa de
+  lado.
+- **Loja em modo local** não manda imagem nem para isto: o pedido é
+  recusado dizendo por quê, e a descrição pode ser escrita à mão.
+- Custa centavos por equipamento (quatro fotos e uma resposta curta, no
+  modelo mais capaz); o custo aparece na nota da sugestão.
+
+*Como conferir:* em Canais → Inventário, abrir um equipamento com foto e
+clicar em "Analisar as fotos e descrever". Em até um minuto a descrição e
+os pontos a conferir aparecem nos campos; ler, corrigir e salvar. Precisa
+do agente desta versão instalado e ligado.
+
+**Não foi medido:** a qualidade da descrição com fotos de loja de verdade
+(os testes usam um modelo de mentira). A primeira análise feita na loja é a
+medida — e é por isso que ela passa pela leitura de uma pessoa antes de
+valer.
 
 **Fase 3 · Programação de análise pela folga da máquina.** Com o processador
 a 3%, o que é julgado na loja pode ser olhado a cada 5 a 10 segundos em vez
