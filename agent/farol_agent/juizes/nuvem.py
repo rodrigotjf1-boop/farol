@@ -406,7 +406,7 @@ def _montar_pedido(criterio: str, contexto: dict[str, Any] | None) -> str:
     contexto = dict(contexto or {})
     # Endereço do agente e marca de "vai com a foto padrão": não são
     # contexto da operação.
-    for chave in ("zona_id", "ponto_id", "foto_padrao"):
+    for chave in ("zona_id", "ponto_id", "foto_padrao", "olhada_extra"):
         contexto.pop(chave, None)
     if contexto.pop("fora_da_area", None):
         partes.append(AVISO_DA_AREA)

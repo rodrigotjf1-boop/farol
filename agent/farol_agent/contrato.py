@@ -128,7 +128,19 @@ def resumo_para_nuvem(linha: dict[str, Any]) -> dict[str, Any]:
         # matéria-prima do padrão de funcionamento da loja.
         "somaMedida": round(float(linha["soma_medida"]), 2),
         "comMedida": linha["com_medida"],
-        "maxMedida": None if linha["max_medida"] is None else round(float(linha["max_medida"]), 2),
+        # O maior valor só sobe junto de uma média. A olhada extra do vigia
+        # entra no maior valor e não na média: na hora em que a única
+        # medida veio de uma extra, a fila tem pico e nenhuma medida — e a
+        # nuvem recusa "pico sem medida". Ele espera a primeira olhada de
+        # rotina da hora (a linha sobe de novo a cada soma) e vai com ela.
+        "maxMedida": (
+            None if linha["max_medida"] is None or not linha["com_medida"]
+            else round(float(linha["max_medida"]), 2)
+        ),
+        # As olhadas extras do vigia, que já estão dentro dos resultados
+        # acima: quantas foram e quantas deram fora do critério.
+        "extras": linha["extras"],
+        "extrasFora": linha["extras_fora"],
         "ultimoResultado": linha["ultimo_resultado"],
         "ultimoMotivo": linha["ultimo_motivo"],
         # Por que NÃO deu para julgar, na última vez em que não deu.

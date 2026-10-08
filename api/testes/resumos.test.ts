@@ -74,8 +74,45 @@ describe('contrato do resumo (validação)', () => {
       conformes: 0, naoConformes: 0, naoAvaliaveis: 0, somaConfianca: 0, comConfianca: 0,
       // nada julgado: em lugar nenhum, e nada medido
       julgadasLoja: 0, julgadasNuvem: 0, somaMedida: 0, comMedida: 0, maxMedida: null,
+      // e nenhuma olhada extra: elas são parte do que foi julgado
+      extras: 0, extrasFora: 0,
     };
     assert.equal(validarResumo(vazia, 0), null);
+  });
+
+  it('as olhadas extras do vigia são PARTE do que foi julgado', () => {
+    // O contrato: 23 julgadas (20 conformes, 2 fora, 1 sem avaliar), 2 extras, 1 delas fora.
+    assert.deepEqual([CONTRATO.extras, CONTRATO.extrasFora], [2, 1]);
+    assert.equal(validarResumo({ ...CONTRATO, extras: 23, extrasFora: 2 }, 0), null, 'todas extras: pode');
+    assert.match(String(validarResumo({ ...CONTRATO, extras: 24 }, 0)), /extras: inteiro de 0 ao que foi julgado \(23\)/);
+    assert.match(String(validarResumo({ ...CONTRATO, extras: -1 }, 0)), /\.extras: inteiro/);
+    assert.match(String(validarResumo({ ...CONTRATO, extras: 1.5 }, 0)), /\.extras: inteiro/);
+    assert.match(String(validarResumo({ ...CONTRATO, extras: '2' }, 0)), /\.extras: inteiro/);
+    // fora do critério entre as extras: nem mais que as extras, nem mais que as fora do critério
+    assert.match(String(validarResumo({ ...CONTRATO, extras: 1, extrasFora: 2 }, 0)), /\.extrasFora: inteiro de 0 a extras \(1\)/);
+    assert.match(String(validarResumo({ ...CONTRATO, extras: 5, extrasFora: 3 }, 0)), /extrasFora.*naoConformes/);
+    assert.match(String(validarResumo({ ...CONTRATO, extrasFora: -1 }, 0)), /\.extrasFora: inteiro/);
+  });
+
+  it('agente de antes do vigia não manda as extras, e continua aceito', () => {
+    const { extras: _a, extrasFora: _b, ...antigo } = CONTRATO;
+    assert.equal(validarResumo(antigo, 0), null);
+    // mandar só as fora do critério, sem dizer quantas extras foram, não fecha
+    assert.match(String(validarResumo({ ...antigo, extrasFora: 1 }, 0)), /extrasFora/);
+  });
+
+  it('a hora em que a única medida veio de uma olhada extra entra sem pico', () => {
+    // É o corpo que o agente manda nesse caso: a extra não entra na média,
+    // e o maior valor espera a primeira olhada de rotina da hora.
+    const so_extra = {
+      ...CONTRATO, capturas: 1, semQuadro: 0, semCena: 0, semCondicao: 0, emSilencio: 0, repetidas: 0, jaJulgadas: 0,
+      enfileiradas: 1, conformes: 1, naoConformes: 0, naoAvaliaveis: 0, falhas: 0, alertas: 0,
+      somaConfianca: 0.9, comConfianca: 1, comLatencia: 1, julgadasLoja: 1, julgadasNuvem: 0,
+      somaMedida: 0, comMedida: 0, maxMedida: null, extras: 1, extrasFora: 0,
+    };
+    assert.equal(validarResumo(so_extra, 0), null);
+    // e o que o agente NÃO pode mandar continua recusado: pico sem medida
+    assert.match(String(validarResumo({ ...so_extra, maxMedida: 7 }, 0)), /sem medida/);
   });
 });
 
@@ -216,6 +253,7 @@ describe('resumo por hora (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
     assert.equal(l.julgadas_loja, 3);
     assert.equal(l.julgadas_nuvem, 20);
     assert.deepEqual([Number(l.soma_medida), l.com_medida, Number(l.max_medida)], [4, 3, 2]);
+    assert.deepEqual([l.extras, l.extras_fora], [2, 1]);
     assert.equal(l.ultimo_resultado, 'nao_conforme');
     assert.equal(l.ultimo_motivo, 'há restos de alimento sobre a bancada');
     assert.equal(l.ultimo_impedimento, 'a câmera entregou a tela de sem sinal');
@@ -235,6 +273,20 @@ describe('resumo por hora (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
     assert.equal(linhas[0].capturas, 25, 'somou em vez de substituir, ou ficou com o valor antigo');
     assert.equal(linhas[0].repetidas, 12);
     assert.ok(new Date(linhas[0].atualizado_em) >= new Date(linhas[0].recebido_em));
+  });
+
+  it('as olhadas extras também são SUBSTITUÍDAS pelo acumulado, e agente antigo grava zero', async () => {
+    const hora = '2026-10-07T08:00:00-03:00';
+    await mandar([corpo({ hora, extras: 1, extrasFora: 0 })]);
+    await mandar([corpo({ hora, extras: 7, extrasFora: 2 })]);
+    let [l] = await gravadas(hora);
+    assert.deepEqual([l.extras, l.extras_fora], [7, 2], 'vale o último acumulado');
+
+    const { extras: _a, extrasFora: _b, ...antigo } = corpo({ hora: '2026-10-07T07:00:00-03:00' });
+    const r = await mandar([antigo]);
+    assert.deepEqual(r.json(), { aceitos: 1, recusados: [] });
+    [l] = await gravadas('2026-10-07T07:00:00-03:00');
+    assert.deepEqual([l.extras, l.extras_fora], [0, 0]);
   });
 
   it('DOIS agentes na mesma hora não se apagam', async () => {

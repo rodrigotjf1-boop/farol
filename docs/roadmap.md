@@ -1848,7 +1848,7 @@ prazo de guarda.
 
 ---
 
-## A16 · Local primeiro, o ambiente e o padrão da loja (aprovado em 08/10/2026 — fases 1 e 2 feitas)
+## A16 · Local primeiro, o ambiente e o padrão da loja (aprovado em 08/10/2026 — fases 1, 2 e 3 feitas)
 
 Na noite de 07/10/2026, com a loja em operação e a tela de Análises no ar, o
 dono deu a direção das próximas semanas, em cinco pedidos:
@@ -2087,15 +2087,58 @@ do agente desta versão instalado e ligado.
 medida — e é por isso que ela passa pela leitura de uma pessoa antes de
 valer.
 
-**Fase 3 · Programação de análise pela folga da máquina.** Com o processador
-a 3%, o que é julgado na loja pode ser olhado a cada 5 a 10 segundos em vez
-de 30 a 45 — é o que permite pegar evento de segundos (o detector leva 88 ms
-por quadro nesta placa, medido em 06/10). O que vai à nuvem continua espaçado
-e só depois do porteiro. Critério de **ação** só pergunta quando houve
-movimento na área — sem movimento, "nada a avaliar", sem custo. "Só avisa se
-continuar" por N olhadas. E um freio automático: processador acima de 60% por
-minutos faz o agente espaçar de novo (o uso já é medido — migration 021).
-*Sem tela nova, além do "só avisa se continuar" no critério.*
+**Fase 3 · Programação de análise pela folga da máquina — feita (08/10/2026,
+migration 027).** O pedido: "melhorar a programação de análise, já que está
+gastando pouco do PC servidor". Três das quatro peças já tinham entrado com
+a fase 1 (o porteiro "quando algo se mexe" para critério de ação, o "avisar
+só se continuar" e a nuvem só depois do porteiro). Faltava olhar mais vezes
+o que é julgado na loja — e isso virou **o vigia**:
+
+- **A cada 10 segundos** o agente conta, no último quadro do **fluxo menor**
+  do gravador (que já fica aberto), o que os critérios de **presença** e de
+  **contagem** procuram. Se a contagem mudou desde a última olhada, ele olha
+  **agora** aquele canal — pelo fluxo principal, com juiz, resumo e aviso —
+  em vez de esperar os 30 segundos da rotina.
+- **Só presença e contagem.** A olhada extra não acorda o critério que pode
+  ir à nuvem: custo de nuvem igual ao de antes.
+- **No máximo uma olhada extra por canal a cada 20 segundos.**
+- **O freio:** processador acima de 60% por quatro medidas seguidas (uns
+  dois minutos) e o vigia para; volta abaixo de 45% pelo mesmo tempo. A
+  rotina de 30 segundos não para nunca.
+- **O que não mudou de sentido:** a média de ocupação da hora continua
+  feita só das olhadas de rotina; o maior valor passa a incluir o pico que
+  a olhada extra pegou; "avisar só se continuar por N olhadas" continua
+  contando olhadas de rotina (a extra não adianta a contagem — e, se ela
+  viu a área em ordem, a espera recomeça).
+- **Contado à parte:** o resumo da hora diz quantas análises foram olhadas
+  extras e quantas delas deram fora do critério (`extras`, `extras_fora`).
+  É o que deixa a fase 5 comparar esta semana com a anterior sem confundir
+  "o vigia olhou mais" com "a loja mudou".
+
+Por que não "olhar tudo a cada 10 segundos", como estava escrito aqui: cada
+olhada pelo fluxo principal custa 1,7 s de fluxo aberto por canal (medido na
+loja em 08/10), e o computador da loja está com a rede limitada. Quatro
+canais a cada 10 segundos seria fluxo principal aberto quase o tempo todo.
+O vigia gasta o que estava sobrando — o processador e o fluxo menor — e só
+abre o principal quando tem motivo.
+
+*Sem tela nova.* Em Análises, os critérios de presença e de contagem passam
+a mostrar mais análises nas horas de movimento, e o maior valor da hora
+sobe quando a olhada extra pega um pico.
+
+*Como conferir:* no computador da loja, o registro do agente diz, ao ligar,
+"vigia: N canal(is) com presença ou contagem, olhados a cada 10s pelo fluxo
+menor". Em Análises, num critério de presença, a hora com movimento passa a
+ter mais de 120 análises (120 é o que a rotina faz sozinha). Para desligar:
+`--intervalo-rapido 0` no comando do agente.
+
+**Não foi medido:** se o detector vê no fluxo menor (704 × 480) o mesmo que
+no principal com gente na cena — a loja estava fechada na hora da medição.
+O desenho não depende disso (o vigia compara o fluxo menor com ele mesmo, e
+quem julga é sempre o principal), mas a consequência prática depende:
+quantas olhadas extras por hora o vigia faz numa noite de movimento, e
+quantas delas deram em algo, só a primeira noite diz. As decisões estão em
+`docs/decisoes.md` (08/10/2026, "O vigia").
 
 **Fase 4 · Esquema do ambiente.** A planta da loja desenhada no console:
 ambientes, móveis fixos e cada câmera na sua posição, com a direção para

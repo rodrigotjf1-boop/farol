@@ -38,7 +38,7 @@ _log = logging.getLogger(__name__)
 MODOS = ("nuvem", "local", "hibrido")
 
 # O que o motor põe no contexto para o agente se achar, e não para o juiz ler.
-CHAVES_DE_ROTA = ("zona_id", "ponto_id")
+CHAVES_DE_ROTA = ("zona_id", "ponto_id", "olhada_extra")
 
 # As que nunca saem da loja.
 SEMPRE_LOCAIS = (TipoRegra.PRESENCA, TipoRegra.CONTAGEM, TipoRegra.COMPARACAO)

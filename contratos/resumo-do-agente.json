@@ -26,6 +26,8 @@
   "somaMedida": 4.0,
   "comMedida": 3,
   "maxMedida": 2.0,
+  "extras": 2,
+  "extrasFora": 1,
   "ultimoResultado": "nao_conforme",
   "ultimoMotivo": "há restos de alimento sobre a bancada",
   "ultimoImpedimento": "a câmera entregou a tela de sem sinal",

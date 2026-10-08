@@ -60,6 +60,8 @@ from farol_agent.modelos import EventoGatilho, TipoRegra
 from farol_agent.motor import MotorDeRegras
 from farol_agent.nuvem import ErroDaNuvem
 from farol_agent.padroes import Padroes
+from farol_agent.vigia import INTERVALO_PADRAO as INTERVALO_DO_VIGIA
+from farol_agent.vigia import VIGIADOS, Vigia
 from farol_agent.uso import Medidor
 
 _log = logging.getLogger(__name__)
@@ -151,6 +153,7 @@ class Auditoria:
         caminho_fila: str,
         *,
         intervalo_captura: float = INTERVALO_CAPTURA_PADRAO,
+        intervalo_rapido: float = INTERVALO_DO_VIGIA,
         construir_fonte=None,
         construir_juiz=None,
         medidor="padrao",
@@ -158,6 +161,13 @@ class Auditoria:
         self.cliente = cliente
         self.fila = Fila(caminho_fila)
         self.intervalo_captura = intervalo_captura
+        # De quanto em quanto tempo o vigia olha o fluxo menor entre uma
+        # olhada e outra. Zero desliga o vigia: fica só a rotina.
+        self.intervalo_rapido = intervalo_rapido
+        self.vigia: Vigia | None = None
+        # Quando é a próxima olhada de rotina. Entre uma e outra, o laço
+        # acorda para o vigia.
+        self._proxima_rotina: datetime | None = None
 
         # Injetáveis para o teste não precisar de câmera nem de API.
         self._construir_fonte = construir_fonte or self._fonte_rtsp
@@ -329,6 +339,37 @@ class Auditoria:
         except Exception:  # noqa: BLE001
             _log.exception("erro inesperado ao buscar as fotos padrão; a auditoria segue")
 
+    def _montar_vigia(self, regras) -> None:
+        """O vigia olha o fluxo menor entre uma olhada e outra (ver `vigia.py`).
+
+        Precisa do detector e de pelo menos um critério de presença ou de
+        contagem com o que procurar. É um só para a vida do processo: o
+        freio não esquece a carga da máquina porque a configuração mudou.
+        """
+        if self.intervalo_rapido <= 0:
+            self.vigia = None
+            return
+        if self.vigia is None:
+            # Sem critério de presença ou de contagem não há o que vigiar:
+            # nem se mexe no detector.
+            if not any(r.tipo in VIGIADOS for r in regras):
+                return
+            detector = self._detector_do_porteiro()
+            if detector is None:
+                return
+            from farol_agent.juizes.detector import CERTEZA, OBJETOS
+
+            def contar(imagem, classe: str) -> int:
+                return sum(1 for p in detector.motor.pontuar(imagem, classe) if p >= CERTEZA)
+
+            self.vigia = Vigia(contar, classes=dict(OBJETOS))
+        self.vigia.montar(regras)
+        if self.vigia.canais:
+            _log.info(
+                "vigia: %d canal(is) com presença ou contagem, olhados a cada %gs pelo fluxo menor",
+                len(self.vigia.canais), self.intervalo_rapido,
+            )
+
     def _o_porteiro(self, regras):
         """O porteiro, se algum critério pede um — e sempre o MESMO.
 
@@ -377,6 +418,7 @@ class Auditoria:
         self.motor = MotorDeRegras(
             self.fila, regras, serializar=evento_para_nuvem, porteiro=self._o_porteiro(regras),
         )
+        self._montar_vigia(regras)
 
         # Fontes só para pontos que têm regra: abrir câmera que ninguém
         # audita é fluxo do gravador gasto à toa.
@@ -481,6 +523,9 @@ class Auditoria:
             total += len(p.enfileirados)
             if p.sem_cena:
                 _log.warning("ponto %s sem cena: %s", ponto_id, p.sem_cena)
+            # É com o instante DESTA olhada que o vigia compara depois.
+            if self.vigia is not None:
+                self.vigia.anotar_olhada(ponto_id, fonte, agora)
 
         self._contar_sem_juiz(agora)
         return total
@@ -670,9 +715,21 @@ class Auditoria:
         if self.medidor is None:
             return
         try:
-            self.fila.somar_uso(agora or datetime.now(), self.medidor.amostra())
+            amostra = self.medidor.amostra()
+            self.fila.somar_uso(agora or datetime.now(), amostra)
         except Exception:  # noqa: BLE001
             _log.exception("não consegui medir o uso da máquina; seguindo")
+            return
+        # A mesma medida alimenta o freio do vigia: máquina ocupada por
+        # minutos, ele para; folgou, ele volta.
+        if self.vigia is not None and self.vigia.freio.alimentar(getattr(amostra, "cpu", None)):
+            if self.vigia.freio.puxado:
+                _log.warning(
+                    "vigia parado: o processador está acima de %g%% há minutos. "
+                    "A auditoria segue no ritmo de rotina.", self.vigia.freio.parar_acima_de,
+                )
+            else:
+                _log.info("vigia de volta: o processador folgou")
 
     def _subir_uso(self, agora: datetime) -> int:
         """Manda as horas de uso que a nuvem ainda não tem.
@@ -737,6 +794,64 @@ class Auditoria:
             "subidos": subidos,
         }
 
+    def vigiar(self, agora: datetime | None = None) -> dict[str, int]:
+        """Entre uma olhada e outra: onde a contagem mudou, olha agora.
+
+        A olhada extra é uma olhada de verdade — fluxo principal, juiz,
+        resumo e aviso —, mas só dos critérios de presença e de contagem
+        daquele canal. O que pode ir à nuvem não é acordado.
+        """
+        agora = agora or datetime.now()
+        nada = {"enfileirados": 0, "alertas": 0, "subidos": 0, "extras": 0}
+        if self.vigia is None or self.motor is None:
+            return nada
+        canais = self.vigia.olhar(self.fontes, agora)
+        if not canais:
+            return nada
+
+        total = 0
+        for ponto_id in canais:
+            fonte = self.fontes.get(ponto_id)
+            if fonte is None:
+                continue
+            evento = EventoGatilho(ponto_id=ponto_id, ts=agora, origem="vigia")
+            try:
+                p = self.motor.preparar(
+                    evento, fonte, contexto={"olhada_extra": True}, somente=lambda r: r.tipo in VIGIADOS,
+                )
+            except Exception as e:  # noqa: BLE001
+                _log.warning("olhada extra falhou no ponto %s: %s", ponto_id, e)
+                continue
+            total += len(p.enfileirados)
+            self.vigia.anotar_olhada(ponto_id, fonte, agora)
+        alertas = self.julgar(agora)
+        subidos = self.subir(agora)
+        return {"enfileirados": total, "alertas": len(alertas), "subidos": subidos, "extras": len(canais)}
+
+    def volta(self, agora: datetime | None = None) -> dict[str, int]:
+        """Uma volta do laço: a olhada de rotina quando é hora dela; senão, o vigia."""
+        do_relogio = agora is None
+        agora = agora or datetime.now()
+        if self._proxima_rotina is None or agora >= self._proxima_rotina:
+            r = self.passo(agora)
+            # Conta a partir do FIM da passada, como sempre foi: passada
+            # demorada (nuvem lenta) não encavala na seguinte. Com a hora
+            # dada por quem chama (teste), o fim é a própria hora dada.
+            fim = datetime.now() if do_relogio else agora
+            self._proxima_rotina = fim + timedelta(seconds=self.intervalo_captura)
+            return r
+        return self.vigiar(agora)
+
+    def _espera(self, agora: datetime) -> float:
+        """Quanto o laço dorme: até a próxima rotina, ou até a próxima olhada do vigia — o que vier antes."""
+        ate_a_rotina = self.intervalo_captura
+        if self._proxima_rotina is not None:
+            ate_a_rotina = max(0.0, (self._proxima_rotina - agora).total_seconds())
+        vigiando = self.vigia is not None and bool(self.vigia.canais) and not self.vigia.freio.puxado
+        if vigiando and self.intervalo_rapido > 0:
+            return min(ate_a_rotina, self.intervalo_rapido)
+        return ate_a_rotina
+
     # ───────────────────────── thread própria ─────────────────────────
 
     def iniciar(self) -> None:
@@ -758,14 +873,14 @@ class Auditoria:
     def _laco(self) -> None:
         while not self._parar.is_set():
             try:
-                r = self.passo()
+                r = self.volta()
                 if r["alertas"]:
                     _log.info(
                         "%d alerta(s), %d subido(s)", r["alertas"], r["subidos"]
                     )
             except Exception:  # noqa: BLE001
                 _log.exception("erro inesperado na auditoria; seguindo")
-            self._parar.wait(self.intervalo_captura)
+            self._parar.wait(self._espera(datetime.now()))
 
     def parar(self) -> None:
         self._parar.set()

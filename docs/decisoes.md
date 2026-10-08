@@ -876,3 +876,121 @@ portas para a mesma promessa.
 A qualidade da descrição com fotos de loja de verdade. Os testes usam um
 modelo de mentira; a primeira análise feita na loja é a medida, e é por isso
 que ela passa por uma pessoa antes de valer.
+
+
+## 08/10/2026 · O vigia: olhar mais vezes o que é julgado na loja
+
+Fase 3 do A16. "Melhorar a programação de análise, já que está gastando
+pouco do PC servidor" (pedido do dono).
+
+### O que sobrava, e o que não sobrava
+
+Medido na loja em 08/10/2026, com o agente em operação:
+
+| | medida |
+|---|---|
+| processador, com a loja aberta | 3% |
+| o detector, por quadro (fluxo menor ou principal) | 85 a 95 ms |
+| uma olhada pelo fluxo principal (abrir, pegar a rajada, fechar) | 1,7 a 1,8 s por canal |
+| fluxo menor (704 × 480) | já fica aberto o tempo todo, um por canal com critério |
+
+Sobra processador. O que **não** sobra é fluxo principal: ele é aberto a
+cada olhada, e a placa de rede do computador da loja está limitada (o cabo
+emendado). "Olhar tudo a cada 10 segundos", como o roteiro dizia, manteria
+o fluxo principal de quatro canais aberto quase o tempo todo.
+
+Daí o desenho: gastar o que sobra (processador e fluxo menor) para decidir
+**quando** vale abrir o que não sobra.
+
+### O vigia não julga
+
+A cada 10 segundos ele conta, no último quadro do fluxo menor, o que cada
+critério de presença e de contagem procura, no recorte da área. Se a
+contagem é diferente da que ele viu **no instante da última olhada** daquele
+canal, pede uma olhada agora. Quem julga, conta no resumo e avisa é essa
+olhada — a mesma de sempre, pelo fluxo principal.
+
+Por isso o erro dele custa pouco nos dois sentidos: viu mudança que não
+houve, uma olhada a mais; não viu a mudança, fica como era antes (a rotina
+pega em até 30 segundos).
+
+E por isso não foi preciso medir o que ficou sem medir: **se o detector vê
+no fluxo menor o mesmo que no principal** com gente na cena (a loja estava
+fechada). O vigia nunca compara um fluxo com o outro — compara o menor com
+ele mesmo.
+
+### Os limites
+
+- **Só presença e contagem.** A olhada extra passa um filtro no motor
+  (`somente`): o critério de estado, de ação ou de comparação daquele canal
+  não é olhado, não conta olhada e não vai à nuvem.
+- **Uma olhada extra por canal a cada 20 segundos, no máximo.** Pessoa na
+  borda da área faz a contagem piscar.
+- **Quadro do fluxo menor com mais de 5 segundos não vale** (fluxo travado),
+  e fonte sem fluxo menor não é vigiada. O vigia nunca abre fluxo: a função
+  que ele usa (`quadro_do_fluxo_menor`) devolve nada em vez de cair no
+  principal.
+- **Sem olhada antes, não há com o que comparar**: configuração nova, ou
+  olhada em que o fluxo menor não tinha quadro, zeram a referência.
+- **O freio**: processador acima de 60% por quatro medidas seguidas para o
+  vigia; abaixo de 45% pelo mesmo tempo, volta. Duas marcas para não ligar
+  e desligar a cada medida. Sem medida do processador ele segue — "não
+  medi" não é zero nem é cem. A rotina não tem freio.
+
+### Em cena movimentada ele vira "a cada 20 segundos"
+
+Numa cozinha em serviço a contagem muda o tempo todo. Ali o vigia pede
+olhada sempre que pode: o canal passa a ser olhado a cada 20 segundos (as
+extras) mais a cada 30 (a rotina) — umas cinco olhadas por minuto em vez de
+duas. É o teto, e é o que o limite de 20 segundos existe para garantir.
+
+### O que a olhada extra conta, e o que não conta
+
+A olhada extra cai quando algo mudou, e não num instante qualquer. Isso
+muda o que se pode fazer com ela:
+
+| | rotina | extra |
+|---|---|---|
+| análises, conformes, fora do critério | conta | conta (é análise feita) |
+| aviso | sim | sim — é para isso que ela existe |
+| maior valor da hora | sim | sim (o pico que a rotina não veria) |
+| **média** da medida da hora | sim | **não** |
+| "avisar só se continuar": mais uma olhada fora | sim | **não** |
+| "avisar só se continuar": viu em ordem, zera | sim | sim |
+
+- **A média.** Conta de exemplo: balcão com um atendente, e cliente que
+  fica 20 segundos a cada 2 minutos. A ocupação média verdadeira é 1,17. A
+  olhada extra cai logo depois de cada chegada e de cada saída; somada, a
+  média iria a 1,28. A média da hora é o número que a fase 5 chama de
+  "ocupação típica": fica só com a amostra regular.
+- **"Avisar só se continuar".** "Por 2 olhadas seguidas" queria dizer meio
+  minuto fora do critério. Com a extra contando, viraria dez segundos — e o
+  campo existe justamente para não avisar do que durou um instante. A extra
+  não começa nem adianta a espera. Se ela viu a área em ordem, a espera
+  recomeça: aí a condição não continuou mesmo.
+- **A taxa.** "Fora do critério em X% das análises" passa a incluir as
+  extras, e por isso **não é fração de tempo**. Para quem precisar da conta
+  só da rotina, o resumo da hora ganhou `extras` e `extras_fora` (migration
+  027): `rotina = julgadas − extras`, `rotina fora = fora − extras_fora`. A
+  tela de Análises não mudou: ela conta análises, e a extra é uma.
+
+### O maior valor só sobe junto de uma média
+
+A API recusa "pico sem medida" (`comMedida` zero com `maxMedida`), e está
+certa. Só que a hora em que a única medida veio de uma olhada extra tem
+exatamente isso na fila da loja. Linha recusada não sobe de novo — a hora
+ficaria sem resumo. Então o corpo que sobe leva `maxMedida` nulo enquanto
+não houver medida de rotina na hora; a primeira olhada de rotina soma, a
+linha sobe de novo, e o pico vai junto. Se a hora acabar sem nenhuma
+olhada de rotina com medida (os últimos segundos antes de fechar), aquele
+pico não sobe.
+
+### O que não foi medido
+
+- O detector no fluxo menor contra o principal, com gente (dito acima).
+- Quantas olhadas extras o vigia faz numa noite de movimento, e quantas
+  deram em aviso. A primeira noite com o agente novo é a medida: o resumo
+  da hora tem `extras` para isso.
+- O efeito no processador com a loja cheia. A conta diz pouco (quatro
+  áreas × 90 ms a cada 10 s é menos de 4% de um núcleo), e o freio existe
+  para o caso de a conta estar errada.
