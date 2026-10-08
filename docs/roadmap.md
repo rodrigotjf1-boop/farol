@@ -2455,3 +2455,460 @@ A tela pergunta ao gravador **o que ele realmente tem** antes de deixar
 escolher as datas. Buscar no que já foi sobrescrito devolve "não achei"
 quando a resposta certa é "isso não existe mais" — e as duas levam a
 decisões opostas.
+
+---
+
+## A18 · O momento do ocorrido, o ambiente que calcula e a cara do produto (plano — aguarda aprovação)
+
+**Pedido do dono (08/10/2026).** Dez coisas, cada uma numa linha:
+
+1. a confiança aparece em **%**;
+2. **relatórios por e-mail** — diário, semanal e mensal; a pessoa escolhe um ou os três;
+3. **resumo do que saiu do padrão por WhatsApp** — diário, semanal e mensal; idem;
+4. em toda análise crítica, urgente ou fora do padrão, um botão que **busca no HD o
+   trecho do ocorrido** — 5 s antes e 5 s depois, a princípio. Ver se a Intelbras tem
+   API para isso; se não tiver, criar;
+5. **o que está fora do critério é o dado mais importante**: manda nos painéis e nos
+   relatórios;
+6. **a planta passa a calcular**: pé-direito, distância e modelo da câmera (puxar os
+   dados técnicos), calor por perto, fumaça por setor, arrumação padrão, sugestão de
+   posição. Depois: a pessoa na planta e o mapa de calor de movimentação;
+7. **a planta fiel à loja**: nem tudo é quadrado; ver se um rascunho à mão pode virar a
+   planta, corrigida depois pelo usuário;
+8. conferir se **os critérios estão sendo bem analisados**, o que melhorar no motor
+   local, e se câmera melhor dá ganho — e qual;
+9. tudo com **o impacto calculado**: equipamento, armazenamento, desempenho;
+10. **a cara do produto**: moderno, tecnológico, minimalista, com movimento — como uma
+    empresa de porte internacional se apresenta. Sem se prender à paleta.
+
+O plano foi feito por três papéis: engenharia (o que o agente e a API ganham),
+arquitetura (dados, guarda, custo) e técnica de circuito monitorado (gravador, câmera,
+lente, disco). Antes de escrever, medimos a loja.
+
+### O que a loja mediu (08/10/2026, 12h — só leitura, só números)
+
+Nenhuma imagem saiu da loja nem foi gravada: bytes e quadros foram contados na memória.
+
+| o quê | medido |
+|---|---|
+| Gravador | Intelbras MHDX 3116-C, firmware 4.001 (25/12/2025) |
+| Fluxo principal, por canal | 1920×1080, 15 quadros/s, H.265, 2.048 kbit/s (nos arquivos: 2,13 Mbit/s) |
+| Fluxo menor, por canal | 704×480, 15 quadros/s, H.264, 160 kbit/s — **não é gravado** |
+| Disco do gravador | **218,8 GB**, cheio, sobrescrevendo |
+| O que o HD guarda | **15,4 horas**, igual nos 6 canais conferidos (o arquivo mais antigo era de 21h da véspera) |
+| Relógio do gravador | **27 s adiantado** em relação ao PC; NTP **desligado** |
+| Buscar o que há gravado (`mediaFileFind`) | funciona: 0,3 a 2,3 s; arquivos de 30 min (≈ 476 MB) |
+| 10 s gravados, por HTTP (`loadfile.cgi`) | funciona: **2,64 MB em 6,3 s** (primeiro byte em 1,3 s), formato DAV |
+| 10 s gravados, por RTSP (`cam/playback`) | funciona: 153 quadros de 1920×1080 em 12,4 s (abre em 3,5 s) |
+| PC de análise | 68 GB livres de 239; sem `ffmpeg`; o OpenCV instalado grava VP8, VP9 e MP4V, **não grava H.264** (falta a biblioteca OpenH264) |
+| Detector local (presença) | 93 a 95 ms por olhada; confiança média de 89% e 92%; 2% a 7% de "não deu para avaliar" |
+| Critérios de nuvem (3) | 1.284 análises pagas na noite de 07/10, **1.192 voltaram "não deu para avaliar" (93%)**; R$ 16,87 |
+| Avisos | **156 numa noite**; 85 deles de dois critérios de presença |
+| Tamanho de uma pessoa | de 385 a 688 px (mediana do maior lado, por canal) no fluxo principal; de 128 a 229 px na imagem que hoje vai para a nuvem |
+
+Por critério de nuvem, na noite de 07/10 (dia da operação):
+
+| critério | análises | "não deu para avaliar" | gasto |
+|---|---|---|---|
+| Uso da gaveta do caixa (ação) | 567 | 540 (95%) | R$ 7,52 |
+| Uso da chapa (ação) | 374 | 349 (93%) | R$ 4,94 |
+| Uniforme (estado) | 343 | 303 (88%) | R$ 4,40 |
+
+### O que a medida mudou no plano
+
+**1. O HD guarda 15 horas — o botão não pode depender dele.** O que aconteceu às 19h já
+não existe às 10h30 do dia seguinte. Então o trecho é **puxado pelo agente na hora do
+aviso** e guardado no PC da loja; o botão mostra o que já está guardado. Buscar direto
+no HD continua existindo ("ampliar o trecho"), mas só enquanto o gravador tiver aquela
+hora — e a tela diz quando não tem mais.
+
+**2. O relógio do gravador está 27 s adiantado — mais que a margem de 5 s.** Sem
+corrigir, o trecho mostraria outro momento. O agente mede a diferença a cada busca e
+desconta. Ligar o NTP no gravador resolve na origem.
+
+**3. Os critérios de nuvem pagam por resposta que não vem.** 93% das análises pagas
+voltaram "não deu para avaliar". As frases do modelo dizem por quê: "cozinha sem pessoas
+visíveis", "a chapa está visível, mas não há proteína", "visão geral do estabelecimento".
+São quatro causas, nenhuma é a câmera:
+
+- todas as áreas são o **quadro inteiro** (nenhuma foi desenhada);
+- o porteiro está em **"sempre"** em todos (a pergunta é feita com a cozinha vazia);
+- a imagem vai para a nuvem com **640 px de largura** — 11% dos pixels que a câmera
+  entrega;
+- **ação** (gaveta, chapa) é julgada por **uma foto**; ação se vê em sequência.
+
+**4. Um critério nunca foi julgado e ninguém soube.** "Produto" (contagem) foi olhado
+2.170 vezes e ficou "sem juiz" em todas: o objeto não está no vocabulário do detector.
+
+**5. 156 avisos numa noite é ruído.** Um critério de presença fora por duas horas gera
+um aviso a cada 15 minutos. O que interessa é o **episódio**: quando começou, quanto
+durou, quando voltou ao normal.
+
+**6. A imagem do evento não sobe para a nuvem** (só a assinatura dela). Hoje o console
+não consegue mostrar nem a foto do ocorrido; o trecho em vídeo resolve as duas coisas.
+
+**7. Erro achado no caminho.** O cliente do gravador (`ClienteDahua`), depois de seis
+respostas de erro seguidas, passa a responder "senha recusada" para tudo, sem falar com
+o gravador (contador de tentativas do `urllib` que só zera no sucesso). A busca de
+trechos dispararia isso em minutos: "não há gravação" volta como erro 400.
+
+### Respostas diretas
+
+**A Intelbras tem API?** Tem, e é oficial: a "HTTP API V3.59" da Intelbras é a
+especificação CGI da Dahua com a marca dela (pede-se pelo canal de suporte; há também o
+NetSDK). Não é preciso criar protocolo. Os três caminhos da especificação —
+`mediaFileFind` (buscar), `loadfile.cgi` (baixar por horário) e RTSP `cam/playback` —
+foram **testados no gravador da loja e funcionaram**. O que se cria é o cliente: o
+`ClienteDahua` de hoje só fala ao vivo.
+Fonte: <https://botminio.apps.intelbras.com.br/dvr/HTTP_API_V3_59_Intelbras.pdf> (lido em 08/10/2026).
+
+**Os critérios estão sendo bem analisados?** Os do detector local, sim (93 ms, 2% a 7%
+de dúvida). Os de nuvem, não: 93% sem resposta, pelas quatro causas acima.
+
+**O motor local funciona? O que melhorar?** Funciona. O que falta: (a) ele devolve só a
+pontuação e **joga fora as caixas** que o modelo calcula — com elas vêm a posição de
+cada pessoa (base do mapa de calor), a contagem por área e o porteiro exato, sem custo
+de inferência; (b) recortar a área na **resolução nativa**; (c) acusar na tela o
+critério que não tem juiz; (d) medir um modelo um degrau acima (entrada de 512 px) para
+objeto pequeno, antes de adotar.
+
+**Câmera melhor dá ganho? Qual?** Hoje, nenhum: 89% dos pixels que as câmeras já
+entregam são jogados fora antes da nuvem. A ordem do ganho, do grátis ao caro:
+
+| passo | ganho | custo |
+|---|---|---|
+| 1. Desenhar a área e mandar o recorte na resolução da câmera | 3× o detalhe em cada direção (9× os pixels). Uma pessoa passa de ≈ 200 px para ≈ 600 px; a cabeça, de ≈ 30 px para ≈ 90 px (o mínimo usual para classificar é 40 px) | nenhum |
+| 2. Porteiro "com pessoa na área" | −54% a −59% das perguntas (havia gente em 41% a 46% das imagens dos canais com critério de nuvem) | nenhum |
+| 3. Rajada para ação (3 a 5 quadros) | a ação passa a ser visível | 3× os tokens de imagem, só nesses critérios |
+| 4. Lente e posição (aproximar, 3,6 mm no lugar de 2,8 mm) | +20% a +30% de detalhe | baixo |
+| 5. Câmera de 4 MP ou 5 MP | +33% / +35% de detalhe por direção | câmera + disco (o dobro por canal) |
+| 6. Câmera 4K | +100% | câmera + disco (4×) + gravador que aceite |
+
+Câmera melhor só vale para **detalhe pequeno** (touca, luva, etiqueta) ou **cena larga**,
+e só depois dos passos 1 a 3. Dois limites que não dependem da câmera: o modelo de nuvem
+reduz toda imagem inteira para até 1.568 px no lado maior (2.576 px nos modelos mais
+novos) — resolução a mais só aparece no **recorte**; e no cabo analógico o gravador é
+quem limita (o MHDX 3116-C aceita até 5 MP Lite).
+Fonte dos limites de imagem: <https://platform.claude.com/docs/en/build-with-claude/vision> (lido em 08/10/2026).
+
+### Frente 1 · Critérios que respondem
+
+| | o quê | por quê |
+|---|---|---|
+| 1.1 | **Confiança em %** em todas as telas, avisos e relatórios ("confiança 87%", "confiança mínima 70%"). A API continua guardando a fração | pedido 1 |
+| 1.2 | **Saúde do critério**: o critério que não consegue avaliar aparece como problema, com a causa e o que fazer ("93% sem resposta — desenhe a área e ligue 'com pessoa na área'"); o que não tem juiz é acusado; o gasto sem resposta é somado | achados 3 e 4 |
+| 1.3 | **Recorte nativo**: a resolução deixa de ser um ajuste e passa a sair do tamanho da área — manda-se o recorte como a câmera entrega, até o limite do modelo | achado 3 |
+| 1.4 | **Rajada para ação**: 3 a 5 quadros em 2 a 4 s, numa pergunta só | achado 3 |
+| 1.5 | **Episódios**: olhadas seguidas fora do critério viram um episódio (início, duração, fim). Um aviso no começo, lembrete opcional, um trecho de vídeo. Relatórios contam episódios e **minutos fora** | achado 5 |
+| 1.6 | **O detector devolve as caixas** (posição de cada pessoa na imagem) | base das frentes 5 e 6 |
+| 1.7 | **Relógio**: diferença gravador × PC medida e guardada; aviso se passar de 5 s | achado 2 |
+| 1.8 | **Cliente do gravador** não trava depois de seis erros | achado 7 |
+
+Medida que fecha a frente: as mesmas 200 imagens julgadas como hoje e com recorte
+nativo, lado a lado — quantas deixam de voltar "não deu para avaliar". Custa cerca de
+R$ 5 de nuvem; precisa do "pode" do dono.
+
+### Frente 2 · O momento do ocorrido (evento ↔ vídeo)
+
+**O caminho de um trecho:**
+
+1. O critério avisa às 10:30:30 (relógio do PC).
+2. O agente espera o "depois" existir no HD e pede ao gravador de 10:30:23 a 10:30:37
+   (os 10 s mais 2 s de folga de cada lado, já no relógio do gravador).
+3. Converte no PC da loja: de DAV/H.265 para **MP4/H.264**, cortado em 10:30:25–10:30:35,
+   720p, sem áudio. H.265 não abre em todo navegador (no Windows depende de placa e de
+   extensão); H.264 abre em 97% deles.
+4. Guarda no PC da loja. **Crítico e urgente sobem na hora**; os outros sobem quando
+   alguém clica.
+5. No console, **"Ver o momento"** abre o vídeo com a marca no instante do aviso.
+
+**O que entra:**
+
+| | o quê |
+|---|---|
+| 2.1 | Cliente do gravador: `o_que_ha_gravado(canal, de, até)` e `baixar_trecho(canal, de, até)`; `loadfile.cgi` primeiro, RTSP de reserva; **um pedido por vez** por gravador |
+| 2.2 | Conversão no agente, com o rosto borrado onde o critério manda (a mesma regra da imagem que sai da loja) |
+| 2.3 | Captura automática em todo aviso de critério fora; fila própria, que sobrevive a reinício |
+| 2.4 | Guarda na loja com teto em GB e em dias (o mais antigo sai primeiro) |
+| 2.5 | Subida para a nuvem: na hora (crítico, urgente) ou sob clique (até 10 s de espera: é o intervalo em que o agente fala com a nuvem) |
+| 2.6 | Tela: botão **"Ver o momento"** no evento, no aviso, no relatório e na saída do padrão; vídeo de 10 s com a marca do instante; quadro a quadro; **"ampliar"** para 30 s ou 1 min (enquanto o HD tiver); estados "buscando na loja", "o gravador não guarda mais esta hora", "a loja está fora do ar" |
+| 2.7 | Margem ajustável por loja (10 s a princípio; 20, 30, 60) |
+| 2.8 | Na saída do padrão (que é de uma hora, não de um instante): a linha do tempo daquela hora, com os episódios e seus trechos |
+
+**Três caminhos para converter o vídeo, e o escolhido:**
+
+| caminho | como | a favor | contra |
+|---|---|---|---|
+| A · OpenH264 + OpenCV (**recomendado**) | uma biblioteca de 1 MB (a que o OpenCV da loja já procura); os quadros passam pelo nosso código | é onde o rosto é borrado; nada novo a manter; a patente do H.264 é coberta pela Cisco, que distribui o binário | qualidade e taxa têm menos ajuste; o índice do MP4 fica no fim (num vídeo de 1 MB não pesa) |
+| B · `ffmpeg` junto do agente | programa de ~100 MB, baixado com conferência de assinatura, como o modelo do detector | rápido; converte sem recodificar quando dá; índice no começo | 100 MB a mais por loja; o borrão vira um passo à parte |
+| C · mandar o H.265 como veio | só troca a embalagem | zero processamento | não abre em boa parte dos navegadores no Windows |
+
+O primeiro passo da frente é a prova de bancada dos caminhos A e B, medindo tempo e
+tamanho, antes de escolher de vez.
+
+**O que o trecho NÃO garante.** O agente olha cada critério a cada ≈ 46 s. O quadro que
+gerou o aviso mostra o **estado** fora do critério; o **ato** pode ter sido até 46 s
+antes. Por isso: "voltar 30 s" fica a um clique, e os critérios de ação passam a usar a
+rajada (1.4) e o vigia (que olha a cada 10 s).
+
+**Recomendações do técnico, para o gravador:**
+
+- **Trocar o disco.** 218,8 GB dão 15 horas. Por proporção (14,2 GB por hora, com os
+  canais de hoje): 2 TB ≈ 5 dias; 4 TB ≈ 11 dias; 6 TB ≈ 16 dias; 10 TB (o máximo do
+  gravador) ≈ 27 dias. Disco **de vigilância** (feito para gravar sem parar). Se o de
+  hoje for um SSD comum, ele é regravado inteiro 1,5 vez por dia e não dura.
+- **Gravar por movimento com a loja fechada.** A loja fica fechada mais da metade do dia, e
+  a gravação contínua de cozinha vazia ocupa o disco do mesmo jeito. O gravador já tem
+  detecção de movimento ligada nos canais. A confirmar no menu dele.
+- **Ligar o NTP** (hoje desligado).
+- **Não** ligar a gravação do fluxo menor: gastaria disco para uma imagem que não serve
+  de prova.
+
+### Frente 3 · Relatórios e resumos
+
+**Quem recebe e quando.** Cada pessoa escolhe, por loja: e-mail (diário, semanal,
+mensal — um, dois ou os três) e WhatsApp (idem). Horários de partida: o diário sai às 8h
+com o dia da operação anterior (que fecha às 6h); o semanal, segunda às 8h; o mensal, no
+dia 1.
+
+**O que vem primeiro é o que saiu do critério.** A mesma ordem no e-mail, no WhatsApp e
+na página:
+
+1. episódios fora do critério, do mais grave ao menos, com minutos fora e o link
+   **"ver o momento"**;
+2. reincidência: o mesmo critério, na mesma hora, em 3 dias ou mais;
+3. o que fugiu do padrão (do especialista) e ainda não foi respondido;
+4. o que melhorou e o que piorou contra o período anterior;
+5. o que **não deu para avaliar** (critério sem resposta, canal sem imagem, loja fora do ar);
+6. numa linha só: o que ficou dentro do critério, e o gasto de nuvem do período.
+
+O WhatsApp leva o resumo em três linhas e o link da página do relatório; o e-mail leva o
+relatório inteiro. O mensal acrescenta tendência e sugestões.
+
+**Como é entregue.** Fica a decisão de 06/10: **o Farol decide e monta; quem entrega é o
+transportador** (Regem/n8n), pela fila de envios que já existe. Entra um tipo novo de
+envio ("relatório"), criado por um trabalho agendado, uma vez por assinatura e período.
+
+**Custos e regras (pesquisados em 08/10/2026):**
+
+- WhatsApp: cobra-se por modelo de mensagem entregue. O resumo é modelo de **utilidade**
+  — sem texto promocional, só com dados da própria loja, para quem pediu para receber.
+  Preço no Brasil: **entre R$ 0,035 e R$ 0,08 por mensagem** (duas fontes divergem; a
+  tabela oficial da Meta não pôde ser lida — conferir antes de fechar preço). Uma pessoa
+  com os três resumos recebe ≈ 35 mensagens por mês: de R$ 1,20 a R$ 2,80.
+- E-mail: de US$ 0,10 a US$ 0,90 por mil. Exige SPF, DKIM e DMARC no domínio.
+
+### Frente 4 · O que está fora do critério, na frente
+
+- **Início da loja**: no topo, "fora do critério agora" e "hoje", por gravidade ×
+  reincidência × minutos fora; cada linha com o seu momento. O que está em ordem fica
+  recolhido numa linha.
+- **Índice da loja** (0 a 100), pesado pela gravidade, com a tendência — um número para
+  o dono acompanhar e comparar lojas.
+- **Análises, avisos e relatórios** na mesma ordem: fora do critério → fora do padrão →
+  sem resposta → em ordem.
+
+### Frente 5 · O ambiente que calcula
+
+**Dados técnicos da câmera — de onde vêm.** Em câmera analógica (HDCVI, a da loja) o
+gravador **não sabe o modelo**: o cabo só leva imagem. Medido: ele informa a resolução e
+a taxa de cada canal, nada da lente. Então:
+
+- resolução, quadros e taxa: lidos do gravador, sozinhos (já funciona);
+- modelo: o usuário escolhe na base de equipamentos; a base passa a trazer sensor,
+  lente, ângulo de visão, WDR e alcance do infravermelho de cada modelo (hoje traz só os
+  megapixels);
+- câmera IP: modelo e lente lidos do próprio aparelho;
+- **calibração por 4 pontos** (o melhor caminho para câmera sem ficha): o usuário marca
+  na imagem 4 pontos do piso que existem na planta; daí sai a relação exata entre imagem
+  e planta — é ela que depois põe a pessoa no lugar certo.
+
+**O que a planta passa a calcular:**
+
+| | o quê |
+|---|---|
+| 5.1 | **Pé-direito** por ambiente, **inclinação** por câmera |
+| 5.2 | **Pixels por metro em cada ponto do piso**: distância real (com a altura) e ângulo da lente → um mapa de onde a câmera serve para presença, para estado e para leitura (os mínimos da nossa base: 1,5, 3 e 12 px/cm) |
+| 5.3 | **Ponto cego e sombra**: o que um móvel alto esconde; quanto de cada setor está coberto; onde duas câmeras se sobrepõem |
+| 5.4 | **Veredito por critério**: "daqui, esta câmera entrega 1,9 px/cm na bancada; uniforme pede 3" → aproximar 1,2 m, trocar a lente, ou outra câmera. Com simulador: arrastar a câmera e ver o veredito mudar |
+| 5.5 | **Calor**: chapa, fritadeira e forno (do inventário) ganham raio de calor e de gordura; câmera dentro dele recebe aviso de posição e de limpeza |
+| 5.6 | **Fumaça e vapor por setor**: o setor marcado avisa o juiz ("pode haver fumaça: se estiver encoberto, diga que não dá para avaliar") e ganha um **índice de visibilidade** por canal e hora. Olhada encoberta espera e tenta de novo, em vez de pagar a nuvem |
+| 5.7 | **Saúde da imagem**: lente suja (queda lenta, dia após dia), câmera fora do lugar (a foto padrão deixou de bater), contraluz |
+| 5.8 | **Arrumação padrão**: equipamentos na planta + foto padrão = "o ambiente em ordem"; o que saiu do lugar vira critério proposto |
+| 5.9 | **Forma livre**: ambiente por pontos (o mesmo editor da área), parede em curva, portas e passagens |
+| 5.10 | **Rascunho → planta**: foto do desenho à mão → um modelo de visão devolve os ambientes → o usuário informa **uma medida real** (a escala) e corrige arrastando |
+
+Sobre fumaça: medimos nitidez, contraste e "véu" nas imagens de uma noite. **Há sinal** —
+a nitidez do canal da chapa caiu 40% entre 1h e 2h; a do atendimento caiu pela metade
+entre 16h e 17h. Mas no quadro inteiro a fumaça se mistura com o que mudou na cena. O índice tem de
+ser medido em **trechos fixos** (parede, coifa), contra a foto padrão.
+
+Sobre o rascunho: é viável **com** correção humana. A pesquisa mais próxima (croqui à mão
+→ planta por modelo de linguagem com visão, 2025) acerta 83% das paredes antes da
+correção. O cálculo passa a ser feito sobre uma **grade** de 25 cm, o que torna curva e
+forma livre simples — e acaba com as duas cópias da conta de geometria (API e console).
+Antes de construir: teste com 5 rascunhos de verdade, um deles da loja.
+Fonte: <https://arxiv.org/abs/2510.20838> (lido em 08/10/2026).
+
+### Frente 6 · A pessoa na planta (depois)
+
+Caixa do detector (1.6) → ponto do pé → posição na planta (calibração por 4 pontos) →
+**ocupação por célula de 50 cm, por hora**. Sai: mapa de calor por período, tempo de
+permanência por setor, setor vazio × setor cheio, caminhos mais usados.
+
+Nasce **anônimo**: guarda-se a contagem por célula, não o trajeto de alguém. Limites
+conhecidos: pé escondido por bancada, lente de 2,8 mm sem correção de distorção, uma
+amostra a cada 10 s.
+
+Atenção jurídica (fica para o final, por decisão do dono, mas a modelagem já respeita):
+o relatório do grupo de trabalho do CNPD (2026, consultivo) desaconselha usar câmera para
+avaliação de desempenho individual. Mapa de calor por **setor e horário** é gestão do
+ambiente; por **pessoa** seria avaliação.
+Fonte: <https://www.gov.br/anpd/pt-br/cnpd/grupos-de-trabalho/gt1-relatorio-final-cnpd.pdf> (lido em 08/10/2026).
+
+### Frente 7 · A cara do produto
+
+**Três caminhos:**
+
+| | caminho | referências | ganha | perde |
+|---|---|---|---|---|
+| A | Tradicional — painel de operação | [Grafana](https://grafana.com/docs/grafana/latest/dashboards/), [shadcn/ui](https://ui.shadcn.com/blocks) | familiar, barato | parece com todos |
+| B | Moderno — instrumento de precisão | [Linear](https://linear.app/now/how-we-redesigned-the-linear-ui), [Vercel Geist](https://vercel.com/geist/introduction), [Stripe](https://docs.stripe.com/stripe-apps/design) | sóbrio, rápido, denso sem cansar | pouco "uau" sozinho |
+| C | Inovador — sala de controle viva | [Verkada](https://www.verkada.com/command/), [Rhombus](https://www.rhombus.com/blog/introducing-floorplans-complete-clarity-of-your-global-security-camera-network), [View Transitions](https://nextjs.org/docs/app/guides/view-transitions), [cmdk](https://github.com/pacocoursey/cmdk) | impacto, movimento, o produto "vivo" | risco de enfeite e de peso |
+
+**Recomendado: a base do B com as peças de assinatura do C.** Base escura por padrão
+(sala de controle), com o tema claro completo; neutros com um fio de azul; **uma** cor de
+sinal — o âmbar do facho, que é a identidade do Farol; números em fonte de largura fixa;
+borda de 1 px no lugar de sombra. As peças de assinatura, cada uma carregando função:
+
+- **o facho**: a varredura de luz do farol como marca viva (login, carregando, "olhando
+  agora");
+- **a planta viva**: cones das câmeras, mapa de pixels, calor — a planta como tela, não
+  como cadastro;
+- **a linha do tempo do dia**: episódios entrando ao vivo, cada um com o seu momento;
+- **a miniatura que vira vídeo** (transição contínua);
+- **Ctrl+K**: ir a qualquer loja, canal, critério ou dia;
+- **o início em mosaico**, com uma peça principal: o estado da loja agora.
+
+**Regras do movimento e do desempenho** (para o impacto não custar a velocidade):
+transições de 150 a 250 ms; nada se move sem motivo; "reduzir movimento" do aparelho é
+respeitado; desfoque em no máximo duas superfícies; primeira tela em menos de 2 s em 4G;
+animação a 60 quadros/s medida em celular simples.
+
+**Entrega:** primeiro o **protótipo navegável** (login, início da loja, evento com o
+vídeo, linha do tempo, planta viva, relatório, Padrões), claro e escuro, 1440 e 375 px.
+Aprovado, o porte entra por partes: cores e tipos → casca → telas. Toda tela nova das
+outras frentes já nasce nesse protótipo. A página que apresenta este plano foi feita
+nessa direção, como primeira amostra.
+
+### O mercado, e onde o Farol fica
+
+Verificado em 08/10/2026. "Porte" é o que a fonte declara.
+
+| quem | o que tem do que está neste plano | porte | desde |
+|---|---|---|---|
+| [Verkada](https://www.verkada.com/blog/ai-powered-search/) (EUA) | trecho do evento, busca por frase, mapa de calor na planta, linha do tempo | 30 mil+ organizações; avaliada em US$ 5,8 bi | não verificado |
+| [Rhombus](https://restauranttechnologynews.com/2025/09/rhombus-launches-ai-solution-to-give-restaurants-customized-operational-intelligence-and-automated-event-responses/) (EUA) | critério escrito em texto, planta com cone e lacuna de cobertura, aviso por e-mail | 3.000+ clientes; US$ 90 mi+ captados | não verificado |
+| [Solink](https://solink.com/solutions/restaurants/) (Canadá) | vídeo ligado ao caixa, **resumo por e-mail diário ou semanal** | 35 mil+ locais | 2009 (não verificado) |
+| [Lumana](https://lumana.ai/solutions/hospitality) (EUA) | IA sobre câmeras existentes, mapa de calor, cozinha | US$ 64 mi captados | 2024 (lançamento público) |
+| [Wobot](https://wobot.ai/) (Índia/EUA) | procedimento em fast-food por câmeras existentes | US$ 5,5 mi (não verificado) | não verificado |
+| [Emilia AI](https://startups.com.br/negocios/rodada-de-investimento/prosus-sobe-aposta-em-ia-nos-restaurantes-e-investe-us-15m-na-emilia-ai/) (Brasil como mercado principal) | IA sobre as câmeras do restaurante + caixa | US$ 1,5 mi captado | 2024 |
+
+Quem tem tudo isso tem de 3 mil a 30 mil clientes e de US$ 30 milhões a bilhões, e quase
+todos vendem a própria câmera. **Os pares do Farol são Emilia e Wobot.** Do que foi
+verificado, ninguém entrega: resumo por WhatsApp ao dono; cálculo de pixels e sugestão de
+posição dentro do console (isso existe em ferramenta de projeto, como
+[JVSG](https://www.jvsg.com/) e AXIS Site Designer); e nenhum trabalha sobre gravador
+analógico com o julgamento feito na loja.
+
+### Impacto
+
+**No PC da loja**
+
+| | hoje | com o plano |
+|---|---|---|
+| Processador | detector a 93 ms por olhada | + 1 a 2 s por trecho (estimado; medir na prova de bancada). Com episódios, de 20 a 40 trechos por dia (estimado) |
+| Disco | 68 GB livres; imagens do agente: 260 MB | trechos: ≈ 1,3 MB cada em 720p (estimado). 156 por dia (o pior caso, sem episódios) = 200 MB/dia. Teto proposto: **10 GB ou 30 dias** |
+| Rede interna | cabo a 10 Mbit/s (pendência antiga); 14 fluxos menores ≈ 2,4 Mbit/s | cada trecho: 2,64 MB em 6 s, um por vez. Com o cabo a 10 Mbit/s, é o gargalo — mais um motivo para trocá-lo |
+| Internet (subida) | eventos e resumos: poucos kB | 20 a 40 MB por dia se só crítico e urgente sobem sozinhos. **A subida da loja não foi medida** |
+
+**No gravador:** uma sessão de leitura por vez (6 s cada). Nenhuma mudança de gravação é
+necessária para o plano funcionar; o disco maior e o NTP são recomendações.
+
+**Na nuvem**
+
+| | conta |
+|---|---|
+| Trechos | 30 por dia × 1,3 MB ≈ 1,2 GB por mês por loja, com 30 dias de guarda |
+| Onde guardar | piloto: tabela própria no banco, com teto e validade (nada novo a instalar). Antes da segunda loja: armazenamento de objetos. **O espaço livre do servidor não foi medido** (não acesso a VPS) |
+| Relatórios | a mesma conta do especialista (medida: 17 ms de busca + 81 ms de cálculo para 24 dias). Feitos à noite, por trabalho agendado |
+| Planta | grade de 25 cm: loja de 200 m² = 3.200 células × até 16 câmeras — milissegundos, no navegador |
+
+**No gasto com IA**
+
+| | conta |
+|---|---|
+| Hoje | R$ 16,87 por noite (≈ R$ 500 por mês), 93% sem resposta |
+| Porteiro "com pessoa" | ≈ −55% das perguntas |
+| Recorte nativo | a imagem custa mais: de 299 para ≈ 700 unidades de imagem num recorte de ¼ do quadro (2,3×) |
+| Resultado esperado | **gasto parecido, com resposta** — a conferir no teste lado a lado |
+| Rajada (ação) | 3× a imagem, só nos critérios de ação |
+| WhatsApp | R$ 1,20 a R$ 2,80 por pessoa por mês, com os três resumos |
+
+### A ordem
+
+Tamanho: **P** = até meio dia de trabalho; **M** = um dia; **G** = dois a três dias.
+É a minha parte; o que depende do dono está na coluna ao lado.
+
+| onda | o quê | tamanho | depende de |
+|---|---|---|---|
+| 0 | Confiança em %; cliente do gravador sem travar; relógio medido; base de equipamentos corrigida (o gravador comprime em H.265, a base dizia H.264) | P | — |
+| 1 | Critérios que respondem: saúde do critério, recorte nativo, rajada, episódios, caixas do detector | G | o "pode" do teste pago (≈ R$ 5); o dono desenhar as áreas e ligar o porteiro |
+| 2 | **Protótipo da cara nova**, já com as telas novas das ondas 3, 4 e 6 | G | aprovação do dono |
+| 3 | O momento do ocorrido: prova de bancada → captura automática → guarda → subida → "Ver o momento" | G | onde guardar na nuvem; recomendações do gravador |
+| 4 | Relatórios e resumos; o início "fora do critério primeiro"; índice da loja | G | o transportador (Regem/n8n) entregando; modelo de WhatsApp aprovado na Meta |
+| 5 | Porte da cara nova para o app, por partes | G | onda 2 aprovada |
+| 6 | O ambiente que calcula (5.1 a 5.8), a forma livre (5.9) e o rascunho (5.10) | G + M + M | teste dos 5 rascunhos |
+| 7 | A pessoa na planta e o mapa de calor | G | ondas 1 e 6 |
+| 8 | Busca investigativa (A8), que reaproveita a onda 3 | G | HD maior |
+
+As ondas 1 e 2 andam juntas: uma é do agente e da API, a outra é desenho.
+
+### Ideias acrescentadas
+
+- **Episódio e minutos fora** no lugar de contagem de avisos (frente 1).
+- **Índice da loja**, comparável entre lojas da rede (frente 4).
+- **Ciência do evento**: quem viu, o que foi feito — o ciclo que as saídas do padrão já
+  fecham, levado a todo evento.
+- **Compartilhar o momento** por link que vence (para o gerente, pelo WhatsApp).
+- **Biblioteca de exemplos**: marcar um trecho como "exemplo do certo" ou "do errado" —
+  material de treinamento da equipe, direto da operação.
+- **Aviso no navegador e no celular** (notificação do próprio app), sem custo por
+  mensagem, ao lado do WhatsApp.
+- **Modo parede**: o estado da loja numa TV, sem toque.
+- **A câmera saiu do lugar**: comparação diária com a foto padrão.
+
+### O que não foi medido
+
+- Quanto tempo depois do instante o gravador já entrega o trecho (medimos um trecho de
+  30 minutos atrás).
+- Tempo e tamanho da conversão para H.264 no PC da loja.
+- A subida da internet da loja; o espaço livre do servidor.
+- O ganho real do recorte nativo e da rajada (é o teste pago da onda 1).
+- Vários trechos e vários fluxos ao vivo ao mesmo tempo, no cabo de hoje.
+- O preço oficial do WhatsApp no Brasil.
+- Se o disco do gravador é SSD ou HD.
+
+### Decisões que são do dono
+
+1. Aprovar o plano e a ordem das ondas.
+2. O disco do gravador: trocar por um de vigilância (recomendo 4 TB: ≈ 11 dias).
+3. Ligar o NTP no gravador — eu ligo pela API, com o "pode", ou o dono liga no menu.
+4. O teste pago da onda 1 (≈ R$ 5).
+5. Quais trechos sobem sozinhos (recomendo: crítico e urgente).
+6. Por quanto tempo guardar: na loja (recomendo 30 dias, 10 GB) e na nuvem (30 dias).
+7. Onde guardar na nuvem (recomendo: banco no piloto, objetos antes da segunda loja).
+8. A direção da cara nova (recomendo B + as peças do C) e a lista de telas do protótipo.
+9. Confirmar que e-mail e WhatsApp saem pelo transportador (Regem/n8n).
+10. Mapa de calor: por setor e horário, anônimo (recomendo).
+11. Borrar rosto nos trechos: seguir o critério (recomendo), sempre, ou nunca.

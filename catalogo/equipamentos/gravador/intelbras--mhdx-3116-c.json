@@ -28,6 +28,7 @@
     "rede_mbps": 1000,
     "substream": "D1/CIF",
     "compressao": [
+      "H.265",
       "H.264+",
       "H.264"
     ],
@@ -84,6 +85,48 @@
       "onde": "loja de teste",
       "metrica": "canal_sem_camera",
       "valor": "transmite tela preta com logotipo e relógio (99,5% dos pixels em preto)"
+    },
+    {
+      "em": "2026-10-08",
+      "onde": "loja de teste",
+      "metrica": "compressao_do_fluxo_principal",
+      "valor": "H.265, 2.048 kbit/s (taxa fixa), 15 quadros/s, um quadro-chave a cada 2 s"
+    },
+    {
+      "em": "2026-10-08",
+      "onde": "loja de teste",
+      "metrica": "fluxo_menor_gravado",
+      "valor": "não: só o fluxo principal é gravado"
+    },
+    {
+      "em": "2026-10-08",
+      "onde": "loja de teste",
+      "metrica": "gravacao_por_hora",
+      "valor": 14.2,
+      "unidade": "GB/h",
+      "condicao": "todos os canais em 1080p; 218,8 GB guardaram 15,4 horas"
+    },
+    {
+      "em": "2026-10-08",
+      "onde": "loja de teste",
+      "metrica": "trecho_gravado_por_http",
+      "valor": "10 s = 2,64 MB em 6,3 s",
+      "condicao": "loadfile.cgi, fluxo principal, cabo a 10 Mbit/s"
+    },
+    {
+      "em": "2026-10-08",
+      "onde": "loja de teste",
+      "metrica": "trecho_gravado_por_rtsp",
+      "valor": "10 s em 12,4 s (abre em 3,5 s)",
+      "condicao": "cam/playback, fluxo principal"
+    },
+    {
+      "em": "2026-10-08",
+      "onde": "loja de teste",
+      "metrica": "busca_do_que_ha_gravado",
+      "valor": "0,3 a 2,3",
+      "unidade": "s",
+      "condicao": "mediaFileFind; arquivos de 30 min"
     }
   ],
   "precos": [
