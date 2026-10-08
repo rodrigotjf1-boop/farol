@@ -96,8 +96,25 @@ class ClienteDahua:
 
     # ────────────────────────── requisições ──────────────────────────
 
+    def _zerar_tentativas(self) -> None:
+        """Cada pedido começa com a conta de tentativas de senha no zero.
+
+        O `urllib` soma um a cada desafio de senha e só zera quando o
+        pedido repetido dá CERTO. O gravador responde 400 depois do
+        desafio para dizer coisas normais ("não há gravação nessa
+        hora", "não conheço essa configuração"): a conta sobe e, na
+        sexta resposta de erro seguida, o `urllib` passa a devolver 401
+        para TUDO, sem falar com o gravador — e o agente diria "senha
+        recusada" até ser reiniciado. Medido na loja em 08/10/2026.
+        """
+        for tratador in self._abridor.handlers:
+            zerar = getattr(tratador, "reset_retry_count", None)
+            if zerar is not None:
+                zerar()
+
     def _abrir(self, caminho: str, *, tempo_limite: float = TEMPO_LIMITE):
         url = f"{self.base}{caminho}"
+        self._zerar_tentativas()
         try:
             return self._abridor.open(url, timeout=tempo_limite)
         except urllib.error.HTTPError as e:

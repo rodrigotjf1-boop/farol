@@ -5,7 +5,7 @@
 
 import { BellOff, Cctv, CheckCheck, CircleX, Clock, Cloud, Cpu, Send } from 'lucide-react';
 
-import { fracao, numero, porcento, segundos } from '@/componentes/formatos';
+import { confiancaEmPorcento, numero, porcento, segundos } from '@/componentes/formatos';
 import { CARTAO, Chip } from '@/componentes/ui/pecas';
 import { Celula, Linha, Tabela } from '@/componentes/ui/tabela';
 import type { Analises, AvisoDaAnalise } from '@/lib/api';
@@ -197,7 +197,7 @@ export function AvisosDoRecorte({
           </div>
           <div className="col-start-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 md:col-start-3 md:flex-col md:items-end">
             <EstadoDoAviso estado={a.aviso} />
-            {a.confianca !== null && <span className="font-mono text-xs text-farol-suave">confiança {fracao(a.confianca)}</span>}
+            {a.confianca !== null && <span className="font-mono text-xs text-farol-suave">confiança {confiancaEmPorcento(a.confianca)}</span>}
           </div>
         </li>
       ))}
