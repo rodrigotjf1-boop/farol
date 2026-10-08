@@ -674,3 +674,89 @@ export const resultadosApi = {
     }
   },
 };
+
+// ───────────────────────── análises ─────────────────────────
+// O miúdo do que foi julgado: uma célula por dia, hora, critério e área. A
+// tela recorta e soma aqui no navegador — trocar um filtro não volta ao
+// servidor; só trocar o período volta.
+
+export type CelulaDeAnalise = {
+  /** Dia e hora no relógio DA LOJA. */
+  dia: string;
+  hora: number;
+  regraId: string;
+  pontoId: string;
+  zonaId: string;
+  /** A área do canal — nulo quando o canal tem uma área só. */
+  areaNome: string | null;
+  capturas: number;
+  /** O que terminou em veredito: conformes + naoConformes + naoAvaliaveis. */
+  analises: number;
+  conformes: number;
+  naoConformes: number;
+  naoAvaliaveis: number;
+  falhas: number;
+  alertas: number;
+  /** Onde foi julgado. `naLoja + naNuvem` é sempre `analises`. */
+  naLoja: number;
+  naNuvem: number;
+  /** Estimativa: preço de tabela do modelo, com o dólar fixo do agente. */
+  custoCentavos: number;
+  somaLatenciaMs: number;
+  comLatencia: number;
+  somaConfianca: number;
+  comConfianca: number;
+};
+
+export type AvisoDaAnalise = {
+  id: string;
+  ocorridoEm: string;
+  dia: string;
+  hora: number;
+  /** "19:45", no relógio da loja. */
+  horaMinuto: string;
+  regraId: string | null;
+  pontoId: string | null;
+  zonaId: string | null;
+  areaNome: string | null;
+  motivo: string | null;
+  confianca: number | null;
+  onde: 'loja' | 'nuvem' | null;
+  aviso: 'entregue' | 'enviado' | 'pendente' | 'falhou' | null;
+};
+
+export type Analises = {
+  loja: { id: string; nome: string; timezone: string; horario_funcionamento: FaixaDeHorario[] };
+  /** O intervalo devolvido, em dias do calendário da loja. */
+  de: string;
+  ate: string;
+  /** Hoje e a hora corrente, na loja. */
+  hoje: string;
+  horaAgora: number;
+  agora: string;
+  canais: Array<{ id: string; nome: string; canal: number | null; setor: string; ativo: boolean; excluido: boolean }>;
+  criterios: Array<{ id: string; nome: string; tipo: string; ligado: boolean; excluido: boolean }>;
+  celulas: CelulaDeAnalise[];
+  /** Quantos avisos o intervalo teve; `avisos` traz os mais recentes. */
+  totalDeAvisos: number;
+  avisos: AvisoDaAnalise[];
+};
+
+const analisesGuardadas = new Map<string, { em: number; promessa: Promise<Analises> }>();
+
+export const analisesApi = {
+  /** Sem `de` e `ate`, é o dia de hoje na loja. */
+  obter(lojaId: string, intervalo: { de: string; ate: string } | null, forcar = false): Promise<Analises> {
+    const consulta = intervalo ? `?de=${intervalo.de}&ate=${intervalo.ate}` : '';
+    const chave = `${lojaId}${consulta}`;
+    const tem = analisesGuardadas.get(chave);
+    if (!forcar && tem && Date.now() - tem.em < VALIDADE_MS) return tem.promessa;
+
+    const promessa = pedir<Analises>(`/lojas/${lojaId}/analises${consulta}`);
+    analisesGuardadas.set(chave, { em: Date.now(), promessa });
+    promessa.catch(() => {
+      if (analisesGuardadas.get(chave)?.promessa === promessa) analisesGuardadas.delete(chave);
+    });
+    return promessa;
+  },
+};

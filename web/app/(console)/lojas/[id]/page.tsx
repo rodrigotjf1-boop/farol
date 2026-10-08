@@ -523,6 +523,10 @@ export default function PainelDaLoja() {
             </div>
 
             <Grafico serie={dados.serie} periodo={dados.periodo} />
+            <Link href={`/lojas/${id}/analises`} className="elo self-start text-[13px]">
+              Explorar por hora, canal e custo
+              <ArrowRight className="h-[15px] w-[15px]" aria-hidden />
+            </Link>
             </div>
           </div>
 

@@ -127,3 +127,137 @@ td:first-child .crit { min-width: 200px; }
 @media (max-width: 420px) {
   .horario-dia { grid-template-columns: minmax(0, 1fr) 96px auto 96px; }
 }
+
+/* ──────────────────────── análises ──────────────────────── */
+/* Os filtros numa faixa só, que quebra de linha: cada um com o seu rótulo
+   em cima, como nos formulários. */
+.filtros { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 18px; padding: 14px 16px; }
+.filtro { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.filtro > label, .filtro > .rotulo { font-size: 12.5px; font-weight: 600; color: var(--tinta); }
+.filtro .entrada { min-height: 38px; }
+.filtro.cresce-f { flex: 1 1 170px; max-width: 280px; }
+.filtro .par { display: flex; align-items: center; gap: 8px; color: var(--suave); font-size: 13px; }
+.filtro .par select { width: 86px; }
+.filtros .seg button { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; }
+.recorte { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; min-height: 36px; margin-block: -8px; }
+.recorte p { flex: 1 1 280px; min-width: 0; color: var(--suave); font-size: 13.5px; }
+.recorte p b { color: var(--tinta); font-weight: 600; }
+.an-corpo { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+
+.numeros.seis { grid-area: auto; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.numeros.seis .kpi .num { font-size: 26px; white-space: nowrap; }
+.divide { display: flex; gap: 2px; height: 12px; margin: 11px 0 9px; border-radius: 999px; overflow: hidden; background: var(--realce); }
+.divide i { display: block; height: 100%; min-width: 0; }
+.kpi .pe > span { display: block; }
+.kpi .pe b { color: var(--tinta); font-weight: 600; }
+.cor-loja { background: var(--marca); }
+.cor-nuvem { background: var(--facho); }
+
+.an-grade { display: grid; gap: 24px; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); align-items: start; }
+.an-grade .grafico { grid-area: auto; }
+.an-grade .por-canal { display: flex; flex-direction: column; gap: 12px; }
+
+/* As barras são botões: tocar numa hora mostra só ela. A coluna inteira é
+   o alvo do toque, não só a parte pintada — hora com pouca análise tem
+   barra de três pontos de altura. */
+.barras.tocaveis > .col {
+  position: relative; flex: 1 1 0; min-width: 0; height: 100%; padding: 0; border: 0;
+  display: flex; align-items: flex-end; background: none; border-radius: 5px 5px 0 0; cursor: pointer;
+  transition: background var(--rapido);
+}
+.barras.tocaveis > .col:hover { background: var(--realce); }
+.barras.tocaveis > .col[aria-pressed="true"] { background: var(--facho-leve); box-shadow: inset 0 -3px 0 var(--facho); }
+.barras.tocaveis > .col:focus-visible { outline: 2px solid var(--marca); outline-offset: 1px; }
+.barras.tocaveis > .col.apagada .barra-col { opacity: .3; }
+.barras.tocaveis > .col .barra-col { flex: 1 1 0; min-height: 0; }
+.barras.tocaveis > .col .barra-col:hover { filter: none; }
+.barras.tocaveis > .col.vazia::after {
+  content: ""; position: absolute; left: 25%; right: 25%; bottom: 0; height: 2px; border-radius: 2px; background: var(--borda-forte);
+}
+
+.canais-barras { display: flex; flex-direction: column; gap: 2px; }
+.canal-linha {
+  width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 10px;
+  padding: 8px 10px; border: 1px solid transparent; border-radius: var(--raio-p);
+  background: none; color: inherit; text-align: left; cursor: pointer;
+  transition: background var(--rapido), border-color var(--rapido);
+}
+.canal-linha:hover { background: var(--painel-2); }
+.canal-linha[aria-pressed="true"] { border-color: var(--marca); background: var(--painel-2); }
+.canal-linha .cl-nome { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; }
+.canal-linha .cl-nome > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.canal-linha .canal-num { width: 26px; height: 26px; border-radius: 8px; font-size: 11px; flex: none; }
+.canal-linha .cl-num { font: 500 12.5px var(--mono); color: var(--suave); white-space: nowrap; }
+.canal-linha .trilho { grid-column: 1 / -1; height: 8px; border-radius: 999px; background: var(--realce); overflow: hidden; }
+.canal-linha .trilho .fita { display: flex; height: 100%; border-radius: 999px; overflow: hidden; }
+.canal-linha .trilho .fita i { display: block; height: 100%; }
+
+tfoot td { border-top: 1px solid var(--borda-forte); border-bottom: 0; font-weight: 600; background: var(--painel-2); }
+tfoot td:first-child { border-bottom-left-radius: var(--raio); }
+tfoot td:last-child { border-bottom-right-radius: var(--raio); }
+.chip .ic.p { width: 13px; height: 13px; }
+
+@media (max-width: 1180px) {
+  .an-grade { grid-template-columns: minmax(0, 1fr); }
+  .numeros.seis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+  .numeros.seis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .numeros.seis .kpi .num { font-size: 22px; }
+  .filtros { gap: 12px; }
+  .filtro, .filtro.cresce-f { flex: 1 1 100%; max-width: none; }
+  .filtro .seg { display: flex; }
+  .filtro .seg button { flex: 1 1 0; justify-content: center; padding: 0 6px; min-height: 40px; }
+  .filtro .par select { flex: 1 1 0; width: auto; }
+  .filtro .entrada { min-height: 44px; }
+  .em-cartoes tfoot, .em-cartoes tfoot tr, .em-cartoes tfoot td { display: block; }
+  .em-cartoes tfoot tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; padding: 12px 14px; background: var(--painel-2); border-radius: 0 0 var(--raio) var(--raio); }
+  .em-cartoes tfoot td { padding: 0; border: 0; background: none; text-align: left; }
+  .em-cartoes tfoot td:empty { display: none; }
+}
+.vazio.curto { padding: 26px 20px; }
+.ocorrencias li.mais p { font-size: 13px; }
+.grafico > .elo { align-self: flex-start; font-size: 13px; }
+/* dez colunas: a tabela das análises aperta um pouco para caber sem rolar em 1440 */
+[data-tela="analises"] th, [data-tela="analises"] td { padding-inline: 10px; }
+[data-tela="analises"] th:first-child, [data-tela="analises"] td:first-child { padding-left: 16px; }
+[data-tela="analises"] th:last-child, [data-tela="analises"] td:last-child { padding-right: 16px; }
+[data-tela="analises"] .prop { min-width: 112px; }
+[data-tela="analises"] td:first-child .crit { min-width: 150px; }
+@media (max-width: 767px) {
+  [data-tela="analises"] .em-cartoes td { padding: 0; }
+  [data-tela="analises"] td:first-child .crit { min-width: 0; }
+}
+
+/* ──────────────── análises: a máquina de análise ──────────────── */
+.maquina { display: flex; flex-direction: column; gap: 14px; }
+.uso-grade { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); align-items: start; }
+.uso-numeros { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.uso-item {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 12px 14px;
+  border: 1px solid var(--borda); border-radius: var(--raio-p); background: var(--painel-2);
+  color: inherit; text-align: left;
+}
+button.uso-item { cursor: pointer; transition: border-color var(--rapido), background var(--rapido); }
+button.uso-item:hover { border-color: var(--borda-forte); }
+button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: var(--painel); box-shadow: inset 0 0 0 1px var(--marca); }
+.uso-item .rot { display: flex; align-items: center; gap: 7px; color: var(--suave); font-size: 12.5px; }
+.uso-item .num { font: 600 24px/1.2 var(--titulo); letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.uso-item .num small { font: 500 13px var(--texto); color: var(--suave); letter-spacing: 0; }
+.uso-item .pe { color: var(--suave); font-size: 12px; }
+.uso-grafico { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.uso-grafico .barras, .uso-grafico .eixo-y { height: 136px; }
+.cor-pico { background: var(--facho); }
+.barras.tocaveis > .col .pico {
+  position: absolute; left: 10%; right: 10%; height: 3px; margin-bottom: -1.5px; border-radius: 2px;
+  background: var(--facho); pointer-events: none;
+}
+.barras.tocaveis > .col.apagada .pico { opacity: .3; }
+@media (max-width: 1180px) {
+  .uso-grade { grid-template-columns: minmax(0, 1fr); }
+  .uso-numeros { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+  .uso-numeros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .uso-item .num { font-size: 21px; }
+}
