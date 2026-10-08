@@ -237,10 +237,11 @@ def linha_do_contrato() -> dict:
         "hora": "2026-10-07T12:00:00-03:00",
         "regra_id": "00000000-0000-4000-8000-000000000001",
         "zona_id": "00000000-0000-4000-8000-000000000002",
-        "capturas": 120,
+        "capturas": 126,
         "sem_juiz": 0,
         "sem_quadro": 2,
         "sem_cena": 3,
+        "sem_condicao": 6,
         "em_silencio": 10,
         "repetidas": 80,
         "ja_julgadas": 1,
@@ -279,10 +280,12 @@ def test_o_resumo_sai_EXATAMENTE_como_o_contrato():
 
 
 def test_o_exemplo_do_contrato_fecha_a_conta():
-    # O arquivo é exemplo "completo e verdadeiro": os sete desfechos de uma
+    # O arquivo é exemplo "completo e verdadeiro": os oito desfechos de uma
     # olhada têm que somar as capturas, senão ele ensina a conta errada.
     c = json.loads(CONTRATO.read_text(encoding="utf-8"))
-    desfechos = ["semJuiz", "semQuadro", "semCena", "emSilencio", "repetidas", "jaJulgadas", "enfileiradas"]
+    desfechos = [
+        "semJuiz", "semQuadro", "semCena", "semCondicao", "emSilencio", "repetidas", "jaJulgadas", "enfileiradas",
+    ]
     assert sum(c[d] for d in desfechos) == c["capturas"]
     assert c["conformes"] + c["naoConformes"] + c["naoAvaliaveis"] + c["falhas"] == c["enfileiradas"]
     # Cada julgamento concluído foi feito em um dos dois lugares.
@@ -544,7 +547,10 @@ def test_o_resumo_respeita_o_intervalo_e_sobe_o_ACUMULADO(tmp_path):
     assert r["capturas"] == 4, "o que sobe é o total da hora, não a diferença"
     assert r["emSilencio"] == 3
     assert r["capturas"] == sum(
-        r[d] for d in ("semJuiz", "semQuadro", "semCena", "emSilencio", "repetidas", "jaJulgadas", "enfileiradas")
+        r[d]
+        for d in (
+            "semJuiz", "semQuadro", "semCena", "semCondicao", "emSilencio", "repetidas", "jaJulgadas", "enfileiradas",
+        )
     )
 
 

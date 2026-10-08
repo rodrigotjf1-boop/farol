@@ -386,3 +386,92 @@ provável é o piso mínimo de tokens para cache, que as instruções não alcan
 Não compensa perseguir agora: o ganho máximo seria sobre a fração fixa do
 prompt, e a decisão grande (detector local para `presenca`) tira essas
 chamadas da nuvem inteiramente.
+
+---
+
+## 08/10/2026 · O porteiro: a loja decide se vale perguntar à nuvem
+
+Fase 1 do plano A16 (`docs/roadmap.md`). No primeiro dia inteiro de operação,
+94% do que a loja gastou com a nuvem voltou "não deu para avaliar", e no canal
+em que o detector também olhava, 271 de 482 perguntas foram feitas sem ninguém
+na imagem. A loja sabia, de graça, que não havia o que perguntar.
+
+### Na dúvida, pergunta
+
+Segurar uma pergunta que tinha resposta esconde um problema; fazer uma que não
+tinha custa um centavo. Por isso o porteiro só segura quando tem certeza:
+
+| modo | segura quando | o que passa |
+|---|---|---|
+| com pessoa na área | nenhuma detecção de pessoa chega a 0,35 | o "talvez" (0,35 a 0,70) e a certeza |
+| com a área livre | alguma detecção chega a 0,70 | o "talvez" e a área vazia |
+| quando algo se mexe | menos de 1,2% dos pontos mudou mais de 24 tons | a primeira olhada, e qualquer mudança maior |
+
+Os limiares 0,35 e 0,70 são os do próprio detector (`DUVIDA` e `CERTEZA`): o
+porteiro não tem números seus. Sem detector instalado, ou com o detector
+falhando numa imagem, a pergunta é feita — o porteiro não decide o que não
+consegue ver. Modo que o agente não conhece (um que a nuvem ganhe depois)
+volta a "em toda olhada".
+
+### O que ficou de fora, e por quê
+
+- **Presença e contagem não têm porteiro.** Já são julgadas na loja em toda
+  olhada, e "não há ninguém" ali é o veredito, não um motivo para não olhar. A
+  API recusa (422), a tela não mostra a escolha e o agente ignora se descer.
+- **"Quando algo se mexe" é só de critério de ação.** Em critério de estado,
+  a cena parada é justamente o que se quer julgar.
+- **O movimento compara com a olhada ANTERIOR**, não com uma referência
+  fixa: mede o que mudou de uma olhada para a outra. Mudança lenta, abaixo do
+  limiar a cada passo, não dispara — aceito, porque ação é gente se mexendo.
+- **O porteiro vem antes do borrão de rosto e da memória de cena repetida.**
+  A imagem ainda não saiu de lugar nenhum, o detector conta melhor no recorte
+  inteiro, e a olhada segurada não pode fazer a seguinte sair como "repetida".
+
+### "Nada a conferir" é um desfecho, não um resultado
+
+A olhada segurada é o oitavo desfecho de uma olhada (`sem_condicao`), ao lado
+de sem quadro, sem cena, em silêncio, repetida, já julgada, sem juiz e
+enfileirada. A soma dos oito continua sendo as capturas. Não é análise: não
+entra em "conforme", nem em "não deu para avaliar", nem no custo. Na tela de
+Análises é uma linha à parte, com a quantidade por critério — sem ela um
+critério com poucas análises pareceria um critério que ninguém confere.
+
+Tela de sem sinal continua sendo "sem cena" (defeito de câmera): o porteiro
+só é consultado depois dessa porta.
+
+### "Avisar só se continuar"
+
+`confirmar_em` é em quantas olhadas SEGUIDAS o critério tem de ficar fora
+para avisar (1 = na primeira, como era).
+
+- Conta como "continua" um novo veredito fora do critério **e** a cena que não
+  mudou desde o último. Sem a segunda parte, o critério nunca avisaria
+  justamente do que continua: a bancada suja parada é a mesma imagem, e
+  imagem repetida não é julgada de novo.
+- Um conforme zera a espera. "Não deu para avaliar" e fora do critério com
+  confiança abaixo do mínimo não confirmam nem desmentem.
+- Em critério "com pessoa na área", ficar sem ninguém zera a espera: quem
+  estava fora do critério saiu. Em "com a área livre", gente passando na
+  frente não zera: a sujeira não saiu dali.
+- O aviso confirmado pela cena parada sai com o julgamento que estava
+  esperando (a imagem e o motivo dele), e o silêncio conta a partir da olhada
+  que confirmou.
+- A espera vive na memória do agente. Reiniciar o agente ou mudar a
+  configuração da loja recomeça a contagem: o aviso atrasa algumas olhadas,
+  não sai errado.
+
+### A faixa de horas não pediu coluna
+
+`regra.janelas` existe desde a migration 001 e o agente sempre a respeitou;
+faltava a tela. A gaveta edita uma faixa só, igual em todos os dias. O que foi
+gravado com mais detalhe pela API (dias diferentes, mais de uma faixa) aparece
+resumido, e é mantido enquanto ninguém mexer na caixa. A API passou a conferir
+o formato (o mesmo do horário da loja): antes bastava ser uma lista.
+
+### O banco local de teste e a subida automática
+
+Efeito colateral descoberto neste trabalho: subir a API contra o banco local
+de desenvolvimento (montado à mão, sem a tabela de controle e sem pgvector)
+agora cria a tabela de controle vazia, a 001 falha e a guarda fecha a porta.
+Não é defeito — é a guarda fazendo o que deve num banco que ela não conhece.
+Para esse banco, a API sobe com `MIGRAR_NA_SUBIDA=nao`.

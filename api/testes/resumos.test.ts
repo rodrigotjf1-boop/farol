@@ -194,10 +194,11 @@ describe('resumo por hora (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
     // Coluna por coluna, pelo VALOR: "entrou" não prova que entrou certo.
     assert.equal(l.loja_id, a.lojaId);
     assert.equal(new Date(l.hora).toISOString(), '2026-10-07T15:00:00.000Z', 'meio-dia em -03:00 são 15h UTC');
-    assert.equal(l.capturas, 120);
+    assert.equal(l.capturas, 126);
     assert.equal(l.sem_juiz, 0);
     assert.equal(l.sem_quadro, 2);
     assert.equal(l.sem_cena, 3);
+    assert.equal(l.sem_condicao, 6);
     assert.equal(l.em_silencio, 10);
     assert.equal(l.repetidas, 80);
     assert.equal(l.ja_julgadas, 1);

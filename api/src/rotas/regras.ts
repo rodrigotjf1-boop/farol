@@ -41,7 +41,7 @@ import {
   OBJETOS_DO_DETECTOR,
   TIPOS_DO_DETECTOR,
 } from '../detector.js';
-import { QUANDOS } from '../horario.js';
+import { lerHorario, QUANDOS } from '../horario.js';
 import { exigirConfigurar } from '../rbac.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 
@@ -50,6 +50,28 @@ const PRIORIDADES = ['urgente', 'intermediaria', 'leve'];
 const SEVERIDADES = ['info', 'atencao', 'critico', 'emergencia'];
 const RESOLUCOES = ['r384', 'r640', 'r1mp', 'r1080'];
 const ACOES = ['registro', 'kds', 'whatsapp', 'tarefa_regem', 'tv_regemboard'];
+// Quando vale a pena conferir (migration 023). Quem responde é o detector,
+// na loja, antes de a imagem ir para a nuvem.
+export const PORTEIROS = ['sempre', 'pessoa', 'livre', 'movimento'];
+const MAX_CONFIRMAR_EM = 10;
+
+/**
+ * O porteiro cabe naquele tipo de critério? Devolve a frase do problema.
+ *
+ * É a mesma regra da tela: presença e contagem já são julgadas na loja em
+ * toda olhada (não há pergunta a segurar), e "quando algo se mexe" é de
+ * critério de ação.
+ */
+export function porteiroNaoCabe(tipo: string, porteiro: string): string | null {
+  if (porteiro === 'sempre') return null;
+  if (TIPOS_DO_DETECTOR.includes(tipo)) {
+    return 'porteiro: presença e contagem são julgadas na loja em toda olhada; use "sempre"';
+  }
+  if (porteiro === 'movimento' && tipo !== 'acao') {
+    return 'porteiro: "movimento" vale só para critério de ação';
+  }
+  return null;
+}
 
 type Corpo = Record<string, unknown>;
 
@@ -86,8 +108,21 @@ function validar(c: Corpo, criando: boolean): string | null {
     const ruim = c.acoes.find((a) => !ACOES.includes(String(a)));
     if (ruim) return `acao desconhecida: ${ruim}. Válidas: ${ACOES.join(', ')}`;
   }
-  if (c.janelas != null && !Array.isArray(c.janelas)) {
-    return 'janelas: lista de {dias, hora_ini, hora_fim}';
+  // A faixa de horas do critério tem o MESMO formato do horário da loja, e
+  // passa pela mesma conferência: dia de 1 a 7, hora HH:MM. Antes bastava
+  // ser uma lista — e uma faixa torta descia para o agente como estava.
+  if (c.janelas != null) {
+    const lido = lerHorario(c.janelas);
+    if (lido.problema) return lido.problema.replace(/^horario/, 'janelas');
+  }
+  if (c.porteiro != null && !PORTEIROS.includes(String(c.porteiro))) {
+    return `porteiro: um de ${PORTEIROS.join(', ')}`;
+  }
+  if (c.confirmarEm != null) {
+    const v = Number(c.confirmarEm);
+    if (!Number.isInteger(v) || v < 1 || v > MAX_CONFIRMAR_EM) {
+      return `confirmarEm: inteiro de 1 a ${MAX_CONFIRMAR_EM}`;
+    }
   }
   // Em que horário conferir, em relação ao horário DA LOJA.
   if (c.quando != null && !(QUANDOS as readonly string[]).includes(String(c.quando))) {
@@ -159,6 +194,10 @@ const ALVOS_DO_CRITERIO = `
  * campo nenhum — mesmo que o corpo traga.
  */
 function parametrosParaCriar(c: Corpo): { ok: Record<string, unknown> } | { problema: string } {
+  // O porteiro tem de caber no tipo: é conferido aqui porque é aqui que as
+  // duas rotas de criação passam, com o tipo já validado.
+  const naoCabe = porteiroNaoCabe(String(c.tipo), String(c.porteiro ?? 'sempre'));
+  if (naoCabe) return { problema: naoCabe };
   if (!TIPOS_DO_DETECTOR.includes(String(c.tipo))) return { ok: {} };
   return lerParametrosDoDetector(c.parametros);
 }
@@ -196,18 +235,20 @@ async function criarRegra(
        insert into regra (loja_id, nome, tipo, criterio, processo_descricao,
                           prioridade, severidade, confianca_minima, cooldown_min,
                           resolucao, janelas, acoes, retencao_midia_dias, parametros,
-                          quando)
+                          quando, porteiro, confirmar_em)
        select dono.loja_id, $5, $6, $7, $8,
               coalesce($9,'intermediaria'), coalesce($10,'atencao'),
               coalesce($11, 0.700), coalesce($12, 15), $13,
               coalesce($14,'[]'::jsonb), coalesce($15,'["registro"]'::jsonb),
               coalesce($16, 90), $17::jsonb,
               -- O comum é critério de operação: nasce "no horário".
-              coalesce($18, 'no_horario')
+              coalesce($18, 'no_horario'),
+              -- E nasce perguntando em toda olhada e avisando na primeira.
+              coalesce($19, 'sempre'), coalesce($20, 1)
          from dono
        returning id, nome, tipo, criterio, criterio_versao, prioridade,
                  severidade, confianca_minima, cooldown_min, resolucao,
-                 janelas, acoes, ativa, parametros, quando
+                 janelas, acoes, ativa, parametros, quando, porteiro, confirmar_em
      ),
      ligados as (
        insert into regra_alvo (regra_id, zona_id)
@@ -226,6 +267,8 @@ async function criarRegra(
       c.retencaoMidiaDias ?? null,
       JSON.stringify(parametros),
       c.quando ?? null,
+      c.porteiro ?? null,
+      c.confirmarEm ?? null,
     ],
   );
   return rows[0] ?? null;
@@ -261,7 +304,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
               r.processo_descricao, r.prioridade, r.severidade,
               r.confianca_minima, r.cooldown_min, r.resolucao,
               r.janelas, r.acoes, r.ativa, r.retencao_midia_dias, r.parametros,
-              r.quando,
+              r.quando, r.porteiro, r.confirmar_em,
               ${ALVOS_DO_CRITERIO} as alvos
          from regra r
          join loja l on l.id = r.loja_id
@@ -380,7 +423,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
       // decidir antes de gravar — e para duas edições simultâneas passarem
       // uma depois da outra.
       const antes = await cliente.query(
-        `select r.tipo, r.parametros
+        `select r.tipo, r.parametros, r.porteiro
            from regra r
            join loja l on l.id = r.loja_id
           where r.id = $1 and l.tenant_id = $2 and r.excluida_em is null
@@ -393,6 +436,15 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
       }
 
       const tipoFinal = String(c.tipo ?? antes.rows[0].tipo);
+
+      // O porteiro tem de caber no tipo FINAL. Mudar o tipo para presença
+      // com "só com pessoa na área" guardado deixaria na tela uma opção
+      // que o agente ignora; quem muda o tipo manda o porteiro junto.
+      const naoCabe = porteiroNaoCabe(tipoFinal, String(c.porteiro ?? antes.rows[0].porteiro));
+      if (naoCabe && (c.porteiro !== undefined || c.tipo !== undefined)) {
+        await cliente.query('rollback');
+        return resposta.status(422).send({ erro: 'validacao', mensagem: naoCabe });
+      }
       let novosParametros: Record<string, unknown> | null = null;   // null = mantém
       if (TIPOS_DO_DETECTOR.includes(tipoFinal)) {
         const lido = lerParametrosDoDetector(
@@ -452,6 +504,8 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
                 retencao_midia_dias = coalesce($14, r.retencao_midia_dias),
                 parametros         = coalesce($16::jsonb, r.parametros),
                 quando             = coalesce($17, r.quando),
+                porteiro           = coalesce($18, r.porteiro),
+                confirmar_em       = coalesce($19, r.confirmar_em),
                 atualizado_em      = now()
            from loja l
           where r.id = $1
@@ -460,7 +514,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
          returning r.id, r.nome, r.tipo, r.criterio, r.criterio_versao,
                    r.prioridade, r.severidade, r.confianca_minima,
                    r.cooldown_min, r.resolucao, r.janelas, r.acoes, r.ativa,
-                   r.parametros, r.quando, r.loja_id`,
+                   r.parametros, r.quando, r.porteiro, r.confirmar_em, r.loja_id`,
         [
           id,
           c.nome != null ? String(c.nome).trim() : null,
@@ -476,6 +530,8 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
           s.tenantId,
           novosParametros === null ? null : JSON.stringify(novosParametros),
           c.quando ?? null,
+          c.porteiro ?? null,
+          c.confirmarEm ?? null,
         ],
       );
       if (rows.length === 0) {

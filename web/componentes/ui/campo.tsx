@@ -52,16 +52,19 @@ export function Escolhas<T extends string>({
   opcoes,
   valor,
   aoMudar,
+  rotuloOculto = false,
 }: {
   nome: string;
   rotulo: string;
   opcoes: ReadonlyArray<{ valor: T; titulo: string; ajuda?: string; icone?: LucideIcon }>;
   valor: T;
   aoMudar: (novo: T) => void;
+  /** O rótulo já está escrito na legenda do grupo: fica só para o leitor de tela. */
+  rotuloOculto?: boolean;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-[5px]">
-      <span id={`${nome}-rotulo`} className={ROTULO}>
+      <span id={`${nome}-rotulo`} className={rotuloOculto ? 'sr-only' : ROTULO}>
         {rotulo}
       </span>
       <div

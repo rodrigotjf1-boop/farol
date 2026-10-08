@@ -33,6 +33,7 @@ import {
   horasCom,
   intervaloDoPeriodo,
   linhas as montarLinhas,
+  nadaAConferir,
   recortar,
   recortarAvisos,
   rotuloDoDia,
@@ -45,6 +46,7 @@ import {
 import { FiltrosDasAnalises } from '@/componentes/analises/filtros';
 import { GraficoDeHoras } from '@/componentes/analises/grafico-de-horas';
 import { MaquinaDeAnalise } from '@/componentes/analises/maquina';
+import { NadaAConferir } from '@/componentes/analises/nada-a-conferir';
 import { PorCanal } from '@/componentes/analises/por-canal';
 import { AvisosDoRecorte, PorCriterioECanal } from '@/componentes/analises/tabela-e-avisos';
 import { useConsole } from '@/componentes/console';
@@ -333,6 +335,7 @@ export default function AnalisesDaLoja() {
   const semCanal = recortar(dados.celulas, filtros, 'canal');
   const porCanal = new Map(dados.canais.map((c) => [c.id, somar(semCanal.filter((x) => x.pontoId === c.id))]));
   const asLinhas = montarLinhas(recorte);
+  const seguradas = nadaAConferir(dados.celulas, filtros);
   const osAvisos = recortarAvisos(dados.avisos, filtros);
   const variosDias = dados.de !== dados.ate;
   const haAnalise = dados.celulas.some((c) => c.analises > 0);
@@ -406,6 +409,10 @@ export default function AnalisesDaLoja() {
         )}
 
         {total.analises > 0 && <Numeros s={total} recorte={recorte} />}
+
+        {/* Fora das análises, e por isso dito à parte: o que a loja olhou e
+            decidiu, sozinha, que não havia o que perguntar. */}
+        <NadaAConferir dados={dados} seguradas={seguradas} />
 
         <div className="grid grid-cols-[minmax(0,1fr)] gap-5 md:gap-6 xl:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)] xl:items-start">
           <GraficoDeHoras

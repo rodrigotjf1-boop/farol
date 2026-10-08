@@ -561,7 +561,7 @@
         if (menos !== 'horas' && (c.h < an.de || c.h >= an.ate)) return false;
         if (menos !== 'canal' && an.canal && s.canal !== an.canal) return false;
         if (an.crit && s.crit !== an.crit) return false;
-        if (an.onde !== 'tudo' && s.onde !== an.onde) return false;
+        if (menos !== 'onde' && an.onde !== 'tudo' && s.onde !== an.onde) return false;
         return true;
       });
   }
@@ -672,6 +672,24 @@
     const semDado = t.n === 0;
     for (const el of $$('[data-an-so-com-dado]')) el.hidden = semDado;
     $('[data-an-sem-dado]').hidden = !semDado;
+
+    // ── nada a conferir: as olhadas que a loja segurou. Só existem em
+    //    critério com "quando vale a pena conferir"; não são análise, e
+    //    "onde foi julgado" não se aplica a elas ──
+    const seguradas = new Map();
+    for (const c of celulasDoRecorte('onde')) {
+      const crit = AN_SERIES[c.si].crit;
+      if (!CRITERIOS[crit]?.porteiro) continue;
+      seguradas.set(crit, (seguradas.get(crit) ?? 0) + Math.round(c.n * 1.4));
+    }
+    const totalSeguradas = [...seguradas.values()].reduce((a, v) => a + v, 0);
+    $('[data-an-nada]').hidden = totalSeguradas === 0;
+    $('[data-an-nada-texto]').innerHTML =
+      `<b>${numero.format(totalSeguradas)} ${totalSeguradas === 1 ? 'olhada ficou' : 'olhadas ficaram'} em “nada a conferir”</b> neste recorte: ` +
+      'a loja viu que a condição do critério não valia — ninguém na área, gente na frente ou nada se mexeu — e não perguntou à nuvem. Não entram nas análises.' +
+      (seguradas.size > 1
+        ? '<br>' + [...seguradas.entries()].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${CRITERIOS[k].nome} <b class="mono">${numero.format(v)}</b>`).join(' · ')
+        : '');
 
     // ── os números ──
     const horasComAnalise = new Set(recorte.map((c) => `${c.d}-${c.h}`)).size || 1;

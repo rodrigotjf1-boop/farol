@@ -16,7 +16,20 @@
 // diferentes.
 // =====================================================================
 
-import { ChevronRight, CircleMinus, Clock, Crop, Ellipsis, Folder, Moon, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react';
+import {
+  ChevronRight,
+  CircleMinus,
+  Clock,
+  Crop,
+  Ellipsis,
+  Folder,
+  Moon,
+  Pencil,
+  Plus,
+  Trash2,
+  TriangleAlert,
+  UserRoundCheck,
+} from 'lucide-react';
 import { useState } from 'react';
 
 import { plural } from '@/componentes/formatos';
@@ -30,7 +43,9 @@ import {
   iconeDoTipo,
   nomeDaPrioridade,
   nomeDaSeveridade,
+  etiquetaDoPorteiro,
   nomeDoTipo,
+  resumoDaFaixa,
   resumoDaProcura,
   TIPOS_DO_DETECTOR,
 } from './opcoes';
@@ -62,6 +77,8 @@ function Etiquetas({ regra }: { regra: Regra }) {
   const peloDetector = TIPOS_DO_DETECTOR.includes(regra.tipo);
   const procura = resumoDaProcura(regra.parametros);
   const n = canaisDe(regra);
+  const porteiro = etiquetaDoPorteiro(regra);
+  const faixa = resumoDaFaixa(regra.janelas);
 
   return (
     <>
@@ -93,6 +110,17 @@ function Etiquetas({ regra }: { regra: Regra }) {
       {regra.quando === 'sempre' && (
         <Chip tom="vazado" icone={Clock} title="Conferido com a loja aberta ou fechada">
           sempre
+        </Chip>
+      )}
+      {/* O que a loja decide antes de perguntar à nuvem. */}
+      {porteiro && (
+        <Chip tom="vazado" icone={UserRoundCheck} title="Fora disso a olhada conta como “nada a conferir” e não vai à nuvem">
+          {porteiro}
+        </Chip>
+      )}
+      {faixa && (
+        <Chip tom="vazado" icone={Clock} title="Só é conferido dentro desta faixa de horas">
+          {faixa}
         </Chip>
       )}
     </>

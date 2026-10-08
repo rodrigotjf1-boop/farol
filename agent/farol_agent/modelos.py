@@ -202,6 +202,14 @@ class Regra:
     # saber de que loja é.
     quando: str = "no_horario"
     horario_da_loja: list[Janela] = field(default_factory=list)
+    # Quando vale a pena perguntar (ver porteiro.py): "sempre", "pessoa"
+    # (só com gente na área), "livre" (só com a área livre) ou "movimento"
+    # (só quando algo mudou). Só conta para o que pode ir à nuvem: presença
+    # e contagem são julgadas na loja em toda olhada.
+    porteiro: str = "sempre"
+    # Em quantas olhadas SEGUIDAS o critério tem de ficar fora para virar
+    # aviso. 1 = avisa na primeira, como sempre foi.
+    confirmar_em: int = 1
 
     def vale_agora(self, ts: datetime) -> bool:
         if not self.ativa:

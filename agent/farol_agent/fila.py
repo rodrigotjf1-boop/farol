@@ -160,8 +160,12 @@ create index if not exists idx_alerta_envio on alerta (enviado, ts);
 -- cara.
 --
 -- Cada olhada termina em UMA destas: sem_juiz, sem_quadro, sem_cena,
--- em_silencio, repetidas, ja_julgadas ou enfileiradas. O que foi
--- enfileirado vira depois conforme, não conforme, não avaliável ou falha.
+-- sem_condicao, em_silencio, repetidas, ja_julgadas ou enfileiradas. O que
+-- foi enfileirado vira depois conforme, não conforme, não avaliável ou falha.
+--
+-- `sem_condicao` é a olhada que o porteiro segurou: o critério pede gente
+-- na área e não havia ninguém (ou pede a área livre e havia gente, ou pede
+-- movimento e nada se mexeu). Não é análise, não vai à nuvem e não custa.
 --
 -- Os contadores são somados na hora em que a coisa acontece, e não
 -- recontados da tabela `analise`: ela é limpa, e um resumo que dependesse
@@ -178,6 +182,7 @@ create table if not exists resumo_hora (
   sem_juiz           integer not null default 0,
   sem_quadro         integer not null default 0,
   sem_cena           integer not null default 0,
+  sem_condicao       integer not null default 0,
   em_silencio        integer not null default 0,
   repetidas          integer not null default 0,
   ja_julgadas        integer not null default 0,
@@ -247,6 +252,7 @@ CONTADORES_DO_RESUMO = (
     "sem_juiz",
     "sem_quadro",
     "sem_cena",
+    "sem_condicao",
     "em_silencio",
     "repetidas",
     "ja_julgadas",
@@ -326,6 +332,7 @@ _COLUNAS_NOVAS = (
     ("resumo_hora", "soma_medida", "real not null default 0"),
     ("resumo_hora", "com_medida", "integer not null default 0"),
     ("resumo_hora", "max_medida", "real"),
+    ("resumo_hora", "sem_condicao", "integer not null default 0"),
 )
 
 
