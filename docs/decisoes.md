@@ -281,10 +281,49 @@ estava rodando, a não ser provocando o 503 numa rota qualquer.
 aberto, a ordem vai dita na mensagem a quem mescla, não só na descrição do
 PR.
 
-**Em aberto (decisão do dono):** aplicar a migration sozinho, na subida do
-serviço, acabaria com a janela de 503. O runner já tem o que isso pede —
-trava, checksum, uma transação por arquivo. O que se perde é o momento em
-que alguém confere antes de aplicar.
+### 08/10/2026 · A migration é aplicada na subida do serviço
+
+**Decisão do dono:** "as migrations e PR e merge não precisam de
+autorização: aplicar assim que fizer". Como o banco não fica exposto e
+ninguém além dele entra no painel, "assim que fizer" só tem um jeito: o
+próprio serviço aplica ao subir.
+
+**Como ficou** (`api/src/guarda.ts`, `api/scripts/migrador.mjs`):
+
+1. Ao subir, **antes de abrir a porta**, o serviço aplica as migrations
+   pendentes — com o mesmo aplicador do `npm run migrar` (trava, checksum,
+   uma transação por arquivo, que inclui o registro de que foi aplicada).
+2. Confere se o banco ficou em dia.
+3. Em dia, atende. Se não, recusa com 503 e diz qual arquivo não entrou —
+   o processo **não sai**, porque é do console dele que se conserta.
+
+A janela de 503 entre o deploy e a migration deixa de existir no caso
+normal: o primeiro pedido já encontra o banco em dia.
+
+| situação na subida | o que o serviço faz |
+|---|---|
+| nada pendente | atende |
+| aplicou tudo | atende; `/saude` lista em `migracaoNaSubida.aplicadas` |
+| o SQL de uma migration falhou | recusa com 503; `/saude` diz o arquivo e o código do banco; as anteriores continuam valendo; **não tenta de novo sozinho** (o SQL não muda sem novo deploy) |
+| um arquivo já aplicado foi editado | recusa, como acima |
+| o banco não respondeu | atende, mas não dá o esquema por certo: confere de novo a cada 10 s, e aplica quando o banco voltar |
+
+A última linha fecha um buraco antigo: banco fora do ar na subida virava
+"esquema em dia" para sempre, e cada pedido que tocasse a coluna nova
+morria com 500.
+
+**O que se perde:** o momento em que alguém olhava antes de aplicar. O que
+fica no lugar: toda migration passa pelo CI num Postgres de verdade (pelo
+mesmo aplicador), é idempotente, e uma falha não derruba nada — fecha a
+porta e diz por quê.
+
+**Reserva:** `npm run migrar` continua existindo, para ver o erro de uma
+migration que a subida não conseguiu aplicar. `MIGRAR_NA_SUBIDA=nao`, no
+ambiente do serviço, volta ao jeito antigo (só confere).
+
+**Como conferir de fora, depois de um merge com migration:**
+`curl https://api.monitorfarol.com.br/saude` → `ok: true`, `pendentes: []`,
+`ultimaNoCodigo` = a migration nova, e ela em `migracaoNaSubida.aplicadas`.
 
 ## 05/10/2026 — Primeira medição de acurácia com câmera e juiz de verdade
 
