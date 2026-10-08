@@ -33,6 +33,7 @@ from farol_agent.padroes import PadraoRef
 from farol_agent.porteiro import PORTEIROS
 from farol_agent.modelos import (
     RESOLUCOES,
+    EquipamentoDaArea,
     Janela,
     Prioridade,
     Regra,
@@ -130,7 +131,26 @@ def _zona(dados: dict[str, Any], onde: str, ponto_id: str) -> Zona:
         # Obrigatório aqui, sem padrão: é o que impede o motor de aplicar o
         # critério de um canal ao quadro de outro (ERR-020).
         ponto_id=ponto_id,
+        equipamentos=_equipamentos(dados.get("equipamentos")),
     )
+
+
+def _equipamentos(bruto: Any) -> list[EquipamentoDaArea]:
+    """Os equipamentos descritos que aparecem na área. Nuvem antiga não manda: lista vazia.
+
+    Entrada torta (sem nome, sem descrição) fica de fora em vez de
+    derrubar a configuração: é contexto a mais para a pergunta, não
+    condição para ela.
+    """
+    saida: list[EquipamentoDaArea] = []
+    for e in bruto or []:
+        if not isinstance(e, dict):
+            continue
+        nome, descricao = str(e.get("nome") or "").strip(), str(e.get("descricao") or "").strip()
+        if not nome or not descricao:
+            continue
+        saida.append(EquipamentoDaArea(nome=nome, tipo=str(e.get("tipo") or "outro"), descricao=descricao))
+    return saida
 
 
 # Em que horário o critério é conferido, em relação ao horário da loja.

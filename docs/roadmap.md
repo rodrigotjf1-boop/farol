@@ -2040,11 +2040,32 @@ livre", e ligar. Em Análises, as olhadas com a cena igual à foto aparecem
 como conformes **julgadas na loja**, sem custo; só as diferentes vão à
 nuvem.
 
-**O que falta da fase 2 — o inventário.** O banco tem `base_conhecimento`
-(tipo `item`) e `base_frame` desde a migration 001; faltam o setor, o tipo,
-o lugar e a tela. A tabela `equipamento` que já existe é o catálogo da
-distribuição (o que o Farol indica comprar), não o inventário da loja: o
-inventário ganha tabelas próprias.
+**O inventário (fase 2, segunda parte) — o cadastro está feito (08/10/2026,
+migration 025).** Em Canais → Inventário:
+
+- os equipamentos por setor, com tipo, até quatro fotos e a descrição;
+- duas origens de foto: **o quadro de um canal** (cópia do quadro, com o
+  desenho da área — é o que diz **onde o equipamento aparece**) e a **foto
+  enviada** (reduzida no navegador antes de subir);
+- a descrição de cada equipamento **vai junto com a pergunta feita à nuvem**
+  sobre a área em que ele aparece (no máximo quatro equipamentos e 500
+  caracteres de cada um, por pergunta);
+- **"compara na loja"** aparece no equipamento que está num canal com foto
+  padrão — é a regra do agente, não a de "ter foto própria";
+- a tabela `equipamento` que já existia é o catálogo da distribuição (o que
+  o Farol indica comprar): o inventário ganhou tabelas próprias
+  (`inventario_item`, `inventario_foto`).
+
+*Como conferir:* em Canais → Inventário, cadastrar a chapa, usar o quadro do
+canal dela como foto e escrever a descrição. A próxima pergunta à nuvem de
+um critério de estado naquela área leva a descrição junto (com o agente
+desta versão instalado).
+
+**O que falta da fase 2:** "Analisar as fotos e descrever" — a descrição
+feita uma vez a partir das fotos, com a lista do que vale conferir (cada
+ponto vira critério com um clique; a tela já mostra a lista quando ela
+existe). Quem faz a análise é o computador da loja, com a chave que já
+está lá.
 
 **Fase 3 · Programação de análise pela folga da máquina.** Com o processador
 a 3%, o que é julgado na loja pode ser olhado a cada 5 a 10 segundos em vez
@@ -2141,8 +2162,14 @@ O que o protótipo mostra e depende de coisa que ainda não existe:
   parecer), "N pessoas no quadro" na foto guardada com gente, a pergunta
   antes de excluir, o limite de quatro, de quando é o quadro que vai ser
   guardado, e a etiqueta "falta a foto padrão" na lista de critérios.
-- **A planta e o inventário** pedem tabelas novas; o inventário, também o
-  envio de imagem pelo console.
+- **O inventário** entrou com a fase 2 (cadastro, fotos, onde aparece e a
+  descrição à mão). O que a tela tem de diferente do protótipo aprovado foi
+  levado a ele no mesmo trabalho: as fotos são guardadas na hora (a
+  primeira já cria o cadastro, e pede o nome); "usar o quadro de um canal"
+  pergunta de qual canal; "compara na loja" passou a ser "o canal tem foto
+  padrão"; o campo do nome do setor novo; e o botão de excluir, com a
+  pergunta.
+- **A planta** pede tabelas novas.
 - **O parecer** do protótipo é montado dos números, sem modelo de linguagem.
 
 ### O que vale para todas as fases

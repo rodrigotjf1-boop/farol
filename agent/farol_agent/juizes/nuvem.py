@@ -32,7 +32,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from farol_agent.juizes.base import ErroDoJuiz
+from farol_agent.juizes.base import ErroDoJuiz, bloco_dos_equipamentos
 from farol_agent.modelos import Resultado, Veredito, Via
 
 
@@ -410,6 +410,10 @@ def _montar_pedido(criterio: str, contexto: dict[str, Any] | None) -> str:
         contexto.pop(chave, None)
     if contexto.pop("fora_da_area", None):
         partes.append(AVISO_DA_AREA)
+    # O que a loja sabe dos equipamentos desta área (inventário).
+    equipamentos = bloco_dos_equipamentos(contexto.pop("equipamentos", None))
+    if equipamentos:
+        partes.append(equipamentos)
 
     # O contexto é o que o Regem sabe e a imagem não mostra: qual pedido está
     # em produção, qual a ficha técnica, que horas são na operação. É ele que

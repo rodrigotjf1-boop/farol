@@ -104,6 +104,20 @@ class Frame:
 # ──────────────────────────── configuração ─────────────────────────────
 
 
+@dataclass(frozen=True)
+class EquipamentoDaArea:
+    """Um equipamento do inventário da loja que aparece na área.
+
+    A descrição diz como ele é e como fica quando está limpo e no lugar.
+    Vai junto com a pergunta feita a um modelo sobre aquela área — é o
+    que a loja sabe e a imagem não mostra.
+    """
+
+    nome: str
+    tipo: str
+    descricao: str
+
+
 @dataclass
 class Zona:
     """Polígono dentro do quadro, normalizado 0..1.
@@ -121,6 +135,8 @@ class Zona:
     # escrito: sem ele, a zona da bancada recorta o quadro da fritadeira
     # sem reclamar. `None` só no modo de bancada (YAML, um canal só).
     ponto_id: str | None = None
+    # Os equipamentos do inventário que aparecem nesta área, já descritos.
+    equipamentos: list[EquipamentoDaArea] = field(default_factory=list)
 
     def bbox(self, largura: int, altura: int, margem: float = 0.05) -> tuple[int, int, int, int]:
         """Retângulo que contém o polígono, com margem relativa.

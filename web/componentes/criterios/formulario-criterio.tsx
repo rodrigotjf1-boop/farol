@@ -48,6 +48,8 @@ type Props = {
   regra?: Regra;
   /** Áreas que já vêm marcadas ao abrir — o canal onde se clicou "+ critério". */
   marcadasDeInicio: string[];
+  /** Um critério NOVO que já nasce preenchido (sugerido pelo inventário). Na edição não vale. */
+  inicial?: { nome?: string; criterio?: string; porteiro?: Porteiro; comPadrao?: boolean };
   /** O que o detector local sabe procurar. Vem da API, junto com os critérios. */
   objetosDoDetector: string[];
   /** Quando a loja abre. É por ele que "no horário" e "fora do horário" valem. */
@@ -61,6 +63,7 @@ export function GavetaDoCriterio({
   setores,
   regra,
   marcadasDeInicio,
+  inicial,
   objetosDoDetector,
   horarioDaLoja,
   aoSalvar,
@@ -69,9 +72,9 @@ export function GavetaDoCriterio({
   const editando = regra !== undefined;
   const p = useId();
   const [marcadas, setMarcadas] = useState<Set<string>>(() => new Set(marcadasDeInicio));
-  const [nome, setNome] = useState(regra?.nome ?? '');
+  const [nome, setNome] = useState(regra?.nome ?? inicial?.nome ?? '');
   const [tipo, setTipo] = useState<Regra['tipo']>(regra?.tipo ?? 'estado');
-  const [criterio, setCriterio] = useState(regra?.criterio ?? '');
+  const [criterio, setCriterio] = useState(regra?.criterio ?? inicial?.criterio ?? '');
   const [prioridade, setPrioridade] = useState<string>(regra?.prioridade ?? 'intermediaria');
   const [severidade, setSeveridade] = useState<string>(regra?.severidade ?? 'atencao');
   const [confiancaMinima, setConfiancaMinima] = useState(regra ? Number(regra.confianca_minima) : 0.7);
@@ -91,11 +94,11 @@ export function GavetaDoCriterio({
 
   // Quando vale a pena conferir: a loja decide, com o detector, antes de
   // perguntar à nuvem.
-  const [porteiro, setPorteiro] = useState<Porteiro>(regra?.porteiro ?? 'sempre');
+  const [porteiro, setPorteiro] = useState<Porteiro>(regra?.porteiro ?? inicial?.porteiro ?? 'sempre');
   // Em quantas olhadas seguidas fora do critério ele avisa.
   const [confirmarEm, setConfirmarEm] = useState(regra?.confirmar_em ?? 1);
   // Critério de estado: a foto padrão do canal vai junto à nuvem.
-  const [comPadrao, setComPadrao] = useState(regra?.com_padrao ?? false);
+  const [comPadrao, setComPadrao] = useState(regra?.com_padrao ?? inicial?.comPadrao ?? false);
 
   // O que o detector procura. Só vale nos tipos julgados na loja.
   const [objeto, setObjeto] = useState(regra?.parametros?.objeto ?? 'pessoa');

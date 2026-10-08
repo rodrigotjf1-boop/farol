@@ -704,3 +704,114 @@ porteiro): aqui a foto serve ao julgamento, não a evitá-lo.
 Agente anterior não conhece foto padrão: o critério de comparação continua
 sem quem o julgue e a caixa "mandar a foto junto" não tem efeito, até o
 agente desta versão ser instalado na loja.
+
+---
+
+## 08/10/2026 · O inventário: os equipamentos da loja
+
+Pedido do dono (madrugada de 08/10): "os equipamentos por setores, onde
+poderíamos ter até 4 fotos do equipamento devidamente limpo, para identificar
+seu lugar no setor e padrão; uma única análise dele completa e sua descrição
+ficava guardada na base para ajudar em análises". É a segunda parte da fase 2
+do A16. Esta entrega é o cadastro; a análise única das fotos é a seguinte.
+
+### Não é o catálogo `equipamento`
+
+A tabela `equipamento` (migration 002) é o **catálogo da distribuição** — o
+que o Farol indica comprar. É do Farol, não da loja, e nenhuma rota do
+console o devolve. O inventário é o contrário: a chapa, a bancada e o caixa
+DESTA loja. Por isso tabelas próprias (`inventario_item`, `inventario_foto`,
+migration 025), sem ligação nenhuma com o catálogo, e tudo filtrado pela
+conta de quem pede.
+
+### Duas origens de foto
+
+- **O quadro de um canal.** Copia o quadro que o canal tem (o de preview, com
+  rosto borrado), dentro do banco, e guarda junto o **desenho da área naquele
+  instante**. A imagem guardada é o quadro **inteiro**: a tela mostra só o
+  retângulo em volta do desenho (uma janela sobre a imagem, sem cortar
+  arquivo nenhum), e a API não precisa de biblioteca de imagem. Se a área for
+  redesenhada depois, a foto continua mostrando o que foi fotografado.
+- **A foto enviada.** O navegador reduz antes de subir (1600 pontos no lado
+  maior, JPEG) — foto de celular tem de 4 a 12 MB. A API só confere que é um
+  JPEG inteiro, lê a largura e a altura do próprio arquivo e recusa acima de
+  1,5 MB. É servida de volta com `nosniff`.
+
+Até quatro fotos por equipamento; o limite é conferido com a linha do
+equipamento travada (seis envios ao mesmo tempo dão quatro fotos).
+
+### "Onde aparece" não é um campo
+
+É o canal e a área das fotos tiradas do quadro. **A foto é a prova de que
+ele aparece ali.** No protótipo aprovado não havia como dizer de que canal
+era o quadro: "Usar o quadro de um canal" passou a perguntar. Quando a planta
+existir (fase 4), ela poderá dizer o mesmo de outro jeito.
+
+### "Compara na loja" é a regra do agente
+
+No protótipo, a etiqueta dizia "tem a foto tirada do quadro do canal e o
+lugar marcado". Mas quem compara na loja é o juiz da foto padrão, e ele
+compara com a **foto padrão do canal** — não com a foto do equipamento. A
+etiqueta passou a dizer a verdade do motor: aparece no equipamento que está
+num canal **com foto padrão**. As fotos do inventário servem para dizer onde
+ele aparece, para descrever e para identificar; a nota no pé da tela diz isso.
+
+Manter dois mecanismos de comparação (um pela foto padrão do canal, outro
+pela foto do equipamento) daria duas respostas diferentes para a mesma área.
+Ficou um.
+
+### As fotos são guardadas na hora
+
+No protótipo as fotos ficavam na gaveta até o "Salvar". Na tela, cada foto é
+um envio (ou uma cópia feita no banco) no instante em que é posta: segurar
+imagens no navegador até o fim é perder tudo num fechar de gaveta, e salvar
+quatro imagens de uma vez pede tratar falha no meio. Consequência: num
+equipamento novo, a **primeira foto já cria o cadastro** — e pede o nome
+antes. "Salvar equipamento" grava o nome, o setor, o tipo e a descrição.
+
+### A descrição vai com a pergunta à nuvem
+
+É o "ajudar em análises" do pedido. O agente recebe, **por área**, os
+equipamentos descritos que aparecem nela, e a pergunta feita a um modelo
+sobre aquela área leva um bloco a mais:
+
+    EQUIPAMENTOS NESTA ÁREA — como cada um é e como fica quando está limpo e
+    no lugar (descrição guardada pela loja; serve para reconhecer o que
+    aparece, não é o critério):
+    - Chapa: Chapa elétrica de inox, com duas tampas…
+
+- **Por área, não por critério.** O mesmo critério vale em várias áreas, e
+  cada uma tem os seus equipamentos: quem diz a área é a olhada, não o
+  cadastro do critério.
+- **Com limite**: no máximo 4 equipamentos e 500 caracteres de cada um. É
+  texto pago a cada análise.
+- **No pedido, não nas instruções fixas**: as instruções são o que fica em
+  cache; mexer nelas invalidaria o cache de todas as lojas.
+- **O detector não leva**: presença e contagem não leem texto.
+- **A loja compara com FOTO, não com texto.** A descrição não entra na
+  comparação local; serve à nuvem e a quem lê.
+
+### O que sobe a versão da configuração
+
+Só o que o agente consome: o nome, o tipo e a descrição de equipamento
+**descrito**, e as fotos tiradas de canal dele (que dizem onde aparece).
+Cadastrar um equipamento ainda sem descrição, mexer nos pontos a conferir ou
+enviar foto do celular não faz o agente remontar a auditoria — remontar zera
+a contagem de "avisar só se continuar".
+
+### Excluir apaga de verdade
+
+O equipamento e as fotos somem do banco: nada do histórico aponta para eles,
+e as fotos são imagens de dentro da loja. A pergunta diz quantas fotos vão e
+que a descrição deixa de ir à nuvem. Os critérios criados a partir dele são
+critérios como os outros: continuam.
+
+### O que falta, e o que não foi medido
+
+- **A análise única das fotos** ("Analisar as fotos e descrever") e a lista
+  do que vale conferir: próxima entrega. A tela já mostra a lista, com
+  "Criar critério" em cada ponto, quando ela existe.
+- **O efeito da descrição sobre o veredito da nuvem** não foi medido com
+  imagem de loja.
+- **Depende do agente novo**: o agente anterior ignora os equipamentos da
+  configuração e pergunta como sempre perguntou.

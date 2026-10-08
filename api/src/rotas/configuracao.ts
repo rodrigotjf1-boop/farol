@@ -158,6 +158,28 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
       fotosPorPonto.set(f.ponto_id, lista);
     }
 
+    // Os equipamentos do inventário que aparecem em cada área, com a
+    // descrição de como ficam limpos e no lugar. Só os DESCRITOS: é o
+    // texto que vai junto com a pergunta feita à nuvem sobre aquela
+    // área. "Aparece" = tem foto tirada do quadro daquele canal, com
+    // aquela área.
+    const equipamentos = await pool.query(
+      `select distinct f.zona_id, i.id, i.nome, i.tipo, i.descricao
+         from inventario_item i
+         join inventario_foto f on f.item_id = i.id and f.origem = 'canal'
+         join zona  z on z.id = f.zona_id  and z.excluida_em is null
+         join ponto p on p.id = z.ponto_id and p.ativo and p.excluido_em is null
+        where i.loja_id = $1 and i.descricao <> ''
+        order by i.nome, i.id`,
+      [quem.lojaId],
+    );
+    const equipamentosPorZona = new Map<string, unknown[]>();
+    for (const e of equipamentos.rows) {
+      const lista = equipamentosPorZona.get(e.zona_id) ?? [];
+      lista.push({ nome: e.nome, tipo: e.tipo, descricao: e.descricao });
+      equipamentosPorZona.set(e.zona_id, lista);
+    }
+
     const zonasPorPonto = new Map<string, unknown[]>();
     for (const z of zonas.rows) {
       const lista = zonasPorPonto.get(z.ponto_id) ?? [];
@@ -170,6 +192,8 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
         principal: z.principal,
         larguraCenaCm: z.largura_cena_cm ? Number(z.largura_cena_cm) : null,
         regras: regrasPorZona.get(z.id) ?? [],
+        // O agente antigo ignora; o novo manda junto com a pergunta à nuvem.
+        equipamentos: equipamentosPorZona.get(z.id) ?? [],
       });
       zonasPorPonto.set(z.ponto_id, lista);
     }
