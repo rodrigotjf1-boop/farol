@@ -13,7 +13,7 @@
   const app = $('#app');
   const entrar = $('#entrar');
   const palco = $('#conteudo');
-  const TELAS = ['painel', 'analises', 'canais', 'area', 'criterios', 'alertas', 'orcamento', 'lojas'];
+  const TELAS = ['painel', 'analises', 'padroes', 'canais', 'ambiente', 'inventario', 'area', 'criterios', 'alertas', 'orcamento', 'lojas'];
 
   // ═══════════════════════ dados de exemplo ═══════════════════════
   // Tudo aqui é inventado para o protótipo. As somas fecham: o total dos
@@ -192,7 +192,8 @@
     void tela.offsetWidth;
     tela.classList.add('entra');
 
-    const secao = nome === 'area' ? 'canais' : nome;
+    // as abas de dentro de uma seção acendem a seção
+    const secao = { area: 'canais', ambiente: 'canais', inventario: 'canais', padroes: 'analises' }[nome] ?? nome;
     for (const a of $$('[data-nav] a')) {
       if (a.dataset.ir === secao) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
@@ -203,6 +204,9 @@
     if (nome === 'painel') desenharPainel(false);
     if (nome === 'analises') desenharAnalises(false);
     if (nome === 'area') desenharArea();
+    if (nome === 'padroes') desenharPadroes();
+    if (nome === 'ambiente') desenharAmbiente();
+    if (nome === 'inventario') desenharInventario();
   }
 
   document.addEventListener('click', (ev) => {
@@ -429,6 +433,54 @@
   // O movimento pesa no que fica fora do critério: no pico erra-se mais.
   const pico = (h) => 0.55 + 0.9 * Math.exp(-(((h - 20.5) / 1.6) ** 2));
 
+  // ── a MEDIDA de cada olhada ──
+  // O detector diz quantas pessoas viu. Guardada por hora (a soma, em quantas
+  // olhadas mediu e o maior valor), é dela que sai o padrão da loja:
+  // "conforme" não diz se havia uma pessoa ou quatro. Só mede quem é julgado
+  // na loja; a nuvem não mede.
+  const SI = Object.fromEntries(AN_SERIES.map((s, i) => [`${s.crit}-${s.canal}`, i]));
+  /** O dia da semana (0 = segunda) a que a hora pertence: a madrugada é da noite anterior. */
+  const diaDaOperacao = (d, h) => diaDaSemana(h < 6 ? d + 1 : d);
+  /** Há quantas semanas foi o dia `d`: 0 = a semana que terminou ontem. */
+  const semanasAtras = (d) => Math.floor((Math.max(1, d) - 1) / 7);
+  const MOVIMENTO_DO_DIA = [0, 0.8, 0.9, 1, 1.25, 1.06, 1.1]; // segunda (fechada) … domingo
+
+  // O que foge do padrão, plantado de propósito: é o que a lente de anomalias
+  // mostra. A chave é dia|série|hora.
+  const PLANTADAS = {
+    [`1|${SI['posto-bal']}|20`]: { media: 1.1 }, // ontem, 20h: balcão com uma pessoa no pico
+    [`5|${SI['fila-bal']}|18`]: { media: 4.8 }, // sexta 02/10, 18h: fila logo na abertura
+    [`3|${SI['bancada-m2']}|21`]: { fora: 0.31 }, // domingo 04/10, 21h: bancada da Montagem 2
+    [`0|${SI['touca-m1']}|19`]: { na: 0.91 }, // hoje, 19h: a touca deixou de ser avaliada em Montagem 1
+    [`11|${SI['posto-bal']}|22`]: { media: 4 }, // sábado 26/09, 22h: balcão cheio (evento)
+    [`12|${SI['bancada-m1']}|21`]: { fora: 0.28 }, // sexta 25/09, 21h: bancada da Montagem 1
+  };
+
+  /** Quantas pessoas, em média, o detector viu na série `si`, na hora `h` do dia `d`. null = não mede. */
+  function medidaDaHora(si, d, h) {
+    const s = AN_SERIES[si];
+    if (s.onde !== 'loja') return null;
+    const plantada = PLANTADAS[`${d}|${si}|${h}`];
+    if (plantada?.media !== undefined) return plantada.media;
+    const dia = diaDaOperacao(d, h);
+    const forma = (pico(h) - 0.55) / 0.9; // 0 = calmo, 1 = o pico do jantar
+    const r = sorte(d, si, h, 9) - 0.5;
+    const fimDeSemana = dia === 4 || dia === 5;
+    if (s.crit === 'fila') {
+      // a fila do pico de sábado cresce semana a semana: é a tendência do protótipo
+      const sobe = dia === 5 ? 0.43 * (3 - Math.min(3, semanasAtras(d))) : 0;
+      return Math.max(0, (0.25 + 3 * forma) * MOVIMENTO_DO_DIA[dia] + sobe * forma + 0.3 * r);
+    }
+    if (s.crit === 'posto') {
+      const base = forma < 0.2 ? 1.1 : forma < 0.6 ? 1.9 : fimDeSemana ? 2.6 : 2.1;
+      // de vez em quando falta gente no balcão, e é aí que a fila estoura
+      const falta = forma >= 0.2 && sorte(d, si, h, 10) < 0.17 ? 0.9 : 0;
+      return Math.max(0.3, base - falta + 0.25 * r);
+    }
+    if (s.crit === 'chapa') return Math.max(0.4, 0.95 + (fimDeSemana ? 0.85 : 0.25) * forma + 0.2 * r);
+    return Math.max(0, 0.02 * (r + 0.5)); // o caixa com a loja fechada: ninguém
+  }
+
   const AN_DIAS = new Map();
   /** As células do dia `d`: uma por série e hora em que houve análise. */
   function celulasDoDia(d) {
@@ -445,11 +497,27 @@
         if (ativos <= 0) continue;
         const n = Math.round(s.ritmo * (ativos / 60) * (0.92 + 0.16 * sorte(d, si, h, 1)));
         if (n === 0) continue;
-        const fora = Math.min(n, Math.round(n * s.fora * pico(h) * (0.5 + sorte(d, si, h, 2))));
-        const na = Math.min(n - fora, Math.round(n * s.na * (0.85 + 0.3 * sorte(d, si, h, 3))));
+        const plantada = PLANTADAS[`${d}|${si}|${h}`];
+        let taxaFora = s.fora * pico(h) * (0.5 + sorte(d, si, h, 2));
+        let taxaNa = s.na * (0.85 + 0.3 * sorte(d, si, h, 3));
+        // O que anda junto: com menos de duas pessoas atrás do balcão no
+        // movimento, a fila passa do combinado bem mais vezes; e com a
+        // cozinha cheia a bancada fica mais tempo fora do critério — cada
+        // semana um pouco menos.
+        if (s.crit === 'fila') taxaFora *= pico(h) > 0.9 && medidaDaHora(SI['posto-bal'], d, h) < 1.5 ? 3.2 : 0.8;
+        if (s.crit === 'bancada') taxaFora *= (medidaDaHora(SI['chapa-chp'], d, h) >= 1.5 ? 1.8 : 0.9) * (1 + 0.22 * semanasAtras(d));
+        if (plantada?.fora !== undefined) taxaFora = plantada.fora;
+        if (plantada?.na !== undefined) taxaNa = plantada.na;
+        const fora = Math.min(n, Math.round(n * taxaFora));
+        const na = Math.min(n - fora, Math.round(n * taxaNa));
+        const medida = medidaDaHora(si, d, h);
         const nuvem = s.onde === 'nuvem';
         celulas.push({
           d, si, h, n, fora, na, ok: n - fora - na, ativos,
+          // a medida: em quantas olhadas o juiz mediu, a soma e o maior valor
+          com: medida === null ? 0 : n,
+          soma: medida === null ? 0 : medida * n,
+          maior: medida === null ? null : Math.ceil(medida * (1.4 + 0.5 * sorte(d, si, h, 11)) + (medida > 0.3 ? 0.6 : 0)),
           // Fora do critério é contado a cada olhada; AVISO é a primeira de
           // cada período de silêncio (uns quinze minutos).
           avisos: Math.min(fora, Math.ceil(ativos / 15)),
@@ -998,6 +1066,10 @@
         : c.quando === 'sempre'
           ? `<span class="chip vazado" title="Conferido com a loja aberta ou fechada">${icone('clock')}sempre</span>`
           : '',
+      // o que a loja decide antes de perguntar à nuvem
+      c.porteiro ? `<span class="chip vazado" title="Fora disso a olhada conta como nada a conferir e não vai à nuvem">${icone('user-round-check')}${ROTULO_DO_PORTEIRO[c.porteiro]}</span>` : '',
+      c.janela ? `<span class="chip vazado">${icone('clock')}das ${c.janela[0]} às ${c.janela[1]}</span>` : '',
+      c.comPadrao ? `<span class="chip vazado">${icone('image')}com a foto padrão</span>` : '',
     ].join('');
     return (
       `<article class="criterio ${c.ligado ? '' : 'desligado'}" data-criterio="${chave}" data-nome="${c.nome}" data-canal="${canal}">` +
@@ -1153,6 +1225,7 @@
     $('[data-ajuda-texto]').textContent = peloDetector
       ? 'Aqui o texto não é enviado a modelo nenhum: ele descreve a regra para quem ler o aviso. Quem decide são os campos acima.'
       : 'Este texto vai direto ao modelo como pergunta. Descreva o que se vê, não o rótulo: “a superfície tem restos no canto” funciona melhor que “sujeira”.';
+    ajustarCamposNovos();
   }
   for (const r of $$('input[name="fcr-tipo"]')) r.addEventListener('change', ajustarTipo);
 
@@ -1360,6 +1433,7 @@
       $('#fcr-texto').value = editando && c ? c.texto : '';
       $(`#fcr-q-${editando && c && c.quando ? c.quando : 'no'}`).checked = true;
       ajustarTipo();
+      prepararCamposNovos(c, editando);
     }
     abrirCamada(folha, gatilho);
   }
@@ -1691,6 +1765,8 @@
   // toda: se apertar sobre ela já trocasse a seleção, não sobrava onde
   // começar a desenhar a segunda.
   quadro.addEventListener('pointerdown', (ev) => {
+    // as áreas se desenham no quadro de agora, não na foto padrão
+    if (quadro.dataset.vista !== 'agora') return;
     quadro.setPointerCapture?.(ev.pointerId);
     const a = areas[sel];
     arraste = {
@@ -1899,12 +1975,1874 @@
     }, calmo ? 0 : 700);
   });
 
+  // ═══════════════════════ foto padrão do canal ═══════════════════════
+  // O ambiente limpo, organizado e sem ninguém na frente, guardado como
+  // referência. A loja compara o quadro de agora com ela antes de perguntar
+  // à nuvem; e, quando pergunta, a foto padrão vai junto. No protótipo a
+  // "foto" é a mesma ilustração do quadro, sem as pessoas.
+  let PADROES_DO_CANAL = [
+    { nome: 'Noite, loja aberta', quando: '02/10 · 22:10', quem: 'Ana Souza' },
+    { nome: 'Antes de abrir', quando: '02/10 · 17:20', quem: 'Ana Souza' },
+  ];
+  const padrao = { vista: 'agora', corte: 50 };
+  const cenaDoQuadro = $('svg', quadro);
+  const cenaLimpa = cenaDoQuadro.cloneNode(true);
+  for (const pessoa of $$('circle', cenaLimpa)) pessoa.remove();
+  cenaLimpa.classList.add('padrao-camada');
+  // desenho (svg) não tem a propriedade `hidden`: é pelo atributo
+  cenaLimpa.setAttribute('hidden', '');
+  cenaDoQuadro.after(cenaLimpa);
+  const cortina = $('[data-cortina]');
+
+  function desenharPadrao() {
+    const tem = PADROES_DO_CANAL.length > 0;
+    if (!tem) padrao.vista = 'agora';
+    const v = padrao.vista;
+    quadro.dataset.vista = v;
+    for (const b of $$('[data-quadro-vista]')) {
+      b.setAttribute('aria-pressed', String(b.dataset.quadroVista === v));
+      b.disabled = !tem && b.dataset.quadroVista !== 'agora';
+    }
+    cenaLimpa.toggleAttribute('hidden', v === 'agora');
+    cortina.hidden = v !== 'comparar';
+    $('[data-rotulo-agora]').hidden = v !== 'comparar';
+    $('[data-rotulo-padrao]').hidden = v !== 'comparar';
+    quadro.style.setProperty('--corte', v === 'comparar' ? `${padrao.corte}%` : '0%');
+    cortina.setAttribute('aria-valuenow', String(Math.round(padrao.corte)));
+    $('[data-quadro-qual]').textContent = !tem
+      ? 'Este canal ainda não tem foto padrão.'
+      : v === 'agora' ? '' : `Foto padrão: ${PADROES_DO_CANAL[0].nome}, guardada em ${PADROES_DO_CANAL[0].quando}.`;
+    $('[data-quadro-nota]').textContent =
+      v === 'agora' ? 'Arraste sobre a imagem para redesenhar a área selecionada. Clique em outra área, sem arrastar, para passar a mexer nela.'
+      : v === 'padrao' ? 'É com esta imagem que a loja compara. As áreas se desenham no quadro de agora.'
+      : 'Arraste o divisor: à esquerda, o quadro de agora; à direita, a foto padrão.';
+    $('[data-padroes]').innerHTML = tem
+      ? PADROES_DO_CANAL.map(
+          (f, i) =>
+            `<li><span class="retrato">${cenaLimpa.outerHTML.replace('class="padrao-camada"', '').replace(' hidden=""', '')}</span>` +
+            `<span><b>${limpo(f.nome)}</b><small>${f.quando} · ${f.quem}${i === 0 ? ' · em uso agora' : ''}</small></span>` +
+            `<button class="btn fantasma quadrado mini" type="button" data-padrao-excluir="${i}" data-so-config aria-label="Excluir a foto padrão ${limpo(f.nome)}">${icone('trash-2')}</button></li>`,
+        ).join('')
+      : '<li class="vazio-linha">Nenhuma foto padrão. Sem ela, critério de comparação não é conferido neste canal.</li>';
+  }
+
+  document.addEventListener('click', (ev) => {
+    const vista = ev.target.closest('[data-quadro-vista]');
+    if (vista && !vista.disabled) {
+      padrao.vista = vista.dataset.quadroVista;
+      desenharPadrao();
+      return;
+    }
+    const excluir = ev.target.closest('[data-padrao-excluir]');
+    if (excluir) {
+      const [fora] = PADROES_DO_CANAL.splice(Number(excluir.dataset.padraoExcluir), 1);
+      desenharPadrao();
+      avisar(`Foto padrão “${fora.nome}” excluída.`);
+    }
+  });
+
+  // o divisor da comparação: arrasto e setas
+  let puxando = false;
+  const moverCortina = (clientX) => {
+    const c = quadro.getBoundingClientRect();
+    padrao.corte = Math.min(96, Math.max(4, ((clientX - c.left) / c.width) * 100));
+    desenharPadrao();
+  };
+  cortina.addEventListener('pointerdown', (ev) => {
+    puxando = true;
+    cortina.setPointerCapture?.(ev.pointerId);
+    ev.stopPropagation();
+  });
+  cortina.addEventListener('pointermove', (ev) => { if (puxando) moverCortina(ev.clientX); });
+  cortina.addEventListener('pointerup', () => { puxando = false; });
+  cortina.addEventListener('pointercancel', () => { puxando = false; });
+  cortina.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
+    ev.preventDefault();
+    padrao.corte = Math.min(96, Math.max(4, padrao.corte + (ev.key === 'ArrowLeft' ? -4 : 4)));
+    desenharPadrao();
+  });
+
+  $('#f-padrao').addEventListener('submit', () => {
+    PADROES_DO_CANAL.unshift({ nome: $('#fpa-nome').value.trim(), quando: '07/10 · 21:40', quem: 'Ana Souza' });
+    desenharPadrao();
+  }, { capture: true });
+  document.addEventListener('click', (ev) => {
+    // a gaveta de guardar abre sempre em branco
+    if (ev.target.closest('[data-folha="folha-padrao"]')) {
+      $('#fpa-nome').value = '';
+      for (const c of $$('#f-padrao .caixa')) c.checked = false;
+    }
+  }, { capture: true });
+
+  // ═══════════════════════ o critério: quando vale conferir ═══════════════════════
+  // Três coisas novas na gaveta do critério, todas para a loja decidir antes
+  // de perguntar à nuvem: comparar com a foto padrão, só conferir quando a
+  // pergunta faz sentido (o "porteiro") e a faixa de horas.
+  const ROTULO_DO_PORTEIRO = { pessoa: 'só com pessoa na área', livre: 'só com a área livre', movimento: 'só quando algo se mexe' };
+
+  /** Os campos novos, postos no estado certo a cada vez que a gaveta abre. */
+  function prepararCamposNovos(c, editando) {
+    $(`#fcr-p-${editando && c?.porteiro ? c.porteiro : 'sempre'}`).checked = true;
+    $('#fcr-ref').checked = Boolean(editando && c?.comPadrao);
+    const janela = editando ? c?.janela : null;
+    $('#fcr-janela').checked = Boolean(janela);
+    $('[data-janela]').hidden = !janela;
+    if (janela) [$('#fcr-j-de').value, $('#fcr-j-ate').value] = janela;
+    $('#fcr-continua').selectedIndex = 0;
+    ajustarCamposNovos();
+  }
+
+  function ajustarCamposNovos() {
+    const tipo = $('input[name="fcr-tipo"]:checked').value;
+    const pelaNuvem = tipo === 'estado' || tipo === 'acao';
+    $('[data-comparacao]').hidden = tipo !== 'comparacao';
+    // o porteiro vale para o que pode ir à nuvem; presença e contagem já são da loja
+    $('[data-porteiro]').hidden = !pelaNuvem && tipo !== 'comparacao';
+    $('[data-so-estado]').hidden = tipo !== 'estado';
+    $('[data-so-acao]').hidden = tipo !== 'acao';
+    if (tipo !== 'acao' && $('#fcr-p-movimento').checked) $('#fcr-p-sempre').checked = true;
+  }
+  $('#fcr-janela').addEventListener('change', (ev) => { $('[data-janela]').hidden = !ev.target.checked; });
+
+  // Salvar um critério que já existe guarda as escolhas novas: é o que faz a
+  // etiqueta aparecer na lista de critérios.
+  $('#f-criterio').addEventListener('submit', () => {
+    const c = CRITERIOS[contexto.criterio];
+    if ($('#f-criterio').dataset.modo !== 'editar' || !c) return;
+    const porteiro = $('input[name="fcr-porteiro"]:checked').value;
+    c.porteiro = porteiro === 'sempre' || $('[data-porteiro]').hidden ? '' : porteiro;
+    c.comPadrao = $('#fcr-ref').checked && !$('[data-so-estado]').hidden;
+    c.janela = $('#fcr-janela').checked ? [$('#fcr-j-de').value, $('#fcr-j-ate').value] : null;
+    desenharCriterios();
+  }, { capture: true });
+
+  // ═══════════════════════ padrões ═══════════════════════
+  // O "especialista": com as análises guardadas por hora, diz como a loja
+  // costuma funcionar (frequência), o que fugiu disso (anomalia), para onde
+  // os números apontam (tendência) e o que fazer com os critérios
+  // (sugestões). Tudo é conta sobre número guardado — a medida de cada
+  // olhada, o que ficou fora do critério, o que não deu para avaliar.
+  // Nenhuma imagem entra aqui.
+  const PD_DIAS = 28; // o padrão é feito dos 28 dias antes de hoje
+  const PD_HORAS = [18, 19, 20, 21, 22, 23, 0];
+  const PD_DIA = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
+  const PD_DIAS_PLURAL = ['segundas', 'terças', 'quartas', 'quintas', 'sextas', 'sábados', 'domingos'];
+  const PD_ARTIGO = ['das', 'das', 'das', 'das', 'das', 'dos', 'dos'];
+  const umaCasa = (v) => v.toFixed(1).replace('.', ',');
+  const pessoas = (v) => `${umaCasa(v)} ${v >= 1.95 || v < 0.05 ? 'pessoas' : 'pessoa'}`;
+
+  // O que dá para olhar: a medida (pessoas por olhada) ou a parte das
+  // olhadas que ficou fora do critério / sem avaliar.
+  const PD_INDICADORES = {
+    fila: { nome: 'Pessoas na fila do balcão', curto: 'na fila', setor: 'Atendimento', series: [SI['fila-bal']], tipo: 'medida' },
+    posto: { nome: 'Pessoas atrás do balcão', curto: 'atrás do balcão', setor: 'Atendimento', series: [SI['posto-bal']], tipo: 'medida' },
+    chapa: { nome: 'Pessoas na chapa', curto: 'na chapa', setor: 'Cozinha', series: [SI['chapa-chp']], tipo: 'medida' },
+    bancada: { nome: 'Bancada fora do critério', curto: 'fora do critério', setor: 'Cozinha', series: [SI['bancada-m1'], SI['bancada-m2']], tipo: 'fora' },
+    // usados nas contas e nas anomalias; não entram no seletor
+    filaFora: { setor: 'Atendimento', series: [SI['fila-bal']], tipo: 'fora' },
+    bancada1: { setor: 'Cozinha', series: [SI['bancada-m1']], tipo: 'fora' },
+    bancada2: { setor: 'Cozinha', series: [SI['bancada-m2']], tipo: 'fora' },
+    toucaM1: { setor: 'Cozinha', series: [SI['touca-m1']], tipo: 'na' },
+  };
+  const PD_NO_SELETOR = ['fila', 'posto', 'chapa', 'bancada'];
+
+  const pd = { setor: 'todos', lente: 'frequencia', indicador: 'fila', celula: '', filtro: 'rever', hoje: 'fila', alvo: null };
+
+  /** As células da hora `h` do dia `d` que contam para o indicador. */
+  const pdCelulas = (ind, d, h) => celulasDoDia(d).filter((c) => c.h === h && ind.series.includes(c.si));
+
+  /** Junta células num valor: média de pessoas, ou % das olhadas. null = nada medido. */
+  function pdJuntar(ind, cs) {
+    if (!cs.length) return null;
+    if (ind.tipo === 'medida') {
+      const com = soma(cs.map((c) => c.com));
+      return com ? soma(cs.map((c) => c.soma)) / com : null;
+    }
+    const n = soma(cs.map((c) => c.n));
+    return n ? (soma(cs.map((c) => c[ind.tipo])) / n) * 100 : null;
+  }
+  const pdValor = (ind, d, h) => pdJuntar(ind, pdCelulas(ind, d, h));
+  const pdTexto = (ind, v) => (v === null ? '—' : ind.tipo === 'medida' ? umaCasa(v) : `${Math.round(v)}%`);
+
+  /** Hora que o responsável marcou como "foi só desta vez": fica de fora da conta. */
+  const pdForaDaConta = (ind, d, h) =>
+    PD_ANOMALIAS.some((a) => a.soDestaVez && a.d === d && a.h === h && PD_INDICADORES[a.ind].series.join() === ind.series.join());
+
+  /** O normal de um dia da semana e uma hora, feito dos outros dias iguais. */
+  function pdNormal(ind, dia, h, menosODia = -1) {
+    const valores = [];
+    for (let d = 1; d <= PD_DIAS; d += 1) {
+      if (d === menosODia || diaDaOperacao(d, h) !== dia || pdForaDaConta(ind, d, h)) continue;
+      const v = pdValor(ind, d, h);
+      if (v !== null) valores.push(v);
+    }
+    if (!valores.length) return null;
+    const ordem = [...valores].sort((a, b) => a - b);
+    const meio = ordem.length % 2 ? ordem[(ordem.length - 1) / 2] : (ordem[ordem.length / 2 - 1] + ordem[ordem.length / 2]) / 2;
+    return { n: valores.length, media: soma(valores) / valores.length, mediana: meio, min: ordem[0], max: ordem[ordem.length - 1] };
+  }
+
+  /** Todas as células dos 28 dias que passam no filtro. */
+  function pdPeriodo(filtro) {
+    const saida = [];
+    for (let d = 1; d <= PD_DIAS; d += 1) for (const c of celulasDoDia(d)) if (filtro(c)) saida.push(c);
+    return saida;
+  }
+  const pdDoSetor = (item) => pd.setor === 'todos' || item.setor === pd.setor || item.setor === 'loja';
+
+  // ── as saídas do padrão ──
+  // A lista é a do protótipo; os números de cada uma (o que foi visto, o
+  // normal, a faixa) saem dos mesmos dados da tela Análises.
+  const PD_ANOMALIAS = [
+    {
+      id: 'balcao-1', d: 1, h: 20, ind: 'posto', onde: 'Balcão · Dentro do balcão', setor: 'Atendimento', grave: true, estado: 'rever',
+      titulo: 'Balcão com uma pessoa no pico',
+      criterio: {
+        nome: 'Pelo menos 2 no balcão no pico', tipo: 'contagem', minimo: 2, lugar: 'Balcão/Dentro do balcão', janela: ['20:00', '22:00'],
+        regra: 'pelo menos 2 × pessoa', texto: 'Entre 20h e 22h há pelo menos duas pessoas atrás do balcão.',
+      },
+    },
+    {
+      id: 'fila-abertura', d: 5, h: 18, ind: 'fila', onde: 'Balcão · Lado do cliente', setor: 'Atendimento', estado: 'rever',
+      titulo: 'Fila logo na abertura',
+      criterio: {
+        nome: 'Fila na primeira hora', tipo: 'contagem', maximo: 3, lugar: 'Balcão/Lado do cliente', janela: ['18:00', '19:00'],
+        regra: 'no máximo 3 × pessoa', texto: 'Na primeira hora há no máximo três pessoas esperando no balcão.',
+      },
+    },
+    { id: 'bancada-m2', d: 3, h: 21, ind: 'bancada2', onde: 'Montagem 2', setor: 'Cozinha', estado: 'rever', titulo: 'Bancada fora do critério por muito mais tempo', ajustar: 'bancada' },
+    { id: 'touca-m1', d: 0, h: 19, ind: 'toucaM1', onde: 'Montagem 1', setor: 'Cozinha', estado: 'rever', camera: true, titulo: '“Uso de touca” quase parou de conseguir avaliar', ajustar: 'touca' },
+    {
+      id: 'balcao-cheio', d: 11, h: 22, ind: 'posto', onde: 'Balcão · Dentro do balcão', setor: 'Atendimento', estado: 'esperado', soDestaVez: true,
+      titulo: 'Balcão com quatro pessoas',
+      revisao: { quem: 'Ana Souza', quando: '27/09', texto: 'Foi só desta vez: jogo na TV, reforcei o balcão. Esta hora ficou de fora da conta do padrão.' },
+    },
+    {
+      id: 'bancada-m1', d: 12, h: 21, ind: 'bancada1', onde: 'Montagem 1', setor: 'Cozinha', estado: 'problema',
+      titulo: 'Bancada fora do critério por muito mais tempo',
+      revisao: {
+        quem: 'Ana Souza', quando: '26/09', texto: 'Estávamos com um a menos na montagem. Passei a escalar três às sextas.',
+        virou: 'Ajustou “Bancada limpa entre pedidos”: silêncio entre avisos de 15 para 10 minutos.',
+      },
+    },
+  ];
+
+  const pdQuando = (d) => (d === 0 ? 'hoje' : d === 1 ? 'ontem' : rotuloDoDia(d));
+  const pdHoras = (h) => `${hh(h)} às ${hh((h + 1) % 24)}`;
+
+  /** Os números de uma saída do padrão: o que foi visto, o normal e a frase da conta. */
+  function pdMedir(a) {
+    const ind = PD_INDICADORES[a.ind];
+    const dia = diaDaOperacao(a.d, a.h);
+    const visto = pdValor(ind, a.d, a.h);
+    const normal = pdNormal(ind, dia, a.h, a.d);
+    const nome = `${PD_ARTIGO[dia]} ${PD_DIAS_PLURAL[dia]} às ${hh(a.h)}`;
+    const faixa = `de ${pdTexto(ind, normal.min)} a ${pdTexto(ind, normal.max)} ${normal.n === 1 ? 'no outro dia igual' : `nos outros ${normal.n} dias iguais`}`;
+    const conta =
+      ind.tipo === 'medida'
+        ? `Visto: <b>${pessoas(visto)}</b> em média. Normal ${nome}: <b>${umaCasa(normal.mediana)}</b> (${faixa}).`
+        : ind.tipo === 'fora'
+          ? `Fora do critério em <b>${Math.round(visto)}%</b> das olhadas. Normal ${nome}: <b>${Math.round(normal.mediana)}%</b> (${faixa}).`
+          : `Sem conseguir avaliar em <b>${Math.round(visto)}%</b> das olhadas. Normal ${nome}: <b>${Math.round(normal.mediana)}%</b> (${faixa}).`;
+    const curto =
+      ind.tipo === 'medida'
+        ? `${pessoas(visto)} em média; o normal ${nome} é ${umaCasa(normal.mediana)}`
+        : `${Math.round(visto)}% das olhadas; o normal ${nome} é ${Math.round(normal.mediana)}%`;
+    return { ind, dia, visto, normal, conta, curto };
+  }
+
+  /** O que mais dá para dizer daquela hora, tirado dos mesmos números. */
+  function pdMais(a) {
+    if (a.id === 'balcao-1') {
+      const v = pdValor(PD_INDICADORES.filaFora, a.d, a.h);
+      return v === null ? '' : `Na mesma hora, a fila passou do combinado em ${Math.round(v)}% das olhadas.`;
+    }
+    if (a.id === 'fila-abertura') {
+      const [c] = pdCelulas(PD_INDICADORES.fila, a.d, a.h);
+      return `Nessa hora o critério “Fila no balcão” gerou ${plural(c.avisos, 'aviso', 'avisos')}: ele olha o limite de 6 pessoas, não o que é costume na abertura.`;
+    }
+    if (a.id === 'bancada-m2' || a.id === 'bancada-m1') {
+      const [c] = pdCelulas(PD_INDICADORES[a.ind], a.d, a.h);
+      return `Foram ${c.fora} olhadas fora do critério em ${c.n}; o critério avisou ${plural(c.avisos, 'vez', 'vezes')} — uma por período de silêncio.`;
+    }
+    if (a.camera) return 'Quando é a avaliação que some de uma hora para outra, costuma ser a câmera: mexeram nela ou algo ficou na frente.';
+    return '';
+  }
+
+  const pdARever = () => PD_ANOMALIAS.filter((a) => a.estado === 'rever');
+
+  function pdContarRever() {
+    const n = pdARever().length;
+    for (const e of $$('[data-pd-rever]')) {
+      e.hidden = n === 0;
+      e.innerHTML = `<span class="so-leitor">saídas do padrão para rever: </span>${n}`;
+    }
+  }
+
+  // ── frequência ──
+  /** A semana típica do indicador: uma média por dia da semana e hora. */
+  function pdSemana(ind) {
+    const grade = new Map();
+    for (let dia = 0; dia < 7; dia += 1) {
+      for (const h of PD_HORAS) {
+        const normal = pdNormal(ind, dia, h);
+        if (normal) grade.set(`${dia}|${h}`, normal);
+      }
+    }
+    return grade;
+  }
+
+  /** O que se repete num setor, dito em frases feitas dos números. */
+  function pdSetores() {
+    const semanaDe = (k) => pdSemana(PD_INDICADORES[k]);
+    const mediaDaHora = (grade, h) => {
+      const vs = [...grade].filter(([k]) => Number(k.split('|')[1]) === h).map(([, v]) => v.media);
+      return vs.length ? soma(vs) / vs.length : 0;
+    };
+    const maiorDe = (grade) => [...grade].reduce((a, b) => (b[1].media > a[1].media ? b : a));
+    const taxa = (cs, campo) => (soma(cs.map((c) => c[campo])) / Math.max(1, soma(cs.map((c) => c.n)))) * 100;
+
+    const fila = semanaDe('fila');
+    const posto = semanaDe('posto');
+    const [chaveFila, topoFila] = maiorDe(fila);
+    const [diaCheio, horaCheia] = chaveFila.split('|').map(Number);
+    const filaTodas = pdPeriodo((c) => c.si === SI['fila-bal']);
+
+    const chapa = semanaDe('chapa');
+    const [chaveChapa, topoChapa] = maiorDe(chapa);
+    const diaDaChapa = Number(chaveChapa.split('|')[0]);
+    const bancadaTodas = pdPeriodo((c) => PD_INDICADORES.bancada.series.includes(c.si));
+    const bancadaPico = bancadaTodas.filter((c) => c.h === 20 || c.h === 21);
+    const toucaM1 = pdPeriodo((c) => c.si === SI['touca-m1']);
+
+    return [
+      {
+        setor: 'Atendimento',
+        texto:
+          `Abre às 18h, de terça a domingo; sexta e sábado vai até 1h. O movimento tem um pico só, das 20h às 22h: ` +
+          `${umaCasa(mediaDaHora(fila, 20))} pessoas na fila e ${umaCasa(mediaDaHora(posto, 20))} atrás do balcão, em média. ` +
+          `Antes das 19h e a partir das 23h o balcão fica com uma pessoa.`,
+        fatos: [
+          ['Pico', '20h às 22h'],
+          ['Dia mais cheio', `${PD_DIA[diaCheio]}, ${umaCasa(topoFila.media)} na fila às ${hh(horaCheia)}`],
+          ['No pico', `${umaCasa(mediaDaHora(posto, 20))} atrás do balcão`],
+          ['Fila acima do combinado', `${umaCasa(taxa(filaTodas, 'fora'))}% das olhadas`],
+        ],
+      },
+      {
+        setor: 'Cozinha',
+        texto:
+          `Na chapa há uma pessoa quase o tempo todo; no pico de ${PD_DIA[diaDaChapa]} chega a ${umaCasa(topoChapa.media)}. ` +
+          `A bancada fica fora do critério em ${Math.round(taxa(bancadaTodas, 'fora'))}% das olhadas — ${Math.round(taxa(bancadaPico, 'fora'))}% no pico. ` +
+          `Em Montagem 1, o uso de touca não dá para avaliar em ${Math.round(taxa(toucaM1, 'na'))}% das olhadas.`,
+        fatos: [
+          ['Na chapa, no pico', `${umaCasa(topoChapa.media)} em média (${PD_DIA[diaDaChapa]})`],
+          ['Bancada fora do critério', `${Math.round(taxa(bancadaTodas, 'fora'))}% · ${Math.round(taxa(bancadaPico, 'fora'))}% no pico`],
+          ['Touca sem avaliar (Montagem 1)', `${Math.round(taxa(toucaM1, 'na'))}% das olhadas`],
+        ],
+      },
+      { setor: 'Estoque', vazio: 'Nenhum critério mede este setor: não há do que fazer um padrão. Um critério de presença ou de contagem já basta para começar.' },
+    ];
+  }
+
+  /** As relações: a mesma taxa, medida em duas situações. */
+  function pdRelacoes() {
+    const taxaEm = (cs, campo) => {
+      const n = soma(cs.map((c) => c.n));
+      return n ? (soma(cs.map((c) => c[campo])) / n) * 100 : 0;
+    };
+    const forca = (a, b) => {
+      const maior = Math.max(a, b);
+      const menor = Math.max(Math.min(a, b), 0.01);
+      return maior / menor >= 2 ? 'forte' : maior / menor >= 1.3 ? 'moderada' : 'nenhuma';
+    };
+    const noPico = (c) => c.h >= 19 && c.h <= 22;
+
+    // 1 · gente atrás do balcão × fila acima do combinado, só nas horas de movimento
+    const fila = pdPeriodo((c) => c.si === SI['fila-bal'] && noPico(c));
+    const pouca = fila.filter((c) => medidaDaHora(SI['posto-bal'], c.d, c.h) < 1.5);
+    const bastante = fila.filter((c) => medidaDaHora(SI['posto-bal'], c.d, c.h) >= 1.5);
+    const r1 = [taxaEm(pouca, 'fora'), taxaEm(bastante, 'fora')];
+
+    // 2 · cozinha cheia × bancada fora do critério
+    const bancada = pdPeriodo((c) => PD_INDICADORES.bancada.series.includes(c.si) && noPico(c));
+    const cheia = bancada.filter((c) => medidaDaHora(SI['chapa-chp'], c.d, c.h) >= 1.5);
+    const normal = bancada.filter((c) => medidaDaHora(SI['chapa-chp'], c.d, c.h) < 1.5);
+    const r2 = [taxaEm(cheia, 'fora'), taxaEm(normal, 'fora')];
+
+    // 3 · movimento × "não deu para avaliar" da touca: não anda junto
+    const touca = pdPeriodo((c) => c.si === SI['touca-m1']);
+    const comMovimento = touca.filter(noPico);
+    const semMovimento = touca.filter((c) => !noPico(c));
+    const r3 = [taxaEm(comMovimento, 'na'), taxaEm(semMovimento, 'na')];
+
+    const horas = (cs) => new Set(cs.map((c) => `${c.d}|${c.h}`)).size;
+    return [
+      {
+        setor: 'Atendimento', pergunta: 'Gente atrás do balcão × fila acima do combinado', forca: forca(...r1),
+        titulo: 'Com menos de duas pessoas no balcão, a fila estoura mais',
+        linhas: [['Com menos de 2 atrás do balcão', r1[0], false], ['Com 2 ou mais', r1[1], true]],
+        pe: `${horas(pouca)} horas com menos de 2 · ${horas(bastante)} com 2 ou mais · das 19h às 23h`, sufixo: 'das olhadas com fila acima de 6',
+      },
+      {
+        setor: 'Cozinha', pergunta: 'Movimento na cozinha × bancada limpa', forca: forca(...r2),
+        titulo: 'Com a cozinha cheia, a bancada fica mais tempo fora do critério',
+        linhas: [['Com 2 pessoas na chapa', r2[0], false], ['Com 1 pessoa', r2[1], true]],
+        pe: `${horas(cheia)} horas com a cozinha cheia · ${horas(normal)} com ela normal · das 19h às 23h`, sufixo: 'das olhadas da bancada fora do critério',
+      },
+      {
+        setor: 'Cozinha', pergunta: 'Movimento × touca sem avaliar em Montagem 1', forca: forca(...r3),
+        titulo: 'A touca fica sem avaliar com a loja cheia ou vazia: não é o movimento',
+        linhas: [['Das 19h às 23h', r3[0], true], ['Nas outras horas', r3[1], true]],
+        pe: 'Quando a taxa não muda com a hora, o problema é o que a câmera mostra — veja a sugestão de marcar a área.', sufixo: 'das olhadas sem conseguir avaliar',
+      },
+    ];
+  }
+
+  // ── tendência ──
+  /** A inclinação por semana (mínimos quadrados) e há quantas semanas anda no mesmo sentido. */
+  function pdRumo(serie) {
+    const n = serie.length;
+    const mx = (n - 1) / 2;
+    const my = soma(serie) / n;
+    const inclina = soma(serie.map((v, i) => (i - mx) * (v - my))) / soma(serie.map((_, i) => (i - mx) ** 2));
+    let seguidas = 0;
+    for (let i = n - 1; i > 0; i -= 1) {
+      if (Math.sign(serie[i] - serie[i - 1]) !== Math.sign(inclina) || serie[i] === serie[i - 1]) break;
+      seguidas += 1;
+    }
+    const muda = Math.abs(serie[n - 1] - serie[0]) / Math.max(Math.abs(my), 0.001);
+    return { inclina, seguidas, sentido: muda < 0.06 ? 'estável' : inclina > 0 ? 'sobe' : 'cai' };
+  }
+
+  function pdTendencias() {
+    const semanas = [3, 2, 1, 0]; // da mais antiga para a mais recente
+    const diasDa = (w) => Array.from({ length: 7 }, (_, i) => w * 7 + 1 + i);
+    const dataDe = (dias) => {
+      const t = new Date(AN_HOJE + dias * 86400000);
+      return `${String(t.getUTCDate()).padStart(2, '0')}/${String(t.getUTCMonth() + 1).padStart(2, '0')}`;
+    };
+
+    // 1 · a fila no pico de sábado
+    const sabados = [25, 18, 11, 4].map((d) => pdValor(PD_INDICADORES.fila, d, 20));
+    const rFila = pdRumo(sabados);
+    const faltam = rFila.inclina > 0 ? Math.round((6 - sabados[3]) / rFila.inclina) : 0;
+
+    // 2 · a bancada fora do critério, semana a semana
+    const bancada = semanas.map((w) => pdJuntar(PD_INDICADORES.bancada, diasDa(w).flatMap((d) => celulasDoDia(d).filter((c) => PD_INDICADORES.bancada.series.includes(c.si)))));
+    const rBancada = pdRumo(bancada);
+
+    // 3 · o gasto com a nuvem, por dia
+    const custo = semanas.map((w) => soma(diasDa(w).flatMap((d) => celulasDoDia(d).map((c) => c.custo))) / 6); // seis dias abertos por semana
+    const rCusto = pdRumo(custo);
+
+    // 4 · o disco da máquina de análise
+    const disco = [21, 14, 7, 0].map((d) => AN_MAQUINA.discoLivreHojeGb + AN_MAQUINA.discoPorDiaGb * d);
+    const diasAteEncher = Math.round(AN_MAQUINA.discoLivreHojeGb / AN_MAQUINA.discoPorDiaGb);
+
+    const setas = (serie, f) => serie.map(f).join(' → ');
+    return [
+      {
+        setor: 'Atendimento', titulo: 'Fila no pico de sábado', serie: sabados, rumo: rFila, limite: 6, ruim: 'sobe',
+        valor: `${umaCasa(sabados[3])}<small> pessoas, sábado às 20h</small>`,
+        texto:
+          `<b>${setas(sabados, umaCasa)}</b> nos últimos quatro sábados. ` +
+          (rFila.sentido === 'sobe' && faltam > 0
+            ? `No mesmo ritmo, a média da hora encosta no limite de 6 em cerca de ${plural(faltam, 'semana', 'semanas')}.`
+            : 'Sem mudança que peça ação.'),
+      },
+      {
+        setor: 'Cozinha', titulo: 'Bancada fora do critério', serie: bancada, rumo: rBancada, ruim: 'sobe',
+        valor: `${Math.round(bancada[3])}%<small> das olhadas, na última semana</small>`,
+        texto: `<b>${setas(bancada, (v) => `${Math.round(v)}%`)}</b> nas últimas quatro semanas, em Montagem 1 e 2. Há uma correção registrada em 26/09 para a Montagem 1.`,
+      },
+      {
+        setor: 'loja', titulo: 'Gasto com a nuvem', serie: custo, rumo: rCusto, ruim: 'sobe',
+        valor: `${dinheiro(custo[3])}<small> por dia aberto</small>`,
+        texto: `<b>${setas(custo, dinheiro)}</b> por dia, semana a semana. ${rCusto.sentido === 'estável' ? 'Não mudou: o gasto acompanha o número de critérios que vão à nuvem, não o movimento.' : ''}`,
+      },
+      {
+        setor: 'loja', titulo: 'Disco da máquina de análise', serie: disco, rumo: pdRumo(disco), ruim: 'cai',
+        valor: `${Math.round(disco[3])}<small> GB livres de ${AN_MAQUINA.discoGb}</small>`,
+        texto: `<b>${String(AN_MAQUINA.discoPorDiaGb).replace('.', ',')} GB a menos por dia.</b> Nesse ritmo o disco enche em cerca de ${diasAteEncher} dias, por volta de ${dataDe(diasAteEncher)}.`,
+      },
+    ];
+  }
+
+  /** O fio de uma tendência: quatro pontos, o último em destaque. */
+  function pdFio(serie, limite) {
+    const L = 132;
+    const A = 44;
+    let maior = Math.max(...serie, limite ?? -Infinity);
+    let menor = Math.min(...serie, limite ?? Infinity);
+    // variação pequena não pode parecer um vale: a régua tem pelo menos um
+    // terço do valor de altura
+    const minimo = (Math.abs(soma(serie)) / serie.length) * 0.34;
+    if (maior - menor < minimo) {
+      const meio = (maior + menor) / 2;
+      maior = meio + minimo / 2;
+      menor = meio - minimo / 2;
+    }
+    const folga = (maior - menor || 1) * 0.18;
+    const x = (i) => 6 + (i * (L - 12)) / (serie.length - 1);
+    const y = (v) => A - 6 - ((v - (menor - folga)) / (maior - menor + 2 * folga)) * (A - 12);
+    const pts = serie.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+    return (
+      `<svg class="fio" viewBox="0 0 ${L} ${A}" aria-hidden="true">` +
+      (limite !== undefined ? `<line class="limite" x1="0" x2="${L}" y1="${y(limite).toFixed(1)}" y2="${y(limite).toFixed(1)}"/>` : '') +
+      `<polyline points="${pts}"/>` +
+      serie.map((v, i) => `<circle${i === serie.length - 1 ? ' class="ultimo"' : ''} cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i === serie.length - 1 ? 4.5 : 3}"/>`).join('') +
+      `</svg>`
+    );
+  }
+
+  /** Hoje contra o normal do mesmo dia da semana, hora a hora. */
+  function pdHoje() {
+    const ind = PD_INDICADORES[pd.hoje];
+    const dia = diaDaSemana(0);
+    const horas = PD_HORAS.filter((h) => h >= 6 && pdNormal(ind, dia, h));
+    const normais = horas.map((h) => pdNormal(ind, dia, h));
+    const hoje = horas.map((h) => pdValor(ind, 0, h));
+    const teto = Math.max(1, Math.ceil(Math.max(...normais.map((n) => n.max), ...hoje.filter((v) => v !== null)) * 1.15));
+
+    // desenhado no tamanho em que aparece: a letra não cresce no computador
+    // nem some no celular
+    const L = Math.max(280, Math.round($('[data-pd-hoje]').clientWidth) || 640);
+    const A = L < 480 ? 190 : 230;
+    const m = { e: 30, d: 10, c: 14, b: 26 };
+    const passo = (L - m.e - m.d) / horas.length;
+    const x = (i) => m.e + passo * (i + 0.5);
+    const y = (v) => m.c + (1 - v / teto) * (A - m.c - m.b);
+    const agoraX = m.e + passo * (AN_AGORA_MIN / 60 - horas[0]);
+    const banda =
+      normais.map((n, i) => `${x(i).toFixed(1)},${y(n.max).toFixed(1)}`).join(' ') + ' ' +
+      [...normais].reverse().map((n, i) => `${x(normais.length - 1 - i).toFixed(1)},${y(n.min).toFixed(1)}`).join(' ');
+    const linhaNormal = normais.map((n, i) => `${x(i).toFixed(1)},${y(n.media).toFixed(1)}`).join(' ');
+    const vistos = hoje.map((v, i) => (v === null ? null : [x(i), y(v)])).filter(Boolean);
+
+    $('[data-pd-hoje-titulo]').textContent = `Hoje contra o normal ${PD_ARTIGO[dia]} ${PD_DIAS_PLURAL[dia]}`;
+    $('[data-pd-hoje]').innerHTML =
+      `<svg class="hn" viewBox="0 0 ${L} ${A}" width="${L}" height="${A}" role="img" aria-label="${ind.nome}: hoje até agora, comparado com a faixa do normal ${PD_ARTIGO[dia]} ${PD_DIAS_PLURAL[dia]}.">` +
+      [teto, teto / 2].map((v) => `<line class="grade" x1="${m.e}" x2="${L - m.d}" y1="${y(v)}" y2="${y(v)}"/><text x="${m.e - 6}" y="${y(v) + 4}" text-anchor="end">${String(v).replace('.', ',')}</text>`).join('') +
+      `<line class="base" x1="${m.e}" x2="${L - m.d}" y1="${y(0)}" y2="${y(0)}"/><text x="${m.e - 6}" y="${y(0) + 4}" text-anchor="end">0</text>` +
+      `<rect class="depois" x="${agoraX.toFixed(1)}" y="${m.c}" width="${(L - m.d - agoraX).toFixed(1)}" height="${A - m.c - m.b}"/>` +
+      `<polygon class="banda" points="${banda}"/>` +
+      `<polyline class="normal" points="${linhaNormal}"/>` +
+      `<polyline class="hoje" points="${vistos.map((p) => p.map((v) => v.toFixed(1)).join(',')).join(' ')}"/>` +
+      vistos.map(([cx, cy]) => `<circle class="hoje-pt" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4.5"/>`).join('') +
+      `<line class="agora" x1="${agoraX.toFixed(1)}" x2="${agoraX.toFixed(1)}" y1="${m.c}" y2="${y(0)}"/>` +
+      `<text class="agora-txt" x="${(agoraX + 5).toFixed(1)}" y="${m.c + 10}">agora</text>` +
+      horas.map((h, i) => `<text x="${x(i).toFixed(1)}" y="${A - 8}" text-anchor="middle">${hh(h)}</text>`).join('') +
+      `</svg>`;
+
+    // a frase: o que já saiu da faixa e o que se espera daqui em diante
+    const fora = horas.filter((h, i) => hoje[i] !== null && h * 60 + 60 <= AN_AGORA_MIN && (hoje[i] > normais[i].max * 1.15 || hoje[i] < normais[i].min * 0.85));
+    const frente = horas.map((h, i) => [h, normais[i]]).filter(([h]) => h * 60 >= AN_AGORA_MIN);
+    $('[data-pd-hoje-nota]').textContent =
+      (fora.length ? `Fora da faixa do normal: ${fora.map(hh).join(', ')}. ` : 'Até agora, o dia está dentro do normal. ') +
+      (frente.length
+        ? `O esperado daqui em diante: ${frente.map(([h, n]) => `${pdTexto(ind, n.media)} às ${hh(h)}`).join(', ')}.`
+        : 'Não há mais hora aberta hoje.') +
+      ' A hora corrente ainda está incompleta.';
+    $('[data-pd-hoje-seg]').innerHTML = ['fila', 'posto', 'chapa']
+      .filter((k) => pdDoSetor(PD_INDICADORES[k]))
+      .map((k) => `<button type="button" data-pd-hoje-ind="${k}" aria-pressed="${pd.hoje === k}">${{ fila: 'Fila', posto: 'Balcão', chapa: 'Chapa' }[k]}</button>`)
+      .join('');
+  }
+
+  // ── sugestões ──
+  function pdSugestoes() {
+    const taxa = (cs, campo) => (soma(cs.map((c) => c[campo])) / Math.max(1, soma(cs.map((c) => c.n)))) * 100;
+    const toucaM1 = pdPeriodo((c) => c.si === SI['touca-m1']);
+    const semResposta = soma(toucaM1.map((c) => (c.custo * c.na) / c.n));
+    const toucaChapa = pdPeriodo((c) => c.si === SI['touca-chp']);
+    const chapaVazia = taxa(pdPeriodo((c) => c.si === SI['chapa-chp']), 'fora');
+    const bancada = pdPeriodo((c) => PD_INDICADORES.bancada.series.includes(c.si));
+    const descoberto = pdPeriodo((c) => c.si === SI['posto-bal'] && (c.h === 20 || c.h === 21) && medidaDaHora(c.si, c.d, c.h) < 1.5).length;
+    const [r1] = pdRelacoes();
+    const balcao = PD_ANOMALIAS.find((a) => a.id === 'balcao-1');
+
+    return [
+      {
+        setor: 'Cozinha', icone: 'crop', titulo: 'Marque a área da bancada em Montagem 1',
+        texto: `“Uso de touca” não consegue avaliar em <b>${Math.round(taxa(toucaM1, 'na'))}% das olhadas</b> neste canal. Em 28 dias, <b>${dinheiro(semResposta)}</b> foram gastos em perguntas que voltaram sem resposta. A pergunta é feita sobre o quadro inteiro; com a área marcada, a imagem que sobe é só o que importa.`,
+        acao: { rotulo: 'Abrir quadro e área', ir: 'area' },
+      },
+      {
+        setor: 'Cozinha', icone: 'user-round-check', titulo: 'Só confira a touca com alguém na área',
+        texto: `Touca só dá para avaliar com gente na imagem. Na Chapa, onde o detector também olha, a área ficou vazia em <b>${umaCasa(chapaVazia)}% das olhadas</b> — cerca de <b>${dinheiro((soma(toucaChapa.map((c) => c.custo)) * chapaVazia) / 100)}</b> em 28 dias. Nos outros canais não há essa medida ainda: ligando a opção, a loja passa a contar.`,
+        acao: { rotulo: 'Ajustar o critério', porteiro: 'touca' },
+      },
+      {
+        setor: 'Cozinha', icone: 'image', titulo: 'Use a foto padrão na “Bancada limpa”',
+        texto: `Hoje cada olhada da bancada vai à nuvem: <b>${numero.format(soma(bancada.map((c) => c.n)))} análises e ${dinheiro(soma(bancada.map((c) => c.custo)))}</b> em 28 dias. Com a foto padrão, a loja compara sozinha e só pergunta à nuvem na dúvida. Quanto isso economiza sai do ensaio com as imagens já guardadas — antes de ligar.`,
+        acao: { rotulo: 'Ver a foto padrão', ir: 'area' },
+      },
+      {
+        setor: 'Atendimento', icone: 'hash', titulo: `Crie o critério “${balcao.criterio.nome}”`,
+        texto: `Em 28 dias, o balcão ficou com menos de duas pessoas em <b>${plural(descoberto, 'hora', 'horas')} do pico</b>. Nessas horas a fila passa do combinado em <b>${Math.round(r1.linhas[0][1])}% das olhadas</b>; com duas ou mais, em ${Math.round(r1.linhas[1][1])}%. Hoje nenhum critério avisa disso: “Alguém no balcão” só pede uma pessoa.`,
+        acao: { rotulo: 'Criar critério', criterio: balcao.criterio },
+      },
+    ];
+  }
+
+  // ── o desenho ──
+  function desenharPadroes() {
+    pdContarRever();
+    const dataDe = (d) => rotuloDoDia(d).split(' ')[1];
+    $('[data-pd-base]').textContent = `Padrão feito de ${PD_DIAS} dias de análises, de ${dataDe(PD_DIAS)} a ${dataDe(1)}`;
+    $('[data-pd-base-nota]').textContent = 'Quatro de cada dia da semana em que a loja abre · refeito toda madrugada, às 6h · hoje não entra na conta';
+    for (const b of $$('[data-pd-setor]')) b.setAttribute('aria-pressed', String(b.dataset.pdSetor === pd.setor));
+    for (const b of $$('[data-pd-lente]')) b.setAttribute('aria-pressed', String(b.dataset.pdLente === pd.lente));
+    for (const p of $$('[data-pd-painel]')) p.hidden = p.dataset.pdPainel !== pd.lente;
+    for (const b of $$('[data-pd-filtro]')) b.setAttribute('aria-pressed', String(b.dataset.pdFiltro === pd.filtro));
+
+    const anomalias = PD_ANOMALIAS.filter(pdDoSetor);
+    const doSetorARever = anomalias.filter((a) => a.estado === 'rever').length;
+    $('[data-pd-rever-setor]').hidden = doSetorARever === 0;
+    $('[data-pd-rever-setor]').textContent = String(doSetorARever);
+    const tendencias = pdTendencias().filter(pdDoSetor);
+    const sugestoes = pdSugestoes().filter(pdDoSetor);
+    $('[data-pd-sugestoes-conta]').textContent = String(sugestoes.length);
+
+    // ── o parecer: uma frase por lente ──
+    const setores = pdSetores().filter(pdDoSetor);
+    const aRever = anomalias.filter((a) => a.estado === 'rever');
+    const forte = aRever.find((a) => a.grave) ?? aRever[0];
+    const sobe = tendencias.find((t) => t.rumo.sentido === t.ruim) ?? tendencias[0];
+    const frases = [
+      ['frequencia', 'repeat', 'Frequência', setores.find((s) => !s.vazio)?.texto.split('. ').slice(0, 2).join('. ') + '.', 'Ver a semana típica'],
+      [
+        'anomalias', 'triangle-alert', 'Anomalias',
+        aRever.length
+          ? `<b>${plural(aRever.length, 'saída do padrão espera', 'saídas do padrão esperam')} a sua revisão.</b> A mais forte: ${pdQuando(forte.d)}, das ${pdHoras(forte.h)}, em ${forte.onde} — ${pdMedir(forte).curto}.`
+          : 'Nada fugiu do padrão que ainda precise de revisão.',
+        aRever.length ? 'Rever agora' : 'Ver as revistas',
+      ],
+      [
+        'tendencia', 'trending-up', 'Tendência',
+        `<b>${sobe.titulo}: ${sobe.rumo.sentido}${sobe.rumo.seguidas > 1 ? ` há ${sobe.rumo.seguidas} semanas` : ''}.</b> ${sobe.texto.replace(/<\/?b>/g, '')}`,
+        'Ver para onde vai',
+      ],
+    ];
+    $('[data-pd-parecer]').innerHTML = frases
+      .map(
+        ([lente, ic, nome, texto, elo]) =>
+          `<article class="pd-frase"><span class="rot">${icone(ic, 'p')}${nome}</span><p>${texto}</p>` +
+          `<button class="elo" type="button" data-pd-lente-elo="${lente}">${elo}${icone('arrow-right', 'p')}</button></article>`,
+      )
+      .join('');
+
+    // ── frequência: os setores ──
+    $('[data-pd-setores]').innerHTML = setores
+      .map((s) =>
+        s.vazio
+          ? `<article class="cartao setor-cartao sem"><h3>${icone('folder')}${s.setor}</h3><p>${s.vazio}</p></article>`
+          : `<article class="cartao setor-cartao"><h3>${icone('folder')}${s.setor}</h3><p>${s.texto}</p>` +
+            `<dl class="lista-dl">${s.fatos.map(([dt, dd]) => `<div><dt>${dt}</dt><dd>${dd}</dd></div>`).join('')}</dl></article>`,
+      )
+      .join('');
+
+    // ── frequência: a semana típica ──
+    const opcoes = PD_NO_SELETOR.filter((k) => pdDoSetor(PD_INDICADORES[k]));
+    if (!opcoes.includes(pd.indicador)) { pd.indicador = opcoes[0]; pd.celula = ''; }
+    $('#pd-indicador').innerHTML = opcoes.map((k) => `<option value="${k}">${PD_INDICADORES[k].nome}</option>`).join('');
+    $('#pd-indicador').value = pd.indicador;
+    const ind = PD_INDICADORES[pd.indicador];
+    const grade = pdSemana(ind);
+    const medias = [...grade.values()].map((v) => v.media);
+    const maior = Math.max(...medias);
+    const menor = Math.min(...medias);
+    const [chaveMaior] = [...grade].find(([, v]) => v.media === maior);
+    const [chaveMenor] = [...grade].find(([, v]) => v.media === menor);
+    if (!grade.has(pd.celula)) pd.celula = chaveMaior;
+    const calor = $('[data-pd-calor]');
+    calor.style.setProperty('--n', String(PD_HORAS.length));
+    calor.classList.toggle('ruim', ind.tipo !== 'medida');
+    calor.innerHTML =
+      `<span></span>${PD_HORAS.map((h) => `<span class="eixo">${hh(h)}</span>`).join('')}` +
+      PD_DIA.map((nomeDoDia, dia) => {
+        const rotulo = `<span class="dia">${nomeDoDia.slice(0, 3)}</span>`;
+        if (!HORARIO[dia].abre) return `${rotulo}<span class="sem fechada">fechada</span>`;
+        return (
+          rotulo +
+          PD_HORAS.map((h) => {
+            const v = grade.get(`${dia}|${h}`);
+            if (!v) return `<span class="sem" title="fechada nesta hora">—</span>`;
+            const f = maior > menor ? (v.media - menor) / (maior - menor) : 0;
+            const chave = `${dia}|${h}`;
+            return (
+              `<button type="button" class="calor-cel${f > 0.55 ? ' forte' : ''}${chave === chaveMaior ? ' maior' : ''}" style="--f:${f.toFixed(3)}" ` +
+              `data-pd-cel="${chave}" aria-pressed="${pd.celula === chave}" ` +
+              `aria-label="${nomeDoDia}, ${pdHoras(h)}: ${pdTexto(ind, v.media)} ${ind.curto}, média de ${plural(v.n, 'dia', 'dias')}">${pdTexto(ind, v.media)}</button>`
+            );
+          }).join('')
+        );
+      }).join('');
+    $('[data-pd-escala]').innerHTML = `${pdTexto(ind, menor)}<i style="--rampa:var(${ind.tipo === 'medida' ? '--marca' : '--critico'})"></i>${pdTexto(ind, maior)}`;
+    const nomeDaChave = (chave) => {
+      const [dia, h] = chave.split('|').map(Number);
+      return `${PD_DIA[dia]} às ${hh(h)}`;
+    };
+    $('[data-pd-calor-resumo]').textContent = `Mais alto: ${nomeDaChave(chaveMaior)} (${pdTexto(ind, maior)}). Mais baixo: ${nomeDaChave(chaveMenor)} (${pdTexto(ind, menor)}).`;
+    const sel = grade.get(pd.celula);
+    const [diaSel, horaSel] = pd.celula.split('|').map(Number);
+    $('[data-pd-calor-detalhe]').innerHTML =
+      `<b>${PD_DIA[diaSel][0].toUpperCase()}${PD_DIA[diaSel].slice(1)}, das ${pdHoras(horaSel)}:</b> ${pdTexto(ind, sel.media)} ${ind.curto}, em média — ` +
+      `de ${pdTexto(ind, sel.min)} a ${pdTexto(ind, sel.max)} ${sel.n === 1 ? 'no único dia medido' : `nos ${sel.n} dias medidos`}.` +
+      (sel.n < 3 ? ' Poucos dias: ainda não é padrão firme.' : '');
+
+    // ── frequência: o que anda junto ──
+    $('[data-pd-relacoes]').innerHTML = pdRelacoes()
+      .filter(pdDoSetor)
+      .map((r) => {
+        const teto = Math.max(...r.linhas.map((l) => l[1]), 1);
+        const chip = r.forca === 'nenhuma' ? '<span class="chip">sem relação</span>' : `<span class="chip ${r.forca === 'forte' ? 'atencao' : ''}">relação ${r.forca}</span>`;
+        return (
+          `<article class="cartao relacao"><span class="pergunta">${r.pergunta}</span><h3>${r.titulo}</h3>` +
+          r.linhas
+            .map(([nome, v, calma]) => `<div class="rel-linha${calma ? ' calma' : ''}"><span>${nome}</span><b>${umaCasa(v)}%</b><span class="trilho"><i style="width:${(v / teto) * 100}%"></i></span></div>`)
+            .join('') +
+          `<span class="nota">${r.sufixo}</span><div class="pe">${chip}<span>${r.pe}</span></div></article>`
+        );
+      })
+      .join('');
+
+    // ── anomalias ──
+    const mostradas = anomalias.filter((a) => pd.filtro === 'todas' || (pd.filtro === 'rever' ? a.estado === 'rever' : a.estado !== 'rever'));
+    $('[data-pd-anomalias]').innerHTML = mostradas.length
+      ? mostradas
+          .map((a) => {
+            const { ind: i, visto, normal, conta } = pdMedir(a);
+            const fundo = i.tipo === 'medida' ? Math.max(visto, normal.max) * 1.25 : Math.min(100, Math.max(visto, normal.max) * 1.25);
+            const pc = (v) => `${Math.min(100, (v / fundo) * 100).toFixed(1)}%`;
+            const mais = pdMais(a);
+            const estado =
+              a.estado === 'rever' ? `<span class="chip ${a.grave ? 'critico' : 'atencao'}">${a.grave ? 'muito fora do normal' : 'fora do normal'}</span>`
+              : a.estado === 'esperado' ? `<span class="chip ok">${icone('check')}esperado</span>`
+              : `<span class="chip ok">${icone('wrench')}corrigido</span>`;
+            const acoes =
+              a.estado === 'rever'
+                ? `<div class="a-acoes" data-so-config>` +
+                  `<button class="btn secundario mini" type="button" data-pd-esperado="${a.id}">${icone('check', 'p')}Era esperado</button>` +
+                  `<button class="btn primario mini" type="button" data-pd-problema="${a.id}">${icone('flag', 'p')}É problema</button>` +
+                  (a.camera ? `<a class="elo" href="#area" data-ir="area" style="align-self:center">Ver o quadro do canal${icone('arrow-right', 'p')}</a>` : '') +
+                  `</div>`
+                : `<div class="a-revisao">${icone(a.estado === 'esperado' ? 'check' : 'wrench')}<div><b>${a.revisao.quem} · ${a.revisao.quando}</b>` +
+                  `<span>${a.revisao.texto}</span>${a.revisao.virou ? `<span>${a.revisao.virou}</span>` : ''}</div></div>`;
+            return (
+              `<li class="anomalia" data-anomalia="${a.id}"><div class="quando"><b>${pdQuando(a.d)}</b><span>${a.d > 1 ? '' : rotuloDoDia(a.d)}</span><span>${pdHoras(a.h)}</span></div>` +
+              `<div class="a-corpo"><h3>${a.titulo}<span class="chip vazado">${icone('cctv')}${a.onde}</span>${estado}</h3>` +
+              `<p class="a-conta">${conta}</p>` +
+              `<div class="regua${a.grave ? ' critico' : ''}" role="img" aria-label="A faixa do normal vai de ${pdTexto(i, normal.min)} a ${pdTexto(i, normal.max)}; o que foi visto é ${pdTexto(i, visto)}.">` +
+              `<span class="trilho"></span><span class="banda" style="left:${pc(normal.min)};width:calc(${pc(normal.max)} - ${pc(normal.min)})"></span>` +
+              `<span class="mediana" style="left:${pc(normal.mediana)}"></span><span class="visto" style="left:${pc(visto)}"></span></div>` +
+              (mais ? `<p class="a-mais">${mais}</p>` : '') +
+              acoes +
+              `</div></li>`
+            );
+          })
+          .join('')
+      : `<li class="anomalia"><div class="quando"></div><div class="a-corpo"><p class="a-mais">${pd.filtro === 'rever' ? 'Nada para rever. O que fugir do padrão aparece aqui.' : 'Nenhuma saída do padrão revista ainda.'}</p></div></li>`;
+
+    // ── tendência ──
+    if (!pdDoSetor(PD_INDICADORES[pd.hoje])) pd.hoje = ['fila', 'posto', 'chapa'].find((k) => pdDoSetor(PD_INDICADORES[k]));
+    pdHoje();
+    $('[data-pd-tendencias]').innerHTML = tendencias
+      .map((t) => {
+        const ruim = t.rumo.sentido === t.ruim;
+        const chip =
+          t.rumo.sentido === 'estável'
+            ? `<span class="chip">${icone('minus')}estável</span>`
+            : `<span class="chip ${ruim ? 'atencao' : 'ok'}">${icone(t.rumo.sentido === 'sobe' ? 'trending-up' : 'trending-down')}${t.rumo.sentido}${t.rumo.seguidas > 1 ? ` há ${t.rumo.seguidas} semanas` : ''}</span>`;
+        return `<article class="cartao tend"><h3>${t.titulo}${chip}</h3><div class="valor"><span class="num">${t.valor}</span>${pdFio(t.serie, t.limite)}</div><p>${t.texto}</p></article>`;
+      })
+      .join('');
+
+    // ── sugestões ──
+    $('[data-pd-sugestoes]').innerHTML = sugestoes
+      .map(
+        (s, i) =>
+          `<li class="sugestao"><span class="selo-ic">${icone(s.icone)}</span><h3>${s.titulo}</h3><p>${s.texto}</p>` +
+          `<button class="btn secundario mini" type="button" data-pd-sugestao="${i}" ${s.acao.ir ? '' : 'data-so-config'}>${s.acao.rotulo}${icone('arrow-right', 'p')}</button></li>`,
+      )
+      .join('');
+    pd.sugestoes = sugestoes;
+  }
+
+  /** Abre a gaveta do critério já preenchida com o que a correção ou a sugestão propõe. */
+  function abrirCriterioProposto(c, gatilho) {
+    contexto = { ...contexto, nome: '', criterio: '', canalNovo: c.lugar };
+    abrirFolha('folha-criterio', 'novo', gatilho);
+    $('#fcr-nome').value = c.nome;
+    $(`#fcr-t-${c.tipo}`).checked = true;
+    ajustarTipo();
+    $('#fcr-objeto').value = 'pessoa';
+    $('#fcr-min').value = c.minimo ?? 0;
+    $('#fcr-max').value = c.maximo ?? '';
+    $('#fcr-texto').value = c.texto;
+    $('#fcr-janela').checked = Boolean(c.janela);
+    $('[data-janela]').hidden = !c.janela;
+    if (c.janela) [$('#fcr-j-de').value, $('#fcr-j-ate').value] = c.janela;
+    $('#fcr-nome').focus({ preventScroll: true });
+  }
+
+  const pdResumo = (a) => `<b>${a.titulo}</b><span>${pdQuando(a.d)}, das ${pdHoras(a.h)} · ${a.onde} — ${pdMedir(a).curto}.</span>`;
+
+  document.addEventListener('click', (ev) => {
+    const tela = ev.target.closest('[data-tela="padroes"]');
+    if (!tela) return;
+    const setor = ev.target.closest('[data-pd-setor]');
+    if (setor) { pd.setor = setor.dataset.pdSetor; desenharPadroes(); return; }
+    const lente = ev.target.closest('[data-pd-lente], [data-pd-lente-elo]');
+    if (lente) {
+      pd.lente = lente.dataset.pdLente ?? lente.dataset.pdLenteElo;
+      if (pd.lente === 'anomalias' && lente.dataset.pdLenteElo) pd.filtro = pdARever().length ? 'rever' : 'revistas';
+      desenharPadroes();
+      if (lente.dataset.pdLenteElo) {
+        const alvo = $('.pd-lentes');
+        palco.scrollTop += alvo.getBoundingClientRect().top - palco.getBoundingClientRect().top - 16;
+        $(`[data-pd-lente="${pd.lente}"]`).focus({ preventScroll: true });
+      }
+      return;
+    }
+    const cel = ev.target.closest('[data-pd-cel]');
+    if (cel) {
+      pd.celula = cel.dataset.pdCel;
+      desenharPadroes();
+      $(`[data-pd-cel="${pd.celula}"]`)?.focus({ preventScroll: true });
+      return;
+    }
+    const filtro = ev.target.closest('[data-pd-filtro]');
+    if (filtro) { pd.filtro = filtro.dataset.pdFiltro; desenharPadroes(); return; }
+    const hojeInd = ev.target.closest('[data-pd-hoje-ind]');
+    if (hojeInd) {
+      pd.hoje = hojeInd.dataset.pdHojeInd;
+      desenharPadroes();
+      $(`[data-pd-hoje-ind="${pd.hoje}"]`)?.focus({ preventScroll: true });
+      return;
+    }
+    const esperado = ev.target.closest('[data-pd-esperado]');
+    if (esperado) {
+      pd.alvo = PD_ANOMALIAS.find((a) => a.id === esperado.dataset.pdEsperado);
+      $('[data-fes-resumo]').innerHTML = pdResumo(pd.alvo);
+      $('#fes-sempre').checked = true;
+      $('#fes-nota').value = '';
+      abrirFolha('folha-esperado', 'novo', esperado);
+      return;
+    }
+    const problema = ev.target.closest('[data-pd-problema]');
+    if (problema) {
+      const a = PD_ANOMALIAS.find((x) => x.id === problema.dataset.pdProblema);
+      pd.alvo = a;
+      $('[data-fco-resumo]').innerHTML = pdResumo(a);
+      $('#fco-houve').value = '';
+      $('#fco-feito').value = '';
+      // cada saída do padrão oferece o que faz sentido para ela
+      $('[data-fco-opcao="criar"]').hidden = !a.criterio;
+      $('[data-fco-opcao="ajustar"]').hidden = !a.ajustar;
+      $(a.criterio ? '#fco-criar' : a.ajustar ? '#fco-ajustar' : '#fco-nada').checked = true;
+      pdPrevia();
+      abrirFolha('folha-correcao', 'novo', problema);
+      return;
+    }
+    const sugestao = ev.target.closest('[data-pd-sugestao]');
+    if (sugestao) {
+      const { acao } = pd.sugestoes[Number(sugestao.dataset.pdSugestao)];
+      if (acao.ir) ir(acao.ir);
+      else if (acao.criterio) abrirCriterioProposto(acao.criterio, sugestao);
+      else if (acao.porteiro) {
+        contexto = { ...contexto, nome: CRITERIOS[acao.porteiro].nome, criterio: acao.porteiro, canal: '' };
+        abrirFolha('folha-criterio', 'editar', sugestao);
+        $('#fcr-p-pessoa').checked = true;
+      }
+    }
+  });
+  $('#pd-indicador').addEventListener('change', (ev) => { pd.indicador = ev.target.value; pd.celula = ''; desenharPadroes(); });
+
+  /** O que a correção vai fazer depois de registrada, mostrado antes de salvar. */
+  function pdPrevia() {
+    const a = pd.alvo;
+    const escolha = $('input[name="fco-depois"]:checked').value;
+    const previa = $('[data-fco-previa]');
+    previa.hidden = escolha === 'nada';
+    if (escolha === 'criar' && a.criterio) {
+      const c = a.criterio;
+      previa.innerHTML =
+        `<span class="suave">Critério que vai ser proposto</span><b>${c.nome}</b>` +
+        `<div class="o-chips"><span class="chip ok">${c.regra}</span><span class="chip">${c.tipo}</span>` +
+        `<span class="chip vazado">${icone('cctv')}${c.lugar.replace('/', ' · ')}</span><span class="chip vazado">${icone('clock')}das ${c.janela[0]} às ${c.janela[1]}</span></div>` +
+        `<span class="suave">${c.texto} Julgado na loja, sem custo por análise.</span>`;
+    } else if (escolha === 'ajustar' && a.ajustar) {
+      previa.innerHTML = `<span class="suave">Depois de registrar, abre para você ajustar</span><b>${CRITERIOS[a.ajustar].nome}</b><span class="suave">${CRITERIOS[a.ajustar].meta}</span>`;
+    }
+  }
+  for (const r of $$('input[name="fco-depois"]')) r.addEventListener('change', pdPrevia);
+
+  // As duas gavetas da revisão. O ouvinte roda antes do que fecha a gaveta
+  // (o de todas as gavetas): é aqui que a saída do padrão muda de estado.
+  $('#f-esperado').addEventListener('submit', () => {
+    const a = pd.alvo;
+    const sempre = $('#fes-sempre').checked;
+    const nota = $('#fes-nota').value.trim();
+    const { dia } = pdMedir(a);
+    a.estado = 'esperado';
+    a.soDestaVez = !sempre;
+    a.revisao = {
+      quem: 'Ana Souza', quando: 'hoje',
+      texto: (nota ? `${nota} ` : '') + (sempre ? `Acontece sempre: o padrão ${PD_ARTIGO[dia]} ${PD_DIAS_PLURAL[dia]} às ${hh(a.h)} passa a contar com isso.` : 'Foi só desta vez: esta hora ficou de fora da conta do padrão.'),
+    };
+    $('#f-esperado').dataset.sucessoNovo = sempre ? 'Marcado como esperado. O padrão passa a contar com isso.' : 'Marcado como esperado. Esta hora ficou de fora do padrão.';
+    desenharPadroes();
+  }, { capture: true });
+
+  $('#f-correcao').addEventListener('submit', () => {
+    const a = pd.alvo;
+    const escolha = $('input[name="fco-depois"]:checked').value;
+    a.estado = 'problema';
+    a.revisao = {
+      quem: 'Ana Souza', quando: 'hoje',
+      texto: `${$('#fco-houve').value.trim()} ${$('#fco-feito').value.trim()}`,
+      virou: escolha === 'criar' && a.criterio ? `Propôs o critério “${a.criterio.nome}”, que nasce desligado.` : escolha === 'ajustar' && a.ajustar ? `Abriu “${CRITERIOS[a.ajustar].nome}” para ajuste.` : '',
+    };
+    $('#f-correcao').dataset.sucessoNovo = 'Correção registrada.';
+    desenharPadroes();
+    // depois que a gaveta da correção fechar, abre a do critério
+    if (escolha === 'nada') return;
+    setTimeout(() => {
+      if (escolha === 'criar' && a.criterio) abrirCriterioProposto(a.criterio, null);
+      else if (a.ajustar) {
+        contexto = { ...contexto, nome: CRITERIOS[a.ajustar].nome, criterio: a.ajustar, canal: '' };
+        abrirFolha('folha-criterio', 'editar', null);
+      }
+    }, 0);
+  }, { capture: true });
+
+  // ═══════════════════════ inventário e planta ═══════════════════════
+  // O inventário são os equipamentos de cada setor, como ficam limpos e no
+  // lugar. A planta é o ambiente desenhado em retângulos (medidas em
+  // metros), com cada equipamento e cada câmera na sua posição. Por ser
+  // feita de retângulos — e não de uma imagem — dá para calcular o que cada
+  // câmera cobre e escrever a descrição do lugar de cada canal.
+  const AMB_CANAIS = [...AN_CANAIS, { id: 'est', nome: 'Estoque seco', num: '08' }, { id: 'rec', nome: 'Recebimento', num: '07' }].map((c) => {
+    const setor = ARVORE.find((s) => s.canais.some((k) => k.nome === c.nome));
+    return { ...c, setor: setor.setor, ...setor.canais.find((k) => k.nome === c.nome), id: c.id };
+  });
+
+  const EQUIPAMENTOS = {
+    chapa: {
+      nome: 'Chapa', tipo: 'chapa', setor: 'Cozinha', fotos: ['canal', 'canal', 'celular', 'celular'], aparece: [['chp', 'quadro inteiro']],
+      descricao: 'Chapa elétrica de inox, com duas tampas, encostada na parede do fundo, à esquerda da fritadeira. Limpa: superfície clara, sem resíduo escuro nem gordura acumulada nas bordas; tampas abaixadas quando não está em uso; nada apoiado em cima.',
+      conferir: ['Superfície sem resíduo escuro entre os usos', 'Tampas abaixadas quando a chapa não está em uso', 'Nada apoiado em cima da chapa'],
+    },
+    fritadeira: {
+      nome: 'Fritadeira', tipo: 'fritadeira', setor: 'Cozinha', fotos: ['canal', 'celular'], aparece: [['fri', 'quadro inteiro']],
+      descricao: 'Fritadeira de duas cubas, com dois cestos, à direita da chapa. Limpa: laterais sem escorrido de óleo, cestos pendurados fora do óleo quando não há fritura.',
+      conferir: ['Cestos pendurados fora do óleo quando não há fritura', 'Laterais sem escorrido de óleo'],
+    },
+    montagem1: {
+      nome: 'Bancada de montagem 1', tipo: 'bancada', setor: 'Cozinha', fotos: ['canal', 'canal', 'celular', 'celular'], aparece: [['m1', 'quadro inteiro']],
+      descricao: 'Bancada de inox no centro da cozinha, com cubas de ingredientes ao fundo e tábua de corte à frente. Limpa: superfície livre de restos de alimento e de embalagens; utensílios no suporte; cubas tampadas.',
+      conferir: ['Superfície livre de restos e de embalagens', 'Utensílios no suporte, não sobre a bancada'],
+    },
+    montagem2: { nome: 'Bancada de montagem 2', tipo: 'bancada', setor: 'Cozinha', fotos: ['celular'], aparece: [['m2', 'quadro inteiro']], descricao: '', conferir: [] },
+    geladeira: { nome: 'Geladeira', tipo: 'geladeira ou freezer', setor: 'Cozinha', fotos: [], aparece: [], descricao: '', conferir: [] },
+    balcao: {
+      nome: 'Balcão de atendimento', tipo: 'balcão', setor: 'Atendimento', fotos: ['canal', 'canal', 'celular'], aparece: [['bal', 'Dentro do balcão']],
+      descricao: 'Balcão comprido que separa o atendimento do salão, com a máquina de café numa ponta. Limpo: tampo livre, sem copos nem bandejas esquecidos; nada no chão do lado de dentro.',
+      conferir: ['Tampo livre de copos e bandejas', 'Nada no chão do lado de dentro'],
+    },
+    caixa: {
+      nome: 'Caixa', tipo: 'caixa', setor: 'Atendimento', fotos: ['canal', 'canal', 'celular', 'celular'], aparece: [['cx', 'quadro inteiro']],
+      descricao: 'Balcão do caixa, com o terminal em cima e a gaveta de dinheiro embaixo, à esquerda de quem atende. No lugar: gaveta fechada, terminal ligado, nada cobrindo a gaveta.',
+      conferir: ['Gaveta fechada quando não há atendimento', 'Nada cobrindo a gaveta ou o terminal'],
+    },
+    prateleira: { nome: 'Prateleiras do estoque seco', tipo: 'prateleira', setor: 'Estoque', fotos: [], aparece: [['est', 'quadro inteiro']], descricao: '', conferir: [] },
+  };
+
+  let PLANTA = {
+    ambientes: [
+      { id: 'coz', nome: 'Cozinha', setor: 'Cozinha', x: 0, y: 0, w: 7.5, h: 5.5 },
+      { id: 'est', nome: 'Estoque', setor: 'Estoque', x: 0, y: 5.5, w: 4.5, h: 3.5 },
+      { id: 'rec', nome: 'Recebimento', setor: 'Estoque', x: 4.5, y: 5.5, w: 3, h: 3.5 },
+      { id: 'atd', nome: 'Atendimento', setor: 'Atendimento', x: 7.5, y: 0, w: 6.5, h: 9 },
+    ],
+    moveis: [
+      { id: 'chapa', equip: 'chapa', nome: 'Chapa', x: 0.5, y: 0.3, w: 1.8, h: 0.8, alt: 0.9 },
+      { id: 'fritadeira', equip: 'fritadeira', nome: 'Fritadeira', x: 2.7, y: 0.3, w: 1, h: 0.8, alt: 0.9 },
+      { id: 'geladeira', equip: 'geladeira', nome: 'Geladeira', x: 6.3, y: 0.3, w: 0.9, h: 0.8, alt: 1.9 },
+      { id: 'montagem1', equip: 'montagem1', nome: 'Montagem 1', x: 1, y: 2.7, w: 2.3, h: 0.8, alt: 0.9 },
+      { id: 'montagem2', equip: 'montagem2', nome: 'Montagem 2', x: 4, y: 2.7, w: 2.3, h: 0.8, alt: 0.9 },
+      { id: 'prateleira', equip: 'prateleira', nome: 'Prateleiras', x: 0.3, y: 6, w: 0.6, h: 2.6, alt: 1.8 },
+      { id: 'balcao', equip: 'balcao', nome: 'Balcão', x: 9.4, y: 0.8, w: 0.7, h: 5.4, alt: 1.1 },
+      { id: 'caixa', equip: 'caixa', nome: 'Caixa', x: 9.4, y: 6.8, w: 0.7, h: 1.2, alt: 1.1 },
+      { id: 'mesa1', nome: 'Mesa', x: 11.6, y: 1.2, w: 1, h: 1, alt: 0.75 },
+      { id: 'mesa2', nome: 'Mesa', x: 11.6, y: 3.6, w: 1, h: 1, alt: 0.75 },
+      { id: 'mesa3', nome: 'Mesa', x: 11.6, y: 6, w: 1, h: 1, alt: 0.75 },
+    ],
+    portas: [{ x1: 14, y1: 7.5, x2: 14, y2: 8.6 }, { x1: 5.3, y1: 9, x2: 6.5, y2: 9 }],
+    // direção em graus: 0 = para a direita da planta, 90 = para baixo
+    cameras: [
+      { canal: 'chp', x: 1.4, y: 2.2, alt: 2.6, dir: 270, abertura: 80, alcance: 2.6 },
+      { canal: 'fri', x: 3.2, y: 2.2, alt: 2.6, dir: 270, abertura: 70, alcance: 2.4 },
+      { canal: 'm1', x: 2.15, y: 5.1, alt: 2.6, dir: 270, abertura: 80, alcance: 3 },
+      { canal: 'm2', x: 5.15, y: 5.1, alt: 2.6, dir: 270, abertura: 80, alcance: 3 },
+      { canal: 'bal', x: 13.6, y: 0.4, alt: 2.7, dir: 142, abertura: 92, alcance: 8.2 },
+      { canal: 'cx', x: 7.9, y: 8.6, alt: 2.6, dir: 322, abertura: 70, alcance: 3.6 },
+      { canal: 'est', x: 4.2, y: 5.8, alt: 2.5, dir: 135, abertura: 88, alcance: 4.6 },
+      { canal: 'rec', x: 7.2, y: 5.8, alt: 2.5, dir: 125, abertura: 80, alcance: 3.6 },
+    ],
+  };
+
+  const amb = { t: 1, vista: 'perspectiva', camada: 'situacao', sel: { tipo: 'camera', id: 'bal' }, editando: false, ferramenta: '', antes: null, gesto: null, proj: null, estreou: false, vistaAntes: 'perspectiva' };
+  const PL = { L: 800, A: 550, margem: 30, parede: 0.5 };
+  // A câmera fica no teto, mas o marcador dela fica perto do chão: com oito
+  // câmeras a 2,6 m, as cabeças se embaralham longe de onde cada uma está.
+  const pinoDa = (cam) => Math.min(cam.alt, 1.3);
+  const rad = (g) => (g * Math.PI) / 180;
+  const canalDe = (id) => AMB_CANAIS.find((c) => c.id === id);
+  const ambienteEm = (x, y) => PLANTA.ambientes.find((a) => x >= a.x && x <= a.x + a.w && y >= a.y && y <= a.y + a.h);
+  const centro = (r) => [r.x + r.w / 2, r.y + r.h / 2];
+
+  /** A situação de um canal agora: é o que pinta a câmera e o cone. */
+  function situacaoDoCanal(c) {
+    if (c.pausado) return { chave: 'pausado', texto: 'pausado', chip: 'atencao' };
+    if (c.semImagem) return { chave: 'semimagem', texto: 'sem imagem desde as 14h', chip: 'critico' };
+    if (!c.criterios.length) return { chave: 'semcrit', texto: 'sem critério', chip: '' };
+    const aberta = Boolean(abertaAgora());
+    const valendo = c.criterios.filter((k) => CRITERIOS[k].ligado && (CRITERIOS[k].quando === 'sempre' || (CRITERIOS[k].quando === 'fora') !== aberta));
+    if (!valendo.length) return { chave: 'semcrit', texto: aberta ? 'só confere com a loja fechada' : 'só confere com a loja aberta', chip: '' };
+    // aviso nos últimos dez minutos: os mesmos avisos da tela Análises
+    const hora = Math.floor(AN_AGORA_MIN / 60);
+    const recente = celulasDoDia(0).some((cel) => {
+      if (cel.h !== hora || AN_SERIES[cel.si].canal !== c.id) return false;
+      for (let j = 0; j < cel.avisos; j += 1) {
+        const minuto = cel.comeca + Math.floor(sorte(0, cel.si, hora, 20 + j) * cel.ativos);
+        if (hora * 60 + minuto >= AN_AGORA_MIN - 10) return true;
+      }
+      return false;
+    });
+    return recente ? { chave: 'alerta', texto: 'aviso nos últimos 10 min', chip: 'critico' } : { chave: 'ok', texto: 'conferindo', chip: 'ok' };
+  }
+
+  // ── a geometria, no chão (metros) ──
+  /** O que a câmera alcança no chão: um setor, cortado nas paredes do ambiente em que ela está. */
+  function coneDaCamera(cam) {
+    const pontos = [[cam.x, cam.y]];
+    const de = cam.dir - cam.abertura / 2;
+    const passos = Math.max(6, Math.round(cam.abertura / 6));
+    for (let i = 0; i <= passos; i += 1) {
+      const a = rad(de + (cam.abertura * i) / passos);
+      pontos.push([cam.x + Math.cos(a) * cam.alcance, cam.y + Math.sin(a) * cam.alcance]);
+    }
+    const a = ambienteEm(cam.x, cam.y);
+    if (!a) return pontos;
+    // recorte de polígono por retângulo, um lado de cada vez
+    const lados = [
+      [(p) => p[0] >= a.x, (p, q) => [a.x, p[1] + ((q[1] - p[1]) * (a.x - p[0])) / (q[0] - p[0])]],
+      [(p) => p[0] <= a.x + a.w, (p, q) => [a.x + a.w, p[1] + ((q[1] - p[1]) * (a.x + a.w - p[0])) / (q[0] - p[0])]],
+      [(p) => p[1] >= a.y, (p, q) => [p[0] + ((q[0] - p[0]) * (a.y - p[1])) / (q[1] - p[1]), a.y]],
+      [(p) => p[1] <= a.y + a.h, (p, q) => [p[0] + ((q[0] - p[0]) * (a.y + a.h - p[1])) / (q[1] - p[1]), a.y + a.h]],
+    ];
+    let poligono = pontos;
+    for (const [dentro, corte] of lados) {
+      const novo = [];
+      poligono.forEach((p, i) => {
+        const q = poligono[(i + 1) % poligono.length];
+        if (dentro(p)) novo.push(p);
+        if (dentro(p) !== dentro(q)) novo.push(corte(p, q));
+      });
+      poligono = novo;
+    }
+    return poligono;
+  }
+
+  function dentroDoPoligono(pt, poligono) {
+    let dentro = false;
+    for (let i = 0, j = poligono.length - 1; i < poligono.length; j = i, i += 1) {
+      const [xi, yi] = poligono[i];
+      const [xj, yj] = poligono[j];
+      if (yi > pt[1] !== yj > pt[1] && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) dentro = !dentro;
+    }
+    return dentro;
+  }
+
+  /** Quem cobre: só canal que está entregando imagem. */
+  const camerasQueCobrem = () =>
+    PLANTA.cameras.filter((cam) => !['semimagem', 'pausado'].includes(situacaoDoCanal(canalDe(cam.canal)).chave)).map((cam) => coneDaCamera(cam));
+
+  /** A cobertura de cada ambiente, em quadros de meio metro: o que nenhuma câmera vê. */
+  function coberturaDaPlanta() {
+    const cones = camerasQueCobrem();
+    const passo = 0.5;
+    return PLANTA.ambientes.map((a) => {
+      const faixas = [];
+      let total = 0;
+      let cobertos = 0;
+      for (let y = a.y; y < a.y + a.h - 0.01; y += passo) {
+        let inicio = null;
+        for (let x = a.x; x < a.x + a.w - 0.01; x += passo) {
+          total += 1;
+          const visto = cones.some((c) => dentroDoPoligono([x + passo / 2, y + passo / 2], c));
+          if (visto) cobertos += 1;
+          if (!visto && inicio === null) inicio = x;
+          if ((visto || x + passo >= a.x + a.w - 0.01) && inicio !== null) {
+            faixas.push([inicio, y, visto ? x : Math.min(x + passo, a.x + a.w), Math.min(y + passo, a.y + a.h)]);
+            inicio = null;
+          }
+        }
+      }
+      return { ambiente: a, parte: total ? cobertos / total : 0, faixas };
+    });
+  }
+
+  /** O que a câmera vê e onde está, em uma frase: é o que vai junto com cada análise do canal. */
+  function descricaoDoLugar(cam) {
+    const a = ambienteEm(cam.x, cam.y);
+    const cone = coneDaCamera(cam);
+    const vistos = PLANTA.moveis.filter((m) => dentroDoPoligono(centro(m), cone));
+    const nomes = [...new Set(vistos.map((m) => (EQUIPAMENTOS[m.equip]?.nome ?? m.nome).toLowerCase()))];
+    const contagem = nomes.map((n) => {
+      const quantos = vistos.filter((m) => (EQUIPAMENTOS[m.equip]?.nome ?? m.nome).toLowerCase() === n).length;
+      return quantos > 1 ? `${quantos} ${n}s` : n;
+    });
+    const lista = contagem.length > 1 ? `${contagem.slice(0, -1).join(', ')} e ${contagem[contagem.length - 1]}` : contagem[0];
+    return (
+      `Câmera ${a ? `no ambiente ${a.nome}` : 'fora dos ambientes desenhados'}, a ${String(cam.alt).replace('.', ',')} m do chão. ` +
+      (lista ? `No campo de visão: ${lista}.` : 'Nenhum equipamento cadastrado no campo de visão.')
+    );
+  }
+
+  /** Onde o nome do ambiente cabe: o ponto do chão mais longe de câmera e de equipamento.
+   *  `meia` é meia largura do nome e `alto` a altura dele, em metros na escala de agora. */
+  function lugarDoNome(a, meia, alto) {
+    const folgaX = Math.min(meia + 0.15, a.w / 2);
+    const folgaY = Math.min(alto, a.h / 2);
+    let melhor = [a.x + a.w / 2, a.y + a.h / 2];
+    let nota = -1;
+    for (let y = a.y + folgaY; y <= a.y + a.h - folgaY + 0.01; y += 0.25) {
+      for (let x = a.x + folgaX; x <= a.x + a.w - folgaX + 0.01; x += 0.25) {
+        // o nome é mais largo do que alto: a distância na horizontal pesa menos
+        const ate = (ox, oy) => Math.max(Math.abs(x - ox) / (meia + 0.3), Math.abs(y - oy) / alto);
+        const cameras = PLANTA.cameras.map((c) => ate(c.x, c.y));
+        const moveis = PLANTA.moveis.map((m) => ate(noLimite(x, m.x, m.x + m.w), noLimite(y, m.y, m.y + m.h)));
+        const livre = Math.min(...cameras, ...moveis, 99);
+        if (livre > nota + 0.001) {
+          nota = livre;
+          melhor = [x, y];
+        }
+      }
+    }
+    return melhor;
+  }
+
+  const camerasQueVeem = (m) => PLANTA.cameras.filter((cam) => dentroDoPoligono(centro(m), coneDaCamera(cam))).map((cam) => canalDe(cam.canal));
+
+  // ── do chão para a tela ──
+  /** `t` vai de 0 (vista de cima) a 1 (em perspectiva): gira 45° e deita a planta. */
+  function projetor(t) {
+    const giro = rad(45 * t);
+    const queda = rad(90 - 48 * t); // 90° = de cima; 42° = em perspectiva
+    const xs = PLANTA.ambientes.flatMap((a) => [a.x, a.x + a.w]);
+    const ys = PLANTA.ambientes.flatMap((a) => [a.y, a.y + a.h]);
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const cru = (x, y, z = 0) => {
+      const dx = x - cx;
+      const dy = y - cy;
+      const xr = dx * Math.cos(giro) - dy * Math.sin(giro);
+      const yr = dx * Math.sin(giro) + dy * Math.cos(giro);
+      return [xr, yr * Math.sin(queda) - z * Math.cos(queda), yr];
+    };
+    // tudo o que existe tem de caber: os cantos do chão e a cabeça das câmeras
+    const marcos = [
+      ...PLANTA.ambientes.flatMap((a) => [[a.x, a.y, 0], [a.x + a.w, a.y, 0], [a.x, a.y + a.h, 0], [a.x + a.w, a.y + a.h, 0], [a.x, a.y, PL.parede]]),
+      ...PLANTA.cameras.map((c) => [c.x, c.y, pinoDa(c) + 0.5]),
+    ].map(([x, y, z]) => cru(x, y, z * t));
+    const minX = Math.min(...marcos.map((p) => p[0]));
+    const maxX = Math.max(...marcos.map((p) => p[0]));
+    const minY = Math.min(...marcos.map((p) => p[1]));
+    const maxY = Math.max(...marcos.map((p) => p[1]));
+    const escala = Math.min((PL.L - 2 * PL.margem) / (maxX - minX), (PL.A - 2 * PL.margem) / (maxY - minY));
+    const ox = (PL.L - (maxX + minX) * escala) / 2;
+    const oy = (PL.A - (maxY + minY) * escala) / 2;
+    return {
+      t, escala,
+      p: (x, y, z = 0) => {
+        const [a, b, fundo] = cru(x, y, z * t);
+        return [a * escala + ox, b * escala + oy, fundo];
+      },
+      // só vale de cima (t = 0), que é como se edita
+      chao: (sx, sy) => [(sx - ox) / escala + cx, (sy - oy) / escala + cy],
+    };
+  }
+
+  const pontos = (lista) => lista.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+
+  function desenharPlanta() {
+    // A planta é desenhada no tamanho em que aparece: a câmera e as letras
+    // ficam do mesmo tamanho no computador e no celular; quem encolhe é o chão.
+    const caixa = $('[data-planta]').getBoundingClientRect();
+    if (caixa.width > 0) {
+      PL.L = Math.round(caixa.width);
+      PL.A = Math.round(caixa.height);
+    }
+    plantaSvg.setAttribute('viewBox', `0 0 ${PL.L} ${PL.A}`);
+    const proj = projetor(amb.t);
+    amb.proj = proj;
+    const { p } = proj;
+    const emPe = amb.t > 0.04;
+    const chao = (lista) => pontos(lista.map(([x, y]) => p(x, y, 0)));
+    const sel = amb.sel;
+    let svg = '';
+
+    // 1 · o chão de cada ambiente, do fundo para a frente
+    const ambientes = [...PLANTA.ambientes].sort((a, b) => p(...centro(a))[2] - p(...centro(b))[2]);
+    for (const a of ambientes) {
+      const marcado = amb.editando && sel?.tipo === 'ambiente' && sel.id === a.id;
+      svg += `<polygon class="pl-piso${marcado ? ' sel' : ''}" data-ambiente="${a.id}" points="${chao([[a.x, a.y], [a.x + a.w, a.y], [a.x + a.w, a.y + a.h], [a.x, a.y + a.h]])}"/>`;
+    }
+    // 2 · o que nenhuma câmera vê
+    if (amb.camada === 'cobertura' && !amb.editando) {
+      for (const { faixas } of coberturaDaPlanta()) {
+        for (const [x1, y1, x2, y2] of faixas) svg += `<polygon class="pl-cego" points="${chao([[x1, y1], [x2, y1], [x2, y2], [x1, y2]])}"/>`;
+      }
+    }
+    // 3 · as portas e os nomes dos ambientes, no chão
+    for (const porta of PLANTA.portas) {
+      const [a, b] = [p(porta.x1, porta.y1), p(porta.x2, porta.y2)];
+      svg += `<line class="pl-porta" x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}"/>`;
+    }
+    // 4 · o campo de visão de cada câmera, pintado no chão
+    for (const cam of PLANTA.cameras) {
+      const s = situacaoDoCanal(canalDe(cam.canal));
+      const marcada = sel?.tipo === 'camera' && sel.id === cam.canal;
+      const apagado = sel?.tipo === 'camera' && !marcada && !amb.editando;
+      const classe = amb.camada === 'cobertura' && !amb.editando ? (['semimagem', 'pausado'].includes(s.chave) ? s.chave : 'ok') : s.chave;
+      svg += `<polygon class="pl-cone ${classe}${marcada ? ' sel' : ''}${apagado ? ' apagado' : ''}" points="${chao(coneDaCamera(cam))}"/>`;
+    }
+    // 5 · paredes do fundo e equipamentos. Cada um é cortado em pedaços de
+    //     até um metro, e os pedaços são desenhados do mais distante para o
+    //     mais próximo: é o que faz um balcão comprido passar por trás de uma
+    //     mesa e pela frente de outra, sem regra especial para ninguém.
+    const volumes = [];
+    const fundoDe = (x, y) => p(x, y)[2];
+    const fatias = (tamanho) => {
+      const n = Math.max(1, Math.ceil(tamanho));
+      return Array.from({ length: n }, (_, i) => [(tamanho * i) / n, (tamanho * (i + 1)) / n]);
+    };
+    if (emPe) {
+      // Só as paredes de FORA, e só as do fundo: parede entre dois ambientes
+      // esconderia o que está atrás dela. A divisão interna é o risco no chão.
+      const alto = PL.parede;
+      const deFora = (x, y) => !ambienteEm(x, y);
+      for (const a of PLANTA.ambientes) {
+        for (const [de, ate] of fatias(a.w)) {
+          const [x1, x2] = [a.x + de, a.x + ate];
+          if (!deFora((x1 + x2) / 2, a.y - 0.05)) continue;
+          volumes.push({
+            fundo: fundoDe((x1 + x2) / 2, a.y) - 0.02,
+            svg: `<polygon class="pl-parede" points="${pontos([p(x1, a.y, 0), p(x2, a.y, 0), p(x2, a.y, alto), p(x1, a.y, alto)])}"/>` +
+              `<polyline class="pl-contorno" points="${pontos([p(x1, a.y, alto), p(x2, a.y, alto)])}"/>`,
+          });
+        }
+        for (const [de, ate] of fatias(a.h)) {
+          const [y1, y2] = [a.y + de, a.y + ate];
+          if (!deFora(a.x - 0.05, (y1 + y2) / 2)) continue;
+          volumes.push({
+            fundo: fundoDe(a.x, (y1 + y2) / 2) - 0.02,
+            svg: `<polygon class="pl-parede flanco" points="${pontos([p(a.x, y1, 0), p(a.x, y2, 0), p(a.x, y2, alto), p(a.x, y1, alto)])}"/>` +
+              `<polyline class="pl-contorno" points="${pontos([p(a.x, y1, alto), p(a.x, y2, alto)])}"/>`,
+          });
+        }
+      }
+    }
+    for (const m of PLANTA.moveis) {
+      const marcado = sel?.tipo === 'movel' && sel.id === m.id;
+      const toca = EQUIPAMENTOS[m.equip] || amb.editando ? ' style="cursor:pointer"' : '';
+      const z = m.alt;
+      const fx = fatias(m.w);
+      const fy = fatias(m.h);
+      fx.forEach(([xa, xb], i) => fy.forEach(([ya, yb], j) => {
+        const [x1, x2, y1, y2] = [m.x + xa, m.x + xb, m.y + ya, m.y + yb];
+        const ultimoX = i === fx.length - 1;
+        const ultimoY = j === fy.length - 1;
+        let s = '';
+        if (emPe && ultimoY) s += `<polygon class="pl-movel frente" data-movel="${m.id}"${toca} points="${pontos([p(x1, y2, 0), p(x2, y2, 0), p(x2, y2, z), p(x1, y2, z)])}"/>`;
+        if (emPe && ultimoX) s += `<polygon class="pl-movel flanco" data-movel="${m.id}"${toca} points="${pontos([p(x2, y1, 0), p(x2, y2, 0), p(x2, y2, z), p(x2, y1, z)])}"/>`;
+        s += `<polygon class="pl-movel tampo" data-movel="${m.id}"${toca} points="${pontos([p(x1, y1, z), p(x2, y1, z), p(x2, y2, z), p(x1, y2, z)])}"/>`;
+        if (ultimoX && ultimoY) {
+          // o contorno do equipamento inteiro vai com o pedaço mais próximo
+          const [X1, X2, Y1, Y2] = [m.x, m.x + m.w, m.y, m.y + m.h];
+          const cl = `pl-contorno${marcado ? ' sel' : ''}`;
+          s += emPe
+            ? `<polygon class="${cl}" points="${pontos([p(X1, Y1, z), p(X2, Y1, z), p(X2, Y1, 0), p(X2, Y2, 0), p(X1, Y2, 0), p(X1, Y2, z)])}"/>` +
+              `<polyline class="${cl}" points="${pontos([p(X1, Y2, z), p(X2, Y2, z), p(X2, Y1, z)])}"/>` +
+              `<polyline class="${cl}" points="${pontos([p(X2, Y2, z), p(X2, Y2, 0)])}"/>`
+            : `<polygon class="${cl}" points="${pontos([p(X1, Y1), p(X2, Y1), p(X2, Y2), p(X1, Y2)])}"/>`;
+          // o nome cabe? só nos maiores, para não virar sopa de letras
+          const [tx, ty] = p(m.x + m.w / 2, m.y + m.h / 2, z);
+          const cabe = (m.w * Math.cos(rad(45 * amb.t)) + m.h * Math.sin(rad(45 * amb.t))) * proj.escala >= m.nome.length * 5.8 + 6;
+          if (cabe && m.equip) s += `<text class="pl-movel-nome" x="${tx.toFixed(1)}" y="${(ty + 3).toFixed(1)}">${limpo(m.nome)}</text>`;
+        }
+        volumes.push({ fundo: fundoDe((x1 + x2) / 2, (y1 + y2) / 2), svg: s });
+      }));
+    }
+    svg += volumes.sort((a, b) => a.fundo - b.fundo).map((v) => v.svg).join('');
+    // o nome do ambiente, onde houver espaço — e só se couber na largura dele
+    const letra = PL.L < 520 ? 6.6 : 8.4; // largura média de uma letra do nome, em pontos da tela
+    const naTela = (r) => (r.w * Math.cos(rad(45 * amb.t)) + r.h * Math.sin(rad(45 * amb.t))) * proj.escala;
+    for (const a of PLANTA.ambientes) {
+      const largo = a.nome.length * letra;
+      if (largo > naTela(a) - 8) continue;
+      const [tx, ty] = p(...lugarDoNome(a, largo / 2 / proj.escala, 15 / proj.escala), 0);
+      svg += `<text class="pl-nome" x="${tx.toFixed(1)}" y="${(ty + 4).toFixed(1)}">${limpo(a.nome)}</text>`;
+    }
+    // 6 · as câmeras, por cima de tudo: têm de dar para tocar
+    for (const cam of PLANTA.cameras) {
+      const c = canalDe(cam.canal);
+      const s = situacaoDoCanal(c);
+      const marcada = sel?.tipo === 'camera' && sel.id === cam.canal;
+      const [bx, by] = p(cam.x, cam.y, 0);
+      const [hx, hy] = p(cam.x, cam.y, pinoDa(cam));
+      const raio = PL.L < 520 ? 10 : 12.5;
+      svg +=
+        (emPe ? `<line class="pl-poste" x1="${bx.toFixed(1)}" y1="${by.toFixed(1)}" x2="${hx.toFixed(1)}" y2="${hy.toFixed(1)}"/><circle class="pl-chao" cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="2.5"/>` : '') +
+        `<g class="pl-cam ${s.chave}${marcada ? ' sel' : ''}${raio < 12 ? ' pq' : ''}" data-cam="${cam.canal}" role="button" tabindex="0" aria-pressed="${marcada}" ` +
+        `aria-label="Câmera ${c.nome}, ${c.num === 'IP' ? 'câmera IP' : `canal ${c.num}`}: ${s.texto}">` +
+        `<circle class="toque" cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="${raio + 8.5}"/>` +
+        `<circle class="anel" cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="${raio + 4.5}"/>` +
+        `<circle class="miolo" cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="${raio}"/>` +
+        `<text x="${hx.toFixed(1)}" y="${hy.toFixed(1)}">${c.num}</text></g>`;
+    }
+    // 7 · na edição: a mira da câmera escolhida e o retângulo que está sendo desenhado
+    if (amb.editando && sel?.tipo === 'camera') {
+      const cam = PLANTA.cameras.find((x) => x.canal === sel.id);
+      const [ax, ay] = p(cam.x, cam.y);
+      const [mx, my] = p(cam.x + Math.cos(rad(cam.dir)) * 1.5, cam.y + Math.sin(rad(cam.dir)) * 1.5);
+      svg += `<line class="pl-mira" x1="${ax.toFixed(1)}" y1="${ay.toFixed(1)}" x2="${mx.toFixed(1)}" y2="${my.toFixed(1)}"/><circle class="pl-alca" data-alca cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="9"/>`;
+    }
+    if (amb.gesto?.modo === 'desenhar' && amb.gesto.ret) {
+      const r = amb.gesto.ret;
+      svg += `<polygon class="pl-rascunho" points="${chao([[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]])}"/>`;
+    }
+    plantaSvg.innerHTML = svg;
+  }
+
+  function desenharAmbiente() {
+    // Em tela estreita a planta começa vista de cima: em perspectiva as oito
+    // câmeras ficam umas sobre as outras. Vale só na primeira vez: depois
+    // disso, quem escolhe a vista é quem está olhando.
+    if (!amb.estreou && $('[data-planta]').clientWidth > 0) {
+      amb.estreou = true;
+      const estreita = $('[data-planta]').clientWidth < 520;
+      amb.vista = estreita ? 'cima' : 'perspectiva';
+      amb.t = estreita ? 0 : 1;
+    }
+    for (const b of $$('[data-amb-vista]')) b.setAttribute('aria-pressed', String(b.dataset.ambVista === amb.vista));
+    for (const b of $$('[data-amb-camada]')) b.setAttribute('aria-pressed', String(b.dataset.ambCamada === amb.camada));
+    for (const b of $$('[data-amb-ferramenta]')) b.setAttribute('aria-pressed', String(b.dataset.ambFerramenta === amb.ferramenta));
+    $('[data-amb-so-leitura]').hidden = amb.editando;
+    $('[data-amb-so-edicao]').hidden = !amb.editando;
+    $('[data-amb-descartar]').hidden = !amb.editando;
+    $('[data-amb-editar] span').textContent = amb.editando ? 'Concluir edição' : 'Editar planta';
+    $('[data-amb-editar]').className = `btn ${amb.editando ? 'primario' : 'secundario'}`;
+    $('[data-amb-editar] use').setAttribute('href', amb.editando ? '#i-check' : '#i-pencil');
+    $('[data-planta]').classList.toggle('editando', amb.editando);
+    for (const b of $$('[data-amb-vista]')) b.disabled = amb.editando;
+    desenharPlanta();
+
+    const cobertura = amb.camada === 'cobertura' && !amb.editando;
+    $('[data-amb-legenda]').innerHTML = amb.editando
+      ? '<span>Arraste uma câmera para movê-la; a bolinha âmbar gira a direção. Arraste um equipamento ou um ambiente para mudá-lo de lugar.</span>'
+      : cobertura
+        ? '<span><i class="ok"></i>o que as câmeras alcançam</span><span><i class="cego"></i>nenhuma câmera vê</span><span><i class="traco"></i>canal sem imagem ou pausado: não cobre</span>'
+        : '<span><i class="ok"></i>conferindo</span><span><i class="alerta"></i>aviso nos últimos 10 min</span><span><i></i>sem conferência agora</span><span><i class="traco"></i>sem imagem ou pausado</span>';
+    $('[data-amb-nota]').textContent = amb.editando
+      ? amb.ferramenta
+        ? `Arraste na planta para desenhar ${amb.ferramenta === 'ambiente' ? 'o ambiente' : 'o equipamento'}. Não precisa de medida exata: dá para corrigir os números ao lado.`
+        : 'A planta é editada de cima. As medidas são em metros.'
+      : 'Toque numa câmera para ver o canal; num equipamento, para ver o que o inventário sabe dele.';
+
+    // a lista de câmeras: o mesmo que a planta mostra, para quem não usa o mouse
+    $('[data-amb-cams]').innerHTML = ARVORE.map((s) => {
+      const doSetor = AMB_CANAIS.filter((c) => c.setor === s.setor);
+      return (
+        `<li class="setor-nome">${s.setor}</li>` +
+        doSetor
+          .map((c) => {
+            const sit = situacaoDoCanal(c);
+            return (
+              `<li><button type="button" class="area-item" data-amb-cam="${c.id}" aria-pressed="${amb.sel?.tipo === 'camera' && amb.sel.id === c.id}">` +
+              `<span class="canal-num">${c.num}</span><span><b>${c.nome}</b></span><span class="chip ${sit.chip}">${sit.texto}</span></button></li>`
+            );
+          })
+          .join('')
+      );
+    }).join('');
+
+    // a cobertura por ambiente
+    $('[data-amb-cobertura]').hidden = !cobertura;
+    if (cobertura) {
+      $('[data-amb-cobertura-lista]').innerHTML = coberturaDaPlanta()
+        .map(({ ambiente, parte }) => `<li><span>${ambiente.nome}</span><b>${Math.round(parte * 100)}%</b><span class="trilho"><i style="width:${parte * 100}%"></i></span></li>`)
+        .join('');
+    }
+    desenharPainelDaPlanta();
+  }
+
+  const numeroDoCampo = (id, rotulo, valor, passo = 0.1) =>
+    `<div class="campo"><label for="${id}">${rotulo}</label><input class="entrada mono" id="${id}" type="number" min="0.2" step="${passo}" value="${valor}" data-amb-campo="${id.replace('amb-', '')}"></div>`;
+
+  function desenharPainelDaPlanta() {
+    const painel = $('[data-amb-painel]');
+    const sel = amb.sel;
+    if (sel?.tipo === 'camera') {
+      const cam = PLANTA.cameras.find((x) => x.canal === sel.id);
+      const c = canalDe(sel.id);
+      const sit = situacaoDoCanal(c);
+      const criterios = c.criterios.length
+        ? `<ul class="area-criterios">${c.criterios
+            .map((k) => `<li><span class="selo-ic">${icone(ICONE_DO_TIPO[CRITERIOS[k].tipo])}</span><span><b>${CRITERIOS[k].nome}</b><small>${CRITERIOS[k].tipo}${CRITERIOS[k].quando === 'fora' ? ' · só com a loja fechada' : ''}</small></span>` +
+              `<span class="chip ${CRITERIOS[k].ligado ? 'ok' : ''}">${CRITERIOS[k].ligado ? 'ligado' : 'desligado'}</span></li>`)
+            .join('')}</ul>`
+        : '<p class="vazio-linha">Nenhum critério neste canal. Nada é verificado aqui.</p>';
+      const faixa = (campo, rotulo, min, max, passo, unidade) =>
+        `<div class="faixa-campo"><label for="amb-${campo}">${rotulo}</label><output for="amb-${campo}">${String(cam[campo]).replace('.', ',')}${unidade}</output>` +
+        `<input type="range" id="amb-${campo}" min="${min}" max="${max}" step="${passo}" value="${cam[campo]}" data-amb-faixa="${campo}" data-unidade="${unidade}"></div>`;
+      painel.innerHTML =
+        `<div class="cam-topo"><span class="canal-num">${c.num}</span><div><h3>${c.nome}</h3><p>${c.setor} · ${ambienteEm(cam.x, cam.y)?.nome ?? 'fora dos ambientes'}</p></div></div>` +
+        `<div class="canal-chips"><span class="chip ${sit.chip}">${sit.texto}</span>${c.areas ? `<span class="chip vazado">${icone('crop')}${plural(c.areas.length, 'área', 'áreas')}</span>` : ''}</div>` +
+        (amb.editando
+          ? faixa('dir', 'Direção', 0, 359, 1, '°') + faixa('abertura', 'Abertura', 40, 120, 1, '°') + faixa('alcance', 'Alcance', 1, 12, 0.1, ' m') + faixa('alt', 'Altura', 2, 4, 0.1, ' m') +
+            '<p class="nota">A abertura é a da lente: uma lente de 2,8 mm abre perto de 100°; uma de 3,6 mm, perto de 80°.</p>'
+          : `<h2>O que confere</h2>${criterios}` +
+            `<div class="cam-descricao">${descricaoDoLugar(cam)}<small>Escrita a partir da planta. Vai junto com a imagem em cada análise deste canal que sobe à nuvem.</small></div>` +
+            `<div class="cam-elos"><a class="elo" href="#area" data-ir="area">Quadro e área${icone('arrow-right', 'p')}</a>` +
+            (AN_CANAIS.some((x) => x.id === c.id) ? `<button class="elo" type="button" data-amb-analises="${c.id}">Análises deste canal${icone('arrow-right', 'p')}</button>` : '') +
+            `</div>`);
+      return;
+    }
+    if (sel?.tipo === 'movel') {
+      const m = PLANTA.moveis.find((x) => x.id === sel.id);
+      const e = EQUIPAMENTOS[m.equip];
+      const veem = camerasQueVeem(m);
+      painel.innerHTML =
+        `<div class="cam-topo"><span class="canal-num">${icone('package')}</span><div><h3>${limpo(e?.nome ?? m.nome)}</h3><p>${e ? `${e.tipo} · ${e.setor}` : 'móvel, sem cadastro no inventário'}</p></div></div>` +
+        (amb.editando
+          ? `<div class="campo"><label for="amb-nome">Nome</label><input class="entrada" id="amb-nome" value="${limpo(m.nome)}" data-amb-campo="nome"></div>` +
+            `<div class="pares">${numeroDoCampo('amb-w', 'Largura, em m', m.w)}${numeroDoCampo('amb-h', 'Comprimento, em m', m.h)}${numeroDoCampo('amb-alt', 'Altura, em m', m.alt)}</div>` +
+            `<button class="btn perigo-leve mini" type="button" data-amb-excluir style="align-self:flex-start">${icone('trash-2', 'p')}Tirar da planta</button>`
+          : (e
+              ? `<div class="canal-chips"><span class="chip ${e.fotos.length ? 'ok' : 'atencao'}">${e.fotos.length ? plural(e.fotos.length, 'foto', 'fotos') : 'sem foto'}</span>` +
+                `<span class="chip ${e.descricao ? 'ok' : ''}">${e.descricao ? 'descrito' : 'sem descrição'}</span></div>`
+              : '') +
+            `<dl class="lista-dl"><div><dt>Visto por</dt><dd>${veem.length ? veem.map((c) => `${c.nome} (${c.num})`).join(', ') : 'nenhuma câmera'}</dd></div>` +
+            `<div><dt>Medidas</dt><dd>${String(m.w).replace('.', ',')} × ${String(m.h).replace('.', ',')} m · ${String(m.alt).replace('.', ',')} m de altura</dd></div></dl>` +
+            (e?.descricao ? `<div class="cam-descricao">${e.descricao}</div>` : '') +
+            (e ? `<div class="cam-elos"><button class="elo" type="button" data-equip-abrir="${m.equip}">Abrir no inventário${icone('arrow-right', 'p')}</button></div>` : ''));
+      return;
+    }
+    if (sel?.tipo === 'ambiente' && amb.editando) {
+      const a = PLANTA.ambientes.find((x) => x.id === sel.id);
+      painel.innerHTML =
+        `<h2>Ambiente</h2><div class="campo"><label for="amb-nome">Nome</label><input class="entrada" id="amb-nome" value="${limpo(a.nome)}" data-amb-campo="nome"></div>` +
+        `<div class="campo"><label for="amb-setor">Setor</label><select class="entrada" id="amb-setor" data-amb-campo="setor">${ARVORE.map((s) => `<option${s.setor === a.setor ? ' selected' : ''}>${s.setor}</option>`).join('')}</select></div>` +
+        `<div class="pares">${numeroDoCampo('amb-w', 'Largura, em m', a.w, 0.5)}${numeroDoCampo('amb-h', 'Comprimento, em m', a.h, 0.5)}</div>` +
+        `<button class="btn perigo-leve mini" type="button" data-amb-excluir style="align-self:flex-start">${icone('trash-2', 'p')}Excluir o ambiente</button>`;
+      return;
+    }
+    painel.innerHTML = `<h2>Nada selecionado</h2><p class="nota">${amb.editando ? 'Toque numa câmera, num equipamento ou num ambiente para mexer nele. Use os botões acima da planta para desenhar um novo.' : 'Toque numa câmera ou num equipamento da planta.'}</p>`;
+  }
+
+  /** Vai de uma vista para a outra girando a planta. */
+  function girarPlanta(para) {
+    amb.vista = para === 1 ? 'perspectiva' : 'cima';
+    const de = amb.t;
+    if (calmo || de === para) {
+      amb.t = para;
+      desenharAmbiente();
+      return;
+    }
+    const inicio = performance.now();
+    const passo = (agora) => {
+      const k = Math.min(1, (agora - inicio) / 520);
+      amb.t = de + (para - de) * (1 - (1 - k) ** 3);
+      desenharPlanta();
+      if (k < 1) requestAnimationFrame(passo);
+      else desenharAmbiente();
+    };
+    desenharAmbiente();
+    requestAnimationFrame(passo);
+  }
+
+  function selecionarNaPlanta(tipo, id) {
+    amb.sel = tipo ? { tipo, id } : null;
+    desenharAmbiente();
+  }
+
+  // cliques fora da planta: os controles, a lista e o painel
+  document.addEventListener('click', (ev) => {
+    const tela = ev.target.closest('[data-tela="ambiente"]');
+    if (!tela) return;
+    const vista = ev.target.closest('[data-amb-vista]');
+    if (vista) { girarPlanta(vista.dataset.ambVista === 'perspectiva' ? 1 : 0); return; }
+    const camada = ev.target.closest('[data-amb-camada]');
+    if (camada) { amb.camada = camada.dataset.ambCamada; desenharAmbiente(); return; }
+    const daLista = ev.target.closest('[data-amb-cam]');
+    if (daLista) {
+      selecionarNaPlanta('camera', daLista.dataset.ambCam);
+      $(`[data-amb-cam="${daLista.dataset.ambCam}"]`)?.focus({ preventScroll: true });
+      return;
+    }
+    const analises = ev.target.closest('[data-amb-analises]');
+    if (analises) { Object.assign(an, AN_PADRAO, { canal: analises.dataset.ambAnalises }); ir('analises'); return; }
+    const ferramenta = ev.target.closest('[data-amb-ferramenta]');
+    if (ferramenta) {
+      amb.ferramenta = amb.ferramenta === ferramenta.dataset.ambFerramenta ? '' : ferramenta.dataset.ambFerramenta;
+      desenharAmbiente();
+      return;
+    }
+    if (ev.target.closest('[data-amb-editar]')) {
+      if (!amb.editando) {
+        amb.antes = JSON.stringify(PLANTA);
+        amb.vistaAntes = amb.vista;
+        amb.editando = true;
+        amb.ferramenta = '';
+        girarPlanta(0);
+      } else {
+        amb.editando = false;
+        amb.ferramenta = '';
+        amb.antes = null;
+        girarPlanta(amb.vistaAntes === 'perspectiva' ? 1 : 0);
+        avisar('Planta salva. A descrição do lugar de cada canal foi refeita.');
+      }
+      return;
+    }
+    if (ev.target.closest('[data-amb-descartar]')) {
+      PLANTA = JSON.parse(amb.antes);
+      amb.editando = false;
+      amb.ferramenta = '';
+      amb.sel = null;
+      girarPlanta(amb.vistaAntes === 'perspectiva' ? 1 : 0);
+      avisar('Mudanças descartadas. A planta voltou a como estava.');
+      return;
+    }
+    if (ev.target.closest('[data-amb-excluir]')) {
+      const { tipo, id } = amb.sel;
+      if (tipo === 'movel') PLANTA.moveis = PLANTA.moveis.filter((m) => m.id !== id);
+      else PLANTA.ambientes = PLANTA.ambientes.filter((a) => a.id !== id);
+      avisar(tipo === 'movel' ? 'Tirado da planta. O cadastro no inventário continua.' : 'Ambiente excluído.');
+      selecionarNaPlanta('', '');
+    }
+  });
+
+  // os campos do painel, na edição
+  $('[data-amb-painel]').addEventListener('input', (ev) => {
+    const sel = amb.sel;
+    const faixa = ev.target.dataset.ambFaixa;
+    if (faixa && sel?.tipo === 'camera') {
+      const cam = PLANTA.cameras.find((x) => x.canal === sel.id);
+      cam[faixa] = Number(ev.target.value);
+      ev.target.previousElementSibling.textContent = `${String(cam[faixa]).replace('.', ',')}${ev.target.dataset.unidade}`;
+      desenharPlanta();
+      return;
+    }
+    const campo = ev.target.dataset.ambCampo;
+    if (!campo || !sel) return;
+    const item = (sel.tipo === 'movel' ? PLANTA.moveis : PLANTA.ambientes).find((x) => x.id === sel.id);
+    if (campo === 'nome' || campo === 'setor') item[campo] = ev.target.value.trim() || item[campo];
+    else if (Number(ev.target.value) > 0) item[campo] = Number(ev.target.value);
+    desenharPlanta();
+  });
+
+  // a planta: toque, teclado e arrasto
+  const plantaSvg = $('[data-planta-svg]');
+  /** Onde o ponteiro está, em metros no chão (só vale de cima). */
+  function noChao(ev) {
+    const pt = plantaSvg.createSVGPoint();
+    pt.x = ev.clientX;
+    pt.y = ev.clientY;
+    const q = pt.matrixTransform(plantaSvg.getScreenCTM().inverse());
+    return amb.proj.chao(q.x, q.y);
+  }
+  const noLimite = (v, min, max) => Math.min(max, Math.max(min, v));
+  const grade = (v, passo) => Math.round(v / passo) * passo;
+  const limites = () => {
+    const xs = PLANTA.ambientes.flatMap((a) => [a.x, a.x + a.w]);
+    const ys = PLANTA.ambientes.flatMap((a) => [a.y, a.y + a.h]);
+    return [Math.min(0, ...xs), Math.min(0, ...ys), Math.max(14, ...xs), Math.max(9, ...ys)];
+  };
+
+  plantaSvg.addEventListener('click', (ev) => {
+    if (amb.editando) return; // na edição quem manda é o arrasto
+    const cam = ev.target.closest('[data-cam]');
+    if (cam) {
+      selecionarNaPlanta('camera', cam.dataset.cam);
+      $(`[data-cam="${cam.dataset.cam}"]`)?.focus({ preventScroll: true });
+      return;
+    }
+    const movel = ev.target.closest('[data-movel]');
+    if (movel && PLANTA.moveis.find((m) => m.id === movel.dataset.movel)?.equip) selecionarNaPlanta('movel', movel.dataset.movel);
+  });
+  plantaSvg.addEventListener('keydown', (ev) => {
+    const cam = ev.target.closest('[data-cam]');
+    if (!cam || (ev.key !== 'Enter' && ev.key !== ' ')) return;
+    ev.preventDefault();
+    selecionarNaPlanta('camera', cam.dataset.cam);
+    $(`[data-cam="${cam.dataset.cam}"]`)?.focus({ preventScroll: true });
+  });
+
+  plantaSvg.addEventListener('pointerdown', (ev) => {
+    if (!amb.editando || amb.t > 0.02) return;
+    plantaSvg.setPointerCapture?.(ev.pointerId);
+    const [x, y] = noChao(ev);
+    if (ev.target.closest('[data-alca]')) { amb.gesto = { modo: 'girar' }; return; }
+    const cam = ev.target.closest('[data-cam]');
+    if (cam) {
+      amb.sel = { tipo: 'camera', id: cam.dataset.cam };
+      amb.gesto = { modo: 'camera' };
+      desenharAmbiente();
+      return;
+    }
+    if (amb.ferramenta) { amb.gesto = { modo: 'desenhar', x, y, ret: null }; return; }
+    // o menor retângulo que contém o ponto: equipamento antes de ambiente
+    const contem = (r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+    const movel = PLANTA.moveis.filter(contem).sort((a, b) => a.w * a.h - b.w * b.h)[0];
+    const ambiente = PLANTA.ambientes.filter(contem).sort((a, b) => a.w * a.h - b.w * b.h)[0];
+    const alvo = movel ?? ambiente;
+    if (!alvo) { selecionarNaPlanta('', ''); return; }
+    amb.sel = { tipo: movel ? 'movel' : 'ambiente', id: alvo.id };
+    amb.gesto = { modo: 'mover', dx: x - alvo.x, dy: y - alvo.y, x0: alvo.x, y0: alvo.y, mexeu: false };
+    desenharAmbiente();
+  });
+  plantaSvg.addEventListener('pointermove', (ev) => {
+    const g = amb.gesto;
+    if (!g) return;
+    const [x, y] = noChao(ev);
+    const [minX, minY, maxX, maxY] = limites();
+    if (g.modo === 'camera' || g.modo === 'girar') {
+      const cam = PLANTA.cameras.find((c) => c.canal === amb.sel.id);
+      if (g.modo === 'camera') {
+        cam.x = noLimite(grade(x, 0.1), minX, maxX);
+        cam.y = noLimite(grade(y, 0.1), minY, maxY);
+      } else {
+        cam.dir = (Math.round((Math.atan2(y - cam.y, x - cam.x) * 180) / Math.PI) + 360) % 360;
+      }
+      desenharPlanta();
+      return;
+    }
+    if (g.modo === 'desenhar') {
+      const x1 = grade(Math.min(g.x, x), 0.25);
+      const y1 = grade(Math.min(g.y, y), 0.25);
+      g.ret = { x: x1, y: y1, w: grade(Math.abs(x - g.x), 0.25), h: grade(Math.abs(y - g.y), 0.25) };
+      desenharPlanta();
+      return;
+    }
+    const item = (amb.sel.tipo === 'movel' ? PLANTA.moveis : PLANTA.ambientes).find((i) => i.id === amb.sel.id);
+    const passo = amb.sel.tipo === 'movel' ? 0.1 : 0.5;
+    const nx = noLimite(grade(x - g.dx, passo), minX, maxX - item.w);
+    const ny = noLimite(grade(y - g.dy, passo), minY, maxY - item.h);
+    if (nx !== item.x || ny !== item.y) g.mexeu = true;
+    // quem mora dentro do ambiente vai junto com ele
+    if (amb.sel.tipo === 'ambiente') {
+      const [mx, my] = [nx - item.x, ny - item.y];
+      const dentro = (px, py) => px >= item.x && px <= item.x + item.w && py >= item.y && py <= item.y + item.h;
+      for (const m of PLANTA.moveis) if (dentro(...centro(m))) { m.x += mx; m.y += my; }
+      for (const c of PLANTA.cameras) if (dentro(c.x, c.y)) { c.x += mx; c.y += my; }
+    }
+    item.x = nx;
+    item.y = ny;
+    desenharPlanta();
+  });
+  const soltarNaPlanta = () => {
+    const g = amb.gesto;
+    if (!g) return;
+    amb.gesto = null;
+    if (g.modo === 'desenhar') {
+      const r = g.ret;
+      if (r && r.w >= 0.5 && r.h >= 0.5) {
+        const id = `novo-${Date.now().toString(36)}`;
+        if (amb.ferramenta === 'ambiente') PLANTA.ambientes.push({ id, nome: `Ambiente ${PLANTA.ambientes.length + 1}`, setor: ARVORE[0].setor, ...r });
+        else PLANTA.moveis.push({ id, nome: 'Equipamento', alt: 0.9, ...r });
+        amb.sel = { tipo: amb.ferramenta === 'ambiente' ? 'ambiente' : 'movel', id };
+        avisar(amb.ferramenta === 'ambiente' ? 'Ambiente criado. Dê um nome e escolha o setor.' : 'Equipamento posto na planta. Dê um nome; o cadastro completo fica no inventário.');
+        amb.ferramenta = '';
+      }
+    }
+    desenharAmbiente();
+    if (g.modo === 'desenhar') $('#amb-nome')?.select();
+  };
+  plantaSvg.addEventListener('pointerup', soltarNaPlanta);
+  plantaSvg.addEventListener('pointercancel', soltarNaPlanta);
+
+  // ── o inventário ──
+  /** O retrato do equipamento: no protótipo, um desenho; no console, a foto. */
+  function miniDoEquip(tipo, origem = 'canal') {
+    const fundo = origem === 'canal' ? '#B9C2CE' : '#D8CFC2';
+    const formas = {
+      chapa: '<rect x="14" y="16" width="100" height="40" rx="4" fill="#5F6B7A"/><rect x="20" y="21" width="42" height="30" rx="2" fill="#8D99A8"/><rect x="66" y="21" width="42" height="30" rx="2" fill="#8D99A8"/>',
+      fritadeira: '<rect x="30" y="12" width="68" height="48" rx="4" fill="#5F6B7A"/><rect x="36" y="18" width="26" height="36" rx="2" fill="#E2B94B"/><rect x="66" y="18" width="26" height="36" rx="2" fill="#E2B94B"/>',
+      bancada: '<rect x="8" y="20" width="112" height="34" rx="3" fill="#8D99A8"/><rect x="12" y="23" width="20" height="12" rx="2" fill="#5F7A6B"/><rect x="36" y="23" width="20" height="12" rx="2" fill="#C99A6B"/><rect x="60" y="23" width="20" height="12" rx="2" fill="#BE5B5B"/><rect x="88" y="38" width="28" height="12" rx="2" fill="#E7D9A8"/>',
+      'geladeira ou freezer': '<rect x="42" y="6" width="44" height="60" rx="4" fill="#DDE5EE"/><rect x="42" y="30" width="44" height="2" fill="#8D99A8"/><rect x="80" y="12" width="2" height="12" fill="#5F6B7A"/><rect x="80" y="38" width="2" height="16" fill="#5F6B7A"/>',
+      'balcão': '<rect x="6" y="28" width="116" height="20" rx="3" fill="#2A3442"/><rect x="12" y="32" width="18" height="12" rx="2" fill="#586474"/><rect x="92" y="32" width="24" height="12" rx="2" fill="#8D99A8"/>',
+      caixa: '<rect x="26" y="26" width="76" height="26" rx="3" fill="#2A3442"/><rect x="48" y="10" width="32" height="20" rx="2" fill="#586474"/><rect x="34" y="40" width="60" height="8" rx="2" fill="#8D99A8"/>',
+      prateleira: '<rect x="18" y="8" width="92" height="56" rx="2" fill="#7F8B9A"/><rect x="18" y="24" width="92" height="3" fill="#2A3442"/><rect x="18" y="42" width="92" height="3" fill="#2A3442"/><rect x="26" y="12" width="14" height="12" fill="#E2B94B"/><rect x="50" y="30" width="18" height="12" fill="#C99A6B"/>',
+    };
+    return `<svg viewBox="0 0 128 72" aria-hidden="true"><rect width="128" height="72" fill="${fundo}"/>${formas[tipo] ?? formas.bancada}</svg>`;
+  }
+
+  function desenharInventario() {
+    const lugar = ([canal, area]) => `${canalDe(canal).nome} (${canalDe(canal).num})${area === 'quadro inteiro' ? '' : ` · ${area}`}`;
+    $('[data-inventario]').innerHTML = ARVORE.map((s, i) => {
+      const doSetor = Object.entries(EQUIPAMENTOS).filter(([, e]) => e.setor === s.setor);
+      const cartoes = doSetor
+        .map(([id, e]) => {
+          const pronta = e.fotos.includes('canal') && e.aparece.length > 0;
+          return (
+            `<article class="equip cartao"><div class="equip-foto">${e.fotos.length ? miniDoEquip(e.tipo, e.fotos[0]) : `<span>${icone('image', 'g')}</span>`}</div>` +
+            `<div class="equip-corpo"><h3>${e.nome}</h3><p>${e.tipo}${e.aparece.length ? ` · ${e.aparece.map(lugar).join(', ')}` : ' · nenhuma câmera marcada'}</p>` +
+            `<div class="canal-chips"><span class="chip ${e.fotos.length ? 'ok' : 'atencao'}">${e.fotos.length ? `${plural(e.fotos.length, 'foto', 'fotos')} de 4` : 'sem foto'}</span>` +
+            `<span class="chip ${e.descricao ? 'ok' : ''}">${e.descricao ? 'descrito' : 'sem descrição'}</span>` +
+            (pronta ? `<span class="chip vazado" title="Tem a foto tirada do quadro do canal e o lugar marcado">${icone('cpu')}compara na loja</span>` : '') +
+            `</div></div>` +
+            `<div class="canal-pe"><span>${e.conferir.length ? `${plural(e.conferir.length, 'ponto', 'pontos')} a conferir` : 'nada a conferir ainda'}</span>` +
+            `<button class="elo" type="button" data-equip-abrir="${id}">Abrir${icone('arrow-right', 'p')}</button></div></article>`
+          );
+        })
+        .join('');
+      return (
+        `<section class="secao" aria-labelledby="inv-${i}"><div class="setor-cab">${icone('folder')}<h2 id="inv-${i}">${s.setor}</h2>` +
+        `<span class="suave">${doSetor.length ? plural(doSetor.length, 'equipamento', 'equipamentos') : 'nenhum equipamento'}</span></div>` +
+        (cartoes ? `<div class="equips">${cartoes}</div>` : '<p class="vazio-linha">Nenhum equipamento cadastrado neste setor.</p>') +
+        `</section>`
+      );
+    }).join('');
+  }
+
+  const feq = { id: '', fotos: [], conferir: [] };
+  function desenharFotosDoEquip() {
+    const tipo = $('#feq-tipo').value;
+    $('[data-feq-conta]').textContent = `· ${feq.fotos.length} de 4`;
+    $('[data-feq-fotos]').innerHTML = Array.from({ length: 4 }, (_, i) => {
+      const origem = feq.fotos[i];
+      return origem
+        ? `<li class="foto">${miniDoEquip(tipo, origem)}<span>${origem === 'canal' ? 'do quadro do canal' : 'do celular'}</span>` +
+          `<button class="btn fantasma quadrado mini" type="button" data-feq-tirar="${i}" data-so-config aria-label="Tirar a foto ${i + 1}">${icone('x')}</button></li>`
+        : `<li class="foto vazia"><span>${i === feq.fotos.length ? 'próxima foto' : ''}</span></li>`;
+    }).join('');
+    for (const b of $$('[data-feq-foto]')) b.disabled = feq.fotos.length >= 4;
+  }
+  function desenharConferirDoEquip() {
+    $('[data-feq-conferir]').hidden = feq.conferir.length === 0;
+    $('[data-feq-conferir-lista]').innerHTML = feq.conferir
+      .map(
+        (texto, i) =>
+          `<li><span class="selo-ic">${icone('scan-search')}</span><span><b>${texto}</b></span>` +
+          `<button class="btn secundario mini" type="button" data-feq-criterio="${i}" data-so-config>Criar critério</button></li>`,
+      )
+      .join('');
+  }
+
+  function abrirEquipamento(id, gatilho) {
+    const e = EQUIPAMENTOS[id];
+    feq.id = id;
+    feq.fotos = e ? [...e.fotos] : [];
+    feq.conferir = e ? [...e.conferir] : [];
+    contexto = { ...contexto, nome: e?.nome ?? '' };
+    abrirFolha('folha-equip', e ? 'editar' : 'novo', gatilho);
+    $('[data-feq-titulo]').textContent = e ? e.nome : 'Novo equipamento';
+    $('#feq-nome').value = e?.nome ?? '';
+    $('#feq-setor').value = e?.setor ?? 'Cozinha';
+    $('#feq-tipo').value = e?.tipo ?? 'chapa';
+    $('#feq-desc').value = e?.descricao ?? '';
+    $('[data-feq-aparece]').innerHTML = e?.aparece.length
+      ? e.aparece
+          .map(([canal, area]) => `<li><span class="selo-ic">${icone('cctv')}</span><span><b>${canalDe(canal).nome}</b><small>canal ${canalDe(canal).num} · ${area}</small></span><a class="elo" href="#area" data-ir="area">Ver</a></li>`)
+          .join('')
+      : '<li class="vazio-linha">Nenhuma câmera marcada. Ponha o equipamento na planta, ou marque a área dele no quadro de um canal.</li>';
+    // Quem só vê abre o cadastro para LER: a gaveta fica fora do console,
+    // então a regra que esconde os botões de quem configura não chega nela.
+    const soLe = app.dataset.perfil === 'supervisao';
+    $('#folha-equip').dataset.leitura = String(soLe);
+    for (const campo of $$('#f-equip input, #f-equip select, #f-equip textarea')) campo.disabled = soLe;
+    desenharFotosDoEquip();
+    desenharConferirDoEquip();
+    if (!e) $('#feq-nome').focus({ preventScroll: true });
+  }
+
+  document.addEventListener('click', (ev) => {
+    const abrir = ev.target.closest('[data-equip-abrir]');
+    if (abrir) { abrirEquipamento(abrir.dataset.equipAbrir, abrir); return; }
+    const foto = ev.target.closest('[data-feq-foto]');
+    if (foto) {
+      feq.fotos.push(foto.dataset.feqFoto);
+      desenharFotosDoEquip();
+      avisar(foto.dataset.feqFoto === 'canal' ? 'Recorte do quadro do canal guardado como foto.' : 'Foto enviada.');
+      return;
+    }
+    const tirar = ev.target.closest('[data-feq-tirar]');
+    if (tirar) { feq.fotos.splice(Number(tirar.dataset.feqTirar), 1); desenharFotosDoEquip(); return; }
+    const analisar = ev.target.closest('[data-feq-analisar]');
+    if (analisar) {
+      if (!feq.fotos.length) { avisar('Ponha pelo menos uma foto: é dela que a descrição sai.'); return; }
+      const antes = analisar.innerHTML;
+      analisar.disabled = true;
+      analisar.innerHTML = `${icone('loader-circle', 'gira')}Analisando ${plural(feq.fotos.length, 'foto', 'fotos')}…`;
+      setTimeout(() => {
+        analisar.disabled = false;
+        analisar.innerHTML = antes;
+        const modelo = Object.values(EQUIPAMENTOS).find((e) => e.tipo === $('#feq-tipo').value && e.descricao) ?? EQUIPAMENTOS.montagem1;
+        $('#feq-desc').value = modelo.descricao;
+        feq.conferir = [...modelo.conferir];
+        desenharConferirDoEquip();
+        avisar('Descrição pronta. Leia e corrija o que não bater antes de salvar.');
+      }, calmo ? 0 : 1500);
+      return;
+    }
+    const criterio = ev.target.closest('[data-feq-criterio]');
+    if (criterio) {
+      const texto = feq.conferir[Number(criterio.dataset.feqCriterio)];
+      const e = EQUIPAMENTOS[feq.id];
+      const [canal, area] = e?.aparece[0] ?? [];
+      const nomeDoCanal = canal ? canalDe(canal).nome : '';
+      contexto = { ...contexto, nome: '', criterio: '', canalNovo: canal ? (area === 'quadro inteiro' ? nomeDoCanal : `${nomeDoCanal}/${area}`) : '' };
+      abrirFolha('folha-criterio', 'novo', null);
+      $('#fcr-nome').value = texto;
+      $('#fcr-texto').value = `${texto}.`;
+      $('#fcr-p-livre').checked = true;
+      $('#fcr-ref').checked = true;
+    }
+  });
+  $('#feq-tipo').addEventListener('change', desenharFotosDoEquip);
+  $('#f-equip').addEventListener('submit', () => {
+    const nome = $('#feq-nome').value.trim();
+    const id = feq.id || `equip-${Date.now().toString(36)}`;
+    EQUIPAMENTOS[id] = {
+      ...(EQUIPAMENTOS[id] ?? { aparece: [] }),
+      nome, setor: $('#feq-setor').value.startsWith('＋') ? 'Cozinha' : $('#feq-setor').value, tipo: $('#feq-tipo').value,
+      fotos: [...feq.fotos], descricao: $('#feq-desc').value.trim(), conferir: [...feq.conferir],
+    };
+    $('#f-equip').dataset.sucessoNovo = $('#f-equip').dataset.sucessoEditar = `“${nome}” salvo no inventário.`;
+    desenharInventario();
+    if (!$('[data-tela="ambiente"]').hidden) desenharAmbiente();
+  }, { capture: true });
+
   // ═══════════════════════ partida ═══════════════════════
   desenharCriterios();
   desenharOndeVale();
   ajustarTipo();
   desenharArea();
+  desenharPadrao();
+  desenharInventario();
+  pdContarRever();
   pintarTema();
+  // a planta é desenhada no tamanho em que aparece: mudou a janela, redesenha
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(() => { if (!$('[data-tela="ambiente"]').hidden) desenharPlanta(); }).observe($('[data-planta]'));
+    new ResizeObserver(() => { if ($('[data-pd-hoje]').clientWidth > 0) pdHoje(); }).observe($('[data-pd-hoje]'));
+  }
 
   // O endereço manda: #canais abre Canais, #entrar abre a entrada.
   function seguirEndereco() {

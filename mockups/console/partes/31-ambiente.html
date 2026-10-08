@@ -1,0 +1,119 @@
+    <!-- ═════════════════════════ PLANTA DA LOJA ═════════════════════════ -->
+    <!-- O ambiente desenhado: os cômodos, os equipamentos e cada câmera no
+         lugar, com a direção para onde olha. Serve para três coisas:
+         achar ONDE cada coisa acontece; ver o que nenhuma câmera cobre; e
+         dar ao julgamento a descrição do lugar. A planta é feita de
+         retângulos em metros — é o que permite a conta de cobertura e a
+         descrição automática. -->
+    <section class="tela" data-tela="ambiente" aria-labelledby="t-ambiente" hidden>
+      <header class="cab">
+        <div>
+          <p class="sobre"><svg class="ic p" aria-hidden="true"><use href="#i-store"/></svg><span data-loja-nome>Loja Centro</span></p>
+          <h1 id="t-ambiente">Planta da loja</h1>
+          <p class="sub">Os ambientes, os equipamentos e cada câmera no seu lugar: onde está, para onde olha e o que cobre.</p>
+        </div>
+        <div class="cab-acoes" data-so-config>
+          <button class="btn secundario" type="button" data-amb-descartar hidden>Descartar mudanças</button>
+          <button class="btn secundario" type="button" data-amb-editar><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg><span>Editar planta</span></button>
+        </div>
+      </header>
+      <nav class="abas" aria-label="Vistas dos canais">
+        <a href="#canais" data-ir="canais"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg>Lista</a>
+        <a href="#ambiente" data-ir="ambiente" aria-current="page"><svg class="ic" aria-hidden="true"><use href="#i-map"/></svg>Planta</a>
+        <a href="#inventario" data-ir="inventario"><svg class="ic" aria-hidden="true"><use href="#i-package"/></svg>Inventário</a>
+      </nav>
+
+      <div class="corpo" data-quando="normal">
+        <div class="amb-grade">
+          <section class="cartao planta-cartao" aria-labelledby="t-planta">
+            <h2 class="so-leitor" id="t-planta">Planta</h2>
+            <div class="planta-barra">
+              <div class="seg" role="group" aria-label="Vista">
+                <button type="button" data-amb-vista="perspectiva" aria-pressed="true"><svg class="ic p" aria-hidden="true"><use href="#i-box"/></svg>Em perspectiva</button>
+                <button type="button" data-amb-vista="cima" aria-pressed="false"><svg class="ic p" aria-hidden="true"><use href="#i-square"/></svg>De cima</button>
+              </div>
+              <div class="seg" role="group" aria-label="O que a planta mostra" data-amb-so-leitura>
+                <button type="button" data-amb-camada="situacao" aria-pressed="true">Situação agora</button>
+                <button type="button" data-amb-camada="cobertura" aria-pressed="false">Cobertura</button>
+              </div>
+              <div class="empurra" data-amb-so-edicao hidden>
+                <button class="btn secundario mini" type="button" data-amb-ferramenta="ambiente" aria-pressed="false"><svg class="ic p" aria-hidden="true"><use href="#i-plus"/></svg>Ambiente</button>
+                <button class="btn secundario mini" type="button" data-amb-ferramenta="movel" aria-pressed="false"><svg class="ic p" aria-hidden="true"><use href="#i-plus"/></svg>Equipamento</button>
+              </div>
+            </div>
+            <div class="planta" data-planta>
+              <svg data-planta-svg viewBox="0 0 800 550" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Planta da loja com as câmeras"></svg>
+              <span class="tarja">exemplo<span class="resto"> · a planta de verdade é desenhada por você</span></span>
+            </div>
+            <div class="planta-legenda" data-amb-legenda></div>
+            <p class="nota" data-amb-nota></p>
+          </section>
+
+          <aside class="amb-lado" aria-label="O que está selecionado na planta">
+            <section class="cartao pad secao" data-amb-painel aria-live="polite"></section>
+            <section class="cartao pad secao" data-amb-cobertura hidden>
+              <h2>Cobertura por ambiente</h2>
+              <ul class="cobertura-lista" data-amb-cobertura-lista></ul>
+              <p class="nota">Estimativa pela posição, pela abertura e pelo alcance informados. Equipamento alto na frente da câmera não entra na conta. Canal sem imagem ou pausado não cobre nada.</p>
+            </section>
+            <section class="cartao pad secao" aria-labelledby="t-amb-cams">
+              <div class="secao-cab"><h2 id="t-amb-cams">Câmeras</h2></div>
+              <ul class="cam-lista" data-amb-cams aria-label="Câmeras da loja"></ul>
+            </section>
+          </aside>
+        </div>
+      </div>
+
+      <div class="vazio" data-quando="vazio">
+        <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-map"/></svg></span>
+        <h2>A loja ainda não tem planta</h2>
+        <p>Desenhe os ambientes como retângulos, ponha os equipamentos e arraste cada câmera para o lugar dela. Leva uns dez minutos e não precisa de medida exata.</p>
+        <button class="btn primario" type="button" data-toast="No console de verdade, a planta abre em branco, pronta para o primeiro ambiente." data-so-config><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Desenhar a planta</button>
+      </div>
+      <div class="ossos" data-quando="carregando" aria-hidden="true">
+        <div class="osso" style="height:420px"></div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════ INVENTÁRIO ═════════════════════════ -->
+    <!-- Os equipamentos de cada setor, com até quatro fotos de cada um limpo.
+         Uma análise só, na nuvem, descreve o equipamento e o que vale conferir
+         nele; a descrição fica guardada e vai junto com cada análise. A loja
+         compara com as FOTOS (a do recorte da própria câmera); o texto serve
+         à nuvem e a quem lê. -->
+    <section class="tela" data-tela="inventario" aria-labelledby="t-inventario" hidden>
+      <header class="cab">
+        <div>
+          <p class="sobre"><svg class="ic p" aria-hidden="true"><use href="#i-store"/></svg><span data-loja-nome>Loja Centro</span></p>
+          <h1 id="t-inventario">Inventário</h1>
+          <p class="sub">Os equipamentos de cada setor, como ficam quando estão limpos e no lugar. É com eles que a loja compara antes de perguntar à nuvem.</p>
+        </div>
+        <div class="cab-acoes" data-so-config>
+          <button class="btn primario" type="button" data-equip-abrir="" data-modo="novo"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Novo equipamento</button>
+        </div>
+      </header>
+      <nav class="abas" aria-label="Vistas dos canais">
+        <a href="#canais" data-ir="canais"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg>Lista</a>
+        <a href="#ambiente" data-ir="ambiente"><svg class="ic" aria-hidden="true"><use href="#i-map"/></svg>Planta</a>
+        <a href="#inventario" data-ir="inventario" aria-current="page"><svg class="ic" aria-hidden="true"><use href="#i-package"/></svg>Inventário</a>
+      </nav>
+
+      <div class="corpo" data-quando="normal">
+        <div data-inventario style="display:flex;flex-direction:column;gap:24px"></div>
+        <p class="aviso neutro">
+          <svg class="ic" aria-hidden="true"><use href="#i-info"/></svg>
+          <span>Para a loja comparar sozinha, a foto que vale é a <b>da própria câmera</b>: o recorte do equipamento no quadro do canal. Foto de celular, de perto, serve para descrever e identificar.</span>
+        </p>
+      </div>
+
+      <div class="vazio" data-quando="vazio">
+        <span class="selo-ic"><svg class="ic g" aria-hidden="true"><use href="#i-package"/></svg></span>
+        <h2>Nenhum equipamento cadastrado</h2>
+        <p>Comece pelo que mais importa conferir: a chapa, a bancada, o caixa. Para cada um, até quatro fotos dele limpo e uma descrição que o Farol escreve para você.</p>
+        <button class="btn primario" type="button" data-equip-abrir="" data-modo="novo" data-so-config><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Cadastrar o primeiro equipamento</button>
+      </div>
+      <div class="ossos" data-quando="carregando" aria-hidden="true">
+        <div class="osso" style="height:22px;width:160px"></div>
+        <div class="linha"><div class="osso" style="height:168px"></div><div class="osso" style="height:168px"></div><div class="osso" style="height:168px"></div><div class="osso" style="height:168px"></div></div>
+      </div>
+    </section>

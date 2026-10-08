@@ -1946,7 +1946,8 @@ outra, e é dele a decisão.
 **Fase 0 · Coletar a medida — feito (PR #52, migration 022).** O agente
 passa a guardar, por hora e por área, quantas pessoas o detector viu (soma,
 quantidade e maior valor), e não só "conforme / fora". Sem isso o padrão não
-tem do que ser feito. A semana de dados corre a partir da troca do agente.
+tem do que ser feito. O agente da loja foi trocado em 07/10/2026, às 23h19: a
+semana de dados corre desde então.
 
 **Fase 1 · O porteiro: a loja decide se vale chamar a nuvem.** Cada critério
 de nuvem passa a dizer quando a pergunta faz sentido: "só conferir com pessoa
@@ -1958,15 +1959,43 @@ primeiro dia mediu, no canal 6 tira 56% das chamadas sem perder veredito
 nenhum; nos outros canais o próprio porteiro passa a medir. *Tela: uma opção
 no formulário do critério.*
 
-**Fase 2 · Foto padrão e comparação na loja.** Em cada área, o responsável
-escolhe o quadro que representa o ambiente limpo, organizado e sem ninguém
-(mais de um: manhã, noite). A comparação é feita na loja: parecido com o
-padrão → conforme, sem custo; diferente → vai à nuvem **com a foto padrão ao
-lado**; diferente por várias olhadas seguidas → aviso. **Antes de prometer
-acerto, medir**: com as imagens que a loja já guardou e o veredito da nuvem
-como gabarito (`farol-agent ensaio`), comparar os métodos e escolher o
-limiar. *Tela: a foto padrão na tela do canal; "comparar com o padrão" no
-critério.*
+**Fase 2 · Inventário, foto padrão e comparação na loja.** Duas referências
+do que é "limpo e no lugar", guardadas uma vez:
+
+- **Foto padrão do canal** — o quadro do ambiente limpo, organizado e sem
+  ninguém (mais de uma: dia, noite). Vale para todas as áreas do canal:
+  cada critério compara o recorte da sua área.
+- **Inventário de equipamentos** (pedido do dono na madrugada de
+  08/10/2026): "os equipamentos por setores, onde poderíamos ter até 4
+  fotos do equipamento devidamente limpo, para identificar seu lugar no
+  setor e padrão; uma única análise dele completa e sua descrição ficava
+  guardada na base para ajudar em análises locais". Cada equipamento tem
+  setor, tipo, até quatro fotos, onde aparece (canal e área) e a
+  descrição — escrita **uma vez**, na nuvem, a partir das fotos, com a
+  lista do que vale conferir nele. Na planta (fase 4), o equipamento é o
+  próprio móvel desenhado.
+
+A comparação é feita na loja: parecido com a referência → conforme, sem
+custo; diferente → vai à nuvem **com a referência e a descrição ao lado**;
+diferente por várias olhadas seguidas → aviso.
+
+Dois limites, para não prometer errado:
+
+1. **A loja compara com FOTO, não com texto.** A descrição serve à nuvem,
+   a quem lê e à sugestão de critério. E a foto que vale para comparar é a
+   **da própria câmera** — o recorte do equipamento no quadro do canal.
+   Foto de celular, de perto, serve para descrever e identificar.
+2. **O detector da loja não conhece "chapa" nem "fritadeira"** (ele conhece
+   17 coisas: pessoa, copo, faca, geladeira…). O lugar do equipamento na
+   imagem é marcado uma vez — à mão, ou sugerido pela análise única e
+   ajustado —, não achado sozinho a cada olhada.
+
+O banco já tem onde guardar as duas (`base_conhecimento`, tipos `padrao` e
+`item`, e `base_frame`, desde a migration 001); faltam o setor, o tipo, o
+lugar e a tela. **Antes de prometer acerto, medir**: com as imagens que a
+loja já guardou e o veredito da nuvem como gabarito (`farol-agent ensaio`),
+comparar os métodos e escolher o limiar. *Telas: Inventário (aba em
+Canais), a foto padrão na tela do canal, e "comparação" no critério.*
 
 **Fase 3 · Programação de análise pela folga da máquina.** Com o processador
 a 3%, o que é julgado na loja pode ser olhado a cada 5 a 10 segundos em vez
@@ -2019,6 +2048,47 @@ de linguagem a partir desses números, uma vez por dia ou por semana — texto
 sobre contagem, centavos por loja. O modelo não vê imagem e não inventa
 número: cada frase aponta o dado de onde saiu.
 
+### O silêncio do critério deixa buraco no padrão
+
+Visto na loja na noite de 07/10: depois de cada aviso, o critério de nuvem
+fica o período de silêncio **sem olhar** — "Uso da gaveta" parou às 23h13m59
+e voltou às 23h28m49; uniforme e chapa, o mesmo desenho. É economia, e está
+certo para o aviso. Para o padrão, é um buraco: "fora do critério em 8% das
+olhadas" não conta o tempo em que ninguém olhou justamente depois de achar
+um problema. O dado para corrigir isso já existe: o resumo de cada hora
+conta as olhadas que caíram no silêncio (`em_silencio`), ao lado das
+repetidas e das já julgadas. O motor de padrões faz a conta sobre a parte
+da hora que foi olhada, e diz quando ela é pequena. Com a comparação na
+loja (fase 2), o critério pode continuar sendo conferido durante o
+silêncio, sem custo.
+
+### Os protótipos (em aprovação desde 08/10/2026)
+
+Em `mockups/farol-console.html`:
+
+| onde | o que mostra |
+|---|---|
+| **Análises → Padrões** | o parecer; as quatro lentes (frequência, anomalias, tendência, sugestões); a revisão de cada saída do padrão — "era esperado" ou "é problema" — e a correção virando critério |
+| **Canais → Planta** | os ambientes, os equipamentos e as câmeras; em perspectiva e de cima; situação agora e cobertura; edição por arrasto |
+| **Canais → Inventário** | os equipamentos por setor, as fotos, a análise única e o que vale conferir |
+| **Quadro e área** | a foto padrão do canal e a comparação com o quadro de agora |
+| **gaveta do critério** | "quando vale a pena conferir" (o porteiro), a faixa de horas, "avisar só se continuar" e a comparação com a foto padrão |
+
+O que o protótipo mostra e depende de coisa que ainda não existe:
+
+- **A lista de saídas do padrão é a do exemplo.** A regra que decide o que
+  é "muito diferente do normal" (mediana e dispersão por dia da semana e
+  hora) se escolhe com a primeira semana de dados da loja, medindo quantas
+  aponta por dia — anomalia demais vira ruído.
+- **"Nada a conferir"** (a olhada que o porteiro segurou) é um quarto
+  resultado. Na tela Análises ele entra como mais uma fatia; o desenho
+  disso vem com a fase 1.
+- **A faixa de horas do critério** já existe no banco, na API e no agente
+  (`regra.janelas`); falta só o campo na tela.
+- **A planta, o inventário e a foto padrão** pedem tabelas novas e o envio
+  de imagem pelo console.
+- **O parecer** do protótipo é montado dos números, sem modelo de linguagem.
+
 ### O que vale para todas as fases
 
 - Imagem de loja não sai da loja além do que já sai hoje; tudo aqui é número.
@@ -2033,6 +2103,10 @@ número: cada frase aponta o dado de onde saiu.
 2. Quem recebe as saídas do padrão (o gerente da loja? a diretoria?) e por
    onde (só na tela, ou também pelo aviso).
 3. Se o parecer escrito por modelo de linguagem entra, e com que frequência.
+4. As fotos do inventário e a foto padrão sobem para a nuvem (para a
+   análise única e para o console mostrar). São imagens da loja, sem
+   pessoas: o detector avisa quando há alguém no quadro, mas quem decide
+   guardar é o responsável.
 
 ---
 

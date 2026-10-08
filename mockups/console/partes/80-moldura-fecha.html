@@ -131,6 +131,12 @@
       <p class="nota">Na dúvida o detector responde “não deu para avaliar” em vez de avisar: um casaco pendurado não vira pessoa.</p>
     </fieldset>
 
+    <fieldset data-comparacao hidden>
+      <legend>Com o que comparar</legend>
+      <p class="nota">Com a <b>foto padrão</b> do canal em que o critério valer. É julgado <b>dentro da loja</b>: parecido com o padrão é conforme, sem custo. Só vai à nuvem — com a foto padrão ao lado — quando a loja ficar em dúvida.</p>
+      <p class="aviso neutro"><svg class="ic" aria-hidden="true"><use href="#i-image"/></svg><span>Canal sem foto padrão não é conferido: o critério fica marcado com “falta a foto padrão” até ela existir.</span></p>
+    </fieldset>
+
     <div class="campo">
       <label for="fcr-texto">O que é “conforme”</label>
       <textarea class="entrada" id="fcr-texto" rows="3" placeholder="A superfície de trabalho está livre de restos de alimento, embalagens descartadas e utensílios sujos." required></textarea>
@@ -151,7 +157,24 @@
         <div class="escolha"><input type="radio" name="fcr-quando" id="fcr-q-sempre" value="sempre"><label for="fcr-q-sempre"><b><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>Sempre</b><small>aberta ou fechada</small></label></div>
       </div>
       <small>O horário é o da loja: <span data-horario-resumo></span>. Mudou lá, mudou para todos os critérios.</small>
+      <label class="linha-caixa" for="fcr-janela"><input class="caixa" type="checkbox" id="fcr-janela"><span>Só numa faixa de horas</span></label>
+      <div class="pares" data-janela hidden>
+        <div class="campo"><label for="fcr-j-de">Das</label><input class="entrada mono" type="time" id="fcr-j-de" value="20:00"></div>
+        <div class="campo"><label for="fcr-j-ate">Às</label><input class="entrada mono" type="time" id="fcr-j-ate" value="22:00"></div>
+      </div>
     </div>
+
+    <fieldset data-porteiro>
+      <legend>Quando vale a pena conferir</legend>
+      <div class="escolhas" role="radiogroup" aria-label="Quando vale a pena conferir">
+        <div class="escolha"><input type="radio" name="fcr-porteiro" id="fcr-p-sempre" value="sempre" checked><label for="fcr-p-sempre"><b><svg class="ic" aria-hidden="true"><use href="#i-refresh-cw"/></svg>Em toda olhada</b><small>mesmo sem ninguém na imagem</small></label></div>
+        <div class="escolha"><input type="radio" name="fcr-porteiro" id="fcr-p-pessoa" value="pessoa"><label for="fcr-p-pessoa"><b><svg class="ic" aria-hidden="true"><use href="#i-user-round-check"/></svg>Com pessoa na área</b><small>uniforme, touca, uso de equipamento</small></label></div>
+        <div class="escolha"><input type="radio" name="fcr-porteiro" id="fcr-p-livre" value="livre"><label for="fcr-p-livre"><b><svg class="ic" aria-hidden="true"><use href="#i-scan-search"/></svg>Com a área livre</b><small>limpeza e organização: gente na frente esconde</small></label></div>
+        <div class="escolha" data-so-acao><input type="radio" name="fcr-porteiro" id="fcr-p-movimento" value="movimento"><label for="fcr-p-movimento"><b><svg class="ic" aria-hidden="true"><use href="#i-activity"/></svg>Quando algo se mexe</b><small>ação: sem movimento não há o que julgar</small></label></div>
+      </div>
+      <p class="nota">Quem responde é o detector, dentro da loja e sem custo. Quando a condição não vale, a olhada conta como <b>“nada a conferir”</b>: não vai à nuvem e não entra em “não deu para avaliar”.</p>
+      <label class="linha-caixa" for="fcr-ref" data-so-estado><input class="caixa" type="checkbox" id="fcr-ref"><span>Mandar a foto padrão do canal junto, para a nuvem comparar com ela</span></label>
+    </fieldset>
 
     <fieldset>
       <legend>Quando avisar</legend>
@@ -160,6 +183,7 @@
         <div class="campo"><label for="fcr-sev">Gravidade</label><select class="entrada" id="fcr-sev"><option>informativo</option><option selected>atenção</option><option>crítico</option><option>emergência</option></select></div>
         <div class="campo"><label for="fcr-conf">Confiança mínima</label><input class="entrada mono" id="fcr-conf" type="number" min="0" max="1" step="0.05" value="0.70"><small>Abaixo disso o resultado é registrado, mas não vira aviso.</small></div>
         <div class="campo"><label for="fcr-sil">Silêncio entre avisos, em minutos</label><input class="entrada mono" id="fcr-sil" type="number" min="0" value="15"><small>Vale por canal: o aviso de um não cala os outros.</small></div>
+        <div class="campo largo"><label for="fcr-continua">Avisar só se continuar</label><select class="entrada" id="fcr-continua"><option selected>na primeira olhada fora do critério</option><option>por 2 olhadas seguidas</option><option>por 3 olhadas seguidas</option><option>por 5 olhadas seguidas</option></select><small>Evita aviso por algo que durou um instante.</small></div>
       </div>
     </fieldset>
   </form>
@@ -241,6 +265,117 @@
   <footer class="folha-pe">
     <button class="btn primario" type="submit" form="f-regra">Salvar regra</button>
     <button class="btn secundario" type="button" data-fecha>Cancelar</button>
+  </footer>
+</section>
+
+<section class="folha" id="folha-esperado" role="dialog" aria-modal="true" aria-labelledby="fes-titulo" hidden>
+  <header class="folha-cab">
+    <div><h2 id="fes-titulo">Era esperado</h2><p>Conte ao padrão por que isso não é problema.</p></div>
+    <button class="btn fantasma quadrado mini" type="button" data-fecha aria-label="Fechar"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </header>
+  <form class="folha-corpo" id="f-esperado">
+    <div class="resumo-anomalia" data-fes-resumo></div>
+    <div class="campo">
+      <span class="rotulo" id="fes-r">Por que era esperado</span>
+      <div class="escolhas empilha" role="radiogroup" aria-labelledby="fes-r">
+        <div class="escolha"><input type="radio" name="fes-motivo" id="fes-sempre" value="sempre" checked><label for="fes-sempre"><b>Acontece sempre neste dia e hora</b><small>O padrão passa a contar com isso e deixa de apontar.</small></label></div>
+        <div class="escolha"><input type="radio" name="fes-motivo" id="fes-vez" value="vez"><label for="fes-vez"><b>Foi só desta vez</b><small>Feriado, evento, falta de luz. Esta hora fica de fora da conta do padrão.</small></label></div>
+      </div>
+    </div>
+    <div class="campo"><label for="fes-nota">Anotação (opcional)</label><textarea class="entrada" id="fes-nota" rows="2" placeholder="Jogo na TV: reforcei o balcão."></textarea></div>
+  </form>
+  <footer class="folha-pe">
+    <button class="btn primario" type="submit" form="f-esperado">Marcar como esperado</button>
+    <button class="btn secundario" type="button" data-fecha>Cancelar</button>
+  </footer>
+</section>
+
+<section class="folha" id="folha-correcao" role="dialog" aria-modal="true" aria-labelledby="fco-titulo" hidden>
+  <header class="folha-cab">
+    <div><h2 id="fco-titulo">Registrar correção</h2><p>O que houve, o que foi feito e como não repetir.</p></div>
+    <button class="btn fantasma quadrado mini" type="button" data-fecha aria-label="Fechar"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </header>
+  <form class="folha-corpo" id="f-correcao">
+    <div class="resumo-anomalia" data-fco-resumo></div>
+    <div class="campo"><label for="fco-houve">O que aconteceu</label><textarea class="entrada" id="fco-houve" rows="2" placeholder="Ex.: um atendente faltou e o balcão ficou com uma pessoa só." required></textarea></div>
+    <div class="campo"><label for="fco-feito">O que foi feito</label><textarea class="entrada" id="fco-feito" rows="2" placeholder="Ex.: remanejei uma pessoa do salão das 20h às 22h." required></textarea></div>
+    <div class="campo">
+      <span class="rotulo" id="fco-r">Para não repetir</span>
+      <div class="escolhas empilha" role="radiogroup" aria-labelledby="fco-r">
+        <div class="escolha" data-fco-opcao="criar"><input type="radio" name="fco-depois" id="fco-criar" value="criar" checked><label for="fco-criar"><b>Criar um critério que avisa quando repetir</b><small>Nasce desligado: você revisa e liga.</small></label></div>
+        <div class="escolha" data-fco-opcao="ajustar"><input type="radio" name="fco-depois" id="fco-ajustar" value="ajustar"><label for="fco-ajustar"><b>Ajustar um critério que já existe</b><small>Abre o critério para você mudar o limite ou o silêncio.</small></label></div>
+        <div class="escolha"><input type="radio" name="fco-depois" id="fco-nada" value="nada"><label for="fco-nada"><b>Só registrar</b><small>Fica no histórico desta saída do padrão.</small></label></div>
+      </div>
+    </div>
+    <div class="previa-criterio" data-fco-previa></div>
+  </form>
+  <footer class="folha-pe">
+    <button class="btn primario" type="submit" form="f-correcao">Registrar correção</button>
+    <button class="btn secundario" type="button" data-fecha>Cancelar</button>
+  </footer>
+</section>
+
+<section class="folha" id="folha-padrao" role="dialog" aria-modal="true" aria-labelledby="fpa-titulo" hidden>
+  <header class="folha-cab">
+    <div><h2 id="fpa-titulo">Guardar como foto padrão</h2><p>O quadro de agora passa a ser uma referência deste canal.</p></div>
+    <button class="btn fantasma quadrado mini" type="button" data-fecha aria-label="Fechar"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </header>
+  <form class="folha-corpo" id="f-padrao" data-sucesso-novo="Foto padrão guardada. O agente recebe na próxima batida.">
+    <p class="aviso"><svg class="ic" aria-hidden="true"><use href="#i-users"/></svg><span><b>O detector vê 4 pessoas no quadro de agora.</b> A foto padrão fica melhor sem ninguém na frente do que importa: se der, espere esvaziar e atualize o quadro.</span></p>
+    <div class="campo"><label for="fpa-nome">Nome desta foto</label><input class="entrada" id="fpa-nome" placeholder="Noite, loja aberta" required><small>Guarde uma para cada situação de luz: dia, noite, loja fechada.</small></div>
+    <div class="campo">
+      <span class="rotulo">Antes de guardar, confira</span>
+      <ul class="lista-conferir">
+        <li><label class="linha-caixa" for="fpa-c1"><input class="caixa" type="checkbox" id="fpa-c1"><span>O ambiente está limpo e organizado, como deve ficar</span></label></li>
+        <li><label class="linha-caixa" for="fpa-c2"><input class="caixa" type="checkbox" id="fpa-c2"><span>Não há ninguém na frente do que importa</span></label></li>
+        <li><label class="linha-caixa" for="fpa-c3"><input class="caixa" type="checkbox" id="fpa-c3"><span>A luz é a de costume neste horário</span></label></li>
+      </ul>
+    </div>
+  </form>
+  <footer class="folha-pe">
+    <button class="btn primario" type="submit" form="f-padrao">Guardar foto padrão</button>
+    <button class="btn secundario" type="button" data-fecha>Cancelar</button>
+  </footer>
+</section>
+
+<section class="folha" id="folha-equip" role="dialog" aria-modal="true" aria-labelledby="feq-titulo" hidden>
+  <header class="folha-cab">
+    <div><h2 id="feq-titulo" data-feq-titulo>Novo equipamento</h2><p>Como ele fica quando está limpo e no lugar.</p></div>
+    <button class="btn fantasma quadrado mini" type="button" data-fecha aria-label="Fechar"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </header>
+  <form class="folha-corpo" id="f-equip" data-sucesso-novo="Equipamento salvo.">
+    <div class="campos">
+      <div class="campo largo"><label for="feq-nome">Nome</label><input class="entrada" id="feq-nome" placeholder="Chapa" required></div>
+      <div class="campo"><label for="feq-setor">Setor</label><select class="entrada" id="feq-setor"><option>Cozinha</option><option>Atendimento</option><option>Estoque</option><option>＋ cadastrar novo setor</option></select></div>
+      <div class="campo"><label for="feq-tipo">Tipo</label><select class="entrada" id="feq-tipo"><option>chapa</option><option>fritadeira</option><option>bancada</option><option>geladeira ou freezer</option><option>balcão</option><option>caixa</option><option>prateleira</option><option>pia</option><option>outro</option></select></div>
+    </div>
+    <div class="campo">
+      <span class="rotulo">Fotos do equipamento limpo <span class="suave" data-feq-conta></span></span>
+      <ul class="fotos-grade" data-feq-fotos></ul>
+      <div class="fotos-acoes" data-so-config>
+        <button class="btn secundario mini" type="button" data-feq-foto="canal"><svg class="ic p" aria-hidden="true"><use href="#i-cctv"/></svg>Usar o quadro de um canal</button>
+        <button class="btn secundario mini" type="button" data-feq-foto="celular"><svg class="ic p" aria-hidden="true"><use href="#i-image"/></svg>Enviar foto</button>
+      </div>
+      <small>Sem ninguém na frente. A foto tirada do quadro do canal é a que a loja usa para comparar sozinha; a do celular, de perto, serve para descrever.</small>
+    </div>
+    <div class="campo">
+      <span class="rotulo">Onde aparece</span>
+      <ul class="area-criterios" data-feq-aparece></ul>
+    </div>
+    <fieldset>
+      <legend>Descrição</legend>
+      <p class="nota">Feita <b>uma vez</b>, na nuvem, a partir das fotos. Custa centavos. Vai junto com cada análise deste equipamento, e você pode corrigir o texto.</p>
+      <textarea class="entrada" id="feq-desc" rows="5" placeholder="Ainda sem descrição." aria-label="Descrição do equipamento"></textarea>
+      <button class="btn secundario" type="button" data-feq-analisar data-so-config style="align-self:flex-start"><svg class="ic" aria-hidden="true"><use href="#i-scan-eye"/></svg>Analisar as fotos e descrever</button>
+      <div class="campo" data-feq-conferir hidden>
+        <span class="rotulo">O que vale conferir neste equipamento</span>
+        <ul class="area-criterios" data-feq-conferir-lista></ul>
+      </div>
+    </fieldset>
+  </form>
+  <footer class="folha-pe">
+    <button class="btn primario" type="submit" form="f-equip" data-so-config>Salvar equipamento</button>
+    <button class="btn secundario" type="button" data-fecha>Fechar</button>
   </footer>
 </section>
 
