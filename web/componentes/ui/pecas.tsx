@@ -103,23 +103,27 @@ export function Segmentado<T extends string>({
   aoMudar,
 }: {
   rotulo: string;
-  opcoes: ReadonlyArray<{ valor: T; rotulo: string }>;
+  /** `desativada` leva o motivo: aparece ao passar o mouse na opção apagada. */
+  opcoes: ReadonlyArray<{ valor: T; rotulo: string; icone?: LucideIcon; desativada?: string | null }>;
   valor: T;
   aoMudar: (novo: T) => void;
 }) {
   return (
-    <div role="group" aria-label={rotulo} className="inline-flex gap-0.5 rounded-xl bg-farol-realce p-[3px]">
-      {opcoes.map((o) => (
+    <div role="group" aria-label={rotulo} className="inline-flex max-w-full gap-0.5 rounded-xl bg-farol-realce p-[3px]">
+      {opcoes.map(({ icone: Icone, ...o }) => (
         <button
           key={o.valor}
           type="button"
           aria-pressed={o.valor === valor}
+          disabled={Boolean(o.desativada)}
+          title={o.desativada ?? undefined}
           onClick={() => aoMudar(o.valor)}
-          className={`min-h-8 rounded-[9px] px-3 text-[13px] font-semibold transition-all duration-200 max-md:min-h-9 ${
-            o.valor === valor ? 'bg-farol-painel text-farol-tinta shadow-farol-1' : 'text-farol-suave hover:text-farol-tinta'
+          className={`inline-flex min-h-8 min-w-0 items-center justify-center gap-1.5 rounded-[9px] px-3 text-[13px] font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 max-md:min-h-9 ${
+            o.valor === valor ? 'bg-farol-painel text-farol-tinta shadow-farol-1' : 'text-farol-suave enabled:hover:text-farol-tinta'
           }`}
         >
-          {o.rotulo}
+          {Icone && <Icone className="h-[15px] w-[15px] shrink-0" aria-hidden />}
+          <span className="truncate">{o.rotulo}</span>
         </button>
       ))}
     </div>

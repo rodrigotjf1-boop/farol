@@ -49,6 +49,9 @@ class QuadroDePreview:
     bytes: int
     rosto_borrado: bool
     ms: int
+    # Quantas pessoas o detector da loja viu no quadro. `None` = não foi
+    # medido (sem detector): não é zero.
+    pessoas: int | None = None
 
 
 class ErroDoPreview(Exception):
@@ -62,6 +65,7 @@ def capturar(
     jpeg: int = JPEG_PADRAO,
     rajada: int = 4,
     borrar_rosto: bool = True,
+    contar_pessoas=None,
 ) -> QuadroDePreview:
     """Um quadro do canal, pronto para subir.
 
@@ -90,6 +94,15 @@ def capturar(
 
     largura_real, altura_real = melhor.largura, melhor.altura
 
+    # Antes do borrão e da redução: o detector conta melhor no quadro
+    # como veio. Contar é melhoria — falhar aqui não desfaz a captura.
+    pessoas = None
+    if contar_pessoas is not None:
+        try:
+            pessoas = contar_pessoas(melhor.imagem)
+        except Exception as e:  # noqa: BLE001
+            _log.debug("não contei as pessoas do quadro: %s", e)
+
     f = melhor
     borrou = False
     if borrar_rosto:
@@ -114,4 +127,5 @@ def capturar(
         bytes=len(dados),
         rosto_borrado=borrou,
         ms=int((time.monotonic() - inicio) * 1000),
+        pessoas=pessoas,
     )

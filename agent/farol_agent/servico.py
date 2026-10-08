@@ -64,6 +64,21 @@ def url_do_ponto(ponto: PontoConfig, *, sub: bool = False) -> str:
     )
 
 
+def _contar_pessoas(imagem) -> int | None:
+    """Quantas pessoas o detector da loja vê no quadro. `None` sem detector.
+
+    É o que faz a tela avisar, antes de guardar uma foto padrão, que há
+    gente na frente do que importa.
+    """
+    from farol_agent.auditoria import _detector_local
+    from farol_agent.juizes.detector import CERTEZA, OBJETOS
+
+    detector = _detector_local()
+    if detector is None:
+        return None
+    return sum(1 for p in detector.motor.pontuar(imagem, OBJETOS["pessoa"]) if p >= CERTEZA)
+
+
 def capturar_quadro(ponto: PontoConfig) -> dict[str, Any]:
     """Atende `capturar_quadro`: um quadro do canal, pronto para subir.
 
@@ -83,7 +98,7 @@ def capturar_quadro(ponto: PontoConfig) -> dict[str, Any]:
         alcance=(ponto.host, int(ponto.porta or 554)) if ponto.host else None,
     )
     try:
-        q = preview.capturar(fonte)
+        q = preview.capturar(fonte, contar_pessoas=_contar_pessoas)
     except (preview.ErroDoPreview, ErroDaFonte) as e:
         # Quem lê isto está na tela do console, do outro lado do país, e
         # precisa saber QUAL câmera e ONDE. O id interno não identifica
@@ -135,6 +150,8 @@ def capturar_quadro(ponto: PontoConfig) -> dict[str, Any]:
     }
     if mac:
         resultado["mac"] = mac
+    if q.pessoas is not None:
+        resultado["pessoas"] = q.pessoas
     return resultado
 
 

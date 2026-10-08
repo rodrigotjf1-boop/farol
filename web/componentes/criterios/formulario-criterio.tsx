@@ -7,7 +7,7 @@
 // Editar aqui muda em todos: é o motivo de o cadastro ser um só.
 // =====================================================================
 
-import { TriangleAlert } from 'lucide-react';
+import { Image as Imagem, TriangleAlert } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { Botao } from '@/componentes/ui/botao';
@@ -94,6 +94,8 @@ export function GavetaDoCriterio({
   const [porteiro, setPorteiro] = useState<Porteiro>(regra?.porteiro ?? 'sempre');
   // Em quantas olhadas seguidas fora do critério ele avisa.
   const [confirmarEm, setConfirmarEm] = useState(regra?.confirmar_em ?? 1);
+  // Critério de estado: a foto padrão do canal vai junto à nuvem.
+  const [comPadrao, setComPadrao] = useState(regra?.com_padrao ?? false);
 
   // O que o detector procura. Só vale nos tipos julgados na loja.
   const [objeto, setObjeto] = useState(regra?.parametros?.objeto ?? 'pessoa');
@@ -167,6 +169,9 @@ export function GavetaDoCriterio({
         // ou contagem com outra coisa que não "em toda olhada".
         porteiro: porteiros.some((o) => o.valor === porteiro) ? porteiro : 'sempre',
         confirmarEm,
+        // Só o critério de estado tem a escolha; nos outros tipos ela sobe
+        // desmarcada, para não ficar valendo escondida depois de trocar o tipo.
+        comPadrao: tipo === 'estado' && comPadrao,
         ...(mandaFaixa ? { janelas: comFaixa ? faixaDeTodosOsDias(faixaDe, faixaAte) : [] } : {}),
       };
       if (regra) {
@@ -312,17 +317,37 @@ export function GavetaDoCriterio({
           </Grupo>
         )}
 
+        {/* Comparação é julgada na loja, contra a foto padrão do canal. Só o
+            que NÃO for igual a ela vai à nuvem, com a foto ao lado. */}
+        {tipo === 'comparacao' && (
+          <Grupo titulo="Com o que comparar">
+            <p className="text-[12.5px] text-farol-suave">
+              Com a <strong className="font-semibold text-farol-tinta">foto padrão</strong> do canal em que o critério
+              valer. É julgado <strong className="font-semibold text-farol-tinta">dentro da loja</strong>: parecido com
+              o padrão é conforme, sem custo. Só vai à nuvem — com a foto padrão ao lado — quando a loja ficar em
+              dúvida.
+            </p>
+            <Alerta icone={Imagem}>
+              Canal sem foto padrão não é conferido: o critério fica marcado com “falta a foto padrão” até ela existir.
+              A foto se guarda em Canais, na tela “Quadro e área” do canal.
+            </Alerta>
+          </Grupo>
+        )}
+
         <Campo
           rotulo="O que é “conforme”"
           htmlFor={`${p}-criterio`}
-          // Dois casos, e a dica não pode mentir em nenhum. Nos tipos de
+          // Três casos, e a dica não pode mentir em nenhum. Nos tipos de
           // texto, o critério VAI para o modelo como pergunta — vale dizer,
           // senão alguém escreve um rótulo e espera que funcione. Em
-          // presença e contagem ele não vai a modelo nenhum.
+          // presença e contagem ele não vai a modelo nenhum. Em comparação
+          // ele só vai quando a cena não é igual à foto padrão.
           ajuda={
             peloDetector
               ? 'Aqui o texto não é enviado a modelo nenhum: ele descreve a regra para quem ler o aviso. Quem decide são os campos de “O que o detector procura”.'
-              : 'Este texto vai direto ao modelo como pergunta. Descreva o que se vê, não o rótulo: “a superfície tem restos no canto” funciona melhor que “sujeira”.'
+              : tipo === 'comparacao'
+                ? 'Quando a cena não é igual à foto padrão, este texto vai ao modelo como pergunta, com a foto ao lado. Descreva o que se vê, não o rótulo: “a superfície tem restos no canto” funciona melhor que “sujeira”.'
+                : 'Este texto vai direto ao modelo como pergunta. Descreva o que se vê, não o rótulo: “a superfície tem restos no canto” funciona melhor que “sujeira”.'
           }
         >
           <textarea
@@ -440,6 +465,18 @@ export function GavetaDoCriterio({
               <strong className="font-semibold text-farol-tinta">“nada a conferir”</strong>: não vai à nuvem e não entra
               em “não deu para avaliar”.
             </p>
+            {tipo === 'estado' && (
+              <label htmlFor={`${p}-com-padrao`} className="flex cursor-pointer items-start gap-2.5">
+                <input
+                  id={`${p}-com-padrao`}
+                  type="checkbox"
+                  checked={comPadrao}
+                  onChange={(e) => setComPadrao(e.target.checked)}
+                  className="mt-0.5 h-[17px] w-[17px] shrink-0 accent-farol-marca"
+                />
+                Mandar a foto padrão do canal junto, para a nuvem comparar com ela
+              </label>
+            )}
           </Grupo>
         )}
 

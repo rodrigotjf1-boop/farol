@@ -158,6 +158,8 @@ export type Regra = {
   porteiro: Porteiro;
   /** Em quantas olhadas seguidas fora do critério ele avisa. 1 = na primeira. */
   confirmar_em: number;
+  /** Critério de estado: a foto padrão do canal vai junto à nuvem. */
+  com_padrao: boolean;
 };
 
 export type ParametrosDoDetector = {
@@ -174,6 +176,9 @@ export type AlvoDoCriterio = {
   ponto_nome: string;
   canal: number | null;
   ponto_ativo: boolean;
+  /** Quantas fotos padrão o canal tem. Sem nenhuma, critério de comparação
+   *  não é conferido nele. */
+  ponto_padroes: number;
   setor_id: string;
   setor_nome: string;
 };
@@ -376,6 +381,9 @@ export type EstadoDoPreview = {
   capturadoEm: string | null;
   largura: number | null;
   altura: number | null;
+  /** Quantas pessoas o detector da loja viu neste quadro. Nulo = não foi
+   *  medido (agente antigo, ou loja sem detector): não é zero. */
+  pessoas: number | null;
   pedido: {
     id: string;
     estado: 'pendente' | 'entregue' | 'concluido' | 'falhou' | 'expirado';
@@ -475,6 +483,39 @@ export const previewApi = {
       `/zonas/${zonaId}`,
       { method: 'DELETE' },
     ),
+};
+
+// ───────────────────── a foto padrão do canal ─────────────────────
+
+/** O quadro do canal com o ambiente como deve ficar. A loja compara com ela. */
+export type FotoPadrao = {
+  id: string;
+  pontoId: string;
+  nome: string;
+  largura: number | null;
+  altura: number | null;
+  /** Pessoas que o detector viu no quadro guardado. Nulo = não medido. */
+  pessoas: number | null;
+  /** Quando o quadro foi capturado na loja — não quando foi guardado. */
+  capturadaEm: string;
+  criadaEm: string;
+  criadaPor: string | null;
+};
+
+export const padroesApi = {
+  /** Da mais nova para a mais antiga. `maximo` = quantas o canal guarda. */
+  listar: (pontoId: string) =>
+    pedir<{ padroes: FotoPadrao[]; maximo: number }>(`/pontos/${pontoId}/padroes`),
+
+  /** Guarda o quadro que o canal tem AGORA. Não há envio de imagem. */
+  guardar: (pontoId: string, nome: string) =>
+    pedir<FotoPadrao>(`/pontos/${pontoId}/padroes`, { method: 'POST', body: JSON.stringify({ nome }) }),
+
+  /** A imagem de uma foto. O id nunca muda de imagem: o navegador guarda. */
+  url: (id: string) => `/api/padroes/${id}/imagem`,
+
+  excluir: (id: string) =>
+    pedir<{ excluida: boolean; nome: string; restantes: number }>(`/padroes/${id}`, { method: 'DELETE' }),
 };
 
 // ───────────────── alertas: destinos, política, envios ─────────────────

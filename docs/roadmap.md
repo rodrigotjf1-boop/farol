@@ -1848,7 +1848,7 @@ prazo de guarda.
 
 ---
 
-## A16 · Local primeiro, o ambiente e o padrão da loja (aprovado em 08/10/2026 — fase 1 feita)
+## A16 · Local primeiro, o ambiente e o padrão da loja (aprovado em 08/10/2026 — fase 1 e foto padrão feitas)
 
 Na noite de 07/10/2026, com a loja em operação e a tela de Análises no ar, o
 dono deu a direção das próximas semanas, em cinco pedidos:
@@ -1981,8 +1981,9 @@ veredito nenhum; nos outros canais é o próprio porteiro que passa a medir.
 As decisões de desenho estão em `docs/decisoes.md` (08/10/2026, "O
 porteiro").
 
-**Fase 2 · Inventário, foto padrão e comparação na loja.** Duas referências
-do que é "limpo e no lugar", guardadas uma vez:
+**Fase 2 · Inventário, foto padrão e comparação na loja — a foto padrão e a
+comparação estão feitas (08/10/2026, migration 024); o inventário é a parte
+seguinte.** Duas referências do que é "limpo e no lugar", guardadas uma vez:
 
 - **Foto padrão do canal** — o quadro do ambiente limpo, organizado e sem
   ninguém (mais de uma: dia, noite). Vale para todas as áreas do canal:
@@ -2012,12 +2013,38 @@ Dois limites, para não prometer errado:
    imagem é marcado uma vez — à mão, ou sugerido pela análise única e
    ajustado —, não achado sozinho a cada olhada.
 
-O banco já tem onde guardar as duas (`base_conhecimento`, tipos `padrao` e
-`item`, e `base_frame`, desde a migration 001); faltam o setor, o tipo, o
-lugar e a tela. **Antes de prometer acerto, medir**: com as imagens que a
-loja já guardou e o veredito da nuvem como gabarito (`farol-agent ensaio`),
-comparar os métodos e escolher o limiar. *Telas: Inventário (aba em
-Canais), a foto padrão na tela do canal, e "comparação" no critério.*
+*Telas: Inventário (aba em Canais), a foto padrão na tela do canal, e
+"comparação" no critério.*
+
+**O que a foto padrão entregou (fase 2, primeira parte):**
+
+- **Canais → Quadro e área:** "Guardar a de agora" copia o quadro do canal
+  como foto padrão (até quatro por canal, com nome); o quadro ganhou as
+  vistas *Agora*, *Foto padrão* e *Comparar* (divisor que se arrasta);
+  excluir pergunta antes e diz o que deixa de ser conferido.
+- **Critério de comparação:** julgado na loja contra a foto padrão do canal,
+  no recorte da área. Igual → conforme, sem custo. Diferente → vai à nuvem
+  com a foto ao lado (em loja de modo local: "não deu para avaliar"). Canal
+  sem foto: "falta a foto padrão".
+- **Critério de estado:** a caixa "Mandar a foto padrão do canal junto".
+- **Medido antes de ligar** (loja, 08/10, só números): a mesma cena dá 0,96
+  a 0,99 de semelhança; um pedaço de 0,2% da área fora do lugar, até 0,83.
+  O limiar ficou em 0,90. Os números, o método e os limites estão em
+  `docs/decisoes.md` (08/10/2026, "A foto padrão").
+- **Não usou `base_conhecimento`:** a foto é por canal e nasce do quadro que
+  já está no banco; ganhou a tabela `foto_padrao`.
+
+*Como conferir:* em Canais → Quadro e área, guardar uma foto com o ambiente
+em ordem; criar um critério de **comparação** naquele canal, com "Com a área
+livre", e ligar. Em Análises, as olhadas com a cena igual à foto aparecem
+como conformes **julgadas na loja**, sem custo; só as diferentes vão à
+nuvem.
+
+**O que falta da fase 2 — o inventário.** O banco tem `base_conhecimento`
+(tipo `item`) e `base_frame` desde a migration 001; faltam o setor, o tipo,
+o lugar e a tela. A tabela `equipamento` que já existe é o catálogo da
+distribuição (o que o Farol indica comprar), não o inventário da loja: o
+inventário ganha tabelas próprias.
 
 **Fase 3 · Programação de análise pela folga da máquina.** Com o processador
 a 3%, o que é julgado na loja pode ser olhado a cada 5 a 10 segundos em vez
@@ -2107,8 +2134,15 @@ O que o protótipo mostra e depende de coisa que ainda não existe:
   não virou fatia das barras. Essa linha não estava no protótipo aprovado —
   foi acrescentada a ele no mesmo trabalho.
 - **A faixa de horas do critério** ganhou o campo na tela com a fase 1.
-- **A planta, o inventário e a foto padrão** pedem tabelas novas e o envio
-  de imagem pelo console.
+- **A foto padrão** entrou com a fase 2: é o quadro que o canal já tem,
+  copiado — sem envio de imagem pelo console. O que a tela ganhou além do
+  protótipo aprovado foi levado a ele no mesmo trabalho: escolher qual foto
+  aparece no quadro (saiu "em uso agora": a loja compara com a que mais se
+  parecer), "N pessoas no quadro" na foto guardada com gente, a pergunta
+  antes de excluir, o limite de quatro, de quando é o quadro que vai ser
+  guardado, e a etiqueta "falta a foto padrão" na lista de critérios.
+- **A planta e o inventário** pedem tabelas novas; o inventário, também o
+  envio de imagem pelo console.
 - **O parecer** do protótipo é montado dos números, sem modelo de linguagem.
 
 ### O que vale para todas as fases

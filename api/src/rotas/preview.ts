@@ -147,7 +147,7 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
     const { id } = req.params as { id: string };
 
     const r = await pool.query(
-      `select p.preview_em, p.preview_largura, p.preview_altura,
+      `select p.preview_em, p.preview_largura, p.preview_altura, p.preview_pessoas,
               (p.preview is not null) as tem_preview
          from ponto p
          join setor st on st.id = p.setor_id
@@ -177,6 +177,9 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       capturadoEm: r.rows[0].preview_em,
       largura: r.rows[0].preview_largura,
       altura: r.rows[0].preview_altura,
+      // Quantas pessoas o detector da loja viu neste quadro. Nulo = a loja
+      // não mediu (agente antigo, ou sem detector): não é zero.
+      pessoas: r.rows[0].preview_pessoas as number | null,
       pedido: cmd
         ? {
             id: cmd.id,
@@ -538,6 +541,8 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       altura?: number;
       mac?: string;
       erro?: string;
+      /** Pessoas que o detector da loja viu no quadro. Agente sem detector não manda. */
+      pessoas?: number;
     };
 
     // O comando tem que ser DESTE agente. Sem isso, um token de loja
@@ -581,6 +586,13 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       });
     }
 
+    // Opcional: agente antigo, ou sem detector, não manda. Valor torto não
+    // derruba a entrega do quadro — fica como "não medido".
+    const pessoas =
+      typeof corpo.pessoas === 'number' && Number.isInteger(corpo.pessoas) && corpo.pessoas >= 0 && corpo.pessoas <= 1000
+        ? corpo.pessoas
+        : null;
+
     const bytes = Buffer.from(corpo.imagemBase64, 'base64');
     if (bytes.length === 0) {
       return resposta.status(422).send({ erro: 'imagem_vazia', mensagem: 'base64 não decodificou' });
@@ -603,6 +615,8 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
         `update ponto
             set preview = $2, preview_tipo = $3,
                 preview_largura = $4, preview_altura = $5, preview_em = now(),
+                -- É deste quadro, não do anterior: sem medida, fica nulo.
+                preview_pessoas = $7,
                 mac = coalesce($6, mac),
                 mac_visto_em = case when $6 is not null then now() else mac_visto_em end,
                 -- O quadro SABE a largura dele. Preenche resolucao_h
@@ -615,6 +629,7 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
           c.rows[0].ponto_id, bytes, tipo,
           corpo.largura ?? null, corpo.altura ?? null,
           corpo.mac ? String(corpo.mac).toLowerCase().slice(0, 32) : null,
+          pessoas,
         ],
       );
       await cliente.query(

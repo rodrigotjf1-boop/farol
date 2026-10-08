@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from farol_agent.padroes import PadraoRef
 from farol_agent.porteiro import PORTEIROS
 from farol_agent.modelos import (
     RESOLUCOES,
@@ -69,6 +70,9 @@ class PontoConfig:
     regras: list[Regra] = field(default_factory=list)
     optica: dict[str, Any] = field(default_factory=dict)
     zona_principal_id: str | None = None
+    # As fotos padrão deste canal: o que a loja tem de ter em disco para
+    # comparar. Da mais nova para a mais antiga.
+    padroes: list[PadraoRef] = field(default_factory=list)
 
     @property
     def zona_principal(self) -> Zona | None:
@@ -210,6 +214,7 @@ def _regra(dados: dict[str, Any], zona: Zona, horario_da_loja: list[Janela] | No
         horario_da_loja=list(horario_da_loja or []),
         porteiro=porteiro,
         confirmar_em=confirmar_em,
+        com_padrao=dados.get("comPadrao") is True,
     )
 
 
@@ -260,6 +265,7 @@ def de_json(dados: dict[str, Any]) -> ConfigDaLoja:
                 regras=regras,
                 optica=p.get("optica") or {},
                 zona_principal_id=principal_id,
+                padroes=_padroes(p.get("padroes")),
             )
         )
 
@@ -271,6 +277,25 @@ def de_json(dados: dict[str, Any]) -> ConfigDaLoja:
         resolucao_padrao=str(dados["loja"].get("resolucaoPadrao") or "r640"),
         pontos=pontos,
     )
+
+
+def _padroes(bruto: Any) -> list[PadraoRef]:
+    """As fotos padrão do canal. Nuvem antiga não manda: lista vazia.
+
+    Entrada torta (sem id, sem resumo) fica de fora em vez de derrubar a
+    configuração: sem a foto o critério de comparação diz que falta a
+    foto — que é verdade.
+    """
+    saida: list[PadraoRef] = []
+    for f in bruto or []:
+        if not isinstance(f, dict):
+            continue
+        foto_id, resumo = str(f.get("id") or ""), str(f.get("sha256") or "")
+        if not foto_id or len(resumo) != 64:
+            _log.warning("foto padrão sem id ou sem resumo na configuração: ignorada")
+            continue
+        saida.append(PadraoRef(id=foto_id, nome=str(f.get("nome") or "foto padrão"), sha256=resumo))
+    return saida
 
 
 # ───────────────────────────── disco ─────────────────────────────

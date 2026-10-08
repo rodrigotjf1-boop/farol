@@ -553,3 +553,154 @@ do critério antes e depois.
 Enquanto a loja estiver com o agente anterior, ele segue recortando o
 retângulo em volta do desenho, com a folga. O desenho por pontos só passa a
 valer por inteiro com o agente desta versão instalado.
+
+---
+
+## 08/10/2026 · A foto padrão: a loja compara antes de perguntar
+
+Pedido do dono (07/10): "uma foto padrão do ambiente limpo e organizado para
+padrão de comparação" e "melhorar a análise local e depender da nuvem em
+último caso". É a fase 2 do A16 (o inventário de equipamentos fica para a
+parte seguinte da mesma fase).
+
+### O que é
+
+A **foto padrão** é o quadro do canal com o ambiente como deve ficar. Vale
+para o canal inteiro: cada critério compara o recorte da **sua área**. Um
+canal guarda até quatro (dia, noite, loja fechada…).
+
+- **Guardar é copiar o quadro que o canal já tem.** Não há envio de imagem
+  pelo console: a foto padrão é o quadro de preview — o que o agente capturou,
+  com rosto borrado — no instante em que alguém olhou e disse "é assim que
+  deve ficar". A cópia é feita dentro do banco, com o resumo (`sha256`)
+  calculado lá. A gaveta diz **de quando é** o quadro que vai ser guardado.
+- **O detector conta as pessoas do quadro** na hora da captura, e a gaveta
+  avisa antes de guardar. A foto guardada com gente carrega isso na lista.
+- **Nenhuma foto é "a que vale".** A loja compara com **a que mais se parecer**
+  com a cena — não com a mais nova, nem com uma média (a média de cenas
+  legítimas não é cena nenhuma). O protótipo dizia "em uso agora" na primeira
+  da lista; isso saiu, e clicar numa foto passou a escolher qual aparece no
+  quadro.
+- **A loja mantém uma cópia.** A configuração leva `id`, nome e `sha256` de
+  cada foto; o agente baixa as que não tem, confere o resumo antes de aceitar
+  e apaga do disco as que saíram da configuração (com os recortes delas).
+
+### Tabela própria, e não a base de conhecimento
+
+Desde a migration 001 existe `base_conhecimento` (tipo `padrao`) com
+`base_frame`. Não foi usada: ela é **por loja**, guarda vetor de semelhança
+(pede `pgvector`) e foi pensada para o envio de imagens pelo agente. A foto
+padrão é **por canal**, é uma imagem inteira que o console precisa mostrar, e
+nasce de um quadro que já está no banco. `foto_padrao` (migration 024) tem só
+isso. O juiz antigo de comparação com a base (`JuizComparacao`) continua no
+código para quem montar o seletor sem o juiz da foto.
+
+### A medida: o pior bloco
+
+As duas imagens (o recorte de agora e o mesmo recorte da foto) são reduzidas
+a 384 pontos, suavizadas e comparadas por semelhança estrutural (SSIM). O
+mapa é cortado em blocos de uns 21 pontos e a medida é o **pior bloco**, não
+a média: um objeto que ocupa 1% da área muda a média em 1% — menos do que a
+mesma cena oscila sozinha.
+
+Medido na loja em 08/10/2026 (três canais, quadros de verdade, só números):
+
+| | semelhança |
+|---|---|
+| a mesma cena, 11 capturas em 2 min (dois canais) | 0,96 a 0,99 |
+| a mesma cena, luz de −20% a +20% | 0,89 a 0,99 |
+| um pedaço de 0,2% da área fora do lugar | até 0,83 |
+| um pedaço de 0,5% da área fora do lugar | até 0,66 |
+| os recortes da operação, com gente | abaixo de 0,10 |
+
+O limiar é **0,90**. Num terceiro canal havia algo que muda sozinho (0,84 no
+pior caso): ali a loja pergunta mais vezes — custa chamada, não erra.
+
+Três peças do comparador foram medidas uma a uma antes de ficar (com cena
+sintética, e cada uma tem o seu teste):
+
+- **suavizar antes de medir** — a olhada que vem do fluxo menor do gravador
+  (352 × 240) dá 0,98 contra a foto do fluxo principal; sem suavizar, 0,89.
+  Ruído de sensor forte: 0,99 contra 0,87;
+- **só o que é da área conta no bloco da borda** — uma mudança do lado de
+  fora, no mesmo bloco: 1,00; tirando a média do bloco inteiro, 0,64;
+- **a beirada do desenho fica de fora** (2 pontos) — a janela da medida
+  enxerga além da borda: mudança a 1 ponto dela, por fora, dá 0,95; sem
+  tirar a beirada, 0,85.
+
+**O que a comparação NÃO vê:** mudança menor que uns 0,2% da área — farelo,
+respingo, um pano pequeno. Para isso serve o critério de estado, com a foto
+padrão indo junto para a nuvem.
+
+### O relógio do gravador
+
+O gravador escreve data e hora em cima da imagem, e o relógio da foto nunca é
+o de agora: sem tratar, toda área com o relógio dentro daria "diferente" para
+sempre. Quem diz onde ele fica é o próprio gravador (Intelbras/Dahua:
+`configManager.cgi?action=getConfig&name=VideoWidget`, retângulo em 0–8192,
+só quando `EncodeBlend` — gravado NA imagem). Os blocos que tocam o retângulo
+ficam de fora da conta. O gravador é perguntado uma vez, e só quando algum
+critério compara com foto. Gravador que não responde (ou de outra família)
+fica sem retângulo: área com o relógio dentro vai dar "diferente" — pergunta
+a mais, não veredito errado.
+
+### Diferente não é irregular
+
+A loja só decide sozinha **uma** coisa: *igual à foto padrão → conforme*,
+sem custo. Cena diferente pode ser sujeira — ou uma caixa de insumo nova, ou
+a luz da tarde. Então:
+
+- **diferente** → vai a quem sabe julgar (a nuvem), com o recorte da foto
+  padrão ao lado e o aviso de que aquela é a MESMA área em ordem;
+- **loja em modo `local`** (nada sai) → "não deu para avaliar", dizendo que
+  a cena está diferente da foto e não há a quem perguntar;
+- **canal sem foto padrão** → o critério de comparação não é conferido ali, e
+  aparece como "falta a foto padrão" na lista de critérios e, no Painel,
+  como critério que "não tem quem julgue", com o motivo;
+- a semelhança medida vai no veredito (`medida`), nos dois casos — é dela que
+  sai, depois, "este critério nunca dá igual à foto": foto velha, ou área com
+  algo que muda sozinho.
+
+### 🔴 Muda uma promessa: comparação pode sair da loja
+
+Até aqui valia "presença, contagem e comparação **não saem da loja**". Para
+comparação, deixou de valer por inteiro: o que **não** é igual à foto padrão
+vai à nuvem. É o texto do protótipo aprovado pelo dono em 08/10 — "só vai à
+nuvem, com a foto padrão ao lado, quando a loja ficar em dúvida" —, e é o
+que torna o critério útil: sem isso, "diferente" não teria veredito nunca.
+
+Continua valendo, sem exceção: **presença e contagem não saem da loja**, e
+**loja em modo `local` não manda nada**, nem comparação.
+
+O que sai é o recorte da área com o entorno apagado, como nos outros
+critérios de nuvem. A foto padrão que vai ao lado vem do quadro de preview,
+que já tem rosto borrado.
+
+### Critério de estado com a foto junto
+
+Em "Quando vale a pena conferir", o critério de **estado** ganhou a caixa
+"Mandar a foto padrão do canal junto, para a nuvem comparar com ela"
+(`regra.com_padrao`). A pergunta deixa de ser "está limpo?" para ser "o que
+mudou em relação a isto?". A loja escolhe a foto mais parecida e manda o
+recorte dela; canal sem foto pergunta sem ela. Vai sempre à nuvem (passado o
+porteiro): aqui a foto serve ao julgamento, não a evitá-lo.
+
+### O que falta medir
+
+- **Quantas vezes "diferente" acontece em operação.** Com gente na área a
+  cena nunca é igual à foto (abaixo de 0,10): critério de comparação pede
+  **"com a área livre"** em "Quando vale a pena conferir", senão toda olhada
+  com alguém na frente vira pergunta à nuvem. Não foi posto como obrigatório;
+  a primeira semana com um critério de comparação ligado diz se deve ser.
+- **O efeito da foto ao lado sobre o veredito da nuvem** não foi medido com
+  imagem de loja. É comparar "não deu para avaliar" e o acerto de um critério
+  de estado antes e depois de marcar a caixa.
+- **Câmera que mudou de posição** faz toda foto antiga dar "diferente". Hoje
+  isso aparece como custo de nuvem naquele critério; a sugestão "esta foto
+  nunca dá igual" é do motor de padrões (fase 5).
+
+### Depende do agente novo
+
+Agente anterior não conhece foto padrão: o critério de comparação continua
+sem quem o julgue e a caixa "mandar a foto junto" não tem efeito, até o
+agente desta versão ser instalado na loja.

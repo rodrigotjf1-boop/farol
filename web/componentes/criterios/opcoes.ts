@@ -69,6 +69,23 @@ export function etiquetaDoPorteiro(regra: Pick<Regra, 'tipo' | 'porteiro'>): str
   return ETIQUETA_DO_PORTEIRO[regra.porteiro] ?? null;
 }
 
+/**
+ * O critério de comparação está num canal sem foto padrão: cadastrado, e
+ * não conferido ali. A mesma regra do agente (`JuizDoPadrao.atende`): sem
+ * foto no canal, o critério fica de fora dizendo que falta a foto.
+ * Sem `pontoId` (a lista "Sem canal"), não há canal de que falar.
+ */
+export function faltaAFotoPadrao(regra: Pick<Regra, 'tipo' | 'alvos'>, pontoId: string | undefined): boolean {
+  if (regra.tipo !== 'comparacao' || !pontoId) return false;
+  const noCanal = regra.alvos.find((a) => a.ponto_id === pontoId);
+  // Resposta de API antiga não traz a contagem: sem saber, não acusa.
+  return noCanal !== undefined && noCanal.ponto_padroes === 0;
+}
+
+/** O critério de estado leva a foto padrão do canal à nuvem. Nos outros tipos a escolha não existe. */
+export const mandaAFotoPadrao = (regra: Pick<Regra, 'tipo' | 'com_padrao'>): boolean =>
+  regra.tipo === 'estado' && regra.com_padrao === true;
+
 /** Em quantas olhadas seguidas fora do critério ele avisa. */
 export const CONFIRMACOES: ReadonlyArray<{ v: number; r: string }> = [
   { v: 1, r: 'na primeira olhada fora do critério' },

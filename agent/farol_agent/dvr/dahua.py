@@ -216,6 +216,38 @@ class ClienteDahua:
 
         return None
 
+    # ───────────────────── o relógio na imagem ─────────────────────
+
+    def relogios(self) -> dict[int, tuple[float, float, float, float]]:
+        """Onde o gravador escreve a data e a hora, por canal (1, 2, 3…).
+
+        Em fração do quadro: (x1, y1, x2, y2). Só os canais em que o
+        relógio é gravado NA IMAGEM (`EncodeBlend`) — o que só aparece no
+        monitor do gravador não chega ao agente.
+
+        Serve à comparação com a foto padrão: o relógio da foto nunca é o
+        de agora, e aquele retângulo fica de fora da conta.
+        """
+        pares = self._pares(
+            self._texto("/cgi-bin/configManager.cgi?action=getConfig&name=VideoWidget")
+        )
+        saida: dict[int, tuple[float, float, float, float]] = {}
+        for chave, valor in pares.items():
+            # table.VideoWidget[14].TimeTitle.EncodeBlend=true
+            if not chave.endswith(".TimeTitle.EncodeBlend") or valor.lower() != "true":
+                continue
+            base = chave[: -len(".EncodeBlend")]
+            try:
+                indice = int(chave.split("[", 1)[1].split("]", 1)[0])
+                ret = [int(pares[f"{base}.Rect[{k}]"]) for k in range(4)]
+            except (KeyError, ValueError, IndexError):
+                continue
+            # A Dahua mede a tela de 0 a 8192, nos dois eixos.
+            x1, y1, x2, y2 = (min(1.0, max(0.0, v / 8192)) for v in ret)
+            if x2 > x1 and y2 > y1:
+                saida[indice + 1] = (x1, y1, x2, y2)
+        return saida
+
     # ──────────────────────────── eventos ────────────────────────────
 
     def eventos(

@@ -175,9 +175,14 @@ class JuizNuvem:
         b64, tipo = _ler_imagem(imagem)
         texto = _montar_pedido(criterio, contexto)
         refs = [_ler_imagem(r) for r in (referencias or [])]
+        # A referência é a foto padrão da área (e não um objeto a
+        # reconhecer): o modelo é avisado com outras palavras.
+        padrao = (contexto or {}).get("foto_padrao")
+        # Só vai quando há foto: quem chama sem ela chama como sempre chamou.
+        com_padrao = {"padrao": str(padrao)} if padrao else {}
 
         inicio = time.monotonic()
-        veredito = self._chamar(self.modelo, b64, tipo, texto, refs)
+        veredito = self._chamar(self.modelo, b64, tipo, texto, refs, **com_padrao)
 
         # Cascata: só escala o que veio inseguro, e nunca escala um
         # `nao_avaliavel` — se o barato não conseguiu ver, o caro também
@@ -187,7 +192,7 @@ class JuizNuvem:
             and veredito.resultado is not Resultado.NAO_AVALIAVEL
             and (veredito.confianca or 0.0) < self.escalar_abaixo_de
         ):
-            forte = self._chamar(self.modelo_forte, b64, tipo, texto, refs)
+            forte = self._chamar(self.modelo_forte, b64, tipo, texto, refs, **com_padrao)
             forte.custo_centavos = (veredito.custo_centavos or 0.0) + (
                 forte.custo_centavos or 0.0
             )
@@ -205,6 +210,7 @@ class JuizNuvem:
         tipo: str,
         texto: str,
         refs: list[tuple[str, str]] | None = None,
+        padrao: str | None = None,
     ) -> Veredito:
         try:
             r = self._cliente.messages.create(
@@ -220,7 +226,7 @@ class JuizNuvem:
                 tools=[FERRAMENTA],
                 tool_choice={"type": "tool", "name": "responder"},
                 messages=[
-                    {"role": "user", "content": _conteudo(b64, tipo, texto, refs)}
+                    {"role": "user", "content": _conteudo(b64, tipo, texto, refs, padrao)}
                 ],
             )
         except Exception as e:
@@ -311,7 +317,7 @@ def _imagem_bloco(b64: str, tipo: str) -> dict[str, Any]:
 
 
 def _conteudo(
-    b64: str, tipo: str, texto: str, refs: list[tuple[str, str]] | None
+    b64: str, tipo: str, texto: str, refs: list[tuple[str, str]] | None, padrao: str | None = None
 ) -> list[dict[str, Any]]:
     """Monta o conteúdo do pedido: referências, depois o quadro ao vivo.
 
@@ -335,7 +341,16 @@ def _conteudo(
     """
     conteudo: list[dict[str, Any]] = []
 
-    if refs:
+    if refs and padrao:
+        # A foto padrão não é um objeto a reconhecer: é a MESMA área,
+        # como ela fica quando está em ordem.
+        conteudo.append({"type": "text", "text": aviso_da_foto_padrao(padrao)})
+        conteudo += [_imagem_bloco(rb, rt) for rb, rt in refs]
+        conteudo.append(
+            {"type": "text", "text": "FIM DA FOTO PADRÃO.", "cache_control": {"type": "ephemeral"}}
+        )
+        conteudo.append({"type": "text", "text": "AGORA A CENA A AUDITAR:"})
+    elif refs:
         conteudo.append(
             {
                 "type": "text",
@@ -375,10 +390,24 @@ AVISO_DA_AREA = (
 )
 
 
+def aviso_da_foto_padrao(nome: str) -> str:
+    """O que o modelo lê antes da foto padrão."""
+    return (
+        f"FOTO PADRÃO — a imagem a seguir é esta MESMA área (“{nome}”), guardada pela loja "
+        "como exemplo de quando ela está em ordem. Compare a cena a auditar com ela: "
+        "o que estiver diferente é o que interessa ao critério. NÃO a julgue: ela não "
+        "é a cena auditada."
+    )
+
+
 def _montar_pedido(criterio: str, contexto: dict[str, Any] | None) -> str:
     partes = [f"CRITÉRIO A AUDITAR:\n{criterio.strip()}"]
 
     contexto = dict(contexto or {})
+    # Endereço do agente e marca de "vai com a foto padrão": não são
+    # contexto da operação.
+    for chave in ("zona_id", "ponto_id", "foto_padrao"):
+        contexto.pop(chave, None)
     if contexto.pop("fora_da_area", None):
         partes.append(AVISO_DA_AREA)
 

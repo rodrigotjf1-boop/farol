@@ -395,6 +395,10 @@ class MotorDeRegras:
         # o Regem sabe) vem por cima, mas não pode sobrescrever estes dois.
         ctx: dict[str, Any] = dict(contexto or {})
         ctx["regra_id"] = regra.id
+        # A área e o canal: é por eles que o juiz da foto padrão sabe com
+        # que recorte comparar. Não chegam ao modelo (ver `JuizPorRegra`).
+        ctx["zona_id"] = regra.zona.id
+        ctx["ponto_id"] = evento.ponto_id
         if regra.base_id:
             ctx["base_id"] = regra.base_id
         if dentro is not None:
