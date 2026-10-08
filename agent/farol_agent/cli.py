@@ -1021,7 +1021,8 @@ def cmd_servir(args: argparse.Namespace) -> int:
         from farol_agent.auditoria import Auditoria
 
         auditoria = Auditoria(
-            cliente, args.fila, intervalo_captura=args.intervalo_captura
+            cliente, args.fila, intervalo_captura=args.intervalo_captura,
+            intervalo_rapido=args.intervalo_rapido,
         )
         if sincronizador.config:
             auditoria.montar(sincronizador.config)
@@ -1031,6 +1032,8 @@ def cmd_servir(args: argparse.Namespace) -> int:
         # o pior diagnóstico possível.
         auditoria.iniciar()
         print(f"auditoria ligada: captura a cada {args.intervalo_captura:g}s")
+        if args.intervalo_rapido > 0:
+            print(f"vigia: presença e contagem olhadas a cada {args.intervalo_rapido:g}s pelo fluxo menor")
 
     visor = None
     if args.visor:
@@ -1220,6 +1223,10 @@ def main(argv: list[str] | None = None) -> int:
     sv.add_argument("--intervalo-captura", type=float, default=30.0,
                     dest="intervalo_captura",
                     help="segundos entre capturas de cada canal (padrão 30)")
+    sv.add_argument("--intervalo-rapido", type=float, default=10.0,
+                    dest="intervalo_rapido",
+                    help="segundos entre as olhadas do vigia no fluxo menor, para presença "
+                         "e contagem (padrão 10; 0 desliga)")
     sv.add_argument("--sem-auditoria", dest="sem_auditoria", action="store_true",
                     help="só sincroniza e atende comandos, sem analisar nada")
     sv.add_argument("--visor", action="store_true",

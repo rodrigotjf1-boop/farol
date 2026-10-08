@@ -35,7 +35,8 @@ alerta** é este arquivo.
    maior que 1), o primeiro fora do critério não avisa: fica esperando
    as olhadas seguintes. Conta como "continua" tanto um novo veredito
    fora do critério quanto a cena que não mudou desde o último. Um
-   conforme no meio zera a espera.
+   conforme no meio zera a espera. A olhada extra do vigia não conta
+   como "mais uma": ela vem segundos depois, e não meio minuto.
 
 Entre a 1 e a 2 fica **o porteiro** (porteiro.py): para o que pode ir à
 nuvem, a loja confere antes se a pergunta faz sentido — gente na área,
@@ -205,10 +206,16 @@ class MotorDeRegras:
         fonte: FonteVideo,
         *,
         contexto: dict[str, Any] | None = None,
+        somente: Callable[[Regra], bool] | None = None,
     ) -> Preparo:
-        """Captura, recorta e enfileira uma análise por regra aplicável."""
+        """Captura, recorta e enfileira uma análise por regra aplicável.
+
+        `somente` restringe a olhada a alguns critérios do canal — a olhada
+        extra do vigia só vale para presença e contagem, e não pode
+        acordar o critério que vai à nuvem.
+        """
         preparo = Preparo()
-        regras = self.regras_aplicaveis(evento)
+        regras = [r for r in self.regras_aplicaveis(evento) if somente is None or somente(r)]
         if not regras:
             return preparo
 
@@ -496,6 +503,9 @@ class MotorDeRegras:
                 self.fila.contar_veredito(
                     item.capturado_em, item.regra_id, item.zona_id, veredito, agora,
                     alerta=alerta is not None,
+                    # A olhada extra do vigia acontece justamente quando algo
+                    # mudou: fica marcada, e fora da média da hora.
+                    extra=bool((item.contexto or {}).get("olhada_extra")),
                 )
             except Exception:  # noqa: BLE001
                 _log.exception("não consegui somar o veredito no resumo da hora")
@@ -548,6 +558,14 @@ class MotorDeRegras:
         # "Só avisar se continuar": este fora do critério é o primeiro, ou
         # mais um de uma sequência? Avisa só ao chegar na quantidade pedida.
         if regra.confirmar_em > 1:
+            if (item.contexto or {}).get("olhada_extra"):
+                # A olhada extra do vigia vem segundos depois da anterior.
+                # Contada, "continuou por 3 olhadas" viraria "durou dez
+                # segundos" — o contrário do que o critério pediu. Ela não
+                # começa nem adianta a espera: quem conta é a rotina. (O
+                # CONFORME de uma extra zera a espera, lá em cima: aí a
+                # condição não continuou mesmo.)
+                return None
             espera = self._seguidas.get(lugar)
             quantas = (espera.quantas if espera else 0) + 1
             if quantas < regra.confirmar_em:

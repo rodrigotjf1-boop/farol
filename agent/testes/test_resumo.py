@@ -261,6 +261,8 @@ def linha_do_contrato() -> dict:
         "soma_medida": 4.0,
         "com_medida": 3,
         "max_medida": 2.0,
+        "extras": 2,
+        "extras_fora": 1,
         "ultimo_resultado": "nao_conforme",
         "ultimo_motivo": "há restos de alimento sobre a bancada",
         "ultimo_impedimento": "a câmera entregou a tela de sem sinal",
@@ -290,6 +292,9 @@ def test_o_exemplo_do_contrato_fecha_a_conta():
     assert c["conformes"] + c["naoConformes"] + c["naoAvaliaveis"] + c["falhas"] == c["enfileiradas"]
     # Cada julgamento concluído foi feito em um dos dois lugares.
     assert c["julgadasLoja"] + c["julgadasNuvem"] == c["conformes"] + c["naoConformes"] + c["naoAvaliaveis"]
+    # As olhadas extras do vigia já estão DENTRO dos resultados: são parte deles.
+    assert c["extrasFora"] <= c["extras"] <= c["conformes"] + c["naoConformes"] + c["naoAvaliaveis"]
+    assert c["extrasFora"] <= c["naoConformes"]
 
 
 def test_nenhuma_chave_do_resumo_em_snake_case():

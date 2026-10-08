@@ -262,6 +262,22 @@ class FonteRTSP:
         quadros = self.rajada(ts, quantidade=1, stream=stream)
         return quadros[0] if quadros else None
 
+    def quadro_do_fluxo_menor(self) -> Frame | None:
+        """O último quadro do fluxo menor, que já fica aberto — ou nada.
+
+        **Nunca abre fluxo nenhum.** É o que o vigia usa entre uma olhada
+        e outra: se o fluxo menor não existe ou ainda não entregou quadro,
+        a resposta é `None`, e não uma ida ao fluxo principal (que é o que
+        `quadro(stream="sub")` faria na falta do menor).
+        """
+        if self._sub is None:
+            return None
+        atual = self._sub.ultimo()
+        if atual is None:
+            return None
+        quando, imagem = atual
+        return Frame(imagem=imagem, ts=quando, ponto_id=self.ponto_id, stream="sub")
+
     def rajada(
         self, ts: datetime, quantidade: int = 6, stream: str = "main"
     ) -> list[Frame]:

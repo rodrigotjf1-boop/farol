@@ -202,6 +202,8 @@ create table if not exists resumo_hora (
   soma_medida        real    not null default 0,
   com_medida         integer not null default 0,
   max_medida         real,
+  extras             integer not null default 0,
+  extras_fora        integer not null default 0,
   ultimo_resultado   text,
   ultimo_motivo      text,
   ultimo_impedimento text,
@@ -277,6 +279,12 @@ _SOMAS_DO_VEREDITO = (
     # média da hora. O maior valor vai à parte, em `_MAXIMOS_DO_RESUMO`.
     "soma_medida",
     "com_medida",
+    # As olhadas EXTRAS do vigia (vigia.py). Elas já estão contadas nos
+    # resultados: aqui fica quantas foram, e quantas deram fora do
+    # critério. Descontadas, sobra a amostra de rotina, que cai em
+    # instantes regulares — a que serve para dizer "em quanto do tempo".
+    "extras",
+    "extras_fora",
 )
 
 # O que se guarda como MAIOR valor da hora, e não como soma.
@@ -333,6 +341,8 @@ _COLUNAS_NOVAS = (
     ("resumo_hora", "com_medida", "integer not null default 0"),
     ("resumo_hora", "max_medida", "real"),
     ("resumo_hora", "sem_condicao", "integer not null default 0"),
+    ("resumo_hora", "extras", "integer not null default 0"),
+    ("resumo_hora", "extras_fora", "integer not null default 0"),
 )
 
 
@@ -741,6 +751,7 @@ class Fila:
         julgado_em: datetime,
         *,
         alerta: bool = False,
+        extra: bool = False,
     ) -> None:
         """Um julgamento concluído, na hora em que a cena foi CAPTURADA.
 
@@ -768,9 +779,21 @@ class Fila:
         # "Não mediu" não entra na quantidade — não vira zero na média.
         maximos: dict[str, float] = {}
         if veredito.medida is not None:
-            somas["soma_medida"] = float(veredito.medida)
-            somas["com_medida"] = 1
+            # A média da hora é feita das olhadas de ROTINA, que caem em
+            # instantes regulares. A olhada extra é feita porque algo
+            # mudou: somada, puxaria a média para os momentos de
+            # mudança. O maior valor, esse sim, conta com ela — é o
+            # pico que a rotina não veria.
+            if not extra:
+                somas["soma_medida"] = float(veredito.medida)
+                somas["com_medida"] = 1
             maximos["max_medida"] = float(veredito.medida)
+        if extra:
+            # Contada nos resultados, como toda análise — e marcada à
+            # parte, para quem precisar da conta só da rotina.
+            somas["extras"] = 1
+            if veredito.resultado.value == "nao_conforme":
+                somas["extras_fora"] = 1
         with self._lock:
             self._somar_no_resumo(
                 ts, regra_id, zona_id, somas,

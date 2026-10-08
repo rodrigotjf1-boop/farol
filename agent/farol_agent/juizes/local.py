@@ -158,7 +158,7 @@ def _pedido(criterio: str, contexto: dict[str, Any] | None) -> str:
             f"- {k}: {v}"
             for k, v in contexto.items()
             # Endereço e marcas do agente não são contexto da operação.
-            if v not in (None, "") and k not in ("base_id", "zona_id", "ponto_id", "foto_padrao", "fora_da_area", "equipamentos")
+            if v not in (None, "") and k not in ("base_id", "zona_id", "ponto_id", "foto_padrao", "fora_da_area", "equipamentos", "olhada_extra")
         ]
         if linhas:
             partes.append("CONTEXTO DA OPERAÇÃO:\n" + "\n".join(linhas))
