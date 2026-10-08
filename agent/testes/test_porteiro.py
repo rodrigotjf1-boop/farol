@@ -483,6 +483,29 @@ class JuizDeRoteiro:
         )
 
 
+class JuizPorArea:
+    """Um roteiro por área. Responde pela área da imagem, não pela ordem da fila.
+
+    A fila entrega pelo instante do quadro escolhido, e cada área escolhe o
+    seu quadro mais nítido da rajada: qual das duas vem primeiro muda de
+    máquina para máquina. O nome do arquivo traz a área (ver `motor.py`).
+    """
+
+    nome = "por-area"
+
+    def __init__(self, **roteiros):
+        self.roteiros = {area: list(passos) for area, passos in roteiros.items()}
+        self.vistas: list[str] = []
+
+    def julgar(self, imagem, criterio, *, contexto=None, referencias=None) -> Veredito:
+        (area,) = [a for a in self.roteiros if f"_{a}_" in imagem.name]
+        self.vistas.append(area)
+        return Veredito(
+            resultado=self.roteiros[area].pop(0), confianca=0.95, motivo=f"área {area}",
+            via=Via.NUVEM, modelo="por-area", custo_centavos=1.0,
+        )
+
+
 FORA, OK, SEI_LA = Resultado.NAO_CONFORME, Resultado.CONFORME, Resultado.NAO_AVALIAVEL
 
 
@@ -602,11 +625,13 @@ def test_a_espera_e_por_canal(fila, regra, fonte):
     r1 = replace(regra, confirmar_em=2)
     r2 = replace(r1, zona=outra)
     motor = MotorDeRegras(fila, [r1, r2])
-    # Por olhada, as duas áreas são julgadas: z1 e z2, nesta ordem.
-    juiz = JuizDeRoteiro(FORA, OK, FORA, FORA)
+    # Duas olhadas, e em cada uma as duas áreas são julgadas. z1 fica fora
+    # nas duas; z2 fica em ordem na primeira e fora só na segunda.
+    juiz = JuizPorArea(z1=[FORA, FORA], z2=[OK, FORA])
 
     avisos = rodar(motor, fonte, juiz, 2)
 
+    assert sorted(juiz.vistas) == ["z1", "z1", "z2", "z2"], "as duas áreas, nas duas olhadas"
     assert [[a.zona_id for a in x] for x in avisos] == [[], ["z1"]], "z2 só tem um fora do critério"
 
 
