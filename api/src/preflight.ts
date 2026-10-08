@@ -51,22 +51,28 @@ export function acharMigrations(partida?: string): string | null {
   return null;
 }
 
+/** `noCodigo` é a última migration que ESTE código conhece: diz, de fora,
+ *  qual código está no ar — pergunta diferente de "o que o banco tem". */
 export type Conferencia =
-  | { ok: true; aplicadas: number; motivo?: string }
-  | { ok: false; pendentes: string[]; mensagem: string };
+  | { ok: true; aplicadas: number; motivo?: string; noCodigo: string | null }
+  | { ok: false; pendentes: string[]; mensagem: string; noCodigo: string | null };
 
-export async function conferirEsquema(pool: pg.Pool): Promise<Conferencia> {
-  const pasta = acharMigrations();
+export async function conferirEsquema(
+  pool: pg.Pool,
+  // O teste aponta para uma pasta sua; em produção é a que veio na imagem.
+  pasta: string | null = acharMigrations(),
+): Promise<Conferencia> {
   if (!pasta) {
     // Sem a pasta não há com o que comparar. Não é motivo para derrubar:
     // acontece em empacotamento que não copia `database/`, e aí o
     // serviço funcionar é mais importante que a conferência.
-    return { ok: true, aplicadas: 0, motivo: 'não achei database/migrations' };
+    return { ok: true, aplicadas: 0, motivo: 'não achei database/migrations', noCodigo: null };
   }
 
   const arquivos = readdirSync(pasta)
     .filter((n) => n.endsWith('.sql'))
     .sort();
+  const noCodigo = arquivos[arquivos.length - 1] ?? null;
 
   let aplicadas: Set<string>;
   try {
@@ -76,21 +82,22 @@ export async function conferirEsquema(pool: pg.Pool): Promise<Conferencia> {
     const e = erro as { code?: string };
     // 42P01 = tabela não existe: banco novo, ninguém migrou ainda.
     if (e.code === '42P01') {
-      return { ok: true, aplicadas: 0, motivo: 'banco novo, sem tabela de controle' };
+      return { ok: true, aplicadas: 0, motivo: 'banco novo, sem tabela de controle', noCodigo };
     }
     // Qualquer outra coisa é o banco indisponível. A rede pode voltar;
     // morrer aqui criaria laço de reinício que esconde a causa.
-    return { ok: true, aplicadas: 0, motivo: 'banco inalcançável na partida' };
+    return { ok: true, aplicadas: 0, motivo: 'banco inalcançável na partida', noCodigo };
   }
 
   const pendentes = arquivos.filter((n) => !aplicadas.has(n));
   if (pendentes.length === 0) {
-    return { ok: true, aplicadas: aplicadas.size };
+    return { ok: true, aplicadas: aplicadas.size, noCodigo };
   }
 
   return {
     ok: false,
     pendentes,
+    noCodigo,
     mensagem:
       `o banco está ${pendentes.length} migration(s) atrás do código:\n` +
       pendentes.map((n) => `    ${n}`).join('\n') +
