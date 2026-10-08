@@ -468,4 +468,7 @@ class JuizDetector:
             modelo=self.motor.nome,
             custo_centavos=0.0,
             latencia_ms=int((time.monotonic() - inicio) * 1000),
+            # Quantos viu COM CERTEZA: os "talvez" não entram na medida,
+            # como não entram no "vi N" do motivo.
+            medida=float(sum(1 for p in pontuacoes if float(p) >= self.certeza)),
         )

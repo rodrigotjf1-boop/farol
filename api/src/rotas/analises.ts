@@ -111,6 +111,9 @@ export function rotasDeAnalises(app: FastifyInstance, pool: pg.Pool): void {
                 sum(h.julgadas_loja)::integer as julgadas_loja,
                 sum(h.julgadas_nuvem)::integer as julgadas_nuvem,
                 sum(h.custo_centavos)::float8 as custo_centavos,
+                sum(h.soma_medida)::float8 as soma_medida,
+                sum(h.com_medida)::integer as com_medida,
+                max(h.max_medida)::float8 as max_medida,
                 sum(h.soma_latencia_ms)::float8 as soma_latencia_ms,
                 sum(h.com_latencia)::integer as com_latencia,
                 sum(h.soma_confianca)::float8 as soma_confianca,
@@ -301,6 +304,12 @@ export function rotasDeAnalises(app: FastifyInstance, pool: pg.Pool): void {
           naLoja: onde.naLoja,
           naNuvem: onde.naNuvem,
           custoCentavos: Number(c.custo_centavos),
+          // O que o juiz MEDIU nas cenas (o detector: quantos objetos viu).
+          // Soma e quantidade para a média; o maior valor é nulo quando
+          // nada foi medido — "não medi" não é zero.
+          somaMedida: Number(c.soma_medida),
+          comMedida: c.com_medida as number,
+          maxMedida: c.max_medida === null ? null : Number(c.max_medida),
           somaLatenciaMs: Number(c.soma_latencia_ms),
           comLatencia: c.com_latencia as number,
           somaConfianca: Number(c.soma_confianca),

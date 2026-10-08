@@ -120,6 +120,12 @@ def resumo_para_nuvem(linha: dict[str, Any]) -> dict[str, Any]:
         # duas é conformes + naoConformes + naoAvaliaveis.
         "julgadasLoja": linha["julgadas_loja"],
         "julgadasNuvem": linha["julgadas_nuvem"],
+        # O que foi MEDIDO nas cenas da hora (o detector: quantos objetos
+        # viu): soma e quantidade, para a média, e o maior valor. É a
+        # matéria-prima do padrão de funcionamento da loja.
+        "somaMedida": round(float(linha["soma_medida"]), 2),
+        "comMedida": linha["com_medida"],
+        "maxMedida": None if linha["max_medida"] is None else round(float(linha["max_medida"]), 2),
         "ultimoResultado": linha["ultimo_resultado"],
         "ultimoMotivo": linha["ultimo_motivo"],
         # Por que NÃO deu para julgar, na última vez em que não deu.

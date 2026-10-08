@@ -256,3 +256,8 @@ class Veredito:
     tokens_saida: int | None = None
     custo_centavos: float | None = None
     latencia_ms: int | None = None
+    # O que foi MEDIDO na cena, quando o juiz mede: o detector diz quantos
+    # objetos viu com certeza. É número, não veredito — "havia 2 pessoas"
+    # vale o mesmo com a regra pedindo uma ou cinco, e é dele que sai o
+    # padrão de funcionamento da loja. `None` = este juiz não mede.
+    medida: float | None = None
