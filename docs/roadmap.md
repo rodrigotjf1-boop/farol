@@ -1762,11 +1762,28 @@ de R$ 1,50 a R$ 2,60 por hora com três critérios de nuvem).
   do critério é contada. Só vira aviso — com hora, motivo e imagem — a que
   passa pela confiança mínima e pelo silêncio do critério. A lista da tela
   é de avisos, e o número ao lado dela é o de avisos, não o de "fora".
-- **A tela** ("Análises", item novo na navegação): filtros de período,
-  horas, canal, critério e onde foi julgado; seis números do recorte; um
-  gráfico hora a hora que também é filtro, com três vistas (resultado,
-  onde julgou, custo); por canal; por critério e canal; avisos do recorte.
-  **Protótipo em aprovação** (branch `feat/analises-graficos`).
+- **A tela** ("Análises", item novo na navegação, só para quem vê os
+  resultados): filtros de período, horas, canal, critério e onde foi
+  julgado; seis números do recorte; um gráfico hora a hora que também é
+  filtro, com três vistas (resultado, onde julgou, custo); por canal; por
+  critério e canal; avisos do recorte. **Protótipo aprovado pelo dono em
+  07/10/2026 e portado para `web/`.**
+- **Só o período vai ao servidor.** A rota entrega as células do período e
+  o navegador recorta e soma: hora, canal, critério e "onde foi julgado"
+  respondem na hora. A conta mora em `web/componentes/analises/conta.ts`.
+- **"Na loja" × "na nuvem" no filtro**: a célula inteira fica do lado da
+  maioria, para as duas partes somarem sempre o total. Um critério é
+  julgado num lugar só; a célula mista é a hora em que o agente trocou de
+  juiz.
+- **Hoje se atualiza sozinho** (a cada minuto, com a aba à vista); dia que
+  já passou não muda e não é consultado de novo.
+- **Pedido seguinte do dono, ao aprovar**: "incluir análise de uso do
+  servidor de análise, a máquina local; opção de analisar uso junto com os
+  filtros". O bloco "Máquina de análise" (processador, memória, placa de
+  vídeo e disco do computador da loja, hora a hora, seguindo o período e
+  as horas) está no protótipo, **em aprovação**; a tela do app entra sem
+  ele. O que acompanha canal e critério é o TEMPO de julgamento, que sai
+  das próprias análises — o uso da máquina é dela inteira.
 
 ### Fica para o fim (por decisão do dono)
 

@@ -23,6 +23,7 @@ import {
   Calculator,
   Cctv,
   ChevronsUpDown,
+  ChartColumn,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -54,7 +55,7 @@ import { Alerta, Ossos, Ponto } from './ui/pecas';
 import { DivisorDeMenu, ITEM_DE_MENU, Menu, RotuloDeMenu } from './ui/sobreposto';
 
 const UUID_DA_LOJA = /^\/lojas\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
-const SECOES = ['canais', 'regras', 'alertas', 'orcamento'] as const;
+const SECOES = ['analises', 'canais', 'regras', 'alertas', 'orcamento'] as const;
 /** De quanto em quanto tempo a moldura pergunta como vai o agente. */
 const BATIDA_MS = 30_000;
 
@@ -397,13 +398,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
     const base = `/lojas/${lojaId}`;
     return [
       { href: base, rotulo: 'Painel', icone: LayoutDashboard, conta: sinais },
+      // As análises são números de gestão: só para quem vê os resultados.
+      ...(veResultados ? [{ href: `${base}/analises`, rotulo: 'Análises', icone: ChartColumn }] : []),
       { href: `${base}/canais`, rotulo: 'Canais', icone: Cctv },
       { href: `${base}/regras`, rotulo: 'Critérios', icone: ListChecks },
       { href: `${base}/alertas`, rotulo: 'Alertas', icone: BellRing },
       // Orçamento é decisão de compra: só para quem configura.
       ...(configura ? [{ href: `${base}/orcamento`, rotulo: 'Orçamento', icone: Calculator }] : []),
     ];
-  }, [lojaId, sinais, configura]);
+  }, [lojaId, sinais, configura, veResultados]);
 
   const atual = useMemo(() => {
     if (!lojaId) return caminho.startsWith('/lojas') ? '/lojas' : null;

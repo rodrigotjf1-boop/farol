@@ -6,7 +6,8 @@ tela deve ficar e reagir; não é o app, e os dados dentro dele são exemplo.
 | arquivo | o que é | situação |
 |---|---|---|
 | `farol-console.html` | o console inteiro: entrada, painel "o que o Farol viu", canais, área do canal, critérios, alertas, orçamento e lojas | aprovado pelo dono em 07/10/2026 e portado para `web/` |
-| `farol-console.html`, tela **Análises** | o que foi julgado, hora a hora: filtro por período, horas, canal, critério e onde foi julgado (na loja ou na nuvem); gráfico que também é filtro; custo total e médio da nuvem | **em aprovação** (07/10/2026); ainda não está em `web/` |
+| `farol-console.html`, tela **Análises** | o que foi julgado, hora a hora: filtro por período, horas, canal, critério e onde foi julgado (na loja ou na nuvem); gráfico que também é filtro; custo total e médio da nuvem | aprovado pelo dono em 07/10/2026 e portado para `web/` |
+| `farol-console.html`, bloco **Máquina de análise** (dentro de Análises) | uso do computador da loja: processador, memória, placa de vídeo e disco, hora a hora, seguindo o período e as horas do recorte | **em aprovação** (07/10/2026); ainda não está em `web/` |
 
 Abre com dois cliques. No canto de baixo, o botão **Protótipo** troca a
 situação da loja (em operação, loja nova, carregando, agente fora do ar), o

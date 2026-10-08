@@ -50,12 +50,21 @@ export function Tabela({
   );
 }
 
-export function Linha({ children, apagada = false }: { children: ReactNode; apagada?: boolean }) {
+export function Linha({
+  children,
+  apagada = false,
+  total = false,
+}: {
+  children: ReactNode;
+  apagada?: boolean;
+  /** A linha que soma as outras: fica no fim, em negrito, sobre um fundo. */
+  total?: boolean;
+}) {
   return (
     <tr
       className={`transition-colors hover:bg-farol-painel-2 max-md:grid max-md:grid-cols-2 max-md:gap-x-3.5 max-md:gap-y-2 max-md:border-b max-md:border-farol-borda max-md:px-3.5 max-md:py-3 ${
         apagada ? 'opacity-45' : ''
-      }`}
+      } ${total ? 'bg-farol-painel-2 font-semibold md:[&>td]:border-t md:[&>td]:border-t-farol-borda-forte' : ''}`}
     >
       {children}
     </tr>
@@ -67,6 +76,7 @@ export function Celula({
   inteira = false,
   numero = false,
   acao = false,
+  vazia = false,
   children,
 }: {
   /** O nome da coluna, mostrado em cima do valor no celular. Sem ele, a
@@ -78,7 +88,10 @@ export function Celula({
   /** A coluna dos botões da linha: à direita, com a letra da interface.
    *  (Usar `numero` só para alinhar punha o botão em letra de código.) */
   acao?: boolean;
-  children: ReactNode;
+  /** Coluna sem valor nesta linha (o total não tem canal): no computador
+   *  ocupa o lugar dela; no celular, some. */
+  vazia?: boolean;
+  children?: ReactNode;
 }) {
   return (
     <td
@@ -88,6 +101,7 @@ export function Celula({
         (numero ? 'whitespace-nowrap text-right font-mono text-[12.5px] tabular-nums max-md:text-left ' : '') +
         (acao ? 'whitespace-nowrap text-right max-md:text-left ' : '') +
         (inteira ? 'max-md:col-span-2 ' : '') +
+        (vazia ? 'max-md:!hidden ' : '') +
         (rotulo
           ? 'max-md:before:block max-md:before:font-sans max-md:before:text-[11.5px] max-md:before:font-medium max-md:before:text-farol-suave max-md:before:content-[attr(data-r)]'
           : '')
