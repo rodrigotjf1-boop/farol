@@ -164,23 +164,139 @@ def test_veredito_guardado_e_recuperavel(fila):
     assert fila.custo_centavos(BASE - timedelta(days=1)) == pytest.approx(1.5)
 
 
-def test_limpeza_apaga_imagem_do_spool(fila, tmp_path):
-    """Disco cheio num PC de loja derruba o agente de um jeito difícil de ver."""
-    img = tmp_path / "quadro.jpg"
-    img.write_bytes(b"conteudo")
+# ───────────────── a limpeza do disco (ERR-062) ─────────────────
+#
+# Disco cheio num PC de loja derruba o agente de um jeito difícil de ver. A
+# limpeza existia só para o que tinha sido julgado, e ninguém a chamava: o
+# spool crescia para sempre. O que se prova aqui é o que SAI e o que FICA.
 
-    fila.enfileirar(
-        chave="k9", regra_id="r1", ponto_id="p1", zona_id="z1",
-        prioridade="leve", criterio="c", criterio_versao=1,
-        imagem_caminho=img, capturado_em=BASE,
+
+def _no_spool(fila, nome: str):
+    """Uma imagem dentro do spool, como a que o motor grava."""
+    img = fila.spool / nome
+    img.write_bytes(b"conteudo")
+    return img
+
+
+def _com_imagem(fila, chave: str, img, *, prioridade="intermediaria", ts=BASE):
+    assert fila.enfileirar(
+        chave=chave, regra_id="r1", ponto_id="p1", zona_id="z1",
+        prioridade=prioridade, criterio="c", criterio_versao=1,
+        imagem_caminho=img, capturado_em=ts,
     )
-    item = fila.proximos(BASE)[0]
+
+
+def _estados(fila) -> dict[str, str]:
+    with fila._lock:
+        return {l["chave"]: l["estado"] for l in fila._con.execute("select chave, estado from analise")}
+
+
+def test_a_limpeza_leva_o_que_ja_encerrou_e_a_imagem_dele(fila):
+    julgada, vencida, falhada, esperando = (_no_spool(fila, f"{n}.jpg") for n in ("julgada", "vencida", "falhada", "esperando"))
+
+    # Julgada.
+    _com_imagem(fila, "julgada", julgada)
+    (item,) = fila.proximos(BASE)
     fila.concluir(item.id, Veredito(resultado=Resultado.CONFORME, confianca=1.0), BASE)
 
-    apagados = fila.limpar_concluidos(BASE + timedelta(days=1))
+    # Falhada de vez: esgotou as tentativas. (`leve`: as esperas somadas
+    # passam da validade de uma `intermediaria`, que venceria antes.)
+    _com_imagem(fila, "falhada", falhada, prioridade="leve")
+    agora = BASE
+    for _ in range(len(BACKOFF_SEG) + 1):
+        prontos = fila.proximos(agora)
+        if not prontos:
+            break
+        fila.adiar(prontos[0], "a nuvem recusou", agora)
+        agora += timedelta(seconds=max(BACKOFF_SEG) + 1)
 
-    assert apagados == 1
-    assert not img.exists()
+    # Vencida: urgente vale cinco minutos, e ninguém a julgou a tempo.
+    _com_imagem(fila, "vencida", vencida, prioridade="urgente", ts=BASE + timedelta(days=1))
+    # Esperando julgamento — vale 24 horas, e ainda está dentro delas.
+    _com_imagem(fila, "esperando", esperando, prioridade="leve", ts=BASE + timedelta(days=1, hours=1))
+    # A urgente vence aqui; a leve é tirada da fila e devolvida a ela, para continuar esperando.
+    (pega,) = fila.proximos(BASE + timedelta(days=1, hours=2))
+    assert pega.chave == "esperando"
+    fila.adiar(pega, "a nuvem não respondeu", BASE + timedelta(days=1, hours=2))
+
+    assert _estados(fila) == {
+        "julgada": "concluido", "falhada": "falhou", "vencida": "descartado", "esperando": "pendente",
+    }
+
+    saiu = fila.limpar_encerrados(BASE + timedelta(days=30))
+
+    assert saiu == 3
+    assert _estados(fila) == {"esperando": "pendente"}, "o que espera julgamento fica, seja de quando for"
+    assert [julgada.exists(), vencida.exists(), falhada.exists(), esperando.exists()] == [False, False, False, True]
+
+
+def test_a_limpeza_nao_leva_o_que_e_recente(fila):
+    antiga, nova = _no_spool(fila, "antiga.jpg"), _no_spool(fila, "nova.jpg")
+    for chave, img, quando in (("antiga", antiga, BASE), ("nova", nova, BASE + timedelta(days=10))):
+        _com_imagem(fila, chave, img, ts=quando)
+        (item,) = fila.proximos(quando)
+        fila.concluir(item.id, Veredito(resultado=Resultado.CONFORME, confianca=1.0), quando)
+
+    # O corte é o instante do JULGAMENTO: fica o que foi julgado no corte ou depois.
+    assert fila.limpar_encerrados(BASE + timedelta(days=10)) == 1
+    assert _estados(fila) == {"nova": "concluido"}
+    assert [antiga.exists(), nova.exists()] == [False, True]
+    assert fila.limpar_encerrados(BASE + timedelta(days=10)) == 0, "rodar de novo não leva mais nada"
+
+
+def test_a_limpeza_so_apaga_arquivo_de_dentro_do_spool(fila, tmp_path):
+    # Arquivo de quem rodou uma análise à mão, fora da pasta do agente: a
+    # linha sai, o arquivo fica. Este código não apaga o que não criou.
+    de_fora = tmp_path / "foto-do-dono.jpg"
+    de_fora.write_bytes(b"conteudo")
+    em_subpasta = fila.spool / "outra" / "x.jpg"
+    em_subpasta.parent.mkdir()
+    em_subpasta.write_bytes(b"conteudo")
+    for chave, img in (("fora", de_fora), ("subpasta", em_subpasta)):
+        _com_imagem(fila, chave, img)
+        (item,) = fila.proximos(BASE)
+        fila.concluir(item.id, Veredito(resultado=Resultado.CONFORME, confianca=1.0), BASE)
+
+    assert fila.limpar_encerrados(BASE + timedelta(days=1)) == 2
+    assert _estados(fila) == {}
+    assert de_fora.exists() and em_subpasta.exists()
+
+
+def test_imagem_que_nao_deu_para_apagar_fica_para_a_proxima_limpeza(fila, monkeypatch):
+    presa, solta = _no_spool(fila, "presa.jpg"), _no_spool(fila, "solta.jpg")
+    for chave, img in (("presa", presa), ("solta", solta)):
+        _com_imagem(fila, chave, img)
+        (item,) = fila.proximos(BASE)
+        fila.concluir(item.id, Veredito(resultado=Resultado.CONFORME, confianca=1.0), BASE)
+
+    from pathlib import Path
+
+    de_verdade = Path.unlink
+
+    def unlink(self, missing_ok=False):
+        if self.name == "presa.jpg":
+            raise PermissionError("o arquivo está em uso por outro programa")
+        return de_verdade(self, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", unlink)
+    assert fila.limpar_encerrados(BASE + timedelta(days=1)) == 1
+    assert _estados(fila) == {"presa": "concluido"}, "a linha fica: é por ela que a próxima limpeza acha o arquivo"
+    assert presa.exists() and not solta.exists()
+
+    monkeypatch.setattr(Path, "unlink", de_verdade)
+    assert fila.limpar_encerrados(BASE + timedelta(days=1)) == 1
+    assert _estados(fila) == {} and not presa.exists()
+
+
+def test_imagem_que_ja_sumiu_nao_segura_a_linha(fila):
+    img = _no_spool(fila, "sumida.jpg")
+    _com_imagem(fila, "sumida", img)
+    (item,) = fila.proximos(BASE)
+    fila.concluir(item.id, Veredito(resultado=Resultado.CONFORME, confianca=1.0), BASE)
+    img.unlink()
+
+    assert fila.limpar_encerrados(BASE + timedelta(days=1)) == 1
+    assert _estados(fila) == {}
 
 
 def test_alerta_registra_e_devolve_o_ultimo(fila):
