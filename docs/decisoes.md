@@ -2154,3 +2154,163 @@ enquanto a versão dela não mudar.
 - Com o agente da loja: ele é o pacote antigo, pede sem declarar nada, e
   só pede quando a versão da configuração muda. Depois desta migration, a
   linha dele fica com `sabe_em` nulo até a próxima mudança de configuração.
+
+## 09/10/2026 · A imagem completa de volta: o canal, os quadros e a tela do canal
+
+A19, onda 1 — a primeira parte das telas da fatia 1.5 (migration 034). O
+protótipo da onda foi aprovado pelo dono em 09/10 ("protótipos aprovados").
+
+### Por quê
+
+As palavras são as do dono: o **canal** é a câmera; a **imagem completa** é
+o canal inteiro, e os critérios dela são os **critérios gerais**; o
+**quadro** é um recorte marcado dentro da imagem, com nome e **papel**, e
+tem os seus critérios.
+
+Até aqui a "área principal" do canal era uma área como as outras: nascia
+"Quadro inteiro" e podia ser redesenhada. Redesenhada, ficava com o nome de
+quadro inteiro cobrindo um pedaço da imagem — e o canal deixava de ter onde
+pôr um critério que vale para a câmera toda. **Na loja de verdade dois dos
+seis canais estavam assim** (lido da configuração dela em 09/10: "montagem
+1" e "Atendimento principal"), um deles com um critério de presença.
+
+### O que mudou no modelo
+
+- **A principal É a imagem completa.** Uma por canal, sempre o canal
+  inteiro, com o nome "Imagem completa", sem papel. Não se redesenha, não se
+  renomeia e não se exclui; dela só se informa a largura real da cena.
+- **A regra está no banco**, não só na API
+  (`zona_principal_e_a_imagem_completa`): a principal é o canal inteiro, sem
+  papel, e nunca está excluída. Nenhum caminho — desta API, de uma versão
+  antiga dela, ou de mão no banco — quebra isso.
+- **Quem diz o que é a imagem completa é ser a principal, não o desenho.** O
+  número do quadro deixou de sair do contorno: um quadro esticado até cobrir
+  a imagem toda continua sendo quadro, com número e papel (a câmera fechada
+  só na bancada pode ter a imagem inteira como "posição de montagem").
+- **Todo canal nasce com ela** — pelo console e pela distribuição. *Achado
+  no caminho:* o canal criado junto com a loja, pela distribuição, nascia
+  sem área nenhuma; não aparecia na árvore de critérios e não descia com
+  área para o agente.
+- **Um canal tem a imagem completa e até oito quadros** (antes, oito áreas
+  contando a principal).
+
+### O que a migration fez com o que existia
+
+1. A principal que não cobria a imagem inteira deixou de ser a principal:
+   virou um quadro como os outros, com o mesmo desenho, o mesmo nome e os
+   mesmos critérios. **Nada muda no que é analisado**: o vínculo do critério
+   é com a área, e a área é a mesma.
+2. O canal que ficou sem principal e já tinha uma área cobrindo tudo passou
+   a tê-la como imagem completa (a mais antiga); o que não tinha, ganhou uma.
+3. "Quadro inteiro" deixou de ser nome de área: a imagem completa se chama
+   "Imagem completa" em todo canal, e o quadro que ainda tinha o nome de
+   fábrica (redesenhado sem ninguém trocar) passou a se chamar "Área marcada".
+
+Os casos tortos também estão cobertos (e testados, com o arquivo da
+migration rodando num esquema à parte): quadro que já se chamava "Imagem
+completa", canal com duas áreas cobrindo tudo, canal sem área, canal só com
+área excluída, principal marcada como excluída, principal com papel, canal
+excluído. Rodar de novo não muda nada.
+
+### As rotas
+
+- `PATCH /v1/zonas/:id` — na imagem completa, tudo o que a mudaria é
+  recusado com `409 imagem_completa_fixa` e o motivo ("…Para conferir só uma
+  parte, marque um quadro"); mandar de volta o que ela já é passa, e a
+  largura real da cena grava. Num quadro, `principal: true` é recusado, e o
+  nome "Imagem completa" também (422).
+- `POST /v1/pontos/:id/zonas` — nunca cria principal; recusa o nome
+  reservado; o teto conta só quadros.
+- `DELETE /v1/zonas/:id` — a imagem completa não se exclui (409). Saíram o
+  "o canal precisa de pelo menos uma área" e o "a principal passa para a
+  mais antiga": não há mais como chegar neles.
+- `GET /v1/pontos/:id` — a imagem completa primeiro e os quadros na ordem do
+  número; de cada critério, em quantos canais e quadros ele vale e se **falta
+  a cena** para ele; do canal, se a cena está fazendo falta.
+- `GET /v1/lojas/:id` — de cada área, o número e o papel; de cada canal, se
+  a cena já foi escrita.
+
+### A tela do canal (`/pontos/:id`)
+
+É o porte do protótipo, com as peças e as cores do console de hoje (o
+caminho "a" do roadmap — a cara nova chega para tudo de uma vez na onda 8):
+
+- **o canal e os quadros** — a imagem com cada quadro numerado, a faixa
+  riscada onde dois se sobrepõem, a contagem ("4 quadros · 6 critérios — 2
+  gerais, 4 em quadros") e o "+ Quadro";
+- **onde cada critério vale** — a árvore: a imagem completa (os critérios
+  gerais) e um nó por quadro, com o papel, os critérios e o "+ critério";
+- **a cena deste canal** — o tipo de negócio (da loja) e o texto de quem
+  configura, com a orientação do que vale escrever;
+- **a gaveta do quadro** — nome, papel, "Redesenhar o contorno" e a exclusão
+  em dois passos.
+
+A tela do desenho por pontos (`/pontos/:id/area`) continua, agora só para
+os quadros, e segue com as fotos padrão, as medidas e a conexão do canal: a
+tela do canal tem o atalho "Desenho, fotos e conexão".
+
+### A tela só afirma o que é verdade
+
+- **"Falta descrever a cena"** aparece no critério e no cartão da cena só
+  quando a cena está fazendo falta de fato — a loja já pergunta com contexto
+  e o canal está sem o texto. Quem diz é o servidor. **A chave interna
+  continua fora do console:** a tela não recebe a chave, recebe a
+  consequência dela, por canal e por critério. Critério desligado e
+  critério que só observa não acusam falta (um não é conferido, o outro
+  conta as olhadas sem precisar entender a imagem).
+- **"Olhando agora"** só com o agente vivo, o canal ativo e um critério
+  ligado que valha no horário de agora e não esteja parado por falta da
+  cena. Critério com faixa de horas própria não entra na conta: a tela não
+  sabe se a faixa é agora, e prefere não afirmar.
+- **O que o papel muda.** Só um papel muda a análise hoje — "posição de
+  montagem" (fatia 1.4) —, e a gaveta diz o que muda, que foi pensado para
+  câmera de cima, e se o computador da loja já tem a regra (pelo que o
+  agente declarou saber, migration 033).
+- **A lista de critérios mostra o estado ao lado do "Ligado"**: o que só
+  observa ou está em ensaio está ligado e não avisa ninguém.
+
+### Onde a tela diverge do protótipo aprovado
+
+1. **Sem a barra de cima** com o caminho e o "Ir para… (Ctrl K)": o console
+   de hoje não tem barra de cima; o caminho fica acima do título. O "ir para"
+   não entrou.
+2. **O texto de cada papel** ficou só com o que o quadro é. O protótipo dizia
+   também o que o Farol faria com ele ("a leitura da bancada usa para saber
+   de onde a mão pegou", "marca o instante em que o pedido chega"), e isso
+   ainda não existe.
+3. **A frase do campo da cena** ("Este texto diz ao Farol o que a câmera
+   está vendo") e o aviso depois de salvar ("O agente da loja recebe na
+   próxima batida") não prometem uso: o que o Farol faz com o texto é lógica
+   interna e muda de loja para loja.
+4. **A pastilha "em branco"** da cena é âmbar quando a cena não está tirando
+   análise de ninguém, e vermelha só quando está.
+5. **Apagar a cena** de um canal que já a tem não se faz pela tela (o campo
+   vazio é recusado, com o motivo).
+6. **O critério ainda abre a gaveta de hoje.** A gaveta nova — o estudo, o
+   funil, os estados, as famílias — é a parte seguinte da fatia. Por isso a
+   segunda linha de cada critério diz o estado em palavras, sem os números
+   do funil, e mostra o tipo de hoje no lugar da família.
+7. **Critério desligado** aparece como "desligado" (o protótipo não tinha o
+   caso).
+8. **O quadro novo** nasce "Quadro novo", abre com o foco no nome, e o
+   contorno se ajusta na tela do desenho.
+9. **Canal pausado** não oferece "+ critério" nem "Atualizar quadro".
+10. **Na lista de canais** ficou o cartão do console de hoje, com as
+    pastilhas novas ("N quadros", "cena descrita" ou "falta a cena").
+
+### O que não entrou
+
+- A gaveta nova do critério (estudo, funil, estados, famílias) e a proposta
+  do estudo pelo sistema.
+- O "ir para" (Ctrl K).
+- "Quadro" no lugar de "área" nas telas de Análises e do Painel (os dados
+  continuam chegando como "área").
+- Copiar os quadros, a cena e os critérios de um canal para outro igual — a
+  ilha de montagem da loja tem duas frentes com as mesmas medidas.
+
+### O que não foi medido
+
+- Com a loja de verdade: a tela foi conferida num navegador, contra a API
+  local e uma loja inventada (214 conferências, 16 larguras de 320 a 1920
+  px, tema claro e escuro, com e sem a gaveta). A migration foi conferida no
+  banco local e num esquema de teste com os casos de antes.

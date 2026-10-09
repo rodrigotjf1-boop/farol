@@ -230,9 +230,11 @@ describe('analisar as fotos e descrever (Postgres real)', { skip: !URL_DO_BANCO 
   it('o agente recebe o comando com a forma do contrato, e baixa as fotos dele', async () => {
     const c = await canalComQuadro('Chapa');
     const desenho = [[0.1, 0.2], [0.6, 0.2], [0.6, 0.8], [0.1, 0.8]];
-    await app.inject({ method: 'PATCH', url: `/v1/zonas/${c.zona}`, headers: { cookie }, payload: { poligono: desenho } });
+    // O desenho é de um QUADRO do canal: a imagem completa não se redesenha.
+    const quadro = await app.inject({ method: 'POST', url: `/v1/pontos/${c.id}/zonas`, headers: { cookie }, payload: { nome: 'A chapa', poligono: desenho } });
+    assert.equal(quadro.statusCode, 201, quadro.body);
     const e = await equipamento('Chapa do contrato');
-    const doCanal = await app.inject({ method: 'POST', url: `/v1/inventario/${e.id}/fotos`, headers: { cookie }, payload: { origem: 'canal', zonaId: c.zona } });
+    const doCanal = await app.inject({ method: 'POST', url: `/v1/inventario/${e.id}/fotos`, headers: { cookie }, payload: { origem: 'canal', zonaId: quadro.json().id } });
     assert.equal(doCanal.statusCode, 201, doCanal.body);
 
     assert.deepEqual((await estado(e.id)).json(), { pedido: null, sugestao: null }, 'antes de pedir não há nada');

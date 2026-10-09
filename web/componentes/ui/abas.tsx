@@ -14,7 +14,9 @@ export type Aba = { href: string; rotulo: string; icone: LucideIcon; conta?: num
 export function Abas({ rotulo, abas }: { rotulo: string; abas: ReadonlyArray<Aba> }) {
   const caminho = usePathname();
   return (
-    <nav aria-label={rotulo} className="-mb-1 flex gap-1 overflow-x-auto border-b border-farol-borda">
+    // Sem rolagem para o lado: em tela muito estreita as abas apertam e, se
+    // ainda assim não couberem, quebram a linha (em 320 px sobravam 4 px).
+    <nav aria-label={rotulo} className="-mb-1 flex flex-wrap gap-x-1 border-b border-farol-borda">
       {abas.map(({ href, rotulo: nome, icone: Icone, conta, oQueConta }) => {
         const atual = caminho === href;
         return (
@@ -22,7 +24,7 @@ export function Abas({ rotulo, abas }: { rotulo: string; abas: ReadonlyArray<Aba
             key={href}
             href={href}
             aria-current={atual ? 'page' : undefined}
-            className={`group relative inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap px-3 font-semibold no-underline transition-colors ${
+            className={`group relative inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap px-3 font-semibold no-underline transition-colors max-[359px]:gap-1.5 max-[359px]:px-2 ${
               atual ? 'text-farol-tinta' : 'text-farol-suave hover:text-farol-tinta'
             }`}
           >

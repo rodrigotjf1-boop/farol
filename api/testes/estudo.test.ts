@@ -489,7 +489,7 @@ describe('o estudo do critério (Postgres real)', { skip: !URL_DO_BANCO && 'sem 
     // A imagem completa (sem número) e os dois quadros, numerados como a tela mostra.
     assert.deepEqual(
       corpo.canais[0].quadros.map((q: { nome: string; numero: number | null; papel: string }) => [q.nome, q.numero, q.papel]),
-      [['Quadro inteiro', null, 'livre'], ['Chapa', 1, 'equipamento'], ['Posto do chapeiro', 2, 'posto']],
+      [['Imagem completa', null, 'livre'], ['Chapa', 1, 'equipamento'], ['Posto do chapeiro', 2, 'posto']],
     );
     assert.deepEqual(corpo.canais[0].quadros.slice(1).map((q: { id: string }) => q.id), [chapa, posto]);
     assert.deepEqual(await noBanco(id), [], 'ler não cria nada');

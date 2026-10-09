@@ -56,7 +56,7 @@ export function GavetaDaFotoPadrao({ pontoId, capturadoEm, pessoas, aoGuardar, a
   return (
     <Gaveta
       titulo="Guardar como foto padrão"
-      descricao="O quadro de agora passa a ser uma referência deste canal."
+      descricao="A imagem de agora passa a ser uma referência deste canal."
       ocupado={salvando}
       aoFechar={aoFechar}
       rodape={
@@ -74,9 +74,9 @@ export function GavetaDaFotoPadrao({ pontoId, capturadoEm, pessoas, aoGuardar, a
         {pessoas !== null && pessoas > 0 && (
           <Alerta tom="atencao" icone={Users}>
             <strong className="font-semibold">
-              O detector vê {plural(pessoas, 'pessoa', 'pessoas')} no quadro de agora.
+              O detector vê {plural(pessoas, 'pessoa', 'pessoas')} na imagem de agora.
             </strong>{' '}
-            A foto padrão fica melhor sem ninguém na frente do que importa: se der, espere esvaziar e atualize o quadro.
+            A foto padrão fica melhor sem ninguém na frente do que importa: se der, espere esvaziar e use “Atualizar quadro”.
           </Alerta>
         )}
 
@@ -112,7 +112,7 @@ export function GavetaDaFotoPadrao({ pontoId, capturadoEm, pessoas, aoGuardar, a
         </div>
 
         <p className="text-[12.5px] text-farol-suave">
-          Vai ser guardado o quadro de <span className="font-mono">{diaEHora(capturadoEm)}</span>, o que está na tela.
+          Vai ser guardada a imagem de <span className="font-mono">{diaEHora(capturadoEm)}</span>, a que está na tela.
           Se a cena mudou desde então, feche e use <strong className="font-semibold text-farol-tinta">Atualizar quadro</strong>{' '}
           antes.
         </p>

@@ -3779,12 +3779,12 @@ Levantamento do código feito antes de começar. Três coisas dele mudam o jeito
 
 | fatia | o que entra | tela? | nasce |
 |---|---|---|---|
-| **1.0 · protótipo** | as telas da onda — o canal com a imagem completa, os quadros e os critérios; a cena; o estudo do critério, o funil e os estados — em `mockups/farol-console-novo.html`, na cara nova. Revisto em 09/10 com os dois recados do dono (abaixo) | é o protótipo | **aguardando aprovação** (versão 3) |
+| **1.0 · protótipo** | as telas da onda — o canal com a imagem completa, os quadros e os critérios; a cena; o estudo do critério, o funil e os estados — em `mockups/farol-console-novo.html`, na cara nova. Revisto em 09/10 com os dois recados do dono (abaixo) | é o protótipo | **aprovado pelo dono em 09/10** (versão 3) |
 | **1.1 · o pedido com contexto** ✅ (09/10, migration 030) | a loja ganha "tipo de negócio"; o canal, a cena; o quadro, o papel e a ordem. O agente monta o pedido na anatomia do plano — cena, mapa do canal, recorte na resolução da câmera, pergunta — com o que é fixo em cache, no Haiku 5.5. Sem cena escrita o pedido não sai: a olhada conta como "sem juiz", com o motivo | não | desligado; a chave é **interna**, por loja (da distribuição): não é opção de tela |
 | **1.2 · os quatro estados** ✅ (09/10, migration 031) | observando · em ensaio · medido · valendo. Só "valendo" avisa; "observando" conta sem julgar. Critério que já avisa hoje continua valendo | não | os de hoje ficam como estão |
 | **1.3 · o estudo do critério e o funil** ◐ (09/10, migration 032: o motor e os números; falta a proposta) | as seis partes (contexto, gatilho, janela, ação, desfecho, fora de contexto), com cada condição ligada a um sinal da loja; a proposta do sistema, pedida ao agente como hoje se pede a descrição de um equipamento; o funil servido em números | não | sem estudo, o critério segue com o "quando vale a pena conferir" de hoje |
 | **1.4 · o quadro de bancada** ✅ (09/10, sem migration; **uma parte mudou:** quem aparece não é apagado — a imagem com alguém à vista sai como hoje, com o borrão) | em quadro com papel "posição de montagem": sobe o quadro de quando as mãos saem, sem o borrão de rosto; quem aparecer é apagado | não | só onde o papel for esse — e o campo do papel só chega ao console na fatia 1.5 |
-| **1.5 · as telas** (a parte da nuvem que não depende de tela — guardar o que o agente da loja declara saber — entrou em 09/10, migration 033) | o porte do protótipo aprovado para o console; a migração das áreas redesenhadas ("Quadro inteiro" que não é o quadro inteiro vira "Quadro 1", e o canal ganha a imagem completa de volta); as contagens "em N canais (M quadros)" | sim | depois do "aprovado" |
+| **1.5 · as telas** ◐ (09/10: a parte da nuvem — o que o agente declara saber, migration 033; **a tela do canal e a migração das áreas, migration 034**; falta a gaveta nova do critério) | o porte do protótipo aprovado para o console; a migração das áreas redesenhadas (a principal que não é o canal inteiro vira um quadro, e o canal ganha a imagem completa de volta); as contagens "em N canais (M quadros)" | sim | o protótipo foi aprovado em 09/10 |
 
 **De onde sai cada número do funil que o protótipo mostra** (para não desenhar o que não
 existe):
@@ -3857,7 +3857,8 @@ muda-se antes da fatia 1.3.
   centavo da análise de hoje;
 - **o que ainda não dá para usar na loja:** o campo da cena ainda não está no console — a
   tela é a fatia 1.5, depois do protótipo aprovado. Até lá a chave fica desligada, e nada
-  muda;
+  muda — **o campo da cena entrou em 09/10** (a tela do canal, abaixo); a chave continua
+  desligada até as cenas estarem escritas;
 - **achado no caminho:** as imagens julgadas nunca eram apagadas do disco da loja
   (ERR-062, PR #77): a auditoria passou a limpar, com guarda de 15 dias.
 
@@ -3926,11 +3927,13 @@ imagem espera as mãos saírem"):
   foi pensada para a câmera de cima, e num quadro de câmera lateral a imagem sem o borrão
   depende só de o detector não ter visto ninguém;
 - **para a fatia 1.5:** a tela em que se escolhe o papel tem de dizer o que ele muda (a
-  imagem espera o quadro parar, e sai sem o borrão quando não há ninguém à vista); e, se o
-  funil for separar "havia mão na frente" do resto do "nada a conferir", é contador novo;
+  imagem espera o quadro parar, e sai sem o borrão quando não há ninguém à vista) —
+  **entrou em 09/10**, na gaveta do quadro; e, se o funil for separar "havia mão na
+  frente" do resto do "nada a conferir", é contador novo;
 - **ainda não dá para usar na loja:** nenhum quadro tem o papel, e o campo do papel só chega
-  ao console na fatia 1.5. Não foi medido com o fluxo menor de verdade e a loja aberta — o
-  gravador não guarda esse fluxo.
+  ao console na fatia 1.5 (**chegou em 09/10**, na gaveta do quadro; na loja ainda ninguém
+  marcou). Não foi medido com o fluxo menor de verdade e a loja aberta — o gravador não
+  guarda esse fluxo.
 
 **Da fatia 1.5, a parte que não depende de tela, entregue em 09/10** ([decisoes.md](decisoes.md),
 "A nuvem guarda o que o agente da loja declara saber"; migration 033):
@@ -3947,12 +3950,33 @@ imagem espera as mãos saírem"):
   observação seria julgado (e pago) — ninguém seria avisado, mas gastaria;
 - **o que falta:** a tela que usa isso.
 
-**Uma escolha que fica para quando o protótipo for aprovado.** O plano manda o protótipo
-nascer na cara nova, e assim foi feito. O porte da cara nova inteira é a onda 8. Ao levar as
-telas da onda 1 para o console, há dois caminhos: (a) com as peças e as cores do console de
-hoje, e a cara nova chega para tudo de uma vez na onda 8 — o console não fica com duas
-caras; ou (b) adiantar "cores e tipos" da cara nova para o console inteiro agora. Recomendo
-o (a). A decisão é do dono.
+**A fatia 1.5, a tela do canal, entregue em 09/10** ([decisoes.md](decisoes.md), "A imagem
+completa de volta: o canal, os quadros e a tela do canal"; migration 034):
+
+- **o que entrou:** a imagem completa passa a ser fixa — uma por canal, sempre o canal
+  inteiro, com a regra no banco —, e o que se marca dentro dela são os quadros, com número
+  e papel. A migration levou as áreas de antes para esse modelo sem mudar o que é
+  analisado (na loja, dois canais tinham a principal redesenhada: ela virou "Quadro 1", e
+  o canal ganhou a imagem completa). A tela nova do canal: a imagem com os quadros
+  numerados, a árvore "onde cada critério vale", a cena do canal com o tipo de negócio e a
+  gaveta do quadro (nome, papel, contorno, exclusão);
+- **a tela só afirma o que é verdade:** "falta descrever a cena" e "olhando agora" aparecem
+  só quando são fato — quem diz se a cena está fazendo falta é o servidor, e a chave
+  interna continua fora do console; a gaveta do quadro diz o que o papel "posição de
+  montagem" muda e se o computador da loja já tem a regra;
+- **achado no caminho:** o canal criado junto com a loja, pela distribuição, nascia sem
+  área nenhuma. Passou a nascer com a imagem completa, e os que existiam ganharam a deles;
+- **onde diverge do protótipo:** dez pontos, listados na decisão — os principais: não há a
+  barra de cima com o "ir para"; o texto de cada papel só diz o que o quadro é (o protótipo
+  prometia leituras que ainda não existem); e **o critério ainda abre a gaveta de hoje**;
+- **o que falta nesta fatia:** a gaveta nova do critério — o estudo com a proposta do
+  sistema, o funil, os estados e as famílias —, e o "ir para".
+
+**A escolha do porte.** O plano manda o protótipo nascer na cara nova, e assim foi feito; o
+porte da cara nova inteira é a onda 8. As telas da onda 1 entram no console com as peças e
+as cores de hoje — o console não fica com duas caras —, e a cara nova chega para tudo de
+uma vez na onda 8. Foi o caminho recomendado; o dono aprovou o protótipo sem pedir o outro
+(adiantar "cores e tipos" para o console inteiro agora).
 
 ### O que não foi medido
 

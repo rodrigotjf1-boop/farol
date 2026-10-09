@@ -637,18 +637,18 @@ describe('o movimento e o que não deu para avaliar (sem banco)', () => {
     assert.deepEqual(touca.linhas.map((l) => [l[0], Math.round(l[1]), l[2]]), [['Das 20h às 22h', 55, true], ['Nas outras horas', 55, true]]);
     assert.equal(touca.sufixo, 'das olhadas sem conseguir avaliar');
     // quadro inteiro e mais da metade sem avaliar: a frase aponta para a sugestão que existe
-    assert.equal(touca.pe, 'Quando a taxa não muda com a hora, o problema é o que a câmera mostra — veja a sugestão de marcar a área.');
-    assert.ok(p.sugestoes.some((s) => s.titulo === 'Marque a área em Montagem 2'));
+    assert.equal(touca.pe, 'Quando a taxa não muda com a hora, o problema é o que a câmera mostra — veja a sugestão de marcar um quadro.');
+    assert.ok(p.sugestoes.some((s) => s.titulo === 'Marque um quadro em Montagem 2'));
     // com a área já marcada (o uniforme), a frase não promete uma sugestão que não vem
     const uniforme = p.relacoes.find((x) => x.pergunta === 'Movimento × “Uniforme completo” sem avaliar em Montagem 1')!;
     assert.equal(uniforme.pe, 'Quando a taxa não muda com a hora, o problema é o que a câmera mostra, e não o movimento.');
-    assert.ok(!p.sugestoes.some((s) => s.titulo === 'Marque a área em Montagem 1'));
+    assert.ok(!p.sugestoes.some((s) => s.titulo === 'Marque um quadro em Montagem 1'));
     // o mesmo com a touca abaixo da metade: a sugestão de área não existe, a frase não a cita
     const menos = comPico();
     for (let n = 1; n <= DIAS_DO_PADRAO; n += 1) for (const h of ABERTA) menos[`${somaDias(HOJE, -n)}|${h}`] = { ...(menos[`${somaDias(HOJE, -n)}|${h}`] ?? {}), toucaNa: 45 };
     const p2 = montarPadroes(loja({ fora: menos }));
     assert.equal(p2.relacoes.find((x) => x.pergunta.includes('Uso de touca'))!.pe, 'Quando a taxa não muda com a hora, o problema é o que a câmera mostra, e não o movimento.');
-    assert.ok(!p2.sugestoes.some((s) => s.titulo === 'Marque a área em Montagem 2'));
+    assert.ok(!p2.sugestoes.some((s) => s.titulo === 'Marque um quadro em Montagem 2'));
   });
 
   it('quando muda com o movimento, a relação diz para que lado', () => {
@@ -806,14 +806,14 @@ describe('o que os números mostram sobre os próprios critérios (sem banco)', 
     const p = montarPadroes(loja());
     assert.deepEqual(p.sugestoes.map((s) => [s.setorId, s.icone, s.titulo]), [
       ['s-atd', 'duvida', '“Alguém no balcão” nunca ficou fora do critério: vale manter?'],
-      ['s-coz', 'area', 'Marque a área em Montagem 2'],
+      ['s-coz', 'area', 'Marque um quadro em Montagem 2'],
       ['s-coz', 'pessoa', 'Só confira “Uniforme completo” com alguém na área'],
       ['s-coz', 'foto', 'Use a foto padrão em “Bancada limpa”'],
       ['s-coz', 'duvida', '“Chapa com gente” nunca ficou fora do critério: vale manter?'],
     ], 'na ordem dos setores; dentro de cada um, pelo título, com a dúvida por último');
     const [, area, pessoa, foto, duvida] = p.sugestoes;
-    assert.equal(plana(area!.texto), '“Uso de touca” não consegue avaliar em 55% das olhadas neste canal. Em 24 dias, R$ 11,09 foram gastos em perguntas que voltaram sem resposta. A pergunta é feita sobre o quadro inteiro; com a área marcada, a imagem que sobe é só o que importa.');
-    assert.deepEqual(area!.acao, { tipo: 'area', rotulo: 'Abrir quadro e área', pontoId: 'p-Montagem 2' });
+    assert.equal(plana(area!.texto), '“Uso de touca” não consegue avaliar em 55% das olhadas neste canal. Em 24 dias, R$ 11,09 foram gastos em perguntas que voltaram sem resposta. A pergunta é feita sobre a imagem completa; com o critério num quadro marcado, a imagem que sobe é só o que importa.');
+    assert.deepEqual(area!.acao, { tipo: 'area', rotulo: 'Abrir o canal', pontoId: 'p-Montagem 2' });
     assert.match(plana(pessoa!.texto), /^Em Montagem 1, ele não dá para avaliar em 40% das olhadas — cerca de R\$ 8,06 em 24 dias\. /);
     assert.deepEqual(pessoa!.acao, { tipo: 'criterio', rotulo: 'Ajustar o critério', regraId: 'r-uniforme', porteiro: 'pessoa' });
     assert.match(plana(foto!.texto), /^Hoje cada olhada de Montagem 1 vai à nuvem: 3\.360 análises e R\$ 20,16 em 24 dias\./);
@@ -837,7 +837,7 @@ describe('o que os números mostram sobre os próprios critérios (sem banco)', 
     const p = montarPadroes(entrada);
     const doSetor = p.sugestoes.filter((s) => s.setorId === 's-coz').map((s) => s.titulo);
     assert.deepEqual(doSetor, [
-      'Marque a área em Montagem 2',
+      'Marque um quadro em Montagem 2',
       'Só confira “Uniforme completo” com alguém na área',
       'Só confira “Uso de touca” com alguém na área',
       'Use a foto padrão em “Bancada limpa” (Montagem 1)',
@@ -876,7 +876,7 @@ describe('o que os números mostram sobre os próprios critérios (sem banco)', 
     for (const c of noMesmo.celulas) if (c.regraId === UNIFORME.regraId) Object.assign(c, { zonaId: 'z-m2', na: 12 });
     assert.ok(montarPadroes(noMesmo).indicadores.some((i) => i.regraId === UNIFORME.regraId && i.onde === 'Montagem 2'), 'o uniforme está mesmo em Montagem 2, com números');
     const t2 = titulos(noMesmo);
-    assert.equal(t2.filter((x) => x === 'Marque a área em Montagem 2').length, 1, JSON.stringify(t2));
+    assert.equal(t2.filter((x) => x === 'Marque um quadro em Montagem 2').length, 1, JSON.stringify(t2));
     assert.ok(t2.includes('Só confira “Uso de touca” com alguém na área'), 'o segundo critério do canal fica com a outra sugestão');
     // nos fatos do setor a taxa é do critério, juntando os canais: uma linha só
     const fatos = p.descricoes.find((d) => d.setorId === 's-coz')!.fatos.map((f) => f[0]);
@@ -895,7 +895,7 @@ describe('o que os números mostram sobre os próprios critérios (sem banco)', 
   it('o que desliga cada sugestão', () => {
     const com = (s: Serie, mais: Partial<Serie>) => loja({ series: SERIES.map((x) => (x === s ? { ...x, ...mais } : x)) });
     // a área já está marcada: o problema não é o quadro inteiro
-    assert.ok(!titulos(com(TOUCA, { areaDesenhada: true })).includes('Marque a área em Montagem 2'));
+    assert.ok(!titulos(com(TOUCA, { areaDesenhada: true })).includes('Marque um quadro em Montagem 2'));
     assert.ok(titulos(com(TOUCA, { areaDesenhada: true })).includes('Só confira “Uso de touca” com alguém na área'), 'aí vale a outra');
     // o porteiro já confere se há gente
     assert.ok(!titulos(com(UNIFORME, { porteiro: 'pessoa' })).includes('Só confira “Uniforme completo” com alguém na área'));
@@ -1208,7 +1208,7 @@ describe('os limites da tendência e das sugestões (sem banco)', () => {
     const e = loja();
     // a chapa (presença, quadro inteiro) sem conseguir avaliar em mais da metade das olhadas
     for (const c of e.celulas) if (c.regraId === CHAPA.regraId) c.na = 70;
-    assert.ok(!titulos(e).includes('Marque a área em Chapa'), JSON.stringify(titulos(e)));
+    assert.ok(!titulos(e).includes('Marque um quadro em Chapa'), JSON.stringify(titulos(e)));
   });
 
   it('o mesmo critério sem avaliar em dois canais com a área marcada: uma sugestão de "com pessoa na área"', () => {
@@ -1217,7 +1217,7 @@ describe('os limites da tendência e das sugestões (sem banco)', () => {
     copiar(e);
     const t = titulos(e);
     assert.equal(t.filter((x) => x === 'Só confira “Uso de touca” com alguém na área').length, 1, JSON.stringify(t));
-    assert.ok(t.includes('Marque a área em Montagem 2'), 'e o canal de quadro inteiro continua com a dele');
+    assert.ok(t.includes('Marque um quadro em Montagem 2'), 'e o canal de quadro inteiro continua com a dele');
   });
 
   it('relação forte em que o problema é gente DEMAIS não sugere "pelo menos N"', () => {
@@ -1433,31 +1433,34 @@ describe('o especialista (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABAS
     assert.deepEqual(emManaus.celulas.filter((c) => c.hora === 1).map((c) => c.dia), [somaDias(hoje, -3)]);
   });
 
-  it('a área desenhada, o canal com várias áreas e o que foi excluído', async () => {
+  it('o critério num quadro desenhado, o canal com mais de uma área e o que foi excluído', async () => {
     const serie = async () => (await entradaDoEspecialista(pool, { id: lojaId, nome: 'Matriz', timezone: 'America/Sao_Paulo', hoje, hora_agora: 12 })).series;
     assert.deepEqual(
       (await serie()).map((s) => [s.regraNome, s.pontoNome, s.areaDesenhada, s.variasAreas]),
       [['Alguém no balcão', 'Balcão', false, false]],
-      'a área que nasce com o canal é o quadro inteiro',
+      'a área que nasce com o canal é a imagem completa',
     );
-    // a área desenhada
-    const quadroInteiro = (await pool.query('select poligono from zona where id = $1', [zonaId])).rows[0].poligono;
-    await pool.query('update zona set poligono = $2::jsonb where id = $1', [zonaId, JSON.stringify([[0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.1, 0.9]])]);
-    assert.equal((await serie())[0]!.areaDesenhada, true);
-    await pool.query('update zona set poligono = $2::jsonb where id = $1', [zonaId, JSON.stringify(quadroInteiro)]);
-    // uma segunda área no mesmo canal — e, excluída, ela deixa de contar
+    // o critério passa a valer num QUADRO desenhado (a imagem completa do canal não se redesenha)
     const pontoId = (await pool.query('select ponto_id from zona where id = $1', [zonaId])).rows[0].ponto_id;
-    const outra = (await pool.query(`insert into zona (ponto_id, nome, poligono) values ($1, 'Lado do cliente', $2::jsonb) returning id`, [pontoId, JSON.stringify(quadroInteiro)])).rows[0].id;
-    assert.equal((await serie())[0]!.variasAreas, true);
-    await pool.query('update zona set excluida_em = now() where id = $1', [outra]);
-    assert.equal((await serie())[0]!.variasAreas, false);
-    await pool.query('delete from zona where id = $1', [outra]);
-    // critério, área ou canal marcados como excluídos saem do padrão — mesmo com o critério ainda ligado àquela área
-    for (const [tabela, id, coluna] of [['regra', regraId, 'excluida_em'], ['zona', zonaId, 'excluida_em'], ['ponto', pontoId, 'excluido_em']] as const) {
+    const quadro = (await pool.query(
+      `insert into zona (ponto_id, nome, poligono) values ($1, 'Dentro do balcão', $2::jsonb) returning id`,
+      [pontoId, JSON.stringify([[0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.1, 0.9]])],
+    )).rows[0].id;
+    await pool.query('update regra_alvo set zona_id = $2 where regra_id = $1', [regraId, quadro]);
+    assert.deepEqual((await serie()).map((s) => [s.areaDesenhada, s.variasAreas]), [[true, true]]);
+    // critério, quadro ou canal marcados como excluídos saem do padrão — mesmo com o critério ainda ligado àquele quadro
+    for (const [tabela, id, coluna] of [['regra', regraId, 'excluida_em'], ['zona', quadro, 'excluida_em'], ['ponto', pontoId, 'excluido_em']] as const) {
       await pool.query(`update ${tabela} set ${coluna} = now() where id = $1`, [id]);
       assert.deepEqual(await serie(), [], `${tabela} marcada como excluída`);
       await pool.query(`update ${tabela} set ${coluna} = null where id = $1`, [id]);
     }
+    assert.equal((await serie()).length, 1);
+    // de volta à imagem completa: com o quadro ali o canal tem mais de uma área — e, excluído, ele deixa de contar
+    await pool.query('update regra_alvo set zona_id = $2 where regra_id = $1', [regraId, zonaId]);
+    assert.deepEqual((await serie()).map((s) => [s.areaDesenhada, s.variasAreas]), [[false, true]]);
+    await pool.query('update zona set excluida_em = now() where id = $1', [quadro]);
+    assert.equal((await serie())[0]!.variasAreas, false);
+    await pool.query('delete from zona where id = $1', [quadro]);
     assert.equal((await serie()).length, 1);
   });
 

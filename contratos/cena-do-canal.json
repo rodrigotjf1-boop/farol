@@ -21,7 +21,7 @@
       "cena": "Bancada de montagem de lanches, vista de cima por uma câmera no teto. No alto ficam as cubas de ingredientes; no meio, a área onde os lanches são montados, sobre folhas de papel alumínio ou dentro de caixas brancas; à direita, a impressora de comandas. O inox e o papel alumínio brilham: brilho não é alimento."
     },
     "zonas": [
-      { "nome": "Quadro inteiro", "poligono": [[0, 0], [1, 0], [1, 1], [0, 1]], "papel": "livre", "numero": null },
+      { "nome": "Imagem completa", "poligono": [[0, 0], [1, 0], [1, 1], [0, 1]], "papel": "livre", "numero": null },
       { "nome": "Cubas", "poligono": [[0.06, 0.07], [0.76, 0.07], [0.76, 0.29], [0.06, 0.29]], "papel": "cuba", "numero": 1 },
       { "nome": "Montagem", "poligono": [[0.06, 0.34], [0.7, 0.34], [0.7, 0.8], [0.06, 0.8]], "papel": "montagem", "numero": 2 },
       { "nome": "Impressora", "poligono": [[0.8, 0.09], [0.96, 0.09], [0.96, 0.36], [0.8, 0.36]], "papel": "impressora", "numero": 3 }

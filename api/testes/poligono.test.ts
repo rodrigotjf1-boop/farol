@@ -100,14 +100,14 @@ const marca = `teste-poligono-${randomUUID().slice(0, 8)}`;
 const ADMIN = 'admin-de-teste-poligono';
 const SENHA = 'uma senha longa o bastante';
 
-describe('a área desenhada por pontos (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABASE_URL' }, () => {
+describe('o quadro desenhado por pontos (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABASE_URL' }, () => {
   let pool: pg.Pool;
   let app: FastifyInstance;
   let adminAntes: string | undefined;
   let cookie = '';
   let token = '';
   let pontoId = '';
-  let inteira = '';
+  let quadro = '';
 
   const salvar = (zonaId: string, corpo: Record<string, unknown>) =>
     app.inject({ method: 'PATCH', url: `/v1/zonas/${zonaId}`, headers: { cookie }, payload: corpo });
@@ -147,7 +147,10 @@ describe('a área desenhada por pontos (Postgres real)', { skip: !URL_DO_BANCO &
     });
     assert.equal(ponto.statusCode, 201, ponto.body);
     pontoId = ponto.json().id;
-    inteira = ponto.json().zonas[0].id;
+    // O desenho por pontos é de QUADRO: a imagem completa do canal não se redesenha.
+    const novo = await criar({ nome: 'Balcão' });
+    assert.equal(novo.statusCode, 201, novo.body);
+    quadro = novo.json().id;
 
     const agente = (await app.inject({
       method: 'POST', url: '/v1/distribuicao/agentes', headers: { 'x-farol-admin': ADMIN },
@@ -159,9 +162,9 @@ describe('a área desenhada por pontos (Postgres real)', { skip: !URL_DO_BANCO &
       payload: { fingerprint: `fp-${marca}` },
     });
     assert.equal(ativar.statusCode, 200, ativar.body);
-    // Um critério ligado na área: o agente só recebe zona que tem o que conferir.
+    // Um critério ligado no quadro, para ele ter o que conferir.
     const regra = await app.inject({
-      method: 'POST', url: `/v1/zonas/${inteira}/regras`, headers: { cookie },
+      method: 'POST', url: `/v1/zonas/${quadro}/regras`, headers: { cookie },
       payload: { nome: 'Balcão em ordem', tipo: 'estado', criterio: 'O balcão está em ordem.', quando: 'sempre' },
     });
     assert.equal(regra.statusCode, 201, regra.body);
@@ -178,11 +181,11 @@ describe('a área desenhada por pontos (Postgres real)', { skip: !URL_DO_BANCO &
   });
 
   it('o desenho de seis pontos é guardado como veio, e desce igual para o agente', async () => {
-    const r = await salvar(inteira, { poligono: EM_L });
+    const r = await salvar(quadro, { poligono: EM_L });
     assert.equal(r.statusCode, 200, r.body);
     assert.deepEqual(r.json().poligono, EM_L);
-    assert.deepEqual(await noBanco(inteira), EM_L);
-    assert.deepEqual(await noAgente(inteira), EM_L, 'o agente recorta o mesmo desenho que a tela mostrou');
+    assert.deepEqual(await noBanco(quadro), EM_L);
+    assert.deepEqual(await noAgente(quadro), EM_L, 'o agente recorta o mesmo desenho que a tela mostrou');
   });
 
   it('salvar o desenho sobe a versão da configuração: o agente busca o novo', async () => {
@@ -190,11 +193,11 @@ describe('a área desenhada por pontos (Postgres real)', { skip: !URL_DO_BANCO &
       'select l.config_versao from loja l join setor s on s.loja_id = l.id join ponto p on p.setor_id = s.id where p.id = $1', [pontoId],
     )).rows[0].config_versao as number;
     const antes = await versao();
-    assert.equal((await salvar(inteira, { poligono: [[0.1, 0.1], [0.9, 0.2], [0.4, 0.8]] })).statusCode, 200);
+    assert.equal((await salvar(quadro, { poligono: [[0.1, 0.1], [0.9, 0.2], [0.4, 0.8]] })).statusCode, 200);
     assert.ok((await versao()) > antes);
   });
 
-  it('área nova pode nascer já com o desenho por pontos', async () => {
+  it('quadro novo pode nascer já com o desenho por pontos', async () => {
     const triangulo = [[0.1, 0.1], [0.5, 0.1], [0.1, 0.5]];
     const r = await criar({ nome: 'Lado do cliente', poligono: triangulo });
     assert.equal(r.statusCode, 201, r.body);
@@ -202,11 +205,11 @@ describe('a área desenhada por pontos (Postgres real)', { skip: !URL_DO_BANCO &
   });
 
   it('desenho sem tamanho e contorno cruzado são recusados nas duas rotas, e nada muda', async () => {
-    const antes = await noBanco(inteira);
+    const antes = await noBanco(quadro);
     const semTamanho = [[0.2, 0.2], [0.5, 0.5], [0.8, 0.8]];
 
     for (const [ruim, motivo] of [[semTamanho, /sem tamanho/], [LACO, /passa por cima dele mesmo/]] as const) {
-      const s = await salvar(inteira, { poligono: ruim, nome: 'Nome que não pode entrar' });
+      const s = await salvar(quadro, { poligono: ruim, nome: 'Nome que não pode entrar' });
       assert.equal(s.statusCode, 422, s.body);
       assert.equal(s.json().erro, 'poligono_invalido');
       assert.match(s.json().mensagem, motivo);
@@ -216,7 +219,7 @@ describe('a área desenhada por pontos (Postgres real)', { skip: !URL_DO_BANCO &
       assert.match(c.json().mensagem, motivo);
     }
 
-    assert.deepEqual(await noBanco(inteira), antes);
+    assert.deepEqual(await noBanco(quadro), antes);
     const { rows } = await pool.query('select nome from zona where ponto_id = $1 and excluida_em is null order by nome', [pontoId]);
     assert.ok(!rows.some((z) => z.nome.startsWith('Torta') || z.nome === 'Nome que não pode entrar'), JSON.stringify(rows));
   });

@@ -64,7 +64,7 @@ export function QuadroComPadrao({ modo, agora, padrao, nomeDaFoto, nomeDoCanal }
       className="relative max-w-full select-none overflow-hidden rounded-xl border border-farol-borda"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={agora} alt={`Quadro de agora do canal ${nomeDoCanal}`} className="block w-full" draggable={false} />
+      <img src={agora} alt={`Imagem de agora do canal ${nomeDoCanal}`} className="block w-full" draggable={false} />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={padrao}
@@ -85,8 +85,8 @@ export function QuadroComPadrao({ modo, agora, padrao, nomeDaFoto, nomeDoCanal }
         aria-valuemin={MINIMO}
         aria-valuemax={MAXIMO}
         aria-valuenow={Math.round(corte)}
-        aria-valuetext={`${Math.round(corte)}% do quadro mostra agora`}
-        aria-label="Divisor entre o quadro de agora e a foto padrão. Use as setas para mover."
+        aria-valuetext={`${Math.round(corte)}% da imagem mostra agora`}
+        aria-label="Divisor entre a imagem de agora e a foto padrão. Use as setas para mover."
         onPointerDown={(ev) => {
           puxando.current = true;
           ev.currentTarget.setPointerCapture?.(ev.pointerId);

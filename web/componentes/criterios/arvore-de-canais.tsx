@@ -5,8 +5,8 @@
 // =====================================================================
 // Como num explorador de arquivos: o setor é a pasta, o canal é o que
 // está dentro. Marcar a pasta marca tudo o que há nela; abrir a pasta
-// deixa marcar um canal só. Canal com mais de uma área mostra as áreas, e
-// é nelas que se marca.
+// deixa marcar um canal só. Canal com quadros mostra a imagem completa e os
+// quadros, e é neles que se marca.
 //
 // O que está marcado aqui é EXATAMENTE o que é gravado. Não existe "o
 // setor inteiro" guardado como vínculo: câmera instalada depois aparece
@@ -17,6 +17,8 @@
 import { ChevronRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { rotuloDaArea } from '@/componentes/canal/quadros';
+import { plural } from '@/componentes/formatos';
 import type { Ponto, Setor } from '@/lib/api';
 
 import {
@@ -97,9 +99,9 @@ function LinhaDoCanal({
 }) {
   const pausado = !ponto.ativo && <span className="ml-2 text-xs text-farol-facho-tinta">pausado, não é verificado</span>;
 
-  // Canal com mais de uma área: o critério vai para a ÁREA. O canal não
-  // tem caixa — marcá-lo não diria em qual das áreas o critério vale — e
-  // as áreas ficam sempre à vista, para a escolha não se esconder.
+  // Canal com quadros: o critério vai para um LUGAR dele. O canal não tem
+  // caixa — marcá-lo não diria onde o critério vale — e a imagem completa e
+  // os quadros ficam sempre à vista, para a escolha não se esconder.
   if (temVariasAreas(ponto)) {
     return (
       <li>
@@ -109,9 +111,11 @@ function LinhaDoCanal({
             {rotuloDoCanal(ponto)}
             {pausado}
           </span>
-          <span className="shrink-0 text-xs text-farol-suave">{ponto.zonas.length} áreas · escolha onde</span>
+          <span className="shrink-0 text-xs text-farol-suave">
+            imagem completa e {plural(ponto.zonas.filter((z) => !z.principal).length, 'quadro', 'quadros')} · escolha onde
+          </span>
         </div>
-        <ul className="ml-[38px] border-l border-farol-borda pl-3" aria-label={`Áreas de ${rotuloDoCanal(ponto)}`}>
+        <ul className="ml-[38px] border-l border-farol-borda pl-3" aria-label={`Onde, em ${rotuloDoCanal(ponto)}`}>
           {ponto.zonas.map((z) => {
             const idArea = `${prefixo}-area-${z.id}`;
             return (
@@ -125,10 +129,17 @@ function LinhaDoCanal({
                     else novo.add(z.id);
                     aoMudar(novo);
                   }}
-                  rotulo={`${z.nome}, em ${rotuloDoCanal(ponto)}`}
+                  rotulo={`${rotuloDaArea(z)}, em ${rotuloDoCanal(ponto)}`}
                 />
                 <label htmlFor={idArea} className="min-w-0 flex-1 cursor-pointer break-words">
-                  {z.nome}
+                  {rotuloDaArea(z)}
+                  {/* O espaço é texto de verdade: sem ele o leitor de tela lê as duas frases coladas. */}
+                  {z.principal && (
+                    <>
+                      {' '}
+                      <span className="ml-1 text-xs text-farol-suave">critério geral do canal</span>
+                    </>
+                  )}
                 </label>
               </li>
             );

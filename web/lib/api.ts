@@ -112,14 +112,24 @@ export type Ponto = {
   ativo: boolean;
   /** O quanto o canal importa para a loja. Ordena o orçamento. */
   importancia?: Importancia;
+  /** A cena deste canal já foi escrita (o que a câmera vê e de onde olha). */
+  tem_cena?: boolean;
+  /** A imagem completa primeiro; depois os quadros, na ordem do número. */
   zonas: Zona[];
 };
 
 export type Importancia = 'critico' | 'normal' | 'baixo';
 
-/** Uma área dentro do canal. `principal` é o corte DO CANAL: marcar o
- *  canal na árvore de critérios é marcar esta área. */
-export type Zona = { id: string; nome: string; principal?: boolean };
+/** O que um quadro é. A mesma lista da API (`api/src/cena.ts`) e do banco. */
+export type Papel = 'posto' | 'cuba' | 'montagem' | 'equipamento' | 'impressora' | 'caixa' | 'pia' | 'piso' | 'livre';
+
+/**
+ * Uma área do canal. `principal` é a IMAGEM COMPLETA — o canal inteiro,
+ * onde moram os critérios gerais; marcar o canal na árvore de critérios é
+ * marcar esta área. As outras são os QUADROS: recortes com nome, papel e o
+ * número que a tela mostra (`numero`; nulo na imagem completa).
+ */
+export type Zona = { id: string; nome: string; principal?: boolean; papel?: Papel; numero?: number | null };
 
 export type Setor = { id: string; nome: string; ordem: number; pontos: Ponto[] };
 
@@ -162,7 +172,12 @@ export type Regra = {
   confirmar_em: number;
   /** Critério de estado: a foto padrão do canal vai junto à nuvem. */
   com_padrao: boolean;
+  /** O que o critério LIGADO faz: só "valendo" avisa. */
+  estado: EstadoDoCriterio;
 };
+
+/** Observando só conta; em ensaio e medido julgam sem avisar; valendo avisa. */
+export type EstadoDoCriterio = 'observando' | 'ensaio' | 'medido' | 'valendo';
 
 export type ParametrosDoDetector = {
   objeto?: string;
@@ -194,6 +209,12 @@ export type AgenteResumo = {
   /** Calculado no BANCO: o relógio do navegador erra e faria um agente
    *  saudável parecer caído, ou pior, o contrário. */
   segundos_sem_bater: number | null;
+  /** O que o agente declarou saber fazer ao pedir a configuração pela última
+   *  vez ("estados", "estudo", "bancada"). É por aqui que a tela diz se o que
+   *  foi configurado já vale na loja. */
+  sabe?: string[];
+  /** Quando declarou. Nulo = ainda não pediu a configuração desde que isto é guardado. */
+  sabe_em?: string | null;
 };
 
 export type LojaResumo = {
@@ -219,6 +240,8 @@ export type LojaResumo = {
   aberta_agora: boolean | null;
   /** Até que horas fica aberta, quando está aberta agora. */
   fecha_as: string | null;
+  /** Que negócio é ("hamburgueria"). Vale para a loja inteira. */
+  tipo_negocio?: string;
 };
 
 export type Loja = Omit<LojaResumo, 'setores' | 'pontos'>;
@@ -243,6 +266,20 @@ export const consoleApi = {
 
   editarPonto: (id: string, dados: Partial<Ponto>) =>
     pedir<Ponto>(`/pontos/${id}`, { method: 'PATCH', body: JSON.stringify(dados) }),
+
+  /** A cena do canal: o que a câmera vê e de onde olha. Texto vazio apaga. */
+  salvarCena: (pontoId: string, cena: string) =>
+    pedir<{ id: string; cena: string; cena_escrita_em: string | null }>(`/pontos/${pontoId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ cena }),
+    }),
+
+  /** O tipo de negócio vale para a loja inteira. */
+  salvarTipoDeNegocio: (lojaId: string, tipoNegocio: string) =>
+    pedir<{ id: string; tipo_negocio: string }>(`/lojas/${lojaId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ tipoNegocio }),
+    }),
 
   /** O orçamento por uso da loja: carga de cada canal, opções por nível e três pacotes. */
   orcamento: (lojaId: string) => pedir<Orcamento>(`/lojas/${lojaId}/orcamento`),
@@ -401,8 +438,17 @@ export type CriterioDaArea = {
   nome: string;
   tipo: Regra['tipo'];
   ativa: boolean;
+  /** O que o critério ligado faz: só "valendo" avisa. */
+  estado: EstadoDoCriterio;
   quando: Quando;
   parametros: ParametrosDoDetector;
+  /** Em quantos canais este critério vale — o cadastro é um só. */
+  canais: number;
+  /** Em quantos quadros (fora as imagens completas). */
+  quadros: number;
+  /** O critério depende de entender a imagem e, neste canal, não está sendo
+   *  analisado porque falta descrever a cena. Quem diz é o servidor. */
+  falta_a_cena: boolean;
 };
 
 export type ZonaCompleta = {
@@ -410,10 +456,16 @@ export type ZonaCompleta = {
   ponto_id: string;
   nome: string;
   poligono: [number, number][];
+  /** É a imagem completa do canal: fixa, sempre o canal inteiro. */
   principal: boolean;
   largura_cena_cm: string | number | null;
-  /** Os critérios que valem NESTA área. Um canal pode ter mais de uma, e
-   *  cada uma tem os seus. */
+  /** O que o quadro é. Na imagem completa, sempre "livre". */
+  papel: Papel;
+  ordem: number;
+  /** O número do quadro no canal. Nulo = é a imagem completa. */
+  numero: number | null;
+  /** Os critérios que valem NESTA área: na imagem completa, os gerais do
+   *  canal; num quadro, os dele. */
   criterios: CriterioDaArea[];
 };
 
@@ -439,6 +491,15 @@ export type PontoCompleto = {
   preview_altura: number | null;
   preview_em: string | null;
   tem_preview: boolean;
+  /** O que esta câmera vê e de onde olha, escrito por quem configura. Vazio = em branco. */
+  cena: string;
+  cena_escrita_em: string | null;
+  cena_escrita_por_nome: string | null;
+  /** A cena está fazendo falta AGORA: critério deste canal que depende de
+   *  entender a imagem não é analisado enquanto ela estiver em branco. */
+  cena_em_falta: boolean;
+  /** Que negócio é a loja. Mostrado e editado junto com a cena. */
+  loja_tipo_negocio: string;
   setor_id: string;
   setor_nome: string;
   loja_id: string;
@@ -465,21 +526,28 @@ export const previewApi = {
       { method: 'POST' },
     ),
 
-  salvarArea: (zonaId: string, dados: Partial<ZonaCompleta> & {
+  /**
+   * Salva um quadro: nome, papel, ordem e contorno. Campo ausente fica como
+   * está. Na IMAGEM COMPLETA só a largura real da cena muda — o servidor
+   * recusa o resto (409 `imagem_completa_fixa`).
+   */
+  salvarArea: (zonaId: string, dados: {
+    nome?: string;
     poligono?: [number, number][];
     larguraCenaCm?: number | null;
-    principal?: boolean;
+    papel?: Papel;
+    ordem?: number;
   }) =>
-    pedir<Omit<ZonaCompleta, 'criterios'>>(`/zonas/${zonaId}`, {
+    pedir<Omit<ZonaCompleta, 'criterios' | 'numero'>>(`/zonas/${zonaId}`, {
       method: 'PATCH',
       body: JSON.stringify(dados),
     }),
 
-  /** Mais uma área no mesmo canal. Sem desenho, nasce no meio do quadro. */
-  criarArea: (pontoId: string, dados: { nome: string; poligono?: [number, number][] }) =>
-    pedir<ZonaCompleta>(`/pontos/${pontoId}/zonas`, { method: 'POST', body: JSON.stringify(dados) }),
+  /** Mais um quadro no canal. Sem desenho, nasce no meio da imagem. */
+  criarArea: (pontoId: string, dados: { nome: string; poligono?: [number, number][]; papel?: Papel }) =>
+    pedir<Omit<ZonaCompleta, 'numero'>>(`/pontos/${pontoId}/zonas`, { method: 'POST', body: JSON.stringify(dados) }),
 
-  /** Exclui a área. Os critérios dela saem deste canal; o histórico fica. */
+  /** Exclui o quadro. Os critérios dele saem deste canal; o histórico fica. */
   excluirArea: (zonaId: string) =>
     pedir<{ excluida: boolean; criteriosTirados: number; criteriosDesligados: string[] }>(
       `/zonas/${zonaId}`,

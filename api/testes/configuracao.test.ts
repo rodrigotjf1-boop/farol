@@ -56,10 +56,16 @@ describe('configuração desce para o agente', { skip: !URL && 'sem DATABASE_URL
     );
     pontoId = p.rows[0].id;
 
+    // O canal com a imagem completa dele (a principal: sempre o canal inteiro) e um quadro desenhado.
+    await pool.query(
+      `insert into zona (ponto_id, nome, poligono, principal)
+       values ($1,'Imagem completa','[[0,0],[1,0],[1,1],[0,1]]'::jsonb, true)`,
+      [pontoId],
+    );
     const z = await pool.query(
       `insert into zona (ponto_id, nome, poligono, principal, largura_cena_cm)
        values ($1,'área da montagem','[[0.15,0.47],[0.85,0.47],[0.85,0.8],[0.15,0.8]]'::jsonb,
-               true, 40)
+               false, 40)
        returning id`,
       [pontoId],
     );
@@ -104,6 +110,13 @@ describe('configuração desce para o agente', { skip: !URL && 'sem DATABASE_URL
     return r.json();
   }
 
+  /** O quadro desenhado, como desceu para o agente (a imagem completa vem antes dele). */
+  const doQuadro = (c: { pontos: { zonas: { id: string }[] }[] }) =>
+    c.pontos[0]!.zonas.find((z) => z.id === zonaId) as unknown as {
+      id: string; nome: string; principal: boolean; larguraCenaCm: number | null; numero: number | null;
+      poligono: number[][]; regras: { criterioVersao: number }[];
+    };
+
   async function heartbeat() {
     const r = await app.inject({
       method: 'POST',
@@ -129,16 +142,23 @@ describe('configuração desce para o agente', { skip: !URL && 'sem DATABASE_URL
     assert.equal(p.canal, 1);
     assert.equal(p.optica.sensorPol, '1/2.7');
     assert.equal(p.optica.focalMm, 2.8);
-    assert.equal(p.zonas.length, 1);
+    assert.equal(p.zonas.length, 2, 'a imagem completa e o quadro');
   });
 
-  it('o corte do canal desce marcado como principal', async () => {
-    // É o que diz ao agente qual recorte usar quando a regra não mira uma
-    // zona específica. Sem a marca ele teria que adivinhar entre as zonas.
+  it('a imagem completa desce marcada como principal, e o quadro com o desenho dele', async () => {
+    // A principal é a imagem completa do canal: vem primeiro, é o canal
+    // inteiro e não tem número. O quadro desce com o desenho, a largura
+    // medida e o número que a tela mostra.
     const c = await configuracao();
-    const z = c.pontos[0].zonas[0];
+    const inteira = c.pontos[0].zonas[0];
+    assert.deepEqual(
+      [inteira.nome, inteira.principal, inteira.numero, inteira.poligono],
+      ['Imagem completa', true, null, [[0, 0], [1, 0], [1, 1], [0, 1]]],
+    );
 
-    assert.equal(z.principal, true);
+    const z = doQuadro(c);
+    assert.equal(z.principal, false);
+    assert.equal(z.numero, 1);
     assert.equal(z.larguraCenaCm, 40);
     assert.deepEqual(z.poligono[0], [0.15, 0.47]);
   });
@@ -176,12 +196,13 @@ describe('configuração desce para o agente', { skip: !URL && 'sem DATABASE_URL
     );
 
     const c = await configuracao();
-    assert.equal(c.pontos[0].zonas[0].regras.length, 0);
+    assert.equal(doQuadro(c).regras.length, 0);
 
     await pool.query('update regra set ativa = true where id = $1', [r.rows[0].id]);
     const depois = await configuracao();
-    assert.equal(depois.pontos[0].zonas[0].regras.length, 1);
-    assert.equal(depois.pontos[0].zonas[0].regras[0].criterioVersao, 1);
+    assert.equal(doQuadro(depois).regras.length, 1);
+    assert.equal(doQuadro(depois).regras[0]!.criterioVersao, 1);
+    assert.equal(depois.pontos[0].zonas[0].regras.length, 0, 'o critério do quadro não vale na imagem completa');
 
     await pool.query('delete from regra where id = $1', [r.rows[0].id]);
   });
@@ -258,13 +279,13 @@ describe('configuração desce para o agente', { skip: !URL && 'sem DATABASE_URL
   it('mexer na zona sobe a versão', async () => {
     const antes = (await heartbeat()).configVersao;
     await pool.query(
-      `update zona set poligono = '[[0,0],[1,0],[1,1],[0,1]]'::jsonb where id = $1`,
+      `update zona set poligono = '[[0.1,0.4],[0.9,0.4],[0.9,0.85],[0.1,0.85]]'::jsonb where id = $1`,
       [zonaId],
     );
-    assert.ok((await heartbeat()).configVersao > antes, 'redesenhar a área tem que descer');
+    assert.ok((await heartbeat()).configVersao > antes, 'redesenhar o quadro tem que descer');
   });
 
-  it('um canal não pode ter dois cortes principais', async () => {
+  it('um canal não pode ter duas imagens completas', async () => {
     await assert.rejects(
       pool.query(
         `insert into zona (ponto_id, nome, poligono, principal)
@@ -288,9 +309,10 @@ describe('configuração desce para o agente', { skip: !URL && 'sem DATABASE_URL
       [pontoId],
     );
     const c = await configuracao();
-    assert.equal(c.pontos[0].zonas.length, 2);
-    // a principal vem primeiro: é a que o agente usa por padrão
+    assert.equal(c.pontos[0].zonas.length, 3);
+    // a imagem completa vem primeiro
     assert.equal(c.pontos[0].zonas[0].principal, true);
+    assert.deepEqual(c.pontos[0].zonas.slice(1).map((x: { principal: boolean }) => x.principal), [false, false]);
     await pool.query('delete from zona where id = $1', [z.rows[0].id]);
   });
 

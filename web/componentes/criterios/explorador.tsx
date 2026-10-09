@@ -11,9 +11,9 @@
 // cadastro, e a linha diz em quantos canais ele está. Editar em qualquer
 // um edita em todos; "tirar deste canal" tira só daquele.
 //
-// Canal com mais de uma área mostra os critérios POR ÁREA: presença dentro
-// do balcão e fila do lado do cliente são a mesma câmera e critérios
-// diferentes.
+// Canal com quadros mostra os critérios POR LUGAR — os gerais, na imagem
+// completa, e os de cada quadro: presença dentro do balcão e fila do lado
+// do cliente são a mesma câmera e critérios diferentes.
 // =====================================================================
 
 import {
@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
+import { emQuantosLugares, rotuloDaArea } from '@/componentes/canal/quadros';
 import { plural } from '@/componentes/formatos';
 import { Botao } from '@/componentes/ui/botao';
 import { CARTAO, Chip, Liga, Titulo } from '@/componentes/ui/pecas';
@@ -40,6 +41,7 @@ import { DivisorDeMenu, ITEM_DE_MENU, Menu } from '@/componentes/ui/sobreposto';
 import type { Ponto, Regra, Setor } from '@/lib/api';
 
 import { criteriosDoCanal, emOrdem, rotuloDoCanal, temVariasAreas } from './canais';
+import { estadoConhecido, NOME_DO_ESTADO, O_QUE_FAZ_NO_ESTADO, TOM_DO_ESTADO } from './estados';
 import {
   ajustesEmLinha,
   faltaAFotoPadrao,
@@ -57,7 +59,7 @@ export type Filtro = 'todos' | 'ligados' | 'desligados';
 
 type Acoes = {
   configura: boolean;
-  /** "+ critério" no canal — ou numa área dele, quando tem mais de uma. */
+  /** "+ critério" no canal — ou num lugar dele (a imagem completa ou um quadro), quando tem quadros. */
   aoAdicionar: (ponto: Ponto, zonaId?: string) => void;
   aoEditar: (regra: Regra) => void;
   aoTirar: (regra: Regra, ponto: Ponto, zonaId: string) => void;
@@ -67,7 +69,7 @@ type Acoes = {
 
 type Props = Acoes & { setores: Setor[]; regras: Regra[]; filtro: Filtro };
 
-/** Em quantos CANAIS (não áreas) o critério vale. */
+/** Em quantos CANAIS (não lugares) o critério vale. */
 function canaisDe(regra: Regra): number {
   return new Set(regra.alvos.map((a) => a.ponto_id)).size;
 }
@@ -81,16 +83,19 @@ function Etiquetas({ regra, pontoId }: { regra: Regra; pontoId?: string }) {
   const peloDetector = TIPOS_DO_DETECTOR.includes(regra.tipo);
   const procura = resumoDaProcura(regra.parametros);
   const n = canaisDe(regra);
+  /** Em quantos quadros (fora as imagens completas). */
+  const emQuadros = regra.alvos.filter((a) => !a.principal).length;
   const porteiro = etiquetaDoPorteiro(regra);
   const faixa = resumoDaFaixa(regra.janelas);
   const faltaFoto = faltaAFotoPadrao(regra, pontoId);
+  const estado = estadoConhecido(regra.estado);
 
   return (
     <>
       {/* Comparação em canal sem foto padrão: está cadastrado e NÃO é
           conferido ali. Como "falta dizer o que procurar": aparece na lista. */}
       {faltaFoto && (
-        <Chip tom="atencao" icone={TriangleAlert} title="Guarde a foto padrão em Canais, na tela “Quadro e área” deste canal">
+        <Chip tom="atencao" icone={TriangleAlert} title="Guarde a foto padrão na tela deste canal, em “Desenho, fotos e conexão”">
           falta a foto padrão
         </Chip>
       )}
@@ -106,11 +111,19 @@ function Etiquetas({ regra, pontoId }: { regra: Regra; pontoId?: string }) {
           falta dizer o que procurar
         </Chip>
       )}
+      {/* "Valendo" é o que sempre existiu e não leva etiqueta. O critério que
+          só observa, ou que está em ensaio, está LIGADO e não avisa ninguém:
+          isso tem de estar à vista ao lado do "Ligado". */}
+      {estado !== 'valendo' && (
+        <Chip tom={TOM_DO_ESTADO[estado]} title={`Só “valendo” avisa. Neste estado ele ${O_QUE_FAZ_NO_ESTADO[estado]}.`}>
+          {NOME_DO_ESTADO[estado]}
+        </Chip>
+      )}
       <Chip>{nomeDoTipo(regra.tipo)}</Chip>
       <Chip tom={grave ? 'critico' : 'neutro'}>{nomeDaSeveridade(regra.severidade)}</Chip>
       {n > 1 && (
         <Chip tom="vazado" title="É um cadastro só: editar aqui muda em todos os canais">
-          vale em {n} canais
+          vale {emQuantosLugares(n, emQuadros)}
         </Chip>
       )}
       {/* "No horário" é o comum e não leva etiqueta; o que foge dele, leva. */}
@@ -227,7 +240,11 @@ function CartaoDoCriterio({
                   }}
                 >
                   <CircleMinus className="h-[18px] w-[18px]" aria-hidden />
-                  {temVariasAreas(ponto) ? 'Tirar desta área' : 'Tirar deste canal'}
+                  {!temVariasAreas(ponto)
+                    ? 'Tirar deste canal'
+                    : ponto.zonas.find((z) => z.id === zonaId)?.principal
+                      ? 'Tirar da imagem completa'
+                      : 'Tirar deste quadro'}
                 </button>
                 <DivisorDeMenu />
                 <button
@@ -276,7 +293,7 @@ function ListaDeCriterios({ itens, ponto, acoes }: { itens: DoCanal; ponto: Pont
   );
 }
 
-/** Uma área do canal, com os critérios que valem NELA. */
+/** Um lugar do canal — a imagem completa ou um quadro —, com os critérios que valem NELE. */
 function AreaDoCanal({
   ponto,
   zona,
@@ -297,25 +314,33 @@ function AreaDoCanal({
     <li className="flex flex-col gap-2 border-l-2 border-farol-borda pl-3">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px] text-farol-suave">
         <Crop className="h-[15px] w-[15px] shrink-0" aria-hidden />
-        <b className="min-w-0 break-words font-semibold text-farol-tinta">{zona.nome}</b>
-        <span>{daArea.length === 0 ? 'sem critério' : plural(daArea.length, 'critério', 'critérios')}</span>
+        <b className="min-w-0 break-words font-semibold text-farol-tinta">{rotuloDaArea(zona)}</b>
+        <span>
+          {daArea.length === 0
+            ? 'sem critério'
+            : zona.principal
+              ? plural(daArea.length, 'critério geral', 'critérios gerais')
+              : plural(daArea.length, 'critério', 'critérios')}
+        </span>
         {acoes.configura && ponto.ativo && (
           <Botao variante="fantasma" mini className="ml-auto" onClick={() => acoes.aoAdicionar(ponto, zona.id)}>
             <Plus className="h-[15px] w-[15px]" aria-hidden />
             Critério
             <span className="sr-only">
               {' '}
-              em {zona.nome}, {rotuloDoCanal(ponto)}
+              em {rotuloDaArea(zona)}, {rotuloDoCanal(ponto)}
             </span>
           </Botao>
         )}
       </div>
 
       {daArea.length === 0 ? (
-        <p className="text-[13px] text-farol-suave">Nenhum critério nesta área. Nada é verificado nela.</p>
+        <p className="text-[13px] text-farol-suave">
+          {zona.principal ? 'Nenhum critério geral neste canal.' : 'Nenhum critério neste quadro. Nada é verificado nele.'}
+        </p>
       ) : visiveis.length === 0 ? (
         <p className="text-[13px] text-farol-suave">
-          Nenhum critério {filtro === 'ligados' ? 'ligado' : 'desligado'} nesta área.
+          Nenhum critério {filtro === 'ligados' ? 'ligado' : 'desligado'} {zona.principal ? 'na imagem completa' : 'neste quadro'}.
         </p>
       ) : (
         <ListaDeCriterios itens={visiveis} ponto={ponto} acoes={acoes} />
@@ -328,8 +353,9 @@ function Canal({ ponto, regras, filtro, ...acoes }: { ponto: Ponto; regras: Regr
   const todos = criteriosDoCanal(regras, ponto.id);
   const visiveis = todos.filter((c) => passa(c.regra, filtro));
   const { configura, aoAdicionar } = acoes;
-  // Canal com mais de uma área: o critério é da ÁREA. A lista vem por
-  // área, e o "+ critério" fica em cada uma — é ali que ele vai valer.
+  // Canal com quadros: o critério é de um LUGAR dele. A lista vem por
+  // lugar (a imagem completa, depois cada quadro), e o "+ critério" fica
+  // em cada um — é ali que ele vai valer.
   const porArea = temVariasAreas(ponto);
   const distintos = new Set(todos.map((c) => c.regra.id)).size;
 
@@ -344,7 +370,7 @@ function Canal({ ponto, regras, filtro, ...acoes }: { ponto: Ponto; regras: Regr
         </span>
         <b className="min-w-0 break-words font-semibold text-farol-tinta">{ponto.nome}</b>
         <span>
-          {porArea && `${ponto.zonas.length} áreas · `}
+          {porArea && `${plural(ponto.zonas.filter((z) => !z.principal).length, 'quadro', 'quadros')} · `}
           {distintos === 0 ? 'sem critério' : plural(distintos, 'critério', 'critérios')}
         </span>
         {!ponto.ativo && <Chip tom="atencao">pausado, não é verificado</Chip>}

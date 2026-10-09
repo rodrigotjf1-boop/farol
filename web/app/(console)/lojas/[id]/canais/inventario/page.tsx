@@ -211,7 +211,7 @@ export default function Inventario() {
           </div>
           <Alerta icone={Info}>
             Para a loja comparar sozinha, o que vale é a <strong className="font-semibold text-farol-tinta">foto padrão do canal</strong>{' '}
-            em que o equipamento aparece, guardada em “Quadro e área”. As fotos daqui dizem onde ele aparece e servem para
+            em que o equipamento aparece, guardada na tela do canal, em “Desenho, fotos e conexão”. As fotos daqui dizem onde ele aparece e servem para
             descrever e identificar.
           </Alerta>
         </>

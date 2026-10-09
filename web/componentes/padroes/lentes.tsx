@@ -394,8 +394,8 @@ export function Anomalias({
                           </>
                         )}
                         {a.camera && (
-                          <Link href={`/pontos/${a.pontoId}/area`} className="elo self-center text-[13px]">
-                            Ver o quadro do canal
+                          <Link href={`/pontos/${a.pontoId}`} className="elo self-center text-[13px]">
+                            Ver o canal
                             <ArrowRight className="h-[15px] w-[15px]" aria-hidden />
                           </Link>
                         )}
@@ -678,7 +678,7 @@ export function Sugestoes({
                 </p>
                 <div className="col-span-2 mt-1.5 md:col-span-1 md:col-start-3 md:row-span-2 md:row-start-1 md:mt-0 md:self-center [&>*]:max-md:w-full">
                   {s.acao.tipo === 'area' ? (
-                    <Link href={`/pontos/${s.acao.pontoId}/area`} className={classesDoBotao({ mini: true })}>
+                    <Link href={`/pontos/${s.acao.pontoId}`} className={classesDoBotao({ mini: true })}>
                       {s.acao.rotulo}
                       <ArrowRight className="h-[15px] w-[15px]" aria-hidden />
                     </Link>

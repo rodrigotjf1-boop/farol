@@ -4,7 +4,7 @@
 // Canais — as câmeras da loja, por setor
 // =====================================================================
 // Cada canal é um cartão que responde de relance: está sendo verificado?
-// tem imagem? quantos critérios valem nele?
+// tem imagem? quantos quadros e critérios tem? a cena já foi descrita?
 //
 // "Tem imagem" não é chute: vem do que o agente contou nas últimas horas
 // (os mesmos sinais do painel). Sem esse dado — canal sem critério ligado,
@@ -52,6 +52,9 @@ import {
   type Sinal,
 } from '@/lib/api';
 
+/** Os tipos de critério que dependem de entender a imagem (os mesmos de `api/src/cena.ts`). */
+const TIPOS_QUE_DEPENDEM_DA_CENA: readonly string[] = ['estado', 'acao', 'comparacao'];
+
 /** A gaveta aberta: criando (talvez já num setor) ou editando um canal. */
 type Aberta = { ponto?: Ponto; setorId?: string };
 
@@ -63,6 +66,9 @@ function CartaoDoCanal({
   ponto,
   criterios,
   ligados,
+  quadros,
+  temCena,
+  dependeDaCena,
   semImagem,
   fuso,
   sabeDaImagem,
@@ -73,6 +79,12 @@ function CartaoDoCanal({
   ponto: Ponto;
   criterios: number;
   ligados: number;
+  /** Quantos quadros o canal tem marcados (a imagem completa não é quadro). */
+  quadros: number;
+  /** A cena do canal já foi escrita. */
+  temCena: boolean;
+  /** Há critério ligado que depende de entender a imagem: aí a cena em branco pesa mais. */
+  dependeDaCena: boolean;
   semImagem: Sinal | undefined;
   fuso: string;
   /** Há dado do agente para afirmar que o canal tem imagem. */
@@ -131,9 +143,9 @@ function CartaoDoCanal({
                   <Pencil className="h-[18px] w-[18px]" aria-hidden />
                   Editar
                 </button>
-                <Link href={`/pontos/${ponto.id}/area`} role="menuitem" className={ITEM_DE_MENU} onClick={fechar}>
+                <Link href={`/pontos/${ponto.id}`} role="menuitem" className={ITEM_DE_MENU} onClick={fechar}>
                   <Crop className="h-[18px] w-[18px]" aria-hidden />
-                  Quadro e área
+                  Abrir o canal
                 </Link>
                 <DivisorDeMenu />
                 <button
@@ -181,6 +193,13 @@ function CartaoDoCanal({
         )}
         {ponto.importancia === 'critico' && <Chip tom="atencao">importância crítica</Chip>}
         {ponto.importancia === 'baixo' && <Chip>importância baixa</Chip>}
+        {quadros > 0 && <Chip tom="vazado">{plural(quadros, 'quadro', 'quadros')}</Chip>}
+        {temCena ? (
+          <Chip tom="ok">cena descrita</Chip>
+        ) : (
+          // Em branco é sempre um "falta"; pesa mais onde há critério que depende de entender a imagem.
+          <Chip tom={dependeDaCena ? 'atencao' : 'vazado'}>falta a cena</Chip>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-2.5 border-t border-farol-borda pt-[11px] text-[13px] text-farol-suave">
@@ -191,8 +210,8 @@ function CartaoDoCanal({
               ? 'Nada é verificado aqui'
               : plural(criterios, 'critério', 'critérios')}
         </span>
-        <Link href={`/pontos/${ponto.id}/area`} className="elo shrink-0 whitespace-nowrap">
-          Quadro e área
+        <Link href={`/pontos/${ponto.id}`} className="elo shrink-0 whitespace-nowrap">
+          Abrir o canal
           <ArrowRight className="h-[15px] w-[15px]" aria-hidden />
         </Link>
       </div>
@@ -347,7 +366,7 @@ export default function Canais() {
           )
         }
       >
-        As câmeras desta loja, por setor. Um canal é uma câmera do gravador ou uma câmera IP ligada direto na rede.
+        As câmeras desta loja, por setor. Em cada canal: a imagem completa, os quadros e os critérios de cada um.
       </Cabecalho>
 
       <Abas rotulo="Vistas dos canais" abas={abasDeCanais(id)} />
@@ -410,6 +429,9 @@ export default function Canais() {
                       ponto={p}
                       criterios={distintos.size}
                       ligados={ligados}
+                      quadros={p.zonas.filter((z) => !z.principal).length}
+                      temCena={p.tem_cena === true}
+                      dependeDaCena={[...distintos.values()].some((r) => r.ativa && TIPOS_QUE_DEPENDEM_DA_CENA.includes(r.tipo))}
                       semImagem={semImagem(p.id)}
                       fuso={loja?.timezone ?? 'America/Sao_Paulo'}
                       sabeDaImagem={sinais !== null && saude?.estado === 'ativo'}

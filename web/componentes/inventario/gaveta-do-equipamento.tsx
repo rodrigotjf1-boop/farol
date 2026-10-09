@@ -485,7 +485,7 @@ export function GavetaDoEquipamento({
                 </p>
               ) : (
                 <>
-                  <Campo rotulo="De que canal" htmlFor={`${p}-quadro`} ajuda="É o quadro que o canal tem agora, no recorte da área. Para outra cena, atualize o quadro em “Quadro e área” antes.">
+                  <Campo rotulo="De que canal" htmlFor={`${p}-quadro`} ajuda="É a imagem que o canal tem agora, no recorte do lugar escolhido. Para outra cena, use “Atualizar quadro” na tela do canal antes.">
                     <select id={`${p}-quadro`} className="entrada" value={zonaEscolhida} onChange={(e) => setZonaEscolhida(e.target.value)}>
                       {quadros.map((q) => (
                         <option key={q.zonaId} value={q.zonaId}>
@@ -527,11 +527,11 @@ export function GavetaDoEquipamento({
                     <b className="block break-words font-semibold">{l.pontoNome}</b>
                     <small className="block text-xs text-farol-suave">
                       {numeroDoCanal(l.canal) ? `canal ${numeroDoCanal(l.canal)} · ` : ''}
-                      {l.variasAreas ? l.zonaNome : 'quadro inteiro'}
+                      {l.variasAreas ? l.zonaNome : 'imagem completa'}
                       {l.fotosPadrao > 0 ? ' · com foto padrão' : ''}
                     </small>
                   </span>
-                  <Link href={`/pontos/${l.pontoId}/area`} className="elo shrink-0 text-[13px]">
+                  <Link href={`/pontos/${l.pontoId}`} className="elo shrink-0 text-[13px]">
                     Ver
                   </Link>
                 </li>
