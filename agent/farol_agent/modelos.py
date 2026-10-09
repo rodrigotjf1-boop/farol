@@ -54,6 +54,21 @@ class Via(str, Enum):
     DETECTOR = "detector"
 
 
+# O estado do critério (A19): o que o critério LIGADO faz. Pedido do dono —
+# "nada de aplicar alterações antes de o projeto analisar de verdade" —,
+# virado método: observar → ensaiar → medir → avisar.
+#
+#   observando  só conta a olhada (e se o contexto valia). Não julga, não gasta.
+#   ensaio      julga e mostra. Não avisa ninguém.
+#   medido      como o ensaio, com o acerto medido (quem promove é a nuvem).
+#   valendo     avisa — é como todo critério funcionava até aqui.
+#
+# A mesma lista de `contratos/estado-do-criterio.json`.
+ESTADOS: tuple[str, ...] = ("observando", "ensaio", "medido", "valendo")
+# O estado de quem sempre existiu, e o que a nuvem antiga não manda.
+ESTADO_DE_SEMPRE = "valendo"
+
+
 # Resoluções de envio ao modelo. O número é o lado maior em pixels.
 # A escolha é o maior fator isolado de custo: 1080p custa ~2,7× o de 640×480
 # na Claude. Abaixo de 384 px a Gemini não fica mais barata — tem piso de
@@ -234,6 +249,19 @@ class Regra:
     confirmar_em: int = 1
     # Quando a pergunta vai à nuvem, a foto padrão do canal vai junto.
     com_padrao: bool = False
+    # O que o critério ligado faz (ver `ESTADOS`). Nasce valendo: é como
+    # todo critério funcionava, e o que a nuvem antiga não manda.
+    estado: str = ESTADO_DE_SEMPRE
+
+    @property
+    def julga(self) -> bool:
+        """O critério é julgado? Em "observando" a olhada só é contada."""
+        return self.estado != "observando"
+
+    @property
+    def avisa(self) -> bool:
+        """O veredito pode virar aviso? Só valendo. Na dúvida, não avisa."""
+        return self.estado == "valendo"
 
     def vale_agora(self, ts: datetime) -> bool:
         if not self.ativa:

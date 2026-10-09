@@ -156,6 +156,8 @@ class Preparo:
     enfileirados: list[str] = field(default_factory=list)
     # O porteiro segurou: a pergunta não fazia sentido nesta olhada.
     sem_condicao: list[str] = field(default_factory=list)
+    # O critério só observa: a olhada foi contada, e não julgada.
+    observadas: list[str] = field(default_factory=list)
     em_silencio: list[str] = field(default_factory=list)
     repetidos: list[str] = field(default_factory=list)
     sem_quadro: list[str] = field(default_factory=list)
@@ -277,8 +279,10 @@ class MotorDeRegras:
         olhadas: list[tuple[Regra, str, str | None]] = []
         for regra in regras:
             # Presença e contagem não param no silêncio: a olhada é a
-            # medida. O aviso é que fica calado, em `_avaliar`.
-            if regra.tipo not in CONTINUOS and self._em_silencio(regra, evento.ts):
+            # medida. O aviso é que fica calado, em `_avaliar`. E só quem
+            # avisa tem silêncio: o critério em ensaio é julgado em toda
+            # olhada, mesmo que tenha avisado minutos antes, quando valia.
+            if regra.tipo not in CONTINUOS and regra.avisa and self._em_silencio(regra, evento.ts):
                 preparo.em_silencio.append(regra.id)
                 olhadas.append((regra, "em_silencio", None))
                 continue
@@ -289,6 +293,9 @@ class MotorDeRegras:
             if chave is not None:
                 preparo.enfileirados.append(regra.id)
                 olhadas.append((regra, "enfileiradas", None))
+            elif motivo == "observada":
+                preparo.observadas.append(regra.id)
+                olhadas.append((regra, "observadas", None))
             elif motivo == "sem_condicao":
                 preparo.sem_condicao.append(regra.id)
                 olhadas.append((regra, "sem_condicao", None))
@@ -414,6 +421,16 @@ class MotorDeRegras:
                 self.sem_condicao[self._lugar(regra)] = decisao.motivo
                 return None, "sem_condicao"
 
+        # O critério só OBSERVA: a câmera entrega cena e o contexto valia —
+        # e a olhada para aqui, contada. A imagem não vai para o disco, nada
+        # entra na fila, ninguém é perguntado. É o que mostra quanto o
+        # critério trabalharia antes de alguém mandá-lo julgar. (O mapa do
+        # canal, lá em cima, é cuidado do mesmo jeito: fica pronto para
+        # quando o critério passar a ensaio.)
+        if not regra.julga:
+            self.sem_cena.pop(self._lugar(regra), None)
+            return None, "observada"
+
         if regra.borrar_rosto:
             f, _ = recorte.borrar_rostos(f)
 
@@ -526,6 +543,14 @@ class MotorDeRegras:
                 # Descartar é certo: o critério não existe mais.
                 self.fila.adiar(item, "regra não existe mais", agora)
                 continue
+            if not regra.julga:
+                # O critério desceu para "observando" com esta olhada ainda
+                # na fila. Quem só observa não julga e não gasta: ela fica
+                # de lado, como a da regra que não existe mais, e vence
+                # sozinha. Se o critério voltar a ensaio antes disso, é
+                # julgada.
+                self.fila.adiar(item, "o critério só observa", agora)
+                continue
 
             try:
                 veredito = juiz.julgar(
@@ -579,6 +604,11 @@ class MotorDeRegras:
         self, regra: Regra, item: ItemFila, veredito: Veredito
     ) -> Alerta | None:
         """A terceira porta: este veredito merece acordar alguém?"""
+        # Só quem está VALENDO avisa. Em ensaio (e medido) o veredito é
+        # contado e mostrado, e para aí: nem aviso, nem espera de
+        # confirmação, nem silêncio. É a porta que vem antes de todas.
+        if not regra.avisa:
+            return None
         lugar = f"{regra.id}@{item.zona_id}"
         if veredito.resultado is Resultado.CONFORME:
             # Voltou a ficar em ordem: o que esperava confirmação não continua.

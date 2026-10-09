@@ -445,7 +445,8 @@ def test_a_olhada_segurada_fecha_a_conta_do_resumo(fila, regra, fonte):
 
     assert (corpo["capturas"], corpo["semCondicao"], corpo["enfileiradas"]) == (2, 1, 1)
     desfechos = (
-        "semJuiz", "semQuadro", "semCena", "semCondicao", "emSilencio", "repetidas", "jaJulgadas", "enfileiradas",
+        "semJuiz", "semQuadro", "semCena", "semCondicao", "observadas", "emSilencio", "repetidas", "jaJulgadas",
+        "enfileiradas",
     )
     assert sum(corpo[x] for x in desfechos) == corpo["capturas"]
 

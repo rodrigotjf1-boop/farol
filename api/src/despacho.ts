@@ -77,6 +77,12 @@ export async function carregarPolitica(
  * A severidade vem da REGRA, não do agente: é decisão de quem configurou a
  * auditoria, e deixar o agente mandá-la abriria caminho para um agente
  * desatualizado rebaixar um alerta crítico sem ninguém notar.
+ *
+ * Pelo mesmo motivo, o ESTADO também vem da regra: só o critério que está
+ * valendo avisa. O agente que sabe de estados já não manda evento do que
+ * está em ensaio; isto é para o que chegar mesmo assim — o evento que
+ * estava a caminho quando o critério desceu, o agente com a configuração
+ * velha. O evento fica gravado (é o fato); o aviso é que não sai.
  */
 export async function eventosParaAvisar(
   pool: pg.Pool,
@@ -92,7 +98,8 @@ export async function eventosParaAvisar(
        from evento e
        join regra r on r.id = e.regra_id
       where e.idempotencia_key = any($1::text[])
-        and e.veredito = 'nao_conforme'`,
+        and e.veredito = 'nao_conforme'
+        and r.estado = 'valendo'`,
     [chaves],
   );
   return r.rows;

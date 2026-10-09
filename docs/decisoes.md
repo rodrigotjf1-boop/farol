@@ -1523,3 +1523,122 @@ A análise de hoje, com a tira de 640 px, custa 1,2 centavo.
   apagou pão em 12 de 40 momentos, no teste lado a lado: ligar a chave
   antes da 1.4 não piora o que já acontece hoje, mas a leitura da bancada
   só fica boa depois dela.
+
+## 09/10/2026 · O estado do critério: observar, ensaiar, medir, avisar
+
+A19, onda 1, fatia 1.2. Pedido do dono (08/10): "nada de aplicar alterações
+antes de o projeto analisar de verdade os processos". Virou método: todo
+critério passa por quatro estados, e só o último avisa.
+
+| estado | o que o agente faz | custa? | avisa? |
+|---|---|---|---|
+| **observando** | conta a olhada — e se o contexto valia — e para | não | não |
+| **em ensaio** | julga e conta o veredito | o que o julgamento custar | não |
+| **medido** | como o ensaio, com o acerto medido à vista | idem | não |
+| **valendo** | julga, e o veredito pode virar aviso | idem | sim |
+
+Ligado ou desligado continua sendo outra coisa (`regra.ativa`): o estado diz
+o que o critério LIGADO faz.
+
+### Os critérios de hoje ficam como estão
+
+- Todo critério que já existia está **valendo**: quem avisava continua
+  avisando. A migration 031 não atualiza linha nenhuma.
+- O cadastro de hoje não fala em estado, e cria o critério como sempre
+  criou: valendo (e desligado). **Quem vai criar em "observando" é a tela
+  nova** (fatia 1.5), que manda o estado no pedido.
+- As telas de hoje não mandam estado nenhum: até a tela nova existir,
+  ninguém desce um critério sem querer.
+
+### Quem escolhe o quê
+
+- Uma pessoa leva o critério a **observando** e a **em ensaio**, de qualquer
+  estado, quantas vezes quiser. Descer um degrau nunca é recusado.
+- A **medido** e a **valendo** só se chega com o acerto medido, e quem mede
+  é o banco de provas (onda 2). Nenhuma rota do console promove — nem para
+  o presidente. É a regra do plano: "nenhuma onda liga aviso sem passar
+  pelo banco de provas".
+- Pedir o estado em que o critério já está não muda nada, e passa: é o que
+  a tela manda ao salvar sem mexer.
+
+A consequência, dita com todas as letras: **critério que desce de "valendo"
+não volta à mão**, e critério novo (criado pela tela nova) não avisa antes
+da onda 2. Os de hoje não são tocados.
+
+**Ponto em aberto para a fatia 1.5:** a tela nova não pode oferecer "descer
+de valendo" enquanto não houver o caminho de volta — ou o banco de provas,
+ou um "voltar a valer" que a decisão do dono autorize. Sem isso, um toque
+errado deixaria a loja sem o aviso até a onda 2.
+
+### O que não entrou, de propósito
+
+O plano diz que um critério valendo "volta a em ensaio se o texto, o quadro
+ou o modelo mudar". **Isso entra com o banco de provas**, não agora: hoje
+não há como medir de novo, e a regra faria um critério que avisa parar de
+avisar — para sempre — porque alguém corrigiu uma vírgula.
+
+### Só quem está valendo avisa — nos dois lados
+
+- **No agente:** a porta do aviso (`_avaliar`) começa por aí. Em ensaio e
+  medido o veredito é contado e mostrado, e para.
+- **Na nuvem:** o aviso nasce no servidor (`eventosParaAvisar`), e ali o
+  estado vem da regra, não do agente — como já era com a severidade. Evento
+  de critério que não está valendo é **guardado** (é o fato) e **não vira
+  aviso**. Serve para o evento que estava a caminho quando o critério
+  desceu e para o agente com a configuração velha.
+
+### O agente antigo não pode receber o que não sabe
+
+O agente de antes desta fatia ignora o campo novo: um critério em ensaio,
+na mão dele, viraria aviso. Por isso o agente passa a dizer o que sabe ao
+pedir a configuração (`?sabe=estados`), e **critério que não está valendo
+só desce para quem declara**. Para o agente antigo, esse critério não
+existe.
+
+Estado que o agente novo não conheça (um que a nuvem ganhe depois) não
+derruba a configuração e não vira aviso: o critério fica só observando.
+
+### Observando
+
+- A olhada passa pelas mesmas portas de sempre — a câmera entrega cena? o
+  "quando vale a pena conferir" deixa? — e para ali, contada como
+  **observada**. A imagem não vai para o disco, nada entra na fila,
+  ninguém é perguntado.
+- É o nono desfecho de uma olhada (`resumo_hora.observadas`), ao lado de
+  "nada a conferir", "cena repetida" e os outros. A conta das olhadas
+  continua fechando. Toda olhada conta: para quem não julga não existe
+  "cena repetida".
+- Não precisa de juiz: critério que só observa não fica "sem quem julgue"
+  por faltar a chave da nuvem, o detector ou a cena do canal. O que faltar
+  aparece quando ele passar a ensaio.
+- **O que já estava na fila também não é julgado.** A olhada que esperava a
+  vez quando o critério desceu para "observando" fica de lado e vence
+  sozinha; se o critério voltar a ensaio antes disso, é julgada.
+- **Presença e contagem em "observando" também não são medidas.** Para
+  elas, julgar é de graça e é a própria medida — o caminho é passar a "em
+  ensaio", que não avisa.
+- O vigia (a olhada extra entre uma rotina e outra) não olha por quem só
+  observa.
+- Em loja que pergunta com contexto, o mapa do canal é cuidado do mesmo
+  jeito: fica pronto para quando o critério passar a ensaio.
+
+### Em ensaio
+
+- O veredito entra no resumo por hora e aparece nas análises. Não vira
+  alerta, não vira evento, não registra silêncio, e o "avisar só se
+  continuar" não guarda nada.
+- **Não há silêncio:** valendo, o critério se cala pelo tempo de silêncio
+  dele depois de avisar; em ensaio não há aviso, e toda cena nova é
+  julgada — inclusive a do critério que avisou minutos antes, quando
+  valia. É assim que se juntam exemplos — e, num critério julgado na
+  nuvem, é o custo do ensaio. O funil mostra.
+- A cena igual à anterior continua sem ser julgada de novo, como sempre.
+
+### O que não foi medido
+
+- Quanto custa um dia de ensaio de um critério de nuvem nesta loja.
+- Onde ficam os exemplos que o responsável vai marcar "acertou / errou"
+  (hoje a imagem julgada fica 15 dias no disco da loja): é da onda 2.
+- Nenhum critério da loja mudou de estado: o comportamento em produção foi
+  provado nos testes (agente e API), não na loja. O pacote do agente que
+  está na loja é anterior a esta fatia e só recebe o que está valendo.

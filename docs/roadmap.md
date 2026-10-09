@@ -3781,7 +3781,7 @@ Levantamento do código feito antes de começar. Três coisas dele mudam o jeito
 |---|---|---|---|
 | **1.0 · protótipo** | as telas da onda — o canal com a imagem completa, os quadros e os critérios; a cena; o estudo do critério, o funil e os estados — em `mockups/farol-console-novo.html`, na cara nova. Revisto em 09/10 com os dois recados do dono (abaixo) | é o protótipo | **aguardando aprovação** (versão 3) |
 | **1.1 · o pedido com contexto** ✅ (09/10, migration 030) | a loja ganha "tipo de negócio"; o canal, a cena; o quadro, o papel e a ordem. O agente monta o pedido na anatomia do plano — cena, mapa do canal, recorte na resolução da câmera, pergunta — com o que é fixo em cache, no Haiku 5.5. Sem cena escrita o pedido não sai: a olhada conta como "sem juiz", com o motivo | não | desligado; a chave é **interna**, por loja (da distribuição): não é opção de tela |
-| **1.2 · os quatro estados** | observando · em ensaio · medido · valendo. Só "valendo" avisa; "observando" conta sem julgar. Critério que já avisa hoje continua valendo | não | os de hoje ficam como estão |
+| **1.2 · os quatro estados** ✅ (09/10, migration 031) | observando · em ensaio · medido · valendo. Só "valendo" avisa; "observando" conta sem julgar. Critério que já avisa hoje continua valendo | não | os de hoje ficam como estão |
 | **1.3 · o estudo do critério e o funil** | as seis partes (contexto, gatilho, janela, ação, desfecho, fora de contexto), com cada condição ligada a um sinal da loja; a proposta do sistema, pedida ao agente como hoje se pede a descrição de um equipamento; o funil servido em números | não | sem estudo, o critério segue com o "quando vale a pena conferir" de hoje |
 | **1.4 · o quadro de bancada** | em quadro com papel "posição de montagem": sobe o quadro de quando as mãos saem, sem o borrão de rosto; quem aparecer é apagado | não | só onde o papel for esse |
 | **1.5 · as telas** | o porte do protótipo aprovado para o console; a migração das áreas redesenhadas ("Quadro inteiro" que não é o quadro inteiro vira "Quadro 1", e o canal ganha a imagem completa de volta); as contagens "em N canais (M quadros)" | sim | depois do "aprovado" |
@@ -3797,7 +3797,7 @@ existe):
 | julgadas, e quantas na nuvem | `conformes` + `nao_conformes` + `nao_avaliaveis`; `julgadas_nuvem` | sim |
 | fora do critério | `nao_conformes` | sim |
 | custo de nuvem por dia | `custo_centavos` | sim |
-| "ainda não julga" (observando) | a olhada que só foi contada: desfecho novo | **não — fatia 1.2** |
+| "ainda não julga" (observando) | `resumo_hora.observadas`: a olhada que passou pelo contexto e só foi contada | sim (fatia 1.2) |
 | "quanto custaria ligado" | gatilhos por dia × o preço medido do pedido. É o **teto** — se toda análise precisasse da nuvem: antes de ligar não se sabe quantas a loja resolve sozinha | **não — conta nova, fatia 1.3** |
 
 Cada fatia é um PR com teste; a que tem migration é mesclada sozinha e por último. Nada
@@ -3860,6 +3860,25 @@ muda-se antes da fatia 1.3.
   muda;
 - **achado no caminho:** as imagens julgadas nunca eram apagadas do disco da loja
   (ERR-062, PR #77): a auditoria passou a limpar, com guarda de 15 dias.
+
+**A fatia 1.2, entregue em 09/10** ([decisoes.md](decisoes.md), "O estado do critério"):
+
+- **o que entrou:** `regra.estado` (migration 031) e o que o agente faz em cada um —
+  observando conta a olhada e para, sem julgar e sem gastar; em ensaio e medido julgam e
+  nunca avisam; valendo é como sempre foi. O contador novo do resumo por hora
+  (`observadas`) é o "ainda não julga" do funil;
+- **os de hoje ficam como estão:** todo critério que existia está valendo, e o cadastro de
+  hoje cria como sempre criou;
+- **quem escolhe:** uma pessoa leva a observando e a em ensaio; a medido e a valendo só se
+  chega com o acerto medido (onda 2). Critério que desce de valendo não volta à mão;
+- **só valendo avisa, nos dois lados:** o agente não manda, e o servidor não avisa do que
+  chegar mesmo assim (o evento fica guardado);
+- **o agente antigo** só recebe o que está valendo: o resto só desce para quem declara que
+  sabe (`?sabe=estados`);
+- **ficou para o banco de provas:** o "volta a em ensaio se o texto, o quadro ou o modelo
+  mudar" — sem ter como medir de novo, a regra faria um critério parar de avisar para sempre;
+- **em aberto para a fatia 1.5:** a tela nova só pode oferecer "descer de valendo" quando
+  houver o caminho de volta.
 
 **Uma escolha que fica para quando o protótipo for aprovado.** O plano manda o protótipo
 nascer na cara nova, e assim foi feito. O porte da cara nova inteira é a onda 8. Ao levar as

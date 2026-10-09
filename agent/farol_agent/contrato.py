@@ -102,6 +102,9 @@ def resumo_para_nuvem(linha: dict[str, Any]) -> dict[str, Any]:
         # A olhada que o porteiro segurou: o critério pedia gente na área (ou
         # a área livre, ou movimento) e a condição não valia. Não foi à nuvem.
         "semCondicao": linha["sem_condicao"],
+        # A olhada do critério que só observa: passou pelo contexto e não foi
+        # julgada, de propósito.
+        "observadas": linha["observadas"],
         "emSilencio": linha["em_silencio"],
         "repetidas": linha["repetidas"],
         "jaJulgadas": linha["ja_julgadas"],
