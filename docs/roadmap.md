@@ -3144,7 +3144,7 @@ cabeça para baixo".
 
 | # | parte | o que é | de onde vem | custo |
 |---|---|---|---|---|
-| 1 | **A cena** | que negócio é, que setor e que posto, de onde a câmera olha: "hamburgueria; bancada de montagem; câmera no teto, olhando de cima" | escrita **uma vez** por canal: o sistema propõe a partir da imagem do canal, o responsável confirma. A loja ganha o campo "tipo de negócio" | fixo, em cache |
+| 1 | **A cena** | que negócio é, que setor e que posto, de onde a câmera olha: "hamburgueria; bancada de montagem; câmera no teto, olhando de cima" | escrita **uma vez** por canal, **por quem configura, com detalhes** (decisão do dono em 09/10: sem proposta a partir da imagem; um botão só para aprimorar o texto fica para depois). A loja ganha o campo "tipo de negócio" | fixo, em cache |
 | 2 | **O mapa do canal** | a imagem fixa do canal, pequena, com os quadros numerados e o papel de cada um: "1 = cubas; 2 = onde o lanche é montado, sobre papel alumínio; 3 = impressora" | os quadros do canal (frente A) | fixo, em cache |
 | 3 | **O recorte, na resolução da câmera** | o quadro do critério como a câmera entrega (1.629×397, não 640×155) — ou a sequência de recortes, numerados | ao vivo | é o que se paga inteiro |
 | 4 | **A pergunta, na forma da família** | estado: o critério · acontecimento: "aconteceu X nesta sequência?" · processo: as etapas numeradas · leitura: "liste o que há em cada posição" | a ficha do critério | — |
@@ -3779,8 +3779,8 @@ Levantamento do código feito antes de começar. Três coisas dele mudam o jeito
 
 | fatia | o que entra | tela? | nasce |
 |---|---|---|---|
-| **1.0 · protótipo** | as telas da onda — o canal com a imagem completa, os quadros e os critérios; a cena; o estudo do critério, o funil e os estados; o que sobe para a nuvem — em `mockups/farol-console-novo.html`, na cara nova | é o protótipo | **aguardando aprovação** |
-| **1.1 · o pedido com contexto** | a loja ganha "tipo de negócio"; o canal, a cena; o quadro, o papel e a ordem. O agente monta o pedido na anatomia do plano — cena, mapa do canal, recorte na resolução da câmera, pergunta — com o que é fixo em cache, no Haiku 5.5. Sem cena escrita o pedido não sai: a olhada conta como "sem juiz", com o motivo | não | desligado, por loja |
+| **1.0 · protótipo** | as telas da onda — o canal com a imagem completa, os quadros e os critérios; a cena; o estudo do critério, o funil e os estados — em `mockups/farol-console-novo.html`, na cara nova. Revisto em 09/10 com os dois recados do dono (abaixo) | é o protótipo | **aguardando aprovação** (versão 3) |
+| **1.1 · o pedido com contexto** | a loja ganha "tipo de negócio"; o canal, a cena; o quadro, o papel e a ordem. O agente monta o pedido na anatomia do plano — cena, mapa do canal, recorte na resolução da câmera, pergunta — com o que é fixo em cache, no Haiku 5.5. Sem cena escrita o pedido não sai: a olhada conta como "sem juiz", com o motivo | não | desligado; a chave é **interna**, por loja (da distribuição): não é opção de tela |
 | **1.2 · os quatro estados** | observando · em ensaio · medido · valendo. Só "valendo" avisa; "observando" conta sem julgar. Critério que já avisa hoje continua valendo | não | os de hoje ficam como estão |
 | **1.3 · o estudo do critério e o funil** | as seis partes (contexto, gatilho, janela, ação, desfecho, fora de contexto), com cada condição ligada a um sinal da loja; a proposta do sistema, pedida ao agente como hoje se pede a descrição de um equipamento; o funil servido em números | não | sem estudo, o critério segue com o "quando vale a pena conferir" de hoje |
 | **1.4 · o quadro de bancada** | em quadro com papel "posição de montagem": sobe o quadro de quando as mãos saem, sem o borrão de rosto; quem aparecer é apagado | não | só onde o papel for esse |
@@ -3798,12 +3798,47 @@ existe):
 | fora do critério | `nao_conformes` | sim |
 | custo de nuvem por dia | `custo_centavos` | sim |
 | "ainda não julga" (observando) | a olhada que só foi contada: desfecho novo | **não — fatia 1.2** |
-| "quanto custaria ligado" | gatilhos por dia × o preço medido do pedido | **não — conta nova, fatia 1.3** |
+| "quanto custaria ligado" | gatilhos por dia × o preço medido do pedido. É o **teto** — se toda análise precisasse da nuvem: antes de ligar não se sabe quantas a loja resolve sozinha | **não — conta nova, fatia 1.3** |
 
 Cada fatia é um PR com teste; a que tem migration é mesclada sozinha e por último. Nada
-liga sozinho na loja: o pedido com contexto é uma chave por loja, e ligar o que gasta
-continua do dono. O agente da loja só recebe cada fatia quando o pacote for trocado — com o
-"pode" dele, como da outra vez.
+liga sozinho na loja: o pedido com contexto é uma chave **interna** por loja — fica na
+distribuição, como o modo de julgamento, e não aparece no console da loja; quem liga é o
+dono. O agente da loja só recebe cada fatia quando o pacote for trocado — com o "pode"
+dele, como da outra vez.
+
+**O que o dono corrigiu no protótipo (09/10, 5h20).** Dois recados, os dois já no
+protótipo (versão 3) e valendo para o motor:
+
+1. **A cena é escrita por quem usa, com detalhes.** "O que esta câmera vê e de onde
+   olha: o usuário preenche com detalhes." Saiu o "Propor a partir da imagem" e, com
+   ele, o estado "proposta pelo sistema": a cena está em branco ou descrita. O campo
+   ganhou a orientação do que vale escrever — que posto é e o que se faz nele; de onde a
+   câmera olha; o que aparece sempre, e em que parte da imagem; o que engana (brilho,
+   reflexo, vapor). **Para depois:** um botão só para aprimorar o texto, "de forma que
+   fique mais eficaz" — de graça, se houver como. O que se sabe hoje: de graça, só a
+   conferência por regra (dizer o que falta no texto, sem reescrever); reescrever com um
+   modelo de nuvem, só texto, sai por cerca de um décimo de centavo por clique no Haiku
+   5.5 (conta sobre a tabela — uns 500 tokens de entrada e 250 de saída —, não medida);
+   modelo de texto rodando na loja não foi medido, e a máquina de hoje não tem um
+   instalado. Escolhe-se quando o botão entrar.
+2. **O que sobe para a nuvem é lógica interna.** "Não é necessário o usuário escolher ou
+   informar critério que sobe; nossa prioridade é o máximo de análises no servidor, e
+   quando não tiver a margem de confiança boa, sobe à nuvem." Saiu da tela o cartão "O
+   que sobe para a nuvem"; o estudo do critério deixou de marcar "na loja" e "na nuvem"
+   em cada parte (ficam o sinal que a loja usa e a marca "a câmera não vê"); a tela do
+   canal não fala mais em nuvem nem em cache. O que continua à vista é **resultado**:
+   no funil, quantas análises precisaram da nuvem e quanto custaram. **No motor:** a
+   anatomia do pedido (cena, mapa, recorte, pergunta) continua sendo como o Farol
+   pergunta quando precisa perguntar — só não é assunto de tela. E a ordem "o servidor
+   da loja primeiro; a nuvem só quando a confiança dele não for boa" passa a ser a regra
+   de todo critério, não só da leitura da bancada. Hoje a loja decide sozinha presença,
+   contagem e "igual à foto padrão"; o que mais ela vai decidir entra pelas ondas (o
+   estudo condicional na fatia 1.3, a leitura da bancada nas ondas 4 e 5), cada passo
+   medido antes de valer.
+
+A proposta do **estudo do critério** (as seis partes) continua como no plano: o recado
+foi sobre a cena. Se o dono quiser o mesmo lá — ele escreve, o sistema não propõe —,
+muda-se antes da fatia 1.3.
 
 **Uma escolha que fica para quando o protótipo for aprovado.** O plano manda o protótipo
 nascer na cara nova, e assim foi feito. O porte da cara nova inteira é a onda 8. Ao levar as
