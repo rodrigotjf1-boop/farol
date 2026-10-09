@@ -3503,9 +3503,10 @@ quadros e critérios, o cadastro do processo, a sequência com a resposta por et
 
 ### Da parte do dono
 
-0. **Desligar por enquanto o critério "Produto" (canal 4).** Do jeito que está ele gasta
-   ≈ R$ 1,20 por hora e devolve "dentro" sem lista nenhuma. A leitura dos ingredientes
-   entra pela onda 1 (contexto e resposta em lista) e pela leitura da bancada.
+0. ✅ **Feito pelo dono em 08/10:** o critério "Produto" (canal 4) e os outros critérios
+   pagos saíram. Conferido na loja às 23h54 (configuração 116): ficaram dois critérios de
+   presença, julgados lá mesmo, sem custo. A leitura dos ingredientes entra pela onda 1
+   (contexto e resposta em lista) e pela leitura da bancada.
 1. Regular a câmera do canal 4 (os seis itens acima) e avisar — eu meço de novo.
 2. Confirmar **a rotina** que a câmera mostrou: a comanda sai em cada bancada e fica ao
    lado do lanche até embalar? o lanche é sempre montado sobre o papel alumínio ou na
