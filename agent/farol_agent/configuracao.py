@@ -35,8 +35,13 @@ from farol_agent.porteiro import PORTEIROS
 from farol_agent.modelos import (
     ESTADO_DE_SEMPRE,
     ESTADOS,
+    ONDES,
     RESOLUCOES,
+    SINAIS_DE_CONTEXTO,
+    SINAIS_DE_GATILHO,
+    Condicao,
     EquipamentoDaArea,
+    Estudo,
     Janela,
     Prioridade,
     Regra,
@@ -113,6 +118,11 @@ class ConfigDaLoja:
     # CONTEXTO (a cena e o mapa do canal), e canal sem cena escrita não manda
     # imagem para fora. Desligada, tudo segue como sempre.
     pedido_com_contexto: bool = False
+    # O que o agente DECLAROU saber quando esta configuração desceu (ver
+    # `nuvem.SABE`). A nuvem só manda certas coisas para quem declara:
+    # configuração pedida sabendo menos pode estar incompleta, mesmo com a
+    # versão em dia. Vazio = baixada por um agente de antes disto.
+    pedida_sabendo: tuple[str, ...] = ()
 
     def ponto(self, ponto_id: str) -> PontoConfig | None:
         return next((p for p in self.pontos if p.id == ponto_id), None)
@@ -273,7 +283,72 @@ def _regra(dados: dict[str, Any], zona: Zona, horario_da_loja: list[Janela] | No
         confirmar_em=confirmar_em,
         com_padrao=dados.get("comPadrao") is True,
         estado=estado,
+        estudo=_estudo(dados.get("estudo"), onde),
     )
+
+
+def _condicao(bruto: Any, sinais: tuple[str, ...]) -> Condicao | None:
+    """Uma condição do estudo — ou `None`, quando este agente não a entende."""
+    if not isinstance(bruto, dict):
+        return None
+    sinal = bruto.get("sinal")
+    if not isinstance(sinal, str) or sinal not in sinais:
+        return None
+    if sinal == "toda_olhada":
+        return Condicao(sinal)
+    if sinal == "a_cada":
+        minutos = bruto.get("minutos")
+        if isinstance(minutos, bool) or not isinstance(minutos, int) or minutos < 1:
+            return None
+        return Condicao(sinal, minutos=minutos)
+    onde = bruto.get("onde", "aqui")
+    if not isinstance(onde, str) or onde not in ONDES:
+        return None
+    if onde != "quadro":
+        return Condicao(sinal, onde)
+    zona_id = bruto.get("zonaId")
+    if not isinstance(zona_id, str) or not zona_id:
+        return None
+    return Condicao(sinal, onde, zona_id=zona_id)
+
+
+def _estudo(bruto: Any, onde: str) -> Estudo | None:
+    """O estudo do critério, na parte que a loja confere sozinha.
+
+    Nuvem antiga não manda: `None`, e vale o porteiro de sempre. O que este
+    agente não entende — um sinal que a nuvem ganhe depois — NÃO derruba a
+    configuração e cai do lado que pergunta: condição de contexto
+    desconhecida sai (o contexto fica mais largo) e gatilho desconhecido faz
+    o critério ser conferido em toda olhada. Segurar uma pergunta que tinha
+    resposta é pior do que fazer uma que não tinha.
+    """
+    if not isinstance(bruto, dict):
+        return None
+
+    contexto: list[Condicao] = []
+    lista = bruto.get("contexto")
+    for item in lista if isinstance(lista, list) else []:
+        c = _condicao(item, SINAIS_DE_CONTEXTO)
+        if c is None:
+            _log.warning("%s: condição de contexto %r desconhecida; ela não segura a análise", onde, item)
+            continue
+        contexto.append(c)
+
+    gatilho: list[Condicao] = []
+    lista = bruto.get("gatilho")
+    for item in lista if isinstance(lista, list) else []:
+        g = _condicao(item, SINAIS_DE_GATILHO)
+        if g is None:
+            _log.warning("%s: gatilho %r desconhecido; o critério é conferido em toda olhada", onde, item)
+            gatilho = []
+            break
+        if g.sinal == "toda_olhada":
+            # Toda olhada já abre a análise: os outros não acrescentam nada.
+            gatilho = []
+            break
+        gatilho.append(g)
+
+    return Estudo(tuple(contexto), tuple(gatilho))
 
 
 def de_json(dados: dict[str, Any]) -> ConfigDaLoja:
@@ -343,7 +418,19 @@ def de_json(dados: dict[str, Any]) -> ConfigDaLoja:
         # Só `true` liga. Nuvem antiga não manda; valor parecido com verdade
         # ("sim", 1) não muda o que sai da loja.
         pedido_com_contexto=dados["loja"].get("pedidoComContexto") is True,
+        pedida_sabendo=_pedida_sabendo(dados.get(MARCA_DO_AGENTE)),
     )
+
+
+# A anotação que o AGENTE põe na configuração guardada em disco: não vem
+# da nuvem. Diz com que declaração (`?sabe=`) aquela configuração foi
+# pedida.
+MARCA_DO_AGENTE = "_agente"
+
+
+def _pedida_sabendo(marca: Any) -> tuple[str, ...]:
+    sabe = marca.get("sabe") if isinstance(marca, dict) else None
+    return tuple(str(x) for x in sabe) if isinstance(sabe, list) else ()
 
 
 def _padroes(bruto: Any) -> list[PadraoRef]:
@@ -449,9 +536,10 @@ class Sincronizador:
         """Um heartbeat. Devolve os comandos pendentes.
 
         Puxa a configuração sozinho quando a versão da nuvem difere da que
-        está em memória.
+        está em memória — e quando o agente passou a SABER mais do que
+        sabia ao baixar a que tem.
         """
-        from farol_agent.nuvem import ErroDaNuvem
+        from farol_agent.nuvem import SABE, ErroDaNuvem
 
         try:
             resposta = self.cliente.heartbeat(self.versao_app)
@@ -470,6 +558,17 @@ class Sincronizador:
         if remota is not None and remota != local:
             _log.info("configuração mudou na nuvem (%s → %s)", local, remota)
             self.puxar()
+        elif self.config is not None and set(SABE) - set(self.config.pedida_sabendo):
+            # O agente foi atualizado. A nuvem só manda certas coisas para
+            # quem declara saber lidar com elas (o critério em ensaio, o
+            # estudo do critério): a configuração em disco foi pedida
+            # sabendo menos, e a versão dela não mudou por isso. Se a
+            # puxada falhar, tenta de novo na próxima batida.
+            _log.info(
+                "o agente sabe mais do que sabia quando a configuração desceu (%s): puxando de novo",
+                ", ".join(sorted(set(SABE) - set(self.config.pedida_sabendo))),
+            )
+            self.puxar()
 
         comandos = list(resposta.get("comandos") or [])
         if comandos:
@@ -484,10 +583,15 @@ class Sincronizador:
         agente sem nada ao reiniciar — uma falha de rede vira uma loja
         parada no dia seguinte.
         """
-        from farol_agent.nuvem import ErroDaNuvem
+        from farol_agent.nuvem import SABE, ErroDaNuvem
 
         try:
+            # Guardada como veio, mais a anotação do que este agente declarou
+            # saber ao pedir: é por ela que o agente atualizado descobre que
+            # tem de pedir de novo.
             bruto = self.cliente.configuracao()
+            if isinstance(bruto, dict):
+                bruto = {**bruto, MARCA_DO_AGENTE: {"sabe": list(SABE)}}
             nova = de_json(bruto)
         except (ErroDaNuvem, ErroDeConfiguracao) as e:
             self.ultimo_erro = str(e)

@@ -3782,7 +3782,7 @@ Levantamento do código feito antes de começar. Três coisas dele mudam o jeito
 | **1.0 · protótipo** | as telas da onda — o canal com a imagem completa, os quadros e os critérios; a cena; o estudo do critério, o funil e os estados — em `mockups/farol-console-novo.html`, na cara nova. Revisto em 09/10 com os dois recados do dono (abaixo) | é o protótipo | **aguardando aprovação** (versão 3) |
 | **1.1 · o pedido com contexto** ✅ (09/10, migration 030) | a loja ganha "tipo de negócio"; o canal, a cena; o quadro, o papel e a ordem. O agente monta o pedido na anatomia do plano — cena, mapa do canal, recorte na resolução da câmera, pergunta — com o que é fixo em cache, no Haiku 5.5. Sem cena escrita o pedido não sai: a olhada conta como "sem juiz", com o motivo | não | desligado; a chave é **interna**, por loja (da distribuição): não é opção de tela |
 | **1.2 · os quatro estados** ✅ (09/10, migration 031) | observando · em ensaio · medido · valendo. Só "valendo" avisa; "observando" conta sem julgar. Critério que já avisa hoje continua valendo | não | os de hoje ficam como estão |
-| **1.3 · o estudo do critério e o funil** | as seis partes (contexto, gatilho, janela, ação, desfecho, fora de contexto), com cada condição ligada a um sinal da loja; a proposta do sistema, pedida ao agente como hoje se pede a descrição de um equipamento; o funil servido em números | não | sem estudo, o critério segue com o "quando vale a pena conferir" de hoje |
+| **1.3 · o estudo do critério e o funil** ◐ (09/10, migration 032: o motor e os números; falta a proposta) | as seis partes (contexto, gatilho, janela, ação, desfecho, fora de contexto), com cada condição ligada a um sinal da loja; a proposta do sistema, pedida ao agente como hoje se pede a descrição de um equipamento; o funil servido em números | não | sem estudo, o critério segue com o "quando vale a pena conferir" de hoje |
 | **1.4 · o quadro de bancada** | em quadro com papel "posição de montagem": sobe o quadro de quando as mãos saem, sem o borrão de rosto; quem aparecer é apagado | não | só onde o papel for esse |
 | **1.5 · as telas** | o porte do protótipo aprovado para o console; a migração das áreas redesenhadas ("Quadro inteiro" que não é o quadro inteiro vira "Quadro 1", e o canal ganha a imagem completa de volta); as contagens "em N canais (M quadros)" | sim | depois do "aprovado" |
 
@@ -3793,12 +3793,12 @@ existe):
 |---|---|---|
 | olhadas | `resumo_hora.capturas` | sim |
 | com contexto | `capturas` menos `sem_condicao` (a olhada que o "quando vale a pena conferir" segurou) | sim |
-| com gatilho | contador novo, por hora, critério e quadro | **não — fatia 1.3** |
+| com gatilho | `resumo_hora.sem_gatilho` (o contexto valia e nada abriu a análise): com gatilho = com contexto menos ele | sim (fatia 1.3) |
 | julgadas, e quantas na nuvem | `conformes` + `nao_conformes` + `nao_avaliaveis`; `julgadas_nuvem` | sim |
 | fora do critério | `nao_conformes` | sim |
 | custo de nuvem por dia | `custo_centavos` | sim |
 | "ainda não julga" (observando) | `resumo_hora.observadas`: a olhada que passou pelo contexto e só foi contada | sim (fatia 1.2) |
-| "quanto custaria ligado" | gatilhos por dia × o preço medido do pedido. É o **teto** — se toda análise precisasse da nuvem: antes de ligar não se sabe quantas a loja resolve sozinha | **não — conta nova, fatia 1.3** |
+| "quanto custaria ligado" | gatilhos por dia × o preço medido do pedido. É o **teto** — se toda análise precisasse da nuvem: antes de ligar não se sabe quantas a loja resolve sozinha | sim (fatia 1.3): `GET /v1/regras/:id/funil`; sem preço medido, não há teto |
 
 Cada fatia é um PR com teste; a que tem migration é mesclada sozinha e por último. Nada
 liga sozinho na loja: o pedido com contexto é uma chave **interna** por loja — fica na
@@ -3879,6 +3879,24 @@ muda-se antes da fatia 1.3.
   mudar" — sem ter como medir de novo, a regra faria um critério parar de avisar para sempre;
 - **em aberto para a fatia 1.5:** a tela nova só pode oferecer "descer de valendo" quando
   houver o caminho de volta.
+
+**A fatia 1.3, primeira parte, entregue em 09/10** ([decisoes.md](decisoes.md), "O estudo do
+critério: o contexto, o gatilho e o funil"):
+
+- **o que entrou:** os sinais que a loja lê sozinha (pessoa, movimento, foto padrão), cada um
+  num lugar do canal — o quadro do critério, a imagem completa ou outro quadro; o estudo na
+  forma que o agente confere (o contexto, em que tudo vale; o gatilho, em que basta um); a
+  ficha guardada na nuvem (migration 032) e o funil servido em números, com "quanto custaria
+  ligado" sobre preço medido;
+- **com estudo, o porteiro não é consultado;** sem estudo, tudo segue como sempre. Só o estudo
+  confirmado desce, e só para o agente que declara saber (`?sabe=estudo`);
+- **achado no caminho (ERR-064):** o agente só puxava a configuração quando a versão mudava —
+  trocado o pacote, o que a nuvem escondia do agente antigo nunca chegaria ao novo. Agora ele
+  puxa de novo quando passa a saber mais;
+- **o que falta nesta fatia:** a proposta do sistema para a ficha — espera o dono dizer se o
+  estudo é proposto pelo sistema ou escrito por quem usa, como a cena;
+- **para a fatia 1.5:** a nuvem guardar o que o agente da loja sabe, para a tela dizer se o
+  estudo já vale lá.
 
 **Uma escolha que fica para quando o protótipo for aprovado.** O plano manda o protótipo
 nascer na cara nova, e assim foi feito. O porte da cara nova inteira é a onda 8. Ao levar as

@@ -63,7 +63,8 @@ class ErroDaNuvem(Exception):
 # viraria aviso. Quem não declara recebe só o que sempre recebeu.
 #
 #   estados  o estado do critério: observando não julga, ensaio e medido não avisam.
-SABE: tuple[str, ...] = ("estados",)
+#   estudo   o estudo do critério: o contexto e o gatilho que a loja confere sozinha.
+SABE: tuple[str, ...] = ("estados", "estudo")
 
 
 class ClienteNuvem:

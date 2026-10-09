@@ -1,0 +1,27 @@
+{
+  "partes": ["contexto", "gatilho", "janela", "acao", "desfecho", "fora"],
+  "onde": ["aqui", "canal", "quadro"],
+  "contexto": ["pessoa", "sem_pessoa", "movimento", "parado", "fora_do_padrao", "no_padrao"],
+  "gatilho": ["toda_olhada", "a_cada", "entrou", "saiu", "mexeu", "parou", "saiu_do_padrao", "voltou_ao_padrao"],
+  "gatilhoSemLugar": ["toda_olhada", "a_cada"],
+  "contrarios": [["pessoa", "sem_pessoa"], ["movimento", "parado"], ["fora_do_padrao", "no_padrao"]],
+  "tiposQueUsam": ["estado", "acao", "comparacao"],
+  "minutos": { "minimo": 1, "maximo": 720 },
+  "maximoPorLista": 6,
+  "sabe": "estudo",
+  "configuracao": {
+    "regra": {
+      "estudo": {
+        "contexto": [
+          { "sinal": "fora_do_padrao", "onde": "aqui" },
+          { "sinal": "pessoa", "onde": "quadro", "zonaId": "00000000-0000-4000-8000-0000000000a2" },
+          { "sinal": "sem_pessoa", "onde": "canal" }
+        ],
+        "gatilho": [
+          { "sinal": "saiu_do_padrao", "onde": "aqui" },
+          { "sinal": "a_cada", "minutos": 10 }
+        ]
+      }
+    }
+  }
+}

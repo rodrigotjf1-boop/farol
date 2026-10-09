@@ -20,6 +20,7 @@ import { rotasDoEspecialista } from './rotas/especialista.js';
 import { rotasDePadroes } from './rotas/padroes.js';
 import { rotasDePreview } from './rotas/preview.js';
 import { rotasDeRegras } from './rotas/regras.js';
+import { rotasDeEstudos } from './rotas/estudos.js';
 import { rotasDeEventos } from './rotas/eventos.js';
 import { rotasDeLojas } from './rotas/lojas.js';
 import { rotasDeOrcamento } from './rotas/orcamento.js';
@@ -155,6 +156,7 @@ export function criarApp(
   rotasDeSessao(app, pool);
   rotasDoConsole(app, pool);
   rotasDeRegras(app, pool);
+  rotasDeEstudos(app, pool);
   rotasDeDiagnostico(app, pool);
   rotasDeOrcamento(app, pool);
   rotasDeLojas(app, pool);

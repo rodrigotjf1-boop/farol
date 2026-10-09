@@ -105,6 +105,7 @@ export function rotasDeAnalises(app: FastifyInstance, pool: pg.Pool): void {
                 sum(h.capturas)::integer as capturas,
                 sum(h.sem_condicao)::integer as sem_condicao,
                 sum(h.observadas)::integer as observadas,
+                sum(h.sem_gatilho)::integer as sem_gatilho,
                 sum(h.em_silencio)::integer as em_silencio,
                 sum(h.conformes)::integer as conformes,
                 sum(h.nao_conformes)::integer as nao_conformes,
@@ -305,6 +306,9 @@ export function rotasDeAnalises(app: FastifyInstance, pool: pg.Pool): void {
           // Olhadas de critério em "observando": passaram pelo contexto e
           // não foram julgadas — de propósito, sem custo.
           observadas: c.observadas as number,
+          // Olhadas de critério com estudo em que o contexto valia e nenhum
+          // gatilho abriu a análise.
+          semGatilho: c.sem_gatilho as number,
           emSilencio: c.em_silencio as number,
           analises,
           conformes: c.conformes as number,

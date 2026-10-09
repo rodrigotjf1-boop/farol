@@ -242,9 +242,10 @@ def linha_do_contrato() -> dict:
         "sem_quadro": 2,
         "sem_cena": 3,
         "sem_condicao": 6,
+        "sem_gatilho": 4,
         "observadas": 5,
         "em_silencio": 10,
-        "repetidas": 75,
+        "repetidas": 71,
         "ja_julgadas": 1,
         "enfileiradas": 24,
         "conformes": 20,
@@ -283,12 +284,12 @@ def test_o_resumo_sai_EXATAMENTE_como_o_contrato():
 
 
 def test_o_exemplo_do_contrato_fecha_a_conta():
-    # O arquivo é exemplo "completo e verdadeiro": os nove desfechos de uma
+    # O arquivo é exemplo "completo e verdadeiro": os dez desfechos de uma
     # olhada têm que somar as capturas, senão ele ensina a conta errada.
     c = json.loads(CONTRATO.read_text(encoding="utf-8"))
     desfechos = [
-        "semJuiz", "semQuadro", "semCena", "semCondicao", "observadas", "emSilencio", "repetidas", "jaJulgadas",
-        "enfileiradas",
+        "semJuiz", "semQuadro", "semCena", "semCondicao", "semGatilho", "observadas", "emSilencio", "repetidas",
+        "jaJulgadas", "enfileiradas",
     ]
     assert sum(c[d] for d in desfechos) == c["capturas"]
     assert c["conformes"] + c["naoConformes"] + c["naoAvaliaveis"] + c["falhas"] == c["enfileiradas"]

@@ -1642,3 +1642,232 @@ derruba a configuração e não vira aviso: o critério fica só observando.
 - Nenhum critério da loja mudou de estado: o comportamento em produção foi
   provado nos testes (agente e API), não na loja. O pacote do agente que
   está na loja é anterior a esta fatia e só recebe o que está valendo.
+
+## 09/10/2026 · O estudo do critério: o contexto, o gatilho e o funil
+
+A19, onda 1, fatia 1.3 — a parte que não depende de tela nem da resposta do
+dono sobre quem escreve a ficha. Pedido dele (08/10): os critérios têm de
+ser estudados para gerar gatilhos, sem julgamento desnecessário "sem
+movimento ou sem o contexto acontecendo". O exemplo: para saber se o
+colaborador da chapa salga as carnes, é preciso haver carne na chapa e
+colaborador no posto — sem isso não se analisa.
+
+### O que é o estudo
+
+A ficha de seis partes do critério — contexto, gatilho, janela, ação,
+desfecho e fora de contexto —, em texto. Duas delas têm também a forma que
+a loja confere **sozinha, de graça**:
+
+- **contexto** — o que precisa estar acontecendo. Uma lista de condições;
+  **todas** têm de valer. Não valeu: a olhada é "nada a conferir".
+- **gatilho** — o que abre a análise. Uma lista; **basta um**. Vazia é
+  "toda olhada". O contexto valia e nada abriu: a olhada é "sem gatilho".
+
+Cada condição lê um **sinal** num **lugar** do canal — o quadro do próprio
+critério (`aqui`), a imagem completa (`canal`) ou outro quadro do mesmo
+canal (`quadro`). "Há colaborador no posto" é o sinal `pessoa` no quadro do
+posto, lido por um critério que mora no quadro da chapa.
+
+| sinal | de onde vem | vale | não vale | começou | acabou |
+|---|---|---|---|---|---|
+| **pessoa** | o detector de pessoas da loja | `pessoa` | `sem_pessoa` | `entrou` | `saiu` |
+| **movimento** | o que mudou desde a olhada anterior | `movimento` | `parado` | `mexeu` | `parou` |
+| **foto padrão** | a cena é a da foto padrão do canal? | `fora_do_padrao` | `no_padrao` | `saiu_do_padrao` | `voltou_ao_padrao` |
+
+As duas primeiras colunas de nomes são para o contexto; as duas últimas,
+para o gatilho. Há ainda dois gatilhos do relógio: `toda_olhada` e `a_cada`
+N minutos (de 1 a 720). O contrato é `contratos/estudo-do-criterio.json`,
+lido pelos testes dos dois lados.
+
+O exemplo do dono, nessa forma: contexto = `fora_do_padrao` aqui (há carne:
+a chapa não está como na foto da chapa vazia) **e** `pessoa` no quadro do
+posto; gatilho = `saiu_do_padrao` aqui (a carne acabou de ser posta).
+
+**O porteiro de hoje vira caso particular.** "Só com pessoa na área" é o
+contexto `pessoa` aqui; "só com a área livre", `sem_pessoa` aqui; "só com
+movimento", `movimento` aqui. O critério **com estudo confirmado
+responde pelo estudo, e o porteiro guardado nele não é consultado**. Sem
+estudo, tudo segue como sempre.
+
+### Na dúvida, pergunta
+
+É a regra do porteiro, e vale inteira: segurar uma pergunta que tinha
+resposta é pior do que fazer uma que não tinha.
+
+- O que não se sabe ler **não segura**: sem detector, sem foto padrão no
+  canal, quadro que foi excluído, primeira olhada — a condição de contexto
+  vale e o gatilho dispara.
+- `pessoa` só deixa de valer quando o detector não viu **nem um talvez**;
+  `sem_pessoa`, só quando viu alguém **com certeza**.
+- A borda de pessoa tem **histerese**: a certeza liga, o "nem um talvez"
+  desliga, e o meio mantém o que era.
+- A borda compara com a olhada **anterior daquele lugar**. Anterior com
+  mais de cinco minutos não é anterior: é outra cena — não se sabe, e
+  dispara.
+- No agente, sinal que ele não conheça (um que a nuvem ganhe depois) não
+  derruba a configuração: condição de contexto desconhecida sai da lista e
+  gatilho desconhecido faz o critério ser conferido em toda olhada.
+
+### O que o agente faz, em ordem
+
+    é hora? → está em silêncio? → a câmera entrega cena?
+      → o estudo: o CONTEXTO vale?      não → "nada a conferir"
+                  um GATILHO abriu?     não → "sem gatilho"
+      → o critério só observa?          sim → "observada"
+      → borrão · cena repetida · fila · julgamento
+
+- **Tudo é lido em toda olhada**, mesmo com o contexto faltando e mesmo
+  depois de um gatilho disparar: a borda da próxima olhada sai da leitura
+  desta. Cada lugar é lido uma vez por olhada, não importa quantos critérios
+  perguntem.
+- **O relógio dos sinais é o da olhada**, não o do quadro escolhido (cada
+  critério escolhe o quadro mais nítido da rajada).
+- **"A cada N minutos" conta desde a última vez que a análise abriu** — por
+  qualquer gatilho, e só com o contexto valendo. O relógio é do critério
+  naquele quadro.
+- **O gatilho e o contexto têm de coincidir na mesma olhada.** Gatilho que
+  dispara com o contexto faltando não fica guardado.
+- **Presença e contagem não usam estudo:** são conferidas na loja em toda
+  olhada, e ali a olhada é a própria medida.
+- **"Avisar só se continuar":** faltar `pessoa` zera a espera (o que estava
+  fora do critério numa pessoa deixou de estar); faltar outra condição, ou
+  ficar sem gatilho, nem anda nem zera.
+- **Em "observando" o funil já conta:** a olhada que passou pelo contexto e
+  pelo gatilho é a "observada". É o que mostra quantas vezes por dia o
+  gatilho acontece antes de alguém mandar julgar.
+- `resumo_hora.sem_gatilho` é o **décimo desfecho** de uma olhada; a conta
+  das olhadas continua fechando.
+
+### O que a nuvem guarda e serve
+
+- `regra_estudo` (migration 032): os seis textos, o contexto, o gatilho, e
+  quem confirmou. `GET`, `PUT` e `DELETE /v1/regras/:id/estudo`.
+- **Só o estudo confirmado desce**, e só para o agente que declara saber
+  (`?sabe=estudo`). Os textos ficam na nuvem: para o agente descem o
+  contexto e o gatilho.
+- Grava e tira quem configura (gerência para cima, e o suporte). A ficha que
+  não cabe é recusada dizendo por quê, e nada é gravado pela metade: sinal
+  ou lugar desconhecido, o mesmo sinal repetido no mesmo lugar, uma coisa e
+  o contrário dela no mesmo lugar (o critério nunca seria conferido),
+  "toda olhada" ao lado de outro gatilho, quadro que não é de um canal do
+  critério, e contexto ou gatilho em critério de presença ou de contagem.
+- **A confirmação guarda quem e quando, e só muda quando muda o que foi
+  confirmado** (o contexto ou o gatilho). Salvar de novo, ou corrigir um
+  texto, não troca o autor.
+- **A versão da configuração só sobe quando muda o que o agente usa.**
+  Corrigir o texto de uma parte não faz a loja remontar a auditoria.
+- **O funil** — `GET /v1/regras/:id/funil?dias=N` (supervisão para cima):
+
+      olhadas = sem juiz + sem imagem + em silêncio
+              + sem contexto + sem gatilho + com gatilho
+
+  "Com gatilho" é a olhada que passou pelas duas portas: a observada, a
+  enfileirada, a de cena repetida e a que já tinha veredito. Vem o total,
+  por quadro e por dia (no relógio da loja), e o que foi julgado, onde, e
+  quanto custou.
+- **"Quanto custaria ligado"** = gatilhos por dia × o preço **medido** de
+  uma análise na nuvem. Os gatilhos por dia são a média dos dias inteiros
+  (hoje só entra quando é o único, e aí o número sai marcado como parcial).
+  O preço é o que este critério pagou por análise nos últimos 30 dias; sem
+  isso, o que a loja pagou; **sem isso, não há preço** — nada de número
+  inventado. Presença, contagem e loja em modo local: zero. É o **teto**:
+  antes de ligar não se sabe quantas análises a loja resolve sozinha.
+
+### O agente que passa a saber mais (ERR-064)
+
+A nuvem monta a configuração conforme o que o agente declara, e o agente só
+a puxava quando a **versão** mudava. Trocado o pacote na loja, o agente novo
+subiria com a configuração que o antigo guardou — sem o critério em
+observação, sem o estudo — e nunca pediria de novo. Agora a configuração
+guardada em disco leva a anotação do que o agente declarou ao pedi-la, e ele
+puxa de novo, uma vez, quando sabe mais do que sabia. A auditoria remonta
+quando a mesma versão chega pedida sabendo mais.
+
+### O que foi medido na loja — os sinais, sobre a gravação (09/10)
+
+O estudo ainda não roda na loja. O que dá para medir já é o que os SINAIS
+dizem: a gravação da noite de 08/10 (loja aberta) passada pelo mesmo
+código, no computador da loja, com o detector dela (rfdetr-nano na placa
+de vídeo; certeza 0,70, dúvida 0,35). Um quadro a cada 10 s; os sinais
+lidos a cada 10 s e, com um quadro em três, a cada 30 s — o ritmo da
+olhada. Nenhum quadro falhou. Só números saíram: nenhuma imagem foi
+guardada, e a instalação do agente não foi tocada.
+
+**Canal 4 — a câmera de cima da bancada de montagem, das 21h às 22h**
+(120 olhadas a cada 30 s):
+
+| | o quadro do tampo | a imagem completa |
+|---|---|---|
+| o detector viu alguém com certeza | 18 (15%) | 70 (58%) |
+| viu ao menos um "talvez" | 43 (36%) | 87 (73%) |
+| alguém chegou · o lugar ficou livre | 13 · 13 | 14 · 14 |
+| algo mudou desde a olhada anterior | 98 de 119 (82%) | 106 de 119 (89%) |
+| o lugar parou (mexia, e não mexe mais) | 10 | 6 |
+
+**Canal 6 — a câmera da chapa, das 21h às 21h30** (60 olhadas a cada 30 s;
+o canal só tem a imagem completa):
+
+| | a imagem completa |
+|---|---|
+| o detector viu alguém com certeza | 53 (88%) |
+| viu ao menos um "talvez" | 53 (88%) |
+| alguém chegou · o lugar ficou livre | 3 · 2 |
+| algo mudou desde a olhada anterior | 55 de 59 (93%) |
+| o lugar parou | 1 |
+
+O que isso diz:
+
+1. **Na câmera de cima, "há pessoa" não quer dizer "há alguém montando".**
+   O tampo mudou em 82% das olhadas e o detector só viu alguém com certeza
+   em 15% — de cima ele vê braço e mão, não gente. O contexto `pessoa`
+   nesse quadro deixaria de valer em 77 das 120 olhadas de uma hora cheia.
+   Ali o sinal é o **movimento**. Na câmera da chapa é o contrário: o
+   detector é firme (certeza e "talvez" dão o mesmo número, 88%).
+   **Quem escreve o estudo — a pessoa ou o sistema — tem de escolher o
+   sinal pela câmera.**
+2. **O funil em potencial, no tampo, nessa hora:** em toda olhada, 120
+   análises; só com algo mudado, 98; só quando o tampo para, **10**; a
+   cada dez minutos, 6. (Fora as primeiras olhadas, em que ainda não há
+   anterior para comparar e, na dúvida, a análise abre.) É conta sobre os
+   sinais, não sobre um critério rodando.
+3. **O ritmo de 30 s perde bordas.** A cada 10 s o tampo "parou" 26 vezes
+   na hora; a cada 30 s, 10. Na chapa, 11 contra 1 em meia hora. Gatilho
+   fino pede olhar mais vezes entre uma olhada e outra — é o que a
+   sequência da onda 2 (e o quadro de bancada, fatia 1.4) vão precisar.
+4. **Nenhum canal da loja tem foto padrão guardada:** o sinal "há algo
+   ali" (`fora_do_padrao`), que o exemplo da chapa pede, depende de alguém
+   guardar a foto da chapa vazia.
+
+### O que não entrou
+
+- **Quem escreve a ficha.** O plano diz que o sistema propõe as seis partes
+  e liga cada condição a um sinal; o dono corrigiu que a *cena* é escrita
+  por quem usa, e ainda não disse se o mesmo vale para o estudo. A rota
+  aceita a ficha pronta; a proposta fica para depois da resposta dele.
+- **A tela** (fatia 1.5): a ficha, o funil e a frase de cada condição.
+- **A ação conferida por sinal** — "o saleiro saiu do lugar marcado e voltou
+  = salgou". Os sinais para isso existem (`saiu_do_padrao` e
+  `voltou_ao_padrao` no quadro do saleiro), mas hoje o estudo só decide
+  QUANDO julgar; julgar por sinal é juiz novo.
+- **A olhada extra do vigia para gatilho:** o ritmo é o da olhada (30 s).
+  O que começa e termina entre duas olhadas não é borda de nada.
+- **O sinal de outra câmera.** A condição olha um quadro do MESMO canal.
+  "Há alguém na bancada" talvez se veja melhor pela câmera lateral (canal
+  1) do que pela de cima (canal 4) — não foi medido —, e hoje o critério
+  do canal 4 não tem como perguntar ao canal 1.
+- **A nuvem saber o que o agente da loja sabe.** Hoje o agente declara ao
+  pedir a configuração, e a nuvem não guarda. A tela vai precisar disso para
+  dizer "o estudo já vale na loja" — entra com ela.
+
+### O que não foi medido
+
+- O estudo **rodando na loja**: o agente instalado é o pacote antigo, e não
+  há critério com estudo. O comportamento foi provado em teste; o que se
+  mediu na loja foram os SINAIS, sobre a gravação.
+- O sinal da **foto padrão** na loja: nenhum canal dela tem foto padrão
+  guardada.
+- As outras quatro câmeras, e outras horas: mediram-se dois canais, na
+  noite de 08/10.
+- Se o canal 1 (a câmera lateral) vê bem quem está na bancada — é
+  suposição pelo que a câmera da chapa mostrou.
+- O custo do detector a mais por olhada, com vários critérios com estudo.

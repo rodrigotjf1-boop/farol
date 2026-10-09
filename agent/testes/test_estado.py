@@ -100,7 +100,7 @@ def test_o_agente_diz_a_nuvem_que_sabe_lidar_com_estados(monkeypatch):
     monkeypatch.setattr("urllib.request.urlopen", abrir)
     cliente_da_nuvem.ClienteNuvem("https://api.exemplo", "tok").configuracao()
     assert pedidos == ["https://api.exemplo/v1/agentes/configuracao?sabe=" + ",".join(cliente_da_nuvem.SABE)]
-    assert pedidos[0].endswith("?sabe=estados")
+    assert "estados" in pedidos[0].split("?sabe=")[1].split(","), "a palavra vai na lista do que ele sabe"
 
 
 def test_o_estado_desce_na_configuracao_e_o_que_nao_se_conhece_nao_avisa(caplog):
@@ -305,7 +305,7 @@ def test_observadas_e_um_contador_do_resumo_e_sobe_com_ele(fila, regra, fonte):
     (linha,) = fila.resumos_a_subir()
     corpo = resumo_para_nuvem(linha)
     assert (corpo["capturas"], corpo["observadas"]) == (2, 2)
-    desfechos = ("semJuiz", "semQuadro", "semCena", "semCondicao", "observadas", "emSilencio", "repetidas", "jaJulgadas", "enfileiradas")
+    desfechos = ("semJuiz", "semQuadro", "semCena", "semCondicao", "semGatilho", "observadas", "emSilencio", "repetidas", "jaJulgadas", "enfileiradas")
     assert sum(corpo[d] for d in desfechos) == corpo["capturas"], "a conta das olhadas fecha com o desfecho novo"
     # O pior caso para quem valida do outro lado: a hora em que o critério SÓ observou.
     assert (corpo["conformes"], corpo["naoConformes"], corpo["naoAvaliaveis"], corpo["falhas"], corpo["alertas"]) == (0, 0, 0, 0, 0)

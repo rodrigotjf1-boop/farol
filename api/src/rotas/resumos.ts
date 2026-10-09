@@ -76,6 +76,9 @@ export type ResumoEntrada = {
   /** Olhadas de critério em "observando": contadas, sem julgar. Agente
    *  anterior à migration 031 não manda. */
   observadas?: number;
+  /** Olhadas de critério com estudo em que o contexto valia e nenhum
+   *  gatilho abriu a análise. Agente anterior à migration 032 não manda. */
+  semGatilho?: number;
   /** Onde foi julgado. Agente anterior à migration 020 não manda. */
   julgadasLoja?: number;
   julgadasNuvem?: number;
@@ -132,9 +135,9 @@ export function validarResumo(r: unknown, i: number): string | null {
     return `${onde}.somaConfianca: maior que comConfianca`;
   }
 
-  // As olhadas que o porteiro segurou, e as do critério que só observa.
-  // Opcionais: agente antigo não manda.
-  for (const campo of ['semCondicao', 'observadas'] as const) {
+  // As olhadas que o porteiro segurou, as do critério que só observa e as
+  // que ficaram sem gatilho. Opcionais: agente antigo não manda.
+  for (const campo of ['semCondicao', 'observadas', 'semGatilho'] as const) {
     const n = v[campo];
     if (n == null) continue;
     if (typeof n !== 'number' || !Number.isInteger(n) || n < 0 || n > TETO_DO_CONTADOR) {
@@ -243,6 +246,7 @@ export async function gravarResumos(
     sem_cena: r.semCena,
     sem_condicao: r.semCondicao ?? 0,
     observadas: r.observadas ?? 0,
+    sem_gatilho: r.semGatilho ?? 0,
     em_silencio: r.emSilencio,
     repetidas: r.repetidas,
     ja_julgadas: r.jaJulgadas,
@@ -284,7 +288,7 @@ export async function gravarResumos(
   const gravadas = await pool.query<{ regra_id: string; zona_id: string; hora: Date }>(
     `insert into resumo_hora (
         tenant_id, loja_id, agente_id, regra_id, zona_id, hora,
-        capturas, sem_juiz, sem_quadro, sem_cena, sem_condicao, observadas, em_silencio, repetidas,
+        capturas, sem_juiz, sem_quadro, sem_cena, sem_condicao, sem_gatilho, observadas, em_silencio, repetidas,
         ja_julgadas, enfileiradas, conformes, nao_conformes, nao_avaliaveis,
         falhas, alertas, soma_confianca, com_confianca, soma_latencia_ms,
         com_latencia, custo_centavos, julgadas_loja, julgadas_nuvem,
@@ -292,7 +296,7 @@ export async function gravarResumos(
         ultimo_resultado, ultimo_motivo, ultimo_impedimento, ultima_em)
      select distinct on (e.regra_id, e.zona_id, e.hora)
             $1, $2, $3, e.regra_id, e.zona_id, e.hora,
-            e.capturas, e.sem_juiz, e.sem_quadro, e.sem_cena, e.sem_condicao, e.observadas, e.em_silencio, e.repetidas,
+            e.capturas, e.sem_juiz, e.sem_quadro, e.sem_cena, e.sem_condicao, e.sem_gatilho, e.observadas, e.em_silencio, e.repetidas,
             e.ja_julgadas, e.enfileiradas, e.conformes, e.nao_conformes, e.nao_avaliaveis,
             e.falhas, e.alertas, e.soma_confianca, e.com_confianca, e.soma_latencia_ms,
             e.com_latencia, e.custo_centavos, e.julgadas_loja, e.julgadas_nuvem,
@@ -301,7 +305,7 @@ export async function gravarResumos(
        from jsonb_to_recordset($4::jsonb) as e(
             i integer, regra_id uuid, zona_id uuid, hora timestamptz,
             capturas integer, sem_juiz integer, sem_quadro integer, sem_cena integer,
-            sem_condicao integer, observadas integer,
+            sem_condicao integer, sem_gatilho integer, observadas integer,
             em_silencio integer, repetidas integer, ja_julgadas integer,
             enfileiradas integer, conformes integer, nao_conformes integer,
             nao_avaliaveis integer, falhas integer, alertas integer,
@@ -323,6 +327,7 @@ export async function gravarResumos(
         sem_cena = excluded.sem_cena,
         sem_condicao = excluded.sem_condicao,
         observadas = excluded.observadas,
+        sem_gatilho = excluded.sem_gatilho,
         em_silencio = excluded.em_silencio,
         repetidas = excluded.repetidas,
         ja_julgadas = excluded.ja_julgadas,
