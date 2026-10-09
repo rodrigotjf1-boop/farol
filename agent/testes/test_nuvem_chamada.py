@@ -109,9 +109,13 @@ def test_o_modelo_forte_vai_com_a_escolha_livre_e_na_primeira():
 
 
 def test_todo_modelo_que_o_agente_chama_sai_do_jeito_que_a_api_aceita():
-    # Os lugares em que um modelo é escolhido: a cascata do juiz, a descrição
-    # de equipamento e os nomes curtos da linha de comando.
-    chamados = {nuvem.MODELO_BARATO, nuvem.MODELO_FORTE, descrever.MODELO, *ensaio.MODELOS.values()}
+    # Os lugares em que um modelo é escolhido: a cascata do juiz, o modelo de
+    # rotina do pedido com contexto, a descrição de equipamento e os nomes
+    # curtos da linha de comando.
+    chamados = {
+        nuvem.MODELO_BARATO, nuvem.MODELO_FORTE, nuvem.MODELO_COM_CONTEXTO,
+        descrever.MODELO, *ensaio.MODELOS.values(),
+    }
     for modelo in sorted(chamados):
         api = ApiComoMedida()
         _juiz(api)._chamar(modelo, "ZmFsc28=", "image/jpeg", "CRITÉRIO")

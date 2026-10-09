@@ -16,9 +16,13 @@
 //   - só quem configura escreve; outra conta nem sabe que o canal existe.
 
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import type { AddressInfo } from 'node:net';
 import { after, before, describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import type { FastifyInstance } from 'fastify';
 import pg from 'pg';
@@ -32,6 +36,8 @@ const ADMIN = 'admin-de-teste-cena';
 const SENHA = 'uma senha longa o bastante';
 const RET = (x1: number, y1: number, x2: number, y2: number) => [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
 const INTEIRO = [[0, 0], [1, 0], [1, 1], [0, 1]];
+const PROVISIONAR = fileURLToPath(new URL('../scripts/provisionar.mjs', import.meta.url));
+const rodar = promisify(execFile);
 
 type Papel = (typeof PAPEIS)[number];
 type ZonaDoContrato = { nome: string; poligono: number[][]; papel: Papel; numero: number | null };
@@ -102,6 +108,7 @@ describe('a cena do canal e o papel do quadro (Postgres real)', { skip: !URL_DO_
   let cookiePresidente = '';
   let cookieSupervisao = '';
   let cookieVizinho = '';
+  let lojaVizinhaId = '';
   let token = '';
 
   async function entrar(tenant: string, email: string, nivel: string, nome = 'X') {
@@ -175,6 +182,7 @@ describe('a cena do canal e o papel do quadro (Postgres real)', { skip: !URL_DO_
       method: 'POST', url: '/v1/distribuicao/lojas', headers: { 'x-farol-admin': ADMIN },
       payload: { tenant: { nome: `${marca}-vizinha` }, loja: { nome: 'Vizinha' }, setores: [] },
     })).json();
+    lojaVizinhaId = vizinha.loja.id;
     cookieVizinho = await entrar(vizinha.tenantId, `ger-${marca}-viz@e.com`, 'gerente');
 
     const agente = (await app.inject({
@@ -426,7 +434,7 @@ describe('a cena do canal e o papel do quadro (Postgres real)', { skip: !URL_DO_
     const antes = await versao();
     const ligou = await chave({ pedidoComContexto: true });
     assert.equal(ligou.statusCode, 200, ligou.body);
-    assert.deepEqual(ligou.json(), { id: lojaId, nome: 'Matriz', pedidoComContexto: true, configVersao: antes + 1 });
+    assert.deepEqual(ligou.json(), { id: lojaId, nome: 'Matriz', pedidoComContexto: true, configVersao: antes + 1, canaisSemCena: [] });
     assert.equal((await configuracao()).loja.pedidoComContexto, true);
 
     assert.equal((await chave({ pedidoComContexto: true })).json().configVersao, antes + 1, 'ligar o que já está ligado não sobe a versão');
@@ -437,6 +445,135 @@ describe('a cena do canal e o papel do quadro (Postgres real)', { skip: !URL_DO_
 
     assert.equal((await chave({ pedidoComContexto: true }, { 'x-farol-admin': ADMIN }, randomUUID())).statusCode, 404);
     assert.equal((await chave({ pedidoComContexto: true }, { 'x-farol-admin': ADMIN }, 'nao-e-uuid')).statusCode, 404);
+  });
+
+  // ─────────────────────── ligar sem tirar análise de ninguém ───────────────────────
+
+  /** Um critério ligado numa área. `tipo` decide se ele depende da cena. */
+  async function criterioLigado(nome: string, zonaId: string, extra: Record<string, unknown> = {}, comCookie = cookie, loja = lojaId) {
+    const r = await app.inject({
+      method: 'POST', url: `/v1/lojas/${loja}/regras`, headers: { cookie: comCookie },
+      payload: { nome, tipo: 'estado', criterio: `Texto de ${nome}.`, zonaIds: [zonaId], quando: 'sempre', ...extra },
+    });
+    assert.equal(r.statusCode, 201, r.body);
+    const id = r.json().id as string;
+    if (extra.ativa !== false) {
+      const l = await app.inject({ method: 'PATCH', url: `/v1/regras/${id}`, headers: { cookie: comCookie }, payload: { ativa: true } });
+      assert.equal(l.statusCode, 200, l.body);
+    }
+    return id;
+  }
+
+  it('ligar com canal sem cena é recusado, dizendo quais — e só entram os que perderiam análise', async () => {
+    const semCena = await canalNovo(`Sem cena ${marca}`);
+    const comCena = await canalNovo(`Com cena ${marca}`);
+    const soPresenca = await canalNovo(`Só presença ${marca}`);
+    const desligado = await canalNovo(`Critério desligado ${marca}`);
+    await criterioLigado(`Limpeza A ${marca}`, semCena.inteira);
+    await criterioLigado(`Limpeza B ${marca}`, comCena.inteira);
+    assert.equal((await mudarPonto(comCena.pontoId, { cena: 'Balcão visto de frente.' })).statusCode, 200);
+    // Presença é julgada pelo detector, na loja: não depende da cena.
+    await criterioLigado(`Gente ${marca}`, soPresenca.inteira, { tipo: 'presenca', criterio: 'Há alguém.', parametros: { objeto: 'pessoa', minimo: 1, maximo: null } });
+    // Critério desligado não perde nada.
+    await criterioLigado(`Parado ${marca}`, desligado.inteira, { ativa: false });
+
+    // Na loja vizinha, um canal sem cena e com critério: não é problema desta loja.
+    const setorVizinho = (await app.inject({
+      method: 'POST', url: `/v1/lojas/${lojaVizinhaId}/setores`, headers: { cookie: cookieVizinho }, payload: { nome: 'Cozinha' },
+    })).json().id as string;
+    const pontoVizinho = (await app.inject({
+      method: 'POST', url: `/v1/setores/${setorVizinho}/pontos`, headers: { cookie: cookieVizinho },
+      payload: { nome: `Vizinho ${marca}`, origem: 'dvr', canal: 9, host: '192.168.1.108' },
+    })).json();
+    await criterioLigado(`Do vizinho ${marca}`, pontoVizinho.zonas[0].id, {}, cookieVizinho, lojaVizinhaId);
+
+    const antes = await versao();
+    const recusa = await chave({ pedidoComContexto: true });
+    assert.equal(recusa.statusCode, 409, recusa.body);
+    assert.equal(recusa.json().erro, 'canais_sem_cena');
+    assert.deepEqual(recusa.json().canaisSemCena, [`Sem cena ${marca}`]);
+    assert.match(recusa.json().mensagem, /^1 canal\(is\) sem a cena escrita, com critério que depende dela: Sem cena /);
+    assert.equal(await chaveNoBanco(), false, 'a recusa não ligou nada');
+    assert.equal(await versao(), antes);
+
+    // "Assim mesmo" só com true.
+    for (const quase of ['sim', 1, 'true']) {
+      assert.equal((await chave({ pedidoComContexto: true, mesmoAssim: quase })).statusCode, 409, String(quase));
+    }
+    assert.equal(await chaveNoBanco(), false);
+
+    const forcada = await chave({ pedidoComContexto: true, mesmoAssim: true });
+    assert.equal(forcada.statusCode, 200, forcada.body);
+    assert.deepEqual([forcada.json().pedidoComContexto, forcada.json().canaisSemCena], [true, [`Sem cena ${marca}`]], 'liga, e diz o que ficou parado');
+
+    // Desligar nunca é recusado.
+    const desligou = await chave({ pedidoComContexto: false });
+    assert.equal(desligou.statusCode, 200, desligou.body);
+    assert.equal(await chaveNoBanco(), false);
+
+    // Escrita a cena, liga sem pedir licença.
+    assert.equal((await mudarPonto(semCena.pontoId, { cena: 'Chapa vista de lado.' })).statusCode, 200);
+    const limpa = await chave({ pedidoComContexto: true });
+    assert.deepEqual([limpa.statusCode, limpa.json().canaisSemCena], [200, []]);
+    await chave({ pedidoComContexto: false });
+    // Deixa o canal como estava para os outros testes: sem cena.
+    assert.equal((await mudarPonto(semCena.pontoId, { cena: '' })).statusCode, 200);
+  });
+
+  it('o comando da distribuição liga e desliga a chave falando com a API de verdade', async () => {
+    // O roteiro roda dentro do serviço e fala HTTP com ele: aqui a API sobe numa porta de verdade.
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const porta = String((app.server.address() as AddressInfo).port);
+    const ambiente = { ...process.env, PORT: porta, FAROL_ADMIN_TOKEN: ADMIN };
+    const comando = (...argumentos: string[]) => rodar(process.execPath, [PROVISIONAR, 'contexto', ...argumentos], { env: ambiente });
+    const falha = async (...argumentos: string[]) => {
+      try {
+        await comando(...argumentos);
+      } catch (e) {
+        return e as { code: number; stdout: string; stderr: string };
+      }
+      throw new Error(`esperava falha em: contexto ${argumentos.join(' ')}`);
+    };
+    assert.equal(await chaveNoBanco(), false);
+
+    // Um canal sem cena, com critério que depende dela: o comando não liga, diz qual, e sai com erro.
+    const dele = await canalNovo(`Do comando ${marca}`);
+    await criterioLigado(`Limpeza C ${marca}`, dele.inteira);
+    const recusado = await falha(lojaId, 'ligar');
+    assert.equal(recusado.code, 2);
+    assert.match(recusado.stderr, /NÃO LIGUEI/);
+    assert.match(recusado.stderr, new RegExp(`· Do comando ${marca}`));
+    assert.match(recusado.stderr, new RegExp(`contexto ${lojaId} ligar --mesmo-assim`));
+    assert.equal(await chaveNoBanco(), false);
+
+    const ligou = await comando(lojaId, 'ligar', '--mesmo-assim');
+    assert.match(ligou.stdout, /pedido com contexto: LIGADO/);
+    assert.match(ligou.stdout, /Canais com critério PARADO até a cena ser escrita:/);
+    assert.match(ligou.stdout, new RegExp(`· Do comando ${marca}`));
+    assert.equal(await chaveNoBanco(), true);
+    assert.equal((await configuracao()).loja.pedidoComContexto, true);
+
+    const desligou = await comando(lojaId, 'desligar');
+    assert.match(desligou.stdout, /pedido com contexto: desligado/);
+    assert.equal(await chaveNoBanco(), false);
+
+    // Uso torto não chega à API.
+    for (const torto of [[lojaId], [lojaId, 'sim'], [lojaId, 'ligar', '--forcar'], []]) {
+      const r = await falha(...torto);
+      assert.equal(r.code, 1, torto.join(' '));
+      assert.match(r.stderr, /uso: npm run provisionar -- contexto <lojaId> ligar\|desligar/);
+    }
+    // Loja que não existe: o erro da API aparece, e nada muda.
+    const semLoja = await falha(randomUUID(), 'ligar');
+    assert.equal(semLoja.code, 1);
+    assert.match(semLoja.stderr, /HTTP 404/);
+    // Sem a credencial no ambiente, o comando diz onde ela se põe — e não tenta.
+    const semCredencial = await rodar(process.execPath, [PROVISIONAR, 'contexto', lojaId, 'ligar', '--mesmo-assim'], {
+      env: { ...process.env, PORT: porta, FAROL_ADMIN_TOKEN: '' },
+    }).then(() => null, (e) => e as { code: number; stderr: string });
+    assert.equal(semCredencial?.code, 1);
+    assert.match(semCredencial!.stderr, /FAROL_ADMIN_TOKEN ausente/);
+    assert.equal(await chaveNoBanco(), false);
   });
 
   // ─────────────────────── quem pode ───────────────────────

@@ -142,7 +142,7 @@ class Cena:
         q = self.quadro(zona_id)
         if q is None:
             return "A IMAGEM A AUDITAR é a imagem completa desta câmera:"
-        return f"A IMAGEM A AUDITAR é o recorte do quadro {q.numero} — {q.rotulo()} —, como a câmera entrega:"
+        return f"A IMAGEM A AUDITAR é o recorte do quadro {q.numero} — {q.rotulo()}:"
 
     # ─────────────────────── o que muda o quê ───────────────────────
 

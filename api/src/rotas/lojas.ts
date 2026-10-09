@@ -268,6 +268,38 @@ export function rotasDeLojas(app: FastifyInstance, pool: pg.Pool): void {
       });
     }
 
+    // Com a chave ligada, canal SEM cena escrita não manda imagem para fora:
+    // o critério dele que depende de entender a imagem (estado, ação, e a
+    // comparação que não deu "igual") deixa de ser analisado até alguém
+    // escrever a cena. Quem liga precisa saber ANTES quais são — ligar no
+    // escuro seria tirar análise da loja sem ninguém ter decidido isso.
+    const semCena = await pool.query(
+      `select distinct p.nome
+         from ponto p
+         join setor st      on st.id = p.setor_id
+         join zona z        on z.ponto_id = p.id and z.excluida_em is null
+         join regra_alvo ra on ra.zona_id = z.id
+         join regra r       on r.id = ra.regra_id
+        where st.loja_id = $1
+          and p.ativo and p.excluido_em is null
+          and btrim(p.cena) = ''
+          and r.ativa and r.excluida_em is null
+          and r.tipo in ('estado', 'acao', 'comparacao')
+        order by p.nome`,
+      [id],
+    );
+    const canaisSemCena: string[] = semCena.rows.map((r) => r.nome as string);
+    if (corpo.pedidoComContexto && canaisSemCena.length > 0 && corpo.mesmoAssim !== true) {
+      return resposta.status(409).send({
+        erro: 'canais_sem_cena',
+        mensagem:
+          `${canaisSemCena.length} canal(is) sem a cena escrita, com critério que depende dela: ` +
+          `${canaisSemCena.join(', ')}. Com a chave ligada, esses critérios deixam de ser analisados ` +
+          'até a cena ser escrita. Escreva a cena de cada um, ou repita com mesmoAssim: true.',
+        canaisSemCena,
+      });
+    }
+
     // A versão sobe na mesma instrução, e só quando a chave mudou de lado:
     // é por ela que o agente sabe que precisa puxar a configuração.
     const { rows } = await pool.query(
@@ -282,12 +314,18 @@ export function rotasDeLojas(app: FastifyInstance, pool: pg.Pool): void {
     if (rows.length === 0) return naoAchei();
 
     // Muda o que sai da loja: fica no log.
-    req.log.info({ loja: id, pedidoComContexto: corpo.pedidoComContexto }, 'chave do pedido com contexto');
+    req.log.info(
+      { loja: id, pedidoComContexto: corpo.pedidoComContexto, canaisSemCena: canaisSemCena.length },
+      'chave do pedido com contexto',
+    );
     return {
       id: rows[0].id,
       nome: rows[0].nome,
       pedidoComContexto: rows[0].pedido_com_contexto,
       configVersao: rows[0].config_versao,
+      // Os canais que, com a chave ligada, ficam com critério parado por
+      // falta de cena. Vazio = todo canal que precisa de cena tem.
+      canaisSemCena,
     };
   });
 }
