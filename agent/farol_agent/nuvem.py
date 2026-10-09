@@ -64,7 +64,12 @@ class ErroDaNuvem(Exception):
 #
 #   estados  o estado do critério: observando não julga, ensaio e medido não avisam.
 #   estudo   o estudo do critério: o contexto e o gatilho que a loja confere sozinha.
-SABE: tuple[str, ...] = ("estados", "estudo")
+#   bancada  o quadro de bancada: a imagem espera as mãos saírem.
+#
+# A nuvem GUARDA a declaração (é como o console sabe o que já vale na loja).
+# "bancada" não muda o que desce — o papel do quadro desce para todos —,
+# só informa. A lista é a de `contratos/o-que-o-agente-sabe.json`.
+SABE: tuple[str, ...] = ("estados", "estudo", "bancada")
 
 
 class ClienteNuvem:

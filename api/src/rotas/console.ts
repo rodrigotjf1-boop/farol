@@ -193,10 +193,15 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
     // relógio do navegador erra — fuso, horário de verão, máquina com a
     // hora solta — e um agente saudável apareceria como caído, ou pior,
     // um caído apareceria saudável.
+    //
+    // `sabe` é o que o agente declarou ao pedir a configuração pela última
+    // vez (`sabe_em`; nulo = ainda não pediu desde que isto é guardado). É
+    // por ele que a tela diz se o que foi configurado já vale na loja.
     const ag = await pool.query(
       `select id, nome, estado, versao, ultimo_heartbeat,
               extract(epoch from (now() - ultimo_heartbeat))::integer
-                as segundos_sem_bater
+                as segundos_sem_bater,
+              sabe, sabe_em
          from agente
         where loja_id = $1
         order by ultimo_heartbeat desc nulls last`,

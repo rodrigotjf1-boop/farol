@@ -63,6 +63,24 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
       return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'loja não existe' });
     }
 
+    // A declaração fica guardada (migration 033): é por ela que o console
+    // diz se a loja já sabe lidar com o que foi configurado, e que se
+    // confere, depois de trocar o pacote, que o agente novo pediu a
+    // configuração de novo. A versão que o agente informa no sinal de vida
+    // não serve para isso: é um texto fixo de quem o instalou, e não muda
+    // com o pacote. Guarda-se a ÚLTIMA declaração, com a hora.
+    //
+    // Anotar não pode impedir a loja de receber a configuração: se falhar,
+    // fica o aviso no log e a resposta segue.
+    try {
+      await pool.query('update agente set sabe = $2, sabe_em = now() where id = $1', [
+        quem.agenteId,
+        [...sabe].sort(),
+      ]);
+    } catch (e) {
+      req.log.warn({ err: e }, 'não anotei o que o agente declarou saber');
+    }
+
     const pontos = await pool.query(
       `select p.id, p.nome, p.origem, p.fabricante, p.canal, p.host, p.porta,
               p.usuario, p.segredo_ref, p.url_main, p.url_sub, p.gabarito,
