@@ -1,8 +1,9 @@
 """O que o agente declara que sabe — e o que acontece quando ele passa a saber mais.
 
 A nuvem só manda certas coisas para o agente que declara saber lidar com elas
-(`?sabe=estados,estudo`): o critério que não está valendo, o estudo do critério.
-Para o agente antigo, elas não existem.
+(`?sabe=estados,estudo,…`): o critério que não está valendo, o estudo do critério.
+Para o agente antigo, elas não existem. E ela GUARDA a declaração: é como o
+console sabe o que já vale na loja (`contratos/o-que-o-agente-sabe.json`).
 
 O defeito que isto guarda: o agente só puxava a configuração quando a VERSÃO
 mudava. Trocado o pacote na loja, o agente novo subia com a configuração que o
@@ -15,6 +16,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from pathlib import Path
 
 from farol_agent import nuvem as cliente_da_nuvem
 from farol_agent.auditoria import Auditoria
@@ -26,6 +28,32 @@ from .test_configuracao import NuvemFalsa, resposta
 
 TERCA_MEIO_DIA = datetime(2026, 10, 6, 12, 0, 0)
 SABE = list(cliente_da_nuvem.SABE)
+CONTRATO = json.loads((Path(__file__).resolve().parents[2] / "contratos" / "o-que-o-agente-sabe.json").read_text(encoding="utf-8"))
+
+
+def test_o_agente_declara_o_que_o_contrato_lista_e_pede_a_configuracao_como_ele_diz(monkeypatch):
+    assert sorted(SABE) == sorted(CONTRATO["saberes"]) and len(SABE) == len(set(SABE))
+    assert set(CONTRATO["mudamOQueDesce"]) <= set(SABE)
+    assert sorted(SABE) == CONTRATO["guardado"], "a nuvem guarda a declaração em ordem"
+    pedidos = []
+
+    class Resposta:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b'{"versao": 7}'
+
+    def abrir(req, timeout=None):
+        pedidos.append(req.full_url)
+        return Resposta()
+
+    monkeypatch.setattr("urllib.request.urlopen", abrir)
+    cliente_da_nuvem.ClienteNuvem("https://api.exemplo", "tok").configuracao()
+    assert pedidos == ["https://api.exemplo" + CONTRATO["pedido"]]
 
 
 def com_criterio_escondido(versao=5) -> dict:
@@ -81,7 +109,8 @@ def test_o_agente_atualizado_puxa_de_novo_mesmo_com_a_versao_igual(tmp_path, cap
     with caplog.at_level("INFO", logger="farol_agent.configuracao"):
         s.bater()
     assert nuvem.puxadas == 1, "a versão é a mesma, mas o agente passou a saber mais"
-    assert "o agente sabe mais do que sabia quando a configuração desceu (estados, estudo)" in caplog.text
+    o_que_falta = ", ".join(sorted(SABE))       # o agente antigo não declarava nada: falta tudo
+    assert f"o agente sabe mais do que sabia quando a configuração desceu ({o_que_falta})" in caplog.text
     assert [r.id for r in s.config.regras] == ["val", "obs"], "o critério que a nuvem escondia chegou"
     assert s.config.versao == 5
 

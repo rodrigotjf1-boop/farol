@@ -3784,7 +3784,7 @@ Levantamento do código feito antes de começar. Três coisas dele mudam o jeito
 | **1.2 · os quatro estados** ✅ (09/10, migration 031) | observando · em ensaio · medido · valendo. Só "valendo" avisa; "observando" conta sem julgar. Critério que já avisa hoje continua valendo | não | os de hoje ficam como estão |
 | **1.3 · o estudo do critério e o funil** ◐ (09/10, migration 032: o motor e os números; falta a proposta) | as seis partes (contexto, gatilho, janela, ação, desfecho, fora de contexto), com cada condição ligada a um sinal da loja; a proposta do sistema, pedida ao agente como hoje se pede a descrição de um equipamento; o funil servido em números | não | sem estudo, o critério segue com o "quando vale a pena conferir" de hoje |
 | **1.4 · o quadro de bancada** ✅ (09/10, sem migration; **uma parte mudou:** quem aparece não é apagado — a imagem com alguém à vista sai como hoje, com o borrão) | em quadro com papel "posição de montagem": sobe o quadro de quando as mãos saem, sem o borrão de rosto; quem aparecer é apagado | não | só onde o papel for esse — e o campo do papel só chega ao console na fatia 1.5 |
-| **1.5 · as telas** | o porte do protótipo aprovado para o console; a migração das áreas redesenhadas ("Quadro inteiro" que não é o quadro inteiro vira "Quadro 1", e o canal ganha a imagem completa de volta); as contagens "em N canais (M quadros)" | sim | depois do "aprovado" |
+| **1.5 · as telas** (a parte da nuvem que não depende de tela — guardar o que o agente da loja declara saber — entrou em 09/10, migration 033) | o porte do protótipo aprovado para o console; a migração das áreas redesenhadas ("Quadro inteiro" que não é o quadro inteiro vira "Quadro 1", e o canal ganha a imagem completa de volta); as contagens "em N canais (M quadros)" | sim | depois do "aprovado" |
 
 **De onde sai cada número do funil que o protótipo mostra** (para não desenhar o que não
 existe):
@@ -3896,7 +3896,7 @@ critério: o contexto, o gatilho e o funil"):
 - **o que falta nesta fatia:** a proposta do sistema para a ficha — espera o dono dizer se o
   estudo é proposto pelo sistema ou escrito por quem usa, como a cena;
 - **para a fatia 1.5:** a nuvem guardar o que o agente da loja sabe, para a tela dizer se o
-  estudo já vale lá.
+  estudo já vale lá — **entrou em 09/10** (abaixo).
 
 **A fatia 1.4, entregue em 09/10** ([decisoes.md](decisoes.md), "O quadro de bancada: a
 imagem espera as mãos saírem"):
@@ -3931,6 +3931,21 @@ imagem espera as mãos saírem"):
 - **ainda não dá para usar na loja:** nenhum quadro tem o papel, e o campo do papel só chega
   ao console na fatia 1.5. Não foi medido com o fluxo menor de verdade e a loja aberta — o
   gravador não guarda esse fluxo.
+
+**Da fatia 1.5, a parte que não depende de tela, entregue em 09/10** ([decisoes.md](decisoes.md),
+"A nuvem guarda o que o agente da loja declara saber"; migration 033):
+
+- **o que entrou:** a nuvem guarda, por agente, o que ele declarou saber ao pedir a
+  configuração pela última vez, e quando (`agente.sabe`, `agente.sabe_em`); a rota da loja
+  que o console já usa devolve os dois. O agente passa a declarar também `bancada`;
+- **por que agora:** conferido na loja, a versão que o agente informa é um texto fixo
+  ("0.1.0-loja") e não muda com o pacote — sem isto, a nuvem não sabe qual pacote está lá. É
+  também como se confere a troca do pacote, de fora;
+- **regra para o roteiro da troca:** em toda **volta** de pacote, apagar a configuração
+  guardada na loja antes de subir o agente antigo. O agente só pede de novo quando passa a
+  saber mais; voltando ao pacote de hoje com a configuração do novo em disco, um critério em
+  observação seria julgado (e pago) — ninguém seria avisado, mas gastaria;
+- **o que falta:** a tela que usa isso.
 
 **Uma escolha que fica para quando o protótipo for aprovado.** O plano manda o protótipo
 nascer na cara nova, e assim foi feito. O porte da cara nova inteira é a onda 8. Ao levar as

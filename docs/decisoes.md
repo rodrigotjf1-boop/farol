@@ -2077,3 +2077,80 @@ borrão, o pior caso é o de hoje.
 - **O custo da medida na máquina da loja.** No computador de desenvolvimento
   uma medida de um quadro leva 0,6 ms (duas por segundo: um milésimo de um
   núcleo); na loja não foi medido.
+
+## 09/10/2026 · A nuvem guarda o que o agente da loja declara saber
+
+A19, onda 1 — a parte da fatia 1.5 que não depende de tela (migration 033).
+
+### Por quê
+
+Ao pedir a configuração o agente declara o que sabe fazer
+(`?sabe=estados,estudo,bancada`), e a nuvem só manda certas coisas para
+quem declara. A declaração valia para aquele pedido e era esquecida. Faz
+falta em dois lugares:
+
+1. **A tela** (fatia 1.5) precisa dizer se o que foi configurado já vale na
+   loja: um critério criado em "observando" não chega ao agente antigo, e
+   quem configura tem de saber disso sem adivinhar.
+2. **O dia da troca do pacote.** É como se confere, de fora, que o agente
+   novo subiu e pediu a configuração de novo sabendo mais.
+
+**A versão que o agente informa no sinal de vida não serve para isso.**
+Conferido na loja em 09/10: o agente roda com `--versao 0.1.0-loja`, um
+texto fixo de quem o instalou. Não muda com o pacote — pela versão, a
+nuvem não distingue o pacote de hoje do de amanhã.
+
+### O que entrou
+
+- `agente.sabe` (a lista, em ordem) e `agente.sabe_em` (a hora) — migration
+  033. Gravados quando o agente pede a configuração, pelo que ele declarou
+  naquele pedido. **Vale a última declaração:** quem pede sem declarar nada
+  fica com a lista vazia e a hora nova (é o agente de antes dos estados).
+  `sabe_em` nulo = ainda não pediu desde que isto é guardado.
+- **Anotar nunca impede a configuração de descer:** se a gravação falhar,
+  fica o aviso no registro do serviço e a loja recebe a configuração.
+- O que vem torto não é guardado: só nomes em minúsculas, no máximo 12.
+- `GET /v1/lojas/:id` devolve `sabe` e `sabe_em` de cada agente, ao lado da
+  versão e do sinal de vida. Nenhuma tela usa ainda.
+- O agente passa a declarar **`bancada`** (o quadro de bancada, fatia 1.4).
+  Não muda o que desce — o papel do quadro desce para todos —, só informa.
+  Como ele passou a saber mais, o agente que já tivesse a configuração a
+  pede de novo, uma vez (é o mecanismo do ERR-064).
+- O vocabulário está em `contratos/o-que-o-agente-sabe.json`, lido pelos
+  testes dos dois lados.
+
+### A volta ao pacote antigo — o que isto NÃO resolve
+
+O agente pede a configuração de novo quando passa a saber **mais**. Quando
+passa a saber **menos** — o pacote voltou a uma versão anterior —, ele sobe
+com a configuração que o pacote novo guardou em disco, e não pede de novo
+enquanto a versão dela não mudar.
+
+- Do pacote da fatia 1.2 em diante, o estado do critério é respeitado. O
+  que o pacote não conhece — o estudo, por exemplo — é ignorado: o critério
+  volta a ser conferido como antes de o estudo existir (mais análises, não
+  aviso errado).
+- **O pacote que está na loja hoje é anterior a isso.** Voltando a ele com
+  a configuração do pacote novo em disco, um critério "em observação" ou
+  "em ensaio" seria **julgado** — e pago, se for de nuvem. Ninguém seria
+  avisado: o servidor só avisa do que está valendo. Mas gastaria.
+- Por isso, **em toda volta de pacote: apagar
+  `C:\Farol\agent\configuracao.json` antes de subir o agente antigo.** Ele
+  pede a configuração do zero, declarando só o que sabe, e recebe só o que
+  entende.
+- A nuvem não tem como perceber a volta sozinha: a versão informada é fixa
+  (acima), e a declaração só chega quando o agente pede. Fazer o instalador
+  informar o pacote de verdade na versão é mudança na loja — fica para o
+  roteiro da troca, com o "pode" do dono.
+
+### O que não entrou
+
+- **A tela.** Dizer "este critério ainda não chegou à loja" é da fatia 1.5.
+- **Dizer por critério** o que vale na loja: hoje a nuvem guarda a lista do
+  agente; cruzar com cada critério é conta da tela.
+
+### O que não foi medido
+
+- Com o agente da loja: ele é o pacote antigo, pede sem declarar nada, e
+  só pede quando a versão da configuração muda. Depois desta migration, a
+  linha dele fica com `sabe_em` nulo até a próxima mudança de configuração.
