@@ -41,9 +41,10 @@ import numpy as np
 from farol_agent.juizes.nuvem import (
     AVISO_DA_AREA,
     FATOR_CACHE_ESCRITA,
-    FATOR_CACHE_LEITURA,
     MODELO_FORTE,
     PRECO_USD_MTOK,
+    criar_pedindo_a_ferramenta,
+    fator_de_leitura,
 )
 from farol_agent.modelos import Frame, Zona
 from farol_agent.pipeline import recorte
@@ -59,6 +60,10 @@ MAX_DESCRICAO = 500
 MAX_CONFERIR = 5
 MAX_FRASE = 160
 TEMPO_LIMITE_SEG = 60.0
+# A resposta cabe em 700. O modelo que vai com a escolha livre da ferramenta
+# escreve antes de chamá-la (ver `juizes/nuvem.py`) e precisa de folga.
+MAX_TOKENS = 700
+MAX_TOKENS_ESCOLHA_LIVRE = 3000
 
 INSTRUCOES = """\
 Você descreve UM equipamento de um estabelecimento alimentício a partir de \
@@ -263,7 +268,7 @@ def custo_em_centavos(uso: Any, modelo: str, dolar: float) -> float | None:
     usd = (
         (getattr(uso, "input_tokens", 0) or 0) * entrada_usd
         + (getattr(uso, "cache_creation_input_tokens", 0) or 0) * entrada_usd * FATOR_CACHE_ESCRITA
-        + (getattr(uso, "cache_read_input_tokens", 0) or 0) * entrada_usd * FATOR_CACHE_LEITURA
+        + (getattr(uso, "cache_read_input_tokens", 0) or 0) * entrada_usd * fator_de_leitura(modelo)
         + (getattr(uso, "output_tokens", 0) or 0) * saida_usd
     ) / 1_000_000
     return round(usd * dolar * 100, 3)
@@ -305,12 +310,14 @@ def descrever_item(
     fotos = baixar_fotos(parametros, baixar)
     cliente = cliente or _cliente_do_modelo()
     try:
-        r = cliente.messages.create(
+        r = criar_pedindo_a_ferramenta(
+            cliente,
+            ferramenta="descrever",
+            max_tokens=MAX_TOKENS,
+            max_tokens_livre=MAX_TOKENS_ESCOLHA_LIVRE,
             model=modelo,
-            max_tokens=700,
             system=INSTRUCOES,
             tools=[FERRAMENTA],
-            tool_choice={"type": "tool", "name": "descrever"},
             messages=[{
                 "role": "user",
                 "content": montar_pedido(nome, str(parametros.get("tipo") or ""), str(parametros.get("setor") or ""), fotos),
