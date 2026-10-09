@@ -55,3 +55,6 @@ web/tsconfig.tsbuildinfo
 
 # saida do montador do prototipo: so serve para publicar a pagina
 mockups/console/saida/
+
+# saida do montador do prototipo da cara nova: so serve para publicar a pagina
+mockups/novo/saida/
