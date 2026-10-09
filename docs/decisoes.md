@@ -1333,3 +1333,42 @@ Os limites do que é saída do padrão, numa loja de verdade: a loja tinha
 dois dias de medida quando a fase saiu. Quantas saídas por dia eles dão,
 quantas o responsável acha que valem, e se as sugestões acertam, só as
 primeiras semanas dizem.
+
+## 09/10/2026 · O disco da loja: quanto tempo a análise fica guardada
+
+A cada análise o agente grava no disco da loja a imagem que foi julgada (o
+*spool*) e uma linha na fila local. **Nada disso era apagado.** A fila
+sabia limpar o que tinha sido julgado, com teste e tudo — e ninguém a
+chamava (ERR-062). Na loja-piloto: 0,37 GB em quatro dias, com recortes de
+640 px. Achado ao desenhar o recorte na resolução da câmera, que deixaria
+cada imagem de cinco a oito vezes maior.
+
+### O que passou a valer
+
+- **Guarda de 15 dias** para a análise ENCERRADA — julgada, vencida antes
+  de ser julgada, ou falhada de vez — e para a imagem dela. É o mesmo
+  prazo do resumo por hora que a loja guarda.
+- **Quem limpa é a auditoria**, na volta de rotina, no máximo de hora em
+  hora. Falha na limpeza vira uma linha de log; a volta segue.
+- **O que ainda espera julgamento não é tocado**, seja de quando for.
+- **Só sai arquivo de dentro do spool.** A limpeza não apaga o que o
+  agente não criou.
+- **A linha só sai se a imagem saiu.** Arquivo preso por outro programa
+  fica para a limpeza seguinte, e é pela linha que ela o acha.
+
+### Por que 15 dias, e o que isso não decide
+
+O que conta a história da loja não mora ali: o resumo por hora e os
+eventos sobem para a nuvem. A imagem no disco serve para conferir, nos
+dias seguintes, "por que ele disse isso?".
+
+O **banco de provas** (A19, onda 2) vai precisar de exemplos guardados
+para o responsável marcar "acertou" ou "errou". Onde eles ficam, e por
+quanto tempo, é decisão daquela onda — o que for exemplo marcado não
+pode depender deste prazo.
+
+### O que não foi medido
+
+O tamanho do spool com o recorte na resolução da câmera, numa loja em
+operação: a conta de "cinco a oito vezes" sai do tamanho das imagens, não
+de uma semana de uso.

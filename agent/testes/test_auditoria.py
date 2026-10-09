@@ -613,3 +613,81 @@ def test_criterio_sem_juiz_em_varios_canais_avisa_UMA_vez(tmp_path, monkeypatch,
     assert len(avisos) == 1, avisos
     assert "2 canal(is)" in avisos[0]
     assert a.fontes == {}, "abriu câmera para um critério que ninguém pode julgar"
+
+
+# ───────────────── a limpeza do disco (ERR-062) ─────────────────
+#
+# A fila sabia limpar o que tinha sido julgado, e ninguém chamava: o spool
+# crescia para sempre (na loja, 0,37 GB em quatro dias). O que se prova aqui
+# é que a AUDITORIA chama — o teste da fila sozinho passava com o defeito.
+
+TERCA_MEIO_DIA = datetime(2026, 10, 6, 12, 0, 0)
+
+
+def _no_spool(a) -> set[str]:
+    return {p.name for p in a.fila.spool.glob("*.jpg")}
+
+
+def test_a_auditoria_tira_do_disco_o_que_encerrou_ha_mais_que_a_guarda(tmp_path):
+    from farol_agent.auditoria import GUARDA_DAS_ANALISES_DIAS
+
+    assert GUARDA_DAS_ANALISES_DIAS == 15
+    a = montar(tmp_path)
+    assert a.passo(TERCA_MEIO_DIA)["enfileirados"] == 1
+    da_primeira = _no_spool(a)
+    assert len(da_primeira) == 1, "a análise julgada deixou a imagem dela no spool"
+
+    # Dentro da guarda, fica — é com ela que se confere "por que ele disse isso?".
+    a.passo(TERCA_MEIO_DIA + timedelta(days=14))
+    assert da_primeira <= _no_spool(a)
+
+    # Passou da guarda: sai a imagem e sai a linha.
+    a.passo(TERCA_MEIO_DIA + timedelta(days=15, minutes=1))
+    assert not (da_primeira & _no_spool(a))
+    with a.fila._lock:
+        antigas = a.fila._con.execute(
+            "select count(*) n from analise where capturado_em < ?", ("2026-10-07",)
+        ).fetchone()["n"]
+    assert antigas == 0
+    a.parar()
+
+
+def test_a_limpeza_roda_no_maximo_de_hora_em_hora(tmp_path):
+    a = montar(tmp_path)
+    chamadas: list[datetime] = []
+    de_verdade = a.fila.limpar_encerrados
+
+    def contar(antes_de):
+        chamadas.append(antes_de)
+        return de_verdade(antes_de)
+
+    a.fila.limpar_encerrados = contar
+    for minutos in (0, 0.5, 30, 59):
+        a.passo(TERCA_MEIO_DIA + timedelta(minutes=minutos))
+    assert len(chamadas) == 1, "uma varredura da fila a cada volta seria trabalho à toa"
+    assert chamadas[0] == TERCA_MEIO_DIA - timedelta(days=15), "o corte é a guarda, contada da volta"
+
+    a.passo(TERCA_MEIO_DIA + timedelta(minutes=61))
+    assert len(chamadas) == 2
+    a.parar()
+
+
+def test_limpeza_que_falha_nao_derruba_a_volta(tmp_path, caplog):
+    nuvem = NuvemDeTeste()
+    a = montar(tmp_path, nuvem=nuvem)
+    tentativas = 0
+
+    def quebrar(antes_de):
+        nonlocal tentativas
+        tentativas += 1
+        raise OSError("disco com defeito")
+
+    a.fila.limpar_encerrados = quebrar
+    with caplog.at_level("ERROR", logger="farol_agent.auditoria"):
+        r = a.passo(TERCA_MEIO_DIA)
+        a.passo(TERCA_MEIO_DIA + timedelta(seconds=30))
+
+    assert (r["enfileirados"], r["alertas"], r["subidos"]) == (1, 1, 1), "a volta entregou tudo antes de limpar"
+    assert tentativas == 1, "falhou: a próxima tentativa é na hora seguinte, não na volta seguinte"
+    assert len([x for x in caplog.records if "limpeza do disco falhou" in x.getMessage()]) == 1
+    a.parar()
