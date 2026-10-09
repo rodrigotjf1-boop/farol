@@ -395,6 +395,7 @@ class Fila:
         *,
         por_olhada: bool = False,
         zona_id: str | None = None,
+        contexto: str | None = None,
     ) -> str:
         """Determinística: a mesma cena, na mesma regra, no mesmo minuto.
 
@@ -409,10 +410,17 @@ class Fila:
         piso vazio) têm o mesmo pHash: sem a área na chave, a segunda
         sumia como repetida da primeira. Sem área (bancada, um corte só),
         a chave é a de sempre.
+
+        `contexto` é a assinatura do que vai JUNTO com a pergunta (a cena do
+        canal, os quadros, o modelo): mudou o contexto, é outra pergunta, e
+        o veredito guardado para a pergunta antiga não a responde. Sem
+        contexto (o pedido de sempre), a chave é a de sempre.
         """
         quando = f"{ts:%Y%m%d%H%M%S}" if por_olhada else f"{ts:%Y%m%d%H%M}"
         lugar = ponto_id if zona_id is None else f"{ponto_id}/{zona_id}"
         bruto = f"{regra_id}:{criterio_versao}:{lugar}:{phash:016x}:{quando}"
+        if contexto:
+            bruto += f":{contexto}"
         return sha256(bruto.encode("utf-8")).hexdigest()[:32]
 
     # ──────────────────────────── escrita ─────────────────────────────

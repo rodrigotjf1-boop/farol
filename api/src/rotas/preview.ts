@@ -22,6 +22,7 @@ import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
+import { lerOrdem, lerPapel, SQL_NUMERO_DO_QUADRO } from '../cena.js';
 import { exigirConfigurar } from '../rbac.js';
 import { validarPoligono } from '../poligono.js';
 import { registrarDescricao } from './inventario.js';
@@ -217,6 +218,11 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
               p.sensor_pol, p.focal_mm, p.distancia_cm, p.resolucao_h,
               p.largura_cena_cm, p.preview_largura, p.preview_altura, p.preview_em,
               (p.preview is not null) as tem_preview,
+              -- A cena, com quem a escreveu. O tipo de negócio é da loja, e a
+              -- tela do canal mostra os dois juntos.
+              p.cena, p.cena_escrita_em,
+              (select u.nome from usuario u where u.id = p.cena_escrita_por) as cena_escrita_por_nome,
+              l.tipo_negocio as loja_tipo_negocio,
               st.id as setor_id, st.nome as setor_nome, st.loja_id
          from ponto p
          join setor st on st.id = p.setor_id
@@ -233,6 +239,7 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
     // o canal inteiro — nunca uma por área.
     const z = await pool.query(
       `select z.id, z.nome, z.poligono, z.principal, z.largura_cena_cm,
+              z.papel, z.ordem, ${SQL_NUMERO_DO_QUADRO} as numero,
               coalesce((
                 select jsonb_agg(jsonb_build_object(
                          'id', r.id, 'nome', r.nome, 'tipo', r.tipo, 'ativa', r.ativa,
@@ -268,10 +275,25 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       poligono?: unknown;
       larguraCenaCm?: number | null;
       principal?: boolean;
+      papel?: unknown;
+      ordem?: unknown;
     };
     if (corpo.nome !== undefined) {
       const problema = nomeDeAreaInvalido(corpo.nome);
       if (problema) return resposta.status(422).send({ erro: 'validacao', mensagem: problema });
+    }
+    // O papel (o que o quadro é) e a ordem dele no canal. Ausentes, ficam.
+    let papel: string | null = null;
+    if (corpo.papel !== undefined) {
+      const lido = lerPapel(corpo.papel);
+      if (lido.problema !== undefined) return resposta.status(422).send({ erro: 'validacao', mensagem: lido.problema });
+      papel = lido.valor;
+    }
+    let ordem: number | null = null;
+    if (corpo.ordem !== undefined) {
+      const lida = lerOrdem(corpo.ordem);
+      if (lida.problema !== undefined) return resposta.status(422).send({ erro: 'validacao', mensagem: lida.problema });
+      ordem = lida.valor;
     }
 
     const z = await pool.query(
@@ -325,9 +347,11 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
             set nome = coalesce($2, nome),
                 poligono = coalesce($3::jsonb, poligono),
                 largura_cena_cm = case when $4::boolean then $5::numeric else largura_cena_cm end,
-                principal = coalesce($6::boolean, principal)
+                principal = coalesce($6::boolean, principal),
+                papel = coalesce($7::text, papel),
+                ordem = coalesce($8::integer, ordem)
           where id = $1
-        returning id, ponto_id, nome, poligono, principal, largura_cena_cm`,
+        returning id, ponto_id, nome, poligono, principal, largura_cena_cm, papel, ordem`,
         [
           id,
           corpo.nome === undefined ? null : String(corpo.nome).trim(),
@@ -337,6 +361,8 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
           corpo.larguraCenaCm !== undefined,
           corpo.larguraCenaCm ?? null,
           corpo.principal ?? null,
+          papel,
+          ordem,
         ],
       );
       await cliente.query('commit');
@@ -367,9 +393,16 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'ponto não encontrado' });
     if (!UUID.test(id)) return naoAchei();
 
-    const corpo = (req.body ?? {}) as { nome?: unknown; poligono?: unknown };
+    const corpo = (req.body ?? {}) as { nome?: unknown; poligono?: unknown; papel?: unknown };
     const problema = nomeDeAreaInvalido(corpo.nome);
     if (problema) return resposta.status(422).send({ erro: 'validacao', mensagem: problema });
+    // Sem papel informado, nasce "livre": um recorte como os de sempre.
+    let papelNovo = 'livre';
+    if (corpo.papel !== undefined) {
+      const lido = lerPapel(corpo.papel);
+      if (lido.problema !== undefined) return resposta.status(422).send({ erro: 'validacao', mensagem: lido.problema });
+      papelNovo = lido.valor;
+    }
     // Sem desenho, a área nasce no meio do quadro: dá para ver e arrastar.
     const poligono = corpo.poligono ?? AREA_DO_MEIO;
     const erro = validarPoligono(poligono);
@@ -397,10 +430,10 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
     try {
       // Nunca principal: o corte do canal continua sendo o que já era.
       const r = await pool.query(
-        `insert into zona (ponto_id, nome, poligono, principal)
-         values ($1, $2, $3::jsonb, false)
-         returning id, ponto_id, nome, poligono, principal, largura_cena_cm`,
-        [id, String(corpo.nome).trim(), JSON.stringify(poligono)],
+        `insert into zona (ponto_id, nome, poligono, principal, papel)
+         values ($1, $2, $3::jsonb, false, $4)
+         returning id, ponto_id, nome, poligono, principal, largura_cena_cm, papel, ordem`,
+        [id, String(corpo.nome).trim(), JSON.stringify(poligono), papelNovo],
       );
       return resposta.status(201).send({ ...r.rows[0], criterios: [] });
     } catch (e) {

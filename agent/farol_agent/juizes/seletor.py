@@ -30,7 +30,9 @@ from pathlib import Path
 import logging
 from typing import Any
 
+from farol_agent.contexto import Cena
 from farol_agent.juizes.base import ErroDoJuiz, Juiz
+from farol_agent.mapas import Mapas
 from farol_agent.modelos import Prioridade, Regra, TipoRegra, Veredito
 
 _log = logging.getLogger(__name__)
@@ -139,6 +141,9 @@ class JuizPorRegra:
         regras: dict[str, Regra],
         equipamentos: dict[str, list] | None = None,
         lugares: dict[str, str] | None = None,
+        *,
+        cenas: dict[str, Cena] | None = None,
+        mapas: Mapas | None = None,
     ) -> None:
         self.seletor = seletor
         self.regras = regras
@@ -147,6 +152,12 @@ class JuizPorRegra:
         self.equipamentos = equipamentos or {}
         # Por CANAL: a frase do lugar da câmera, tirada da planta da loja.
         self.lugares = lugares or {}
+        # Por CANAL: a cena escrita e os quadros — só dos canais que TÊM
+        # cena. `None` (e não vazio) = esta loja não pergunta com contexto, e
+        # nada aqui muda o pedido de sempre.
+        self.cenas = cenas
+        # Onde ficam os mapas dos canais (quem os desenha é o motor).
+        self.mapas = mapas
 
     def julgar(
         self,
@@ -185,6 +196,11 @@ class JuizPorRegra:
             lugar = self.lugares.get(str(ctx.get("ponto_id")))
             if lugar:
                 ctx = {**ctx, "lugar": lugar}
+            # A loja pergunta com contexto: a cena e os quadros DESTE canal,
+            # como estão agora. Canal sem cena escrita leva a marca — nada
+            # dele vai a um modelo de fora.
+            if self.cenas is not None:
+                ctx = self._com_a_cena(ctx, regra)
 
         padrao = getattr(self.seletor, "padrao", None)
         if juiz is padrao:
@@ -205,3 +221,31 @@ class JuizPorRegra:
         if referencias:
             return juiz.julgar(imagem, criterio, contexto=ctx, referencias=referencias)
         return juiz.julgar(imagem, criterio, contexto=ctx)
+
+    def _com_a_cena(self, ctx: dict[str, Any], regra: Regra) -> dict[str, Any]:
+        """Junta ao contexto a anatomia do pedido — ou a marca de que o canal não tem cena.
+
+        A anatomia é o que o juiz de nuvem precisa para montar o pedido com
+        contexto: a cena, o mapa do canal (quando o critério vale num
+        quadro) e a frase que apresenta a imagem. Sempre do canal e da área
+        DO ITEM — a regra do dicionário é uma só, e o critério vale em
+        vários canais.
+        """
+        ponto_id, zona_id = str(ctx.get("ponto_id")), str(ctx.get("zona_id"))
+        cena = (self.cenas or {}).get(ponto_id)
+        if cena is None:
+            return {**ctx, "sem_cena_escrita": True}
+
+        anatomia: dict[str, Any] = {"cena": cena.bloco(), "imagem": cena.qual_imagem(zona_id)}
+        if cena.quadro(zona_id) is not None:
+            # Critério de quadro manda o mapa e o recorte. Sem o mapa em
+            # disco o pedido espera: a olhada seguinte o desenha.
+            caminho = self.mapas.arquivo(ponto_id, cena) if self.mapas is not None else None
+            if caminho is None:
+                raise ErroDoJuiz("o mapa deste canal ainda não foi desenhado", recuperavel=True)
+            anatomia["mapa"] = str(caminho)
+            anatomia["legenda"] = cena.legenda(esquema=self.mapas.e_esquema(caminho))
+        ctx = {**ctx, "anatomia": anatomia}
+        if regra.processo_descricao:
+            ctx["como_deve_ser"] = regra.processo_descricao
+        return ctx

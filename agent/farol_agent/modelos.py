@@ -137,6 +137,12 @@ class Zona:
     ponto_id: str | None = None
     # Os equipamentos do inventário que aparecem nesta área, já descritos.
     equipamentos: list[EquipamentoDaArea] = field(default_factory=list)
+    # O que o quadro é (posto, cuba, montagem…; "livre" = sem papel definido)
+    # e o número dele no canal — "Quadro 2". O número vem pronto da nuvem, o
+    # mesmo que a tela mostra. `None` = não é quadro: é a imagem completa do
+    # canal (ou a nuvem é antiga, e não manda).
+    papel: str = "livre"
+    numero: int | None = None
 
     def bbox(self, largura: int, altura: int, margem: float = 0.05) -> tuple[int, int, int, int]:
         """Retângulo que contém o polígono, com margem relativa.

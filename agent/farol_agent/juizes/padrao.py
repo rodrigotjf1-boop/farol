@@ -230,6 +230,11 @@ class JuizDoPadrao:
         )
         if self.escalar_para is None:
             return self._nao_sei(f"{porque}, e a loja não tem a quem perguntar", s, inicio)
+        if ctx.get("sem_cena_escrita"):
+            # A loja pergunta com contexto e este canal não tem cena: o
+            # recorte não sai sozinho. A comparação feita aqui continua
+            # valendo — "igual" já teria sido conforme, acima.
+            return self._nao_sei(f"{porque}, e falta descrever a cena deste canal para perguntar a quem sabe julgar", s, inicio)
 
         _log.info("comparação passou a %s: %s", self.escalar_para.nome, porque)
         v = self.escalar_para.julgar(
