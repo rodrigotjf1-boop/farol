@@ -3543,6 +3543,36 @@ lido do pacote: a cascata saiu com a ferramenta forçada no modelo barato e a es
 no forte, e o veredito do forte voltou; o pedido de "Analisar as fotos e descrever" voltou
 com a descrição e cinco pontos a conferir.
 
+**Local primeiro — a regra do dono (09/10) e a prova.** Lendo o experimento, o dono
+perguntou: "ainda não é possível a análise de comparação na loja, sem nuvem? Por que não
+deixar a nuvem só quando a confiança de uma análise local não chegar à porcentagem
+aceitável?" É a escada de juízes deste plano, dita como regra: **a loja decide o que sabe;
+só o "não sei" sobe.** A nuvem, nos testes, foi a régua — não a arquitetura.
+
+Na mesma madrugada rodou um leitor local de teste, sem modelo nenhum (só OpenCV): a mancha
+que mudou em cima de um disco, a assinatura dela (cor, textura, tamanho, forma), ensinado
+com as manchas de umas posições e testado nas de outra, com 1 a 7 exemplos por ingrediente.
+
+| | resultado |
+|---|---|
+| Tempo | 7 ms por posição, no processador |
+| A quantidade que entrou | certa em 23 de 29 acontecimentos |
+| **Firme** (decidiria na loja) | 11 de 34 manchas — **10 certas**; a errada era mancha falsa, não ingrediente |
+| **"Não sei"** (subiria à nuvem) | 23 de 34 |
+| Ingrediente nunca visto | "não sei" em 5 de 6 |
+
+**Hoje ainda não dá para comparar só na loja** — o leitor local não existe no produto, e o
+de teste decide 1 em cada 3. Mas quando decide, acerta, e quando não sabe, diz: é o
+comportamento que a regra pede. O que inverte a proporção: **exemplos** (a loja gera
+centenas por noite; a nuvem rotula os primeiros — mil custam R$ 1,30 — e o responsável
+confere por amostragem), **uma assinatura melhor que "cor média"** (um modelo de
+assinatura no PC; o agente já tem o encaixe) e **a mancha limpa** (a sombra de quem se
+debruça e a mão geram manchas falsas; discos encostados contam errado). A nuvem fica com
+três papéis: **ensinar**, **responder o "não sei"** e **conferir uma amostra** do que a loja
+decidiu sozinha. O motivo de ir para a loja não é o custo: é não depender da internet,
+responder em milissegundos e a imagem não sair. Registro e roteiro em
+[teste-das-fichas.md](teste-das-fichas.md).
+
 **O encaixe no Regem** (lido no código do Regem em 09/10; é tarefa de lá, com plano e PR
 próprios):
 
@@ -3584,7 +3614,7 @@ foi medido** — é o primeiro uso do banco de provas.
 | 2 | **Sequência e banco de provas:** olhar para trás, grade de 6 quadros, a família Acontecimento; "acertou / errou"; o acerto medido de cada critério | G | o dono marcar os exemplos |
 | 3 | **Processo e Medida:** etapas por quadro, cronômetros e contadores, episódios, modelos prontos | G | onda 2 medida |
 | 4 | **Leitura da bancada, E0 → E1:** câmera regulada, números da semana, as fases do lote, contar montagens pelo fechamento, a comanda | G | regulagem do canal 4 |
-| 5 | **Leitura da bancada, E2 → E3:** uma posição por chamada, o dicionário de ingredientes, a ficha comparada em código, o produto, **a conta do lote contra o KDS**, aviso na estação | G+ | as fichas de todos os lanches; a fila de produção com os ingredientes (Regem); alarme falso medido |
+| 5 | **Leitura da bancada, E2 → E3:** **o leitor local de ingredientes** (ensinado pela nuvem; só o "não sei" sobe, uma posição por chamada), o dicionário de ingredientes, a ficha comparada em código, o produto, **a conta do lote contra o KDS**, aviso na estação | G+ | as fichas de todos os lanches; a fila de produção com os ingredientes (Regem); alarme falso medido |
 | 6 | O momento em vídeo ("Ver o momento") — reaproveita a sequência da onda 2 | M | onde guardar na nuvem |
 | 7 | Relatórios, resumos e o início "fora do critério primeiro" | G | transportador |
 | 8 | Porte da cara nova | G | protótipo geral aprovado |
@@ -3640,6 +3670,9 @@ quadros e critérios, o cadastro do processo, a sequência com a resposta por et
    a ficha). Falta ele confirmar que os quatro são o **Número 01**, dizer o que são as
    posições do lote anterior que não batem com as fichas, e passar **as fichas de todos os
    lanches** — onde estão cadastradas, ou a lista.
-7. **Atualizar o agente da loja** com a correção da reconsulta (PR #69): o pacote já está
-   no PC da loja e a forma nova foi conferida contra a nuvem (09/10); a troca precisa do
-   comando dele ou da liberação para eu rodar.
+7. ✅ **O agente da loja foi atualizado em 09/10, às 01h50** (o dono: "pode trocar"): está
+   com a correção da reconsulta (PR #69) e a do cliente do gravador (PR #66); subiu sem
+   aviso nem erro.
+8. Dizer a **meta do leitor local**: que parte dos lanches a loja tem de decidir sozinha, e
+   com que erro, antes de a nuvem ficar só com o "não sei". E o "pode" para a nuvem
+   rotular os primeiros exemplos (mil exemplos ≈ R$ 1,30).

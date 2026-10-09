@@ -115,6 +115,71 @@ O que cada variante errou, por item:
   estão entre estas fichas; a rodada 1 passou por ele sem gabarito, e os números não entram
   na conta.
 
+## E sem nuvem? A prova do leitor local
+
+O dono, ao ler o resultado: "ainda não é possível a análise de comparação na loja, sem
+nuvem? O PC ainda está com uso baixo. Por que não deixar a nuvem só quando a confiança de
+uma análise local não chegar à porcentagem aceitável?"
+
+**É o desenho.** A escada de juízes do plano começa na loja, e a base de exemplos do agente
+(`base_conhecimento.py`) já tem as três faixas: bate com o conhecido (decide na loja), "não
+sei" (sobe ao modelo), destoa. Nos experimentos acima a nuvem foi a régua — para saber se a
+informação está na imagem e de que jeito perguntar. Do que eles usaram, só uma peça é da
+nuvem: "que ingrediente é esta mancha". A posição, o que mudou, a contagem e a comparação
+com a ficha são conta, na loja.
+
+**A prova**, na mesma madrugada: um leitor local de teste, sem modelo nenhum (só OpenCV, no
+processador), com os mesmos quadros.
+
+1. **A mancha nova:** o que mudou entre o quadro parado de antes e o de depois, **em cima
+   de um disco** (o que antes já era alimento). Na primeira versão, sem essa condição, o
+   papel alumínio que se mexe e a sombra do braço davam manchas maiores que o ingrediente.
+2. **A assinatura da mancha:** cor (média e variação), textura, tamanho e forma.
+3. **Ensinado com as manchas de umas posições, testado nas de outra:** 29 acontecimentos
+   dos dois lotes, 12 ingredientes, de 1 a 7 exemplos de cada.
+4. **Firme** só quando o exemplo mais parecido ganha com folga do primeiro de outro
+   ingrediente **e** a mancha está tão perto dele quanto exemplos iguais costumam estar
+   entre si. Fora disso, **"não sei"** — o que subiria à nuvem.
+
+| | resultado |
+|---|---|
+| Tempo | 7 ms por posição (mediana), no processador |
+| A quantidade que entrou | certa em 23 de 29 acontecimentos |
+| Manchas achadas | 40 — 34 de ingrediente com exemplo em outra posição, 6 de ingrediente nunca visto |
+| Com exemplo: **firme** | 11 de 34 — **10 certas**. A errada era uma mancha falsa (o disco de cima se mexeu), não um ingrediente |
+| Com exemplo: "não sei" | 23 de 34 — o que subiria à nuvem |
+| Ingrediente nunca visto | "não sei" em 5 de 6, que é o certo; 1 dita com firmeza (outra mancha falsa) |
+| Firmes e certas, por ingrediente | queijo 4 de 7; alface 2 de 6; maionese 2 de 3; carne de 56 g 2 de 7; nenhuma nos molhos e na carne grossa |
+| O produto, só com o que foi dito com firmeza | o Número 01 em 2 das 4 posições |
+
+O que se lê:
+
+1. **A regra se comporta como o dono quer:** quando o leitor local é firme, acerta; quando
+   não sabe, diz. O que ele ainda não faz é ser firme o bastante — decide 1 em cada 3.
+2. **Hoje, então, ainda não dá para comparar só na loja.** Não por falta de máquina (7 ms
+   por posição; o PC da loja trabalha a 3%): o leitor local não existe no produto, e este,
+   de teste, conhece de 1 a 7 exemplos de cada ingrediente.
+3. **O que faz a proporção inverter é conhecido:**
+   - *exemplos* — a loja gera centenas por noite; a nuvem rotula os primeiros (mil exemplos
+     custam R$ 1,30) e o responsável confere por amostragem;
+   - *uma assinatura melhor que "cor média"* — um modelo de assinatura de imagem rodando no
+     PC. O agente já tem o encaixe (`EmbedderSigLIP`); falta instalar o modelo e medir;
+   - *a mancha limpa* — esperar a posição parar e a pessoa sair (a sombra de quem se
+     debruça criou manchas falsas; a mão tem cor de alimento), confirmar que a mancha
+     continua lá no quadro seguinte, e separar discos encostados (contaram errado).
+4. **O papel da nuvem depois disso:** ensinar (os primeiros exemplos e todo ingrediente
+   novo), responder a faixa do "não sei", e conferir uma amostra do que a loja decidiu
+   sozinha — é o que pega o leitor local errando com firmeza.
+5. **O motivo de ir para a loja não é o custo** (a nuvem sairia por R$ 1,30 a cada mil
+   lanches): é não depender da internet, responder em milissegundos — o aviso tem de
+   chegar antes de o lanche fechar — e a imagem não sair da loja.
+
+Limites: os limiares que recortam a mancha foram postos a olho nestas mesmas imagens (os
+da resposta — a folga e a distância — foram fixados antes de ver o resultado); os pares
+"antes e depois" foram escolhidos por mim; são dois lotes de uma noite. É prova de sinal,
+como a primeira prova da bancada — não é medida de acerto. O roteiro está no fim deste
+arquivo.
+
 ## A correção do PR #69, conferida contra a nuvem
 
 No mesmo roteiro, com o código novo lido direto do pacote (sem instalar nada):
@@ -124,7 +189,8 @@ No mesmo roteiro, com o código novo lido direto do pacote (sem instalar nada):
 | a cascata do juiz, com o limiar forçado para reconsultar | Haiku 4.5 com a ferramenta forçada (teto 300); depois Sonnet 5.5 com a escolha livre (teto 2.000) | veredito do Sonnet: "dentro", 0,70, com a frase; 5,9 centavos as duas |
 | o pedido de "Analisar as fotos e descrever" | Sonnet 5.5 com a escolha livre (teto 3.000) | respondeu pela ferramenta, 818 unidades de saída: descrição de 343 letras e 5 pontos a conferir; 6,8 centavos |
 
-A forma nova funciona. Falta o pacote ser trocado na loja.
+A forma nova funciona. **O pacote foi trocado na loja em 09/10, às 01h50**, com o "pode" do
+dono: o agente subiu com o código novo, sem aviso nem erro.
 
 ## O pedido da segunda rodada
 
@@ -173,3 +239,272 @@ confiança. Na conta em código, a distância entre o que foi visto e uma ficha 
 diferenças de quantidade (pão, carne, queijo, bacon, anel) mais um por ingrediente presente
 de um lado e ausente do outro, mais um se a carne vista é fina e a da ficha é grossa (ou o
 contrário).
+
+## O roteiro do leitor local
+
+Guardado para a prova poder ser refeita. Não é código do produto: as faixas das posições e
+os pares de quadros são os daquela noite, e as imagens não estão neste repositório.
+
+```python
+"""A19 — prova do LEITOR LOCAL de ingredientes: sem nuvem, sem modelo, so OpenCV, no processador.
+
+A pergunta do dono (09/10): "ainda nao e possivel a analise de comparacao na loja, sem nuvem? ... por que nao
+deixar [a nuvem] so quando a confianca de uma analise local nao chegar a porcentagem aceitavel?"
+
+O que este roteiro faz, com os quadros nativos dos dois lotes de 08/10 (ficam so no rascunho da sessao):
+
+  1. para cada ACONTECIMENTO conhecido (um ingrediente entrou numa posicao entre dois quadros parados), tira a
+     MANCHA NOVA: o que mudou EM CIMA DE UM DISCO entre o "antes" e o "depois";
+  2. de cada mancha, a ASSINATURA: cor (media e variacao, em Lab), textura, tamanho e forma;
+  3. ensina com as manchas de umas posicoes e testa nas de OUTRA posicao (deixa-uma-posicao-de-fora). O exemplo
+     mais parecido diz o ingrediente. A resposta so e FIRME se (a) o mais parecido ganha com folga do primeiro
+     exemplo de outro ingrediente e (b) a mancha esta tao perto dele quanto os exemplos de um mesmo ingrediente
+     costumam estar entre si. Fora disso e "NAO SEI" — o que subiria a nuvem;
+  4. para as posicoes do Numero 01, compara o conjunto lido com as fichas, em codigo.
+
+Os rotulos vem da leitura quadro a quadro e das fichas do dono. Os limiares da MANCHA foram postos a olho nestas
+imagens; os da RESPOSTA (folga 1,35; distancia = 1,5 x a mediana entre exemplos iguais) foram fixados antes de
+ver o resultado. E prova de que o sinal existe na loja, nao medida de acerto.
+
+    python leitor_local.py <pasta loja (com a19g, a19h, a19i)> <pasta de saida>
+"""
+import json
+import sys
+import time
+from collections import defaultdict
+from pathlib import Path
+
+import cv2
+import numpy as np
+
+L, SAIDA = Path(sys.argv[1]), Path(sys.argv[2])
+SAIDA.mkdir(parents=True, exist_ok=True)
+
+FAIXA = {"P1": (0, 190), "P2": (188, 380), "P3": (380, 700), "P4": (700, 985), "P5": (985, 1235), "P4b": (860, 1100),
+         "A1": (0, 175), "A2": (175, 370), "A3": (370, 700), "A4": (700, 960)}
+
+# (rotulo, posicao, antes, depois, unidades esperadas, faixa de y opcional)
+EVENTOS = [
+    # lote das 21h42 — quatro Numero 01 (P1, P2, P3, P5) e o Mussarela Bug (P4)
+    ("pao", "P5", "a19g/214304", "a19g/214316", 3, None),
+    ("carne_56g", "P3", "a19g/214316", "a19g/214411", 2, None),
+    ("carne_56g", "P5", "a19g/214344", "a19g/214355", 2, None),
+    ("molho_rose", "P2", "a19g/214414", "a19g/214425", 1, None),
+    ("molho_rose", "P3", "a19g/214414", "a19g/214425", 1, None),
+    ("molho_rose", "P5", "a19g/214414", "a19g/214425", 1, None),
+    ("alface", "P1", "a19g/214414", "a19g/214435", 1, None),
+    ("alface", "P2", "a19g/214435", "a19g/214445", 1, None),
+    ("alface", "P3", "a19g/214435", "a19g/214445", 1, None),
+    ("alface", "P5", "a19g/214445", "a19g/214451", 1, None),
+    ("queijo", "P1", "a19g/214451", "a19g/214514", 2, None),
+    ("queijo", "P2", "a19g/214455", "a19g/214514", 2, None),
+    ("queijo", "P3", "a19g/214455", "a19g/214514", 2, None),
+    ("queijo", "P5", "a19g/214455", "a19g/214514", 1, None),
+    ("geleia", "P4", "a19g/214344", "a19g/214404", 1, (0, 300)),
+    ("cebola_crispy", "P4", "a19g/214404", "a19g/214411", 1, (0, 300)),
+    ("carne_grossa", "P4", "a19g/214529", "a19g/214535", 1, (150, 300)),
+    ("maionese", "P4", "a19g/214535", "a19g/214554", 1, (150, 330)),
+    ("mussarela", "P4b", "a19h/214909", "a19i/214916", 1, None),
+    # lote das 21h37
+    ("creme_laranja", "A1", "a19g/213734", "a19g/213745", 1, None),
+    ("creme_laranja", "A2", "a19g/213745", "a19g/213755", 1, None),
+    ("carne_grossa", "A1", "a19g/213745", "a19g/213804", 1, (190, 397)),
+    ("carne_grossa", "A2", "a19g/213755", "a19g/213804", 1, None),
+    ("maionese", "A1", "a19g/213834", "a19g/213855", 1, None),
+    ("maionese", "A2", "a19g/213834", "a19g/213855", 1, None),
+    ("carne_56g", "A3", "a19g/213945", "a19g/214004", 1, None),  # duas carnes sobrepostas: de cima, uma mancha
+    ("carne_56g", "A4", "a19g/213945", "a19g/214004", 1, None),
+    ("queijo", "A4", "a19g/214014", "a19g/214025", 1, None),
+    ("bacon", "A4", "a19g/214025", "a19g/214035", 1, (0, 200)),
+]
+SE_CONTA = {"pao", "carne_56g", "carne_grossa", "queijo", "mussarela"}
+
+LIMIAR_DE_MUDANCA = 26.0   # distancia em Lab para dizer que o pixel mudou
+AREA_MINIMA = 900          # px: menor que isso e resto de brilho
+AREA_DE_UM_DISCO = 10500   # px: um pao de ~10 cm a ~12 px por cm
+FOLGA_FIRME = 1.35         # o mais parecido tem de ganhar do primeiro de outro ingrediente por esta razao
+PERTO = 1.5                # ... e estar a no maximo isto x a distancia tipica entre exemplos do mesmo ingrediente
+
+
+def ler(ref: str, pos: str, y) -> np.ndarray:
+    pasta, hora = ref.split("/")
+    img = cv2.imdecode(np.fromfile(L / pasta / f"nativo_{hora}.jpg", np.uint8), cv2.IMREAD_COLOR)
+    assert img is not None, ref
+    x1, x2 = FAIXA[pos]
+    peca = img[:, x1:x2]
+    return peca if y is None else peca[y[0] : y[1]]
+
+
+def comida(bgr: np.ndarray) -> np.ndarray:
+    """Cor de alimento: tons quentes (pao, carne, queijo, molhos) e verdes (alface), com saturacao.
+    O papel aluminio e o isopor ficam de fora (pouca cor, ou cor fria); a sombra do braco tambem (escura)."""
+    h, s, v = cv2.split(cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV))
+    quente = ((h <= 32) | (h >= 170)) & (s > 60) & (v > 40)
+    verde = (h > 32) & (h < 95) & (s > 60) & (v > 40)
+    return quente | verde
+
+
+def claro(bgr: np.ndarray) -> np.ndarray:
+    """Creme branco (maionese): muito claro e sem cor."""
+    _h, s, v = cv2.split(cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV))
+    return (v > 200) & (s < 70)
+
+
+def manchas(antes: np.ndarray, depois: np.ndarray) -> tuple[list[dict], np.ndarray]:
+    """As manchas novas: o que mudou EM CIMA DE UM DISCO (antes ja era alimento) e continua alimento ou creme
+    claro; ou um disco novo (caiu sobre o aluminio ou o isopor) — este tem de ter tamanho e forma de disco."""
+    la = cv2.cvtColor(cv2.GaussianBlur(antes, (5, 5), 0), cv2.COLOR_BGR2LAB).astype(np.float32)
+    ld = cv2.cvtColor(cv2.GaussianBlur(depois, (5, 5), 0), cv2.COLOR_BGR2LAB).astype(np.float32)
+    mudou = np.linalg.norm(ld - la, axis=2) > LIMIAR_DE_MUDANCA
+    ca, cd = comida(antes), comida(depois)
+    m = (mudou & (cd | (claro(depois) & ca))).astype(np.uint8)
+    m = cv2.morphologyEx(m, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+    m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
+    n, rot, stats, _ = cv2.connectedComponentsWithStats(m, connectivity=8)
+    lab = cv2.cvtColor(depois, cv2.COLOR_BGR2LAB).astype(np.float32)
+    lap = np.abs(cv2.Laplacian(cv2.cvtColor(depois, cv2.COLOR_BGR2GRAY), cv2.CV_32F, ksize=3))
+    saida, fica = [], np.zeros_like(m)
+    for k in range(1, n):
+        area = int(stats[k, cv2.CC_STAT_AREA])
+        if area < AREA_MINIMA:
+            continue
+        dentro = rot == k
+        contornos, _ = cv2.findContours(dentro.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        c = max(contornos, key=cv2.contourArea)
+        solidez = cv2.contourArea(c) / max(1.0, cv2.contourArea(cv2.convexHull(c)))
+        sobre_disco = float(ca[dentro].mean())
+        if sobre_disco < 0.35 and (area < 4000 or solidez < 0.75):
+            continue  # caiu fora de um disco e nao tem tamanho nem forma de disco: brilho, sombra, papel que mexeu
+        fica[dentro] = 1
+        px = lab[dentro]
+        (_, _), (w, h), _ = cv2.minAreaRect(c)
+        per = cv2.arcLength(c, True)
+        saida.append(dict(
+            area=area, caixa=[int(v) for v in stats[k, :4]], unidades=max(1, int(round(area / AREA_DE_UM_DISCO))),
+            v=[float(px[:, 0].mean()), float(px[:, 1].mean()), float(px[:, 2].mean()),
+               float(px[:, 0].std()), float(px[:, 1].std()), float(px[:, 2].std()),
+               float(lap[dentro].mean()), float(np.log(area)),
+               float(area / max(1.0, w * h)), float(4 * np.pi * cv2.contourArea(c) / max(1.0, per * per))],
+        ))
+    saida.sort(key=lambda s: -s["area"])
+    return saida, fica
+
+
+t0 = time.perf_counter()
+amostras, tempos, folha = [], [], []
+for rot, pos, a, d, n, y in EVENTOS:
+    antes, depois = ler(a, pos, y), ler(d, pos, y)
+    ti = time.perf_counter()
+    ms, mascara = manchas(antes, depois)
+    tempos.append((time.perf_counter() - ti) * 1000)
+    for k, s in enumerate(ms):
+        amostras.append(dict(rotulo=rot, pos=pos, evento=f"{rot}@{pos}", ordem=k, esperadas=n, **s))
+    pinta = depois.copy()
+    pinta[mascara > 0] = (0.45 * pinta[mascara > 0] + 0.55 * np.array([255, 0, 255])).astype(np.uint8)
+    for s in ms:
+        x, yy, w, h = s["caixa"]
+        cv2.rectangle(pinta, (x, yy), (x + w, yy + h), (0, 255, 255), 2)
+    linha = np.hstack([antes, depois, pinta])
+    texto = f"{rot} @ {pos}: {len(ms)} mancha(s), {sum(s['unidades'] for s in ms)} unidade(s); esperadas {n}"
+    cv2.putText(linha, texto, (4, 16), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 3)
+    cv2.putText(linha, texto, (4, 16), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+    folha.append(linha)
+print(f"{len(EVENTOS)} acontecimentos · {len(amostras)} manchas · {np.median(tempos):.1f} ms por posicao (mediana; maior {max(tempos):.1f} ms)")
+larg = max(l.shape[1] for l in folha)
+for b in range(0, len(folha), 6):
+    bloco = [cv2.copyMakeBorder(l, 0, 4, 0, larg - l.shape[1], cv2.BORDER_CONSTANT, value=(40, 40, 40)) for l in folha[b : b + 6]]
+    ok, buf = cv2.imencode(".jpg", np.vstack(bloco), [cv2.IMWRITE_JPEG_QUALITY, 86])
+    buf.tofile(SAIDA / f"manchas_{b // 6:02d}.jpg")
+
+# quantas unidades entraram: pela area quando o ingrediente se conta, pelo "tem ou nao tem" quando nao
+conta_certa, erros_de_conta = 0, []
+for rot, pos, a, d, n, y in EVENTOS:
+    ms = [s for s in amostras if s["evento"] == f"{rot}@{pos}"]
+    lido = sum(s["unidades"] for s in ms) if rot in SE_CONTA else (1 if ms else 0)
+    conta_certa += lido == n
+    if lido != n:
+        erros_de_conta.append(f"{rot}@{pos}: leu {lido}, eram {n} ({len(ms)} mancha(s))")
+print(f"quantidade certa em {conta_certa} de {len(EVENTOS)} acontecimentos · erros: {erros_de_conta}")
+
+
+def normalizar(treino: list[dict]):
+    X = np.array([t["v"] for t in treino], np.float32)
+    mu, sd = X.mean(0), X.std(0) + 1e-6
+    return (X - mu) / sd, mu, sd
+
+
+def distancia_tipica(Z: np.ndarray, rotulos: list[str]) -> float:
+    """Entre exemplos do MESMO ingrediente: a mediana da distancia ao igual mais proximo."""
+    ds = []
+    for i, r in enumerate(rotulos):
+        iguais = [j for j, q in enumerate(rotulos) if q == r and j != i]
+        if iguais:
+            ds.append(float(np.linalg.norm(Z[iguais] - Z[i], axis=1).min()))
+    return float(np.median(ds)) if ds else 9e9
+
+
+# deixa-uma-posicao-de-fora
+res = []
+for pos in sorted({s["pos"] for s in amostras}):
+    treino = [s for s in amostras if s["pos"] != pos]
+    rotulos = [t["rotulo"] for t in treino]
+    Z, mu, sd = normalizar(treino)
+    tipica = distancia_tipica(Z, rotulos)
+    for s in [s for s in amostras if s["pos"] == pos]:
+        z = (np.array(s["v"], np.float32) - mu) / sd
+        d = np.linalg.norm(Z - z, axis=1)
+        ordem = np.argsort(d)
+        dito, d1 = rotulos[int(ordem[0])], float(d[ordem[0]])
+        outro = next((float(d[i]) for i in ordem if rotulos[int(i)] != dito), 9e9)
+        folga = outro / max(1e-6, d1)
+        firme = folga >= FOLGA_FIRME and d1 <= PERTO * tipica
+        res.append(dict(pos=pos, evento=s["evento"], certo=s["rotulo"], dito=dito, unidades=s["unidades"], folga=round(folga, 2), perto=round(d1 / tipica, 2), firme=bool(firme), tinha_exemplo=s["rotulo"] in set(rotulos)))
+
+com = [r for r in res if r["tinha_exemplo"]]
+sem = [r for r in res if not r["tinha_exemplo"]]
+fi = [r for r in com if r["firme"]]
+print(f"\nmanchas: {len(res)} · com exemplo do ingrediente em OUTRA posicao: {len(com)} · de ingrediente nunca visto: {len(sem)}")
+print(f"COM exemplo: o mais parecido acerta {sum(1 for r in com if r['dito'] == r['certo'])} de {len(com)} · FIRMES {len(fi)}: {sum(1 for r in fi if r['dito'] == r['certo'])} certas, {sum(1 for r in fi if r['dito'] != r['certo'])} erradas · NAO SEI {len(com) - len(fi)} (iriam a nuvem)")
+fs = [r for r in sem if r["firme"]]
+print(f"NUNCA VISTO: {len(sem)} · ditas com firmeza (seria erro): {len(fs)} · NAO SEI: {len(sem) - len(fs)}")
+por = defaultdict(lambda: [0, 0, 0, 0])
+for r in com:
+    p = por[r["certo"]]
+    p[0] += 1
+    p[1] += r["dito"] == r["certo"]
+    p[2] += r["firme"] and r["dito"] == r["certo"]
+    p[3] += r["firme"] and r["dito"] != r["certo"]
+print("por ingrediente (manchas, mais parecido certo, firmes certas, firmes erradas):", {k: tuple(v) for k, v in sorted(por.items())})
+print("firmes:", [(r["evento"], r["dito"], r["folga"], r["perto"]) for r in com if r["firme"]])
+print("nao sei:", [(r["evento"], "->", r["dito"], r["folga"], r["perto"]) for r in com if not r["firme"]])
+print("nunca visto:", [(r["evento"], "->", r["dito"], r["folga"], r["perto"], "FIRME" if r["firme"] else "nao sei") for r in sem])
+
+# o conjunto lido x as fichas, em codigo — so com o que o leitor local disse com firmeza
+FICHAS = {
+    "01": {"pao": 3, "carne": 2, "queijo": 2, "alface": 1, "molho_rose": 1},
+    "02": {"pao": 2, "carne": 2, "queijo": 2, "cebola_shoyu": 1},
+    "16": {"pao": 2, "carne": 2, "molho_cheddar": 1, "cebola_shoyu": 1},
+    "08": {"pao": 2, "carne": 1, "queijo": 1, "ovo": 1, "bacon": 2, "anel": 3, "maionese": 1},
+    "mussarela_bug": {"pao": 2, "carne": 1, "mussarela": 1, "maionese": 1, "geleia": 1, "cebola_crispy": 1},
+}
+PARA_A_FICHA = {"carne_56g": "carne", "carne_grossa": "carne", "creme_laranja": "molho_cheddar"}
+print("\nas posicoes do Numero 01, so com o que foi dito com firmeza (sem contar o pao, que nao teve acontecimento limpo):")
+for pos in ("P1", "P2", "P3", "P5"):
+    visto = defaultdict(int)
+    for r in res:
+        if r["pos"] == pos and r["firme"]:
+            k = PARA_A_FICHA.get(r["dito"], r["dito"])
+            if k == "pao":
+                continue
+            visto[k] = visto[k] + r["unidades"] if r["dito"] in SE_CONTA else 1
+    ds = []
+    for nome, f in FICHAS.items():
+        sem_pao = {k: v for k, v in f.items() if k != "pao"}
+        dist = sum(abs(visto.get(k, 0) - sem_pao.get(k, 0)) if k in ("carne", "queijo", "bacon", "anel") else int((visto.get(k, 0) > 0) != (sem_pao.get(k, 0) > 0)) for k in set(visto) | set(sem_pao))
+        ds.append((dist, nome))
+    ds.sort()
+    print(f"   {pos}: firme em {dict(visto)} · ficha mais proxima: {ds[0][1]} (faltam {ds[0][0]} itens; a segunda, {ds[1][1]}, a {ds[1][0]})")
+
+(SAIDA / "leitor_local.json").write_text(json.dumps(dict(resultados=res, ms_mediana=float(np.median(tempos))), ensure_ascii=False, indent=1), encoding="utf-8")
+print(f"\ntempo total: {time.perf_counter() - t0:.1f} s")
+```
