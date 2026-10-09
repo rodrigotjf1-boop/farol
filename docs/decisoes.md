@@ -1871,3 +1871,209 @@ O que isso diz:
 - Se o canal 1 (a câmera lateral) vê bem quem está na bancada — é
   suposição pelo que a câmera da chapa mostrou.
 - O custo do detector a mais por olhada, com vários critérios com estudo.
+
+## 09/10/2026 · O quadro de bancada: a imagem espera as mãos saírem
+
+A19, onda 1, fatia 1.4. Do plano: em quadro com o papel "posição de
+montagem", sobe o quadro de quando as mãos saem, sem o borrão de rosto, e
+quem aparecer é apagado. Vem do teste na nuvem (08/10): o borrão de rosto
+apagou pão em 12 dos 40 momentos e, de cima, não há rosto para ele pegar.
+
+### A regra
+
+Vale só em **quadro com o papel "posição de montagem"**, e só para critério
+que **manda imagem para julgar** (estado, ação, comparação). Presença e
+contagem continuam conferidas em toda olhada, com mão ou sem.
+
+- **A imagem só sai com o quadro quieto:** nada mexeu nas três últimas
+  medidas dele no fluxo menor, tiradas de meio em meio segundo — um segundo
+  e meio. A medida é a do porteiro: o quadro reduzido a 96×54, e "mexeu" é
+  1,2% dos pontos saltarem mais de 24 níveis de cinza. Só conta o que está
+  dentro do desenho do quadro.
+- **Com mão na frente a olhada é "nada a conferir"**, e fica anotada: é
+  refeita quando o quadro parar (abaixo).
+- **Sem o borrão de rosto só vai o quadro quieto em que o detector da loja
+  não vê ninguém** — nem um "talvez" (nenhum ponto de pessoa de 0,35 para
+  cima). Quem ele olha é a própria imagem que vai sair.
+- **Com alguém à vista, a imagem sai como sempre saiu: com o borrão.** O
+  mesmo sem detector instalado, ou com ele falhando: o que não se sabe conta
+  como "pode haver alguém".
+- **Não sei não é quieto.** Sem fluxo menor, com o fluxo parado, sem três
+  medidas seguidas ou com a última feita há mais de dois segundos, não se
+  sabe — e a olhada segue **como sempre foi: sai, e com o borrão**. A regra
+  nova nunca deixa um canal sem análise por falta de medida.
+
+Só o movimento segura a olhada. O detector não segura nada: decide se a
+imagem leva o borrão.
+
+Quem mede é a `quietude.py`, em thread própria (a auditoria passa segundos
+julgando; a medida é de meio em meio segundo). Ela **nunca abre fluxo**: usa
+o fluxo menor, que o agente já mantém aberto em todo canal com critério.
+
+### Por que o movimento, e não o detector de pessoas
+
+Medido na fatia 1.3, na câmera de cima: em uma hora cheia o tampo mudou em
+82% das olhadas e o detector só viu alguém com certeza em 15% — de cima ele
+vê braço e mão, não gente. "As mãos saíram" não sai dele.
+
+### Onde entra, no motor
+
+    é hora? → está em silêncio? → a câmera entrega cena?
+      → o quadro é de bancada, e está mexendo?  → "nada a conferir"
+      → o estudo: o CONTEXTO vale? um GATILHO abriu?
+      → o critério só observa?
+      → borrão (menos na bancada quieta e sem ninguém à vista) · …
+
+**Antes do estudo, de propósito:** a olhada que não pode sair não gasta o
+gatilho. Com "a cada dez minutos", a olhada segurada pela mão contaria como
+a análise dos dez minutos, e a de verdade só viria dez minutos depois.
+
+Como o estudo só lê os sinais nas olhadas que passam, na bancada ele compara
+sempre **duas cenas sem mãos**: "mexeu desde a olhada anterior" passa a
+querer dizer "o que está no tampo mudou".
+
+### A olhada refeita
+
+A rotina olha a cada 30 s, e a mão não tem hora. Com uma olhada de bancada
+esperando, o laço da auditoria **acorda de segundo em segundo**; quando o
+quadro está quieto, abre o fluxo principal e olha **só os critérios que
+esperavam, naquele quadro** — o resto do canal não é acordado.
+
+- A porta é conferida de novo **depois** de abrir: abrir leva de um a três
+  segundos, e a mão pode ter voltado.
+- **No máximo duas tentativas por canal a cada volta de rotina.** Cada uma
+  abre o fluxo principal.
+- Cada tentativa entra no resumo da hora como uma olhada a mais daquele
+  critério. A que as mãos seguraram fica contada como "nada a conferir".
+- Critério que saiu do horário, ou canal que ficou sem fonte, com olhada
+  esperando: a espera é largada, e o laço volta a dormir.
+
+### O vigia continua no passo dele
+
+Achado na revisão, antes de mesclar: o laço chamava o vigia **a cada vez
+que acordava**. Acordando de segundo em segundo para a bancada, o detector
+do vigia rodaria dez vezes mais nos canais de presença — numa máquina que
+já tem freio por uso de processador. O vigia ganhou a vez dele (a cada
+10 s, contados do fim da rotina ou da última olhada dele), e o laço dorme
+só o que falta para ela.
+
+### O que foi medido na loja (gravação de 08/10, canal 4, das 21h10 às 21h20)
+
+Loja aberta, a câmera de cima da bancada, o quadro do tampo. Só números
+saíram; a instalação do agente não foi tocada.
+
+**1. Quanto o tampo mexe.** Do fluxo principal gravado, uma medida a cada
+0,53 s (1.126 medidas):
+
+| | |
+|---|---|
+| o tampo mexia | em 325 de 1.125 medidas (29%) |
+| trechos parados | 25 — 21 com 1,6 s ou mais, 14 com 4 s ou mais, 10 com 10 s ou mais |
+| quieto, pela regra | em 751 instantes (67%) |
+
+**2. "Parou" quer dizer "as mãos saíram"?** Conferido a olho em 22 recortes
+do quadro (apagados depois): nos 12 instantes em que o tampo parou não
+havia mão nem braço; dos 10 instantes ao acaso, os 6 que a regra deixaria
+passar também não tinham, e os 2 com mãos ela segurou. (Os outros 2 ela
+segurou sem haver mão: erra para o lado de esperar.)
+
+**3. O fluxo menor.** O gravador não guarda o fluxo menor (pedir a gravação
+dele dá erro 404), então a regra não pôde ser medida nele com a loja
+aberta. Duas conferências no lugar: a mesma gravação **reduzida ao tamanho
+do fluxo menor** deu a mesma resposta ("mexeu" ou não) em 1.125 de 1.125
+medidas; e o fluxo menor **ao vivo, com a loja fechada**, deu ruído zero em
+119 medidas (nada parado parece mexer).
+
+**4. A classe do agente, sobre a gravação.** A `Quietude` do ramo — a
+mesma que vai para a loja —, alimentada com a gravação reduzida a 704×480:
+quieto em 751 medidas, mexendo em 371, "não sei" nas 3 primeiras. A mesma
+resposta da série do item 1 em **1.125 de 1.125**.
+
+**5. O detector, com o quadro quieto.** No recorte do tampo (1630×397, do
+fluxo principal), o detector da loja (rfdetr-nano na placa de vídeo; 86 ms
+por recorte, em média):
+
+| | viu alguém com certeza | viu ao menos um "talvez" |
+|---|---|---|
+| com o quadro **quieto** (751) | **0** | **0** (o maior ponto foi 0,13) |
+| com o quadro mexendo (371) | 112 (30%) | 212 (57%) |
+
+Nesta gravação, quieto e ninguém à vista andaram juntos: **em todos os 751
+instantes quietos a imagem iria sem o borrão**. O caso de alguém parado
+dentro do quadro não apareceu em dez minutos — quando aparecer, a imagem
+vai com o borrão.
+
+**6. O que o laço faria** — conta sobre a série do item 1, não medida com o
+agente rodando: uma rotina a cada 30 s, em todas as fases possíveis, com o
+fluxo principal levando 1,5 s, 2,5 s ou 3,5 s para abrir:
+
+| | |
+|---|---|
+| a imagem sai já na rotina | em 70% das voltas |
+| com até duas tentativas | em 88% a 90% (a terceira acrescentava 1 em 100) |
+| aberturas do fluxo principal por volta | 1,28 (hoje: 1) |
+| da rotina até a foto que saiu | 2,5 s, em média |
+
+### O que a regra não cobre
+
+- **A mão que entra entre a última medida e a foto.** A medida é de meio em
+  meio segundo e a foto é tirada depois dela: na série, em 20 dos 751
+  instantes quietos (3%) a medida seguinte já mexia. É foto com mão, como
+  as de hoje. (O detector olha essa mesma foto: se vir alguém nela, ela
+  leva o borrão.)
+- **Câmera que mostra rosto.** A regra foi pensada para a câmera de cima.
+  Se um quadro de câmera lateral for marcado como "posição de montagem", a
+  imagem sem o borrão depende só de o detector não ter visto ninguém nela
+  — e quantas vezes ele deixa de ver quem está na foto não foi medido.
+  **A tela em que se escolhe o papel (fatia 1.5) tem de dizer isso.**
+
+### O que mudou em relação ao plano
+
+**"Quem aparecer é apagado" não entrou.** No lugar: sem o borrão só vai a
+imagem em que o detector não vê ninguém; com alguém à vista, ela sai como
+sempre saiu, **com o borrão de rosto**. Por quê:
+
+- o detector da loja devolve caixas, não contorno — apagar pela caixa
+  cobriria o tampo, que é o que se quer ver;
+- de cima ele vê mal quem está ali (item 5: 30% com o quadro mexendo):
+  apagar "quem o detector viu" não apagaria quem importa;
+- apagar pelo contorno pede um modelo de segmentação, que a loja não tem
+  instalado e ninguém mediu.
+
+**E a olhada com alguém à vista não é segurada** — foi a primeira versão
+desta fatia, descartada na revisão. Numa câmera lateral quem trabalha na
+bancada é visto quase o tempo todo (na da chapa, em 88% das olhadas):
+segurar faria o critério só enxergar a bancada vazia. E um "há alguém"
+errado e persistente deixaria o critério sem análise nenhuma. Com o
+borrão, o pior caso é o de hoje.
+
+### O que não entrou
+
+- **Apagar quem aparece, pelo contorno** (acima).
+- **A sequência** (onda 2): a bancada continua com a olhada de um quadro só.
+- **O motivo separado no funil.** A olhada que as mãos seguraram entra em
+  "nada a conferir", junto com a do porteiro e a do contexto do estudo. Se a
+  tela (fatia 1.5) quiser dizer "N vezes havia mão na frente", é contador
+  novo.
+- **Onde escolher o papel do quadro.** O papel existe na nuvem desde a
+  fatia 1.1, mas o console ainda não tem o campo (fatia 1.5). Até lá, nenhum
+  quadro é de bancada, e nada muda em loja nenhuma.
+
+### O que não foi medido
+
+- **O fluxo menor de verdade, com a loja aberta** — só reduzido (item 3) e
+  ao vivo com a loja fechada.
+- **A regra rodando na loja:** o agente instalado é o pacote antigo, e
+  nenhum quadro tem o papel. O comportamento foi provado em teste; na loja
+  mediram-se a quietude e o detector, sobre a gravação.
+- **Quanto leva para abrir o fluxo principal ao vivo** naquela máquina (a
+  placa de rede dela está forçada a 10 Mbps até a troca do cabo). A conta do
+  item 6 foi feita com três valores.
+- **Se a foto sem mãos acerta mais** na resposta do modelo. Mediu-se que o
+  borrão apagava o pão e que a regra entrega quadro sem mãos; o ganho no
+  acerto é assunto do banco de provas (onda 2).
+- **Outras bancadas, noites e câmeras:** são dez minutos, de um canal, de
+  uma noite.
+- **O custo da medida na máquina da loja.** No computador de desenvolvimento
+  uma medida de um quadro leva 0,6 ms (duas por segundo: um milésimo de um
+  núcleo); na loja não foi medido.

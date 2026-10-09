@@ -59,9 +59,10 @@ from farol_agent.contrato import (
 from farol_agent.fila import Fila
 from farol_agent.mapas import Mapas
 from farol_agent.modelos import EventoGatilho, TipoRegra
-from farol_agent.motor import CONTINUOS, ComContexto, MotorDeRegras
+from farol_agent.motor import CONTINUOS, PAPEL_DE_BANCADA, ComContexto, MotorDeRegras
 from farol_agent.nuvem import ErroDaNuvem
 from farol_agent.padroes import Padroes
+from farol_agent.quietude import Quietude
 from farol_agent.vigia import INTERVALO_PADRAO as INTERVALO_DO_VIGIA
 from farol_agent.vigia import VIGIADOS, Vigia
 from farol_agent.uso import Medidor
@@ -137,6 +138,25 @@ def _detector_local():
     return _detector
 
 
+# O quadro de bancada: com uma olhada esperando as mãos saírem, o laço acorda
+# de segundo em segundo para refazê-la assim que o quadro parar...
+ESPERA_DA_BANCADA = 1.0
+# ...e tenta no máximo isto por canal a cada volta de rotina: cada tentativa
+# abre o fluxo principal, e mão que volta no meio do caminho não pode virar
+# uma fila de aberturas. Duas, e não três: na conta feita sobre a série
+# medida na loja (ver `docs/decisoes.md`), a imagem sai em 7 de cada 10
+# voltas já na rotina, em 9 de cada 10 com até duas tentativas — e a
+# terceira acrescentava 1 em 100.
+MAX_REFEITAS_POR_VOLTA = 2
+
+
+def _duvida_do_detector() -> float:
+    """A partir de quanto um ponto do detector de pessoas já é "talvez alguém"."""
+    from farol_agent.juizes.detector import DUVIDA
+
+    return DUVIDA
+
+
 def _usa_o_padrao(regra) -> bool:
     """O estudo deste critério compara algum lugar com a foto padrão do canal?"""
     estudo = getattr(regra, "estudo", None)
@@ -175,6 +195,7 @@ class Auditoria:
         construir_fonte=None,
         construir_juiz=None,
         medidor="padrao",
+        quietude: Quietude | None = None,
     ) -> None:
         self.cliente = cliente
         self.fila = Fila(caminho_fila)
@@ -183,9 +204,21 @@ class Auditoria:
         # olhada e outra. Zero desliga o vigia: fica só a rotina.
         self.intervalo_rapido = intervalo_rapido
         self.vigia: Vigia | None = None
+        # Quem acompanha o movimento dos quadros de bancada no fluxo menor
+        # (as mãos saíram?). Um só para a vida do processo: guarda as
+        # últimas amostras de cada quadro. Injetável, para o teste dar o
+        # relógio.
+        self.quietude = quietude or Quietude()
+        # Quantas olhadas de bancada já foram refeitas em cada canal desde
+        # a última volta de rotina.
+        self._refeitas: dict[str, int] = {}
         # Quando é a próxima olhada de rotina. Entre uma e outra, o laço
         # acorda para o vigia.
         self._proxima_rotina: datetime | None = None
+        # Quando o vigia tem a vez dele de novo. Ele tem passo próprio: o
+        # laço também acorda para a bancada (de segundo em segundo), e o
+        # detector do vigia não pode ir junto.
+        self._proximo_vigia: datetime | None = None
 
         # Injetáveis para o teste não precisar de câmera nem de API.
         self._construir_fonte = construir_fonte or self._fonte_rtsp
@@ -452,6 +485,29 @@ class Auditoria:
         self._porteiro.esquecer({f"{r.id}@{r.zona.id}" for r in regras})
         return self._porteiro
 
+    def _a_quietude(self, regras):
+        """A quietude, se há quadro de bancada com critério — e o que ela passa a acompanhar.
+
+        Quadro de bancada é o que tem o papel "posição de montagem". Só
+        conta o critério que manda imagem para julgar: presença e contagem
+        são conferidas em toda olhada, com mão ou sem.
+        """
+        # Por canal, os quadros — cada um uma vez, por mais critérios que tenha.
+        quadros: dict[str, dict[str, Any]] = {}
+        for r in regras:
+            if r.tipo in CONTINUOS or r.zona.papel != PAPEL_DE_BANCADA:
+                continue
+            quadros.setdefault(str(r.zona.ponto_id), {})[r.zona.id] = r.zona
+        # Sempre, mesmo sem nenhum: é o que larga o quadro que deixou de ser acompanhado.
+        self.quietude.montar({ponto_id: list(do_canal.values()) for ponto_id, do_canal in quadros.items()})
+        if not quadros:
+            return None
+        _log.info(
+            "quadro de bancada: %d quadro(s) acompanhado(s) no fluxo menor — a olhada espera as mãos saírem",
+            sum(len(do_canal) for do_canal in quadros.values()),
+        )
+        return self.quietude
+
     def _os_sinais(self, regras, config: ConfigDaLoja):
         """Os sinais da loja, se algum critério tem estudo — e sempre os MESMOS.
 
@@ -542,6 +598,11 @@ class Auditoria:
             # cada canal (uma condição pode olhar outro quadro do mesmo canal).
             sinais=self._os_sinais(regras, config),
             zonas={z.id: z for p in config.pontos for z in p.zonas},
+            # O quadro de bancada: a imagem espera as mãos saírem, e só vai
+            # sem o borrão de rosto se o detector da loja não vir ninguém.
+            quietude=self._a_quietude(regras),
+            pessoas=self._pontos_de_pessoa,
+            duvida=_duvida_do_detector(),
         )
         # O vigia olha mais vezes o que é JULGADO na loja: critério que só
         # observa não tem por que ganhar olhada extra.
@@ -663,6 +724,8 @@ class Auditoria:
             return 0
         agora = agora or datetime.now()
         total = 0
+        # Volta de rotina nova: a conta das olhadas de bancada refeitas recomeça.
+        self._refeitas = {}
 
         for ponto_id, fonte in list(self.fontes.items()):
             evento = EventoGatilho(ponto_id=ponto_id, ts=agora, origem="amostragem")
@@ -1006,8 +1069,52 @@ class Auditoria:
         subidos = self.subir(agora)
         return {"enfileirados": total, "alertas": len(alertas), "subidos": subidos, "extras": len(canais)}
 
+    def refazer_bancada(self, agora: datetime | None = None) -> dict[str, int]:
+        """Refaz a olhada que as mãos atrapalharam, assim que o quadro de bancada para.
+
+        A olhada de rotina que achou movimento no quadro não saiu: ficou
+        anotada no motor. Aqui, entre uma rotina e outra, o quadro que
+        parou ganha a olhada dele — é o quadro de "as mãos saíram". Só os
+        critérios que esperavam, naquele quadro: o resto do canal não é
+        acordado. No máximo `MAX_REFEITAS_POR_VOLTA` tentativas por canal a
+        cada volta de rotina.
+
+        Cada tentativa abre o fluxo principal e entra no resumo da hora
+        como uma olhada a mais daquele critério (a que as mãos seguraram
+        ficou contada como "nada a conferir").
+        """
+        agora = agora or datetime.now()
+        nada = {"enfileirados": 0, "alertas": 0, "subidos": 0, "refeitas": 0}
+        if self.motor is None:
+            return nada
+        total = refeitas = 0
+        for ponto_id, esperando in list(self.motor.esperando_as_maos.items()):
+            prontos = {l for l in esperando if self.quietude.quieto(ponto_id, l.split("@", 1)[1]) is True}
+            if not prontos or self._refeitas.get(ponto_id, 0) >= MAX_REFEITAS_POR_VOLTA:
+                continue
+            # Tiveram a vez delas: se a mão voltar no meio do caminho, o
+            # motor anota de novo.
+            esperando -= prontos
+            fonte = self.fontes.get(ponto_id)
+            if fonte is None:
+                continue
+            self._refeitas[ponto_id] = self._refeitas.get(ponto_id, 0) + 1
+            evento = EventoGatilho(ponto_id=ponto_id, ts=agora, origem="bancada")
+            try:
+                p = self.motor.preparar(evento, fonte, somente=lambda r: f"{r.id}@{r.zona.id}" in prontos)
+            except Exception as e:  # noqa: BLE001
+                _log.warning("a olhada da bancada não foi refeita no ponto %s: %s", ponto_id, e)
+                continue
+            total += len(p.enfileirados)
+            refeitas += 1
+        if not refeitas:
+            return nada
+        alertas = self.julgar(agora)
+        subidos = self.subir(agora)
+        return {"enfileirados": total, "alertas": len(alertas), "subidos": subidos, "refeitas": refeitas}
+
     def volta(self, agora: datetime | None = None) -> dict[str, int]:
-        """Uma volta do laço: a olhada de rotina quando é hora dela; senão, o vigia."""
+        """Uma volta do laço: a olhada de rotina quando é hora dela; senão, o vigia (na vez dele) e a bancada."""
         do_relogio = agora is None
         agora = agora or datetime.now()
         if self._proxima_rotina is None or agora >= self._proxima_rotina:
@@ -1017,18 +1124,43 @@ class Auditoria:
             # dada por quem chama (teste), o fim é a própria hora dada.
             fim = datetime.now() if do_relogio else agora
             self._proxima_rotina = fim + timedelta(seconds=self.intervalo_captura)
+            self._proximo_vigia = fim + timedelta(seconds=self.intervalo_rapido)
             return r
-        return self.vigiar(agora)
+        # O vigia tem o passo dele. Com uma olhada de bancada esperando, o
+        # laço acorda de segundo em segundo — e chamar o vigia a cada vez
+        # seria rodar o detector dele dez vezes mais.
+        r = {"enfileirados": 0, "alertas": 0, "subidos": 0, "extras": 0}
+        if self._proximo_vigia is None or agora >= self._proximo_vigia:
+            r = self.vigiar(agora)
+            fim = datetime.now() if do_relogio else agora
+            self._proximo_vigia = fim + timedelta(seconds=self.intervalo_rapido)
+        b = self.refazer_bancada(agora)
+        return {
+            "enfileirados": r["enfileirados"] + b["enfileirados"],
+            "alertas": r["alertas"] + b["alertas"],
+            "subidos": r["subidos"] + b["subidos"],
+            "extras": r["extras"],
+            "refeitas": b["refeitas"],
+        }
 
     def _espera(self, agora: datetime) -> float:
-        """Quanto o laço dorme: até a próxima rotina, ou até a próxima olhada do vigia — o que vier antes."""
+        """Quanto o laço dorme: até a próxima rotina, a próxima vez do vigia ou a da bancada — o que vier antes."""
         ate_a_rotina = self.intervalo_captura
         if self._proxima_rotina is not None:
             ate_a_rotina = max(0.0, (self._proxima_rotina - agora).total_seconds())
+        espera = ate_a_rotina
         vigiando = self.vigia is not None and bool(self.vigia.canais) and not self.vigia.freio.puxado
         if vigiando and self.intervalo_rapido > 0:
-            return min(ate_a_rotina, self.intervalo_rapido)
-        return ate_a_rotina
+            ate_o_vigia = self.intervalo_rapido
+            # O laço acordou para a bancada no meio da espera do vigia: falta só o resto dela.
+            if self._proximo_vigia is not None and self._proximo_vigia > agora:
+                ate_o_vigia = (self._proximo_vigia - agora).total_seconds()
+            espera = min(espera, ate_o_vigia)
+        # Com uma olhada de bancada esperando as mãos saírem, acorda logo:
+        # o quadro quieto dura segundos.
+        if self.motor is not None and any(self.motor.esperando_as_maos.values()):
+            espera = min(espera, ESPERA_DA_BANCADA)
+        return espera
 
     # ───────────────────────── thread própria ─────────────────────────
 
@@ -1043,6 +1175,9 @@ class Auditoria:
         if self._thread is not None:
             return
         self._parar.clear()
+        # A quietude mede em thread própria, de meio em meio segundo: sem
+        # quadro de bancada para acompanhar, cada volta dela não faz nada.
+        self.quietude.iniciar(lambda: self.fontes)
         self._thread = threading.Thread(
             target=self._laco, name="farol-auditoria", daemon=True
         )
@@ -1062,6 +1197,7 @@ class Auditoria:
 
     def parar(self) -> None:
         self._parar.set()
+        self.quietude.parar()
         if self._thread is not None:
             self._thread.join(timeout=5)
         if self.medidor is not None:
