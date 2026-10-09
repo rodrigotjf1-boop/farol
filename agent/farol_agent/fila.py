@@ -962,26 +962,53 @@ class Fila:
             ).fetchone()
         return float(l["t"])
 
-    def limpar_concluidos(self, antes_de: datetime) -> int:
-        """Remove julgados antigos e as imagens deles do spool.
+    # Os estados em que a análise não vai mais a lugar nenhum: julgada,
+    # vencida antes de ser julgada, ou falhada de vez.
+    ENCERRADOS = ("concluido", "descartado", "falhou")
+
+    def limpar_encerrados(self, antes_de: datetime) -> int:
+        """Tira do disco as análises ENCERRADAS antes de `antes_de`: a linha e a imagem.
 
         Sem isto o spool cresce para sempre, e disco cheio num PC de loja
         derruba o agente de um jeito difícil de diagnosticar à distância.
+        (Existia só para as julgadas, e ninguém chamava: ERR-062. Quem chama
+        agora é a auditoria, de hora em hora.)
+
+        O que ainda espera julgamento não é tocado, seja de quando for.
+
+        Só apaga imagem que está DENTRO do spool — a pasta em que o agente
+        grava. Linha que aponta para arquivo de fora sai, e o arquivo fica
+        onde está: este código não apaga o que não criou.
+
+        A imagem sai antes da linha, e a linha só sai se a imagem saiu: se o
+        processo cair no meio, ou se o arquivo estiver preso por outro
+        programa, a linha que sobrou ainda aponta para ele e a limpeza
+        seguinte tenta de novo. Na ordem contrária sobraria imagem que nada
+        mais alcança.
+
+        Devolve quantas análises saíram.
         """
         corte = _agora_iso(antes_de)
+        marcas = ",".join("?" * len(self.ENCERRADOS))
+        spool = self.spool.resolve()
         with self._lock:
             linhas = self._con.execute(
-                "select id, imagem_caminho from analise where estado='concluido' and julgado_em < ?",
-                (corte,),
+                f"""select id, imagem_caminho from analise
+                     where estado in ({marcas}) and coalesce(julgado_em, capturado_em) < ?""",
+                (*self.ENCERRADOS, corte),
             ).fetchall()
+            saem: list[tuple[int]] = []
             for l in linhas:
-                Path(l["imagem_caminho"]).unlink(missing_ok=True)
-            self._con.execute(
-                "delete from analise where estado='concluido' and julgado_em < ?",
-                (corte,),
-            )
+                imagem = Path(l["imagem_caminho"])
+                try:
+                    if imagem.resolve().parent == spool:
+                        imagem.unlink(missing_ok=True)
+                except OSError:
+                    continue
+                saem.append((l["id"],))
+            self._con.executemany("delete from analise where id = ?", saem)
             self._con.commit()
-        return len(linhas)
+        return len(saem)
 
     def fechar(self) -> None:
         with self._lock:

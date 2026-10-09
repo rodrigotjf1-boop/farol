@@ -85,6 +85,14 @@ INTERVALO_DE_RESUMO_MIN = 5
 LIMITE_DE_RESUMOS = 200
 # Por quanto tempo o resumo que a nuvem já tem fica guardado na loja.
 GUARDA_DO_RESUMO_DIAS = 15
+# Por quanto tempo a análise ENCERRADA (julgada, vencida ou falhada) e a
+# imagem dela ficam no disco da loja. O que conta a história sobe no resumo
+# e no evento; a imagem serve para conferir "por que ele disse isso?" nos
+# dias seguintes. Sem prazo, o spool crescia para sempre (ERR-062).
+GUARDA_DAS_ANALISES_DIAS = 15
+# De quanto em quanto tempo a limpeza roda. É uma varredura da fila: de hora
+# em hora basta.
+INTERVALO_DA_LIMPEZA_MIN = 60
 
 
 # O detector é carregado UMA vez por processo. O juiz é reconstruído a cada
@@ -229,6 +237,9 @@ class Auditoria:
         self._erro_de_uso: str | None = None
         self._uso_suspenso_ate: datetime | None = None
         self._proximo_uso: datetime | None = None
+
+        # Quando a limpeza do disco roda de novo (ver `limpar`).
+        self._proxima_limpeza: datetime | None = None
 
         self._parar = threading.Event()
         self._thread: threading.Thread | None = None
@@ -844,14 +855,39 @@ class Auditoria:
             self.fila.limpar_usos(agora - timedelta(days=GUARDA_DO_RESUMO_DIAS))
         return len(linhas)
 
+    def limpar(self, agora: datetime | None = None) -> int:
+        """Tira do disco as análises encerradas há mais que a guarda, e as imagens delas.
+
+        De hora em hora, no máximo. Limpar nunca pode atrapalhar a
+        auditoria: qualquer falha aqui vira uma linha de log, e a volta
+        segue — e a próxima tentativa fica para a hora seguinte, não para a
+        volta seguinte.
+        """
+        agora = agora or datetime.now()
+        if self._proxima_limpeza is not None and agora < self._proxima_limpeza:
+            return 0
+        self._proxima_limpeza = agora + timedelta(minutes=INTERVALO_DA_LIMPEZA_MIN)
+        try:
+            saiu = self.fila.limpar_encerrados(agora - timedelta(days=GUARDA_DAS_ANALISES_DIAS))
+        except Exception:  # noqa: BLE001
+            _log.exception("a limpeza do disco falhou; a auditoria segue")
+            return 0
+        if saiu:
+            _log.info(
+                "limpeza: %d análise(s) encerrada(s) há mais de %d dias saíram do disco",
+                saiu, GUARDA_DAS_ANALISES_DIAS,
+            )
+        return saiu
+
     def passo(self, agora: datetime | None = None) -> dict[str, int]:
-        """Uma volta completa: mede a máquina, captura, julga, sobe."""
+        """Uma volta completa: mede a máquina, captura, julga, sobe — e, de hora em hora, limpa o disco."""
         agora = agora or datetime.now()
         self._buscar_padroes(agora)
         self.medir(agora)
         enfileirados = self.capturar(agora)
         alertas = self.julgar(agora)
         subidos = self.subir(agora)
+        self.limpar(agora)
         return {
             "enfileirados": enfileirados,
             "alertas": len(alertas),
