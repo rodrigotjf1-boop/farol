@@ -6,7 +6,8 @@ sim todos os ingredientes"**. Citou quatro fichas e, durante o trabalho, a quint
 experimento mede, com as imagens dos lotes de 08/10, o que a nuvem consegue fazer com elas.
 
 Gasto: **R$ 1,32** (R$ 0,70 na primeira rodada, R$ 0,33 na segunda e R$ 0,29 na terceira, a
-do molho), dentro do teto de R$ 5,00 do teste da nuvem (acumulado: R$ 4,23). As imagens
+do molho), dentro do teto de R$ 5,00 do teste da nuvem (acumulado: R$ 4,23). **A rodada 4,
+de 09/10 à noite, com a câmera regulada, custou mais R$ 0,21 e está mais abaixo.** As imagens
 ficaram no PC da loja só durante o experimento e não estão neste repositório.
 
 ## As fichas
@@ -207,6 +208,118 @@ em que nada entrou.
 Dizer **que** o molho entrou, e de que família de cor ele é, a loja faz sozinha. O que
 falta é o portão de "as mãos saíram" (as duas manchas falsas) e mais exemplos — o creme
 laranja forte, com dois, não ficou consistente.
+
+## Rodada 4 — a câmera regulada (09/10, à noite)
+
+Em 09/10 o dono regulou a câmera do canal 4 e mudou a posição dela ("câmera regulada, mudei
+posição e está nas melhores condições; verifique se teve ganho") e, à noite: "após uns 40
+min de gravação verifique os novos quadros e se melhora a detecção do molho, do queijo, dos
+ingredientes em si".
+
+**O que mudou na imagem** (medido à tarde, com a loja fechada): cerca de **17 a 18 pixels
+por centímetro** no centro do tampo, contra 12 em 08/10; a faixa de piso caiu de 35% para 9%
+da imagem. O recorte de uma posição de montagem passou de 190 a 320 px de largura para 285 a
+500 px.
+
+**De onde saíram os quadros.** A gravação do canal 4 das 19h11 às 19h58, um instante a cada
+20 s (143 instantes). Até 19h42 nenhum lanche foi montado nessa frente da ilha. Dois lotes
+foram lidos de segundo em segundo, para o gabarito e para escolher os quadros:
+
+| lote | o que é | posições |
+|---|---|---|
+| 19:51:10 a 19:51:59 | duas caixas brancas | D1 e D2: pão de um corte, molho cremoso laranja-claro na tampa, alface por cima, 1 carne grossa, 2 fatias de queijo |
+| 19:54:36 a 19:56:46 | três folhas de papel | E1: pão pequeno, 2 carnes finas, 2 fatias, bacon, ovo, picles na tampa · E2: como as caixas · E3: 1 carne, 2 fatias, molho vermelho-escuro e mostarda na tampa, picles |
+
+**A regra da casa valeu de novo:** nas quatro tampas que levaram molho ele foi a primeira
+coisa a entrar, de bisnaga. Nas caixas ficou à vista **6 e 8 segundos** antes de a alface
+cobrir (em 08/10: de 7 a 20 s).
+
+**O experimento.** A mesma pergunta das rodadas 2 e 3 — as mesmas instruções e as mesmas
+cinco fichas, sem mudar uma letra —, uma posição por chamada, Haiku 5.5, três leituras de
+cada. Os quadros são os de cada acontecimento da posição (pão, carne, queijo, o da tampa
+logo depois do molho, o fim), na resolução da câmera, recortados por mim. Olhei cada recorte
+antes de mandar: nenhum mostra a cabeça de ninguém. Variantes:
+
+- **sem o quadro do molho**, **com ele** e **com ele e a regra da casa** — as três da
+  rodada 3;
+- **a imagem cheia** e **a imagem reduzida a 0,69** — 0,69 leva os 17,5 px/cm de agora aos
+  12 de antes: é o jeito de separar o que é resolução do que é o resto;
+- no lote das folhas, **o dicionário de 08/10** e **um dicionário escrito para esta noite**
+  (picles, mostarda, molho barbecue, a face tostada do pão, as duas carnes finas) — o de
+  08/10 também tinha sido escrito olhando os lanches daquela noite.
+
+108 leituras, **R$ 0,21** (acumulado da chave: R$ 4,49 de R$ 5,00).
+
+### O molho
+
+O lote das caixas é o caso de 08/10: molho claro na tampa, coberto pela alface em segundos.
+Seis leituras por linha, com o dicionário da noite:
+
+| | imagem cheia | reduzida a 0,69 | 08/10 (rodada 3) |
+|---|---|---|---|
+| sem o quadro do molho | **0 de 6** | 0 de 6 | 0 de 12 |
+| com o quadro, sem dizer a regra | **6 de 6** (as 6 com o nome certo) | 4 de 6 (1 com o nome certo) | 8 de 12 |
+| com o quadro e a regra da casa | 6 de 6 (as 6 com o nome certo) | 6 de 6 (3 com o nome certo) | 12 de 12 |
+
+No lote das folhas os dois molhos (o creme do E2 e o vermelho-escuro do E3) foram vistos
+nas 24 leituras com o quadro, cheia ou reduzida, com ou sem a regra. Juntando os dois lotes,
+**sem dizer a regra: 12 de 12 na imagem cheia e 10 de 12 na reduzida.** O nome é outra
+conversa: o creme do E2, igual ao das caixas, foi chamado de "maionese" nas três leituras da
+imagem cheia sem a regra, e de "molho rosé" nas três com ela.
+
+### O queijo, e os outros itens
+
+Itens com a quantidade certa, com o dicionário da noite (o gabarito é a minha leitura de
+segundo em segundo):
+
+| lote | variante | imagem cheia | reduzida a 0,69 |
+|---|---|---|---|
+| caixas (2 posições, 30 itens) | com o quadro | 27 (90%) | 19 (63%) |
+| caixas | com o quadro e a regra | 28 (93%) | 28 (93%) |
+| folhas (3 posições, 51 itens) | com o quadro | 36 (71%) | 38 (75%) |
+| folhas | com o quadro e a regra | 34 (67%) | 36 (71%) |
+
+- **Queijo:** nas caixas, duas fatias desencontradas foram contadas certo em 23 de 24
+  leituras. Nas folhas, em 25 de 36: no E2 a imagem cheia viu **três** onde há duas (a parte
+  em que uma cobre a outra parece uma terceira), e no E3, com as fatias quase alinhadas, a
+  reduzida viu **uma**.
+- **As duas carnes finas do E1** foram lidas como discos de pão na imagem cheia (carne certa
+  em 1 de 6) e como carne na reduzida (6 de 6). O lanche fechado, visto por fora, foi
+  contado como mais um disco de pão.
+- **Com o dicionário de 08/10 no lote das folhas:** 62% a 77% dos itens, e de 10 a 14
+  ingredientes ditos que não estavam lá em 9 leituras — a face tostada do pão virou "cebola
+  crispy" e "mussarela empanada", o picles virou "anel de cebola", a mostarda virou "ovo".
+  Com o dicionário da noite, de 2 a 6.
+
+### O que se lê
+
+1. **A regulagem melhorou o que depende da imagem: o molho.** Com o quadro tirado logo
+   depois de ele entrar, o modelo barato viu o molho em todas as leituras (12 de 12) **sem
+   precisar da regra da casa** — nas caixas, as seis com o nome certo. Reduzida à nitidez
+   de antes, a mesma imagem das caixas volta à taxa de 08/10 (4 de 6; lá, 8 de 12).
+2. **O que nenhuma câmera resolve: o molho debaixo da alface.** Sem o quadro da hora certa,
+   0 de 6, como em 08/10. Ele fica à vista de 6 a 8 segundos: achar esse instante é o
+   gatilho por posição do plano, não a lente.
+3. **Nos lanches parecidos com os de 08/10 o resultado é o mesmo:** 90% a 93% dos itens nas
+   caixas (lá, 90% e 100%, com o dicionário afinado em três rodadas sobre os mesmos
+   lanches).
+4. **Nos lanches que o dicionário não conhecia, o que falta é conhecimento, não pixel.** A
+   imagem cheia não leu melhor que a reduzida (67% a 75% nas duas). O dicionário escrito
+   para a noite tirou os ingredientes inventados; o que sobrou de erro é de contagem.
+5. **A contagem de fatias e de carnes empilhadas continua o ponto fraco**, e mais pixels
+   não ajudam: muda o erro (três em vez de duas, uma em vez de duas). O caminho é o do
+   plano — contar pelo acontecimento (cada fatia entrando), não pela pilha pronta.
+6. **Um cuidado novo:** com o enquadramento de agora, a cabeça de quem monta entra pela
+   parte de baixo da imagem em vários instantes (em 08/10 não entrava). Os recortes desta
+   rodada foram escolhidos sem ela. O quadro da bancada tem de terminar acima da beirada do
+   tampo.
+
+Limites: dois lotes de uma noite, cinco posições; as três leituras de cada linha são a
+mesma imagem perguntada de novo; os quadros e os recortes foram escolhidos por mim, não pelo
+sistema; o gabarito é meu, e eu não sei o nome dos produtos (falta a ficha deles — por isso
+"o nome certo" do molho cremoso é o que a imagem mostra, um creme laranja-claro); o
+dicionário da noite foi escrito olhando estes mesmos lanches; as imagens ficaram no
+computador da loja só durante a medida e foram apagadas. Não foi medido o leitor local.
 
 ## E sem nuvem? A prova do leitor local
 

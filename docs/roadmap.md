@@ -3351,7 +3351,7 @@ ver "Prova de 08/10" abaixo.
 
 | etapa | entrega | situação |
 |---|---|---|
-| **E0 · piloto de uma bancada** | câmera regulada; px por cm medido; números da operação por uma semana, em "observando": comandas, idas às cubas, itens postos, posições abertas ao mesmo tempo, tempo por lanche | **câmera instalada (canal 4)**; falta regular |
+| **E0 · piloto de uma bancada** | câmera regulada; px por cm medido; números da operação por uma semana, em "observando": comandas, idas às cubas, itens postos, posições abertas ao mesmo tempo, tempo por lanche | **câmera instalada (canal 4) e regulada em 09/10**: ≈ 17 a 18 px/cm no centro do tampo (era 12), piso em 9% da imagem (era 35%); a leitura dos ingredientes com ela está em [teste-das-fichas.md](teste-das-fichas.md), rodada 4. Falta medir o px/cm por um objeto de tamanho conhecido, e os números da semana |
 | **E1 · contar montagens** | lanches por hora e por bancada, pelo fechamento de cada posição; tempo de cada lanche aberto na bancada | precisa do passo 5 |
 | **E2 · qual produto** | uma leitura por fase; discos, camadas e a assinatura do produto; **a conta do lote contra o KDS**; "pronto sem montagem", "montagem sem pedido" | precisa das fichas com as camadas visíveis (e em que disco ficam) e da fila do Regem |
 | **E3 · conferir na hora** | aviso na estação antes de o lanche fechar | só com o alarme falso medido e baixo |
@@ -3749,7 +3749,7 @@ ele corrigir alguma dessas leituras, vale a correção.
 | 1 ▶ em andamento | **Quadros, estudo condicional e contexto:** imagem completa × quadros com papel; a ficha de cada critério (contexto, gatilho, janela, ação, desfecho) e o funil em números; **a anatomia do pedido à nuvem** (a cena, o mapa do canal, o recorte na resolução da câmera, a resposta na forma da família — o recorte nunca sobe sozinho); Haiku 5.5 (medido); no quadro de bancada, o quadro de "as mãos saíram" no lugar do borrão de rosto; os quatro estados do critério | G | protótipo aprovado |
 | 2 | **Sequência e banco de provas:** olhar para trás, grade de 6 quadros, a família Acontecimento; "acertou / errou"; o acerto medido de cada critério | G | o dono marcar os exemplos |
 | 3 | **Processo e Medida:** etapas por quadro, cronômetros e contadores, episódios, modelos prontos | G | onda 2 medida |
-| 4 | **Leitura da bancada, E0 → E1:** câmera regulada, números da semana, as fases do lote, contar montagens pelo fechamento, a comanda | G | regulagem do canal 4 |
+| 4 | **Leitura da bancada, E0 → E1:** câmera regulada, números da semana, as fases do lote, contar montagens pelo fechamento, a comanda | G | a câmera do canal 4 foi regulada em 09/10; falta o dono redesenhar o quadro da bancada (a câmera mudou de lugar) |
 | 5 | **Leitura da bancada, E2 → E3:** **o leitor local de ingredientes** (ensinado pela nuvem; só o "não sei" sobe, uma posição por chamada), o dicionário de ingredientes, a ficha comparada em código, o produto, **a conta do lote contra o KDS**, aviso na estação | G+ | as fichas de todos os lanches; a fila de produção com os ingredientes (Regem); alarme falso medido |
 | 6 | O momento em vídeo ("Ver o momento") — reaproveita a sequência da onda 2 | M | onde guardar na nuvem |
 | 7 | Relatórios, resumos e o início "fora do critério primeiro" | G | transportador |
@@ -3989,7 +3989,9 @@ uma vez na onda 8. Foi o caminho recomendado; o dono aprovou o protótipo sem pe
 - (A forma nova de chamar o modelo forte, do PR #69, **foi conferida contra a nuvem em
   09/10**, com o código do pacote.)
 - A leitura da bancada contra uma contagem humana, num pico de verdade e com a câmera
-  regulada.
+  regulada. (Com a câmera regulada foi medida, em 09/10 à noite, a leitura dos
+  INGREDIENTES pela nuvem — rodada 4 do experimento das fichas —, não a leitura da
+  bancada.)
 - As 32 comandas da prova (sem recorte para conferir).
 - Se a comanda é impressa em todas as bancadas e fica sempre ao lado do lanche.
 - Se o gesto de salgar aparece na câmera da chapa (canal 6, ≈ 3 a 4 px por cm).
