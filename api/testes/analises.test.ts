@@ -377,7 +377,7 @@ describe('análises por hora (Postgres real)', { skip: !URL_DO_BANCO && 'sem DAT
 
   it('o nome da área só aparece em canal com mais de uma', async () => {
     const celulas = (await pedir()).json().celulas as Celula[];
-    assert.equal(celula(celulas, HOJE, 19, presenca, balcao.dentro).areaNome, 'Quadro inteiro');
+    assert.equal(celula(celulas, HOJE, 19, presenca, balcao.dentro).areaNome, 'Imagem completa');
     assert.equal(celula(celulas, HOJE, 19, fila, balcao.cliente).areaNome, 'Lado do cliente');
     assert.equal(celula(celulas, HOJE, 19, uniforme, chapa.zona).areaNome, null);
   });
@@ -412,7 +412,7 @@ describe('análises por hora (Postgres real)', { skip: !URL_DO_BANCO && 'sem DAT
     assert.deepEqual(avisos.map((a) => a.horaMinuto), ['19:45', '19:20'], 'do mais novo para trás');
     assert.deepEqual(avisos.map((a) => a.onde), ['loja', 'nuvem']);
     assert.deepEqual(avisos.map((a) => [a.dia, a.hora]), [[HOJE, 19], [HOJE, 19]]);
-    assert.deepEqual([avisos[0]!.regraId, avisos[0]!.pontoId, avisos[0]!.areaNome], [presenca, balcao.pontoId, 'Quadro inteiro']);
+    assert.deepEqual([avisos[0]!.regraId, avisos[0]!.pontoId, avisos[0]!.areaNome], [presenca, balcao.pontoId, 'Imagem completa']);
     assert.deepEqual([avisos[1]!.regraId, avisos[1]!.pontoId, avisos[1]!.areaNome, avisos[1]!.motivo], [uniforme, chapa.pontoId, null, 'sem touca']);
 
     const ontem = (await pedir(`?de=${ONTEM}`)).json();

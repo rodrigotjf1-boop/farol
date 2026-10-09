@@ -231,8 +231,8 @@ export function PainelDaPlanta({
               </div>
             )}
             <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[13px]">
-              <Link href={`/pontos/${ponto.id}/area`} className="elo">
-                Quadro e área
+              <Link href={`/pontos/${ponto.id}`} className="elo">
+                Abrir o canal
                 <ArrowRight className="h-[15px] w-[15px]" aria-hidden />
               </Link>
               {veResultados && (

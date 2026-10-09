@@ -17,6 +17,7 @@ import type { FastifyInstance } from 'fastify';
 import pg from 'pg';
 
 import { ErroDeAuth, exigirAdmin } from '../auth.js';
+import { NOME_DA_IMAGEM_COMPLETA, POLIGONO_DA_IMAGEM_COMPLETA, TIPOS_QUE_DEPENDEM_DA_CENA } from '../cena.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -200,6 +201,20 @@ export function rotasDeLojas(app: FastifyInstance, pool: pg.Pool): void {
         setoresCriados.push({ ...setor, pontos });
       }
 
+      // Todo canal nasce com a imagem completa dele — é nela que moram os
+      // critérios gerais, e é a área que a tela mostra antes de alguém
+      // marcar um quadro. Até a migration 034 o canal criado por aqui nascia
+      // sem área nenhuma, e não aparecia na árvore de critérios. Uma
+      // instrução para a loja inteira.
+      await cliente.query(
+        `insert into zona (ponto_id, nome, poligono, principal)
+         select p.id, $2, $3::jsonb, true
+           from ponto p
+           join setor st on st.id = p.setor_id
+          where st.loja_id = $1`,
+        [loja.id, NOME_DA_IMAGEM_COMPLETA, JSON.stringify(POLIGONO_DA_IMAGEM_COMPLETA)],
+      );
+
       await cliente.query('commit');
 
       return resposta.status(201).send({
@@ -284,9 +299,9 @@ export function rotasDeLojas(app: FastifyInstance, pool: pg.Pool): void {
           and p.ativo and p.excluido_em is null
           and btrim(p.cena) = ''
           and r.ativa and r.excluida_em is null
-          and r.tipo in ('estado', 'acao', 'comparacao')
+          and r.tipo = any($2::text[])
         order by p.nome`,
-      [id],
+      [id, TIPOS_QUE_DEPENDEM_DA_CENA],
     );
     const canaisSemCena: string[] = semCena.rows.map((r) => r.nome as string);
     if (corpo.pedidoComContexto && canaisSemCena.length > 0 && corpo.mesmoAssim !== true) {

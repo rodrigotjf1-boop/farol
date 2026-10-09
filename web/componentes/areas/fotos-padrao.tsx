@@ -37,7 +37,7 @@ type Props = {
 export function FotosPadrao({ fotos, maximo, erro, noQuadro, configura, temQuadro, aoVer, aoGuardar, aoExcluir }: Props) {
   const cheio = fotos !== null && fotos.length >= maximo;
   const porQueNao = !temQuadro
-    ? 'O canal ainda não tem quadro: atualize o quadro primeiro'
+    ? 'O canal ainda não tem imagem: use “Atualizar quadro” primeiro'
     : cheio
       ? `O canal já tem ${maximo} fotos padrão: exclua uma para guardar outra`
       : undefined;
@@ -75,7 +75,7 @@ export function FotosPadrao({ fotos, maximo, erro, noQuadro, configura, temQuadr
                 <button
                   type="button"
                   aria-pressed={vista}
-                  title="Ver esta foto no quadro"
+                  title="Ver esta foto no lugar da imagem do canal"
                   onClick={() => aoVer(f)}
                   className={`flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-[10px] border px-2 py-1.5 text-left transition-colors ${
                     vista
@@ -97,7 +97,7 @@ export function FotosPadrao({ fotos, maximo, erro, noQuadro, configura, temQuadr
                       {diaEHora(f.criadaEm)}
                       {f.criadaPor ? ` · ${f.criadaPor}` : ''}
                       {/* Foto guardada com gente na frente compara pior: fica dito. */}
-                      {f.pessoas ? ` · ${plural(f.pessoas, 'pessoa', 'pessoas')} no quadro` : ''}
+                      {f.pessoas ? ` · ${plural(f.pessoas, 'pessoa', 'pessoas')} na imagem` : ''}
                     </small>
                   </span>
                 </button>

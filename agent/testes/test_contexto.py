@@ -115,7 +115,7 @@ def test_o_agente_le_o_contexto_como_o_contrato_diz():
     (ponto,) = c.pontos
     assert ponto.cena == A_CENA
     assert [(z.nome, z.papel, z.numero) for z in ponto.zonas] == [(z["nome"], z["papel"], z["numero"]) for z in DA_NUVEM["zonas"]]
-    assert [(z.nome, z.numero) for z in ponto.zonas][0] == ("Quadro inteiro", None), "a imagem completa não tem número"
+    assert [(z.nome, z.numero) for z in ponto.zonas][0] == ("Imagem completa", None), "a imagem completa não tem número"
 
 
 def test_nuvem_antiga_nao_manda_nada_disso_e_tudo_fica_como_era():

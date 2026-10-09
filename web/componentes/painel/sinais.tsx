@@ -66,7 +66,7 @@ export function fraseDoSinal(s: Sinal, lojaId: string, fuso: string): Frase {
             ? `Enquanto isso, ${n === 1 ? '1 critério não é verificado' : `${n} critérios não são verificados`}.`
             : '') +
           (s.impedimento ? ` O agente informou: ${s.impedimento}.` : ''),
-        acao: s.pontoId ? { rotulo: 'Ver o canal', href: `/pontos/${s.pontoId}/area` } : undefined,
+        acao: s.pontoId ? { rotulo: 'Ver o canal', href: `/pontos/${s.pontoId}` } : undefined,
       };
     }
     case 'sem_juiz':
@@ -91,8 +91,8 @@ export function fraseDoSinal(s: Sinal, lojaId: string, fuso: string): Frase {
       return {
         icone: CircleHelp,
         titulo: `${nome} não conseguiu avaliar ${s.percentual ?? 0}% das vezes em ${s.pontoNome}`,
-        texto: 'A câmera não mostra o suficiente para decidir. Vale ajustar a área ou o enquadramento.',
-        acao: s.pontoId ? { rotulo: 'Ver a área', href: `/pontos/${s.pontoId}/area` } : undefined,
+        texto: 'A câmera não mostra o suficiente para decidir. Vale marcar um quadro ou ajustar o enquadramento.',
+        acao: s.pontoId ? { rotulo: 'Ver o canal', href: `/pontos/${s.pontoId}` } : undefined,
       };
     case 'falta_dizer_o_que_procurar':
       return {

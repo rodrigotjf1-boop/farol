@@ -25,16 +25,54 @@ export const MAX_TIPO_DE_NEGOCIO = 80;
 export const MAX_ORDEM = 99;
 
 /**
+ * Os tipos de critério que dependem de ENTENDER a imagem — os que podem ir
+ * a um modelo de fora. Com o pedido com contexto ligado, eles não são
+ * analisados em canal sem a cena escrita (na comparação, só o que não deu
+ * "igual à foto padrão" fica sem resposta). Presença e contagem são do
+ * detector da loja: não dependem da cena.
+ *
+ * Uma lista só, para a distribuição (que se recusa a ligar a chave no
+ * escuro) e para a tela do canal (que diz "falta descrever a cena").
+ */
+export const TIPOS_QUE_DEPENDEM_DA_CENA: readonly string[] = ['estado', 'acao', 'comparacao'];
+
+/**
+ * A imagem completa do canal: a área PRINCIPAL dele. É sempre o canal
+ * inteiro, com este nome, sem papel — a regra está no banco
+ * (`zona_principal_e_a_imagem_completa`, migration 034) e nas rotas de área,
+ * que recusam redesenhá-la, renomeá-la ou excluí-la. Os critérios postos nela
+ * são os critérios gerais do canal; as outras áreas são os quadros.
+ */
+export const NOME_DA_IMAGEM_COMPLETA = 'Imagem completa';
+export const POLIGONO_DA_IMAGEM_COMPLETA: readonly (readonly [number, number])[] = [[0, 0], [1, 0], [1, 1], [0, 1]];
+
+/** O desenho é exatamente o canal inteiro, ponto a ponto? */
+export function ehAImagemInteira(poligono: unknown): boolean {
+  return (
+    Array.isArray(poligono) &&
+    poligono.length === POLIGONO_DA_IMAGEM_COMPLETA.length &&
+    poligono.every(
+      (p, i) =>
+        Array.isArray(p) &&
+        p.length === 2 &&
+        p[0] === POLIGONO_DA_IMAGEM_COMPLETA[i]![0] &&
+        p[1] === POLIGONO_DA_IMAGEM_COMPLETA[i]![1],
+    )
+  );
+}
+
+/**
  * O número do quadro, para uma consulta em `zona z` já filtrada por
  * `z.excluida_em is null`.
  *
- * A área que cobre o quadro inteiro é a IMAGEM COMPLETA do canal: não é
- * quadro e não tem número (nulo). As outras contam de 1 em diante, pela
- * `ordem` e, no empate, pela data de criação.
+ * A imagem completa (a área principal) não é quadro e não tem número
+ * (nulo). As outras contam de 1 em diante, pela `ordem` e, no empate, pela
+ * data de criação. Quem decide é `principal`, não o desenho: um quadro
+ * esticado até cobrir a imagem toda continua sendo quadro, com número.
  */
 export const SQL_NUMERO_DO_QUADRO = `
-  case when z.poligono = '[[0,0],[1,0],[1,1],[0,1]]'::jsonb then null
-       else (count(*) filter (where z.poligono <> '[[0,0],[1,0],[1,1],[0,1]]'::jsonb)
+  case when z.principal then null
+       else (count(*) filter (where not z.principal)
                over (partition by z.ponto_id
                      order by z.ordem, z.criado_em, z.id
                      rows between unbounded preceding and current row))::int

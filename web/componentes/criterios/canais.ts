@@ -2,28 +2,27 @@
 // O que é "marcar um canal"
 // =====================================================================
 // A árvore mostra setor → canal. O banco guarda ÁREAS (zonas): o critério
-// vale numa área de um canal, porque é pela área que o agente recorta o
-// quadro.
+// vale numa área de um canal — a IMAGEM COMPLETA (o canal inteiro, onde
+// moram os critérios gerais) ou um QUADRO (um recorte marcado na imagem).
 //
-// Canal com UMA área: marcar o canal é marcar a área dele — o corte que o
-// usuário desenhou em "Quadro e área"; na falta de desenho, o quadro
-// inteiro.
+// Canal SEM quadro: marcar o canal é marcar a imagem completa dele.
 //
-// Canal com MAIS DE UMA área: o critério vai para a ÁREA. A mesma câmera do
-// caixa confere presença dentro do balcão e fila do lado do cliente, e
-// "marcar o canal" não diria em qual das duas o critério vale. Ali a árvore
-// mostra as áreas, e é nelas que se marca.
+// Canal COM quadros: o critério vai para um lugar escolhido. A mesma câmera
+// do caixa confere presença dentro do balcão e fila do lado do cliente, e
+// "marcar o canal" não diria onde o critério vale. Ali a árvore mostra a
+// imagem completa e os quadros, e é neles que se marca.
 //
 // Estas funções são a única ponte entre as duas visões, para a regra não
 // ficar espalhada pela tela.
 // =====================================================================
 
+import { rotuloDaArea } from '@/componentes/canal/quadros';
 import type { Ponto, Regra, Setor } from '@/lib/api';
 
-/** O canal tem mais de uma área: o critério é marcado na área, não no canal. */
+/** O canal tem quadros: o critério é marcado num lugar dele (a imagem completa ou um quadro), não no canal. */
 export const temVariasAreas = (p: Ponto): boolean => p.zonas.length > 1;
 
-/** A área que representa o canal: a principal; na falta, a primeira. */
+/** A área que representa o canal: a imagem completa dele (a principal); na falta, a primeira. */
 export function areaDoCanal(p: Ponto): string | null {
   const z = p.zonas.find((x) => x.principal) ?? p.zonas[0];
   return z?.id ?? null;
@@ -67,7 +66,7 @@ export function estadoDoSetor(s: Setor, marcadas: ReadonlySet<string>): EstadoDo
   return n === canais.length ? 'todos' : 'alguns';
 }
 
-/** Marca ou desmarca um canal. Marcar = a área principal dele. */
+/** Marca ou desmarca um canal. Marcar = a imagem completa dele. */
 export function alternarCanal(p: Ponto, marcadas: ReadonlySet<string>): Set<string> {
   const novo = new Set(marcadas);
   if (canalMarcado(p, marcadas)) {
@@ -112,8 +111,8 @@ export function contarCanais(setores: Setor[], marcadas: ReadonlySet<string>): n
 
 /**
  * Onde o critério vale, numa frase: "Vale em 2 canais — em Balcão, só
- * “Lado do cliente”." A parte das áreas só aparece no canal em que nem
- * todas estão marcadas: é a que diz algo que o número de canais não diz.
+ * “Quadro 1 · Lado do cliente”." A parte dos lugares só aparece no canal em
+ * que nem todos estão marcados: é a que diz algo que o número de canais não diz.
  */
 export function resumoDeOndeVale(setores: Setor[], marcadas: ReadonlySet<string>): string {
   const total = contarCanais(setores, marcadas);
@@ -124,7 +123,7 @@ export function resumoDeOndeVale(setores: Setor[], marcadas: ReadonlySet<string>
       if (!temVariasAreas(p)) continue;
       const dentro = p.zonas.filter((z) => marcadas.has(z.id));
       if (dentro.length > 0 && dentro.length < p.zonas.length) {
-        emAreas.push(`em ${p.nome}, só ${dentro.map((z) => `“${z.nome}”`).join(' e ')}`);
+        emAreas.push(`em ${p.nome}, só ${dentro.map((z) => `“${rotuloDaArea(z)}”`).join(' e ')}`);
       }
     }
   }

@@ -22,7 +22,14 @@ import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
-import { lerOrdem, lerPapel, SQL_NUMERO_DO_QUADRO } from '../cena.js';
+import {
+  ehAImagemInteira,
+  lerOrdem,
+  lerPapel,
+  NOME_DA_IMAGEM_COMPLETA,
+  SQL_NUMERO_DO_QUADRO,
+  TIPOS_QUE_DEPENDEM_DA_CENA,
+} from '../cena.js';
 import { exigirConfigurar } from '../rbac.js';
 import { validarPoligono } from '../poligono.js';
 import { registrarDescricao } from './inventario.js';
@@ -223,6 +230,9 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
               p.cena, p.cena_escrita_em,
               (select u.nome from usuario u where u.id = p.cena_escrita_por) as cena_escrita_por_nome,
               l.tipo_negocio as loja_tipo_negocio,
+              -- Não sai daqui como veio: é a chave interna. Dela só se tira
+              -- o que ESTÁ ACONTECENDO com este canal (abaixo).
+              l.pedido_com_contexto as com_contexto,
               st.id as setor_id, st.nome as setor_nome, st.loja_id
          from ponto p
          join setor st on st.id = p.setor_id
@@ -233,17 +243,34 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
     if (p.rowCount === 0) {
       return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'ponto não encontrado' });
     }
+    const { com_contexto: comContexto, ...ponto } = p.rows[0];
 
-    // Cada área vem com os SEUS critérios: um canal pode ter mais de uma, e
-    // o critério vale só dentro da área em que foi posto. Uma consulta para
-    // o canal inteiro — nunca uma por área.
+    // A cena faz falta AGORA neste canal? Só quando a loja já pergunta com
+    // contexto e o canal está sem a cena escrita: aí o critério que depende
+    // de entender a imagem não é analisado. É resultado, não configuração —
+    // a tela mostra "falta descrever a cena" só onde isso é verdade.
+    const cenaEmFalta = comContexto === true && String(ponto.cena ?? '').trim() === '';
+
+    // A imagem completa vem primeiro; depois os quadros, na ordem do número.
+    // Cada um com os SEUS critérios: o critério vale só onde foi posto. Uma
+    // consulta para o canal inteiro — nunca uma por quadro.
     const z = await pool.query(
       `select z.id, z.nome, z.poligono, z.principal, z.largura_cena_cm,
               z.papel, z.ordem, ${SQL_NUMERO_DO_QUADRO} as numero,
               coalesce((
                 select jsonb_agg(jsonb_build_object(
                          'id', r.id, 'nome', r.nome, 'tipo', r.tipo, 'ativa', r.ativa, 'estado', r.estado,
-                         'quando', r.quando, 'parametros', r.parametros)
+                         'quando', r.quando, 'parametros', r.parametros,
+                         -- Em quantos canais este critério vale, e em quantos
+                         -- quadros (fora as imagens completas): é o que a
+                         -- tela diz antes de alguém editar o cadastro, que
+                         -- é um só.
+                         'canais', (select count(distinct zo.ponto_id)::int
+                                      from regra_alvo o join zona zo on zo.id = o.zona_id
+                                     where o.regra_id = r.id),
+                         'quadros', (select count(*)::int
+                                       from regra_alvo o join zona zo on zo.id = o.zona_id
+                                      where o.regra_id = r.id and not zo.principal))
                        order by r.nome)
                   from regra_alvo ra
                   join regra r on r.id = ra.regra_id
@@ -251,14 +278,31 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
               ), '[]'::jsonb) as criterios
          from zona z
         where z.ponto_id = $1 and z.excluida_em is null
-        order by z.principal desc, z.criado_em, z.nome`,
+        order by z.principal desc, z.ordem, z.criado_em, z.id`,
       [id],
     );
 
-    return { ponto: p.rows[0], zonas: z.rows };
+    type CriterioDaZona = { tipo: string; ativa: boolean; estado: string } & Record<string, unknown>;
+    return {
+      ponto: { ...ponto, cena_em_falta: cenaEmFalta },
+      zonas: z.rows.map((zona) => ({
+        ...zona,
+        criterios: (zona.criterios as CriterioDaZona[]).map((k) => ({
+          ...k,
+          // Critério desligado não é conferido de jeito nenhum, e o que só
+          // observa conta as olhadas sem precisar entender a imagem.
+          falta_a_cena:
+            cenaEmFalta && k.ativa && k.estado !== 'observando' && TIPOS_QUE_DEPENDEM_DA_CENA.includes(k.tipo),
+        })),
+      })),
+    };
   });
 
-  // ───────────── console: salva a área desenhada no preview ─────────────
+  // ───────────── console: salva o quadro (nome, papel, ordem, contorno) ─────────────
+  //
+  // A IMAGEM COMPLETA do canal é fixa: sempre o canal inteiro, com o nome
+  // dela, sem papel. Daqui só se muda nela a largura real da cena. O resto
+  // é recusado com o motivo — quem quer conferir só uma parte marca um quadro.
 
   app.patch('/v1/zonas/:id', async (req, resposta) => {
     const s = await sessaoDe(pool, req);
@@ -266,7 +310,7 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       return resposta.status(401).send({ erro: 'sem_sessao', mensagem: 'faça login' });
     }
 
-    // A área decide o que o critério enxerga: mexer nela é configurar.
+    // O quadro decide o que o critério enxerga: mexer nele é configurar.
     if (!exigirConfigurar(s, resposta)) return;
 
     const { id } = req.params as { id: string };
@@ -274,12 +318,12 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       nome?: string;
       poligono?: unknown;
       larguraCenaCm?: number | null;
-      principal?: boolean;
+      principal?: unknown;
       papel?: unknown;
       ordem?: unknown;
     };
     if (corpo.nome !== undefined) {
-      const problema = nomeDeAreaInvalido(corpo.nome);
+      const problema = nomeDeQuadroInvalido(corpo.nome);
       if (problema) return resposta.status(422).send({ erro: 'validacao', mensagem: problema });
     }
     // O papel (o que o quadro é) e a ordem dele no canal. Ausentes, ficam.
@@ -297,7 +341,7 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
     }
 
     const z = await pool.query(
-      `select z.id, z.ponto_id
+      `select z.id, z.ponto_id, z.principal, z.nome
          from zona z
          join ponto p on p.id = z.ponto_id
          join setor st on st.id = p.setor_id
@@ -307,7 +351,31 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       [id, s.tenantId],
     );
     if (z.rowCount === 0) {
-      return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'zona não encontrada' });
+      return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'quadro não encontrado' });
+    }
+    const atual = z.rows[0] as { principal: boolean; nome: string };
+    const nome = corpo.nome === undefined ? null : String(corpo.nome).trim();
+
+    if (atual.principal) {
+      // Mandar de volta o que ela já é não muda nada, e passa: é o que uma
+      // tela manda ao salvar sem mexer.
+      const mexe =
+        (corpo.poligono !== undefined && !ehAImagemInteira(corpo.poligono)) ||
+        (nome !== null && nome !== atual.nome) ||
+        (papel !== null && papel !== 'livre') ||
+        (ordem !== null && ordem !== 0) ||
+        (corpo.principal !== undefined && corpo.principal !== true);
+      if (mexe) return resposta.status(409).send(IMAGEM_COMPLETA_FIXA);
+    } else {
+      if (corpo.principal !== undefined && corpo.principal !== false) {
+        return resposta.status(409).send({
+          erro: 'imagem_completa_fixa',
+          mensagem: 'a imagem completa do canal é fixa: um quadro não toma o lugar dela',
+        });
+      }
+      if (nome !== null && nome.toLowerCase() === NOME_DA_IMAGEM_COMPLETA.toLowerCase()) {
+        return resposta.status(422).send(NOME_RESERVADO);
+      }
     }
 
     if (corpo.poligono !== undefined) {
@@ -327,59 +395,49 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       });
     }
 
-    const cliente = await pool.connect();
     try {
-      await cliente.query('begin');
-
-      // Um canal tem um corte principal, e o índice único recusa dois.
-      // Tirar o antigo ANTES de pôr o novo é o que impede o 23505 — a
-      // alternativa seria o usuário ver "erro ao salvar" ao marcar a
-      // segunda área como principal, sem entender por quê.
-      if (corpo.principal === true) {
-        await cliente.query(
-          `update zona set principal = false where ponto_id = $1 and id <> $2 and principal`,
-          [z.rows[0].ponto_id, id],
-        );
-      }
-
-      const r = await cliente.query(
+      // `principal` não entra: quem é a imagem completa do canal não muda
+      // por aqui. A condição repete a conferência de cima dentro da própria
+      // instrução — se a área virou outra coisa entre a leitura e a
+      // gravação, nada é gravado.
+      const r = await pool.query(
         `update zona
             set nome = coalesce($2, nome),
                 poligono = coalesce($3::jsonb, poligono),
                 largura_cena_cm = case when $4::boolean then $5::numeric else largura_cena_cm end,
-                principal = coalesce($6::boolean, principal),
-                papel = coalesce($7::text, papel),
-                ordem = coalesce($8::integer, ordem)
-          where id = $1
+                papel = coalesce($6::text, papel),
+                ordem = coalesce($7::integer, ordem),
+                atualizado_em = now()
+          where id = $1 and excluida_em is null and principal = $8
         returning id, ponto_id, nome, poligono, principal, largura_cena_cm, papel, ordem`,
         [
           id,
-          corpo.nome === undefined ? null : String(corpo.nome).trim(),
-          corpo.poligono === undefined ? null : JSON.stringify(corpo.poligono),
+          nome,
+          // Na imagem completa o desenho que chegou é o dela mesma: não regrava.
+          corpo.poligono === undefined || atual.principal ? null : JSON.stringify(corpo.poligono),
           // `largura` separada do valor: sem isto não há como gravar NULL
           // de propósito — `coalesce` trataria "apagar" como "não mexer".
           corpo.larguraCenaCm !== undefined,
           corpo.larguraCenaCm ?? null,
-          corpo.principal ?? null,
           papel,
           ordem,
+          atual.principal,
         ],
       );
-      await cliente.query('commit');
+      if (r.rowCount === 0) {
+        return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'quadro não encontrado' });
+      }
       return r.rows[0];
     } catch (e) {
-      await cliente.query('rollback').catch(() => {});
       if (ehNomeRepetido(e)) return resposta.status(409).send(NOME_REPETIDO);
       throw e;
-    } finally {
-      cliente.release();
     }
   });
 
-  // ───────────── console: mais uma área no mesmo canal ─────────────
+  // ───────────── console: mais um quadro no mesmo canal ─────────────
   //
   // A mesma câmera do caixa confere presença DENTRO do balcão e fila do
-  // lado do cliente: duas áreas, cada uma com os seus critérios.
+  // lado do cliente: dois quadros, cada um com os seus critérios.
 
   app.post('/v1/pontos/:id/zonas', async (req, resposta) => {
     const s = await sessaoDe(pool, req);
@@ -394,8 +452,12 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
     if (!UUID.test(id)) return naoAchei();
 
     const corpo = (req.body ?? {}) as { nome?: unknown; poligono?: unknown; papel?: unknown };
-    const problema = nomeDeAreaInvalido(corpo.nome);
+    const problema = nomeDeQuadroInvalido(corpo.nome);
     if (problema) return resposta.status(422).send({ erro: 'validacao', mensagem: problema });
+    const nome = String(corpo.nome).trim();
+    if (nome.toLowerCase() === NOME_DA_IMAGEM_COMPLETA.toLowerCase()) {
+      return resposta.status(422).send(NOME_RESERVADO);
+    }
     // Sem papel informado, nasce "livre": um recorte como os de sempre.
     let papelNovo = 'livre';
     if (corpo.papel !== undefined) {
@@ -403,16 +465,17 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       if (lido.problema !== undefined) return resposta.status(422).send({ erro: 'validacao', mensagem: lido.problema });
       papelNovo = lido.valor;
     }
-    // Sem desenho, a área nasce no meio do quadro: dá para ver e arrastar.
-    const poligono = corpo.poligono ?? AREA_DO_MEIO;
+    // Sem desenho, o quadro nasce no meio da imagem: dá para ver e arrastar.
+    const poligono = corpo.poligono ?? QUADRO_DO_MEIO;
     const erro = validarPoligono(poligono);
     if (erro) return resposta.status(422).send({ erro: 'poligono_invalido', mensagem: erro });
 
-    // O canal é desta conta e existe? E quantas áreas já tem? Numa consulta.
+    // O canal é desta conta e existe? E quantos quadros já tem (a imagem
+    // completa não é quadro)? Numa consulta.
     const canal = await pool.query(
       `select p.id,
               (select count(*)::int from zona z
-                where z.ponto_id = p.id and z.excluida_em is null) as areas
+                where z.ponto_id = p.id and z.excluida_em is null and not z.principal) as quadros
          from ponto p
          join setor st on st.id = p.setor_id
          join loja  l  on l.id  = st.loja_id
@@ -420,20 +483,20 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       [id, s.tenantId],
     );
     if (canal.rowCount === 0) return naoAchei();
-    if (canal.rows[0].areas >= MAX_AREAS_POR_CANAL) {
+    if (canal.rows[0].quadros >= MAX_QUADROS_POR_CANAL) {
       return resposta.status(409).send({
         erro: 'areas_demais',
-        mensagem: `um canal tem no máximo ${MAX_AREAS_POR_CANAL} áreas`,
+        mensagem: `um canal tem no máximo ${MAX_QUADROS_POR_CANAL} quadros`,
       });
     }
 
     try {
-      // Nunca principal: o corte do canal continua sendo o que já era.
+      // Nunca principal: a imagem completa do canal é a que já existe.
       const r = await pool.query(
         `insert into zona (ponto_id, nome, poligono, principal, papel)
          values ($1, $2, $3::jsonb, false, $4)
          returning id, ponto_id, nome, poligono, principal, largura_cena_cm, papel, ordem`,
-        [id, String(corpo.nome).trim(), JSON.stringify(poligono), papelNovo],
+        [id, nome, JSON.stringify(poligono), papelNovo],
       );
       return resposta.status(201).send({ ...r.rows[0], criterios: [] });
     } catch (e) {
@@ -442,11 +505,14 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
     }
   });
 
-  // ───────────── console: excluir uma área do canal ─────────────
+  // ───────────── console: excluir um quadro do canal ─────────────
   //
-  // Excluir é MARCAR. O resumo por hora aponta para a área, e apagar a
-  // linha levaria junto tudo o que foi contado nela. O que deixa de existir
-  // é o vínculo: os critérios dela saem deste canal.
+  // Excluir é MARCAR. O resumo por hora aponta para o quadro, e apagar a
+  // linha levaria junto tudo o que foi contado nele. O que deixa de existir
+  // é o vínculo: os critérios dele saem deste canal.
+  //
+  // A imagem completa não se exclui: ela é o canal. Por isso o canal nunca
+  // fica sem área — e não há mais "a principal passa para outra".
 
   app.delete('/v1/zonas/:id', async (req, resposta) => {
     const s = await sessaoDe(pool, req);
@@ -457,15 +523,15 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
 
     const { id } = req.params as { id: string };
     const naoAchei = () =>
-      resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'zona não encontrada' });
+      resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'quadro não encontrado' });
     if (!UUID.test(id)) return naoAchei();
 
     const cliente = await pool.connect();
     try {
       await cliente.query('begin');
 
-      // Trava o CANAL, não só a área: duas exclusões ao mesmo tempo não
-      // podem ver, cada uma, "ainda sobra uma área".
+      // Trava a linha do quadro: duas exclusões ao mesmo tempo passam uma
+      // depois da outra, e a segunda já não o encontra.
       const z = await cliente.query(
         `select z.id, z.nome, z.ponto_id, z.principal
            from zona z
@@ -474,30 +540,24 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
            join loja  l  on l.id  = st.loja_id
           where z.id = $1 and l.tenant_id = $2
             and p.excluido_em is null and z.excluida_em is null
-            for update of p`,
+            for update of z`,
         [id, s.tenantId],
       );
       if (z.rowCount === 0) {
         await cliente.query('rollback');
         return naoAchei();
       }
-      const area = z.rows[0];
-
-      const outras = await cliente.query(
-        `select id from zona
-          where ponto_id = $1 and id <> $2 and excluida_em is null
-          order by criado_em, id`,
-        [area.ponto_id, id],
-      );
-      if (outras.rowCount === 0) {
+      const quadro = z.rows[0];
+      if (quadro.principal) {
         await cliente.query('rollback');
         return resposta.status(409).send({
-          erro: 'ultima_area',
-          mensagem: 'o canal precisa de pelo menos uma área; para parar de verificar, pause ou exclua o canal',
+          erro: 'imagem_completa_fixa',
+          mensagem:
+            'a imagem completa não se exclui: ela é o canal inteiro. Para parar de verificar, pause ou exclua o canal',
         });
       }
 
-      // Os critérios desta área, travados antes de mexer: "sobrou algum
+      // Os critérios deste quadro, travados antes de mexer: "sobrou algum
       // lugar?" decide se o critério é desligado.
       const afetados = await cliente.query(
         `select r.id
@@ -522,29 +582,24 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
         [ids],
       );
 
-      // Sai de principal ANTES de outra entrar: o índice único recusa duas.
       await cliente.query(
         `update zona
-            set excluida_em = now(), excluida_por = $2, principal = false, atualizado_em = now()
+            set excluida_em = now(), excluida_por = $2, atualizado_em = now()
           where id = $1`,
         [id, s.usuarioId],
       );
-      if (area.principal) {
-        // O corte do canal passa para a área mais antiga que sobrou.
-        await cliente.query(`update zona set principal = true where id = $1`, [outras.rows[0].id]);
-      }
 
       await cliente.query('commit');
 
       req.log.info(
-        { zona: id, ponto: area.ponto_id, por: s.usuarioId, criterios: ids.length, desligados: desligados.rowCount },
-        'área EXCLUÍDA',
+        { zona: id, ponto: quadro.ponto_id, por: s.usuarioId, criterios: ids.length, desligados: desligados.rowCount },
+        'quadro EXCLUÍDO',
       );
       return {
         excluida: true,
         criteriosTirados: ids.length,
         criteriosDesligados: desligados.rows.map((r) => r.nome as string),
-        aviso: 'área excluída; o que ela registrou continua no histórico',
+        aviso: 'quadro excluído; o que ele registrou continua no histórico',
       };
     } catch (e) {
       await cliente.query('rollback').catch(() => {});
@@ -701,15 +756,29 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Uma câmera tem duas, três regiões que importam. O teto existe para um
-// laço descontrolado não encher o canal de áreas.
-const MAX_AREAS_POR_CANAL = 8;
+// laço descontrolado não encher o canal de quadros. A imagem completa não
+// entra na conta: ela não é quadro.
+const MAX_QUADROS_POR_CANAL = 8;
 
-/** Onde a área nova nasce quando ninguém a desenhou: o meio do quadro. */
-const AREA_DO_MEIO = [[0.3, 0.3], [0.7, 0.3], [0.7, 0.7], [0.3, 0.7]];
+/** Onde o quadro novo nasce quando ninguém o desenhou: o meio da imagem. */
+const QUADRO_DO_MEIO = [[0.3, 0.3], [0.7, 0.3], [0.7, 0.7], [0.3, 0.7]];
 
 const NOME_REPETIDO = {
   erro: 'nome_repetido',
-  mensagem: 'já existe uma área com esse nome neste canal',
+  mensagem: 'já existe um quadro com esse nome neste canal',
+};
+
+/** O nome da imagem completa é dela: quadro com esse nome confundiria os dois. */
+const NOME_RESERVADO = {
+  erro: 'validacao',
+  mensagem: `“${NOME_DA_IMAGEM_COMPLETA}” é o nome do canal inteiro: dê outro nome ao quadro`,
+};
+
+const IMAGEM_COMPLETA_FIXA = {
+  erro: 'imagem_completa_fixa',
+  mensagem:
+    'a imagem completa é sempre o canal inteiro: não muda de contorno, de nome nem de papel. ' +
+    'Para conferir só uma parte, marque um quadro',
 };
 
 /** O índice `zona_nome_por_ponto_uk` recusou: o nome já está em uso no canal. */
@@ -718,8 +787,8 @@ function ehNomeRepetido(e: unknown): boolean {
   return erro?.code === '23505' && erro.constraint === 'zona_nome_por_ponto_uk';
 }
 
-function nomeDeAreaInvalido(valor: unknown): string | null {
-  if (typeof valor !== 'string' || !valor.trim()) return 'diga o nome da área';
-  if (valor.trim().length > 60) return 'o nome da área tem no máximo 60 caracteres';
+function nomeDeQuadroInvalido(valor: unknown): string | null {
+  if (typeof valor !== 'string' || !valor.trim()) return 'diga o nome do quadro';
+  if (valor.trim().length > 60) return 'o nome do quadro tem no máximo 60 caracteres';
   return null;
 }

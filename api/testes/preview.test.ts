@@ -385,11 +385,12 @@ describe('preview do canal (Postgres real)', { skip: !URL && 'sem DATABASE_URL' 
   });
 });
 
-describe('a área desenhada no preview', { skip: !URL && 'sem DATABASE_URL' }, () => {
+describe('o quadro desenhado no preview', { skip: !URL && 'sem DATABASE_URL' }, () => {
   let pool: pg.Pool;
   let app: FastifyInstance;
   let pontoId: string;
   let zonaId: string;
+  let inteiraId: string;
   let cookie: string;
   let adminAntes: string | undefined;
   const m2 = `teste-area-${randomUUID().slice(0, 8)}`;
@@ -413,9 +414,16 @@ describe('a área desenhada no preview', { skip: !URL && 'sem DATABASE_URL' }, (
       [st.rows[0].id],
     );
     pontoId = p.rows[0].id;
-    const z = await pool.query(
+    // O canal com a imagem completa dele (fixa) e um quadro: é o QUADRO que se desenha.
+    const inteira = await pool.query(
       `insert into zona (ponto_id, nome, poligono, principal)
-       values ($1,'Quadro inteiro','[[0,0],[1,0],[1,1],[0,1]]'::jsonb,true) returning id`,
+       values ($1,'Imagem completa','[[0,0],[1,0],[1,1],[0,1]]'::jsonb,true) returning id`,
+      [pontoId],
+    );
+    inteiraId = inteira.rows[0].id;
+    const z = await pool.query(
+      `insert into zona (ponto_id, nome, poligono)
+       values ($1,'bancada','[[0.3,0.3],[0.7,0.3],[0.7,0.7],[0.3,0.7]]'::jsonb) returning id`,
       [pontoId],
     );
     zonaId = z.rows[0].id;
@@ -518,33 +526,24 @@ describe('a área desenhada no preview', { skip: !URL && 'sem DATABASE_URL' }, (
     }
   });
 
-  it('marcar outra zona como principal desmarca a anterior', async () => {
-    // O índice único recusaria duas; sem desmarcar antes, o usuário veria
-    // "erro ao salvar" sem entender por quê.
-    const outra = await pool.query(
-      `insert into zona (ponto_id, nome, poligono) 
-       values ($1,'zona fina','[[0.4,0.4],[0.6,0.4],[0.6,0.6],[0.4,0.6]]'::jsonb)
-       returning id`,
-      [pontoId],
-    );
-
+  it('um quadro não vira a principal: a imagem completa do canal é fixa', async () => {
+    // Até a migration 034 marcar outra área como principal desmarcava a
+    // anterior. A principal agora é a imagem completa, e não muda de dono.
     const r = await app.inject({
       method: 'PATCH',
-      url: `/v1/zonas/${outra.rows[0].id}`,
+      url: `/v1/zonas/${zonaId}`,
       headers: comoConsole(),
       payload: { principal: true },
     });
-    assert.equal(r.statusCode, 200, r.body);
+    assert.equal(r.statusCode, 409, r.body);
+    assert.equal((r.json() as { erro: string }).erro, 'imagem_completa_fixa');
 
     const { rows } = await pool.query(
       'select id, principal from zona where ponto_id = $1 order by principal desc',
       [pontoId],
     );
     assert.equal(rows.filter((z) => z.principal).length, 1);
-    assert.equal(rows[0].id, outra.rows[0].id);
-
-    await pool.query('delete from zona where id = $1', [outra.rows[0].id]);
-    await pool.query('update zona set principal = true where id = $1', [zonaId]);
+    assert.equal(rows[0].id, inteiraId);
   });
 
   it('zona de outro tenant é 404', async () => {
@@ -669,9 +668,14 @@ describe('editar o canal e a zona (lote 1)', { skip: !URL && 'sem DATABASE_URL' 
       [st.rows[0].id],
     );
     pontoId = p.rows[0].id;
-    const z = await pool.query(
+    await pool.query(
       `insert into zona (ponto_id, nome, poligono, principal)
-       values ($1,'Quadro inteiro','[[0,0],[1,0],[1,1],[0,1]]'::jsonb,true) returning id`,
+       values ($1,'Imagem completa','[[0,0],[1,0],[1,1],[0,1]]'::jsonb,true)`,
+      [pontoId],
+    );
+    const z = await pool.query(
+      `insert into zona (ponto_id, nome, poligono)
+       values ($1,'Área marcada','[[0.2,0.3],[0.8,0.3],[0.8,0.7],[0.2,0.7]]'::jsonb) returning id`,
       [pontoId],
     );
     zonaId = z.rows[0].id;
@@ -720,9 +724,8 @@ describe('editar o canal e a zona (lote 1)', { skip: !URL && 'sem DATABASE_URL' 
     assert.ok(p.mac_visto_em);
   });
 
-  it('renomear a zona não mexe no polígono', async () => {
-    // A zona nasce "Quadro inteiro" e o nome vira mentira quando alguém
-    // desenha 34% dela. Renomear é edição de UM campo.
+  it('renomear o quadro não mexe no polígono', async () => {
+    // Renomear é edição de UM campo: o desenho fica como estava.
     const r = await app.inject({
       method: 'PATCH', url: `/v1/zonas/${zonaId}`,
       headers: { cookie }, payload: { nome: 'bancada de montagem' },
@@ -731,7 +734,7 @@ describe('editar o canal e a zona (lote 1)', { skip: !URL && 'sem DATABASE_URL' 
 
     const z = r.json() as { nome: string; poligono: number[][] };
     assert.equal(z.nome, 'bancada de montagem');
-    assert.deepEqual(z.poligono[0], [0, 0], 'o polígono não podia mudar');
+    assert.deepEqual(z.poligono[0], [0.2, 0.3], 'o polígono não podia mudar');
   });
 
   it('a loja devolve os agentes com o tempo sem bater, calculado no banco', async () => {

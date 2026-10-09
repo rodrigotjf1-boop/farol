@@ -1,17 +1,17 @@
 'use client';
 
 /**
- * As áreas de análise do canal — ver o quadro e desenhar o que importa.
+ * O desenho dos quadros do canal — e as fotos padrão, as medidas e a conexão.
  *
  * É a tela que transforma `--area 0.15,0.47,0.85,0.80` em algo que quem
  * opera a loja consegue fazer: olhar a cena e marcar o contorno do que
  * importa, ponto a ponto. O desenho é o que o agente recorta — e o que fica
- * fora dele é apagado antes de analisar, para uma área não invadir a outra.
+ * fora dele é apagado antes de analisar, para um quadro não invadir o outro.
  *
- * **Um canal pode ter mais de uma área, e cada área tem os seus critérios.**
- * A mesma câmera do caixa confere presença DENTRO do balcão e fila do lado
- * do cliente: são dois recortes da mesma imagem, e o critério vale só no
- * recorte em que foi posto.
+ * **O que se desenha é o QUADRO.** A imagem completa do canal é fixa: é
+ * sempre o canal inteiro, e dela só se informa aqui a largura real da cena.
+ * Quem mostra o canal — a imagem, os quadros com o papel de cada um, a cena e
+ * os critérios — é a tela do canal (`/pontos/:id`); esta abre a partir dela.
  *
  * Duas coisas aqui não são enfeite:
  *
@@ -20,9 +20,9 @@
  * arrasto deixou torto. Os dois editam o mesmo estado (o desenho em si está
  * em `componentes/areas/quadro-das-areas.tsx`).
  *
- * **O diagnóstico aparece ao lado enquanto se desenha.** Marcar a área é
+ * **O diagnóstico aparece ao lado enquanto se desenha.** Marcar o quadro é
  * a decisão que define px/cm — e sem ver a consequência na hora, a pessoa
- * só descobre que a área era pequena demais quando o veredito já estiver
+ * só descobre que o quadro era pequeno demais quando o veredito já estiver
  * errado em produção.
  */
 
@@ -50,6 +50,7 @@ import { FotosPadrao } from '@/componentes/areas/fotos-padrao';
 import { GavetaDaFotoPadrao } from '@/componentes/areas/gaveta-da-foto-padrao';
 import { QuadroComPadrao } from '@/componentes/areas/quadro-com-padrao';
 import { QuadroDasAreas } from '@/componentes/areas/quadro-das-areas';
+import { MAX_QUADROS, nomeParaQuadroNovo, NOME_DA_IMAGEM_COMPLETA, rotuloDaArea } from '@/componentes/canal/quadros';
 import { useConsole } from '@/componentes/console';
 import { GavetaDoCriterio } from '@/componentes/criterios/formulario-criterio';
 import { iconeDoTipo, nomeDoTipo, resumoDaProcura, TIPOS_DO_DETECTOR } from '@/componentes/criterios/opcoes';
@@ -73,7 +74,7 @@ import {
   type ZonaCompleta,
 } from '@/lib/api';
 
-// A cor de cada área, no quadro e na lista ao lado. Ficam por cima da
+// A cor de cada área (a imagem completa e os quadros), na imagem e na lista ao lado. Ficam por cima da
 // imagem da câmera, então não seguem o tema: precisam aparecer sobre
 // qualquer cena.
 const CORES_DE_AREA = ['#F2B03C', '#5AA9FF', '#7FD08A', '#C792EA', '#FF8A73', '#5EDCD0', '#F58FC2', '#B7C46A'];
@@ -81,7 +82,7 @@ const corDaArea = (i: number) => CORES_DE_AREA[i % CORES_DE_AREA.length]!;
 
 /** Quantos passos o "desfazer" guarda. */
 const MAX_DESFAZER = 40;
-/** A partir de quanto uma área "também está dentro" de outra a ponto de valer dizer. */
+/** A partir de quanto um quadro "também está dentro" de outro a ponto de valer dizer. */
 const SOBREPOSICAO_QUE_SE_DIZ = 0.03;
 
 /** "12,5" — a posição de um ponto, em % do quadro, com uma casa. */
@@ -93,14 +94,6 @@ function oQueSustenta(pxPorCm: number): { nome: string; tom: 'ok' | 'atencao' | 
   if (pxPorCm >= 3) return { nome: 'estado', tom: 'ok' };
   if (pxPorCm >= 1.5) return { nome: 'presença', tom: 'atencao' };
   return { nome: 'insuficiente', tom: 'critico' };
-}
-
-/** "Área 2", "Área 3"… — o primeiro que ainda não existe neste canal. */
-function nomeLivre(zonas: ZonaCompleta[]): string {
-  const usados = new Set(zonas.map((z) => z.nome.trim().toLowerCase()));
-  let n = zonas.length + 1;
-  while (usados.has(`área ${n}`)) n += 1;
-  return `Área ${n}`;
 }
 
 
@@ -130,7 +123,7 @@ export default function AreaDoCanal() {
   const [zonas, setZonas] = useState<ZonaCompleta[]>([]);
   const [zonaId, setZonaId] = useState<string>('');
   const [estado, setEstado] = useState<EstadoDoPreview | null>(null);
-  /** O desenho em edição da área selecionada. */
+  /** O desenho em edição do quadro selecionado. */
   const [pontos, setPontos] = useState<Ponto[]>(QUADRO_INTEIRO);
   /** Os desenhos de antes de cada gesto, para o "desfazer". */
   const [desfazer, setDesfazer] = useState<Ponto[][]>([]);
@@ -180,8 +173,15 @@ export default function AreaDoCanal() {
       setZonas(dados.zonas);
       setEstado(est);
       setSelo(est.capturadoEm);
-      // A área selecionada pode ter sido excluída: cai na primeira que existe.
-      setZonaId((atual) => (dados.zonas.some((z) => z.id === atual) ? atual : (dados.zonas[0]?.id ?? '')));
+      // Na chegada, o quadro que o endereço pede (`?quadro=`, vindo de "Redesenhar o contorno"); sem
+      // pedido, o primeiro quadro — é para desenhar que se vem aqui —, e sem quadro, a imagem completa.
+      // Depois, a área selecionada pode ter sido excluída: cai no mesmo lugar.
+      const pedido = new URLSearchParams(window.location.search).get('quadro');
+      setZonaId((atual) => {
+        if (dados.zonas.some((z) => z.id === atual)) return atual;
+        if (!atual && pedido && dados.zonas.some((z) => z.id === pedido)) return pedido;
+        return (dados.zonas.find((z) => !z.principal) ?? dados.zonas[0])?.id ?? '';
+      });
       setErro(null);
     } catch (e) {
       setErro(e instanceof ErroDaApi ? e.message : 'não consegui carregar o canal');
@@ -217,9 +217,9 @@ export default function AreaDoCanal() {
     if (lojaDoCanal) definirLoja(lojaDoCanal);
   }, [lojaDoCanal, definirLoja]);
 
-  // Trocar de área recarrega o desenho: cada uma tem o seu. O que estava
-  // desenhado e não foi salvo na anterior se perde — por isso a troca só
-  // acontece por um gesto claro (a lista, ou um clique na outra área).
+  // Trocar de quadro recarrega o desenho: cada um tem o seu. O que estava
+  // desenhado e não foi salvo no anterior se perde — por isso a troca só
+  // acontece por um gesto claro (a lista, ou um clique no outro quadro).
   const poligonoDaZona = zona?.poligono;
   const nomeDaZona = zona?.nome;
   const larguraDaZona = zona?.largura_cena_cm;
@@ -268,6 +268,22 @@ export default function AreaDoCanal() {
 
   async function salvar() {
     if (!zona) return;
+    const largura = larguraCm.trim() ? Number(larguraCm) : null;
+    // A imagem completa é fixa: dela só a largura real da cena se informa.
+    if (zona.principal) {
+      setSalvando(true);
+      setErro(null);
+      try {
+        const atualizada = await previewApi.salvarArea(zona.id, { larguraCenaCm: largura });
+        setZonas((lista) => lista.map((z) => (z.id === atualizada.id ? { ...z, ...atualizada } : z)));
+        avisar('Largura da imagem completa salva.');
+      } catch (e) {
+        setErro(e instanceof ErroDaApi ? e.message : 'não consegui salvar a largura');
+      } finally {
+        setSalvando(false);
+      }
+      return;
+    }
     // As mesmas recusas do servidor, ditas antes de ir — ao lado do botão,
     // e só enquanto o desenho estiver torto.
     if (problema) return setRecusado(true);
@@ -278,34 +294,35 @@ export default function AreaDoCanal() {
       const atualizada = await previewApi.salvarArea(zona.id, {
         nome: nomeZona.trim() || zona.nome,
         poligono: limpar(pontos),
-        larguraCenaCm: larguraCm.trim() ? Number(larguraCm) : null,
+        larguraCenaCm: largura,
       });
-      // A resposta não traz os critérios: eles não mudam ao salvar o desenho.
+      // A resposta não traz os critérios nem o número: eles não mudam ao salvar o desenho.
       setZonas((lista) => lista.map((z) => (z.id === atualizada.id ? { ...z, ...atualizada } : z)));
-      avisar('Área salva. O agente usa a nova na próxima batida.');
+      avisar('Quadro salvo. O agente usa o novo contorno na próxima batida.');
     } catch (e) {
-      setErro(e instanceof ErroDaApi ? e.message : 'não consegui salvar a área');
+      setErro(e instanceof ErroDaApi ? e.message : 'não consegui salvar o quadro');
     } finally {
       setSalvando(false);
     }
   }
 
-  async function novaArea() {
+  async function novoQuadro() {
     setCriando(true);
     setErro(null);
     try {
-      const nova = await previewApi.criarArea(id, { nome: nomeLivre(zonas) });
-      setZonas((lista) => [...lista, nova]);
-      setZonaId(nova.id);
+      const novo = await previewApi.criarArea(id, { nome: nomeParaQuadroNovo(zonas.map((z) => z.nome)) });
+      // Recarrega o canal: é o servidor que diz o número do quadro.
+      await carregar();
+      setZonaId(novo.id);
       atualizar();
-      avisar('Área criada. Arraste os pontos para marcar o contorno, dê um nome e salve.');
-      // O nome é a primeira coisa a acertar: "Área 2" não diz nada a ninguém.
+      avisar('Quadro criado. Arraste os pontos para marcar o contorno, dê um nome e salve.');
+      // O nome é a primeira coisa a acertar: "Quadro novo" não diz nada a ninguém.
       requestAnimationFrame(() => {
         campoDoNome.current?.focus();
         campoDoNome.current?.select();
       });
     } catch (e) {
-      setErro(e instanceof ErroDaApi ? e.message : 'não consegui criar a área');
+      setErro(e instanceof ErroDaApi ? e.message : 'não consegui criar o quadro');
     } finally {
       setCriando(false);
     }
@@ -323,7 +340,7 @@ export default function AreaDoCanal() {
       atualizar();
       await carregar();
       avisar(
-        `Área “${nome}” excluída.` +
+        `Quadro “${nome}” excluído.` +
           (r.criteriosDesligados.length > 0
             ? ` ${r.criteriosDesligados.map((n) => `“${n}”`).join(' e ')} ${
                 r.criteriosDesligados.length === 1 ? 'ficou sem lugar e foi desligado' : 'ficaram sem lugar e foram desligados'
@@ -339,7 +356,7 @@ export default function AreaDoCanal() {
     }
   }
 
-  /** "+ Critério" da área: a gaveta abre com ESTA área já marcada. */
+  /** "+ Critério": a gaveta abre com ESTE lugar já marcado — o quadro, ou a imagem completa. */
   async function criterioNaArea() {
     if (!zona || !lojaDoCanal) return;
     setAbrindoCriterio(true);
@@ -450,16 +467,19 @@ export default function AreaDoCanal() {
   const larguraZona = Number(larguraCm);
   const fracao = areaDe(pontos);
   const problema = problemaDoDesenho(pontos);
-  // O que desta área também está dentro de OUTRA que tem critério: ali os
-  // critérios da outra enxergam a mesma coisa. Dito, não proibido — área
-  // dentro de área existe de propósito (o salão inteiro e, dentro dele, o
-  // balcão). Outra área sem critério não olha nada: não há o que dizer.
-  const invasoes = problema
-    ? []
-    : zonas
-        .filter((z) => z.id !== zonaId && z.poligono.length >= 3 && z.criterios.length > 0)
-        .map((z) => ({ nome: z.nome, criterios: z.criterios.length, parte: sobreposicao(pontos, z.poligono) }))
-        .filter((x) => x.parte >= SOBREPOSICAO_QUE_SE_DIZ);
+  const naInteira = zona?.principal === true;
+  // O que deste quadro também está dentro de OUTRO que tem critério: ali os
+  // critérios do outro enxergam a mesma coisa. Dito, não proibido — quadro
+  // dentro de quadro existe de propósito (o balcão e, dentro dele, a gaveta).
+  // Outro quadro sem critério não olha nada: não há o que dizer. E a imagem
+  // completa não entra na conta: todo quadro está dentro dela, por definição.
+  const invasoes =
+    problema || naInteira
+      ? []
+      : zonas
+          .filter((z) => !z.principal && z.id !== zonaId && z.poligono.length >= 3 && z.criterios.length > 0)
+          .map((z) => ({ nome: rotuloDaArea(z), criterios: z.criterios.length, parte: sobreposicao(pontos, z.poligono) }))
+          .filter((x) => x.parte >= SOBREPOSICAO_QUE_SE_DIZ);
   const resolucao = ponto?.resolucao_h ?? null;
 
   // px/cm que o MODELO vai ver, por degrau de envio. É o número que decide
@@ -467,7 +487,11 @@ export default function AreaDoCanal() {
   const degraus = [384, 640, 1000, 1920];
   const pxPorCm = larguraZona > 0 ? degraus.map((px) => ({ px, valor: Number((px / larguraZona).toFixed(1)) })) : [];
 
-  const variasAreas = zonas.length > 1;
+  const quadros = zonas.filter((z) => !z.principal);
+  /** A área selecionada, como a tela a chama: "Imagem completa" ou "Quadro 2 · Montagem". */
+  const rotulo = zona ? rotuloDaArea(zona) : '';
+  /** Só o quadro se desenha, e só por quem configura. */
+  const desenha = configura && zona !== null && !naInteira;
   const nomesDosCriterios = excluindo?.criterios.map((c) => `“${c.nome}”`) ?? [];
 
   // A foto que aparece no quadro: a escolhida na lista; sem escolha (ou se
@@ -481,12 +505,9 @@ export default function AreaDoCanal() {
       <Cabecalho
         sobre={
           <>
-            <Link
-              href={ponto ? `/lojas/${ponto.loja_id}/canais` : '/lojas'}
-              className="inline-flex items-center gap-1 no-underline hover:text-farol-tinta"
-            >
+            <Link href={`/pontos/${id}`} className="inline-flex items-center gap-1 no-underline hover:text-farol-tinta">
               <ArrowLeft className="h-[15px] w-[15px]" aria-hidden />
-              Canais
+              {ponto?.nome ?? 'Canal'}
             </Link>
             {ponto && (
               <span>
@@ -496,10 +517,10 @@ export default function AreaDoCanal() {
             )}
           </>
         }
-        titulo={ponto?.nome ?? 'Canal'}
+        titulo="Desenho, fotos e conexão"
       >
-        Marque na imagem cada região que importa e diga o que conferir em cada uma. Um canal pode ter mais de uma
-        área: o critério vale só dentro da área em que foi posto.
+        O contorno de cada quadro, ponto a ponto; as fotos padrão; as medidas e a conexão do canal. A imagem
+        completa é sempre o canal inteiro: não se redesenha.
       </Cabecalho>
 
       {erro && (
@@ -520,7 +541,7 @@ export default function AreaDoCanal() {
           {/* ─────────────────────── o quadro ─────────────────────── */}
           <section aria-labelledby="t-quadro" className={`${CARTAO} flex flex-col gap-3 p-4`}>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <Titulo id="t-quadro">Quadro do canal</Titulo>
+              <Titulo id="t-quadro">Imagem do canal</Titulo>
               {estado?.capturadoEm && (
                 <span className="font-mono text-[12.5px] text-farol-suave">{diaEHora(estado.capturadoEm)}</span>
               )}
@@ -533,7 +554,7 @@ export default function AreaDoCanal() {
             {estado?.temPreview && (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2" data-vista-do-quadro>
                 <Segmentado<Vista>
-                  rotulo="O que o quadro mostra"
+                  rotulo="O que a imagem mostra"
                   opcoes={[
                     { valor: 'agora', rotulo: 'Agora', icone: Crop },
                     { valor: 'padrao', rotulo: 'Foto padrão', icone: Imagem, desativada: semFoto },
@@ -565,23 +586,27 @@ export default function AreaDoCanal() {
             ) : estado?.temPreview ? (
               <QuadroDasAreas
                 src={previewApi.url(id, selo)}
-                alt={`Quadro do canal ${ponto.nome}, para marcar as áreas de análise`}
-                areas={zonas.map((z, i) => ({ id: z.id, nome: z.nome, pontos: z.poligono, cor: corDaArea(i) }))}
+                alt={`Imagem do canal ${ponto.nome}, para marcar os quadros`}
+                // A imagem completa não entra como contorno: ela é a própria imagem, e por cima dela
+                // ficariam escondidos os quadros na hora do clique.
+                areas={zonas
+                  .map((z, i) => ({ id: z.id, nome: rotuloDaArea(z), pontos: z.poligono, cor: corDaArea(i), principal: z.principal }))
+                  .filter((a) => !a.principal || a.id === zonaId)}
                 selecionada={zonaId}
                 pontos={pontos}
                 ativo={ativo}
                 aoAtivar={setAtivo}
                 comProblema={problema !== null}
-                etiqueta={variasAreas ? nomeZona.trim() || 'área' : null}
-                editavel={configura}
+                etiqueta={naInteira ? null : zona?.numero != null ? `Quadro ${zona.numero} · ${nomeZona.trim() || 'quadro'}` : nomeZona.trim() || 'quadro'}
+                editavel={desenha}
                 aoComecar={guardar}
                 aoMudar={setPontos}
                 aoDesistir={voltar}
                 aoSelecionar={setZonaId}
               />
             ) : (
-              <Vazio icone={Crop} titulo="Este canal ainda não tem quadro">
-                O quadro é capturado pelo agente instalado na loja. Use <strong>Atualizar quadro</strong> e ele
+              <Vazio icone={Crop} titulo="Este canal ainda não tem imagem">
+                A imagem é capturada pelo agente instalado na loja. Use <strong>Atualizar quadro</strong> e ele
                 responde na próxima batida.
                 {estado?.pedido?.estado === 'falhou' && (
                   <span role="alert" className="mt-2 block text-farol-critico">
@@ -596,7 +621,7 @@ export default function AreaDoCanal() {
               </Vazio>
             )}
 
-            {estado?.temPreview && configura && vistaDeFato === 'agora' && (
+            {estado?.temPreview && desenha && vistaDeFato === 'agora' && (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2" data-barra-do-desenho>
                 <span className="font-mono text-[12.5px] text-farol-suave">
                   {ativo !== null && ativo < pontos.length ? `ponto ${ativo + 1} de ${pontos.length}` : `${pontos.length} pontos`}
@@ -621,53 +646,60 @@ export default function AreaDoCanal() {
               </div>
             )}
 
-            {problema && (
+            {problema && !naInteira && (
               <Alerta tom="critico" icone={TriangleAlert} papel="alert">
                 {problema}
               </Alerta>
             )}
             {invasoes.map((x) => (
               <Alerta key={x.nome} tom="atencao" icone={TriangleAlert}>
-                {Math.round(x.parte * 100)}% desta área também está dentro de “{x.nome}”, que tem{' '}
+                {Math.round(x.parte * 100)}% deste quadro também está dentro do “{x.nome}”, que tem{' '}
                 {plural(x.criterios, 'critério', 'critérios')}: o que acontecer ali também é visto por{' '}
-                {x.criterios === 1 ? 'ele' : 'eles'}. Para separar, ajuste o contorno de uma das duas.
+                {x.criterios === 1 ? 'ele' : 'eles'}. Para separar, ajuste o contorno de um dos dois.
               </Alerta>
             ))}
 
             {vistaDeFato === 'agora' ? (
-              <p className="text-[12.5px] text-farol-suave">
-                {configura
-                  ? 'Arraste um ponto para ajustar o contorno. O ponto menor, no meio de cada lado, cria um ponto novo. Arrastar sobre a imagem redesenha a área como um retângulo. '
-                  : ''}
-                O que fica escuro está fora da área: o agente apaga antes de analisar.
-                {variasAreas && ' Clique em outra área, sem arrastar, para passar a mexer nela.'}
+              <p className="text-[12.5px] text-farol-suave" data-nota-do-desenho>
+                {naInteira
+                  ? 'A imagem completa é o canal inteiro: não se redesenha. Para conferir só uma parte, crie um quadro.'
+                  : (desenha
+                      ? 'Arraste um ponto para ajustar o contorno. O ponto menor, no meio de cada lado, cria um ponto novo. Arrastar sobre a imagem redesenha o quadro como um retângulo. '
+                      : '') + 'O que fica escuro está fora do quadro: o agente apaga antes de analisar.'}
+                {quadros.length > (naInteira ? 0 : 1) && ' Clique num quadro, sem arrastar, para passar a mexer nele.'}
               </p>
             ) : (
               <p className="text-[12.5px] text-farol-suave" data-nota-da-vista>
                 {vistaDeFato === 'padrao'
-                  ? 'É com esta imagem que a loja compara. As áreas se desenham no quadro de agora.'
-                  : 'Arraste o divisor: à esquerda, o quadro de agora; à direita, a foto padrão.'}
+                  ? 'É com esta imagem que a loja compara. Os quadros se desenham na imagem de agora.'
+                  : 'Arraste o divisor: à esquerda, a imagem de agora; à direita, a foto padrão.'}
               </p>
             )}
           </section>
 
           {/* ───────────────────── ao lado ───────────────────── */}
-          <aside aria-label="Áreas do canal e ajustes" className="flex flex-col gap-3.5">
-            {/* as áreas do canal */}
+          <aside aria-label="Quadros do canal e ajustes" className="flex flex-col gap-3.5">
+            {/* a imagem completa e os quadros do canal */}
             <section aria-labelledby="t-areas" className={`${CARTAO} flex flex-col gap-3 p-4`}>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <Titulo id="t-areas">Áreas deste canal</Titulo>
+                <Titulo id="t-areas">Quadros deste canal</Titulo>
                 {configura && (
-                  <Botao mini className="ml-auto" onClick={novaArea} ocupado={criando}>
+                  <Botao
+                    mini
+                    className="ml-auto"
+                    onClick={novoQuadro}
+                    ocupado={criando}
+                    disabled={quadros.length >= MAX_QUADROS}
+                    title={quadros.length >= MAX_QUADROS ? `Um canal tem no máximo ${MAX_QUADROS} quadros` : undefined}
+                  >
                     {!criando && <Plus className="h-[15px] w-[15px]" aria-hidden />}
-                    {criando ? 'Criando…' : 'Nova área'}
+                    {criando ? 'Criando…' : 'Novo quadro'}
                   </Botao>
                 )}
               </div>
               <ul className="flex flex-col gap-1.5">
                 {zonas.map((z, i) => {
                   const selecionada = z.id === zonaId;
-                  const unica = zonas.length === 1;
                   return (
                     <li key={z.id} className="flex min-w-0 items-center gap-1.5">
                       <button
@@ -686,20 +718,24 @@ export default function AreaDoCanal() {
                           aria-hidden
                         />
                         <span className="min-w-0">
-                          <b className="block break-words font-semibold">{z.nome}</b>
+                          <b className="block break-words font-semibold">{rotuloDaArea(z)}</b>
                           <small className="block text-xs text-farol-suave">
-                            {z.criterios.length === 0 ? 'sem critério' : plural(z.criterios.length, 'critério', 'critérios')}
+                            {z.principal ? 'o canal inteiro · ' : ''}
+                            {z.criterios.length === 0
+                              ? 'sem critério'
+                              : z.principal
+                                ? plural(z.criterios.length, 'critério geral', 'critérios gerais')
+                                : plural(z.criterios.length, 'critério', 'critérios')}
                           </small>
                         </span>
                       </button>
-                      {configura && (
+                      {/* A imagem completa não se exclui: ela é o canal. */}
+                      {configura && !z.principal && (
                         <Botao
                           variante="fantasma"
                           mini
                           quadrado
-                          disabled={unica}
-                          title={unica ? 'O canal precisa de pelo menos uma área' : undefined}
-                          aria-label={`Excluir a área ${z.nome}`}
+                          aria-label={`Excluir o ${rotuloDaArea(z)}`}
                           onClick={() => {
                             setErroAoExcluir(null);
                             setExcluindo(z);
@@ -713,15 +749,16 @@ export default function AreaDoCanal() {
                 })}
               </ul>
               <p className={AJUDA}>
-                Cada área tem os seus critérios. Presença se confere dentro do balcão; fila, do lado do cliente.
+                Cada quadro tem os seus critérios; os da imagem completa são os gerais do canal. O papel de cada
+                quadro se escolhe na tela do canal.
               </p>
             </section>
 
-            {/* os critérios da área selecionada */}
+            {/* os critérios do que está selecionado */}
             {zona && (
               <section aria-labelledby="t-area-crit" className={`${CARTAO} flex flex-col gap-3 p-4`}>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                  <Titulo id="t-area-crit">{variasAreas ? `Critérios em “${zona.nome}”` : 'Critérios deste canal'}</Titulo>
+                  <Titulo id="t-area-crit">{naInteira ? 'Critérios gerais do canal' : `Critérios no ${rotulo}`}</Titulo>
                   {configura && ponto.ativo && (
                     <Botao mini className="ml-auto" onClick={criterioNaArea} ocupado={abrindoCriterio}>
                       {!abrindoCriterio && <Plus className="h-[15px] w-[15px]" aria-hidden />}
@@ -731,7 +768,7 @@ export default function AreaDoCanal() {
                 </div>
                 {zona.criterios.length === 0 ? (
                   <p className="text-[13px] text-farol-suave">
-                    Nenhum critério {variasAreas ? 'nesta área. Nada é verificado nela.' : 'neste canal. Nada é verificado aqui.'}
+                    {naInteira ? 'Nenhum critério geral neste canal.' : 'Nenhum critério neste quadro. Nada é verificado nele.'}
                   </p>
                 ) : (
                   <ul className="flex flex-col gap-2.5">
@@ -780,35 +817,38 @@ export default function AreaDoCanal() {
               }}
             />
 
-            {/* a área selecionada */}
-            <section className={`${CARTAO} flex flex-col gap-3 p-4`}>
-              <Titulo>{variasAreas ? 'Área selecionada' : 'Área'}</Titulo>
+            {/* o que está selecionado: a imagem completa, ou um quadro */}
+            <section className={`${CARTAO} flex flex-col gap-3 p-4`} data-selecionada={naInteira ? 'inteira' : 'quadro'}>
+              <Titulo>{naInteira ? NOME_DA_IMAGEM_COMPLETA : zona?.numero != null ? `Quadro ${zona.numero}` : 'Quadro'}</Titulo>
 
-              <Campo
-                rotulo="Nome desta área"
-                htmlFor="area-nome"
-                ajuda={
-                  nomeZona.trim() === 'Quadro inteiro' && fracao < 0.95
-                    ? 'A área já não é o quadro inteiro. Vale trocar o nome, senão daqui a três meses alguém lê e acredita.'
-                    : undefined
-                }
-              >
+              {naInteira && (
+                <p className="text-[13px] text-farol-suave">
+                  É sempre o canal inteiro: não muda de contorno nem de nome, e é nela que ficam os critérios gerais.
+                  Para conferir só uma parte da imagem, crie um quadro.
+                </p>
+              )}
+
+              {!naInteira && (
+              <Campo rotulo="Nome do quadro" htmlFor="area-nome">
                 <input
                   ref={campoDoNome}
                   id="area-nome"
                   value={nomeZona}
                   maxLength={60}
+                  disabled={!configura}
                   onChange={(e) => setNomeZona(e.target.value)}
-                  placeholder="bancada de montagem"
+                  placeholder="área de montagem"
                   className="entrada"
                 />
               </Campo>
+              )}
 
+              {!naInteira && (
               <details className="rounded-[10px] border border-farol-borda px-3 py-2" data-pontos-em-numeros>
                 <summary className="cursor-pointer text-[13px] font-semibold">
                   Ajustar pelos números ({pontos.length} pontos)
                 </summary>
-                <p className={`${AJUDA} mt-2`}>A posição de cada ponto, em % do quadro: da esquerda e do topo.</p>
+                <p className={`${AJUDA} mt-2`}>A posição de cada ponto, em % da imagem: da esquerda e do topo.</p>
                 <ol className="mt-2 flex flex-col gap-1.5">
                   {pontos.map(([x, y], i) => (
                     <li key={i} className="grid grid-cols-[1.5rem_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-1.5">
@@ -848,11 +888,12 @@ export default function AreaDoCanal() {
                   ))}
                 </ol>
               </details>
+              )}
 
-              {configura && (
+              {desenha && (
                 <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                   <button type="button" onClick={() => mudar(QUADRO_INTEIRO)} className="elo text-[13px]">
-                    Usar o quadro inteiro
+                    Cobrir a imagem inteira
                   </button>
                   <button
                     type="button"
@@ -868,7 +909,7 @@ export default function AreaDoCanal() {
               )}
 
               <Campo
-                rotulo="Largura real desta área, em cm"
+                rotulo={naInteira ? 'Largura real do que a câmera vê, em cm' : 'Largura real deste quadro, em cm'}
                 htmlFor="area-largura"
                 ajuda="É o que permite saber quantos pontos de imagem cabem em cada centímetro. Medir com fita é mais confiável que a conta pela lente, porque a lente de verdade distorce."
               >
@@ -878,29 +919,30 @@ export default function AreaDoCanal() {
                   min={1}
                   step={1}
                   value={larguraCm}
+                  disabled={!configura}
                   onChange={(e) => setLarguraCm(e.target.value)}
                   placeholder="meça com fita"
                   className="entrada font-mono"
                 />
               </Campo>
 
-              {recusado && problema && (
+              {recusado && problema && !naInteira && (
                 <Alerta tom="critico" papel="alert">
                   Não salvei. {problema}
                 </Alerta>
               )}
               {configura && (
                 <Botao variante="primario" onClick={salvar} ocupado={salvando} disabled={!zona}>
-                  {salvando ? 'Salvando…' : 'Salvar área'}
+                  {salvando ? 'Salvando…' : naInteira ? 'Salvar largura' : 'Salvar quadro'}
                 </Botao>
               )}
             </section>
 
             <section className={`${CARTAO} flex flex-col gap-3 p-4`}>
-              <Titulo>O que esta área sustenta</Titulo>
+              <Titulo>{naInteira ? 'O que a imagem completa sustenta' : 'O que este quadro sustenta'}</Titulo>
               <dl className="flex flex-col text-[13px] [&>div+div]:border-t [&>div+div]:border-farol-borda [&>div]:flex [&>div]:items-center [&>div]:justify-between [&>div]:gap-3 [&>div]:py-[7px]">
                 <div>
-                  <dt className="text-farol-suave">do quadro</dt>
+                  <dt className="text-farol-suave">da imagem</dt>
                   <dd className="font-mono text-[12.5px]">{(fracao * 100).toFixed(0)}%</dd>
                 </div>
                 {resolucao && (
@@ -925,7 +967,9 @@ export default function AreaDoCanal() {
               <p className={AJUDA}>
                 {pxPorCm.length > 0
                   ? 'Montagem item a item pede 12,8 pontos por cm; estado, 3; presença, 1,5.'
-                  : 'Informe a largura real da área para ver o que ela sustenta.'}
+                  : naInteira
+                    ? 'Informe a largura real do que a câmera vê para saber o que a imagem completa sustenta.'
+                    : 'Informe a largura real do quadro para ver o que ele sustenta.'}
               </p>
             </section>
 
@@ -1020,8 +1064,8 @@ export default function AreaDoCanal() {
 
       {excluindo && (
         <Dialogo
-          titulo={`Excluir a área “${excluindo.nome}”?`}
-          rotuloConfirmar="Excluir área"
+          titulo={`Excluir o ${rotuloDaArea(excluindo)}?`}
+          rotuloConfirmar="Excluir quadro"
           rotuloOcupado="Excluindo…"
           ocupado={excluindoAgora}
           erro={erroAoExcluir}
@@ -1038,9 +1082,9 @@ export default function AreaDoCanal() {
               desligado e fica em “Sem canal”.
             </p>
           ) : (
-            <p>Nenhum critério vale nesta área.</p>
+            <p>Nenhum critério vale neste quadro.</p>
           )}
-          <p>O que já foi registrado nela continua no histórico. As outras áreas deste canal não mudam.</p>
+          <p>O que já foi registrado nele continua no histórico. Os outros quadros são renumerados; a imagem completa não muda.</p>
         </Dialogo>
       )}
     </>

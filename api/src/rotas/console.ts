@@ -18,7 +18,13 @@
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
-import { lerCena, lerTipoDeNegocio } from '../cena.js';
+import {
+  lerCena,
+  lerTipoDeNegocio,
+  NOME_DA_IMAGEM_COMPLETA,
+  POLIGONO_DA_IMAGEM_COMPLETA,
+  SQL_NUMERO_DO_QUADRO,
+} from '../cena.js';
 import { lerHorario, situacaoAgora } from '../horario.js';
 import { exigirConfigurar, peloMenos } from '../rbac.js';
 import { acharCampoProibido } from './lojas.js';
@@ -145,17 +151,24 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
       `select st.id, st.nome, st.ordem,
               p.id as ponto_id, p.nome as ponto_nome, p.origem, p.fabricante,
               p.canal, p.host, p.porta, p.usuario, p.ativo, p.importancia,
+              -- A lista de canais diz, de cada um, se a cena ja foi escrita.
+              (btrim(p.cena) <> '') as tem_cena,
               -- as zonas vem junto: a tela de regras precisa saber ONDE a
               -- regra vai morar, e uma ida a mais ao servidor para isso
-              -- seria gasto a toa.
+              -- seria gasto a toa. A imagem completa (a principal) vem
+              -- primeiro; depois os quadros, cada um com o numero e o papel.
               coalesce(
                 (select jsonb_agg(jsonb_build_object(
-                                    'id', z.id, 'nome', z.nome,
-                                    -- A arvore de canais marca a AREA
-                                    -- PRINCIPAL quando se marca o canal.
-                                    'principal', z.principal)
-                                  order by z.principal desc, z.nome)
-                   from zona z where z.ponto_id = p.id and z.excluida_em is null),
+                                    'id', q.id, 'nome', q.nome,
+                                    -- Marcar o canal na arvore de criterios
+                                    -- e marcar a IMAGEM COMPLETA dele.
+                                    'principal', q.principal,
+                                    'papel', q.papel, 'numero', q.numero)
+                                  order by q.principal desc, q.numero)
+                   from (select z.id, z.nome, z.principal, z.papel,
+                                ${SQL_NUMERO_DO_QUADRO} as numero
+                           from zona z
+                          where z.ponto_id = p.id and z.excluida_em is null) q),
                 '[]'::jsonb) as zonas
          from setor st
          left join ponto p on p.setor_id = st.id and p.excluido_em is null
@@ -181,6 +194,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
           usuario: r.usuario,
           ativo: r.ativo,
           importancia: r.importancia,
+          tem_cena: r.tem_cena === true,
           zonas: r.zonas ?? [],
         });
       }
@@ -383,10 +397,11 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
       });
     }
 
-    // Ponto e zona nascem juntos, numa transacao so. Regra exige zona, e
-    // obrigar a desenhar um poligono antes de escrever o primeiro
-    // criterio travaria a instalacao por nada: o quadro inteiro ja e uma
-    // zona valida, e recortar vem depois, quando houver imagem para ver.
+    // O canal e a imagem completa dele nascem juntos, numa transacao so.
+    // Criterio exige uma area, e obrigar a marcar um quadro antes de
+    // escrever o primeiro criterio travaria a instalacao por nada: a imagem
+    // completa ja e onde moram os criterios gerais, e marcar quadro vem
+    // depois, quando houver imagem para ver.
     const cliente = await pool.connect();
     try {
       await cliente.query('begin');
@@ -408,18 +423,19 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
         return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'setor não encontrado' });
       }
       const z = await cliente.query(
-        // Nasce como o corte PRINCIPAL do canal. Na falta de desenho do
-        // usuário, o padrão do sistema é o quadro inteiro — o sistema não
-        // adivinha recorte, porque corte automático erraria calado,
-        // cortando justamente o que importa, e o veredito sairia confiante
-        // sobre o pedaço errado.
+        // A IMAGEM COMPLETA do canal: a área principal, sempre o canal
+        // inteiro (migration 034). O sistema não adivinha recorte — corte
+        // automático erraria calado, cortando justamente o que importa, e o
+        // veredito sairia confiante sobre o pedaço errado. Quem quer conferir
+        // só uma parte marca um quadro.
         `insert into zona (ponto_id, nome, poligono, principal)
-         values ($1, 'Quadro inteiro', '[[0,0],[1,0],[1,1],[0,1]]'::jsonb, true)
-         returning id, nome, poligono, principal`,
-        [rows[0].id],
+         values ($1, $2, $3::jsonb, true)
+         returning id, nome, poligono, principal, papel`,
+        [rows[0].id, NOME_DA_IMAGEM_COMPLETA, JSON.stringify(POLIGONO_DA_IMAGEM_COMPLETA)],
       );
       await cliente.query('commit');
-      return resposta.status(201).send({ ...rows[0], zonas: [z.rows[0]] });
+      // A imagem completa não é quadro: não tem número.
+      return resposta.status(201).send({ ...rows[0], tem_cena: false, zonas: [{ ...z.rows[0], numero: null }] });
     } catch (e) {
       await cliente.query('rollback').catch(() => {});
       throw e;

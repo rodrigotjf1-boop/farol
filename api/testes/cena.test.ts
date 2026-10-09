@@ -203,20 +203,20 @@ describe('a cena do canal e o papel do quadro (Postgres real)', { skip: !URL_DO_
 
   // ─────────────────────── nasce desligado ───────────────────────
 
-  it('canal novo desce sem cena, com o quadro inteiro sem número — e a chave desligada', async () => {
+  it('canal novo desce sem cena, com a imagem completa sem número — e a chave desligada', async () => {
     const c = await canalNovo('Balcão');
     const cfg = await configuracao();
     assert.equal(cfg.loja.tipoNegocio, '');
     assert.equal(cfg.loja.pedidoComContexto, false, 'a chave nasce desligada');
     const ponto = cfg.pontos.find((p) => p.id === c.pontoId)!;
     assert.equal(ponto.cena, '');
-    assert.deepEqual(ponto.zonas.map((z) => [z.nome, z.papel, z.numero]), [['Quadro inteiro', 'livre', null]]);
+    assert.deepEqual(ponto.zonas.map((z) => [z.nome, z.papel, z.numero]), [['Imagem completa', 'livre', null]]);
 
     const tela = await canal(c.pontoId);
     assert.equal(tela.ponto.cena, '');
     assert.equal(tela.ponto.cena_escrita_em, null);
     assert.equal(tela.ponto.cena_escrita_por_nome, null);
-    assert.deepEqual(tela.zonas.map((z) => [z.nome, z.papel, z.ordem, z.numero]), [['Quadro inteiro', 'livre', 0, null]]);
+    assert.deepEqual(tela.zonas.map((z) => [z.nome, z.papel, z.ordem, z.numero]), [['Imagem completa', 'livre', 0, null]]);
   });
 
   // ─────────────────────── o contrato ───────────────────────
@@ -259,33 +259,32 @@ describe('a cena do canal e o papel do quadro (Postgres real)', { skip: !URL_DO_
     }
     ids.Outro = (await criarZona(b.pontoId, { nome: 'Outro', poligono: RET(0.5, 0.5, 0.9, 0.9) })).json().id;
 
-    assert.deepEqual(await numeros(a.pontoId), { 'Quadro inteiro': null, Um: 1, Dois: 2, Três: 3 });
-    assert.deepEqual(await numeros(b.pontoId), { 'Quadro inteiro': null, Outro: 1 }, 'o segundo canal começa do 1');
+    assert.deepEqual(await numeros(a.pontoId), { 'Imagem completa': null, Um: 1, Dois: 2, Três: 3 });
+    assert.deepEqual(await numeros(b.pontoId), { 'Imagem completa': null, Outro: 1 }, 'o segundo canal começa do 1');
 
     // No que desce para o agente, o mesmo número — para os dois canais de uma vez.
     const cfg = await configuracao();
     const noAgente = (pontoId: string) => Object.fromEntries(cfg.pontos.find((p) => p.id === pontoId)!.zonas.map((z) => [z.nome, z.numero]));
-    assert.deepEqual(noAgente(a.pontoId), { 'Quadro inteiro': null, Um: 1, Dois: 2, Três: 3 });
-    assert.deepEqual(noAgente(b.pontoId), { 'Quadro inteiro': null, Outro: 1 });
+    assert.deepEqual(noAgente(a.pontoId), { 'Imagem completa': null, Um: 1, Dois: 2, Três: 3 });
+    assert.deepEqual(noAgente(b.pontoId), { 'Imagem completa': null, Outro: 1 });
 
     // Excluir um quadro renumera os que ficaram.
     assert.equal((await app.inject({ method: 'DELETE', url: `/v1/zonas/${ids.Dois}`, headers: { cookie } })).statusCode, 200);
-    assert.deepEqual(await numeros(a.pontoId), { 'Quadro inteiro': null, Um: 1, Três: 2 });
+    assert.deepEqual(await numeros(a.pontoId), { 'Imagem completa': null, Um: 1, Três: 2 });
 
     // A ordem manda; no empate, a data de criação.
     const r = await mudarZona(ids.Um!, { ordem: 5 });
     assert.equal(r.statusCode, 200, r.body);
     assert.equal(r.json().ordem, 5);
-    assert.deepEqual(await numeros(a.pontoId), { 'Quadro inteiro': null, Três: 1, Um: 2 });
+    assert.deepEqual(await numeros(a.pontoId), { 'Imagem completa': null, Três: 1, Um: 2 });
 
-    // "Quadro inteiro" redesenhado deixa de ser a imagem completa: vira quadro, e ganha número.
-    assert.equal((await mudarZona(a.inteira, { poligono: RET(0.2, 0.2, 0.8, 0.8) })).statusCode, 200);
-    assert.deepEqual(await numeros(a.pontoId), { 'Quadro inteiro': 1, Três: 2, Um: 3 }, 'criado antes dos outros: é o primeiro');
-    // E um quadro esticado até cobrir tudo passa a ser a imagem completa: sem número.
+    // A imagem completa não se redesenha: continua sem número, e os quadros com os deles.
+    assert.equal((await mudarZona(a.inteira, { poligono: RET(0.2, 0.2, 0.8, 0.8) })).statusCode, 409);
+    // E um quadro esticado até cobrir tudo continua sendo quadro: quem decide é ser a principal, não o desenho.
     assert.equal((await mudarZona(ids.Três!, { poligono: INTEIRO })).statusCode, 200);
-    assert.deepEqual(await numeros(a.pontoId), { 'Quadro inteiro': 1, Três: null, Um: 2 });
+    assert.deepEqual(await numeros(a.pontoId), { 'Imagem completa': null, Três: 1, Um: 2 });
 
-    assert.deepEqual(await numeros(b.pontoId), { 'Quadro inteiro': null, Outro: 1 }, 'nada disso mexeu no outro canal');
+    assert.deepEqual(await numeros(b.pontoId), { 'Imagem completa': null, Outro: 1 }, 'nada disso mexeu no outro canal');
   });
 
   // ─────────────────────── o papel ───────────────────────

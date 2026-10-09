@@ -355,7 +355,7 @@ export function GavetaDoCriterio({
             </p>
             <Alerta icone={Imagem}>
               Canal sem foto padrão não é conferido: o critério fica marcado com “falta a foto padrão” até ela existir.
-              A foto se guarda em Canais, na tela “Quadro e área” do canal.
+              A foto se guarda na tela do canal, em “Desenho, fotos e conexão”.
             </Alerta>
           </Grupo>
         )}
@@ -391,7 +391,7 @@ export function GavetaDoCriterio({
           <span className={ROTULO}>Onde vale</span>
           <p className="text-xs text-farol-suave">
             Marque o setor para valer em todos os canais dele, ou abra o setor e marque só os canais que quiser.
-            Canal com mais de uma área: marque a área em que o critério vale.
+            Canal com quadros: marque onde o critério vale — na imagem completa ou num quadro.
           </p>
           <ArvoreDeCanais setores={setores} marcadas={marcadas} aoMudar={setMarcadas} prefixo={p} />
           {editando && canais === 0 && (

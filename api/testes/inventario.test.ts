@@ -144,7 +144,7 @@ describe('inventário de equipamentos (Postgres real)', { skip: !URL_DO_BANCO &&
     assert.equal(ativar.statusCode, 200, ativar.body);
     return a.token as string;
   }
-  /** Um canal novo, ainda sem quadro, com a área "Quadro inteiro". */
+  /** Um canal novo, ainda sem imagem capturada, com a imagem completa dele. */
   async function canalNovo(nome: string) {
     canais += 1;
     const r = await app.inject({
@@ -338,9 +338,12 @@ describe('inventário de equipamentos (Postgres real)', { skip: !URL_DO_BANCO &&
 
   // ───────────────────────── as fotos ─────────────────────────
 
-  it('a foto do canal é uma CÓPIA do quadro, com o desenho da área daquele instante', async () => {
+  it('a foto do canal é uma CÓPIA da imagem, com o desenho do quadro daquele instante', async () => {
     const c = await canalNovo('Chapa 1');
     const i = await novo('Chapa da esquerda', { tipo: 'chapa' });
+    // O desenho é de um QUADRO do canal: a imagem completa não se redesenha.
+    const quadro = (await app.inject({ method: 'POST', url: `/v1/pontos/${c.id}/zonas`, headers: { cookie }, payload: { nome: 'A chapa' } })).json().id as string;
+    c.zona = quadro;
 
     const semQuadro = await doCanal(i.id, c.zona);
     assert.equal(semQuadro.statusCode, 409, semQuadro.body);
@@ -461,7 +464,7 @@ describe('inventário de equipamentos (Postgres real)', { skip: !URL_DO_BANCO &&
     assert.equal(item?.aparece.length, 1, 'duas fotos do mesmo lugar são UM lugar');
     assert.deepEqual(
       { ponto: item?.aparece[0]?.pontoId, nome: item?.aparece[0]?.pontoNome, zona: item?.aparece[0]?.zonaId, zonaNome: item?.aparece[0]?.zonaNome, varias: item?.aparece[0]?.variasAreas, padrao: item?.aparece[0]?.fotosPadrao },
-      { ponto: c.id, nome: 'Montagem', zona: c.zona, zonaNome: 'Quadro inteiro', varias: false, padrao: 0 },
+      { ponto: c.id, nome: 'Montagem', zona: c.zona, zonaNome: 'Imagem completa', varias: false, padrao: 0 },
     );
     assert.equal(item?.comparaNaLoja, false, 'sem foto padrão no canal, comparação não é julgada na loja');
 
@@ -469,17 +472,17 @@ describe('inventário de equipamentos (Postgres real)', { skip: !URL_DO_BANCO &&
     item = await naLista(i.id);
     assert.deepEqual([item?.aparece[0]?.fotosPadrao, item?.comparaNaLoja], [1, true]);
 
-    // mais uma área no canal: o lugar passa a dizer que o canal tem várias
+    // um quadro no canal: o lugar passa a dizer que o canal tem mais de uma área
     const segunda = await app.inject({ method: 'POST', url: `/v1/pontos/${c.id}/zonas`, headers: { cookie }, payload: { nome: 'Pia ao lado' } });
     assert.equal(segunda.statusCode, 201, segunda.body);
     await doCanal(i.id, segunda.json().id);
     item = await naLista(i.id);
-    assert.deepEqual(item?.aparece.map((l) => [l.zonaNome, l.variasAreas]), [['Pia ao lado', true], ['Quadro inteiro', true]]);
+    assert.deepEqual(item?.aparece.map((l) => [l.zonaNome, l.variasAreas]), [['Imagem completa', true], ['Pia ao lado', true]]);
 
-    // área excluída: o equipamento deixa de aparecer nela, e as fotos ficam
+    // quadro excluído: o equipamento deixa de aparecer nele, e as fotos ficam
     assert.equal((await app.inject({ method: 'DELETE', url: `/v1/zonas/${segunda.json().id}`, headers: { cookie } })).statusCode, 200);
     item = await naLista(i.id);
-    assert.deepEqual(item?.aparece.map((l) => l.zonaNome), ['Quadro inteiro']);
+    assert.deepEqual(item?.aparece.map((l) => l.zonaNome), ['Imagem completa']);
     assert.equal(item?.fotos.length, 4);
   });
 

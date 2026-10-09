@@ -713,7 +713,7 @@ export function rotasDeInventario(app: FastifyInstance, pool: pg.Pool): void {
           await cliente.query('rollback');
           return resposta.status(409).send({
             erro: 'sem_quadro',
-            mensagem: 'este canal ainda não tem quadro. Abra “Quadro e área” do canal, atualize o quadro e volte aqui.',
+            mensagem: 'este canal ainda não tem imagem. Abra o canal, use “Atualizar quadro” e volte aqui.',
           });
         }
         // O quadro é copiado DENTRO do banco, com o desenho da área como

@@ -717,7 +717,7 @@ export function montarPadroes(e: Entrada): Padroes {
     if (cheia === null || vazia === null) continue;
     const forca = forcaDe(cheia, vazia);
     const nome = `“${st.regraNome}”${(variasZonas.get(st.regraId) ?? 1) > 1 ? ` em ${t.onde}` : ''}`;
-    // a frase só manda olhar a sugestão de marcar a área quando essa sugestão existe (a mesma condição dela)
+    // a frase só manda olhar a sugestão de marcar um quadro quando essa sugestão existe (a mesma condição dela)
     const haSugestaoDeArea = !DO_DETECTOR.has(st.tipo) && !st.areaDesenhada && (juntar('na', cs) ?? 0) >= 50;
     relacoesDoPico.push({
       baixa: cheia, alta: vazia, setorId: t.setorId,
@@ -738,7 +738,7 @@ export function montarPadroes(e: Entrada): Padroes {
         forca !== 'nenhuma'
           ? `${plural(noPico.length, 'hora', 'horas')} no pico · ${foraDele.length} fora dele`
           : haSugestaoDeArea
-            ? 'Quando a taxa não muda com a hora, o problema é o que a câmera mostra — veja a sugestão de marcar a área.'
+            ? 'Quando a taxa não muda com a hora, o problema é o que a câmera mostra — veja a sugestão de marcar um quadro.'
             : 'Quando a taxa não muda com a hora, o problema é o que a câmera mostra, e não o movimento.',
     });
   }
@@ -1068,13 +1068,13 @@ export function montarPadroes(e: Entrada): Padroes {
     const leTexto = !DO_DETECTOR.has(s.tipo);
     if (leTexto && na >= 50 && !s.areaDesenhada && uma(`area|${s.pontoId}`)) {
       sugestoes.push({
-        setorId: s.setorId, icone: 'area', titulo: `Marque a área em ${s.pontoNome}`,
+        setorId: s.setorId, icone: 'area', titulo: `Marque um quadro em ${s.pontoNome}`,
         texto: [
           `“${s.regraNome}” não consegue avaliar em `, { forte: `${porcento(na)} das olhadas` }, ' neste canal.',
           ...(semResposta >= 1 ? [` Em ${nDias}, `, { forte: dinheiro(semResposta) }, ' foram gastos em perguntas que voltaram sem resposta.'] : []),
-          ' A pergunta é feita sobre o quadro inteiro; com a área marcada, a imagem que sobe é só o que importa.',
+          ' A pergunta é feita sobre a imagem completa; com o critério num quadro marcado, a imagem que sobe é só o que importa.',
         ],
-        acao: { tipo: 'area', rotulo: 'Abrir quadro e área', pontoId: s.pontoId },
+        acao: { tipo: 'area', rotulo: 'Abrir o canal', pontoId: s.pontoId },
       });
     } else if ((s.tipo === 'estado' || s.tipo === 'acao') && s.porteiro === 'sempre' && na >= 30 && uma(`pessoa|${s.regraId}`)) {
       sugestoes.push({

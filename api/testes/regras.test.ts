@@ -101,10 +101,10 @@ describe('regras (Postgres real)', { skip: !URL && 'sem DATABASE_URL' }, () => {
     criterio: 'A superfície está livre de restos e utensílios sujos.',
   };
 
-  // ───────────── o ponto nasce com zona, senão nada funciona ─────────
+  // ───────────── o canal nasce com a imagem completa, senão nada funciona ─────────
 
-  it('o ponto nasce com a zona "Quadro inteiro"', async () => {
-    // Obrigar a desenhar polígono antes do primeiro critério travaria a
+  it('o canal nasce com a imagem completa', async () => {
+    // Obrigar a marcar um quadro antes do primeiro critério travaria a
     // instalação por nada.
     assert.ok(zonaId, 'a zona tinha que vir junto com o ponto');
   });

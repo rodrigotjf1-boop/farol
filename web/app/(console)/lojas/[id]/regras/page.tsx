@@ -18,6 +18,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useConsole } from '@/componentes/console';
+import { naArea, rotuloDaArea } from '@/componentes/canal/quadros';
 import { areaDoCanal, rotuloDoCanal, temVariasAreas } from '@/componentes/criterios/canais';
 import { Explorador, type Filtro } from '@/componentes/criterios/explorador';
 import { GavetaDoCriterio } from '@/componentes/criterios/formulario-criterio';
@@ -155,16 +156,16 @@ export default function Criterios() {
   const canaisDoExcluido = excluindo ? [...new Map(excluindo.alvos.map((a) => [a.ponto_id, a])).values()] : [];
   /** Onde o critério continua valendo se for tirado deste canal. */
   const outrosCanais = tirando ? tirando.regra.alvos.filter((a) => a.zona_id !== tirando.zonaId) : [];
-  /** A área de onde ele sai — só tem nome próprio no canal com mais de uma. */
-  const areaDeOndeSai =
-    tirando && temVariasAreas(tirando.ponto)
-      ? (tirando.ponto.zonas.find((z) => z.id === tirando.zonaId)?.nome ?? null)
-      : null;
-  /** Em palavras: "Canal 1 · Balcão, na área “Lado do cliente”". */
-  const lugar = (a: { ponto_id: string; ponto_nome: string; canal: number | null; zona_nome: string }) => {
+  /** O lugar de onde ele sai — a imagem completa ou um quadro —, só no canal que tem quadros. */
+  const deOndeSai =
+    tirando && temVariasAreas(tirando.ponto) ? (tirando.ponto.zonas.find((z) => z.id === tirando.zonaId) ?? null) : null;
+  /** Em palavras: "Canal 1 · Balcão (Quadro 1 · Lado do cliente)". */
+  const lugar = (a: { ponto_id: string; ponto_nome: string; canal: number | null; zona_id: string; zona_nome: string }) => {
     const ponto = setores.flatMap((s) => s.pontos).find((p) => p.id === a.ponto_id);
     const canal = rotuloDoCanal({ nome: a.ponto_nome, canal: a.canal });
-    return ponto && temVariasAreas(ponto) ? `${canal} (${a.zona_nome})` : canal;
+    if (!ponto || !temVariasAreas(ponto)) return canal;
+    const zona = ponto.zonas.find((z) => z.id === a.zona_id);
+    return `${canal} (${zona ? rotuloDaArea(zona) : a.zona_nome})`;
   };
 
   return (
@@ -248,7 +249,8 @@ export default function Criterios() {
           configura={configura}
           aoAdicionar={(ponto, zonaId) => {
             // "+ critério" abre o formulário de novo critério com aquele lugar
-            // já marcado: a área em que se clicou, ou o canal de uma área só.
+            // já marcado: o quadro (ou a imagem completa) em que se clicou, ou o
+            // canal sem quadros.
             const area = zonaId ?? areaDoCanal(ponto);
             abrir({ marcadas: area ? [area] : [] });
           }}
@@ -328,8 +330,8 @@ export default function Criterios() {
 
       {tirando && (
         <Dialogo
-          titulo={`Tirar “${tirando.regra.nome}” ${areaDeOndeSai ? 'desta área' : 'deste canal'}?`}
-          rotuloConfirmar={areaDeOndeSai ? 'Tirar da área' : 'Tirar do canal'}
+          titulo={`Tirar “${tirando.regra.nome}” ${!deOndeSai ? 'deste canal' : deOndeSai.principal ? 'da imagem completa' : 'deste quadro'}?`}
+          rotuloConfirmar={!deOndeSai ? 'Tirar do canal' : deOndeSai.principal ? 'Tirar da imagem completa' : 'Tirar do quadro'}
           rotuloOcupado="Tirando…"
           ocupado={tirandoAgora}
           erro={erroAoTirar}
@@ -340,7 +342,7 @@ export default function Criterios() {
             A análise deste critério <strong>deixará de ser verificada</strong> em{' '}
             <strong>
               {rotuloDoCanal(tirando.ponto)}
-              {areaDeOndeSai ? `, na área “${areaDeOndeSai}”` : ''}
+              {deOndeSai ? `, ${naArea(deOndeSai)}` : ''}
             </strong>
             .
           </p>

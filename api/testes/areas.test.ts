@@ -1,16 +1,17 @@
-// Mais de uma área por canal — criar, excluir e o que cada uma carrega.
+// Os quadros do canal — criar, excluir e o que cada um carrega.
 //
 // A mesma câmera do caixa confere PRESENÇA dentro do balcão e FILA do lado
-// do cliente: duas áreas, cada uma com os seus critérios. O que tem de
-// ficar provado:
+// do cliente: dois quadros, cada um com os seus critérios, ao lado da
+// imagem completa do canal (que é fixa: ver imagem-completa.test.ts). O que
+// tem de ficar provado:
 //
-//   - o critério posto numa área só vale nela — no console e no que desce
+//   - o critério posto num quadro só vale nele — no console e no que desce
 //     para o agente;
-//   - excluir a área tira os critérios dela DESTE canal, desliga o que
+//   - excluir o quadro tira os critérios dele DESTE canal, desliga o que
 //     ficou sem lugar e deixa o histórico inteiro;
-//   - o canal nunca fica sem área, e nunca com duas principais;
-//   - só quem configura cria, edita e exclui; outra conta nem sabe que a
-//     área existe.
+//   - o canal nunca fica sem a imagem completa;
+//   - só quem configura cria, edita e exclui; outra conta nem sabe que o
+//     quadro existe.
 
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -29,7 +30,7 @@ const RET = (x1: number, y1: number, x2: number, y2: number) => [[x1, y1], [x2, 
 
 type Area = { id: string; nome: string; principal: boolean; poligono: number[][]; criterios: { id: string; nome: string }[] };
 
-describe('áreas do canal (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABASE_URL' }, () => {
+describe('os quadros do canal (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABASE_URL' }, () => {
   let pool: pg.Pool;
   let app: FastifyInstance;
   let adminAntes: string | undefined;
@@ -50,7 +51,7 @@ describe('áreas do canal (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
     return (Array.isArray(b) ? b[0]! : String(b)).split(';')[0]!;
   }
 
-  /** Um canal novo, com a área "Quadro inteiro" que todo canal ganha. */
+  /** Um canal novo, com a imagem completa que todo canal ganha. */
   async function canalNovo(nome: string) {
     const r = await app.inject({
       method: 'POST', url: `/v1/setores/${setorId}/pontos`, headers: { cookie },
@@ -134,7 +135,7 @@ describe('áreas do canal (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
 
   // ───────────────────────────── criar ─────────────────────────────
 
-  it('a área nova entra no canal, sem tomar o lugar da principal', async () => {
+  it('o quadro novo entra no canal, sem tomar o lugar da imagem completa', async () => {
     const c = await canalNovo('Balcão');
     const versaoAntes = (await pool.query(`select config_versao from loja where id = $1`, [lojaId])).rows[0].config_versao;
 
@@ -145,7 +146,7 @@ describe('áreas do canal (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
     assert.deepEqual(r.json().criterios, []);
 
     const areas = await areasDe(c.pontoId);
-    assert.deepEqual(areas.map((a) => [a.nome, a.principal]), [['Quadro inteiro', true], ['Lado do cliente', false]]);
+    assert.deepEqual(areas.map((a) => [a.nome, a.principal]), [['Imagem completa', true], ['Lado do cliente', false]]);
 
     // A árvore de canais do console também passa a ver as duas.
     const arvore = (await app.inject({ method: 'GET', url: `/v1/lojas/${lojaId}`, headers: { cookie } })).json();
@@ -154,43 +155,35 @@ describe('áreas do canal (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
 
     // E o agente é avisado: sem subir a versão ele não puxa a área nova.
     const versaoDepois = (await pool.query(`select config_versao from loja where id = $1`, [lojaId])).rows[0].config_versao;
-    assert.ok(versaoDepois > versaoAntes, 'criar área não subiu a versão da configuração');
+    assert.ok(versaoDepois > versaoAntes, 'criar quadro não subiu a versão da configuração');
   });
 
-  it('sem desenho, a área nasce no meio do quadro', async () => {
+  it('sem desenho, o quadro nasce no meio da imagem', async () => {
     const c = await canalNovo('Sem desenho');
     const r = await criarArea(c.pontoId, { nome: 'Nova' });
     assert.equal(r.statusCode, 201, r.body);
     assert.deepEqual(r.json().poligono, RET(0.3, 0.3, 0.7, 0.7));
   });
 
-  it('recusa o que não é área: sem nome, nome repetido, polígono torto', async () => {
+  it('recusa o que não é quadro: sem nome, nome repetido, polígono torto', async () => {
     const c = await canalNovo('Recusas');
     assert.equal((await criarArea(c.pontoId, {})).statusCode, 422);
     assert.equal((await criarArea(c.pontoId, { nome: '   ' })).statusCode, 422);
     assert.equal((await criarArea(c.pontoId, { nome: 'x'.repeat(61) })).statusCode, 422);
     assert.equal((await criarArea(c.pontoId, { nome: 'Torta', poligono: [[0, 0], [2, 2]] })).statusCode, 422);
 
-    // "Quadro inteiro" já existe neste canal — e maiúscula não faz outro nome.
-    const repetida = await criarArea(c.pontoId, { nome: 'QUADRO INTEIRO' });
+    assert.equal((await areasDe(c.pontoId)).length, 1, 'nada foi criado: só a imagem completa');
+
+    // O nome é único no canal — e maiúscula não faz outro nome.
+    assert.equal((await criarArea(c.pontoId, { nome: 'Lado do cliente' })).statusCode, 201);
+    const repetida = await criarArea(c.pontoId, { nome: 'LADO DO CLIENTE' });
     assert.equal(repetida.statusCode, 409, repetida.body);
-    assert.equal(repetida.json().erro, 'nome_repetido');
-    assert.equal((await areasDe(c.pontoId)).length, 1, 'nada foi criado');
+    assert.deepEqual([repetida.json().erro, repetida.json().mensagem], ['nome_repetido', 'já existe um quadro com esse nome neste canal']);
+    assert.equal((await areasDe(c.pontoId)).length, 2, 'o repetido não nasceu');
 
     // O mesmo nome em OUTRO canal pode.
     const outro = await canalNovo('Outro canal');
     assert.equal((await criarArea(outro.pontoId, { nome: 'Lado do cliente' })).statusCode, 201);
-    assert.equal((await criarArea(c.pontoId, { nome: 'Lado do cliente' })).statusCode, 201);
-  });
-
-  it('um canal tem no máximo oito áreas', async () => {
-    const c = await canalNovo('Cheio');
-    for (let i = 2; i <= 8; i += 1) {
-      assert.equal((await criarArea(c.pontoId, { nome: `Área ${i}` })).statusCode, 201);
-    }
-    const nona = await criarArea(c.pontoId, { nome: 'Área 9' });
-    assert.equal(nona.statusCode, 409, nona.body);
-    assert.equal(nona.json().erro, 'areas_demais');
   });
 
   it('só quem configura cria, edita e exclui; outra conta nem sabe que existe', async () => {
@@ -202,7 +195,7 @@ describe('áreas do canal (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
     const edita = await app.inject({
       method: 'PATCH', url: `/v1/zonas/${nova}`, headers: { cookie: cookieSupervisao }, payload: { nome: 'Mudei' },
     });
-    assert.equal(edita.statusCode, 403, 'supervisão acompanha a operação, não redesenha a área');
+    assert.equal(edita.statusCode, 403, 'supervisão acompanha a operação, não redesenha o quadro');
 
     assert.equal((await criarArea(c.pontoId, { nome: 'Do vizinho' }, cookieVizinho)).statusCode, 404);
     assert.equal((await excluirArea(nova, cookieVizinho)).statusCode, 404);
@@ -210,35 +203,40 @@ describe('áreas do canal (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
     assert.equal((await app.inject({ method: 'POST', url: `/v1/pontos/${c.pontoId}/zonas`, payload: { nome: 'x' } })).statusCode, 401);
     assert.equal((await app.inject({ method: 'DELETE', url: `/v1/zonas/${nova}` })).statusCode, 401);
 
-    assert.deepEqual((await areasDe(c.pontoId)).map((a) => a.nome), ['Quadro inteiro', 'Minha'], 'ninguém mexeu');
+    assert.deepEqual((await areasDe(c.pontoId)).map((a) => a.nome), ['Imagem completa', 'Minha'], 'ninguém mexeu');
   });
 
   it('renomear para um nome que já existe no canal é recusado', async () => {
     const c = await canalNovo('Renomear');
+    assert.equal((await criarArea(c.pontoId, { nome: 'Dentro do balcão' })).statusCode, 201);
     const nova = (await criarArea(c.pontoId, { nome: 'Lado do cliente' })).json().id as string;
     const r = await app.inject({
-      method: 'PATCH', url: `/v1/zonas/${nova}`, headers: { cookie }, payload: { nome: 'quadro inteiro' },
+      method: 'PATCH', url: `/v1/zonas/${nova}`, headers: { cookie }, payload: { nome: 'dentro do BALCÃO' },
     });
     assert.equal(r.statusCode, 409, r.body);
-    assert.equal((await areasDe(c.pontoId))[1]!.nome, 'Lado do cliente');
+    assert.equal(r.json().erro, 'nome_repetido');
+    assert.deepEqual((await areasDe(c.pontoId)).map((a) => a.nome), ['Imagem completa', 'Dentro do balcão', 'Lado do cliente']);
   });
 
-  // ─────────────────────── o critério é da área ───────────────────────
+  // ─────────────────────── o critério é do quadro ───────────────────────
 
-  it('critério posto numa área só vale nela — no console e no agente', async () => {
+  it('critério posto num quadro só vale nele — no console e no agente', async () => {
     const c = await canalNovo('Caixa principal');
-    await app.inject({ method: 'PATCH', url: `/v1/zonas/${c.inteira}`, headers: { cookie }, payload: { nome: 'Dentro do balcão' } });
-    const cliente = (await criarArea(c.pontoId, { nome: 'Lado do cliente' })).json().id as string;
+    const dentro = (await criarArea(c.pontoId, { nome: 'Dentro do balcão', poligono: RET(0.05, 0.1, 0.5, 0.9) })).json().id as string;
+    const cliente = (await criarArea(c.pontoId, { nome: 'Lado do cliente', poligono: RET(0.55, 0.1, 0.95, 0.9) })).json().id as string;
 
-    await criterio('Alguém no balcão', [c.inteira]);
+    await criterio('Loja com movimento', [c.inteira]);
+    await criterio('Alguém no balcão', [dentro]);
     await criterio('Fila no balcão', [cliente]);
 
     const areas = await areasDe(c.pontoId);
     assert.deepEqual(
       areas.map((a) => [a.nome, a.criterios.map((k) => k.nome)]),
-      [['Dentro do balcão', ['Alguém no balcão']], ['Lado do cliente', ['Fila no balcão']]],
+      [['Imagem completa', ['Loja com movimento']], ['Dentro do balcão', ['Alguém no balcão']], ['Lado do cliente', ['Fila no balcão']]],
+      'o critério geral fica na imagem completa; cada quadro, com os seus',
     );
     assert.deepEqual(await noAgente(c.pontoId), {
+      'Imagem completa': ['Loja com movimento'],
       'Dentro do balcão': ['Alguém no balcão'],
       'Lado do cliente': ['Fila no balcão'],
     });
@@ -275,7 +273,7 @@ describe('áreas do canal (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
 
   // ───────────────────────────── excluir ─────────────────────────────
 
-  it('excluir a área tira os critérios dela deste canal, desliga o órfão e guarda o histórico', async () => {
+  it('excluir o quadro tira os critérios dele deste canal, desliga o órfão e guarda o histórico', async () => {
     const c = await canalNovo('Excluir');
     const cliente = (await criarArea(c.pontoId, { nome: 'Lado do cliente' })).json().id as string;
     const soAqui = await criterio('Fila só aqui', [cliente]);
@@ -300,8 +298,8 @@ describe('áreas do canal (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
     assert.deepEqual(r.json().criteriosDesligados, ['Fila só aqui'], 'só o que ficou sem lugar é desligado');
 
     // some da tela, do agente e da árvore
-    assert.deepEqual((await areasDe(c.pontoId)).map((a) => a.nome), ['Quadro inteiro']);
-    assert.deepEqual(await noAgente(c.pontoId), { 'Quadro inteiro': ['Vale nas duas'] });
+    assert.deepEqual((await areasDe(c.pontoId)).map((a) => a.nome), ['Imagem completa']);
+    assert.deepEqual(await noAgente(c.pontoId), { 'Imagem completa': ['Vale nas duas'] });
 
     // o critério que valia nas duas continua ligado na que sobrou
     const regras = (await app.inject({ method: 'GET', url: `/v1/lojas/${lojaId}/regras`, headers: { cookie } })).json().regras as
@@ -320,7 +318,7 @@ describe('áreas do canal (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
     assert.deepEqual(h.rows, [{ conformes: 7, nao_conformes: 3 }], 'o que a área registrou sumiu');
   });
 
-  it('o nome da área excluída fica livre, e ela não aceita mais nada', async () => {
+  it('o nome do quadro excluído fica livre, e ele não aceita mais nada', async () => {
     const c = await canalNovo('Depois de excluir');
     const cliente = (await criarArea(c.pontoId, { nome: 'Lado do cliente' })).json().id as string;
     assert.equal((await excluirArea(cliente)).statusCode, 200);
@@ -337,27 +335,18 @@ describe('áreas do canal (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
     assert.equal((await criarArea(c.pontoId, { nome: 'Lado do cliente' })).statusCode, 201);
   });
 
-  it('o canal nunca fica sem área', async () => {
+  it('excluídos todos os quadros, o canal continua com a imagem completa — e só ela', async () => {
     const c = await canalNovo('Última');
-    const r = await excluirArea(c.inteira);
-    assert.equal(r.statusCode, 409, r.body);
-    assert.equal(r.json().erro, 'ultima_area');
-    assert.equal((await areasDe(c.pontoId)).length, 1);
-  });
-
-  it('excluída a principal, a mais antiga que sobrou assume — e só ela', async () => {
-    const c = await canalNovo('Principal');
     const b = (await criarArea(c.pontoId, { nome: 'B' })).json().id as string;
-    await criarArea(c.pontoId, { nome: 'C' });
-
-    assert.equal((await excluirArea(c.inteira)).statusCode, 200);
+    const d = (await criarArea(c.pontoId, { nome: 'D' })).json().id as string;
+    assert.equal((await excluirArea(b)).statusCode, 200);
+    assert.equal((await excluirArea(d)).statusCode, 200);
 
     const areas = await areasDe(c.pontoId);
-    assert.deepEqual(areas.map((a) => [a.nome, a.principal]), [['B', true], ['C', false]]);
-    assert.equal(areas[0]!.id, b);
+    assert.deepEqual(areas.map((a) => [a.id, a.nome, a.principal]), [[c.inteira, 'Imagem completa', true]]);
     const principais = await pool.query(
       `select count(*)::int as n from zona where ponto_id = $1 and principal`, [c.pontoId],
     );
-    assert.equal(principais.rows[0].n, 1, 'o canal tem um corte principal, nem zero nem dois');
+    assert.equal(principais.rows[0].n, 1, 'o canal tem uma imagem completa, nem zero nem duas');
   });
 });
