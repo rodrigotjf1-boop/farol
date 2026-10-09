@@ -41,6 +41,12 @@ copiada e não está neste repositório.
 5. As regiões estavam escritas à mão para o enquadramento de 08/10. No produto elas são os
    quadros do canal, com papel (cuba, posição, impressora).
 
+**Lido depois, no estudo de um lote** ([estudo-do-lote-de-montagem.md](estudo-do-lote-de-montagem.md)):
+os "19 de 73" têm explicação. A montagem é por ingrediente, em lote — a carne vem numa
+cuba para cima da bancada, o queijo num maço na mão, o molho numa bisnaga —, e uma ida às
+cubas serve várias posições. Ligar cada item posto à última ida não é a régua certa; a
+régua é a fase.
+
 ## O que NÃO é
 
 Não é acerto medido: não houve contagem humana para comparar. Os limiares não foram

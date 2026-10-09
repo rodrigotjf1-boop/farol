@@ -3165,8 +3165,40 @@ Três regras, cada uma com teste:
 O contexto custa quase nada: o mapa (640×360) são 299 unidades de imagem e a cena, umas
 200 de texto — em cache, menos de R$ 0,0001 por pedido no Haiku 5.5. Um recorte na
 resolução da câmera sai por ≈ R$ 0,001; a sequência de seis, por ≈ R$ 0,004. Hoje cada
-tira de 640×155 custa R$ 0,012 e vai sem contexto. (Conta sobre a tabela oficial; o
-acerto do modelo novo ainda não foi medido.)
+tira de 640×155 custa R$ 0,012 e vai sem contexto. (Conta sobre a tabela oficial.)
+
+**Medido na noite de 08/10 — o teste lado a lado.** Autorizado pelo dono ("pode", teto de
+R$ 5,00; gasto: R$ 2,91). A mesma cena de três maneiras, em 40 momentos da gravação do
+canal 4, com gabarito meu e provisório — o registro inteiro está em
+[teste-contexto-na-nuvem.md](teste-contexto-na-nuvem.md):
+
+| maneira · modelo | achou, dos 89 alimentos à vista | inventou | momentos sem erro | custo | tempo |
+|---|---|---|---|---|---|
+| hoje (640×155, o pedido de hoje) · Haiku 4.5 | 58% | 17 | 4 de 40 | 1,20 centavo | 2,0 s |
+| só a imagem maior · Haiku 4.5 | 58% | 16 | 4 de 40 | 1,56 centavo | 2,2 s |
+| cena + mapa + recorte + lista · Haiku 4.5 | 66% | 25 | 8 de 40 | 2,45 centavos | 3,8 s |
+| **cena + mapa + recorte + lista · Haiku 5.5** | **79%** | **15** | **17 de 40** | **0,14 centavo** | **1,7 s** |
+| cena + mapa + recorte + lista · Sonnet 5.5 (em 14 momentos) | 79% | 0 | 8 de 14 | 5,45 centavos | 6,3 s |
+
+O que o teste fixa no plano:
+
+1. **Mais pixels sem contexto não compram nada** (58% → 58%, 30% mais caro). O recorte na
+   resolução da câmera só vai junto com a cena e com a pergunta em lista.
+2. **O Haiku 5.5 é o modelo da leitura de rotina:** com o contexto, acha mais, inventa
+   menos, responde a todos, é mais rápido e custa 8 vezes menos que a análise de hoje. O
+   cache funcionou nele (39 de 40 chamadas leram o trecho fixo); no Haiku 4.5 **nunca**
+   entra — o trecho fixo fica abaixo do mínimo daquele modelo.
+3. **O Sonnet 5.5 não inventou nada**, mas custa 39 vezes mais: desempate e conferência por
+   amostragem, nunca rotina.
+4. **Um quadro só não basta para avisar.** O melhor ficou em 79%; ninguém vê bem o molho, e
+   a carne clara se confunde com o pão. É a confirmação medida de que a leitura acompanha a
+   montagem (frente C) e de que nenhum aviso sai antes do banco de provas.
+5. **A reconsulta ao modelo forte nunca funcionou** — o Sonnet 5.5 recusa a forma de
+   chamada que o agente usava, e o erro levava junto a resposta do modelo barato; o botão
+   "Analisar as fotos e descrever" tinha o mesmo defeito. Corrigido no PR #69.
+6. **O borrão de rosto atrapalha o quadro de bancada:** apagou pão em 12 dos 40 momentos e
+   não pega a cabeça vista de cima. Na bancada o quadro que sobe é o de "as mãos saíram", e
+   quem aparece é apagado pelo contorno — entra na onda 1.
 
 **A sequência.** Ao disparar, o agente busca no gravador os segundos anteriores (medido:
 disponível 8 s depois) e junta o agora. Manda **6 quadros numa grade 3×2**, recorte na
@@ -3239,6 +3271,31 @@ ingrediente pela foto".**
 As três concordam: camada confirmada. Discordam: "duvidosa" — vai, depois, para a nuvem
 com a sequência, e vira exemplo. Nunca vira aviso sozinha.
 
+**Depois do estudo do lote (08/10, 21h42) — o que mudou neste desenho.** Um lote inteiro
+foi lido da gravação, de 2 em 2 segundos, e escrito passo a passo em
+[estudo-do-lote-de-montagem.md](estudo-do-lote-de-montagem.md). Cinco lanches em 4 min 30 s.
+Quatro coisas que o desenho acima não sabia:
+
+- **A montagem é por ingrediente, em lote** — todos os pães, todas as carnes, todo o molho,
+  toda a alface, todo o queijo —, e cada fase (de 8 a 34 s) tem um objeto que a denuncia: a
+  cuba das carnes e o pegador, a bisnaga, o maço de queijo, o sachê, o papel de embrulho.
+  A prova 1 passa a valer como **"em que fase estamos"**: a ida à cuba é um sinal, o objeto
+  na mão é o outro.
+- **Uma leitura por fase, quando as mãos saem.** No fim de cada fase a camada que entrou
+  está por cima em todas as posições, sem mão na frente: três a cinco quadros contam o lote
+  inteiro. A foto final sozinha não serve — mostra o queijo e a alface e esconde a carne e
+  o molho.
+- **A unidade da leitura é o disco.** A folha (ou a caixa) continua sendo a posição; dentro
+  dela o lanche fica aberto em dois ou três discos — a tampa do pão e um disco por carne —
+  e é em cada disco que as camadas se empilham. O número de discos já diz o tamanho do
+  lanche, e o produto tem **assinatura**: quantos discos, a cor da carne, a cor do molho,
+  se tem queijo e alface.
+- **A conferência com o KDS começa pela conta do lote.** As embalagens são marcadas à
+  caneta e nenhuma comanda apareceu no recorte: não há nada legível por máquina ligando o
+  lanche ao pedido. O que já dá para conferir é "o KDS tinha em preparo quatro deste e um
+  daquele; a bancada fez quatro deste e um daquele" — e, em cada disco, "toda carne levou
+  queijo".
+
 **O passo a passo:**
 
 1. **Cadastro, uma vez por bancada:** os quadros (cubas com o ingrediente de cada uma,
@@ -3250,14 +3307,19 @@ com a sequência, e vira exemplo. Nunca vira aviso sozinha.
    alumínio ou dentro da caixa. A folha (ou a caixa) que aparece na bancada **abre uma
    posição**; o que entra em cima é camada dela; quando sai inteira, fechou. **Cada
    posição que fecha é um lanche montado** — a contagem de produção que o critério
-   "Produto" pedia.
+   "Produto" pedia. Dentro da posição o lanche fica **aberto em discos** (a tampa do pão
+   e um disco por carne), e as camadas se empilham em cada disco. O fechamento se vê de
+   dois jeitos: a tampa da caixa fecha e o lanche fecha junto; ou os discos são
+   empilhados, a tampa é virada por cima e o lanche é embrulhado.
 5. **"Pôs" e "tirou":** quando a mão sai de cima de uma posição e ela fica parada por
    0,6 s, compara-se com a última vez em que esteve parada. Mancha nova = algo foi posto;
    mancha que sumiu = tirado. Guarda-se o tamanho em centímetros, a cor e o recorte. A
    quietude é **por posição**, não da bancada inteira (no pico ela nunca para), e a mancha
    tem de ter cor e forma de alimento — o brilho do papel alumínio amassado não conta.
 6. **A camada:** liga-se cada "pôs" ao último "pegou" (prova 1), confere-se a aparência
-   (prova 2) contra o que as fichas abertas esperam (prova 3).
+   (prova 2) contra o que as fichas abertas esperam (prova 3). Como a montagem é por
+   ingrediente, o "pegou" vale para a fase inteira: o que entra em todas as posições até
+   a fase mudar é o mesmo ingrediente.
 7. **O produto:** a sequência de camadas de uma posição contra as fichas abertas. Sobra
    uma: é o produto. Não sobra: a mais parecida, e a diferença é o texto do aviso
    ("x-salada sem o tomate") — sempre por item.
@@ -3265,7 +3327,8 @@ com a sequência, e vira exemplo. Nunca vira aviso sozinha.
    bancada ao pedido que o Regem acabou de imprimir; com vários abertos, um **código
    visual de 3 a 4 cm impresso na comanda** amarra cada lanche ao seu pedido (a ≈ 12 px
    por cm, cada célula do código tem 6 a 8 px: legível). Sem nada disso, vale o
-   livro-caixa por produto do estudo.
+   livro-caixa por produto do estudo — e é por ele que a conferência começa: **a conta
+   do lote** contra o que o KDS tem em preparo.
 9. **A loja se rotula sozinha:** toda vez que a mão vem da cuba X e uma camada aparece, o
    recorte ganha o rótulo "X" de graça. Em dias, cada ingrediente tem dezenas de exemplos
    **desta bancada, desta luz**. A nuvem confere uma amostra; o responsável corrige o que
@@ -3289,8 +3352,8 @@ ver "Prova de 08/10" abaixo.
 | etapa | entrega | situação |
 |---|---|---|
 | **E0 · piloto de uma bancada** | câmera regulada; px por cm medido; números da operação por uma semana, em "observando": comandas, idas às cubas, itens postos, posições abertas ao mesmo tempo, tempo por lanche | **câmera instalada (canal 4)**; falta regular |
-| **E1 · contar montagens** | lanches por hora e por bancada; tempo do pedido na bancada | precisa do passo 5 |
-| **E2 · qual produto** | camadas e produto; "pronto sem montagem", "montagem sem pedido" | precisa das fichas com as camadas visíveis e da fila do Regem |
+| **E1 · contar montagens** | lanches por hora e por bancada, pelo fechamento de cada posição; tempo de cada lanche aberto na bancada | precisa do passo 5 |
+| **E2 · qual produto** | uma leitura por fase; discos, camadas e a assinatura do produto; **a conta do lote contra o KDS**; "pronto sem montagem", "montagem sem pedido" | precisa das fichas com as camadas visíveis (e em que disco ficam) e da fila do Regem |
 | **E3 · conferir na hora** | aviso na estação antes de o lanche fechar | só com o alarme falso medido e baixo |
 | **E4 · observações e porção** | "sem cebola", adicional, quantidade | depois |
 
@@ -3355,6 +3418,32 @@ O que a prova ensinou:
 Não é acerto medido: não houve contagem humana para comparar. É a prova de que o caminho
 tem sinal — e o primeiro dado da etapa E0.
 
+### Estudo do lote de 08/10 — a montagem, passo a passo
+
+Pedido do dono: estudar o padrão de montagem com a loja em operação, para depois comparar
+os pedidos do KDS com o que é produzido. Um lote inteiro (21h42min45 a 21h47min35), lido da
+gravação do canal 4 de 2 em 2 segundos — 146 recortes, olhados um a um, sem nuvem. O
+registro completo: [estudo-do-lote-de-montagem.md](estudo-do-lote-de-montagem.md).
+
+| fase | duração | o que denuncia a fase |
+|---|---|---|
+| forrar | — | quatro folhas de papel alumínio e uma caixa aberta |
+| pães | 26 s | chegam empilhados; cada um aberto em discos, lado cortado para cima |
+| carnes | 32 s | a cuba das carnes sobre a bancada e o pegador: uma carne por disco |
+| molho | 8 s | a bisnaga, nas tampas |
+| alface | 26 s | por cima do molho |
+| queijo | 34 s | o maço de fatias na mão: uma por carne |
+| fechar e embalar | 1 min 20 s | a tampa da caixa; ou empilhar, virar a tampa, embrulhar e pôr na caixinha; código à caneta |
+
+Saíram **quatro lanches de duas carnes** (três discos cada; 8 carnes, 8 queijos, 4 tampas
+com molho laranja e alface) e **um lanche de outro tipo** (dois discos; molho vermelho de
+sachê, cobertura escura, carne escura, molho branco), que ficou aberto mais de 4 min 40 s
+e não tinha fechado quando a leitura acabou. Do primeiro pão à última caixa: 4 min 30 s.
+
+É a leitura de **um** lote, feita por mim a olho — desenha o algoritmo, não mede acerto. A
+conferência com o KDS deste mesmo lote é o passo seguinte: falta ler o que o Regem tinha
+em preparo nesses cinco minutos.
+
 ### Impacto
 
 | | conta |
@@ -3376,11 +3465,11 @@ foi medido** — é o primeiro uso do banco de provas.
 | onda | o quê | tamanho | depende de |
 |---|---|---|---|
 | 0 ✅ | Confiança em %; cliente do gravador | P | — |
-| 1 | **Quadros, estudo condicional e contexto:** imagem completa × quadros com papel; a ficha de cada critério (contexto, gatilho, janela, ação, desfecho) e o funil em números; **a anatomia do pedido à nuvem** (a cena, o mapa do canal, o recorte na resolução da câmera, a resposta na forma da família — o recorte nunca sobe sozinho); Haiku 5.5; os quatro estados do critério | G | protótipo aprovado |
+| 1 | **Quadros, estudo condicional e contexto:** imagem completa × quadros com papel; a ficha de cada critério (contexto, gatilho, janela, ação, desfecho) e o funil em números; **a anatomia do pedido à nuvem** (a cena, o mapa do canal, o recorte na resolução da câmera, a resposta na forma da família — o recorte nunca sobe sozinho); Haiku 5.5 (medido); no quadro de bancada, o quadro de "as mãos saíram" no lugar do borrão de rosto; os quatro estados do critério | G | protótipo aprovado |
 | 2 | **Sequência e banco de provas:** olhar para trás, grade de 6 quadros, a família Acontecimento; "acertou / errou"; o acerto medido de cada critério | G | o dono marcar os exemplos |
 | 3 | **Processo e Medida:** etapas por quadro, cronômetros e contadores, episódios, modelos prontos | G | onda 2 medida |
-| 4 | **Leitura da bancada, E0 → E1:** câmera regulada, números da semana, contar montagens, a comanda | G | regulagem do canal 4 |
-| 5 | **Leitura da bancada, E2 → E3:** camadas, produto, aviso na estação | G+ | fichas com camadas e fila de produção (Regem); alarme falso medido |
+| 4 | **Leitura da bancada, E0 → E1:** câmera regulada, números da semana, as fases do lote, contar montagens pelo fechamento, a comanda | G | regulagem do canal 4 |
+| 5 | **Leitura da bancada, E2 → E3:** uma leitura por fase, discos e camadas, o produto, **a conta do lote contra o KDS**, aviso na estação | G+ | fichas com camadas e fila de produção (Regem); alarme falso medido |
 | 6 | O momento em vídeo ("Ver o momento") — reaproveita a sequência da onda 2 | M | onde guardar na nuvem |
 | 7 | Relatórios, resumos e o início "fora do critério primeiro" | G | transportador |
 | 8 | Porte da cara nova | G | protótipo geral aprovado |
@@ -3395,7 +3484,12 @@ quadros e critérios, o cadastro do processo, a sequência com a resposta por et
 
 ### O que não foi medido
 
-- O acerto dos modelos de nuvem em sequências desta loja.
+- O acerto dos modelos de nuvem em **sequências** desta loja. Em quadro único foi medido
+  (o teste lado a lado), com gabarito meu, provisório.
+- Se todo lote é montado por ingrediente — estudou-se um. E o que o KDS tinha em preparo
+  nele.
+- A forma nova de chamar o modelo forte (PR #69) contra a API de verdade, com a ferramenta
+  do agente.
 - A leitura da bancada contra uma contagem humana, num pico de verdade e com a câmera
   regulada.
 - As 32 comandas da prova (sem recorte para conferir).
@@ -3415,10 +3509,16 @@ quadros e critérios, o cadastro do processo, a sequência com a resposta por et
 1. Regular a câmera do canal 4 (os seis itens acima) e avisar — eu meço de novo.
 2. Confirmar **a rotina** que a câmera mostrou: a comanda sai em cada bancada e fica ao
    lado do lanche até embalar? o lanche é sempre montado sobre o papel alumínio ou na
-   caixa, no lado esquerdo?
+   caixa, no lado esquerdo? **A montagem é sempre por ingrediente, em lote? As embalagens
+   são sempre marcadas à caneta?**
 3. Escolher os **3 a 5 processos** que quer ver julgados primeiro. Sugestão: montagem
    conforme a ficha; sal na carne (o exemplo dele); lavar as mãos antes de montar; pedido
    completo na sacola; bancada limpa entre pedidos.
 4. Do lado do Regem (outro projeto): a fila de produção na rede da loja, a ficha com as
    camadas visíveis, e o código na comanda. Decidir quando.
 5. Aprovar esta ordem.
+6. Dizer **o que eram os dois produtos do lote das 21h42** de 08/10 (quatro de duas
+   carnes, com molho laranja e alface; um com molho vermelho de sachê, cobertura escura,
+   carne escura e molho branco). É o primeiro gabarito.
+7. **Atualizar o agente da loja** com a correção da reconsulta (PR #69): o pacote já está
+   no PC da loja; a troca precisa do comando dele ou da liberação para eu rodar.
