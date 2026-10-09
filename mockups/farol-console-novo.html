@@ -157,7 +157,7 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
 .pilha { display: grid; gap: 16px; }
 .quadro-cam { position: relative; border-radius: 8px; overflow: hidden; background: var(--bg-2); aspect-ratio: 16 / 9; max-width: 100%; }
 .quadro-cam > svg { display: block; width: 100%; height: 100%; }
-.quadro-cam .tarja { position: absolute; left: 8px; bottom: 8px; padding: 2px 8px; border-radius: 4px; background: var(--veu); color: #fff; font: 400 11px/1.5 var(--f-dado); }
+.quadro-cam .tarja { pointer-events: none; position: absolute; left: 8px; bottom: 8px; padding: 2px 8px; border-radius: 4px; background: var(--veu); color: #fff; font: 400 11px/1.5 var(--f-dado); }
 .qd { cursor: pointer; }
 .qd rect, .qd polygon { fill: rgba(242, 176, 60, 0); stroke: #ffffff; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-dasharray: 6 5; transition: fill 160ms, stroke 160ms; }
 .qd:hover rect, .qd:hover polygon { fill: rgba(255, 255, 255, 0.12); }

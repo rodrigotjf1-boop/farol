@@ -3786,6 +3786,20 @@ Levantamento do código feito antes de começar. Três coisas dele mudam o jeito
 | **1.4 · o quadro de bancada** | em quadro com papel "posição de montagem": sobe o quadro de quando as mãos saem, sem o borrão de rosto; quem aparecer é apagado | não | só onde o papel for esse |
 | **1.5 · as telas** | o porte do protótipo aprovado para o console; a migração das áreas redesenhadas ("Quadro inteiro" que não é o quadro inteiro vira "Quadro 1", e o canal ganha a imagem completa de volta); as contagens "em N canais (M quadros)" | sim | depois do "aprovado" |
 
+**De onde sai cada número do funil que o protótipo mostra** (para não desenhar o que não
+existe):
+
+| no protótipo | de onde sai | existe hoje? |
+|---|---|---|
+| olhadas | `resumo_hora.capturas` | sim |
+| com contexto | `capturas` menos `sem_condicao` (a olhada que o "quando vale a pena conferir" segurou) | sim |
+| com gatilho | contador novo, por hora, critério e quadro | **não — fatia 1.3** |
+| julgadas, e quantas na nuvem | `conformes` + `nao_conformes` + `nao_avaliaveis`; `julgadas_nuvem` | sim |
+| fora do critério | `nao_conformes` | sim |
+| custo de nuvem por dia | `custo_centavos` | sim |
+| "ainda não julga" (observando) | a olhada que só foi contada: desfecho novo | **não — fatia 1.2** |
+| "quanto custaria ligado" | gatilhos por dia × o preço medido do pedido | **não — conta nova, fatia 1.3** |
+
 Cada fatia é um PR com teste; a que tem migration é mesclada sozinha e por último. Nada
 liga sozinho na loja: o pedido com contexto é uma chave por loja, e ligar o que gasta
 continua do dono. O agente da loja só recebe cada fatia quando o pacote for trocado — com o
