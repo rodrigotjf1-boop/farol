@@ -66,7 +66,9 @@ describe('o porteiro cabe no tipo? (a regra, sem banco)', () => {
 describe('o resumo aceita as olhadas que o porteiro segurou (validação)', () => {
   it('o contrato traz semCondicao, e a conta das olhadas fecha com ele', () => {
     assert.equal(typeof CONTRATO.semCondicao, 'number');
-    const desfechos = ['semJuiz', 'semQuadro', 'semCena', 'semCondicao', 'observadas', 'emSilencio', 'repetidas', 'jaJulgadas', 'enfileiradas'];
+    const desfechos = [
+      'semJuiz', 'semQuadro', 'semCena', 'semCondicao', 'semGatilho', 'observadas', 'emSilencio', 'repetidas', 'jaJulgadas', 'enfileiradas',
+    ];
     assert.equal(desfechos.reduce((a, d) => a + (CONTRATO[d] as number), 0), CONTRATO.capturas);
   });
 

@@ -59,7 +59,7 @@ from farol_agent.contrato import (
 from farol_agent.fila import Fila
 from farol_agent.mapas import Mapas
 from farol_agent.modelos import EventoGatilho, TipoRegra
-from farol_agent.motor import ComContexto, MotorDeRegras
+from farol_agent.motor import CONTINUOS, ComContexto, MotorDeRegras
 from farol_agent.nuvem import ErroDaNuvem
 from farol_agent.padroes import Padroes
 from farol_agent.vigia import INTERVALO_PADRAO as INTERVALO_DO_VIGIA
@@ -137,6 +137,14 @@ def _detector_local():
     return _detector
 
 
+def _usa_o_padrao(regra) -> bool:
+    """O estudo deste critério compara algum lugar com a foto padrão do canal?"""
+    estudo = getattr(regra, "estudo", None)
+    if estudo is None:
+        return False
+    return any("padrao" in c.sinal for c in (*estudo.contexto, *estudo.gatilho))
+
+
 # De quanto em quanto tempo o agente tenta de novo baixar a foto padrão que
 # ainda não desceu (rede fora, nuvem reiniciando).
 NOVA_BUSCA_DE_PADROES = timedelta(seconds=60)
@@ -189,6 +197,10 @@ class Auditoria:
         # processo (ver `_o_porteiro`). O detector dele é injetável.
         self._porteiro = None
         self._detector_do_porteiro = _detector_local
+        # Quem lê os sinais do estudo de cada critério (ver `_os_sinais`).
+        # Um só para a vida do processo, como o porteiro: é ele que guarda
+        # a olhada anterior de cada lugar.
+        self._sinais = None
         # As fotos padrão dos canais, em disco, ao lado da fila. Quem
         # baixa é o cliente da nuvem; sem ele (teste, bancada), a loja
         # compara só com o que já tiver.
@@ -210,6 +222,9 @@ class Auditoria:
         self._relogios_por_gravador: dict[str, dict[int, tuple[float, float, float, float]]] = {}
         self.fontes: dict[str, Any] = {}
         self.versao_montada: int | None = None
+        # Com que declaração do agente a configuração montada foi pedida:
+        # a mesma versão, pedida sabendo mais, pode trazer mais coisa.
+        self._montada_sabendo: tuple[str, ...] | None = None
         self.ultimo_erro: str | None = None
 
         # Estado da subida. O texto do último erro serve para dizer a causa
@@ -349,7 +364,7 @@ class Auditoria:
         e área com o relógio dentro vai dar "diferente" — pergunta a
         mais, não veredito errado.
         """
-        if not any(r.tipo is TipoRegra.COMPARACAO or r.com_padrao for r in config.regras):
+        if not any(r.tipo is TipoRegra.COMPARACAO or r.com_padrao or _usa_o_padrao(r) for r in config.regras):
             return {}
         saida: dict[str, tuple[float, float, float, float]] = {}
         for ponto in config.pontos:
@@ -437,9 +452,57 @@ class Auditoria:
         self._porteiro.esquecer({f"{r.id}@{r.zona.id}" for r in regras})
         return self._porteiro
 
+    def _os_sinais(self, regras, config: ConfigDaLoja):
+        """Os sinais da loja, se algum critério tem estudo — e sempre os MESMOS.
+
+        Eles guardam a leitura anterior de cada lugar (é dela que sai
+        "entrou", "parou", "saiu do padrão"): recriá-los a cada mudança de
+        configuração apagaria essa memória. Presença e contagem não usam
+        estudo — são julgadas na loja em toda olhada. Sem critério com
+        estudo não há o que guardar, e a memória é largada.
+        """
+        com_estudo = [r for r in regras if r.estudo is not None and r.tipo not in CONTINUOS]
+        if not com_estudo:
+            self._sinais = None
+            return None
+        if self._sinais is None:
+            from farol_agent.juizes.detector import CERTEZA, DUVIDA
+            from farol_agent.sinais import Sinais
+
+            self._sinais = Sinais(
+                self._pontos_de_pessoa, semelhanca=self._semelhanca_com_o_padrao,
+                certeza=CERTEZA, duvida=DUVIDA,
+            )
+        self._sinais.esquecer(
+            {f"{r.id}@{r.zona.id}" for r in com_estudo},
+            {f"{p.id}:{z.id}" for p in config.pontos for z in p.zonas} | {f"{p.id}:canal" for p in config.pontos},
+        )
+        return self._sinais
+
+    def _pontos_de_pessoa(self, imagem, lugar: str, ts: datetime) -> list[float] | None:
+        """Os pontos do detector de pessoas num recorte. `None` = sem detector: não se sabe."""
+        motor = getattr(self._detector_do_porteiro(), "motor", None)
+        if motor is None:
+            return None
+        from farol_agent.juizes.detector import OBJETOS
+
+        return [float(p) for p in motor.pontuar(imagem, OBJETOS["pessoa"])]
+
+    def _semelhanca_com_o_padrao(self, imagem, zona) -> float | None:
+        """Quão igual à foto padrão do canal é este recorte. `None` = sem foto, ou sem medida.
+
+        Quem compara é o juiz da foto padrão que a loja já tem — o de
+        AGORA: ele é montado de novo a cada configuração.
+        """
+        mais_parecida = getattr(getattr(getattr(self.juiz, "seletor", None), "padrao", None), "mais_parecida", None)
+        if mais_parecida is None:
+            return None
+        achado = mais_parecida(imagem, zona)
+        return None if achado is None else achado.semelhanca
+
     def montar(self, config: ConfigDaLoja) -> None:
         """(Re)constrói motor, juiz e fontes a partir da configuração."""
-        if config.versao == self.versao_montada:
+        if config.versao == self.versao_montada and config.pedida_sabendo == self._montada_sabendo:
             return
 
         # As fotos padrão: o que cada canal tem de ter em disco, segundo a
@@ -475,6 +538,10 @@ class Auditoria:
         self.motor = MotorDeRegras(
             self.fila, regras, serializar=evento_para_nuvem, porteiro=self._o_porteiro(regras),
             contexto=contexto,
+            # O estudo de cada critério: quem lê os sinais, e os quadros de
+            # cada canal (uma condição pode olhar outro quadro do mesmo canal).
+            sinais=self._os_sinais(regras, config),
+            zonas={z.id: z for p in config.pontos for z in p.zonas},
         )
         # O vigia olha mais vezes o que é JULGADO na loja: critério que só
         # observa não tem por que ganhar olhada extra.
@@ -501,6 +568,7 @@ class Auditoria:
         self.fontes = novas
 
         self.versao_montada = config.versao
+        self._montada_sabendo = config.pedida_sabendo
         _log.info(
             "auditoria montada: v%s · %d regra(s) em %d ponto(s)",
             config.versao, len(regras), len(self.fontes),

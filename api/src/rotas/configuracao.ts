@@ -28,6 +28,7 @@ import type pg from 'pg';
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import { SQL_NUMERO_DO_QUADRO } from '../cena.js';
 import { lerSabe, SABE_ESTADOS } from '../estado.js';
+import { estudoParaOAgente, SABE_ESTUDO } from '../estudo.js';
 import { lugaresDaLoja } from './planta.js';
 
 export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
@@ -97,9 +98,12 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
               r.processo_descricao, r.prioridade, r.severidade,
               r.confianca_minima, r.cooldown_min, r.resolucao, r.janelas,
               r.acoes, r.base_id, r.retencao_midia_dias, r.parametros, r.quando,
-              r.porteiro, r.confirmar_em, r.com_padrao, r.estado
+              r.porteiro, r.confirmar_em, r.com_padrao, r.estado,
+              e.contexto as estudo_contexto, e.gatilho as estudo_gatilho,
+              (e.confirmado_em is not null) as estudo_confirmado
          from regra r
          join regra_alvo a on a.regra_id = r.id
+         left join regra_estudo e on e.regra_id = r.id
          join zona z on z.id = a.zona_id
          join ponto p on p.id = z.ponto_id
          join setor st on st.id = p.setor_id
@@ -116,6 +120,15 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
       // o campo e avisaria da mesma forma — então, para ele, esse critério
       // não existe.
       if (r.estado !== 'valendo' && !sabe.has(SABE_ESTADOS)) continue;
+      // O estudo CONFIRMADO do critério — o contexto e o gatilho que a loja
+      // confere sozinha — desce para o agente que declara saber lidar com
+      // ele. Para os outros o campo nem existe, e o critério segue com o
+      // "quando vale a pena conferir" (`porteiro`), que continua descendo.
+      const estudo = sabe.has(SABE_ESTUDO)
+        ? estudoParaOAgente(r.tipo, {
+            contexto: r.estudo_contexto, gatilho: r.estudo_gatilho, confirmado: r.estudo_confirmado === true,
+          })
+        : null;
       const lista = regrasPorZona.get(r.zona_id) ?? [];
       lista.push({
         id: r.id,
@@ -151,6 +164,7 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
         // O que o critério faz: observando (só conta), ensaio e medido
         // (julga, não avisa) ou valendo (avisa).
         estado: r.estado,
+        ...(estudo ? { estudo } : {}),
       });
       regrasPorZona.set(r.zona_id, lista);
     }

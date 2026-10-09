@@ -42,6 +42,12 @@ Entre a 1 e a 2 fica **o porteiro** (porteiro.py): para o que pode ir à
 nuvem, a loja confere antes se a pergunta faz sentido — gente na área,
 área livre, algo se mexeu. Quando não faz, a olhada é contada como "nada
 a conferir" e nem entra na fila.
+
+O critério que tem **estudo** (sinais.py) responde a isso pelo estudo, e o
+porteiro não é consultado: o CONTEXTO tem de valer (senão, "nada a
+conferir") e um GATILHO tem de abrir a análise (senão, a olhada é contada
+como "sem gatilho"). É o funil: olhadas → com contexto → com gatilho →
+julgadas.
 """
 
 from __future__ import annotations
@@ -62,15 +68,18 @@ from farol_agent.juizes.base import ErroDoJuiz, Juiz
 from farol_agent.mapas import Mapas
 from farol_agent.modelos import (
     RESOLUCOES,
+    Condicao,
     EventoGatilho,
     Regra,
     Resultado,
     Severidade,
     TipoRegra,
     Veredito,
+    Zona,
 )
 from farol_agent.pipeline import dedupe, qualidade, recorte
 from farol_agent.porteiro import Porteiro
+from farol_agent.sinais import Lugar, Sinais
 
 _log = logging.getLogger(__name__)
 
@@ -156,6 +165,8 @@ class Preparo:
     enfileirados: list[str] = field(default_factory=list)
     # O porteiro segurou: a pergunta não fazia sentido nesta olhada.
     sem_condicao: list[str] = field(default_factory=list)
+    # O contexto do estudo valia, e nenhum gatilho abriu a análise.
+    sem_gatilho: list[str] = field(default_factory=list)
     # O critério só observa: a olhada foi contada, e não julgada.
     observadas: list[str] = field(default_factory=list)
     em_silencio: list[str] = field(default_factory=list)
@@ -181,11 +192,19 @@ class MotorDeRegras:
         serializar: Callable[["Alerta"], dict[str, Any]] | None = None,
         porteiro: Porteiro | None = None,
         contexto: ComContexto | None = None,
+        sinais: Sinais | None = None,
+        zonas: dict[str, Zona] | None = None,
     ) -> None:
         self.fila = fila
         self.regras: list[Regra] = list(regras)
         # A loja pergunta com contexto? `None` = não: tudo como sempre.
         self._contexto = contexto
+        # Quem lê os sinais do estudo de cada critério. Sem ele (modo de
+        # bancada), o critério com estudo é conferido em toda olhada.
+        self._sinais = sinais
+        # Todos os quadros da loja, por id: a condição de um estudo pode
+        # olhar OUTRO quadro do mesmo canal.
+        self._zonas: dict[str, Zona] = dict(zonas or {})
         # Os canais cujo mapa já foi cuidado NESTA olhada: três critérios
         # no mesmo canal saem do mesmo quadro, e o mapa é um só.
         self._mapa_cuidado: set[str] = set()
@@ -300,9 +319,17 @@ class MotorDeRegras:
                 preparo.sem_condicao.append(regra.id)
                 olhadas.append((regra, "sem_condicao", None))
                 # Sem ninguém na área, o que estava fora do critério numa
-                # PESSOA deixou de estar: a espera recomeça do zero.
-                if regra.porteiro == "pessoa":
+                # PESSOA deixou de estar: a espera recomeça do zero. (No
+                # critério com estudo, quem decide isto é a condição que
+                # faltou — ver `_o_estudo_deixa`.)
+                if regra.estudo is None and regra.porteiro == "pessoa":
                     self._seguidas.pop(self._lugar(regra), None)
+            elif motivo == "sem_gatilho":
+                # O contexto valia e nada abriu a análise. Não é "a cena
+                # continua igual" (isso é a cena repetida, mais abaixo): a
+                # espera do "avisar só se continuar" nem anda, nem zera.
+                preparo.sem_gatilho.append(regra.id)
+                olhadas.append((regra, "sem_gatilho", None))
             elif motivo == "sem_cena":
                 preparo.sem_cena.append(regra.id)
                 olhadas.append(
@@ -406,10 +433,21 @@ class MotorDeRegras:
         # que se quer medir. Cada olhada entra, com chave própria.
         continuo = regra.tipo in CONTINUOS
 
+        # O ESTUDO do critério, quando ele tem um: o contexto que precisa
+        # estar acontecendo e o gatilho que abre a análise. É conferido no
+        # lugar do porteiro — e, como ele, ANTES do borrão e da fila, e só
+        # no que pode ir à nuvem.
+        if not continuo and regra.estudo is not None and self._sinais is not None:
+            segura = self._o_estudo_segura(regra, evento, melhor, f)
+            if segura is not None:
+                # A câmera está entregando cena: não é defeito.
+                self.sem_cena.pop(self._lugar(regra), None)
+                return None, segura
+
         # O porteiro, ANTES do borrão e da fila: a imagem ainda não saiu
         # de lugar nenhum, e o detector conta melhor no recorte inteiro.
         # Presença e contagem não passam por ele — já são da loja.
-        if not continuo and regra.porteiro != "sempre" and self._porteiro is not None:
+        elif not continuo and regra.porteiro != "sempre" and self._porteiro is not None:
             decisao = self._porteiro.decidir(
                 regra.porteiro, f.imagem,
                 lugar=self._lugar(regra), area=f"{evento.ponto_id}:{regra.zona.id}", ts=f.ts,
@@ -715,6 +753,62 @@ class MotorDeRegras:
             return
         self._mapa_cuidado.add(ponto_id)
         self._contexto.mapas.cuidar(ponto_id, cena, quadro, quadro.ts)
+
+    def _o_estudo_segura(self, regra: Regra, evento: EventoGatilho, melhor: Any, f: Any) -> str | None:
+        """O estudo deixa esta olhada seguir? Devolve o desfecho que a segura, ou `None`.
+
+        `melhor` é o quadro inteiro da câmera; `f`, o recorte do quadro do
+        critério, já com o que é de fora apagado.
+        """
+        assert regra.estudo is not None and self._sinais is not None
+        lugar = self._lugar(regra)
+        parecer = self._sinais.avaliar(
+            regra.estudo, criterio=lugar, ts=evento.ts,
+            onde=lambda c: self._lugar_de(c, regra, evento.ponto_id, melhor, f),
+        )
+        if parecer.falta is not None:
+            self.sem_condicao[lugar] = parecer.falta
+            if parecer.sinal_que_falta == "pessoa":
+                # Sem ninguém ali, o que estava fora do critério numa PESSOA
+                # deixou de estar: a espera recomeça do zero.
+                self._seguidas.pop(lugar, None)
+            return "sem_condicao"
+        if not parecer.disparou:
+            return "sem_gatilho"
+        return None
+
+    def _lugar_de(self, c: Condicao, regra: Regra, ponto_id: str, melhor: Any, f: Any) -> Lugar | None:
+        """Onde uma condição do estudo é lida nesta olhada.
+
+        `None` quando o quadro citado não existe neste canal (foi excluído,
+        ou é de outro canal): a condição não segura e o gatilho dispara.
+        """
+        if c.onde == "canal":
+            zona = None
+        elif c.onde == "quadro":
+            zona = self._zonas.get(str(c.zona_id))
+            if zona is None or str(zona.ponto_id) != str(ponto_id):
+                return None
+        else:
+            zona = regra.zona
+
+        # A chave é do LUGAR (canal e quadro), não do critério: três
+        # critérios que olham o mesmo quadro leem o sinal uma vez só.
+        if zona is None:
+            inteira = Zona(
+                id="canal", nome="imagem completa", ponto_id=ponto_id,
+                poligono=[(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+            )
+            recortado, _ = recorte.recortar_area(melhor, inteira)
+            return Lugar(f"{ponto_id}:canal", recortado.imagem, inteira, "a imagem completa")
+
+        nome = f"Quadro {zona.numero} — {zona.nome}" if zona.numero else zona.nome
+        if zona.id == regra.zona.id:
+            imagem = f.imagem
+        else:
+            recortado, dentro = recorte.recortar_area(melhor, zona)
+            imagem = recorte.apagar_fora(recortado, dentro).imagem
+        return Lugar(f"{ponto_id}:{zona.id}", imagem, zona, nome)
 
     def _contar_falha(self, item: ItemFila, porque: str) -> None:
         """Uma tentativa de julgar que não deu em veredito."""

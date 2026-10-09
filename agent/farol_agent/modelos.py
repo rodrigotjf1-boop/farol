@@ -69,6 +69,52 @@ ESTADOS: tuple[str, ...] = ("observando", "ensaio", "medido", "valendo")
 ESTADO_DE_SEMPRE = "valendo"
 
 
+# O estudo do critério (A19), na parte que a loja confere SOZINHA: o
+# contexto que precisa estar acontecendo e o gatilho que abre a análise.
+# Pedido do dono: "para saber se o colaborador da chapa salga as carnes, é
+# preciso haver carne na chapa e colaborador no posto — sem isso não se
+# analisa".
+#
+# Cada condição lê um sinal num LUGAR do canal: o quadro do próprio critério
+# ("aqui"), a imagem completa ("canal") ou outro quadro do mesmo canal
+# ("quadro", com o id dele). Os sinais estão em `sinais.py`.
+#
+# As mesmas listas de `contratos/estudo-do-criterio.json`.
+SINAIS_DE_CONTEXTO: tuple[str, ...] = (
+    "pessoa", "sem_pessoa", "movimento", "parado", "fora_do_padrao", "no_padrao",
+)
+SINAIS_DE_GATILHO: tuple[str, ...] = (
+    "toda_olhada", "a_cada", "entrou", "saiu", "mexeu", "parou", "saiu_do_padrao", "voltou_ao_padrao",
+)
+# Os gatilhos que são do relógio, e não de um lugar.
+GATILHOS_SEM_LUGAR: tuple[str, ...] = ("toda_olhada", "a_cada")
+ONDES: tuple[str, ...] = ("aqui", "canal", "quadro")
+
+
+@dataclass(frozen=True)
+class Condicao:
+    """Um sinal lido num lugar: "há pessoa no Quadro 2", "a cada 10 min"."""
+
+    sinal: str
+    onde: str = "aqui"
+    # O quadro, quando `onde` é "quadro".
+    zona_id: str | None = None
+    # O intervalo, quando o sinal é "a_cada".
+    minutos: int | None = None
+
+
+@dataclass(frozen=True)
+class Estudo:
+    """Quando vale a pena olhar: o contexto (TODAS valem) e o gatilho (basta UM).
+
+    Sem condição de contexto, o contexto vale sempre; sem gatilho, toda
+    olhada abre a análise. Estudo vazio é "confere em toda olhada".
+    """
+
+    contexto: tuple[Condicao, ...] = ()
+    gatilho: tuple[Condicao, ...] = ()
+
+
 # Resoluções de envio ao modelo. O número é o lado maior em pixels.
 # A escolha é o maior fator isolado de custo: 1080p custa ~2,7× o de 640×480
 # na Claude. Abaixo de 384 px a Gemini não fica mais barata — tem piso de
@@ -252,6 +298,11 @@ class Regra:
     # O que o critério ligado faz (ver `ESTADOS`). Nasce valendo: é como
     # todo critério funcionava, e o que a nuvem antiga não manda.
     estado: str = ESTADO_DE_SEMPRE
+    # O estudo confirmado deste critério: o contexto e o gatilho que a loja
+    # confere sozinha. `None` = sem estudo: vale o "quando vale a pena
+    # conferir" de sempre (`porteiro`). Com estudo, é ele que decide — e o
+    # porteiro não é consultado.
+    estudo: Estudo | None = None
 
     @property
     def julga(self) -> bool:

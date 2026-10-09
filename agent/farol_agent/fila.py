@@ -160,9 +160,13 @@ create index if not exists idx_alerta_envio on alerta (enviado, ts);
 -- cara.
 --
 -- Cada olhada termina em UMA destas: sem_juiz, sem_quadro, sem_cena,
--- sem_condicao, observadas, em_silencio, repetidas, ja_julgadas ou
--- enfileiradas. O que foi enfileirado vira depois conforme, não conforme,
--- não avaliável ou falha.
+-- sem_condicao, sem_gatilho, observadas, em_silencio, repetidas,
+-- ja_julgadas ou enfileiradas. O que foi enfileirado vira depois conforme,
+-- não conforme, não avaliável ou falha.
+--
+-- `sem_gatilho` é a olhada do critério com ESTUDO em que o contexto valia
+-- e nenhum gatilho abriu a análise. Com `sem_condicao`, é o funil: olhadas
+-- → com contexto → com gatilho → julgadas.
 --
 -- `observadas` é a olhada do critério em "observando": passou pelo contexto
 -- (o porteiro deixou) e parou ali, de propósito — sem julgamento e sem custo.
@@ -187,6 +191,7 @@ create table if not exists resumo_hora (
   sem_quadro         integer not null default 0,
   sem_cena           integer not null default 0,
   sem_condicao       integer not null default 0,
+  sem_gatilho        integer not null default 0,
   observadas         integer not null default 0,
   em_silencio        integer not null default 0,
   repetidas          integer not null default 0,
@@ -260,6 +265,7 @@ CONTADORES_DO_RESUMO = (
     "sem_quadro",
     "sem_cena",
     "sem_condicao",
+    "sem_gatilho",
     "observadas",
     "em_silencio",
     "repetidas",
@@ -350,6 +356,7 @@ _COLUNAS_NOVAS = (
     ("resumo_hora", "extras", "integer not null default 0"),
     ("resumo_hora", "extras_fora", "integer not null default 0"),
     ("resumo_hora", "observadas", "integer not null default 0"),
+    ("resumo_hora", "sem_gatilho", "integer not null default 0"),
 )
 
 
