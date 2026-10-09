@@ -180,19 +180,12 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
 .crit .linha2 { grid-column: 1 / -1; font-size: 12.5px; color: var(--suave); font-family: var(--f-dado); }
 .no-pe { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 0 12px 12px; font-size: 13.5px; color: var(--suave); }
 
-.cena-estado { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
 .linha-acoes { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
 
-/* ── o que sobe para a nuvem ── */
-.pedido { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: parte; }
-.pedido > li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 12px; padding: 12px; border: 1px solid var(--fio); border-radius: 8px; background: var(--bg-2); counter-increment: parte; }
-.pedido > li::before { content: counter(parte); width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; font: 600 13px/1 var(--f-dado); background: var(--painel-2); border: 1px solid var(--fio-2); color: var(--suave); }
-.pedido h3 { font-size: 14px; font-weight: 600; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
-.pedido p { font-size: 14px; color: var(--suave); margin-top: 4px; }
-.pedido .citacao { margin-top: 8px; padding: 8px 10px; border-left: 2px solid var(--fio-2); font: 400 13px/1.5 var(--f-dado); color: var(--tinta); background: var(--painel); border-radius: 0 6px 6px 0; }
-.pedido .mini-mapa { margin-top: 8px; width: min(100%, 260px); border-radius: 6px; overflow: hidden; border: 1px solid var(--fio-2); }
-.pedido .mini-mapa svg { display: block; width: 100%; height: auto; }
-.pedido.travado > li:nth-child(n+2) { opacity: 0.45; }
+/* ── a orientação de um campo: o que vale escrever nele ── */
+.ajuda { display: grid; gap: 6px; padding: 10px 12px; border-left: 2px solid var(--fio-2); border-radius: 0 6px 6px 0; background: var(--bg-2); font-size: 13.5px; color: var(--suave); }
+.ajuda b { color: var(--tinta); font-weight: 600; }
+.ajuda ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
 
 /* ── a folha (gaveta) ── */
 .veu { position: fixed; inset: 0; background: var(--veu); z-index: 20; }
@@ -280,6 +273,12 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
 .avisos { position: fixed; z-index: 40; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 64px); transform: translateX(-50%); display: grid; gap: 8px; width: min(440px, calc(100% - 32px)); pointer-events: none; }
 .aviso-topo { padding: 11px 14px; border: 1px solid var(--fio-2); border-radius: 8px; background: var(--painel); font-size: 14px; display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; }
 .aviso-topo .ic { color: var(--ok); }
+.aviso-topo.pede .ic { color: var(--facho-texto); }
+/* com a gaveta aberta e tela larga, o aviso fica no que sobrou da tela: não tapa o título nem as abas dela */
+@media (min-width: 1180px) {
+  body:has(.folha) .avisos { left: calc((100% - 680px) / 2); }
+  body:has(.folha.estreita) .avisos { left: calc((100% - 480px) / 2); }
+}
 
 /* ── os controles do protótipo ── */
 .proto { position: fixed; z-index: 15; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); display: grid; justify-items: end; gap: 8px; }
@@ -292,10 +291,10 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
 
 /* ── telas menores ── */
 @media (max-width: 1080px) {
-  /* numa coluna só, a ordem de leitura é: o canal, a árvore, a cena, o pedido */
+  /* numa coluna só, a ordem de leitura é: o canal, a árvore, a cena */
   .canal-grade { display: flex; flex-direction: column; }
   .coluna { display: contents; }
-  .o1 { order: 1; } .o2 { order: 2; } .o3 { order: 3; } .o4 { order: 4; }
+  .o1 { order: 1; } .o2 { order: 2; } .o3 { order: 3; }
 }
 @media (max-width: 900px) {
   .app { grid-template-columns: minmax(0, 1fr); }
