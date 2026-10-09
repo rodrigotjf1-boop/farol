@@ -5,6 +5,11 @@
 >
 > **O dono respondeu às perguntas no mesmo dia** — estão na seção 11, com o
 > que cada resposta muda no desenho.
+>
+> **08/10/2026:** a câmera do piloto foi instalada (canal 4, VHD 3250 VF G8).
+> As primeiras medidas, o algoritmo de leitura da bancada e a prova ao vivo
+> estão no roadmap, seção **A19**, e em `docs/prova-leitura-da-bancada.md`.
+> Este estudo entrou no plano por lá.
 
 ## A pergunta do dono
 
