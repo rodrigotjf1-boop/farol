@@ -242,7 +242,7 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
               z.papel, z.ordem, ${SQL_NUMERO_DO_QUADRO} as numero,
               coalesce((
                 select jsonb_agg(jsonb_build_object(
-                         'id', r.id, 'nome', r.nome, 'tipo', r.tipo, 'ativa', r.ativa,
+                         'id', r.id, 'nome', r.nome, 'tipo', r.tipo, 'ativa', r.ativa, 'estado', r.estado,
                          'quando', r.quando, 'parametros', r.parametros)
                        order by r.nome)
                   from regra_alvo ra

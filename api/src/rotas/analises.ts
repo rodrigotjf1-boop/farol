@@ -104,6 +104,7 @@ export function rotasDeAnalises(app: FastifyInstance, pool: pg.Pool): void {
                 h.regra_id, r.tipo, z.ponto_id, h.zona_id,
                 sum(h.capturas)::integer as capturas,
                 sum(h.sem_condicao)::integer as sem_condicao,
+                sum(h.observadas)::integer as observadas,
                 sum(h.em_silencio)::integer as em_silencio,
                 sum(h.conformes)::integer as conformes,
                 sum(h.nao_conformes)::integer as nao_conformes,
@@ -301,6 +302,9 @@ export function rotasDeAnalises(app: FastifyInstance, pool: pg.Pool): void {
           // porteiro segurou (a condição do critério não valia) ou o
           // critério estava no silêncio depois de um aviso.
           semCondicao: c.sem_condicao as number,
+          // Olhadas de critério em "observando": passaram pelo contexto e
+          // não foram julgadas — de propósito, sem custo.
+          observadas: c.observadas as number,
           emSilencio: c.em_silencio as number,
           analises,
           conformes: c.conformes as number,

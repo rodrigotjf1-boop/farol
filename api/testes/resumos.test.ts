@@ -236,8 +236,9 @@ describe('resumo por hora (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
     assert.equal(l.sem_quadro, 2);
     assert.equal(l.sem_cena, 3);
     assert.equal(l.sem_condicao, 6);
+    assert.equal(l.observadas, 5);
     assert.equal(l.em_silencio, 10);
-    assert.equal(l.repetidas, 80);
+    assert.equal(l.repetidas, 75);
     assert.equal(l.ja_julgadas, 1);
     assert.equal(l.enfileiradas, 24);
     assert.equal(l.conformes, 20);

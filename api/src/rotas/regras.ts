@@ -41,6 +41,7 @@ import {
   OBJETOS_DO_DETECTOR,
   TIPOS_DO_DETECTOR,
 } from '../detector.js';
+import { estadoNaoCabe } from '../estado.js';
 import { lerHorario, QUANDOS } from '../horario.js';
 import { exigirConfigurar } from '../rbac.js';
 import { sessaoDe, type Sessao } from './sessao.js';
@@ -240,7 +241,7 @@ async function criarRegra(
        insert into regra (loja_id, nome, tipo, criterio, processo_descricao,
                           prioridade, severidade, confianca_minima, cooldown_min,
                           resolucao, janelas, acoes, retencao_midia_dias, parametros,
-                          quando, porteiro, confirmar_em, com_padrao)
+                          quando, porteiro, confirmar_em, com_padrao, estado)
        select dono.loja_id, $5, $6, $7, $8,
               coalesce($9,'intermediaria'), coalesce($10,'atencao'),
               coalesce($11, 0.700), coalesce($12, 15), $13,
@@ -249,11 +250,15 @@ async function criarRegra(
               -- O comum é critério de operação: nasce "no horário".
               coalesce($18, 'no_horario'),
               -- E nasce perguntando em toda olhada e avisando na primeira.
-              coalesce($19, 'sempre'), coalesce($20, 1), coalesce($21, false)
+              coalesce($19, 'sempre'), coalesce($20, 1), coalesce($21, false),
+              -- Sem estado pedido, nasce como o cadastro de hoje sempre criou:
+              -- valendo. A tela nova é que pede "observando".
+              coalesce($22, 'valendo')
          from dono
        returning id, nome, tipo, criterio, criterio_versao, prioridade,
                  severidade, confianca_minima, cooldown_min, resolucao,
-                 janelas, acoes, ativa, parametros, quando, porteiro, confirmar_em, com_padrao
+                 janelas, acoes, ativa, parametros, quando, porteiro, confirmar_em, com_padrao,
+                 estado
      ),
      ligados as (
        insert into regra_alvo (regra_id, zona_id)
@@ -275,6 +280,7 @@ async function criarRegra(
       c.porteiro ?? null,
       c.confirmarEm ?? null,
       typeof c.comPadrao === 'boolean' ? c.comPadrao : null,
+      c.estado ?? null,
     ],
   );
   return rows[0] ?? null;
@@ -310,7 +316,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
               r.processo_descricao, r.prioridade, r.severidade,
               r.confianca_minima, r.cooldown_min, r.resolucao,
               r.janelas, r.acoes, r.ativa, r.retencao_midia_dias, r.parametros,
-              r.quando, r.porteiro, r.confirmar_em, r.com_padrao,
+              r.quando, r.porteiro, r.confirmar_em, r.com_padrao, r.estado,
               ${ALVOS_DO_CRITERIO} as alvos
          from regra r
          join loja l on l.id = r.loja_id
@@ -347,6 +353,9 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
         mensagem: 'marque ao menos um canal: critério sem canal não é verificado em lugar nenhum',
       });
     }
+    // O estado com que ele nasce: só os que uma pessoa escolhe.
+    const estado = estadoNaoCabe(c.estado, null);
+    if (estado) return resposta.status(422).send(estado);
 
     const campos = parametrosParaCriar(c);
     if ('problema' in campos) {
@@ -380,6 +389,8 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
     if (!UUID.test(id)) {
       return resposta.status(404).send({ erro: 'nao_encontrada', mensagem: 'zona não encontrada' });
     }
+    const estado = estadoNaoCabe(c.estado, null);
+    if (estado) return resposta.status(422).send(estado);
 
     const campos = parametrosParaCriar(c);
     if ('problema' in campos) {
@@ -429,7 +440,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
       // decidir antes de gravar — e para duas edições simultâneas passarem
       // uma depois da outra.
       const antes = await cliente.query(
-        `select r.tipo, r.parametros, r.porteiro
+        `select r.tipo, r.parametros, r.porteiro, r.estado
            from regra r
            join loja l on l.id = r.loja_id
           where r.id = $1 and l.tenant_id = $2 and r.excluida_em is null
@@ -439,6 +450,16 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
       if (antes.rowCount === 0) {
         await cliente.query('rollback');
         return resposta.status(404).send({ erro: 'nao_encontrada', mensagem: 'regra não encontrada' });
+      }
+
+      // O estado: uma pessoa leva a "observando" e a "ensaio"; a "medido" e
+      // a "valendo" só se chega com o acerto medido. Pedir o estado em que o
+      // critério já está não muda nada, e passa.
+      const estadoAntes = String(antes.rows[0].estado);
+      const estadoRuim = estadoNaoCabe(c.estado, estadoAntes);
+      if (estadoRuim) {
+        await cliente.query('rollback');
+        return resposta.status(422).send(estadoRuim);
       }
 
       const tipoFinal = String(c.tipo ?? antes.rows[0].tipo);
@@ -513,6 +534,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
                 porteiro           = coalesce($18, r.porteiro),
                 confirmar_em       = coalesce($19, r.confirmar_em),
                 com_padrao         = coalesce($20, r.com_padrao),
+                estado             = coalesce($21, r.estado),
                 atualizado_em      = now()
            from loja l
           where r.id = $1
@@ -521,7 +543,8 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
          returning r.id, r.nome, r.tipo, r.criterio, r.criterio_versao,
                    r.prioridade, r.severidade, r.confianca_minima,
                    r.cooldown_min, r.resolucao, r.janelas, r.acoes, r.ativa,
-                   r.parametros, r.quando, r.porteiro, r.confirmar_em, r.com_padrao, r.loja_id`,
+                   r.parametros, r.quando, r.porteiro, r.confirmar_em, r.com_padrao, r.estado,
+                   r.loja_id`,
         [
           id,
           c.nome != null ? String(c.nome).trim() : null,
@@ -540,6 +563,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
           c.porteiro ?? null,
           c.confirmarEm ?? null,
           typeof c.comPadrao === 'boolean' ? c.comPadrao : null,
+          c.estado ?? null,
         ],
       );
       if (rows.length === 0) {
@@ -616,6 +640,10 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
       }
       if (z.ids !== undefined) {
         req.log.info({ regra: id, por: s.usuarioId, canais }, 'canais do critério alterados');
+      }
+      if (regra.estado !== estadoAntes) {
+        // Mudar o estado muda se a loja é avisada ou não: fica no log com quem fez.
+        req.log.info({ regra: id, por: s.usuarioId, de: estadoAntes, para: regra.estado }, 'estado do critério alterado');
       }
       return { ...regra, canais, desligada };
     } catch (e) {

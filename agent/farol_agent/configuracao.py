@@ -33,6 +33,8 @@ from farol_agent.contexto import PAPEIS
 from farol_agent.padroes import PadraoRef
 from farol_agent.porteiro import PORTEIROS
 from farol_agent.modelos import (
+    ESTADO_DE_SEMPRE,
+    ESTADOS,
     RESOLUCOES,
     EquipamentoDaArea,
     Janela,
@@ -228,6 +230,15 @@ def _regra(dados: dict[str, Any], zona: Zona, horario_da_loja: list[Janela] | No
     except (TypeError, ValueError):
         confirmar_em = 1
 
+    # O estado é novo. Nuvem antiga não manda: o critério vale como sempre
+    # valeu. Estado que este agente não conhece — um que a nuvem ganhe
+    # depois — NÃO derruba a configuração e NÃO vira aviso: o critério fica
+    # observando, que é o lado em que ninguém é avisado nem nada é gasto.
+    estado = str(dados.get("estado") or ESTADO_DE_SEMPRE)
+    if estado not in ESTADOS:
+        _log.warning("%s: estado=%r desconhecido; o critério fica só observando", onde, estado)
+        estado = "observando"
+
     return Regra(
         id=str(dados["id"]),
         zona=zona,
@@ -261,6 +272,7 @@ def _regra(dados: dict[str, Any], zona: Zona, horario_da_loja: list[Janela] | No
         porteiro=porteiro,
         confirmar_em=confirmar_em,
         com_padrao=dados.get("comPadrao") is True,
+        estado=estado,
     )
 
 

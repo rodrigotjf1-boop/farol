@@ -1,0 +1,11 @@
+{
+  "estados": ["observando", "ensaio", "medido", "valendo"],
+  "julga": ["ensaio", "medido", "valendo"],
+  "avisa": ["valendo"],
+  "seEscolhe": ["observando", "ensaio"],
+  "deSempre": "valendo",
+  "sabe": "estados",
+  "configuracao": {
+    "regra": { "estado": "ensaio" }
+  }
+}

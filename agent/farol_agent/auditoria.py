@@ -476,7 +476,9 @@ class Auditoria:
             self.fila, regras, serializar=evento_para_nuvem, porteiro=self._o_porteiro(regras),
             contexto=contexto,
         )
-        self._montar_vigia(regras)
+        # O vigia olha mais vezes o que é JULGADO na loja: critério que só
+        # observa não tem por que ganhar olhada extra.
+        self._montar_vigia([r for r in regras if r.julga])
 
         # Fontes só para pontos que têm regra: abrir câmera que ninguém
         # audita é fluxo do gravador gasto à toa.
@@ -541,6 +543,13 @@ class Auditoria:
 
         servidas, orfas = [], []
         for r in config.regras:
+            if not r.julga:
+                # Critério que só observa não precisa de juiz: a olhada é
+                # contada e para ali. O que faltar para julgá-lo (o
+                # detector, a cena do canal) aparece quando ele passar a
+                # ensaio.
+                servidas.append(r)
+                continue
             try:
                 juiz = seletor.para(r)
             except ErroDoJuiz as e:
@@ -917,7 +926,8 @@ class Auditoria:
             evento = EventoGatilho(ponto_id=ponto_id, ts=agora, origem="vigia")
             try:
                 p = self.motor.preparar(
-                    evento, fonte, contexto={"olhada_extra": True}, somente=lambda r: r.tipo in VIGIADOS,
+                    evento, fonte, contexto={"olhada_extra": True},
+                    somente=lambda r: r.tipo in VIGIADOS and r.julga,
                 )
             except Exception as e:  # noqa: BLE001
                 _log.warning("olhada extra falhou no ponto %s: %s", ponto_id, e)

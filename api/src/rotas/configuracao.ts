@@ -27,6 +27,7 @@ import type pg from 'pg';
 
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import { SQL_NUMERO_DO_QUADRO } from '../cena.js';
+import { lerSabe, SABE_ESTADOS } from '../estado.js';
 import { lugaresDaLoja } from './planta.js';
 
 export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
@@ -41,6 +42,10 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
       }
       throw e;
     }
+
+    // O que este agente declara que sabe fazer. Agente que não declara
+    // nada é o de antes dos estados: para ele, critério que desce avisa.
+    const sabe = lerSabe((req.query as { sabe?: unknown }).sabe);
 
     // A versão sai da MESMA consulta que os dados, não de uma anterior.
     // Lendo em dois tempos, uma mudança no meio faria o agente guardar uma
@@ -92,7 +97,7 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
               r.processo_descricao, r.prioridade, r.severidade,
               r.confianca_minima, r.cooldown_min, r.resolucao, r.janelas,
               r.acoes, r.base_id, r.retencao_midia_dias, r.parametros, r.quando,
-              r.porteiro, r.confirmar_em, r.com_padrao
+              r.porteiro, r.confirmar_em, r.com_padrao, r.estado
          from regra r
          join regra_alvo a on a.regra_id = r.id
          join zona z on z.id = a.zona_id
@@ -106,6 +111,11 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
 
     const regrasPorZona = new Map<string, unknown[]>();
     for (const r of regras.rows) {
+      // Critério que NÃO está valendo (observando, em ensaio, medido) só
+      // desce para o agente que sabe o que é estado. O agente antigo ignora
+      // o campo e avisaria da mesma forma — então, para ele, esse critério
+      // não existe.
+      if (r.estado !== 'valendo' && !sabe.has(SABE_ESTADOS)) continue;
       const lista = regrasPorZona.get(r.zona_id) ?? [];
       lista.push({
         id: r.id,
@@ -138,6 +148,9 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
         confirmarEm: r.confirmar_em,
         // Quando a pergunta vai à nuvem, a foto padrão do canal vai junto.
         comPadrao: r.com_padrao,
+        // O que o critério faz: observando (só conta), ensaio e medido
+        // (julga, não avisa) ou valendo (avisa).
+        estado: r.estado,
       });
       regrasPorZona.set(r.zona_id, lista);
     }

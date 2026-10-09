@@ -57,6 +57,15 @@ class ErroDaNuvem(Exception):
         self.status = status
 
 
+# O que este agente SABE fazer, dito à nuvem ao pedir a configuração. Há
+# coisas que a nuvem só pode mandar para quem sabe lidar com elas: um
+# critério em ensaio, na mão de um agente que nunca ouviu falar de estado,
+# viraria aviso. Quem não declara recebe só o que sempre recebeu.
+#
+#   estados  o estado do critério: observando não julga, ensaio e medido não avisam.
+SABE: tuple[str, ...] = ("estados",)
+
+
 class ClienteNuvem:
     def __init__(
         self,
@@ -99,7 +108,7 @@ class ClienteNuvem:
         return self._pedir("POST", "/v1/agentes/heartbeat", {"versao": versao})
 
     def configuracao(self) -> dict[str, Any]:
-        return self._pedir("GET", "/v1/agentes/configuracao")
+        return self._pedir("GET", "/v1/agentes/configuracao?sabe=" + ",".join(SABE))
 
     def baixar_padrao(self, foto_id: str) -> bytes:
         """A imagem de uma foto padrão desta loja, para comparar aqui."""
