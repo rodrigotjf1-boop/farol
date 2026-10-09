@@ -10,8 +10,9 @@ os dois num prompt só joga o cache fora a cada regra diferente.
 
 **2 · Saída por ferramenta, não por JSON em texto.** Pedir "responda em
 JSON" funciona até o dia em que o modelo embrulha a resposta em markdown e
-o parser quebra em produção, no meio do almoço. Com `tool_choice` forçado,
-a resposta já chega estruturada e validada.
+o parser quebra em produção, no meio do almoço. Pela ferramenta a resposta
+já chega estruturada e validada. A escolha da ferramenta vai forçada onde o
+modelo aceita; onde ele recusa, vai livre (ver `criar_pedindo_a_ferramenta`).
 
 **3 · Cascata.** Modelo barato primeiro; só escala para o caro quando a
 confiança vem baixa. A maioria das cenas de cozinha é óbvia — bancada
@@ -27,6 +28,7 @@ chute vira alerta falso, e alerta falso faz a loja desligar o sistema.
 from __future__ import annotations
 
 import base64
+import logging
 import os
 import time
 from pathlib import Path
@@ -34,6 +36,8 @@ from typing import Any
 
 from farol_agent.juizes.base import ErroDoJuiz, bloco_do_lugar, bloco_dos_equipamentos
 from farol_agent.modelos import Resultado, Veredito, Via
+
+_log = logging.getLogger(__name__)
 
 
 # ─────────────────────────── prompt fixo ───────────────────────────────
@@ -114,12 +118,83 @@ MODELO_FORTE = "claude-sonnet-5-5"
 PRECO_USD_MTOK: dict[str, tuple[float, float]] = {
     #  modelo:              (entrada, saída)
     MODELO_BARATO: (1.00, 5.00),
-    MODELO_FORTE: (3.00, 15.00),
+    # Conferido na tabela oficial em 08/10/2026 (estava 3 e 15).
+    MODELO_FORTE: (2.00, 10.00),
 }
 
 # Leitura de cache custa 0,1× a entrada — é o que paga separar o prompt fixo.
 FATOR_CACHE_LEITURA = 0.10
 FATOR_CACHE_ESCRITA = 1.25
+# No Sonnet 5.5 a leitura de cache custa 0,05× a entrada (tabela oficial,
+# conferida em 08/10/2026).
+FATOR_CACHE_LEITURA_DO_MODELO: dict[str, float] = {"claude-sonnet-5-5": 0.05}
+
+
+def fator_de_leitura(modelo: str) -> float:
+    return FATOR_CACHE_LEITURA_DO_MODELO.get(modelo, FATOR_CACHE_LEITURA)
+
+
+# ─────────────────── pedir a resposta pela ferramenta ───────────────────
+# Modelos que RECUSAM a escolha forçada da ferramenta (`tool_choice` do tipo
+# "tool" e do tipo "any"). Medido na loja em 08/10/2026, no Sonnet 5.5: a
+# API responde 400, `tool_choice: type "tool" and "any" are not supported
+# for this model`. Era assim que o agente chamava o modelo forte nos dois
+# lugares em que o usa — a reconsulta, aqui, e a descrição de equipamento
+# (`descrever.py`) — e os dois falhavam SEMPRE. Os testes não viam: o dublê
+# aceitava o pedido que a API de verdade recusa.
+#
+# Para estes a escolha vai livre ("auto"): as instruções já mandam responder
+# pela ferramenta, e resposta sem ela continua sendo erro.
+SEM_ESCOLHA_FORCADA: frozenset[str] = frozenset({"claude-sonnet-5-5"})
+
+# Modelo fora da lista que recusar entra aqui na primeira recusa, para o erro
+# não se repetir a cada análise. É o que este processo aprendeu sobre a API,
+# não estado de uma análise.
+_recusaram_a_escolha: set[str] = set()
+
+# Com a escolha livre o modelo escreve antes de chamar a ferramenta, e isso
+# conta na saída. Medido no mesmo dia, em 14 chamadas ao Sonnet 5.5: até
+# cerca de 1.000 tokens além da resposta. Com o teto de sempre a resposta
+# sairia cortada antes da ferramenta.
+MAX_TOKENS = 300
+MAX_TOKENS_ESCOLHA_LIVRE = 2000
+
+
+def vai_com_escolha_livre(modelo: str) -> bool:
+    return modelo in SEM_ESCOLHA_FORCADA or modelo in _recusaram_a_escolha
+
+
+def _recusa_da_escolha(e: Exception) -> bool:
+    """O 400 que diz que este modelo não aceita a ferramenta forçada."""
+    e_400 = getattr(e, "status_code", None) == 400 or type(e).__name__ == "BadRequestError"
+    return e_400 and "tool_choice" in str(e)
+
+
+def criar_pedindo_a_ferramenta(
+    cliente: Any, *, ferramenta: str, max_tokens: int, max_tokens_livre: int, **pedido: Any
+) -> Any:
+    """O `messages.create` de quem quer a resposta por UMA ferramenta.
+
+    Força a escolha onde o modelo aceita; onde ele recusa, vai com a escolha
+    livre e um teto de saída maior. Os erros sobem como vieram: traduzir é de
+    quem chama.
+    """
+    modelo = pedido["model"]
+    if not vai_com_escolha_livre(modelo):
+        try:
+            return cliente.messages.create(
+                **pedido, max_tokens=max_tokens, tool_choice={"type": "tool", "name": ferramenta}
+            )
+        except Exception as e:
+            if not _recusa_da_escolha(e):
+                raise
+            _log.warning(
+                "%s recusa a escolha forçada da ferramenta; passa a ir com a escolha livre", modelo
+            )
+            _recusaram_a_escolha.add(modelo)
+    return cliente.messages.create(
+        **pedido, max_tokens=max_tokens_livre, tool_choice={"type": "auto"}
+    )
 
 
 class JuizNuvem:
@@ -192,11 +267,22 @@ class JuizNuvem:
             and veredito.resultado is not Resultado.NAO_AVALIAVEL
             and (veredito.confianca or 0.0) < self.escalar_abaixo_de
         ):
-            forte = self._chamar(self.modelo_forte, b64, tipo, texto, refs, **com_padrao)
-            forte.custo_centavos = (veredito.custo_centavos or 0.0) + (
-                forte.custo_centavos or 0.0
-            )
-            veredito = forte
+            try:
+                forte = self._chamar(self.modelo_forte, b64, tipo, texto, refs, **com_padrao)
+            except ErroDoJuiz as e:
+                # A reconsulta é reforço: se ELA falha, a resposta que já
+                # existia não se perde. Fica a do modelo barato, com a
+                # confiança baixa que tem — quem lê decide por ela. Antes,
+                # a falha da reconsulta derrubava a análise inteira.
+                _log.warning(
+                    "reconsulta a %s falhou (%s); fica o veredito de %s",
+                    self.modelo_forte, e, self.modelo,
+                )
+            else:
+                forte.custo_centavos = (veredito.custo_centavos or 0.0) + (
+                    forte.custo_centavos or 0.0
+                )
+                veredito = forte
 
         veredito.latencia_ms = int((time.monotonic() - inicio) * 1000)
         return veredito
@@ -213,9 +299,12 @@ class JuizNuvem:
         padrao: str | None = None,
     ) -> Veredito:
         try:
-            r = self._cliente.messages.create(
+            r = criar_pedindo_a_ferramenta(
+                self._cliente,
+                ferramenta="responder",
+                max_tokens=MAX_TOKENS,
+                max_tokens_livre=MAX_TOKENS_ESCOLHA_LIVRE,
                 model=modelo,
-                max_tokens=300,
                 system=[
                     {
                         "type": "text",
@@ -224,7 +313,6 @@ class JuizNuvem:
                     }
                 ],
                 tools=[FERRAMENTA],
-                tool_choice={"type": "tool", "name": "responder"},
                 messages=[
                     {"role": "user", "content": _conteudo(b64, tipo, texto, refs, padrao)}
                 ],
@@ -233,10 +321,21 @@ class JuizNuvem:
             raise self._traduzir(e) from e
 
         dados = _extrair_resposta(r)
+        try:
+            resultado = Resultado(dados["resultado"])
+        except (KeyError, ValueError) as e:
+            # Veio a ferramenta, mas sem um resultado que sirva — a saída
+            # cortada no meio dela dá nisto. É erro do juiz como os outros:
+            # quem chama sabe o que fazer com ele.
+            raise ErroDoJuiz(
+                f"resposta sem um `resultado` válido: {dados.get('resultado')!r} "
+                f"(stop_reason={getattr(r, 'stop_reason', '?')})",
+                recuperavel=True,
+            ) from e
         uso = getattr(r, "usage", None)
 
         return Veredito(
-            resultado=Resultado(dados["resultado"]),
+            resultado=resultado,
             confianca=_confianca(dados.get("confianca")),
             motivo=str(dados.get("motivo") or "").strip() or None,
             via=Via.NUVEM,
@@ -283,7 +382,7 @@ class JuizNuvem:
         usd = (
             normais * entrada_usd
             + escrita * entrada_usd * FATOR_CACHE_ESCRITA
-            + leitura * entrada_usd * FATOR_CACHE_LEITURA
+            + leitura * entrada_usd * fator_de_leitura(modelo)
             + saida * saida_usd
         ) / 1_000_000
         return usd * self.dolar * 100
@@ -435,8 +534,10 @@ def _extrair_resposta(r: Any) -> dict[str, Any]:
     for bloco in getattr(r, "content", []) or []:
         if getattr(bloco, "type", None) == "tool_use" and bloco.name == "responder":
             return dict(bloco.input)
-    # Com tool_choice forçado isto não deveria acontecer; se acontecer, é
-    # mudança de comportamento da API e tem que aparecer, não ser engolida.
+    # Com a escolha forçada isto não deveria acontecer. Com a escolha livre
+    # (modelo que recusa a forçada) pode: o modelo respondeu em texto, ou a
+    # saída foi cortada antes da ferramenta. Nos dois casos tem que aparecer
+    # como erro, não virar veredito.
     raise ErroDoJuiz(
         f"resposta sem o bloco `responder` (stop_reason={getattr(r, 'stop_reason', '?')})",
         recuperavel=True,

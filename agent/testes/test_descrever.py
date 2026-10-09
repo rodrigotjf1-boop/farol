@@ -241,8 +241,8 @@ def test_sem_descricao_e_erro_com_o_que_faltou():
 
 
 def test_o_custo_e_a_conta_do_juiz_de_nuvem():
-    # 7.000 de entrada a US$ 3 e 400 de saída a US$ 15 por milhão, com o dólar a 5,40
-    assert descrever.custo_em_centavos(Uso(), juiz_nuvem.MODELO_FORTE, 5.40) == pytest.approx(14.58)
+    # 7.000 de entrada a US$ 2 e 400 de saída a US$ 10 por milhão, com o dólar a 5,40
+    assert descrever.custo_em_centavos(Uso(), juiz_nuvem.MODELO_FORTE, 5.40) == pytest.approx(9.72)
     assert descrever.custo_em_centavos(Uso(), "modelo-sem-preco", 5.40) is None, "sem preço na tabela não é de graça"
     assert descrever.custo_em_centavos(None, juiz_nuvem.MODELO_FORTE, 5.40) is None
 
@@ -262,12 +262,15 @@ def test_descreve_e_devolve_o_que_a_nuvem_guarda(monkeypatch):
         "descricao": "Chapa elétrica de inox, com duas tampas. Limpa: superfície clara, sem resíduo escuro.",
         "conferir": ["Tampas abaixadas quando a chapa não está em uso", "Nada apoiado em cima"],
         "modelo": juiz_nuvem.MODELO_FORTE,
-        "custoCentavos": pytest.approx(14.58),
+        "custoCentavos": pytest.approx(9.72),
     }
     (pedido,) = modelo.pedidos
     assert pedido["model"] == juiz_nuvem.MODELO_FORTE, "é feito uma vez: vale o modelo que enxerga melhor"
     assert pedido["system"] == descrever.INSTRUCOES
-    assert pedido["tool_choice"] == {"type": "tool", "name": "descrever"} and pedido["tools"] == [descrever.FERRAMENTA]
+    # O modelo forte RECUSA a escolha forçada da ferramenta (medido em 08/10/2026):
+    # este teste conferia `{"type": "tool"}`, o pedido que a API de verdade recusa.
+    assert pedido["tool_choice"] == {"type": "auto"} and pedido["tools"] == [descrever.FERRAMENTA]
+    assert pedido["max_tokens"] == descrever.MAX_TOKENS_ESCOLHA_LIVRE
     assert [b["type"] for b in pedido["messages"][0]["content"]].count("image") == 2
 
 
