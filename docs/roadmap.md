@@ -2458,7 +2458,7 @@ decisões opostas.
 
 ---
 
-## A18 · O momento do ocorrido, o ambiente que calcula e a cara do produto (plano — aguarda aprovação; onda 0 feita em 08/10/2026)
+## A18 · O momento do ocorrido, o ambiente que calcula e a cara do produto (aprovado em 08/10/2026; onda 0 feita; a ordem foi revista no A19)
 
 **Pedido do dono (08/10/2026).** Dez coisas, cada uma numa linha:
 
@@ -2920,3 +2920,451 @@ para a onda 3.
 9. Confirmar que e-mail e WhatsApp saem pelo transportador (Regem/n8n).
 10. Mapa de calor: por setor e horário, anônimo (recomendo).
 11. Borrar rosto nos trechos: seguir o critério (recomendo), sempre, ou nunca.
+
+**Aprovado pelo dono em 08/10/2026** ("está tudo aprovado"), lido como as onze na opção
+recomendada. Na mesma mensagem ele apontou o que faltava — a análise de processos, os
+ingredientes da montagem e a ligação entre quadros e critérios — e pediu que nada fosse
+aplicado antes disso. **A ordem das ondas passou a ser a do A19.**
+
+---
+
+## A19 · O Farol entende o processo: quadros, acontecimentos, etapas e a leitura da bancada (plano)
+
+**O dono aprovou o A18 em 08/10/2026 ("está tudo aprovado")** — lido como as onze decisões
+na opção recomendada. E apontou o que faltava:
+
+1. não havia plano para **analisar os ingredientes da montagem e identificar o produto**;
+2. a ligação entre **quadros e critérios está confusa** — o certo é
+   `canal [ quadro 1 [critérios] · quadro 2 [critérios] · critérios gerais da imagem completa ]`;
+3. as análises estão **limitadas a presença e a uma lista curta de objetos**; a cozinha
+   pede julgar **ações de pessoas, preparo e processos**, comparando, se for o caso, **o
+   contexto completo do processo**;
+4. **nada de aplicar alterações antes de o projeto analisar de verdade** os processos e o
+   funcionamento da loja;
+5. "se não existe ferramenta que reconheça os ingredientes, **crie uma solução**, um
+   algoritmo, tirando ideias do que já temos";
+6. o **canal 4 recebeu a câmera nova**: Intelbras VHD 3250 VF G8 (varifocal de 2,7 a 12 mm,
+   1080p);
+7. os critérios têm de ser **estudados para gerar gatilhos**, sem julgamento desnecessário
+   "sem movimento ou sem o contexto acontecendo". O exemplo dele: para saber se o
+   colaborador da chapa salga as carnes, é preciso haver carne na chapa e colaborador no
+   posto — sem isso não se analisa. "Temos que ter um **estudo condicional dos critérios**,
+   para aprimorar e já servir de funil para as análises."
+
+Este bloco é a resposta. Ele **reordena o A18**: o que faz o Farol analisar de verdade vem
+antes do vídeo do ocorrido, dos relatórios e do porte da cara nova. E traz para dentro do
+plano o estudo da montagem (`docs/estudo-montagem-em-escala.md`), que tinha ficado de fora.
+
+### O que foi olhado antes de escrever
+
+**Na loja, com ela aberta (08/10, 21h20 às 22h) — canal 4, a câmera nova sobre a bancada:**
+
+| o quê | medido |
+|---|---|
+| Imagem | 1920×1080, 15 quadros/s, H.265 |
+| Detalhe na bancada | **≈ 12 px por cm** (a comanda, tomada como de 80 mm, ocupa ≈ 100 px). A meta do estudo era 12,8 |
+| O enquadramento | **35% do quadro é piso**; as cubas ficam **cortadas no topo** e parte delas atrás dos suportes pendurados na prateleira; há um **reflexo forte da luminária** no meio do inox; a lente está perto do mais aberto (2,7 mm) |
+| O que aparece | a impressora de comandas e o teclado; **a comanda impressa fica na bancada, ao lado do lanche** (visto nas duas observações) |
+| Movimento em 150 s | nada mexendo em 70% do tempo; mão na faixa das cubas em 6% (8 idas de ≈ 0,5 s); o lado da embalagem em 29% |
+| Mão em movimento | sai borrada (obturador lento); parada, fica nítida |
+| Olhar para trás | o gravador **já entrega o que gravou 8 s antes** (6 s = 1,59 MB em 1,8 s) |
+| Folga da máquina | com a loja aberta: **3% do processador e 3% da placa de vídeo** |
+
+O canal 1 (vista geral, câmera antiga) vê de lado a linha inteira de cubas, a tostadeira e
+as fritadeiras: serve de segunda vista.
+
+**No código** (levantamento completo de 08/10):
+
+- o banco **já liga critério a área** (`regra_alvo`), com várias áreas por canal. Não
+  existe "critério geral do canal": marcar o canal grava a área "Quadro inteiro". A
+  confusão é de tela — a lista de canais não mostra as áreas; com uma área só ela é
+  invisível e, ao criar a segunda, os critérios antigos aparecem sob "Quadro inteiro" sem
+  aviso; o nome "Quadro inteiro" continua depois de a área ser redesenhada (no canal 4 ele
+  cobre 20% × 78% do quadro); "vale em N canais" às vezes conta áreas;
+- **todo julgamento usa um quadro só**, inclusive "ação";
+- a descrição do processo (`processo_descricao`) existe no banco, desce ao agente e **não
+  chega ao juiz**; a tela não tem o campo;
+- fotos de referência do certo e do errado só entram pela linha de comando;
+- existem no código, **sem estar ligados ao serviço**: o juiz binário ("é o queijo, que
+  deveria entrar agora?"), a base de exemplos por semelhança e o gancho "o que o Regem
+  sabe" (pedido em produção, ficha técnica);
+- **nada traz o pedido em preparo** do Regem para o Farol;
+- o único banco de provas é manual, com 6 imagens.
+
+**No mercado e na pesquisa** (verificado em 08/10/2026):
+
+- **Quem confere montagem sabe o pedido antes** — recebe do caixa ou da tela da cozinha
+  (Agot AI, PreciTaste, Dragontail) ou **lê a comanda** (Plainsight) — e só confere.
+  Ninguém alega identificar o produto do zero. A câmera é dedicada, de cima, perto da
+  estação. A maior rede de fast-food confere com balança, não com câmera.
+- **Higiene e procedimento por pessoa** (touca, luva, celular) rodam em câmera de
+  segurança comum.
+- **Armadilhas relatadas:** queijo derretido esconde o que está embaixo; lanche embrulhado
+  é opaco; alerta falso faz a equipe ignorar o sistema; imagem casada com o pedido errado;
+  uso como punição gera rejeição.
+- **O que a pesquisa mede** (em conjuntos de teste públicos): reconhecer etapas, com
+  exemplos rotulados, 70% a 90%; fluxo por zonas com câmera de teto, ≈ 80%; **detectar
+  erro de procedimento, nota de 40 a 70 em 100, com muito alarme falso**; modelos de
+  linguagem com visão acertam bem "o que aparece" e mal "em que ordem" (≈ 50% contra
+  ≈ 90% de uma pessoa).
+- **Modelo de nuvem:** saiu o Claude Haiku 5.5, a **US$ 0,10 por milhão** — dez vezes
+  menos que o Haiku 4.5 que o agente usa hoje — e ele aceita a imagem de 1080p sem reduzir.
+- **Licenças** (produto distribuído): ficam RF-DETR, RTMPose, MediaPipe, DINOv2, SigLIP e
+  CLIP (Apache ou MIT). Ficam fora Ultralytics/YOLO (AGPL), YOLO-World (GPL), DINOv3 e
+  Qwen2.5-VL-3B.
+
+Fontes: tabela de preços e modelos da Anthropic
+(<https://platform.claude.com/docs/en/about-claude/pricing>,
+<https://platform.claude.com/docs/en/about-claude/models/overview>); patente da Agot
+(<https://patents.google.com/patent/US11562569B2/en>); Plainsight
+(<https://insights.plainsight.ai/food-order-accuracy-software/>); detecção de erro em
+procedimento (<https://arxiv.org/html/2404.01933>, <https://arxiv.org/html/2606.21579>);
+ordem temporal (<https://arxiv.org/abs/2410.02763>); fluxo por zonas
+(<https://arxiv.org/html/2506.06081v1>).
+
+### A regra que organiza tudo: observar → ensaiar → medir → avisar
+
+Pedido 4 do dono, virado método. Toda capacidade nova e todo critério passam por quatro
+estados, e a tela mostra em qual está:
+
+| estado | o que faz | sai dele quando |
+|---|---|---|
+| **observando** | só colhe números do que acontece; não julga | há dados de pelo menos alguns dias de operação |
+| **em ensaio** | julga e mostra, **não avisa ninguém** | o responsável marcou "acertou / errou" num número mínimo de exemplos |
+| **medido** | tem o acerto, o alarme falso e o "não deu para ver" medidos, à vista no critério | passa da meta combinada |
+| **valendo** | avisa | — (volta a "em ensaio" se o texto, o quadro ou o modelo mudar) |
+
+O código já previa: o critério "nasce desligado até ter acurácia medida". Faltava a medida.
+
+### Frente A · Canal → quadros → critérios
+
+**As palavras** (as do dono):
+
+- **canal** — a câmera;
+- **imagem completa** — o canal inteiro; os critérios dela são os **critérios gerais**;
+- **quadro** — um recorte marcado dentro da imagem, com nome e **papel**; cada quadro tem
+  os seus critérios.
+
+"Quadro inteiro" deixa de ser nome de área.
+
+**O que muda:**
+
+| | hoje | passa a ser |
+|---|---|---|
+| Imagem completa | uma área como as outras, que pode ser redesenhada | fixa, sempre o canal inteiro. Quem quer menos, marca um quadro |
+| Áreas já redesenhadas | "Quadro inteiro" cobrindo 20% do canal | viram "Quadro 1", e o canal ganha a imagem completa de volta (migração) |
+| Papel do quadro | não existe | posto de trabalho · cuba (ingrediente) · posição de montagem · equipamento · impressora/comanda · caixa/gaveta · pia · piso · livre |
+| Tela do canal | lista de canais sem as áreas; área e critério em telas separadas | a imagem com os quadros numerados e, ao lado, a árvore: **Imagem completa (critérios gerais) · Quadro 1 (critérios) · Quadro 2 (critérios)**, com "+ critério" em cada um |
+| Contagens | "vale em N canais" ora conta canais, ora áreas | "em N canais (M quadros)" |
+| Quadros sobrepostos | só um aviso | o critério diz em qual quadro vale; a sobreposição aparece desenhada |
+
+O banco muda pouco (o vínculo já existe): um campo de papel, uma ordem, a migração das
+áreas redesenhadas. O trabalho é de tela — **protótipo antes**.
+
+### Frente B · O que o Farol sabe julgar
+
+**De cinco tipos para quatro famílias:**
+
+| família | a pergunta | exemplos | como julga | o que devolve |
+|---|---|---|---|---|
+| **Estado** | "como está?" | bancada limpa; uniforme; cuba abastecida | um quadro, o melhor (existe) | veredito |
+| **Acontecimento** | "aconteceu? alguém fez?" | abriu a gaveta; usou o celular; derrubou | uma **sequência curta**: o que o gravador tem dos segundos anteriores + o agora | veredito + o instante |
+| **Processo** | "foi feito como manda?" | lavar as mãos antes de montar; uso da chapa; montagem; abertura e fechamento | **etapas ao longo do tempo**, cada uma no seu quadro | veredito **por etapa** |
+| **Medida** | "quanto? por quanto tempo?" | lanches montados por hora; tempo do pedido na bancada; minutos sem ninguém no posto | conta ou cronometra acontecimentos | **número**, não veredito |
+
+Presença, contagem e comparação com a foto padrão continuam; passam a ser formas de Estado
+e de Medida. O critério "Produto" que o dono cadastrou (contar a produção) é uma Medida —
+por isso nunca teve juiz.
+
+**O estudo condicional de cada critério — o funil.** Pedido 7 do dono. Antes de julgar,
+cada critério ganha uma ficha com seis partes. O exemplo é o dele:
+
+| parte | a pergunta | "o colaborador da chapa salga as carnes?" | como se confere |
+|---|---|---|---|
+| **Contexto** | o que precisa estar acontecendo? | há carne na chapa **e** há colaborador no posto | na loja: o quadro da chapa difere da chapa vazia; presença no quadro do posto |
+| **Gatilho** | o que abre a análise? | uma carne acabou de ser posta | na loja: "algo foi posto" no quadro da chapa |
+| **Janela** | até quando observar? | até a carne ser virada ou tirada (ou N segundos) | na loja |
+| **Ação** | o que se procura na janela? | o gesto de salgar sobre a carne | a sequência da janela — regra local se houver sinal; senão, nuvem |
+| **Desfecho** | como termina? | salgou: dentro · a janela fechou sem salgar: fora · a mão tapou: não deu para ver | — |
+| **Fora de contexto** | e sem carne, ou sem ninguém? | **não se julga, não se paga e não conta como análise** | — |
+
+- **Quem escreve a ficha:** ao cadastrar o critério, o sistema propõe as seis partes
+  (uma consulta à nuvem, centavos, uma vez) e liga cada condição a um sinal que **este
+  canal e estes quadros** já dão. Onde não houver sinal local, ele diz — e mostra o custo.
+  O responsável confirma ou corrige.
+- **O funil aparece em números**, em Análises e no próprio critério: olhadas → com
+  contexto → com gatilho → julgadas → fora do critério. E, no estado "observando", o
+  critério já mostra **quantas vezes por dia o gatilho acontece** e quanto custaria ligado.
+- O porteiro de hoje ("sempre", "com pessoa", "área livre", "movimento") vira um caso
+  particular do contexto.
+- **Quando a ação é fina demais para a câmera** (o sal não aparece), a ficha sugere dar a
+  ela um rastro visível: o **lugar marcado da ferramenta**. O saleiro saiu do lugar e
+  voltou dentro da janela = salgou. É conferência local, barata e objetiva — e é o
+  ambiente virando padrão, como o dono pediu no A18.
+- A medida de 08/10 mostra o tamanho do problema: 93% das análises pagas foram feitas
+  fora de contexto (cozinha vazia, chapa sem carne).
+
+**O contexto completo do processo** — o que passa a ir junto com a pergunta, e hoje não vai:
+
+1. o processo em **etapas numeradas** (o campo existe e não chega ao juiz);
+2. **fotos de referência** do certo e do errado;
+3. os **quadros do canal e o papel de cada um**, numerados em cima da imagem
+   ("3 = cuba do queijo");
+4. **o que se espera agora**: a ficha do produto, quando o pedido é conhecido;
+5. a frase do lugar e os equipamentos (já vão);
+6. a **sequência de quadros**, com a hora escrita em cada um.
+
+E a resposta deixa de ser um veredito só: é uma **lista por etapa** — feita, não feita ou
+não deu para ver; em qual quadro da sequência; com que confiança; por quê.
+
+**A sequência.** Ao disparar, o agente busca no gravador os segundos anteriores (medido:
+disponível 8 s depois) e junta o agora. Manda **6 quadros numa grade 3×2**, recorte na
+resolução da câmera, cada um numerado — o formato que a pesquisa mediu como o melhor. Para
+processo longo, os quadros são escolhidos **por mudança** (o instante depois que a mão sai),
+não por relógio.
+
+**A escada de juízes** — do barato ao caro, local primeiro:
+
+| degrau | o quê | onde | custo |
+|---|---|---|---|
+| 1 | **Sinais por quadro**, o tempo todo: movimento, presença, braço e mão, mudança contra a foto padrão | loja | 6 ms por quadro (medido) |
+| 2 | **Acontecimentos por regra**: "a mão entrou na cuba 3", "algo ficou na posição 2", "a comanda saiu", "20 s na pia" | loja | desprezível |
+| 3 | **Processo**: os acontecimentos, em ordem, contra as etapas esperadas | loja | desprezível |
+| 4 | **Nuvem, com a sequência e o contexto completo**: para o que não tem regra local, para desempatar e para conferir por amostragem | nuvem | ≈ R$ 0,003 por sequência |
+| 5 | **A loja ensina**: "acertou / errou" e os exemplos viram o conjunto de prova e, depois, um classificador da própria loja | loja + nuvem | uma vez |
+
+O degrau 4 é o que **abre o leque já**: qualquer ação ou processo descrito em texto pode
+ser julgado numa sequência, sem esperar modelo próprio. Os degraus 1 a 3 entram onde o
+volume é alto ou o aviso tem de ser na hora (a montagem).
+
+**O que esperar, sem enfeite:**
+
+| | expectativa | por quê |
+|---|---|---|
+| Presença, permanência, ordem dos postos, tempos | boa | é geometria e relógio |
+| "O que aparece" numa sequência (tem touca? a chapa está fechada? pôs o queijo?) | boa, **a medir no banco de provas** | é o forte dos modelos |
+| "Em que ordem aconteceu" | fraca pelo modelo; **boa quando a ordem sai dos acontecimentos locais** | a ordem é medida no relógio, não perguntada ao modelo |
+| "Houve erro no procedimento" | **triagem, com revisão humana** — nunca punição automática | a literatura mede muito alarme falso |
+| Camada fina (molho), ingredientes parecidos, o que fica embaixo do queijo | limitada | a câmera não vê |
+
+**Exemplos do que passa a caber:**
+
+| o que se quer saber | família | como |
+|---|---|---|
+| Lavou as mãos antes de voltar à montagem | processo | ≥ 20 s no quadro da pia (local) antes de entrar no quadro da bancada; a nuvem confere a sequência na dúvida |
+| Touca e uniforme | estado | recorte da pessoa na resolução da câmera, só com gente no quadro |
+| Usou o celular na produção | acontecimento | o detector já conhece "celular"; a sequência confirma |
+| Bancada limpa entre pedidos | estado | comparação com a foto padrão quando a bancada fica livre (local) |
+| Uso da chapa (fechou, tempo, abriu) | processo | mudança no quadro da chapa, cronometrada; sequência na nuvem |
+| Gaveta do caixa aberta sem cliente | acontecimento | mudança no quadro da gaveta + presença no quadro do cliente |
+| Lanches montados por hora, por bancada | medida | leitura da bancada (frente C) |
+| Tempo do pedido na bancada | medida | da comanda impressa ao lanche embalado |
+| Montagem conforme a ficha | processo | leitura da bancada + ficha |
+| Pedido completo na sacola | processo | itens postos no quadro da embalagem × o pedido |
+| Abertura e fechamento | processo | etapas por quadro, em 30 min |
+
+**Como o processo é cadastrado.** O responsável descreve "como explicaria a um funcionário
+novo". O sistema devolve as etapas numeradas, o quadro de cada uma, o que observar — e
+**o que a câmera não vai conseguir ver**. Ele ajusta, e o critério nasce "em ensaio".
+Modelos prontos por área (higiene, chapa, montagem, embalagem, caixa, limpeza, abertura
+e fechamento).
+
+### Frente C · A leitura da bancada — o algoritmo para ingredientes e produto
+
+Não existe ferramenta pronta que reconheça os ingredientes desta loja. O algoritmo abaixo é
+nosso, montado com o que o Farol já tem: os quadros por pontos, a foto padrão e a
+comparação por blocos, o detector, o vigia (que olha o tempo todo, barato), o porteiro de
+movimento, a base de exemplos por semelhança e o juiz binário.
+
+**A ideia central: três provas independentes para cada camada, nenhuma delas "adivinhar o
+ingrediente pela foto".**
+
+| prova | a pergunta | como | custo |
+|---|---|---|---|
+| **1 · de onde a mão veio** | "de qual cuba ela pegou?" | cada cuba é um quadro com o papel "ingrediente X" (o **planograma** da bancada). A ponta do braço dentro do quadro por 0,2 s = pegou X | regra, local |
+| **2 · o que ficou** | "a camada nova parece X?" | quando a mão sai, o pedaço que mudou na posição de montagem é comparado com os exemplos de X — pergunta de **sim ou não**, contra o que as fichas abertas esperam | local, ms |
+| **3 · o que o pedido espera** | "X é uma das camadas que deviam entrar agora?" | as fichas dos pedidos abertos reduzem as hipóteses a duas ou três | regra |
+
+As três concordam: camada confirmada. Discordam: "duvidosa" — vai, depois, para a nuvem
+com a sequência, e vira exemplo. Nunca vira aviso sozinha.
+
+**O passo a passo:**
+
+1. **Cadastro, uma vez por bancada:** os quadros (cubas com o ingrediente de cada uma,
+   área de montagem, impressora, embalagem) e a foto padrão da bancada vazia.
+2. **O braço:** o que difere do fundo e está ligado à borda do operador é o braço; a ponta
+   é a mão. Sem modelo: é geometria da vista de cima.
+3. **"Pegou":** a mão dentro do quadro de uma cuba por 3 quadros seguidos.
+4. **Posição de montagem:** nesta loja o lanche é montado sobre uma folha de papel
+   alumínio ou dentro da caixa. A folha (ou a caixa) que aparece na bancada **abre uma
+   posição**; o que entra em cima é camada dela; quando sai inteira, fechou. **Cada
+   posição que fecha é um lanche montado** — a contagem de produção que o critério
+   "Produto" pedia.
+5. **"Pôs" e "tirou":** quando a mão sai de cima de uma posição e ela fica parada por
+   0,6 s, compara-se com a última vez em que esteve parada. Mancha nova = algo foi posto;
+   mancha que sumiu = tirado. Guarda-se o tamanho em centímetros, a cor e o recorte. A
+   quietude é **por posição**, não da bancada inteira (no pico ela nunca para), e a mancha
+   tem de ter cor e forma de alimento — o brilho do papel alumínio amassado não conta.
+6. **A camada:** liga-se cada "pôs" ao último "pegou" (prova 1), confere-se a aparência
+   (prova 2) contra o que as fichas abertas esperam (prova 3).
+7. **O produto:** a sequência de camadas de uma posição contra as fichas abertas. Sobra
+   uma: é o produto. Não sobra: a mais parecida, e a diferença é o texto do aviso
+   ("x-salada sem o tomate") — sempre por item.
+8. **O pedido:** a comanda sai da impressora dentro do quadro. O instante amarra a
+   bancada ao pedido que o Regem acabou de imprimir; com vários abertos, um **código
+   visual de 3 a 4 cm impresso na comanda** amarra cada lanche ao seu pedido (a ≈ 12 px
+   por cm, cada célula do código tem 6 a 8 px: legível). Sem nada disso, vale o
+   livro-caixa por produto do estudo.
+9. **A loja se rotula sozinha:** toda vez que a mão vem da cuba X e uma camada aparece, o
+   recorte ganha o rótulo "X" de graça. Em dias, cada ingrediente tem dezenas de exemplos
+   **desta bancada, desta luz**. A nuvem confere uma amostra; o responsável corrige o que
+   ela errar. Com ≈ 50 exemplos por ingrediente (estimativa; a pesquisa mede 84% de
+   acerto com 16 exemplos por classe em fotos de comida bem mais variadas), treina-se o
+   classificador da loja — uma regressão sobre a assinatura da imagem, segundos de
+   processador, sem placa de vídeo.
+10. **Quando a câmera sai do lugar:** a foto padrão deixa de bater; os quadros são
+    realinhados sozinhos ou o sistema pede para conferir.
+
+**O que o algoritmo não resolve, e o plano diz:** molho e camada fina (talvez "passou
+molho", dificilmente "qual"); dois queijos parecidos (aí a prova 1 decide); o que fica
+embaixo de outra camada (por isso se acompanha a sequência, e não a foto final); cuba
+escondida da câmera.
+
+**A primeira prova, ao vivo** — rodada em 08/10, às 22h, com os degraus 2 a 4 e a comanda:
+ver "Prova de 08/10" abaixo.
+
+**As etapas do estudo, atualizadas:**
+
+| etapa | entrega | situação |
+|---|---|---|
+| **E0 · piloto de uma bancada** | câmera regulada; px por cm medido; números da operação por uma semana, em "observando": comandas, idas às cubas, itens postos, posições abertas ao mesmo tempo, tempo por lanche | **câmera instalada (canal 4)**; falta regular |
+| **E1 · contar montagens** | lanches por hora e por bancada; tempo do pedido na bancada | precisa do passo 5 |
+| **E2 · qual produto** | camadas e produto; "pronto sem montagem", "montagem sem pedido" | precisa das fichas com as camadas visíveis e da fila do Regem |
+| **E3 · conferir na hora** | aviso na estação antes de o lanche fechar | só com o alarme falso medido e baixo |
+| **E4 · observações e porção** | "sem cebola", adicional, quantidade | depois |
+
+**Regulagem da câmera do canal 4** (é o "regular e testar uma" do dono):
+
+1. **Subir o enquadramento:** as cubas inteiras no topo, a borda da bancada embaixo, o
+   piso fora.
+2. **Fechar a lente** (o anel do zoom, perto de 4 a 5 mm) até a bancada ocupar a largura
+   do quadro; depois o anel do foco. Meta: 14 a 16 px por cm.
+3. **Tirar os suportes pendurados da frente das cubas**, ou deslocar a câmera alguns
+   centímetros para que não as cubram.
+4. **Tirar o reflexo de cima da área de montagem:** o inox e o papel alumínio espelham a
+   luminária. Deslocar a luminária ou a câmera alguns centímetros, ou pôr um difusor na
+   luminária. E **marcar na bancada onde as folhas são postas** (duas a quatro posições
+   fixas): é o padrão de arrumação que mais ajuda a leitura.
+5. **Folha A4 na bancada por um minuto**, para medir o px por cm com régua certa.
+6. Se o menu da câmera permitir: obturador em 1/100 ou 1/120, para a mão não borrar.
+
+Feito isso, eu meço de novo daqui (nitidez, px por cm, o que ficou visível).
+
+### Frente D · O banco de provas — o que garante "analisar de verdade"
+
+- Cada critério tem o seu **conjunto de prova**: sequências reais da loja com a resposta
+  certa, marcada pelo responsável ("acertou / errou" e "o que era") — a tabela existe no
+  banco e não tem tela.
+- **Ensaio automático** a cada mudança de texto, de quadro ou de modelo: acerto, alarme
+  falso e "não deu para ver", por critério.
+- O número fica **à vista no critério** ("acerta 92% — medido em 60 exemplos").
+- Só passa a "valendo" com a meta batida. A meta é do dono; sugiro alarme falso de no
+  máximo 1 em 10 avisos para começar.
+- A primeira rodada mede os critérios que a loja já tem e os primeiros processos, com o
+  Haiku 5.5 e com o Sonnet 5.5, lado a lado. Custo: centavos.
+
+### Prova de 08/10 — a leitura da bancada, ao vivo
+
+Das 21h36 às 21h49, treze minutos com a loja em operação, no canal 4. Rodaram os passos 2,
+3 e 5 e a comanda — **sem modelo nenhum e sem ajuste**: só diferença de imagem e geometria.
+Nenhuma imagem inteira foi guardada; ficaram os números e uma folha com os recortes
+pequenos do que ele detectou (apagada da loja depois de copiada).
+
+| | resultado |
+|---|---|
+| Processamento | 11.707 quadros de 1080p, **15,0 por segundo, em tempo real**; 6,1 ms por quadro (mediana) |
+| Mão na faixa das cubas | 146 idas, concentradas nas colunas 3 a 5 |
+| Itens postos / tirados | 73 / 61 |
+| Comandas | 32 — **não conferido** (esse sinal não guardou recorte) |
+| O que os recortes mostram (96) | **≈ 40% são camadas e itens de verdade** — pão, carne, fatia de queijo, alface, molho branco, molho laranja, batata, caixa — **todos distinguíveis a olho no recorte**. Os outros ≈ 60% são brilho do papel alumínio e do inox |
+| Onde se monta | os recortes de alimento vieram quase todos do terço esquerdo da bancada, sobre papel alumínio e em caixas |
+
+O que a prova ensinou:
+
+1. **O sinal existe.** A 12 px por cm as camadas aparecem e se distinguem — inclusive o
+   molho, que o estudo temia não ver (branco sobre a carne aparece bem).
+2. **A posição de montagem desta loja é a folha de papel alumínio** (ou a caixa).
+3. **O papel alumínio amassado é o grande gerador de alarme falso.** Daí as duas regras
+   do passo 5: comparar por posição, e exigir cor e forma de alimento.
+4. **Esperar a bancada inteira parar atrasa a leitura no pico:** vários itens saíram no
+   mesmo instante. A quietude tem de ser por posição.
+5. Só 19 dos 73 "postos" vieram até 4 s depois de uma ida às cubas. Com as duas correções,
+   esse é o número que mede o progresso.
+
+Não é acerto medido: não houve contagem humana para comparar. É a prova de que o caminho
+tem sinal — e o primeiro dado da etapa E0.
+
+### Impacto
+
+| | conta |
+|---|---|
+| **Processador da loja** | hoje 3% com a loja aberta. Os sinais por quadro medidos na prova: 6 ms por quadro de 1080p, a 15 quadros/s = 9% de um núcleo por bancada — mais a decodificação do fluxo (medida em 07/10: quatro fluxos principais juntos = 10% da máquina) |
+| **Rede interna** | um fluxo principal por bancada: 2,1 Mbit/s. Com o cabo a 10 Mbit/s cabem até quatro juntos, no limite (medido em 07/10) — o cabo novo continua sendo pré-requisito para mais de uma bancada |
+| **Olhar para trás** | 6 s = 1,6 MB em ≈ 2 s, um pedido por vez ao gravador |
+| **Disco da loja** | a sequência guardada de cada julgamento: ≈ 0,3 MB. Com 1.000 por dia e 30 dias: 9 GB; teto e rodízio como nos trechos de vídeo |
+| **Nuvem, por sequência** | 6 recortes de 960×540 = 4.200 unidades de imagem. No Haiku 5.5: **≈ US$ 0,0006, ou R$ 0,003** (dólar a R$ 5,40, o do agente). Mil por dia: ≈ R$ 3 |
+| **Na dúvida, o modelo maior** | Sonnet 5.5: ≈ R$ 0,06 por sequência — só no que for crítico, ou a conta dobra |
+| **Hoje, para comparar** | R$ 0,013 por análise de **um** quadro (Haiku 4.5), com 93% sem resposta |
+| **Treino do classificador da loja** | segundos no processador, fora do horário |
+
+Conta minha sobre a tabela oficial de preços; o acerto do Haiku 5.5 nesta tarefa **não
+foi medido** — é o primeiro uso do banco de provas.
+
+### A ordem, revista (substitui a do A18)
+
+| onda | o quê | tamanho | depende de |
+|---|---|---|---|
+| 0 ✅ | Confiança em %; cliente do gravador | P | — |
+| 1 | **Quadros, estudo condicional e contexto:** imagem completa × quadros com papel; a ficha de cada critério (contexto, gatilho, janela, ação, desfecho) e o funil em números; o contexto completo no juiz; recorte na resolução da câmera; Haiku 5.5; os quatro estados do critério | G | protótipo aprovado |
+| 2 | **Sequência e banco de provas:** olhar para trás, grade de 6 quadros, a família Acontecimento; "acertou / errou"; o acerto medido de cada critério | G | o dono marcar os exemplos |
+| 3 | **Processo e Medida:** etapas por quadro, cronômetros e contadores, episódios, modelos prontos | G | onda 2 medida |
+| 4 | **Leitura da bancada, E0 → E1:** câmera regulada, números da semana, contar montagens, a comanda | G | regulagem do canal 4 |
+| 5 | **Leitura da bancada, E2 → E3:** camadas, produto, aviso na estação | G+ | fichas com camadas e fila de produção (Regem); alarme falso medido |
+| 6 | O momento em vídeo ("Ver o momento") — reaproveita a sequência da onda 2 | M | onde guardar na nuvem |
+| 7 | Relatórios, resumos e o início "fora do critério primeiro" | G | transportador |
+| 8 | Porte da cara nova | G | protótipo geral aprovado |
+| 9 | O ambiente que calcula; forma livre; rascunho | G+M+M | — |
+| 10 | A pessoa na planta; busca investigativa | G+G | ondas 2 e 9; disco maior |
+
+O **protótipo** anda junto desde a onda 1 e já nasce na cara nova: a tela do canal com
+quadros e critérios, o cadastro do processo, a sequência com a resposta por etapa, o
+"acertou / errou", a bancada lida ao vivo.
+
+**Nenhuma onda liga aviso sem passar pelo banco de provas.**
+
+### O que não foi medido
+
+- O acerto dos modelos de nuvem em sequências desta loja.
+- A leitura da bancada contra uma contagem humana, num pico de verdade e com a câmera
+  regulada.
+- As 32 comandas da prova (sem recorte para conferir).
+- Se a comanda é impressa em todas as bancadas e fica sempre ao lado do lanche.
+- Se o gesto de salgar aparece na câmera da chapa (canal 6, ≈ 3 a 4 px por cm).
+- Se o trecho recém-gravado (que não começa no cabeçalho do arquivo) é lido sem erro.
+- O px por cm com régua (a folha A4): os 12 saem da comanda, tomada como de 80 mm, e
+  batem com o pão, que sai com ≈ 10 cm na conta. O campo de visão da lente na ficha do
+  fabricante (a página dele recusou a leitura; a busca indica 109° a 33°).
+- O menu de imagem da câmera pelo gravador (obturador).
+
+### Da parte do dono
+
+1. Regular a câmera do canal 4 (os seis itens acima) e avisar — eu meço de novo.
+2. Confirmar **a rotina** que a câmera mostrou: a comanda sai em cada bancada e fica ao
+   lado do lanche até embalar? o lanche é sempre montado sobre o papel alumínio ou na
+   caixa, no lado esquerdo?
+3. Escolher os **3 a 5 processos** que quer ver julgados primeiro. Sugestão: montagem
+   conforme a ficha; sal na carne (o exemplo dele); lavar as mãos antes de montar; pedido
+   completo na sacola; bancada limpa entre pedidos.
+4. Do lado do Regem (outro projeto): a fila de produção na rede da loja, a ficha com as
+   camadas visíveis, e o código na comanda. Decidir quando.
+5. Aprovar esta ordem.

@@ -1,0 +1,71 @@
+{
+  "id": "intelbras--vhd-3250-vf-g8",
+  "categoria": "camera_analogica",
+  "fabricante": "Intelbras",
+  "modelo": "VHD 3250 VF G8",
+  "nivel": "intermediario",
+  "nivel_motivo": "2 MP com lente varifocal manual: fecha o enquadramento na bancada. Sem WDR real e sem cor à noite.",
+  "status": "recomendado",
+  "observacao": "Geração seguinte da G7. É a câmera do piloto de montagem: canal 4 da loja de teste, instalada de cima, sobre a bancada, em 08/10/2026. Varifocal MANUAL: ajusta uma vez, trava, não desalinha. Campo de visão de 109° a 33° pela busca — a página do fabricante recusou a leitura: conferir na ficha antes de usar em cálculo.",
+  "serve_para": [
+    "presenca",
+    "contagem",
+    "comparacao",
+    "estado"
+  ],
+  "specs": {
+    "resolucao_h": 1920,
+    "mp": 2,
+    "lente_min_mm": 2.7,
+    "lente_max_mm": 12,
+    "lente_motorizada": false,
+    "cor_24h": false,
+    "interface": "analogica_4em1",
+    "corpo": "bullet_metal",
+    "ir_m": 50,
+    "protecao": "IP67"
+  },
+  "medido": [
+    {
+      "em": "2026-10-08",
+      "onde": "loja de teste",
+      "metrica": "fluxo_principal",
+      "valor": "1920x1080 a 15 quadros/s",
+      "condicao": "no gravador MHDX 3116-C, H.265"
+    },
+    {
+      "em": "2026-10-08",
+      "onde": "loja de teste",
+      "metrica": "px_por_cm_na_bancada",
+      "valor": 12,
+      "unidade": "px/cm",
+      "condicao": "de cima, sobre a bancada, lente perto de 2,7 mm; pela comanda (tomada como de 80 mm) e conferido pelo pão (≈ 10 cm na conta)"
+    },
+    {
+      "em": "2026-10-08",
+      "onde": "loja de teste",
+      "metrica": "mao_em_movimento",
+      "valor": "sai borrada; parada, fica nítida",
+      "condicao": "luz da cozinha, obturador automático"
+    },
+    {
+      "em": "2026-10-08",
+      "onde": "loja de teste",
+      "metrica": "camadas_no_recorte",
+      "valor": "pão, carne, fatia de queijo, alface e molhos distinguíveis a olho",
+      "condicao": "recorte do fluxo principal, a ≈ 12 px/cm"
+    }
+  ],
+  "precos": [
+    {
+      "preco": 484.51,
+      "confianca": "indice",
+      "cotado_em": "2026-10-08",
+      "fonte": "anúncio no Mercado Livre, visto em print do dono"
+    }
+  ],
+  "fontes": [
+    "anúncio do produto (Mercado Livre, 08/10/2026): 1080p, varifocal de 2,7 a 12 mm, infravermelho de 50 m, IP67, HDCVI/AHD/HDTVI/CVBS",
+    "medição na loja de teste, 08/10/2026 (docs/roadmap.md, A19)"
+  ]
+}
