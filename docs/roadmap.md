@@ -2928,7 +2928,7 @@ aplicado antes disso. **A ordem das ondas passou a ser a do A19.**
 
 ---
 
-## A19 · O Farol entende o processo: quadros, acontecimentos, etapas e a leitura da bancada (plano)
+## A19 · O Farol entende o processo: quadros, acontecimentos, etapas e a leitura da bancada (aprovado em 09/10/2026; onda 1 em andamento)
 
 **O dono aprovou o A18 em 08/10/2026 ("está tudo aprovado")** — lido como as onze decisões
 na opção recomendada. E apontou o que faltava:
@@ -3734,10 +3734,19 @@ Windows, o acesso remoto, a rota até o gravador e o banco local do Regem.
 
 ### A ordem, revista (substitui a do A18)
 
+**Aprovada pelo dono em 09/10/2026** — "tudo aprovado e revisado", depois de ler as
+respostas daquela madrugada. Lido como o "está tudo aprovado" do A18: a ordem como está e
+as opções recomendadas (os cinco primeiros processos sugeridos; a nuvem rotula os primeiros
+exemplos do leitor local quando a onda 5 chegar; meta de partida de 9 em cada 10 decididos
+na loja, errando no máximo 1 em 50; um critério só passa a avisar com no máximo 1 alarme
+falso em 10 avisos). No Regem, a fila de produção com os ingredientes fica aprovada para
+planejar: lá o plano é apresentado antes do código, como manda a regra daquele projeto. Se
+ele corrigir alguma dessas leituras, vale a correção.
+
 | onda | o quê | tamanho | depende de |
 |---|---|---|---|
 | 0 ✅ | Confiança em %; cliente do gravador | P | — |
-| 1 | **Quadros, estudo condicional e contexto:** imagem completa × quadros com papel; a ficha de cada critério (contexto, gatilho, janela, ação, desfecho) e o funil em números; **a anatomia do pedido à nuvem** (a cena, o mapa do canal, o recorte na resolução da câmera, a resposta na forma da família — o recorte nunca sobe sozinho); Haiku 5.5 (medido); no quadro de bancada, o quadro de "as mãos saíram" no lugar do borrão de rosto; os quatro estados do critério | G | protótipo aprovado |
+| 1 ▶ em andamento | **Quadros, estudo condicional e contexto:** imagem completa × quadros com papel; a ficha de cada critério (contexto, gatilho, janela, ação, desfecho) e o funil em números; **a anatomia do pedido à nuvem** (a cena, o mapa do canal, o recorte na resolução da câmera, a resposta na forma da família — o recorte nunca sobe sozinho); Haiku 5.5 (medido); no quadro de bancada, o quadro de "as mãos saíram" no lugar do borrão de rosto; os quatro estados do critério | G | protótipo aprovado |
 | 2 | **Sequência e banco de provas:** olhar para trás, grade de 6 quadros, a família Acontecimento; "acertou / errou"; o acerto medido de cada critério | G | o dono marcar os exemplos |
 | 3 | **Processo e Medida:** etapas por quadro, cronômetros e contadores, episódios, modelos prontos | G | onda 2 medida |
 | 4 | **Leitura da bancada, E0 → E1:** câmera regulada, números da semana, as fases do lote, contar montagens pelo fechamento, a comanda | G | regulagem do canal 4 |
@@ -3753,6 +3762,41 @@ quadros e critérios, o cadastro do processo, a sequência com a resposta por et
 "acertou / errou", a bancada lida ao vivo.
 
 **Nenhuma onda liga aviso sem passar pelo banco de provas.**
+
+### Onda 1 — como ela entra (09/10/2026)
+
+Levantamento do código feito antes de começar. Três coisas dele mudam o jeito de entrar:
+
+- **O agente antigo recusa a configuração inteira** se receber um valor novo em campo que
+  ele conhece (tipo, resolução, horário). Tudo o que a onda 1 acrescenta desce em **campo
+  novo**, e o que muda comportamento só desce para o agente que disser que sabe lidar com
+  aquilo. Sem isso, um critério "em ensaio" viraria aviso numa loja com o agente antigo.
+- **Os testes comparam o pedido à nuvem letra por letra.** O pedido de hoje fica como está;
+  o pedido com contexto é um caminho ao lado, ligado por loja.
+- **O funil já tem quase todos os números:** olhadas, "nada a conferir", julgadas na loja e
+  na nuvem e fora do critério já são contados por hora, por critério e por quadro. Falta
+  contar a olhada que só observa.
+
+| fatia | o que entra | tela? | nasce |
+|---|---|---|---|
+| **1.0 · protótipo** | as telas da onda — o canal com a imagem completa, os quadros e os critérios; a cena; o estudo do critério, o funil e os estados; o que sobe para a nuvem — em `mockups/farol-console-novo.html`, na cara nova | é o protótipo | **aguardando aprovação** |
+| **1.1 · o pedido com contexto** | a loja ganha "tipo de negócio"; o canal, a cena; o quadro, o papel e a ordem. O agente monta o pedido na anatomia do plano — cena, mapa do canal, recorte na resolução da câmera, pergunta — com o que é fixo em cache, no Haiku 5.5. Sem cena escrita o pedido não sai: a olhada conta como "sem juiz", com o motivo | não | desligado, por loja |
+| **1.2 · os quatro estados** | observando · em ensaio · medido · valendo. Só "valendo" avisa; "observando" conta sem julgar. Critério que já avisa hoje continua valendo | não | os de hoje ficam como estão |
+| **1.3 · o estudo do critério e o funil** | as seis partes (contexto, gatilho, janela, ação, desfecho, fora de contexto), com cada condição ligada a um sinal da loja; a proposta do sistema, pedida ao agente como hoje se pede a descrição de um equipamento; o funil servido em números | não | sem estudo, o critério segue com o "quando vale a pena conferir" de hoje |
+| **1.4 · o quadro de bancada** | em quadro com papel "posição de montagem": sobe o quadro de quando as mãos saem, sem o borrão de rosto; quem aparecer é apagado | não | só onde o papel for esse |
+| **1.5 · as telas** | o porte do protótipo aprovado para o console; a migração das áreas redesenhadas ("Quadro inteiro" que não é o quadro inteiro vira "Quadro 1", e o canal ganha a imagem completa de volta); as contagens "em N canais (M quadros)" | sim | depois do "aprovado" |
+
+Cada fatia é um PR com teste; a que tem migration é mesclada sozinha e por último. Nada
+liga sozinho na loja: o pedido com contexto é uma chave por loja, e ligar o que gasta
+continua do dono. O agente da loja só recebe cada fatia quando o pacote for trocado — com o
+"pode" dele, como da outra vez.
+
+**Uma escolha que fica para quando o protótipo for aprovado.** O plano manda o protótipo
+nascer na cara nova, e assim foi feito. O porte da cara nova inteira é a onda 8. Ao levar as
+telas da onda 1 para o console, há dois caminhos: (a) com as peças e as cores do console de
+hoje, e a cara nova chega para tudo de uma vez na onda 8 — o console não fica com duas
+caras; ou (b) adiantar "cores e tipos" da cara nova para o console inteiro agora. Recomendo
+o (a). A decisão é do dono.
 
 ### O que não foi medido
 
@@ -3787,7 +3831,9 @@ quadros e critérios, o cadastro do processo, a sequência com a resposta por et
    pagos saíram. Conferido na loja às 23h54 (configuração 116): ficaram dois critérios de
    presença, julgados lá mesmo, sem custo. A leitura dos ingredientes entra pela onda 1
    (contexto e resposta em lista) e pela leitura da bancada.
-1. Regular a câmera do canal 4 (os sete itens acima) e avisar — eu meço de novo.
+1. Regular a câmera do canal 4 (os sete itens acima) e avisar — eu meço de novo. **Anotado
+   a pedido dele (09/10):** os passos estão na página do plano, em "Na loja: a lista", com
+   o HD e o cabo. Ele faz quando estiver na loja, na semana de 12/10.
 2. Confirmar **a rotina** que a câmera mostrou: a comanda sai em cada bancada e fica ao
    lado do lanche até embalar? o lanche é sempre montado sobre o papel alumínio ou na
    caixa, no lado esquerdo? **A montagem é sempre por ingrediente, em lote? As embalagens
@@ -3798,7 +3844,7 @@ quadros e critérios, o cadastro do processo, a sequência com a resposta por et
 4. Do lado do Regem (outro projeto): a fila de produção levar os ingredientes da ficha,
    sem valores (o encaixe está descrito acima), e o código na comanda. O dono já disse o
    caminho (09/10); falta o "pode" para planejar e fazer lá.
-5. Aprovar esta ordem.
+5. ✅ **Aprovada em 09/10** ("tudo aprovado e revisado").
 6. ✅ O quinto lanche do lote das 21h42 é o **Mussarela Bug** (dito pelo dono em 09/10, com
    a ficha). Falta ele confirmar que os quatro são o **Número 01**, dizer o que são as
    posições do lote anterior que não batem com as fichas, e passar **as fichas de todos os
@@ -3809,10 +3855,12 @@ quadros e critérios, o cadastro do processo, a sequência com a resposta por et
 8. Dizer a **meta do leitor local**: que parte dos lanches a loja tem de decidir sozinha, e
    com que erro, antes de a nuvem ficar só com o "não sei". E o "pode" para a nuvem
    rotular os primeiros exemplos (mil exemplos ≈ R$ 1,30).
-9. **O disco do gravador:** um HD de 3 TB da linha de vigilância (o WD Purple de 3 TB
+9. ✅ **Pedido pelo dono em 09/10; chega no domingo, 11/10, e ele instala na semana de
+   12/10.** O disco do gravador: um HD de 3 TB da linha de vigilância (o WD Purple de 3 TB
    está na lista de compatibilidade da Intelbras) — ≈ 8 dias de gravação no lugar das 15 h
    de hoje. Formatar pelo gravador depois de instalar e conferir a hora (NTP).
-10. **O cabo de rede** entre o PC e o gravador: ao trocar, avisar — a placa volta de 10
+10. **O cabo de rede** entre o PC e o gravador (ele troca no mesmo dia do HD): ao trocar,
+    avisar — a placa volta de 10
     Mbit/s forçado para automático (com o "pode" dele) e eu meço.
 11. **Cadastrar as fichas técnicas no Regem**, na conta da Mister Burguer, e dar o ok: elas
     viram o dicionário de ingredientes e os pares difíceis.
