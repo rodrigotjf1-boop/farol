@@ -3104,18 +3104,69 @@ cada critério ganha uma ficha com seis partes. O exemplo é o dele:
 - A medida de 08/10 mostra o tamanho do problema: 93% das análises pagas foram feitas
   fora de contexto (cozinha vazia, chapa sem carne).
 
-**O contexto completo do processo** — o que passa a ir junto com a pergunta, e hoje não vai:
+**O que sobe para a nuvem: o recorte nunca vai sozinho.** Pergunta do dono (08/10, 22h30):
+"o que sobe à nuvem? o quadro completo ou o nosso quadro com corte? Se enviar um corte sem
+contexto, a análise vai falhar e o custo vai ser em vão — não pode enviar o corte do tampo
+da montagem sem informar que é para analisar os ingredientes sobre um tampo de montagem,
+numa hamburgueria."
 
-1. o processo em **etapas numeradas** (o campo existe e não chega ao juiz);
-2. **fotos de referência** do certo e do errado;
-3. os **quadros do canal e o papel de cada um**, numerados em cima da imagem
-   ("3 = cuba do queijo");
-4. **o que se espera agora**: a ficha do produto, quando o pedido é conhecido;
-5. a frase do lugar e os equipamentos (já vão);
-6. a **sequência de quadros**, com a hora escrita em cada um.
+*Hoje* (lido no código e na loja, configuração 113):
 
-E a resposta deixa de ser um veredito só: é uma **lista por etapa** — feita, não feita ou
-não deu para ver; em qual quadro da sequência; com que confiança; por quê.
+| | o que vai |
+|---|---|
+| A imagem | **o recorte da área** — nunca o canal inteiro, a não ser que a área seja ele —, com o que fica fora do desenho apagado, o rosto borrado e **reduzido a 640 px no lado maior** |
+| O texto | o texto do critério, e mais nada da cena. As instruções fixas dizem só "estabelecimento alimentício" |
+| O que poderia ir, e não vai | a frase do lugar (depende da planta desenhada: 0 caracteres na loja), os equipamentos (0), a foto padrão (0), a descrição do processo (o campo existe e não entra no pedido) |
+| A resposta possível | "dentro", "fora" ou "não deu para avaliar", e uma frase |
+
+A loja e o canal não têm onde guardar "que negócio é" nem "o que esta câmera vê": não
+existe o campo.
+
+O exemplo da noite de 08/10 — critério "Produto" (ação), canal 4, área sobre o tampo,
+texto "identificar itens (ingredientes) de montagem do hambúrguer":
+
+- subiu uma **tira de 640×155 px**. O tampo tem 1.629×397 px na câmera: foi com 15% dos
+  pixels, a ≈ 4,7 px por cm;
+- 190 análises em duas horas, R$ 2,33: **118 "dentro" e 72 "não deu para avaliar"**;
+- "dentro", aqui, não quer dizer nada. O modelo respondeu que viu ingredientes ("pães,
+  carnes, queijo em fatias") e chutou o resto ("embalagem tipo batedeira", "ingrediente
+  rosa, possivelmente carne ou tomate"). Não há lista, não há produto, não há comparação
+  com pedido: **a resposta só sabe ser veredito**;
+- o que ele acertou veio de uma frase: o texto do critério dizia "montagem do hambúrguer".
+  O contexto dependeu de quem cadastrou lembrar de escrevê-lo.
+
+Nos três critérios que foram com o canal inteiro, na mesma noite (1.510 análises,
+R$ 19,83, 93% sem resposta), o próprio modelo disse o que faltava: "não permite identificar
+qual elemento é a gaveta de dinheiro"; "não há contexto temporal"; "a imagem está de
+cabeça para baixo".
+
+*No plano* — a anatomia de todo pedido à nuvem, nesta ordem:
+
+| # | parte | o que é | de onde vem | custo |
+|---|---|---|---|---|
+| 1 | **A cena** | que negócio é, que setor e que posto, de onde a câmera olha: "hamburgueria; bancada de montagem; câmera no teto, olhando de cima" | escrita **uma vez** por canal: o sistema propõe a partir da imagem do canal, o responsável confirma. A loja ganha o campo "tipo de negócio" | fixo, em cache |
+| 2 | **O mapa do canal** | a imagem fixa do canal, pequena, com os quadros numerados e o papel de cada um: "1 = cubas; 2 = onde o lanche é montado, sobre papel alumínio; 3 = impressora" | os quadros do canal (frente A) | fixo, em cache |
+| 3 | **O recorte, na resolução da câmera** | o quadro do critério como a câmera entrega (1.629×397, não 640×155) — ou a sequência de recortes, numerados | ao vivo | é o que se paga inteiro |
+| 4 | **A pergunta, na forma da família** | estado: o critério · acontecimento: "aconteceu X nesta sequência?" · processo: as etapas numeradas · leitura: "liste o que há em cada posição" | a ficha do critério | — |
+| 5 | **O que se espera** | a ficha do produto, quando o pedido é conhecido; as fotos de referência do certo e do errado | o Regem; o responsável | fixo por critério, em cache |
+
+E **a resposta toma a forma da pergunta**: veredito (estado); veredito e instante
+(acontecimento); lista por etapa — feita, não feita, não deu para ver — (processo);
+**lista por posição — ingrediente e confiança —** (leitura); número (medida).
+
+Três regras, cada uma com teste:
+
+1. **Recorte nunca sobe sozinho.** Sem a cena escrita, o pedido não sai da loja: o critério
+   aparece como "falta descrever a cena", e não como análise feita.
+2. **Critério geral manda a imagem completa; critério de quadro manda o mapa e o recorte.**
+3. **O que é fixo vai em cache** — a cena, o mapa, as referências. Ler do cache custa de 5%
+   a 10% do preço; o que se paga inteiro é só o recorte ao vivo.
+
+O contexto custa quase nada: o mapa (640×360) são 299 unidades de imagem e a cena, umas
+200 de texto — em cache, menos de R$ 0,0001 por pedido no Haiku 5.5. Um recorte na
+resolução da câmera sai por ≈ R$ 0,001; a sequência de seis, por ≈ R$ 0,004. Hoje cada
+tira de 640×155 custa R$ 0,012 e vai sem contexto. (Conta sobre a tabela oficial; o
+acerto do modelo novo ainda não foi medido.)
 
 **A sequência.** Ao disparar, o agente busca no gravador os segundos anteriores (medido:
 disponível 8 s depois) e junta o agora. Manda **6 quadros numa grade 3×2**, recorte na
@@ -3325,7 +3376,7 @@ foi medido** — é o primeiro uso do banco de provas.
 | onda | o quê | tamanho | depende de |
 |---|---|---|---|
 | 0 ✅ | Confiança em %; cliente do gravador | P | — |
-| 1 | **Quadros, estudo condicional e contexto:** imagem completa × quadros com papel; a ficha de cada critério (contexto, gatilho, janela, ação, desfecho) e o funil em números; o contexto completo no juiz; recorte na resolução da câmera; Haiku 5.5; os quatro estados do critério | G | protótipo aprovado |
+| 1 | **Quadros, estudo condicional e contexto:** imagem completa × quadros com papel; a ficha de cada critério (contexto, gatilho, janela, ação, desfecho) e o funil em números; **a anatomia do pedido à nuvem** (a cena, o mapa do canal, o recorte na resolução da câmera, a resposta na forma da família — o recorte nunca sobe sozinho); Haiku 5.5; os quatro estados do critério | G | protótipo aprovado |
 | 2 | **Sequência e banco de provas:** olhar para trás, grade de 6 quadros, a família Acontecimento; "acertou / errou"; o acerto medido de cada critério | G | o dono marcar os exemplos |
 | 3 | **Processo e Medida:** etapas por quadro, cronômetros e contadores, episódios, modelos prontos | G | onda 2 medida |
 | 4 | **Leitura da bancada, E0 → E1:** câmera regulada, números da semana, contar montagens, a comanda | G | regulagem do canal 4 |
@@ -3358,6 +3409,9 @@ quadros e critérios, o cadastro do processo, a sequência com a resposta por et
 
 ### Da parte do dono
 
+0. **Desligar por enquanto o critério "Produto" (canal 4).** Do jeito que está ele gasta
+   ≈ R$ 1,20 por hora e devolve "dentro" sem lista nenhuma. A leitura dos ingredientes
+   entra pela onda 1 (contexto e resposta em lista) e pela leitura da bancada.
 1. Regular a câmera do canal 4 (os seis itens acima) e avisar — eu meço de novo.
 2. Confirmar **a rotina** que a câmera mostrou: a comanda sai em cada bancada e fica ao
    lado do lanche até embalar? o lanche é sempre montado sobre o papel alumínio ou na
