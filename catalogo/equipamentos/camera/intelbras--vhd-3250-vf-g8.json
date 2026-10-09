@@ -6,7 +6,7 @@
   "nivel": "intermediario",
   "nivel_motivo": "2 MP com lente varifocal manual: fecha o enquadramento na bancada. Sem WDR real e sem cor à noite.",
   "status": "recomendado",
-  "observacao": "Geração seguinte da G7. É a câmera do piloto de montagem: canal 4 da loja de teste, instalada de cima, sobre a bancada, em 08/10/2026. Varifocal MANUAL: ajusta uma vez, trava, não desalinha. Campo de visão de 109° a 33° pela busca — a página do fabricante recusou a leitura: conferir na ficha antes de usar em cálculo.",
+  "observacao": "Geração seguinte da G7. É a câmera do piloto de montagem: canal 4 da loja de teste, instalada de cima, sobre a bancada, em 08/10/2026. Varifocal MANUAL: ajusta uma vez, trava, não desalinha. Campo de visão de 109° a 33° pela busca — a página do fabricante recusou a leitura: conferir na ficha antes de usar em cálculo. Zoom e foco: atrás da tampa de baixo, dois parafusos da estrutura de ajuste (o primeiro é o foco, o segundo o zoom) — afrouxar sem tirar, ajustar, apertar e fechar bem a tampa; não tem anel. Menu de imagem pelo gravador: luz de fundo (Off, BLC, DWDR, HLC), nitidez, brilho, contraste, saturação, 2DNR, dia/noite (preto e branco, colorido, auto) e anti-flicker (Ext., 50 Hz, 60 Hz). NÃO tem ajuste de obturador.",
   "serve_para": [
     "presenca",
     "contagem",
@@ -66,6 +66,7 @@
   ],
   "fontes": [
     "anúncio do produto (Mercado Livre, 08/10/2026): 1080p, varifocal de 2,7 a 12 mm, infravermelho de 50 m, IP67, HDCVI/AHD/HDTVI/CVBS",
-    "medição na loja de teste, 08/10/2026 (docs/roadmap.md, A19)"
+    "medição na loja de teste, 08/10/2026 (docs/roadmap.md, A19)",
+    "manual oficial Intelbras VHD 3250 VF G8 (01-25), seções 2.1, 3.3 e 3.4, lido em 09/10/2026: https://backend.intelbras.com/sites/default/files/2025-08/Manual_VHD%203250_VF_G8_01-25.pdf"
   ]
 }

@@ -20,14 +20,18 @@ inferência. Serve para desenhar o algoritmo — não é medida de acerto.
 
 | posição | o que era | como ficou aberto |
 |---|---|---|
-| folhas 1, 2 e 3, e a caixa | **quatro lanches de duas carnes** | **três discos** cada: a tampa do pão e dois discos, cada um com uma carne clara e uma fatia de queijo. Na tampa: molho laranja e alface |
+| folhas 1, 2 e 3, e a caixa | **quatro lanches de duas carnes** | **três discos** cada: a tampa do pão e dois discos, cada um com uma carne clara e queijo — **uma fatia por carne nas três folhas; na caixa, duas por carne** (uma embaixo e uma em cima: ver "Relido em 09/10"). Na tampa: molho laranja e alface |
 | folha 4 | **um lanche diferente** | **dois discos**: a tampa com molho vermelho (de sachê) e uma cobertura escura; a base com uma carne escura e molho branco |
 
-No total: 14 discos de pão, 8 carnes claras, 8 fatias de queijo, 4 tampas com molho laranja
-e alface — e o quinto lanche, que não levou queijo nem alface.
+No total: 14 discos de pão, 8 carnes claras, **10 fatias de queijo** (6 nas três folhas e 4
+na caixa), 4 tampas com molho laranja e alface — e o quinto lanche, que não levou queijo
+nem alface.
 
 Correção ao que eu tinha anotado na primeira olhada (40 quadros espaçados): não eram nove
 lanches. Eram oito carnes em quatro lanches, e um quinto de outro tipo.
+
+Segunda correção, de 09/10: eu tinha contado **8** fatias de queijo, pelo quadro parado.
+São 10 — na caixa cada carne levou duas, e a de baixo só aparece quando entra.
 
 **Em 09/10 o dono deu os nomes:** os quatro batem com a ficha do **Número 01**; o quinto é
 o **Mussarela Bug**. Ver "Conferido com as fichas do dono", mais abaixo.
@@ -43,7 +47,7 @@ o **Mussarela Bug**. Ver "Conferido com as fichas do dono", mais abaixo.
 | 21:44:09 → 21:44:17 | 8 s | *(mãos fora)* | **bancada parada: as oito carnes à vista, sem nada por cima** |
 | 21:44:19 → 21:44:27 | 8 s | **molho** | bisnaga de molho laranja, nas quatro tampas |
 | 21:44:25 → 21:44:51 | 26 s | **alface** | por cima do molho, nas quatro tampas |
-| 21:44:53 → 21:45:27 | 34 s | **queijo** | um maço de fatias na mão; uma fatia por carne (8) |
+| 21:44:53 → 21:45:27 | 34 s | **queijo** | um maço de fatias na mão; nas três folhas, uma fatia por carne (6, das 21:44:57 às 21:45:09); na caixa, quatro — a fatia, a carne virada com o pegador por cima dela, e outra fatia por cima, nas duas carnes (21:45:04 a 21:45:25) |
 | 21:45:29 → 21:45:31 | 2 s | *(mãos fora)* | **bancada parada: queijo e alface à vista** |
 | 21:45:33 → 21:45:55 | 22 s | **o lanche diferente** | a carne escura na base; molho branco de um potinho, com colher |
 | 21:45:57 → 21:46:07 | 10 s | **fechar a caixa** | um disco vai para cima do outro; **a tampa da caixa fecha e o lanche fecha junto** (a tampa do pão estava na tampa da caixa); um código é escrito à caneta; a caixa sai |
@@ -83,7 +87,7 @@ contam o lote inteiro:
 | depois dos pães | quantos discos em cada posição (três = duas carnes; dois = uma) |
 | depois das carnes (21:44:09) | quantas carnes, e a cor de cada uma |
 | depois do molho e da alface (21:44:51) | que tampas levaram molho e alface, e a cor do molho |
-| depois do queijo (21:45:29) | quantas fatias |
+| depois do queijo (21:45:29) | quantas fatias **estão por cima** — a que ficou embaixo da carne só se conta quando entra |
 | antes de fechar | o que falta em cada disco |
 
 A foto final, sozinha, não serve: mostra o queijo e a alface, e esconde a carne e o molho
@@ -130,7 +134,7 @@ O que a leitura tinha anotado, sem conhecer o cardápio, contra a ficha que o do
 |---|---|---|
 | **Número 01** (os quatro) | três discos de pão | 3 fatias de pão |
 | | duas carnes claras, uma em cada disco | 2 carnes de 56 g |
-| | duas fatias de queijo, uma por carne | 2 fatias de queijo |
+| | duas fatias de queijo, uma por carne — **certo em três; na caixa eram quatro** | 2 fatias de queijo |
 | | alface na tampa | alface |
 | | molho laranja, de bisnaga, embaixo da alface | molho especial (meio rosé) |
 | **Mussarela Bug** (o quinto) | dois discos de pão | pão brioche prime |
@@ -140,8 +144,9 @@ O que a leitura tinha anotado, sem conhecer o cardápio, contra a ficha que o do
 | | cobertura granulada por cima do molho vermelho | cebola crispy |
 | | um empanado dourado, posto por último | mussarela empanada |
 
-Cinco de cinco no Número 01, seis de seis no Mussarela Bug. Foi lido por mim, a olho, quadro
-a quadro — não pelo sistema. O que o sistema consegue com as mesmas imagens está em
+Cinco de cinco no Número 01 em três dos quatro; no da caixa a leitura errou o queijo (anotou
+2, eram 4). Seis de seis no Mussarela Bug. Foi lido por mim, a olho, de 2 em 2 segundos —
+não pelo sistema. O que o sistema consegue com as mesmas imagens está em
 [teste-das-fichas.md](teste-das-fichas.md).
 
 ## Como o Mussarela Bug fechou
@@ -167,6 +172,37 @@ pedido entrou e quando saiu, não que a carne ficou três minutos esfriando na b
 Na primeira olhada (um quadro a cada 19,5 s) a mussarela não aparecia: ela fica à vista
 por dois segundos.
 
+## Relido em 09/10: o molho e o queijo
+
+Duas releituras da mesma gravação, feitas antes de ela sumir do gravador (que guarda 15 h).
+
+**O molho.** O dono disse a regra da casa: "os molhos são sempre colocados primeiro na
+tampa superior do pão, e geralmente usando bisnagas ou potes." De segundo em segundo, a
+regra aparece nas cinco tampas deste lote: o molho laranja nas quatro (21:44:19, 21:44:20,
+21:44:22 e 21:44:24 — a bisnaga passa por todas em 7 s) e a geleia na do Mussarela Bug
+(21:43:58). O molho fica à vista de 7 a mais de 20 s, até a alface (ou a cebola crispy)
+cobrir. A maionese, de pote, foi sobre a carne. A tabela, e o que isso mudou na leitura,
+estão em [teste-das-fichas.md](teste-das-fichas.md), "Rodada 3".
+
+**O queijo da caixa.** A 5 quadros por segundo, das 21:45:14 às 21:45:27:
+
+| hora | o que se vê na caixa |
+|---|---|
+| 21:45:04 | uma fatia sobre a carne do disco de baixo |
+| 21:45:15 → 21:45:16 | o pegador vira essa carne por cima da fatia: o queijo fica embaixo, com uma ponta aparecendo |
+| 21:45:18 → 21:45:19 | outra fatia por cima dela |
+| 21:45:20 → 21:45:21 | uma fatia sobre a carne do outro disco |
+| 21:45:21 → 21:45:22 | o pegador vira essa carne por cima da fatia |
+| 21:45:24 → 21:45:25 | outra fatia por cima |
+
+**Quatro fatias: uma embaixo e uma em cima de cada carne.** Nas três folhas, uma fatia por
+carne, postas à mão entre 21:44:57 e 21:45:09, sem pegador. O quadro parado do fim mostra,
+na caixa, as duas de cima e a ponta de uma de baixo.
+
+O que isto ensina: "o que fica coberto só se confere quando entra" vale também para quem
+monta o gabarito — eu contei o queijo pelo quadro parado e errei. E a contagem tem de sair
+dos acontecimentos também no pão de três discos, não só no empilhado.
+
 ## O lote anterior (21h37 a 21h41), lido depois
 
 Da gravação, de 2 em 2 segundos, a partir das 21:36:55 — o lote já estava em andamento.
@@ -179,7 +215,11 @@ Quatro posições, todas com pão de um corte (dois discos):
 | 4 | o mesmo da 3 (carne às 21:39:57 e às 21:40:13; queijo às 21:40:17 e às 21:40:21) e, por último, **tiras de bacon por cima da cebola** (21:40:29 a 21:40:35) | o Número 02 com bacon? — o dono diz |
 
 As contagens deste lote são "pelo que se vê": na posição 3 não dá para garantir, de cima,
-que foram duas carnes e não três.
+que foram duas carnes e não três. E a técnica vista na caixa do lote seguinte (a carne
+virada por cima da fatia) pode ser o que aconteceu aqui: a "segunda carne passada para cima
+do queijo" pode ter sido a mesma carne, virada. Não foi relido quadro a quadro. Nas
+posições 1 e 2 a leitura começou com a cobertura já na tampa: não dá para dizer o que
+entrou primeiro.
 
 **O que este lote ensina e o outro não mostrava — o empilhamento.** No pão de um corte as
 duas carnes e as duas fatias vão **empilhadas na mesma base**: carne, queijo, carne,
@@ -198,4 +238,7 @@ naquela posição —, ou de uma sequência de quadros bem mais densa.
   ler o banco do Regem — estava errado. A loja ainda roda o Eclética; o Regem está sendo
   finalizado para entrar lá. Com ele, o pedido vai ao KDS com a ficha técnica (sem os
   valores), e o Farol passa a ter o pedido e os ingredientes.
+- Se a caixa das 21h45 era um Número 01 com queijo em dobro pedido pelo cliente, ou outro
+  produto.
+- Se a maionese vai sobre a carne por padrão (a regra da casa é molho primeiro, na tampa).
 - O relógio do gravador está 27 s adiantado: para casar com a hora do pedido, desconta-se.

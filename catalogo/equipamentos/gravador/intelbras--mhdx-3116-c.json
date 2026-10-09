@@ -6,7 +6,7 @@
   "nivel": "intermediario",
   "nivel_motivo": "16 canais em 1080p real e fluxo reduzido de 704×480 a 15 quadros/s, medido em campo. Inteligência embarcada em 1 canal só.",
   "status": "recomendado",
-  "observacao": "Grava 1080p real. Inteligência de vídeo em 1 canal apenas; movimento em todos os 16 — por isso a classificação acontece no agente. O firmware trunca a lista de codes do eventManager.cgi em ~100 caracteres: usar [All] e filtrar no agente. Desligar a detecção de face.",
+  "observacao": "Grava 1080p real. Inteligência de vídeo em 1 canal apenas; movimento em todos os 16 — por isso a classificação acontece no agente. O firmware trunca a lista de codes do eventManager.cgi em ~100 caracteres: usar [All] e filtrar no agente. Desligar a detecção de face. Disco: 1 HD SATA de até 24 TB; a Intelbras recomenda o WD Purple, e SSD não consta como compatível para este modelo (a lista de SSD do fabricante cobre outros modelos, com 512 GB). Disco novo se formata pelo gravador: Menu principal › Armazenamento › Gerenciar HD. O menu de imagem das câmeras HDCVI abre pelo botão direito sobre o canal (Conf. câmera e Menu da câmera); o controle é configurado em Menu principal › Sistema › PTZ (Modo Controle HDCVI, Protocolo Intelbras-1). A hora por NTP fica em Menu principal › Sistema › Geral › Data e hora.",
   "specs": {
     "canais_bnc": 16,
     "canais_ip": 8,
@@ -34,7 +34,8 @@
     ],
     "onvif": true,
     "rtsp": true,
-    "disco_max_tb": 10
+    "disco_max_tb": 24,
+    "slots_hd": 1
   },
   "medido": [
     {
@@ -142,6 +143,9 @@
   "fontes": [
     "migration 002 — pesquisa de 01 a 03/10/2026",
     "docs/FAROL-Mapeamento-Arquitetura-e-Orcamento.md §8.5",
-    "medição em campo, loja de teste"
+    "medição em campo, loja de teste",
+    "Intelbras, Lista de Capacidade de Armazenamento (arquivo de 09/2025), lida em 09/10/2026 — MHDX 3116-C (2022): até 24 TB, 1 HD; lista de compatibilidade com SSD; \"A Intelbras recomenda o uso de disco rígido WD Purple\": https://backend.intelbras.com/sites/default/files/2025-09/--Lista%20de%20Capacidade%20de%20Armazenamento.pdf",
+    "manual oficial Intelbras MHDX 3116-C (01-22), lido em 09/10/2026 — instalação do HD, menu auxiliar, Gerenciar HD, Data e hora, PTZ: https://backend.intelbras.com/sites/default/files/2022-12/Manual_MHDX_3116C_01-22_4.pdf",
+    "ficha técnica oficial Intelbras MHDX 3116-C (arquivo de 02/2026), lida em 09/10/2026 — 1 porta SATA, RJ45 10/100/1000 Mbps (o manual de 2022 diz 10/100), 12 W sem disco: https://backend.intelbras.com/sites/default/files/2026-02/Intelbras%20-%20Datasheet%20-%20MHDX%203116-C-.pdf"
   ]
 }

@@ -3357,12 +3357,20 @@ ver "Prova de 08/10" abaixo.
 | **E3 · conferir na hora** | aviso na estação antes de o lanche fechar | só com o alarme falso medido e baixo |
 | **E4 · observações e porção** | "sem cebola", adicional, quantidade | depois |
 
-**Regulagem da câmera do canal 4** (é o "regular e testar uma" do dono):
+**Regulagem da câmera do canal 4** (é o "regular e testar uma" do dono). Os passos foram
+conferidos em 09/10 nos manuais oficiais — o da câmera (VHD 3250 VF G8, 01-25) e o do
+gravador (MHDX 3116-C, 01-22):
 
-1. **Subir o enquadramento:** as cubas inteiras no topo, a borda da bancada embaixo, o
-   piso fora.
-2. **Fechar a lente** (o anel do zoom, perto de 4 a 5 mm) até a bancada ocupar a largura
-   do quadro; depois o anel do foco. Meta: 14 a 16 px por cm.
+1. **Subir o enquadramento:** afrouxar os parafusos do suporte, girar o suporte e o corpo
+   da câmera e apertar — as cubas inteiras no topo, a borda da bancada embaixo, o piso
+   fora.
+2. **Fechar a lente.** O zoom e o foco ficam atrás da **tampa de baixo** da câmera: abrir
+   a tampa e afrouxar, sem tirar, os dois parafusos da estrutura de ajuste. **O segundo
+   parafuso é o zoom; o primeiro, o foco** — movem-se para a esquerda ou para a direita.
+   Primeiro o zoom, até a bancada ocupar a largura do quadro (meta: 14 a 16 px por cm);
+   depois o foco, que tem de ser refeito toda vez que o zoom muda. Apertar os dois e
+   **fechar bem a tampa**. (O plano falava em "anel do zoom" e "anel do foco": este
+   modelo não tem anel.)
 3. **Tirar os suportes pendurados da frente das cubas**, ou deslocar a câmera alguns
    centímetros para que não as cubram.
 4. **Tirar o reflexo de cima da área de montagem:** o inox e o papel alumínio espelham a
@@ -3370,7 +3378,18 @@ ver "Prova de 08/10" abaixo.
    luminária. E **marcar na bancada onde as folhas são postas** (duas a quatro posições
    fixas): é o padrão de arrumação que mais ajuda a leitura.
 5. **Folha A4 na bancada por um minuto**, para medir o px por cm com régua certa.
-6. Se o menu da câmera permitir: obturador em 1/100 ou 1/120, para a mão não borrar.
+6. **O menu de imagem da câmera, pelo gravador** — botão direito sobre a imagem do canal 4:
+   *Conf. câmera* (mostra na tela do gravador o brilho, o contraste, a saturação, a
+   nitidez e o *Dia & Noite* da câmera) e *Menu da câmera* (botão *Entrar* e o joystick na
+   tela; *Cancelar* salva e sai). Se o menu não responder: *Menu principal › Sistema ›
+   PTZ*, canal 4, *Modo Controle* em HDCVI e *Protocolo* em Intelbras-1. **Este modelo
+   não tem ajuste de obturador** — o plano sugeria 1/100, e estava errado. O que vale
+   testar, um ajuste por vez e medindo antes e depois: *Dia/noite* em "Colorido" (a
+   bancada é sempre iluminada, e a leitura depende da cor) e *Luz de fundo* em "HLC"
+   (atenua o foco de luz — o reflexo do inox e do papel alumínio) contra "Off". O borrão
+   da mão depende do tempo de exposição, que esta câmera decide sozinha: o que está ao
+   alcance é **mais luz na bancada**, a testar.
+7. **Depois de reenquadrar, redesenhar a área do canal 4**: a que existe deixa de bater.
 
 Feito isso, eu meço de novo daqui (nitidez, px por cm, o que ficou visível).
 
@@ -3435,8 +3454,9 @@ registro completo: [estudo-do-lote-de-montagem.md](estudo-do-lote-de-montagem.md
 | queijo | 34 s | o maço de fatias na mão: uma por carne |
 | fechar e embalar | 1 min 20 s | a tampa da caixa; ou empilhar, virar a tampa, embrulhar e pôr na caixinha; código à caneta |
 
-Saíram **quatro lanches de duas carnes** (três discos cada; 8 carnes, 8 queijos, 4 tampas
-com molho laranja e alface) e **um lanche de outro tipo** (dois discos; molho vermelho de
+Saíram **quatro lanches de duas carnes** (três discos cada; 8 carnes, 10 fatias de queijo
+— a caixa levou o dobro: errata abaixo —, 4 tampas com molho laranja e alface) e **um
+lanche de outro tipo** (dois discos; molho vermelho de
 sachê, cobertura escura, carne escura, molho branco), que ficou aberto mais de 4 min 40 s
 e não tinha fechado quando a leitura acabou. Do primeiro pão à última caixa: 4 min 30 s.
 
@@ -3448,6 +3468,15 @@ discos de pão, duas carnes, duas fatias de queijo, alface e molho laranja na ta
 cinco ingredientes, com as quantidades. O quinto é o **Mussarela Bug** (o dono disse o nome
 e a ficha enquanto eu trabalhava): os seis ingredientes dele também estavam na leitura.
 Ficou 6 min 21 s aberto — 3 min 19 s esperando a mussarela empanada sair da fritura.
+
+**Errata de 09/10 — o queijo da caixa.** Relido a 5 quadros por segundo: o lanche da caixa
+levou **4 fatias**, não 2 — em cada carne, uma fatia, a carne virada com o pegador por
+cima dela, e outra fatia por cima (21:45:04 a 21:45:25). Eu tinha contado pelo quadro
+parado, que mostra as de cima. O lote teve 10 fatias, não 8. Se foi queijo em dobro pedido
+pelo cliente, está certo; se era um Número 01 comum, sobraram duas — sem o pedido não dá
+para dizer. Na rodada 2 do experimento das fichas, 5 das 7 leituras da nuvem tinham dito
+"3 fatias à vista, uma a mais que a ficha", e eu contei como erro delas: o gabarito
+errado era o meu.
 
 **A conferência com o KDS daquela noite não existe:** a loja ainda roda o Eclética. Eu
 tinha escrito que faltava "ler o que o Regem tinha em preparo" — estava errado: o Regem
@@ -3505,10 +3534,11 @@ Cinco fichas (na loja o lanche tem número ou nome):
    montado e contar a produção por produto. O "contra o pedido" — faltou, sobrou, trocou —
    começa quando o Regem entrar na loja.
 
-**Medido em 09/10 — o experimento das fichas** (R$ 1,03; registro em
+**Medido em 09/10 — o experimento das fichas** (R$ 1,32 com a rodada do molho; registro em
 [teste-das-fichas.md](teste-das-fichas.md)). Com os quadros parados do lote de 08/10 e as
 fichas do dono, perguntou-se à nuvem o que entrou em cada posição e que ficha ela é. O
-gabarito: quatro Número 01 e um Mussarela Bug.
+gabarito: quatro Número 01 (o da caixa com queijo a mais — a errata acima; os números já
+estão com o gabarito corrigido) e um Mussarela Bug.
 
 | como foi perguntado | modelo | ficha certa | custo |
 |---|---|---|---|
@@ -3517,6 +3547,7 @@ gabarito: quatro Número 01 e um Mussarela Bug.
 | **uma posição por vez**, cinco fichas, com o dicionário de ingredientes — a ficha dita pelo modelo | Haiku 5.5 | 12 de 15 | 0,13 centavo o lanche |
 | idem — **a ficha pela conta**: o modelo só diz o que viu, o código compara com as fichas | Haiku 5.5 | **15 de 15** | 0,13 centavo o lanche |
 | uma posição por vez, com o dicionário | Sonnet 5.5 | 5 de 5 | 5,85 centavos o lanche |
+| **idem, mais o quadro da tampa logo depois do molho e a regra da casa no dicionário** (rodada 3) | Haiku 5.5 | **15 de 15**, dita pelo modelo e pela conta | 0,14 centavo o lanche |
 
 O que ele fixa:
 
@@ -3526,10 +3557,12 @@ O que ele fixa:
    e com "não tenho folga" quando duas fichas ficam perto. Nenhuma resposta firme saiu
    errada nas 35 chamadas.
 3. **O dicionário de ingredientes vai no pedido.** Sem ele o Mussarela Bug não foi
-   reconhecido nenhuma vez pelo modelo barato; com ele, os itens certos subiram de 65% para
-   76%.
+   reconhecido nenhuma vez pelo modelo barato; com ele, os itens certos subiram de 69% para
+   74% — e para 100% com a regra da casa sobre o molho e o quadro certo (rodada 3).
 4. **O que fica coberto só se confere no instante em que entra:** o molho embaixo da alface
-   passou sem ser visto em 25 de 28 leituras, e a foto final escondeu a carne. E no pão de
+   passou sem ser visto em 25 de 28 leituras (com o quadro do instante certo e a regra da
+   casa: 12 de 12 — ver "O molho", abaixo), e a foto final escondeu a carne. O queijo
+   também: na caixa, a fatia de baixo de cada carne só aparece quando entra. E no pão de
    um corte as carnes e os queijos vão empilhados na mesma base (lote anterior): aí a
    contagem sai dos acontecimentos, não do quadro parado.
 5. **O caminho barato basta para a rotina:** R$ 0,0013 por lanche. O modelo maior, 45 vezes
@@ -3573,6 +3606,38 @@ decidiu sozinha. O motivo de ir para a loja não é o custo: é não depender da
 responder em milissegundos e a imagem não sair. Registro e roteiro em
 [teste-das-fichas.md](teste-das-fichas.md).
 
+**O molho — a regra da casa (do dono, 09/10) e a rodada 3.** Lendo que o molho era o ponto
+fraco, o dono disse como a loja monta: **"os molhos são sempre colocados primeiro na tampa
+superior do pão, e geralmente usando bisnagas ou potes."** A gravação confirma no lote das
+21h42: nas quatro tampas do Número 01 a bisnaga passa em 7 s (21:44:18 a 21:44:25) e o
+molho fica à vista de 7 a mais de 20 s, até a alface cobrir; no Mussarela Bug a geleia é a
+primeira coisa na tampa. (A maionese, de pote, foi posta sobre a carne nas três vezes em
+que apareceu: o dono diz se é o padrão.)
+
+O que a regra muda na leitura: **onde** (só o disco da tampa), **quando** (o primeiro
+acontecimento da tampa — o quadro parado logo depois dele, antes do ingrediente seguinte)
+e **com o quê** (a bisnaga, o pote ou o sachê que passou por cima: é o que diz *qual*
+molho quando a cor não basta).
+
+Rodada 3 do experimento das fichas (R$ 0,29): os mesmos quadros da rodada 2 e mais um por
+posição — o da tampa logo depois do molho. Haiku 5.5, 15 leituras por linha:
+
+| o que mudou | molho rosé visto, de 12 | itens certos, de 78 | queijo a mais da caixa apontado |
+|---|---|---|---|
+| rodada 2 (quadros do fim de cada fase), com o dicionário | 0 | 58 (74%) | 1 de 3 |
+| mais o quadro certo, o mesmo dicionário | 8 | 70 (90%) | 1 de 3 |
+| mais o quadro certo **e a regra da casa escrita no dicionário** | **12** | **78 (100%)** | **3 de 3** |
+
+0,14 centavo e 1,8 s por lanche. O Sonnet 5.5, com a regra, também acertou tudo (5 de 5
+lanches, a 5 centavos cada). **A regra da casa é dado de primeira classe:** vai no
+dicionário de ingredientes da loja, como as fichas — onde cada coisa entra, quando, e com
+que utensílio. E sem nuvem: o leitor local de teste viu a mancha do molho entrar em 9 de
+10 casos (escapou o molho claro sobre a tampa clara), em 7 ms, e a cor separa o rosé, a
+geleia e a maionese; inventou mancha em 2 de 11 controles, as duas com um braço no quadro
+— é o portão de "as mãos saíram" que falta. São cinco lanches de um lote, com o quadro
+escolhido por mim: prova de sinal, não medida de acerto. Registro em
+[teste-das-fichas.md](teste-das-fichas.md), "Rodada 3".
+
 **O encaixe no Regem** (lido no código do Regem em 09/10; é tarefa de lá, com plano e PR
 próprios):
 
@@ -3604,6 +3669,68 @@ próprios):
 
 Conta minha sobre a tabela oficial de preços; o acerto do Haiku 5.5 nesta tarefa **não
 foi medido** — é o primeiro uso do banco de provas.
+
+### O disco do gravador e a máquina da loja — respostas ao dono (09/10)
+
+**O disco.** O dono vai trocar o do gravador e perguntou: SSD de 1 TB ou HD SATA de 3 TB —
+o HD perde muito na busca das imagens? **Não perde nada que se note, e é a escolha certa.**
+
+| | SSD de 1 TB | HD de 3 TB |
+|---|---|---|
+| Quanto guarda (14 câmeras, como estão: 14,2 GB por hora, medido) | ≈ 2,7 dias | ≈ 8 dias |
+| Buscar e baixar um trecho | igual | igual: quem limita é o gravador, que entrega a gravação perto da velocidade em que ela foi feita (10 s de vídeo em 6 a 12 s, medido), e a rede |
+| Gravar | sobra | sobra: são 4 MB por segundo |
+| O que o fabricante diz | fora da lista: a Intelbras só lista SSD (de 512 GB) para outros modelos | na lista: "a Intelbras recomenda o uso de disco rígido WD Purple", e o de 3 TB consta |
+| Desgaste | regrava ≈ 124 TB por ano, sem parar | feito para isso |
+
+O que importa aqui é quantos dias a gravação fica: "buscar o trecho" (A18) e o estudo dos
+processos precisam do ocorrido de ontem e de anteontem — a releitura do queijo da caixa só
+foi possível porque a gravação, de 15 h, ainda existia. O gravador aceita **um** HD SATA de
+**até 24 TB** (lista de capacidade da Intelbras, de 09/2025; a base do Farol dizia 10 e foi
+corrigida). Instala-se com o gravador desligado e **formata-se pelo gravador** (*Menu
+principal › Armazenamento › Gerenciar HD › Formatar*); o disco antigo não se lê em
+computador. Não foi medido com HD: a conta é da velocidade do gravador, não do disco.
+
+**A máquina mínima.** O dono pediu a configuração mínima que faria o que o servidor de hoje
+faz. Medido em 09/10 às 2h40, e pela telemetria do agente (de 08/10, 23h, a 09/10, 2h):
+
+| | o Farol | a máquina inteira |
+|---|---|---|
+| Processador (i7-10700F, 16 núcleos lógicos) | 1,6% (pico 2,4%) — um quarto de um núcleo | 3% (pico 10%) |
+| Memória (16 GB) | 0,3 a 0,5 GB em uso (1,2 GB reservados) | 7,9 GB em uso |
+| Placa de vídeo (RX 560) | o detector | 3% |
+| Disco (223 GB) | 1 GB | 161 GB ocupados |
+
+**O Farol é o menor inquilino dessa máquina.** São 274 processos: o navegador (12
+processos, 1,7 GB), um aplicativo de IA de mesa, o antivírus, um programa de câmeras e um
+sistema de restaurante instalados como serviço (cada um com o seu banco de dados), dois
+programas de acesso remoto, componentes de internet banking — e **o servidor local do
+Regem da loja** (API, tela, impressão, sincronismo e banco: 0,4 GB de memória, parado, e
+1,9 GB de disco). O dono confirmou: a máquina está cheia de instalações, e o ideal é
+formatar.
+
+| peça | mínimo para o Farol de hoje, numa máquina limpa | por quê |
+|---|---|---|
+| Processador | 4 núcleos atuais com vídeo integrado — a classe do Intel N100 ou N150 | em teste sintético (número de agregador, não medido por nós) um núcleo do N100 rende ≈ 65% de um do i7-10700F: o quarto de núcleo do Farol viraria ≈ 10% do N100 |
+| Memória | 8 GB; **16 GB se o servidor do Regem ficar na mesma máquina** | o Windows costuma ocupar 3 a 4 GB; o Farol, 0,3 a 1,2 GB; o Regem parado, 0,4 GB (com a loja vendendo, não medido) |
+| Disco | SSD de 240 GB | o Farol ocupa 1 GB e o Regem local 1,9 GB; a sequência guardada da leitura da bancada, ≈ 9 GB por mês |
+| Placa de vídeo | nenhuma | o detector leva 113 ms no processador do i7 e 88 ms na placa: ela quase não ajuda; são 5 julgamentos por minuto |
+| Rede | uma porta de cabo para o gravador e Wi-Fi (ou segunda porta) para a internet | são duas redes |
+| Sistema | Windows 10 ou 11, 64 bits | é onde o agente roda |
+
+Na base do Farol, um mini PC N150 com 16 GB e SSD de 500 GB aparece de R$ 2.087 a R$ 2.673
+(busca de 07/10). Duas ressalvas. **É conta de escala, não medida:** nenhum mini PC foi
+testado — antes de indicar para várias lojas, testa-se um. E **é o mínimo para hoje, não
+para o plano:** a leitura da bancada lê o fluxo principal o tempo todo (medido no i7: 9% de
+um núcleo por bancada, mais a decodificação — quatro fluxos principais são 10% da máquina)
+e o leitor local vai rodar um modelo de assinatura de imagem. Para isso a referência
+continua a montagem da base (i5 de mesa com vídeo integrado), a dimensionar quando o
+leitor local for medido.
+
+**Formatar a máquina da loja pede roteiro:** apaga o agente (o token dele é preso à
+instalação por um arquivo ao lado da configuração: sem esse arquivo guardado, só com
+token novo emitido no console), a fila local, as senhas guardadas nas variáveis do
+Windows, o acesso remoto, a rota até o gravador e o banco local do Regem.
 
 ### A ordem, revista (substitui a do A18)
 
@@ -3646,7 +3773,13 @@ quadros e critérios, o cadastro do processo, a sequência com a resposta por et
 - O px por cm com régua (a folha A4): os 12 saem da comanda, tomada como de 80 mm, e
   batem com o pão, que sai com ≈ 10 cm na conta. O campo de visão da lente na ficha do
   fabricante (a página dele recusou a leitura; a busca indica 109° a 33°).
-- O menu de imagem da câmera pelo gravador (obturador).
+- O efeito de cada ajuste do menu da câmera (HLC, Dia/noite) e de mais luz na bancada
+  sobre o reflexo e o borrão da mão. Obturador a câmera não tem (manual).
+- O leitor do molho com o quadro escolhido pelo sistema (na rodada 3 quem escolheu fui
+  eu) e em mais de um lote.
+- A busca de trechos com um HD no gravador: a conta diz que não muda, porque quem limita
+  é o gravador — medir quando o disco for trocado.
+- Um mini PC rodando o agente: a máquina mínima é conta de escala.
 
 ### Da parte do dono
 
@@ -3654,7 +3787,7 @@ quadros e critérios, o cadastro do processo, a sequência com a resposta por et
    pagos saíram. Conferido na loja às 23h54 (configuração 116): ficaram dois critérios de
    presença, julgados lá mesmo, sem custo. A leitura dos ingredientes entra pela onda 1
    (contexto e resposta em lista) e pela leitura da bancada.
-1. Regular a câmera do canal 4 (os seis itens acima) e avisar — eu meço de novo.
+1. Regular a câmera do canal 4 (os sete itens acima) e avisar — eu meço de novo.
 2. Confirmar **a rotina** que a câmera mostrou: a comanda sai em cada bancada e fica ao
    lado do lanche até embalar? o lanche é sempre montado sobre o papel alumínio ou na
    caixa, no lado esquerdo? **A montagem é sempre por ingrediente, em lote? As embalagens
@@ -3676,3 +3809,15 @@ quadros e critérios, o cadastro do processo, a sequência com a resposta por et
 8. Dizer a **meta do leitor local**: que parte dos lanches a loja tem de decidir sozinha, e
    com que erro, antes de a nuvem ficar só com o "não sei". E o "pode" para a nuvem
    rotular os primeiros exemplos (mil exemplos ≈ R$ 1,30).
+9. **O disco do gravador:** um HD de 3 TB da linha de vigilância (o WD Purple de 3 TB
+   está na lista de compatibilidade da Intelbras) — ≈ 8 dias de gravação no lugar das 15 h
+   de hoje. Formatar pelo gravador depois de instalar e conferir a hora (NTP).
+10. **O cabo de rede** entre o PC e o gravador: ao trocar, avisar — a placa volta de 10
+    Mbit/s forçado para automático (com o "pode" dele) e eu meço.
+11. **Cadastrar as fichas técnicas no Regem**, na conta da Mister Burguer, e dar o ok: elas
+    viram o dicionário de ingredientes e os pares difíceis.
+12. Dizer **as outras regras da casa**, como a do molho (o que vai onde, e com que
+    utensílio); se a **maionese** vai sobre a carne por padrão; e se o lanche da **caixa**
+    das 21h45 era queijo em dobro pedido pelo cliente.
+13. **Formatar o PC da loja** (ele disse que é o ideal): só com roteiro — a máquina é
+    também o servidor local do Regem da loja.
