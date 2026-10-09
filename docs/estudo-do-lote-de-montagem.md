@@ -29,6 +29,9 @@ e alface — e o quinto lanche, que não levou queijo nem alface.
 Correção ao que eu tinha anotado na primeira olhada (40 quadros espaçados): não eram nove
 lanches. Eram oito carnes em quatro lanches, e um quinto de outro tipo.
 
+**Em 09/10 o dono deu os nomes:** os quatro batem com a ficha do **Número 01**; o quinto é
+o **Mussarela Bug**. Ver "Conferido com as fichas do dono", mais abaixo.
+
 ## O passo a passo
 
 | hora | duração | fase | o que se vê |
@@ -52,7 +55,9 @@ Do primeiro pão à última caixa: **4 min 30 s para quatro lanches embalados** 
 lanche, montando em lote.
 
 Tempo de cada lanche aberto na bancada, do pão ao fechamento: a caixa, 2 min 52 s; as
-folhas, de 3 min 20 s a 3 min 50 s; o quinto, mais de 4 min 40 s e não fechou.
+folhas, de 3 min 20 s a 3 min 50 s; o quinto, mais de 4 min 40 s e não fechou até o fim
+desta leitura. (Fechou às 21:49:18, com 6 min 21 s aberto: ver "Como o Mussarela Bug
+fechou".)
 
 ## O que isso muda no algoritmo da leitura da bancada
 
@@ -93,7 +98,9 @@ disco por carne (carne, queijo). O número de discos já diz o tamanho do lanche
 **4 · O produto tem assinatura.** Neste lote, dois produtos se distinguem sem dúvida, de
 cima, por quatro coisas: quantos discos, a cor da carne, a cor do molho, e se tem queijo e
 alface. É a "sequência de camadas contra as fichas" do plano — com a ressalva de que a ficha
-do Regem precisa dizer **as camadas que se veem de cima e em que disco ficam**.
+do Regem precisa dizer **as camadas que se veem de cima e em que disco ficam**. (O dono, em
+09/10: a ordem não importa, importam todos os ingredientes. A ficha entra como conjunto, e
+"3 fatias de pão" já diz os três discos.)
 
 **5 · O fechamento é um acontecimento visível**, e de dois jeitos: a tampa da caixa que
 fecha o lanche junto; ou empilhar, virar a tampa e embrulhar. Cada um é **um lanche
@@ -115,14 +122,80 @@ de rosto não a pega (não há rosto) e, no teste da nuvem, apagou pão em 12 de
 quadro de bancada o caminho é outro: mandar o quadro em que as mãos saíram — que é também o
 melhor para ler — e apagar a pessoa pelo contorno quando ela estiver no quadro.
 
+## Conferido com as fichas do dono (09/10)
+
+O que a leitura tinha anotado, sem conhecer o cardápio, contra a ficha que o dono citou:
+
+| | o que a leitura anotou | a ficha |
+|---|---|---|
+| **Número 01** (os quatro) | três discos de pão | 3 fatias de pão |
+| | duas carnes claras, uma em cada disco | 2 carnes de 56 g |
+| | duas fatias de queijo, uma por carne | 2 fatias de queijo |
+| | alface na tampa | alface |
+| | molho laranja, de bisnaga, embaixo da alface | molho especial (meio rosé) |
+| **Mussarela Bug** (o quinto) | dois discos de pão | pão brioche prime |
+| | uma carne grossa e escura | carne artesanal de 150 g |
+| | molho branco de um potinho, com colher | maionese de alho |
+| | molho vermelho de sachê, na tampa | geleia de pimenta |
+| | cobertura granulada por cima do molho vermelho | cebola crispy |
+| | um empanado dourado, posto por último | mussarela empanada |
+
+Cinco de cinco no Número 01, seis de seis no Mussarela Bug. Foi lido por mim, a olho, quadro
+a quadro — não pelo sistema. O que o sistema consegue com as mesmas imagens está em
+[teste-das-fichas.md](teste-das-fichas.md).
+
+## Como o Mussarela Bug fechou
+
+A leitura do lote parava às 21:47:35 com ele aberto. Lido depois, até fechar:
+
+| hora | o que se vê |
+|---|---|
+| 21:42:57 | o pão aberto em dois discos |
+| 21:43:55 → 21:44:04 | a geleia de pimenta na tampa, de um sachê |
+| 21:44:05 → 21:44:09 | a cebola crispy por cima da geleia |
+| 21:45:35 | a carne na base |
+| 21:45:39 → 21:45:55 | a maionese de alho sobre a carne |
+| 21:45:55 → 21:49:14 | **parado: 3 min 19 s esperando**, com a carne e a maionese prontas |
+| 21:49:16 | **a mussarela empanada chega, com o pegador**, e vai por cima da carne |
+| 21:49:18 → 21:49:22 | a tampa é virada por cima: fechado |
+| 21:49:24 → 21:49:36 | embrulhado no papel impresso |
+
+**6 min 21 s aberto**, dos quais 3 min 19 s esperando a fritura. É o "lanche que ficou
+esperando" virando número — e o tipo de coisa que só a câmera conta: o KDS sabe quando o
+pedido entrou e quando saiu, não que a carne ficou três minutos esfriando na bancada.
+
+Na primeira olhada (um quadro a cada 19,5 s) a mussarela não aparecia: ela fica à vista
+por dois segundos.
+
+## O lote anterior (21h37 a 21h41), lido depois
+
+Da gravação, de 2 em 2 segundos, a partir das 21:36:55 — o lote já estava em andamento.
+Quatro posições, todas com pão de um corte (dois discos):
+
+| posição | o que entrou, pela ordem em que se vê | o que parece ser |
+|---|---|---|
+| 1 e 2 | na tampa, cebola crispy e, por cima, um creme laranja forte (21:37:41 a 21:37:51); na base, carne escura (21:37:59 a 21:38:03) e molho branco (21:38:39 a 21:38:51). Fechadas e embrulhadas das 21:38:59 às 21:39:20 | **nenhuma das cinco fichas** |
+| 3 | na tampa, pedaços escuros e brilhantes de cebola; na base, duas carnes postas juntas, sobrepostas (21:39:59), uma fatia de queijo (21:40:07), a segunda carne passada para cima do queijo (21:40:13 a 21:40:15) e outra fatia (21:40:17). Fechada às 21:40:33 e embrulhada | **compatível com o Número 02**: 2 carnes, 2 fatias, cebola ao molho shoyu |
+| 4 | o mesmo da 3 (carne às 21:39:57 e às 21:40:13; queijo às 21:40:17 e às 21:40:21) e, por último, **tiras de bacon por cima da cebola** (21:40:29 a 21:40:35) | o Número 02 com bacon? — o dono diz |
+
+As contagens deste lote são "pelo que se vê": na posição 3 não dá para garantir, de cima,
+que foram duas carnes e não três.
+
+**O que este lote ensina e o outro não mostrava — o empilhamento.** No pão de um corte as
+duas carnes e as duas fatias vão **empilhadas na mesma base**: carne, queijo, carne,
+queijo, em 20 segundos, com as mãos em cima o tempo todo. O quadro parado do fim mostra
+**uma** fatia de queijo e mais nada. No Número 01 cada carne tem o seu disco e o quadro
+parado basta; aqui a contagem só sai dos **acontecimentos** — cada vez que algo é posto
+naquela posição —, ou de uma sequência de quadros bem mais densa.
+
 ## O que ainda não se sabe
 
-- **O que eram os dois produtos** (o dono sabe pelo cardápio) e se a carne clara e a escura
-  são o que parecem.
-- Se **todo** lote é montado assim, por ingrediente. Um lanche avulso, fora do pico, pode
-  ser montado de uma vez. É uma semana em "observando" que responde.
-- Se há pão embaixo de cada carne (pelo que se vê, sim: aparece a borda clara do disco) ou
-  se a segunda carne fica direto na folha.
-- O que o KDS tinha em preparo nesses cinco minutos. A leitura do banco do Regem não
-  conectou nesta sessão; é o próximo passo, e é ele que fecha a primeira conferência.
+- Se **todo** lote é montado assim, por ingrediente. Foram dois lotes, da mesma noite e da
+  mesma pessoa. Um lanche avulso, fora do pico, pode ser montado de uma vez. É uma semana em
+  "observando" que responde.
+- O que são as posições 1 e 2 do lote anterior, e se a 4 é o Número 02 com bacon.
+- **O que o KDS tinha em preparo: não dá para saber por aqui.** Eu tinha escrito que faltava
+  ler o banco do Regem — estava errado. A loja ainda roda o Eclética; o Regem está sendo
+  finalizado para entrar lá. Com ele, o pedido vai ao KDS com a ficha técnica (sem os
+  valores), e o Farol passa a ter o pedido e os ingredientes.
 - O relógio do gravador está 27 s adiantado: para casar com a hora do pedido, desconta-se.

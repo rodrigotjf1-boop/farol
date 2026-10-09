@@ -164,3 +164,5 @@ pergunta rende mais feita **uma vez por fase**, quando as mãos saem.
   modelo e quanto é do contexto.
 - A forma nova de chamar o Sonnet 5.5 com a ferramenta do agente (`responder`). O que está
   medido: forçada, a API recusa; livre, ele respondeu pela ferramenta em 14 de 14.
+  **Conferida em 09/10**, com o código do pacote novo: a cascata e a descrição de
+  equipamento voltaram pela ferramenta ([teste-das-fichas.md](teste-das-fichas.md)).

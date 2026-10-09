@@ -3440,9 +3440,124 @@ com molho laranja e alface) e **um lanche de outro tipo** (dois discos; molho ve
 sachê, cobertura escura, carne escura, molho branco), que ficou aberto mais de 4 min 40 s
 e não tinha fechado quando a leitura acabou. Do primeiro pão à última caixa: 4 min 30 s.
 
-É a leitura de **um** lote, feita por mim a olho — desenha o algoritmo, não mede acerto. A
-conferência com o KDS deste mesmo lote é o passo seguinte: falta ler o que o Regem tinha
-em preparo nesses cinco minutos.
+É a leitura de **um** lote, feita por mim a olho — desenha o algoritmo, não mede acerto.
+
+**Conferido com as fichas do dono (09/10):** os quatro lanches de duas carnes batem com a
+ficha do **Número 01** — a leitura, feita sem conhecer o cardápio, tinha anotado três
+discos de pão, duas carnes, duas fatias de queijo, alface e molho laranja na tampa: os
+cinco ingredientes, com as quantidades. O quinto é o **Mussarela Bug** (o dono disse o nome
+e a ficha enquanto eu trabalhava): os seis ingredientes dele também estavam na leitura.
+Ficou 6 min 21 s aberto — 3 min 19 s esperando a mussarela empanada sair da fritura.
+
+**A conferência com o KDS daquela noite não existe:** a loja ainda roda o Eclética. Eu
+tinha escrito que faltava "ler o que o Regem tinha em preparo" — estava errado: o Regem
+ainda não está na loja. O pedido só chega ao Farol quando ele entrar (ver abaixo).
+
+### As fichas técnicas — a conferência é por conjunto (do dono, 09/10)
+
+O dono, depois de ler o estudo do lote:
+
+- **A loja-piloto é a Mister Burguer.** O sistema de hoje, com KDS, é o **Eclética**; o
+  **Regem está sendo finalizado para entrar lá** e substituí-lo.
+- Com o Regem, **o pedido vai ao KDS com a ficha técnica, sem os valores**: o Farol passa a
+  ter o pedido e os ingredientes.
+- **"A ordem não é importante, e sim todos os ingredientes."**
+- Recursos da nuvem para análise: ele providencia o que for preciso.
+
+Cinco fichas (na loja o lanche tem número ou nome):
+
+| ficha | pão | carne | queijo | o resto |
+|---|---|---|---|---|
+| Número 01 | 3 fatias (pão de dois cortes) | 2 de 56 g | 2 fatias | alface; molho especial (meio rosé) |
+| Número 02 | 2 fatias (pão de um corte) | 2 de 56 g | 2 fatias | cebola ao molho shoyu |
+| Número 16 | 2 fatias (pão de um corte) | 2 de 56 g | não leva fatia | molho cheddar cremoso; cebola ao molho shoyu |
+| Número 08 | 2 fatias (pão prime, de um corte) | 1 de 120 g | 1 fatia de cheddar | ovo; 2 fatias de bacon; 3 anéis de cebola; maionese |
+| Mussarela Bug | 2 fatias (pão brioche prime) | 1 artesanal de 150 g | — | mussarela empanada; maionese de alho; geleia de pimenta; cebola crispy |
+
+**O que isso muda no desenho da leitura da bancada:**
+
+1. **A prova 3 é o conjunto da ficha**, com quantidade onde se conta — não uma sequência de
+   camadas. Some a exigência de "em que ordem": é o ponto fraco dos modelos, e deixou de
+   ser necessário.
+2. **Identificar o produto** é achar a ficha cujo conjunto bate com o que entrou na posição.
+   A diferença sai **por item** — "falta a alface", "sobra uma fatia de queijo" —, nunca como
+   veredito do lanche inteiro (0,95 elevado a 8 dá 0,66: é a regra do juiz binário, que já
+   tem a função `perguntas_da_ficha` esperando esta lista).
+3. **"Fatias de pão" são os discos:** três fatias = três discos. A ficha já diz quantos
+   discos a posição tem de ter.
+4. **O que se conta e o que só se vê:** pão, carne (e de qual tamanho), fatia de queijo,
+   bacon, anel de cebola e ovo se contam; alface, molhos e cebola são presença.
+5. **O dicionário de ingredientes da loja.** Cada ingrediente de ficha ganha a sua linha:
+   como aparece de cima (disco fino, disco grosso e escuro, quadrado amarelo, folha verde,
+   creme laranja, creme branco, farelo dourado, mancha vermelha…), se conta, e o objeto
+   que o traz (cuba, bisnaga, maço, sachê, potinho, pegador). O sistema propõe a partir das
+   fichas e do que a bancada mostra; o responsável confirma. O que a câmera não vê (sal,
+   tempero) e o que não é da bancada (embalagem) ficam marcados "não conferível".
+6. **Os pares que a câmera não separa** saem das fichas: dois produtos cuja diferença é só
+   um item não conferível. Entre as cinco há um par difícil — o 02 e o 16 diferem por "duas
+   fatias de queijo" contra "molho cheddar cremoso", os dois amarelos. Para esses, só o
+   pedido decide.
+7. **O empilhamento.** No pão de três fatias cada carne tem o seu disco e o quadro parado
+   mostra tudo. No pão de um corte as carnes e os queijos vão empilhados na mesma base
+   (carne, queijo, carne, queijo, em 20 s): o quadro do fim mostra uma fatia. Aí a
+   contagem sai dos acontecimentos — cada vez que algo é posto naquela posição.
+8. **Sem o pedido** (hoje, com o Eclética) as fichas já deixam dizer **qual produto** foi
+   montado e contar a produção por produto. O "contra o pedido" — faltou, sobrou, trocou —
+   começa quando o Regem entrar na loja.
+
+**Medido em 09/10 — o experimento das fichas** (R$ 1,03; registro em
+[teste-das-fichas.md](teste-das-fichas.md)). Com os quadros parados do lote de 08/10 e as
+fichas do dono, perguntou-se à nuvem o que entrou em cada posição e que ficha ela é. O
+gabarito: quatro Número 01 e um Mussarela Bug.
+
+| como foi perguntado | modelo | ficha certa | custo |
+|---|---|---|---|
+| o tampo inteiro de uma vez (cinco lanches), quatro fichas | Haiku 5.5 | 6 de 15 | 0,6 centavo o lote |
+| idem | Sonnet 5.5 | 4 de 5 | 20,5 centavos o lote |
+| **uma posição por vez**, cinco fichas, com o dicionário de ingredientes — a ficha dita pelo modelo | Haiku 5.5 | 12 de 15 | 0,13 centavo o lanche |
+| idem — **a ficha pela conta**: o modelo só diz o que viu, o código compara com as fichas | Haiku 5.5 | **15 de 15** | 0,13 centavo o lanche |
+| uma posição por vez, com o dicionário | Sonnet 5.5 | 5 de 5 | 5,85 centavos o lanche |
+
+O que ele fixa:
+
+1. **Uma posição por chamada.** Com cinco lanches no mesmo quadro o modelo barato se perde
+   (contou seis e sete posições onde havia cinco).
+2. **A comparação com a ficha é conta, em código** — por item, com quantidade onde se conta
+   e com "não tenho folga" quando duas fichas ficam perto. Nenhuma resposta firme saiu
+   errada nas 35 chamadas.
+3. **O dicionário de ingredientes vai no pedido.** Sem ele o Mussarela Bug não foi
+   reconhecido nenhuma vez pelo modelo barato; com ele, os itens certos subiram de 65% para
+   76%.
+4. **O que fica coberto só se confere no instante em que entra:** o molho embaixo da alface
+   passou sem ser visto em 25 de 28 leituras, e a foto final escondeu a carne. E no pão de
+   um corte as carnes e os queijos vão empilhados na mesma base (lote anterior): aí a
+   contagem sai dos acontecimentos, não do quadro parado.
+5. **O caminho barato basta para a rotina:** R$ 0,0013 por lanche. O modelo maior, 45 vezes
+   mais caro, fica para a dúvida.
+
+Não é o sistema lendo sozinho: as posições e os quadros foram escolhidos por mim, e é um
+lote só. Achar a posição e o instante é o trabalho das ondas 4 e 5.
+
+**A correção do PR #69 foi conferida contra a nuvem** no mesmo roteiro, com o código novo
+lido do pacote: a cascata saiu com a ferramenta forçada no modelo barato e a escolha livre
+no forte, e o veredito do forte voltou; o pedido de "Analisar as fotos e descrever" voltou
+com a descrição e cinco pontos a conferir.
+
+**O encaixe no Regem** (lido no código do Regem em 09/10; é tarefa de lá, com plano e PR
+próprios):
+
+- O que já existe: o produto aponta a ficha (`produto.ficha_id`); a ficha tem os
+  ingredientes com nome, quantidade e unidade (`ficha_ingrediente`), a marca de "só no
+  delivery" (embalagem) e a sub-receita (`sub_ficha_id`); o adicional pode apontar ficha
+  ou insumo; e a fila de produção — o que alimenta o KDS — é `GET /producao/fila`, com
+  descrição, quantidade, complementos em texto e observação de cada item.
+- O que falta: cada item da fila levar a **lista final de ingredientes** — a ficha, mais
+  os adicionais, menos o que o cliente tirou —, com nome, quantidade e unidade, **sem
+  custo e sem preço**; a linha "só no delivery" fica de fora; **a sub-receita vai como um
+  ingrediente só** (o "molho especial" é uma coisa na bancada, não cinco insumos).
+- Como o Farol lê: o agente da loja consulta a fila no servidor do Regem que fica na
+  própria loja, com a credencial de integração da loja. Nada de nuvem no meio.
+- O mesmo dado serve ao KDS: mostrar a ficha na tela para quem monta.
 
 ### Impacto
 
@@ -3469,7 +3584,7 @@ foi medido** — é o primeiro uso do banco de provas.
 | 2 | **Sequência e banco de provas:** olhar para trás, grade de 6 quadros, a família Acontecimento; "acertou / errou"; o acerto medido de cada critério | G | o dono marcar os exemplos |
 | 3 | **Processo e Medida:** etapas por quadro, cronômetros e contadores, episódios, modelos prontos | G | onda 2 medida |
 | 4 | **Leitura da bancada, E0 → E1:** câmera regulada, números da semana, as fases do lote, contar montagens pelo fechamento, a comanda | G | regulagem do canal 4 |
-| 5 | **Leitura da bancada, E2 → E3:** uma leitura por fase, discos e camadas, o produto, **a conta do lote contra o KDS**, aviso na estação | G+ | fichas com camadas e fila de produção (Regem); alarme falso medido |
+| 5 | **Leitura da bancada, E2 → E3:** uma posição por chamada, o dicionário de ingredientes, a ficha comparada em código, o produto, **a conta do lote contra o KDS**, aviso na estação | G+ | as fichas de todos os lanches; a fila de produção com os ingredientes (Regem); alarme falso medido |
 | 6 | O momento em vídeo ("Ver o momento") — reaproveita a sequência da onda 2 | M | onde guardar na nuvem |
 | 7 | Relatórios, resumos e o início "fora do critério primeiro" | G | transportador |
 | 8 | Porte da cara nova | G | protótipo geral aprovado |
@@ -3486,10 +3601,12 @@ quadros e critérios, o cadastro do processo, a sequência com a resposta por et
 
 - O acerto dos modelos de nuvem em **sequências** desta loja. Em quadro único foi medido
   (o teste lado a lado), com gabarito meu, provisório.
-- Se todo lote é montado por ingrediente — estudou-se um. E o que o KDS tinha em preparo
-  nele.
-- A forma nova de chamar o modelo forte (PR #69) contra a API de verdade, com a ferramenta
-  do agente.
+- Se todo lote é montado por ingrediente — estudaram-se dois, da mesma noite e da mesma
+  pessoa. O que o KDS tinha em preparo não se sabe: os pedidos estão no Eclética.
+- O sistema achando sozinho a posição e o instante: no experimento das fichas quem
+  recortou e escolheu os quadros fui eu.
+- (A forma nova de chamar o modelo forte, do PR #69, **foi conferida contra a nuvem em
+  09/10**, com o código do pacote.)
 - A leitura da bancada contra uma contagem humana, num pico de verdade e com a câmera
   regulada.
 - As 32 comandas da prova (sem recorte para conferir).
@@ -3515,11 +3632,14 @@ quadros e critérios, o cadastro do processo, a sequência com a resposta por et
 3. Escolher os **3 a 5 processos** que quer ver julgados primeiro. Sugestão: montagem
    conforme a ficha; sal na carne (o exemplo dele); lavar as mãos antes de montar; pedido
    completo na sacola; bancada limpa entre pedidos.
-4. Do lado do Regem (outro projeto): a fila de produção na rede da loja, a ficha com as
-   camadas visíveis, e o código na comanda. Decidir quando.
+4. Do lado do Regem (outro projeto): a fila de produção levar os ingredientes da ficha,
+   sem valores (o encaixe está descrito acima), e o código na comanda. O dono já disse o
+   caminho (09/10); falta o "pode" para planejar e fazer lá.
 5. Aprovar esta ordem.
-6. Dizer **o que eram os dois produtos do lote das 21h42** de 08/10 (quatro de duas
-   carnes, com molho laranja e alface; um com molho vermelho de sachê, cobertura escura,
-   carne escura e molho branco). É o primeiro gabarito.
+6. ✅ O quinto lanche do lote das 21h42 é o **Mussarela Bug** (dito pelo dono em 09/10, com
+   a ficha). Falta ele confirmar que os quatro são o **Número 01**, dizer o que são as
+   posições do lote anterior que não batem com as fichas, e passar **as fichas de todos os
+   lanches** — onde estão cadastradas, ou a lista.
 7. **Atualizar o agente da loja** com a correção da reconsulta (PR #69): o pacote já está
-   no PC da loja; a troca precisa do comando dele ou da liberação para eu rodar.
+   no PC da loja e a forma nova foi conferida contra a nuvem (09/10); a troca precisa do
+   comando dele ou da liberação para eu rodar.
