@@ -54,11 +54,14 @@ from typing import Any, Callable, Iterable, Sequence
 
 import cv2
 
+from farol_agent.contexto import Cena
 from farol_agent.fila import Fila, ItemFila
 from farol_agent.fontes.base import FonteVideo
 from farol_agent import imagens
 from farol_agent.juizes.base import ErroDoJuiz, Juiz
+from farol_agent.mapas import Mapas
 from farol_agent.modelos import (
+    RESOLUCOES,
     EventoGatilho,
     Regra,
     Resultado,
@@ -76,6 +79,37 @@ _log = logging.getLogger(__name__)
 # e a medida é o tempo — "em quantas olhadas o posto estava vazio".
 # `comparacao` também é local, mas pode escalar para um modelo: fica fora.
 CONTINUOS = (TipoRegra.PRESENCA, TipoRegra.CONTAGEM)
+
+# Os tipos cuja imagem pode ir a um modelo de fora — e que, por isso, levam
+# a cena do canal quando a loja pergunta com contexto. `comparacao` é
+# decidida na loja; só o que não é igual à foto padrão sai.
+COM_CENA = (TipoRegra.ESTADO, TipoRegra.ACAO, TipoRegra.COMPARACAO)
+
+# No pedido com contexto o recorte vai como a câmera entrega: reduzir a
+# 640 px joga fora o detalhe que se pagou na câmera (no tampo da montagem,
+# 85% dos pontos). Nunca amplia: é teto, não alvo.
+LADO_DA_CAMERA = RESOLUCOES["r1080"]
+
+
+@dataclass(frozen=True)
+class ComContexto:
+    """O que o motor precisa saber de uma loja que pergunta COM CONTEXTO.
+
+    Quem monta é a auditoria, a cada versão de configuração. Sem isto
+    (`None` no motor) nada muda: é a loja de sempre.
+    """
+
+    # Por canal, a cena escrita e os quadros — só dos canais que TÊM cena.
+    cenas: dict[str, Cena]
+    # Onde ficam os mapas dos canais. É o motor que os mantém: é ele que
+    # tem o quadro inteiro da câmera na mão.
+    mapas: Mapas
+    # Os critérios cuja pergunta vai DIRETO a um modelo de fora (estado e
+    # ação julgados na nuvem). Só para eles o recorte vai na resolução da
+    # câmera: a comparação com a foto padrão continua como foi medida.
+    direto: frozenset[str] = frozenset()
+    # O modelo que responde: entra na chave da análise junto com a cena.
+    modelo: str = ""
 
 
 @dataclass
@@ -144,9 +178,15 @@ class MotorDeRegras:
         memoria_dedupe_seg: int = 30,
         serializar: Callable[["Alerta"], dict[str, Any]] | None = None,
         porteiro: Porteiro | None = None,
+        contexto: ComContexto | None = None,
     ) -> None:
         self.fila = fila
         self.regras: list[Regra] = list(regras)
+        # A loja pergunta com contexto? `None` = não: tudo como sempre.
+        self._contexto = contexto
+        # Os canais cujo mapa já foi cuidado NESTA olhada: três critérios
+        # no mesmo canal saem do mesmo quadro, e o mapa é um só.
+        self._mapa_cuidado: set[str] = set()
         # Quem confere se vale perguntar. Sem porteiro (modo de bancada, ou
         # agente sem detector), todo critério pergunta em toda olhada.
         self._porteiro = porteiro
@@ -215,6 +255,7 @@ class MotorDeRegras:
         acordar o critério que vai à nuvem.
         """
         preparo = Preparo()
+        self._mapa_cuidado = set()
         regras = [r for r in self.regras_aplicaveis(evento) if somente is None or somente(r)]
         if not regras:
             return preparo
@@ -314,6 +355,17 @@ class MotorDeRegras:
         if melhor is None:
             return None, "sem_quadro"
 
+        # A loja pergunta com contexto e este canal tem cena escrita: o
+        # critério de quadro precisa do mapa do canal em disco antes de
+        # qualquer pergunta. É aqui, e não mais adiante, porque a olhada que
+        # o porteiro segura por não haver ninguém é justamente a que serve
+        # para fotografar o lugar vazio.
+        cena = self._cena_de(regra, evento.ponto_id)
+        if cena is not None and cena.quadro(regra.zona.id) is not None:
+            self._cuidar_do_mapa(evento.ponto_id, cena, melhor)
+        # Estado e ação julgados na nuvem: a pergunta vai direto para fora.
+        direto = cena is not None and self._contexto is not None and regra.id in self._contexto.direto
+
         # A ordem importa: recorta, apaga o que é de fora, borra, deduplica,
         # e só então reduz. Reduzir antes jogaria fora o detalhe que se
         # pagou na câmera.
@@ -372,12 +424,14 @@ class MotorDeRegras:
             self.sem_cena.pop(self._lugar(regra), None)
             return None, "repetido"
 
-        f = recorte.redimensionar(f, regra.lado_maior)
+        f = recorte.redimensionar(f, LADO_DA_CAMERA if direto else regra.lado_maior)
         ph = dedupe.phash(f.imagem)
 
         chave = Fila.chave_idempotente(
             regra.id, regra.criterio_versao, evento.ponto_id, ph, f.ts,
             por_olhada=continuo, zona_id=regra.zona.id,
+            # Mudou a cena, um quadro ou o modelo: é outra pergunta.
+            contexto=f"{cena.assinatura()}:{self._contexto.modelo}" if direto else None,
         )
 
         # Já julgamos esta cena exata? Então não paga de novo — mas o
@@ -618,6 +672,19 @@ class MotorDeRegras:
         )
 
     # ──────────────────────────── interno ──────────────────────────────
+
+    def _cena_de(self, regra: Regra, ponto_id: str) -> Cena | None:
+        """A cena do canal, se a loja pergunta com contexto e este critério pode levar imagem para fora."""
+        if self._contexto is None or regra.tipo not in COM_CENA:
+            return None
+        return self._contexto.cenas.get(ponto_id)
+
+    def _cuidar_do_mapa(self, ponto_id: str, cena: Cena, quadro: Any) -> None:
+        """Garante o mapa do canal, uma vez por olhada. Erro de disco sobe, como o do spool."""
+        if self._contexto is None or ponto_id in self._mapa_cuidado:
+            return
+        self._mapa_cuidado.add(ponto_id)
+        self._contexto.mapas.cuidar(ponto_id, cena, quadro, quadro.ts)
 
     def _contar_falha(self, item: ItemFila, porque: str) -> None:
         """Uma tentativa de julgar que não deu em veredito."""

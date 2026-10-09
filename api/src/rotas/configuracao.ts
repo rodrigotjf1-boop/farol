@@ -26,6 +26,7 @@ import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
+import { SQL_NUMERO_DO_QUADRO } from '../cena.js';
 import { lugaresDaLoja } from './planta.js';
 
 export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
@@ -48,7 +49,7 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
     // mão por que a loja analisa pela regra antiga.
     const l = await pool.query(
       `select id, nome, config_versao, modo_julgamento, resolucao_padrao,
-              horario_funcionamento
+              horario_funcionamento, tipo_negocio, pedido_com_contexto
          from loja where id = $1`,
       [quem.lojaId],
     );
@@ -60,7 +61,7 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
       `select p.id, p.nome, p.origem, p.fabricante, p.canal, p.host, p.porta,
               p.usuario, p.segredo_ref, p.url_main, p.url_sub, p.gabarito,
               p.sensor_pol, p.focal_mm, p.distancia_cm, p.resolucao_h,
-              p.largura_cena_cm, st.nome as setor
+              p.largura_cena_cm, p.cena, st.nome as setor
          from ponto p
          join setor st on st.id = p.setor_id
         where st.loja_id = $1 and p.ativo
@@ -69,7 +70,8 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
     );
 
     const zonas = await pool.query(
-      `select z.id, z.ponto_id, z.nome, z.poligono, z.principal, z.largura_cena_cm
+      `select z.id, z.ponto_id, z.nome, z.poligono, z.principal, z.largura_cena_cm,
+              z.papel, ${SQL_NUMERO_DO_QUADRO} as numero
          from zona z
          join ponto p on p.id = z.ponto_id
          join setor st on st.id = p.setor_id
@@ -199,6 +201,11 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
         regras: regrasPorZona.get(z.id) ?? [],
         // O agente antigo ignora; o novo manda junto com a pergunta à nuvem.
         equipamentos: equipamentosPorZona.get(z.id) ?? [],
+        // O que o quadro é, e o número dele no canal (nulo = é a imagem
+        // completa). O número vem pronto: é o mesmo que a tela mostra, e o
+        // agente o desenha no mapa do canal sem refazer a conta.
+        papel: z.papel,
+        numero: z.numero,
       });
       zonasPorPonto.set(z.ponto_id, lista);
     }
@@ -215,6 +222,12 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
         // Quando a loja abre. Vazio = sempre aberta. Quem decide se é hora
         // de conferir é o agente, com o relógio do computador da loja.
         horarioFuncionamento: l.rows[0].horario_funcionamento ?? [],
+        // O contexto que vai com a pergunta feita a um modelo: que negócio é
+        // (a cena de cada canal desce no ponto). E a chave interna que diz se
+        // o agente já pergunta com contexto — ligada, canal sem cena escrita
+        // não manda imagem para fora. O agente antigo ignora os dois.
+        tipoNegocio: l.rows[0].tipo_negocio,
+        pedidoComContexto: l.rows[0].pedido_com_contexto === true,
       },
       versao: l.rows[0].config_versao,
       geradoEm: new Date().toISOString(),
@@ -225,6 +238,9 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
         // Nulo = o canal não está na planta. Vai junto com a pergunta feita
         // a um modelo sobre este canal; o agente antigo ignora.
         lugar: lugares.get(p.id) ?? null,
+        // O que esta câmera vê e de onde olha, escrito por quem configurou.
+        // Vazio = ainda não descrita.
+        cena: p.cena,
         origem: p.origem,
         fabricante: p.fabricante,
         canal: p.canal,

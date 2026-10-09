@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from farol_agent.contexto import PAPEIS
 from farol_agent.padroes import PadraoRef
 from farol_agent.porteiro import PORTEIROS
 from farol_agent.modelos import (
@@ -77,6 +78,9 @@ class PontoConfig:
     # Onde a câmera fica e o que tem na frente dela, tirado da planta da
     # loja. Vazio = o canal não está na planta (ou a nuvem é antiga).
     lugar: str = ""
+    # O que esta câmera vê e de onde olha, escrito por quem configurou o
+    # canal. Vazio = ainda não descrita (ou a nuvem é antiga).
+    cena: str = ""
 
     @property
     def zona_principal(self) -> Zona | None:
@@ -101,6 +105,12 @@ class ConfigDaLoja:
     modo_julgamento: str = "hibrido"
     resolucao_padrao: str = "r640"
     pontos: list[PontoConfig] = field(default_factory=list)
+    # Que negócio é ("hamburgueria"). Vai com a cena de cada canal.
+    tipo_negocio: str = ""
+    # A chave interna, ligada pela distribuição: a loja pergunta à nuvem COM
+    # CONTEXTO (a cena e o mapa do canal), e canal sem cena escrita não manda
+    # imagem para fora. Desligada, tudo segue como sempre.
+    pedido_com_contexto: bool = False
 
     def ponto(self, ponto_id: str) -> PontoConfig | None:
         return next((p for p in self.pontos if p.id == ponto_id), None)
@@ -127,6 +137,17 @@ def _zona(dados: dict[str, Any], onde: str, ponto_id: str) -> Zona:
     poligono = dados.get("poligono") or []
     if len(poligono) < 3:
         raise ErroDeConfiguracao(f"{onde}: polígono precisa de 3 pontos ou mais")
+    # O papel e o número do quadro são novos. Nuvem antiga não manda: a
+    # área fica "livre" e sem número, como sempre foi. Papel que este agente
+    # não conhece — um que a nuvem ganhe depois — NÃO derruba a configuração
+    # inteira: vira "livre", que só deixa de dizer ao modelo o que o quadro é.
+    papel = str(dados.get("papel") or "livre")
+    if papel not in PAPEIS:
+        _log.warning("%s: papel=%r desconhecido; o quadro fica sem papel definido", onde, papel)
+        papel = "livre"
+    numero = dados.get("numero")
+    if isinstance(numero, bool) or not isinstance(numero, int) or numero < 1:
+        numero = None
     return Zona(
         id=str(dados["id"]),
         nome=str(dados.get("nome") or "zona"),
@@ -135,6 +156,8 @@ def _zona(dados: dict[str, Any], onde: str, ponto_id: str) -> Zona:
         # critério de um canal ao quadro de outro (ERR-020).
         ponto_id=ponto_id,
         equipamentos=_equipamentos(dados.get("equipamentos")),
+        papel=papel,
+        numero=numero,
     )
 
 
@@ -291,6 +314,9 @@ def de_json(dados: dict[str, Any]) -> ConfigDaLoja:
                 padroes=_padroes(p.get("padroes")),
                 # Uma linha só: vai para dentro de um pedido a um modelo.
                 lugar=" ".join(str(p.get("lugar") or "").split()),
+                # A cena, como a pessoa escreveu. Quem a põe no pedido (numa
+                # linha só, com teto) é `contexto.py`.
+                cena=str(p.get("cena") or "").strip(),
             )
         )
 
@@ -301,6 +327,10 @@ def de_json(dados: dict[str, Any]) -> ConfigDaLoja:
         modo_julgamento=str(dados["loja"].get("modoJulgamento") or "hibrido"),
         resolucao_padrao=str(dados["loja"].get("resolucaoPadrao") or "r640"),
         pontos=pontos,
+        tipo_negocio=" ".join(str(dados["loja"].get("tipoNegocio") or "").split()),
+        # Só `true` liga. Nuvem antiga não manda; valor parecido com verdade
+        # ("sim", 1) não muda o que sai da loja.
+        pedido_com_contexto=dados["loja"].get("pedidoComContexto") is True,
     )
 
 

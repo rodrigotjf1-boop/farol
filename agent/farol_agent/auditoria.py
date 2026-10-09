@@ -49,6 +49,7 @@ from pathlib import Path
 from typing import Any
 
 from farol_agent.configuracao import ConfigDaLoja, PontoConfig
+from farol_agent.contexto import FALTA_A_CENA, cenas_da_loja
 from farol_agent.contrato import (
     evento_para_nuvem,
     maquina_para_nuvem,
@@ -56,8 +57,9 @@ from farol_agent.contrato import (
     uso_para_nuvem,
 )
 from farol_agent.fila import Fila
+from farol_agent.mapas import Mapas
 from farol_agent.modelos import EventoGatilho, TipoRegra
-from farol_agent.motor import MotorDeRegras
+from farol_agent.motor import ComContexto, MotorDeRegras
 from farol_agent.nuvem import ErroDaNuvem
 from farol_agent.padroes import Padroes
 from farol_agent.vigia import INTERVALO_PADRAO as INTERVALO_DO_VIGIA
@@ -194,6 +196,14 @@ class Auditoria:
             Path(self.fila.caminho).parent / "padroes", baixar=getattr(cliente, "baixar_padrao", None)
         )
         self._proxima_busca_de_padroes: datetime | None = None
+        # Os mapas dos canais (a câmera inteira, pequena, com os quadros
+        # numerados), ao lado da fila. Só existem em loja que pergunta com
+        # contexto; quem os desenha é o motor.
+        self.mapas = Mapas(Path(self.fila.caminho).parent / "mapas", sem_gente=self._sem_gente)
+        # Os critérios cuja pergunta vai direto a um modelo de fora, e o
+        # modelo que responde: o que `_com_juiz` apura para o motor.
+        self._direto_a_nuvem: set[str] = set()
+        self._modelo_com_contexto = ""
         # Onde cada gravador escreve o relógio, por canal. Perguntado uma
         # vez por gravador; injetável para o teste não precisar de um.
         self._perguntar_relogios = _relogios_do_gravador
@@ -277,9 +287,15 @@ class Auditoria:
         from farol_agent.juizes.nuvem import JuizNuvem
         from farol_agent.juizes.seletor import JuizPorRegra, SeletorDeJuiz
 
+        # A loja pergunta com contexto: a nuvem recusa o pedido que chegar
+        # sem a cena, e o seletor entrega a de cada canal. Na loja que não
+        # pergunta com contexto, o juiz é montado como sempre foi.
+        cenas = cenas_da_loja(config) if config.pedido_com_contexto else None
+        com_contexto = {"exige_cena": True} if config.pedido_com_contexto else {}
+
         nuvem = None
         try:
-            nuvem = JuizNuvem()
+            nuvem = JuizNuvem(**com_contexto)
         except Exception as e:  # noqa: BLE001
             # Sem chave, o seletor ainda serve: regra local continua
             # atendida, e regra de nuvem falha dizendo o que falta.
@@ -305,7 +321,24 @@ class Auditoria:
             {r.id: r for r in config.regras},
             equipamentos={z.id: z.equipamentos for p in config.pontos for z in p.zonas if z.equipamentos},
             lugares={p.id: p.lugar for p in config.pontos if p.lugar},
+            cenas=cenas,
+            mapas=self.mapas,
         )
+
+    def _sem_gente(self, imagem) -> bool | None:
+        """O quadro da câmera está sem ninguém? `None` quando não há como saber.
+
+        É a pergunta que decide se o mapa do canal pode ser fotografia
+        (`mapas.py`). Responde o detector de pessoas da loja, do lado
+        conservador: um "talvez" já é alguém. Sem detector instalado, não
+        se sabe — e o mapa fica no esquema.
+        """
+        motor = getattr(self._detector_do_porteiro(), "motor", None)
+        if motor is None:
+            return None
+        from farol_agent.juizes.detector import DUVIDA, OBJETOS
+
+        return not any(float(p) >= DUVIDA for p in motor.pontuar(imagem, OBJETOS["pessoa"]))
 
     def _relogios(self, config: ConfigDaLoja) -> dict[str, tuple[float, float, float, float]]:
         """Por canal, o retângulo em que o gravador escreve data e hora.
@@ -425,10 +458,23 @@ class Auditoria:
                 _log.error("sem juiz: %s", e)
 
         regras = self._com_juiz(config)
+        # A loja pergunta com contexto: o motor passa a cuidar do mapa de
+        # cada canal e a guardar o recorte na resolução da câmera. Mapa de
+        # canal ou de desenho que não existe mais sai do disco aqui — e
+        # todos saem quando a chave é desligada.
+        contexto = None
+        cenas = cenas_da_loja(config) if config.pedido_com_contexto else {}
+        self.mapas.largar(cenas)
+        if config.pedido_com_contexto:
+            contexto = ComContexto(
+                cenas=cenas, mapas=self.mapas,
+                direto=frozenset(self._direto_a_nuvem), modelo=self._modelo_com_contexto,
+            )
         # Com o serializador, o motor grava o corpo do evento na mesma
         # linha do alerta: é o que faz o evento sobreviver a internet fora.
         self.motor = MotorDeRegras(
             self.fila, regras, serializar=evento_para_nuvem, porteiro=self._o_porteiro(regras),
+            contexto=contexto,
         )
         self._montar_vigia(regras)
 
@@ -473,6 +519,8 @@ class Auditoria:
         quando a configuração muda.
         """
         self.sem_juiz = []
+        self._direto_a_nuvem = set()
+        self._modelo_com_contexto = ""
         if self.juiz is None:
             return list(config.regras)
 
@@ -482,13 +530,28 @@ class Auditoria:
 
         from farol_agent.juizes.base import ErroDoJuiz
 
+        # A loja pergunta com contexto: o recorte nunca sai sozinho. O
+        # critério julgado na nuvem, em canal SEM cena escrita, não é
+        # capturado — e o console mostra "falta descrever a cena" no lugar
+        # de uma análise que não foi feita. Decidido aqui, na montagem,
+        # uma vez por versão de configuração.
+        cenas = cenas_da_loja(config) if config.pedido_com_contexto else None
+        nuvem = getattr(seletor, "nuvem", None)
+        self._modelo_com_contexto = str(getattr(nuvem, "modelo_com_contexto", "") or "")
+
         servidas, orfas = [], []
         for r in config.regras:
             try:
-                seletor.para(r)
-                servidas.append(r)
+                juiz = seletor.para(r)
             except ErroDoJuiz as e:
                 orfas.append((r, str(e)))
+                continue
+            if cenas is not None and nuvem is not None and juiz is nuvem:
+                self._direto_a_nuvem.add(r.id)
+                if str(r.zona.ponto_id) not in cenas:
+                    orfas.append((r, FALTA_A_CENA))
+                    continue
+            servidas.append(r)
         self.sem_juiz = orfas
 
         # Um critério que vale em três canais aparece três vezes na lista.

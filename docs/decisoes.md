@@ -1372,3 +1372,154 @@ pode depender deste prazo.
 O tamanho do spool com o recorte na resolução da câmera, numa loja em
 operação: a conta de "cinco a oito vezes" sai do tamanho das imagens, não
 de uma semana de uso.
+
+## 09/10/2026 · O pedido com contexto: a cena, o mapa e o recorte na resolução da câmera
+
+A19, onda 1, fatia 1.1. Pergunta do dono (08/10): "o que sobe à nuvem? Se
+enviar um corte sem contexto, a análise vai falhar e o custo vai ser em
+vão." Naquela noite, 93% das análises pagas voltaram sem resposta. O teste
+lado a lado ([teste-contexto-na-nuvem.md](teste-contexto-na-nuvem.md))
+mediu o que o contexto compra; esta fatia põe isso no motor.
+
+### O que o pedido leva, e em que ordem
+
+| # | parte | de onde vem | no cache? |
+|---|---|---|---|
+| 1 | **a cena** — o negócio, o setor, a câmera e o que ela vê | `loja.tipo_negocio`, o setor, o nome do canal e `ponto.cena` (mais a frase da planta, quando há) | sim, por canal |
+| 2 | **o mapa do canal** — a câmera inteira, pequena, com os quadros numerados, e a legenda: "2 = Montagem (posição de montagem)" | desenhado pelo agente; `zona.papel` e o número do quadro | sim, por canal |
+| 3 | a foto padrão, quando o critério a pede | como já era | sim, por área |
+| 4 | **a imagem a auditar**, apresentada: "o recorte do quadro 2 — Montagem" ou "a imagem completa desta câmera" | o quadro de agora | não: é o que se paga inteiro |
+| 5 | **o critério** (e a descrição do processo, o aviso da área e os equipamentos, quando há) | o critério | não |
+
+As três regras, cada uma com teste:
+
+1. **O recorte nunca sobe sozinho.** Com a chave ligada, o critério julgado
+   na nuvem em canal SEM cena escrita não é capturado: a olhada conta como
+   "sem juiz", com o motivo "falta descrever a cena deste canal". E o juiz
+   de nuvem recusa — antes de abrir a imagem — o pedido que chegar sem a
+   cena por qualquer outro caminho.
+2. **Critério geral manda a imagem completa; critério de quadro manda o
+   mapa e o recorte.**
+3. **O que é fixo vai em cache.**
+
+### Quem escreve o quê
+
+- **A cena é escrita por quem configura o canal, com detalhes** (dono,
+  09/10). O sistema não propõe a partir da imagem. Um botão só para
+  aprimorar o texto fica para depois.
+- **O tipo de negócio** é da loja; quem configura escreve.
+- **O papel do quadro** é uma lista fechada: posto, cuba, montagem,
+  equipamento, impressora, caixa, pia, piso — ou "livre", que é como toda
+  área existente ficou.
+- **O número do quadro não é guardado.** É a posição dele entre os quadros
+  do canal (por `zona.ordem` e, no empate, pela criação). A área que cobre
+  o quadro inteiro é a imagem completa: não tem número. A conta é feita num
+  lugar só, em SQL (`api/src/cena.ts`); a tela e o agente recebem o número
+  pronto.
+
+### A chave é interna
+
+`loja.pedido_com_contexto` nasce desligada e **não é opção do console da
+loja** (dono, 09/10: "a lógica de funcionamento é interna, não é necessário
+usuário escolher ou informar critério que sobe"). O console recusa o campo
+com todas as letras — nem o presidente a liga.
+
+Quem liga é a distribuição, de dentro do serviço, sem digitar segredo:
+
+    npm run provisionar -- contexto <lojaId> ligar
+    npm run provisionar -- contexto <lojaId> desligar
+
+**Ligar com canal sem cena é recusado, dizendo quais** — só os que
+perderiam análise: sem cena e com critério ligado de estado, de ação ou de
+comparação. Para ligar assim mesmo, `--mesmo-assim`.
+
+### Como entrou sem mexer no que funciona
+
+- **O pedido de sempre não mudou uma letra.** O pedido com contexto é um
+  caminho ao lado, com instruções próprias (`INSTRUCOES_COM_CONTEXTO`): o
+  cache de um não depende do outro, e os testes que comparam o texto do
+  pedido antigo continuam passando sem alteração.
+- **Tudo desce em campo novo.** O agente antigo ignora `tipoNegocio`,
+  `pedidoComContexto`, `cena`, `papel` e `numero`: com a chave ligada e o
+  agente antigo, a loja pergunta como sempre.
+- **A migration 030 não atualiza linha nenhuma:** os gatilhos de versão não
+  disparam, e nenhum agente puxa configuração por causa dela.
+
+### O modelo de rotina
+
+Com contexto, a pergunta de rotina vai no **Haiku 5.5** (US$ 0,10 e 0,50
+por milhão). A reconsulta continua no Sonnet 5.5, com o MESMO pedido. Sem
+contexto, o pedido de sempre segue no Haiku 4.5: o modelo novo só foi
+medido com contexto.
+
+### A resolução, e o que ficou como estava
+
+- **Estado e ação julgados na nuvem:** o recorte vai como a câmera entrega
+  (teto de 1.920 px no lado maior; nunca amplia), em vez de 640.
+- **Comparação com a foto padrão: o recorte continua em 640.** O
+  comparador da loja foi medido com essa entrada; o que não é igual vai
+  adiante com a cena e o mapa, mas com o recorte de sempre. Aumentar ali
+  pede medir o comparador de novo.
+- **O que é julgado na loja** (presença, contagem, urgente, loja de modo
+  local) não muda em nada.
+
+### O mapa é a foto do lugar, não de quem está nele
+
+O recorte mostra só o que foi marcado; o mapa mostra a câmera inteira. Por
+isso:
+
+1. **nasce como esquema** — o desenho dos quadros sobre fundo liso, sem um
+   ponto da imagem da câmera. Nenhum critério espera por fotografia;
+2. **vira fotografia só com o lugar vazio:** o detector de pessoas olha o
+   quadro inteiro, e um "talvez" já é alguém. Sem detector, fica no
+   esquema. A fotografia ainda passa pelo borrão de rosto;
+3. **muda devagar:** com a fotografia feita, tenta-se outra no máximo de
+   hora em hora, e só troca por uma claramente mais clara (15%) ou quando a
+   atual passa de uma semana. Trocar o arquivo joga fora o cache.
+
+A legenda diz ao modelo qual dos dois está vendo. Não é garantia de que
+ninguém aparece — o detector erra —; é a mesma medida do porteiro, do lado
+conservador.
+
+### A chave da análise
+
+A análise guardada passa a ser de uma cena e de um modelo: mudou o texto da
+cena, um quadro ou o modelo de rotina, a mesma imagem é perguntada de novo.
+
+### Conferido contra a API de verdade (09/10/2026, 6h32)
+
+Quatro chamadas, do PC da loja, com o código deste ramo numa pasta de
+rascunho (a instalação não foi tocada) e **imagens geradas por
+computador** — nenhuma imagem da loja. Custo: 5 centavos.
+
+| chamada | modelo | entrada | do cache | gravado no cache | custo |
+|---|---|---|---|---|---|
+| critério de quadro (cena + mapa + recorte de 1.229×497) | Haiku 5.5 | 905 | 0 | 2.250 | 0,24 centavo |
+| a mesma, de novo | Haiku 5.5 | 905 | **2.250** | 0 | **0,10 centavo** |
+| critério geral (cena + imagem completa de 1.920×1.080) | Haiku 5.5 | 2.781 | 1.458 | 340 | 0,22 centavo |
+| o pedido da reconsulta (o mesmo do quadro) | Sonnet 5.5 | 891 | 0 | 2.140 | 4,63 centavos |
+
+O que isso prova: os dois modelos aceitam a forma do pedido e respondem
+pela ferramenta (o Haiku 5.5 com a escolha forçada, o Sonnet 5.5 com a
+livre); o trecho fixo é lido do cache na segunda chamada; e a imagem de
+1.920×1.080 entra inteira (2.781 unidades de entrada: é a conta da imagem
+sem redução).
+
+A análise de hoje, com a tira de 640 px, custa 1,2 centavo.
+
+### O que não foi medido
+
+- **O acerto com o pedido novo nos critérios de estado da loja.** O teste
+  lado a lado mediu a leitura de itens na bancada; os critérios de estado
+  (limpeza, uniforme) com cena e mapa ainda não têm número.
+- **O mapa em esquema contra o mapa em fotografia:** o teste lado a lado
+  usou a fotografia.
+- **O tamanho do spool** com o recorte na resolução da câmera, numa semana
+  de uso.
+- **Quantas vezes o mapa vira fotografia**, e a que horas, numa loja em
+  operação.
+- **O borrão de rosto em quadro de câmera de cima** continua valendo neste
+  caminho até a fatia 1.4 (o quadro "as mãos saíram"). Na bancada ele
+  apagou pão em 12 de 40 momentos, no teste lado a lado: ligar a chave
+  antes da 1.4 não piora o que já acontece hoje, mas a leitura da bancada
+  só fica boa depois dela.

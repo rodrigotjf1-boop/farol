@@ -6,9 +6,10 @@
 // 127.0.0.1. Serve enquanto o console não tem as telas de cadastro — e
 // continua útil depois, para instalar loja nova sem depender do navegador.
 //
-//   npm run provisionar -- loja    <arquivo.json>
-//   npm run provisionar -- agente  <lojaId> <nome>
-//   npm run provisionar -- usuario <tenantId> <email> <nome>
+//   npm run provisionar -- loja     <arquivo.json>
+//   npm run provisionar -- agente   <lojaId> <nome>
+//   npm run provisionar -- usuario  <tenantId> <email> <nome>
+//   npm run provisionar -- contexto <lojaId> ligar|desligar [--mesmo-assim]
 //
 // **Nenhum segredo é digitado como argumento.** O token de distribuição
 // sai do ambiente do serviço; a senha do usuário vem de um prompt que não
@@ -30,7 +31,11 @@ function morrer(mensagem) {
   process.exit(1);
 }
 
-async function chamar(caminho, corpo, sensivel = {}) {
+/**
+ * `aceitar` são os status de erro que quem chama quer TRATAR em vez de
+ * morrer neles: aí a resposta volta com `recusado: true` e o corpo da API.
+ */
+async function chamar(caminho, corpo, sensivel = {}, { metodo = 'POST', aceitar = [] } = {}) {
   // Conferido aqui, e não na carga do arquivo, para `npm run provisionar`
   // sem argumentos ainda conseguir mostrar a ajuda.
   if (!ADMIN) {
@@ -43,7 +48,7 @@ async function chamar(caminho, corpo, sensivel = {}) {
   let r;
   try {
     r = await fetch(`${BASE}${caminho}`, {
-      method: 'POST',
+      method: metodo,
       headers: { 'content-type': 'application/json', 'x-farol-admin': ADMIN },
       // O que é sensível entra só aqui, nunca no objeto que se registra.
       body: JSON.stringify({ ...corpo, ...sensivel }),
@@ -61,6 +66,7 @@ async function chamar(caminho, corpo, sensivel = {}) {
   }
 
   if (!r.ok) {
+    if (aceitar.includes(r.status)) return { ...dados, recusado: true };
     morrer(`HTTP ${r.status} · ${dados.erro ?? ''}\n  ${dados.mensagem ?? texto.slice(0, 300)}`);
   }
   return dados;
@@ -184,14 +190,60 @@ if (comando === 'loja') {
   console.log(`  id: ${r.id}\n`);
   console.log('  Já dá para entrar no console com esse e-mail e essa senha.\n');
   //
+} else if (comando === 'contexto') {
+  // A chave INTERNA do pedido com contexto, loja por loja. Ligada, toda
+  // pergunta que o agente faz à nuvem leva a cena e o mapa do canal — e
+  // canal sem cena escrita não manda imagem para fora. Não existe botão no
+  // console da loja para isto, de propósito: é lógica interna do Farol.
+  const [lojaId, acao, ...opcoes] = resto;
+  const mesmoAssim = opcoes.includes('--mesmo-assim');
+  const estranhas = opcoes.filter((o) => o !== '--mesmo-assim');
+  if (!lojaId || !['ligar', 'desligar'].includes(acao) || estranhas.length > 0) {
+    morrer('uso: npm run provisionar -- contexto <lojaId> ligar|desligar [--mesmo-assim]');
+  }
+
+  const r = await chamar(
+    `/v1/distribuicao/lojas/${lojaId}`,
+    { pedidoComContexto: acao === 'ligar', ...(mesmoAssim ? { mesmoAssim: true } : {}) },
+    {},
+    { metodo: 'PATCH', aceitar: [409] },
+  );
+
+  if (r.recusado) {
+    // A API não ligou: há canal sem cena, e ligar tiraria análise dele.
+    console.error('\n  NÃO LIGUEI. Estes canais têm critério que depende da cena, e a cena está em branco:\n');
+    for (const nome of r.canaisSemCena ?? []) console.error(`    · ${nome}`);
+    console.error('\n  Com a chave ligada, esses critérios deixam de ser analisados até a cena ser escrita.');
+    console.error('\n  Escreva a cena de cada um e rode de novo — ou, para ligar assim mesmo:');
+    console.error(`    npm run provisionar -- contexto ${lojaId} ligar --mesmo-assim\n`);
+    process.exit(2);
+  }
+
+  console.log(`\n  loja: ${r.nome}`);
+  console.log(`  pedido com contexto: ${r.pedidoComContexto ? 'LIGADO' : 'desligado'}`);
+  console.log(`  versão da configuração: ${r.configVersao}`);
+  if (r.pedidoComContexto) {
+    console.log('\n  O agente da loja puxa a configuração na próxima batida. A partir daí, toda pergunta');
+    console.log('  à nuvem leva a cena e o mapa do canal.');
+    if ((r.canaisSemCena ?? []).length > 0) {
+      console.log('\n  Canais com critério PARADO até a cena ser escrita:');
+      for (const nome of r.canaisSemCena) console.log(`    · ${nome}`);
+    }
+    console.log(`\n  Para voltar atrás: npm run provisionar -- contexto ${lojaId} desligar\n`);
+  } else {
+    console.log('\n  O agente da loja puxa a configuração na próxima batida e pergunta como sempre perguntou.\n');
+  }
+  //
 } else {
   console.log(`
   uso:
-    npm run provisionar -- loja    <arquivo.json>
-    npm run provisionar -- agente  <lojaId> <nome>
-    npm run provisionar -- usuario <tenantId> <email> <nome>
+    npm run provisionar -- loja     <arquivo.json>
+    npm run provisionar -- agente   <lojaId> <nome>
+    npm run provisionar -- usuario  <tenantId> <email> <nome>
+    npm run provisionar -- contexto <lojaId> ligar|desligar [--mesmo-assim]
 
   O nível do usuário sai de FAROL_NIVEL (padrão: presidente).
+  O lojaId é o que aparece no endereço da tela da loja, no console.
 `);
   process.exit(comando ? 1 : 0);
 }

@@ -3780,7 +3780,7 @@ Levantamento do código feito antes de começar. Três coisas dele mudam o jeito
 | fatia | o que entra | tela? | nasce |
 |---|---|---|---|
 | **1.0 · protótipo** | as telas da onda — o canal com a imagem completa, os quadros e os critérios; a cena; o estudo do critério, o funil e os estados — em `mockups/farol-console-novo.html`, na cara nova. Revisto em 09/10 com os dois recados do dono (abaixo) | é o protótipo | **aguardando aprovação** (versão 3) |
-| **1.1 · o pedido com contexto** | a loja ganha "tipo de negócio"; o canal, a cena; o quadro, o papel e a ordem. O agente monta o pedido na anatomia do plano — cena, mapa do canal, recorte na resolução da câmera, pergunta — com o que é fixo em cache, no Haiku 5.5. Sem cena escrita o pedido não sai: a olhada conta como "sem juiz", com o motivo | não | desligado; a chave é **interna**, por loja (da distribuição): não é opção de tela |
+| **1.1 · o pedido com contexto** ✅ (09/10, migration 030) | a loja ganha "tipo de negócio"; o canal, a cena; o quadro, o papel e a ordem. O agente monta o pedido na anatomia do plano — cena, mapa do canal, recorte na resolução da câmera, pergunta — com o que é fixo em cache, no Haiku 5.5. Sem cena escrita o pedido não sai: a olhada conta como "sem juiz", com o motivo | não | desligado; a chave é **interna**, por loja (da distribuição): não é opção de tela |
 | **1.2 · os quatro estados** | observando · em ensaio · medido · valendo. Só "valendo" avisa; "observando" conta sem julgar. Critério que já avisa hoje continua valendo | não | os de hoje ficam como estão |
 | **1.3 · o estudo do critério e o funil** | as seis partes (contexto, gatilho, janela, ação, desfecho, fora de contexto), com cada condição ligada a um sinal da loja; a proposta do sistema, pedida ao agente como hoje se pede a descrição de um equipamento; o funil servido em números | não | sem estudo, o critério segue com o "quando vale a pena conferir" de hoje |
 | **1.4 · o quadro de bancada** | em quadro com papel "posição de montagem": sobe o quadro de quando as mãos saem, sem o borrão de rosto; quem aparecer é apagado | não | só onde o papel for esse |
@@ -3839,6 +3839,27 @@ protótipo (versão 3) e valendo para o motor:
 A proposta do **estudo do critério** (as seis partes) continua como no plano: o recado
 foi sobre a cena. Se o dono quiser o mesmo lá — ele escreve, o sistema não propõe —,
 muda-se antes da fatia 1.3.
+
+**A fatia 1.1, entregue em 09/10** (o registro inteiro está em
+[decisoes.md](decisoes.md), "O pedido com contexto"):
+
+- **o que entrou:** a migration 030 (tipo de negócio, cena, papel, ordem e a chave); as
+  rotas que guardam isso; o número do quadro calculado num lugar só; o caminho novo do
+  pedido no agente — cena, mapa do canal, recorte na resolução da câmera, critério —, com
+  o que é fixo em cache, no Haiku 5.5; o mapa do canal (esquema primeiro, fotografia só
+  com o lugar vazio); a trava "sem cena, o recorte não sai";
+- **a chave nasce desligada e é interna:** liga-se de dentro do serviço, com
+  `npm run provisionar -- contexto <lojaId> ligar`, que recusa — dizendo quais — enquanto
+  houver canal sem cena com critério que depende dela;
+- **conferido contra a API de verdade** (5 centavos, imagens geradas por computador): os
+  dois modelos aceitam a forma do pedido; o trecho fixo voltou do cache (2.250 de 3.155
+  unidades de entrada); um critério de quadro saiu por **0,10 centavo**, contra 1,2
+  centavo da análise de hoje;
+- **o que ainda não dá para usar na loja:** o campo da cena ainda não está no console — a
+  tela é a fatia 1.5, depois do protótipo aprovado. Até lá a chave fica desligada, e nada
+  muda;
+- **achado no caminho:** as imagens julgadas nunca eram apagadas do disco da loja
+  (ERR-062, PR #77): a auditoria passou a limpar, com guarda de 15 dias.
 
 **Uma escolha que fica para quando o protótipo for aprovado.** O plano manda o protótipo
 nascer na cara nova, e assim foi feito. O porte da cara nova inteira é a onda 8. Ao levar as

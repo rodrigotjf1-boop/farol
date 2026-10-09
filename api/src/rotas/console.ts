@@ -18,6 +18,7 @@
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
+import { lerCena, lerTipoDeNegocio } from '../cena.js';
 import { lerHorario, situacaoAgora } from '../horario.js';
 import { exigirConfigurar, peloMenos } from '../rbac.js';
 import { acharCampoProibido } from './lojas.js';
@@ -26,6 +27,8 @@ import { sessaoDe, type Sessao } from './sessao.js';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ORIGENS = ['dvr', 'ip'];
 const IMPORTANCIAS = ['critico', 'normal', 'baixo'];
+// Campos da loja que são lógica interna do Farol: só a distribuição muda.
+const SO_NA_DISTRIBUICAO = ['pedidoComContexto', 'modoJulgamento', 'resolucaoPadrao'];
 
 export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
   /** Toda rota começa por aqui: sem sessão, nada acontece. */
@@ -56,7 +59,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
     // entra na conta: loja só com agente por instalar fica com nulo.
     const { rows } = await pool.query(
       `select l.id, l.nome, l.timezone, l.modo_julgamento, l.resolucao_padrao, l.ativa,
-              l.horario_funcionamento,
+              l.horario_funcionamento, l.tipo_negocio,
               (select count(*)::int from setor st where st.loja_id = l.id) as setores,
               (select count(*)::int
                  from ponto p
@@ -128,7 +131,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
     // conferir depois é como nasce vazamento entre clientes.
     const l = await pool.query(
       `select id, nome, timezone, modo_julgamento, resolucao_padrao, ativa,
-              horario_funcionamento
+              horario_funcionamento, tipo_negocio
          from loja where id = $1 and tenant_id = $2`,
       [id, s.tenantId],
     );
@@ -251,6 +254,60 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
       horario_funcionamento: rows[0].horario_funcionamento,
       ...situacaoAgora(rows[0].horario_funcionamento, new Date(), rows[0].timezone),
     };
+  });
+
+  // ───────────────────────── o tipo de negócio ─────────────────────────
+  //
+  // "Hamburgueria", "padaria": vale para a loja inteira e vai junto com a
+  // cena de cada canal em toda pergunta feita a um modelo. Campo ausente
+  // mantém o que estava; texto vazio apaga.
+  //
+  // O que NÃO entra por aqui: `pedido_com_contexto`, `modo_julgamento` e
+  // `resolucao_padrao`. Como o Farol pergunta, e a quem, é lógica interna —
+  // fica na distribuição. E é recusado com todas as letras, não ignorado em
+  // silêncio: quem mandou ficaria achando que mudou.
+
+  app.patch('/v1/lojas/:id', async (req, resposta) => {
+    const s = await quem(req, resposta);
+    if (!s) return;
+    if (!exigirConfigurar(s, resposta)) return;
+
+    const { id } = req.params as { id: string };
+    const naoAchei = () =>
+      resposta.status(404).send({ erro: 'nao_encontrada', mensagem: 'loja não encontrada' });
+    if (!UUID.test(id)) return naoAchei();
+
+    const corpo = (req.body ?? {}) as Record<string, unknown>;
+    for (const interno of SO_NA_DISTRIBUICAO) {
+      if (corpo[interno] !== undefined) {
+        return resposta.status(422).send({
+          erro: 'so_na_distribuicao',
+          mensagem: `'${interno}' não se muda pelo console da loja`,
+        });
+      }
+    }
+    if (corpo.tipoNegocio === undefined) {
+      return resposta.status(422).send({ erro: 'validacao', mensagem: 'nada para mudar: mande tipoNegocio' });
+    }
+    const tipo = lerTipoDeNegocio(corpo.tipoNegocio);
+    if (tipo.problema !== undefined) {
+      return resposta.status(422).send({ erro: 'validacao', mensagem: tipo.problema });
+    }
+
+    // A versão sobe na MESMA instrução (a `loja` não tem gatilho de versão),
+    // e só quando o texto mudou: salvar sem mexer não faz o agente puxar a
+    // configuração inteira de novo.
+    const { rows } = await pool.query(
+      `update loja
+          set config_versao = config_versao + (tipo_negocio is distinct from $3)::int,
+              atualizado_em = case when tipo_negocio is distinct from $3 then now() else atualizado_em end,
+              tipo_negocio = $3
+        where id = $1 and tenant_id = $2
+        returning id, tipo_negocio`,
+      [id, s.tenantId, tipo.valor],
+    );
+    if (rows.length === 0) return naoAchei();
+    return rows[0];
   });
 
   // ──────────────────────────── setores ────────────────────────────
@@ -393,6 +450,16 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
         mensagem: `importancia: um de ${IMPORTANCIAS.join(', ')}`,
       });
     }
+    // A cena: o que esta câmera vê e de onde olha. Quem configura escreve;
+    // texto vazio apaga. Ausente, fica como estava.
+    let cena: string | null = null;
+    if (corpo.cena !== undefined) {
+      const lida = lerCena(corpo.cena);
+      if (lida.problema !== undefined) {
+        return resposta.status(422).send({ erro: 'validacao', mensagem: lida.problema });
+      }
+      cena = lida.valor;
+    }
 
     // `coalesce($n, coluna)`: campo ausente MANTÉM o valor, não apaga.
     // Um PATCH que zera o que não foi mandado destrói configuração a
@@ -415,6 +482,17 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
               largura_cena_cm = coalesce($15, p.largura_cena_cm),
               optica_medida_em = case when $15 is not null then now()
                                       else p.optica_medida_em end,
+              -- Quem escreveu e quando só muda quando o TEXTO muda: salvar a
+              -- tela sem mexer na cena não troca o autor. Apagada, fica sem autor.
+              cena = coalesce($17::text, p.cena),
+              cena_escrita_em = case
+                when $17::text is null or $17::text = p.cena then p.cena_escrita_em
+                when $17::text = '' then null
+                else now() end,
+              cena_escrita_por = case
+                when $17::text is null or $17::text = p.cena then p.cena_escrita_por
+                when $17::text = '' then null
+                else $18::uuid end,
               atualizado_em = now()
          from setor st, loja l
         where p.id = $1
@@ -424,7 +502,8 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
           and l.tenant_id = $10
        returning p.id, p.nome, p.origem, p.fabricante, p.canal, p.host,
                  p.porta, p.usuario, p.ativo, p.importancia, p.sensor_pol, p.focal_mm,
-                 p.distancia_cm, p.resolucao_h, p.largura_cena_cm`,
+                 p.distancia_cm, p.resolucao_h, p.largura_cena_cm,
+                 p.cena, p.cena_escrita_em`,
       [
         id,
         corpo.nome ?? null, corpo.origem ?? null, corpo.fabricante ?? null,
@@ -435,6 +514,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
         corpo.sensorPol ?? null, corpo.focalMm ?? null, corpo.distanciaCm ?? null,
         corpo.resolucaoH ?? null, corpo.larguraCenaCm ?? null,
         corpo.importancia ?? null,
+        cena, s.usuarioId,
       ],
     );
     if (rows.length === 0) {

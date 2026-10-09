@@ -232,4 +232,100 @@ export function rotasDeLojas(app: FastifyInstance, pool: pg.Pool): void {
       cliente.release();
     }
   });
+
+  // ───────────────── a chave do pedido com contexto ─────────────────
+  //
+  // `loja.pedido_com_contexto` muda COMO o agente da loja pergunta à nuvem:
+  // ligada, toda pergunta leva a cena e o mapa do canal, e canal sem cena
+  // escrita não manda imagem para fora. É lógica interna do Farol — quem
+  // liga é a distribuição, loja por loja, depois de medir. Não existe rota
+  // do console para isto, de propósito (decisão do dono, 09/10/2026).
+  //
+  // Só aceita `true` ou `false`: "sim", 1 e "true" são recusados. Uma chave
+  // que muda o que sai da loja não é ligada por valor parecido com verdade.
+
+  app.patch('/v1/distribuicao/lojas/:id', async (req, resposta) => {
+    try {
+      exigirAdmin(req.headers['x-farol-admin'] as string | undefined);
+    } catch (e) {
+      if (e instanceof ErroDeAuth) {
+        req.log.warn({ motivo: e.motivo }, 'credencial de distribuição recusada');
+        return resposta.status(e.status).send({ erro: e.motivo, mensagem: e.message });
+      }
+      throw e;
+    }
+
+    const { id } = req.params as { id: string };
+    const naoAchei = () =>
+      resposta.status(404).send({ erro: 'nao_encontrada', mensagem: 'loja não encontrada' });
+    if (!UUID.test(id)) return naoAchei();
+
+    const corpo = (req.body ?? {}) as Record<string, unknown>;
+    if (typeof corpo.pedidoComContexto !== 'boolean') {
+      return resposta.status(422).send({
+        erro: 'validacao',
+        mensagem: 'pedidoComContexto: true ou false',
+      });
+    }
+
+    // Com a chave ligada, canal SEM cena escrita não manda imagem para fora:
+    // o critério dele que depende de entender a imagem (estado, ação, e a
+    // comparação que não deu "igual") deixa de ser analisado até alguém
+    // escrever a cena. Quem liga precisa saber ANTES quais são — ligar no
+    // escuro seria tirar análise da loja sem ninguém ter decidido isso.
+    const semCena = await pool.query(
+      `select distinct p.nome
+         from ponto p
+         join setor st      on st.id = p.setor_id
+         join zona z        on z.ponto_id = p.id and z.excluida_em is null
+         join regra_alvo ra on ra.zona_id = z.id
+         join regra r       on r.id = ra.regra_id
+        where st.loja_id = $1
+          and p.ativo and p.excluido_em is null
+          and btrim(p.cena) = ''
+          and r.ativa and r.excluida_em is null
+          and r.tipo in ('estado', 'acao', 'comparacao')
+        order by p.nome`,
+      [id],
+    );
+    const canaisSemCena: string[] = semCena.rows.map((r) => r.nome as string);
+    if (corpo.pedidoComContexto && canaisSemCena.length > 0 && corpo.mesmoAssim !== true) {
+      return resposta.status(409).send({
+        erro: 'canais_sem_cena',
+        mensagem:
+          `${canaisSemCena.length} canal(is) sem a cena escrita, com critério que depende dela: ` +
+          `${canaisSemCena.join(', ')}. Com a chave ligada, esses critérios deixam de ser analisados ` +
+          'até a cena ser escrita. Escreva a cena de cada um, ou repita com mesmoAssim: true.',
+        canaisSemCena,
+      });
+    }
+
+    // A versão sobe na mesma instrução, e só quando a chave mudou de lado:
+    // é por ela que o agente sabe que precisa puxar a configuração.
+    const { rows } = await pool.query(
+      `update loja
+          set config_versao = config_versao + (pedido_com_contexto is distinct from $2)::int,
+              atualizado_em = case when pedido_com_contexto is distinct from $2 then now() else atualizado_em end,
+              pedido_com_contexto = $2
+        where id = $1
+        returning id, nome, pedido_com_contexto, config_versao`,
+      [id, corpo.pedidoComContexto],
+    );
+    if (rows.length === 0) return naoAchei();
+
+    // Muda o que sai da loja: fica no log.
+    req.log.info(
+      { loja: id, pedidoComContexto: corpo.pedidoComContexto, canaisSemCena: canaisSemCena.length },
+      'chave do pedido com contexto',
+    );
+    return {
+      id: rows[0].id,
+      nome: rows[0].nome,
+      pedidoComContexto: rows[0].pedido_com_contexto,
+      configVersao: rows[0].config_versao,
+      // Os canais que, com a chave ligada, ficam com critério parado por
+      // falta de cena. Vazio = todo canal que precisa de cena tem.
+      canaisSemCena,
+    };
+  });
 }
