@@ -48,6 +48,15 @@ porteiro não é consultado: o CONTEXTO tem de valer (senão, "nada a
 conferir") e um GATILHO tem de abrir a análise (senão, a olhada é contada
 como "sem gatilho"). É o funil: olhadas → com contexto → com gatilho →
 julgadas.
+
+No **quadro de bancada** (o que tem o papel "posição de montagem") há uma
+porta a mais, antes de todas essas: a imagem só sai quando **as mãos
+saíram** — o quadro quieto há um segundo e meio, medido no fluxo menor
+(quietude.py). Com mão na frente a olhada é "nada a conferir", e é refeita
+quando o quadro para. E a imagem do quadro quieto em que o detector não vê
+**ninguém** vai sem o borrão de rosto: de cima não há rosto, e o borrão
+apagava o pão. Com alguém à vista — ou sem ter como saber —, ela sai como
+sempre saiu: com o borrão.
 """
 
 from __future__ import annotations
@@ -79,6 +88,7 @@ from farol_agent.modelos import (
 )
 from farol_agent.pipeline import dedupe, qualidade, recorte
 from farol_agent.porteiro import Porteiro
+from farol_agent.quietude import Quietude
 from farol_agent.sinais import Lugar, Sinais
 
 _log = logging.getLogger(__name__)
@@ -98,6 +108,9 @@ COM_CENA = (TipoRegra.ESTADO, TipoRegra.ACAO, TipoRegra.COMPARACAO)
 # 640 px joga fora o detalhe que se pagou na câmera (no tampo da montagem,
 # 85% dos pontos). Nunca amplia: é teto, não alvo.
 LADO_DA_CAMERA = RESOLUCOES["r1080"]
+
+# O papel do quadro em que a imagem espera as mãos saírem.
+PAPEL_DE_BANCADA = "montagem"
 
 
 @dataclass(frozen=True)
@@ -194,6 +207,9 @@ class MotorDeRegras:
         contexto: ComContexto | None = None,
         sinais: Sinais | None = None,
         zonas: dict[str, Zona] | None = None,
+        quietude: Quietude | None = None,
+        pessoas: Callable[[Any, str, datetime], list[float] | None] | None = None,
+        duvida: float = 0.35,
     ) -> None:
         self.fila = fila
         self.regras: list[Regra] = list(regras)
@@ -205,6 +221,18 @@ class MotorDeRegras:
         # Todos os quadros da loja, por id: a condição de um estudo pode
         # olhar OUTRO quadro do mesmo canal.
         self._zonas: dict[str, Zona] = dict(zonas or {})
+        # O quadro de bancada: quem diz se ele está quieto (as mãos saíram)
+        # e quem vê se há alguém nele — os pontos do detector de pessoas, e
+        # a partir de quanto um ponto já é "talvez alguém". Sem a quietude
+        # (modo de bancada, agente sem fluxo menor), o quadro de bancada é
+        # tratado como qualquer outro — com o borrão de rosto.
+        self._quietude = quietude
+        self._pessoas = pessoas
+        self._duvida = duvida
+        # Por canal, os critérios (naquele quadro) cuja olhada foi segurada
+        # por haver mão na frente: a auditoria refaz a olhada quando o
+        # quadro para.
+        self.esperando_as_maos: dict[str, set[str]] = {}
         # Os canais cujo mapa já foi cuidado NESTA olhada: três critérios
         # no mesmo canal saem do mesmo quadro, e o mapa é um só.
         self._mapa_cuidado: set[str] = set()
@@ -433,6 +461,18 @@ class MotorDeRegras:
         # que se quer medir. Cada olhada entra, com chave própria.
         continuo = regra.tipo in CONTINUOS
 
+        # O QUADRO DE BANCADA: a imagem só sai quando as mãos saíram. Vem
+        # antes do estudo de propósito — a olhada que não pode sair não
+        # gasta o gatilho ("a cada dez minutos" contaria dela).
+        quieta = False
+        if not continuo and regra.zona.papel == PAPEL_DE_BANCADA and self._quietude is not None:
+            segura, quieta = self._a_bancada(regra, evento.ponto_id)
+            if segura is not None:
+                # A câmera está entregando cena: não é defeito.
+                self.sem_cena.pop(self._lugar(regra), None)
+                self.sem_condicao[self._lugar(regra)] = segura
+                return None, "sem_condicao"
+
         # O ESTUDO do critério, quando ele tem um: o contexto que precisa
         # estar acontecendo e o gatilho que abre a análise. É conferido no
         # lugar do porteiro — e, como ele, ANTES do borrão e da fila, e só
@@ -469,7 +509,10 @@ class MotorDeRegras:
             self.sem_cena.pop(self._lugar(regra), None)
             return None, "observada"
 
-        if regra.borrar_rosto:
+        # No quadro de bancada quieto e sem ninguém à vista, o borrão não
+        # entra: não há rosto para borrar, e ele apagava o que é redondo (o
+        # pão). O detector só é perguntado aqui, na imagem que vai sair.
+        if regra.borrar_rosto and not (quieta and self._ninguem_a_vista(regra, evento.ponto_id, f)):
             f, _ = recorte.borrar_rostos(f)
 
         chave_dedupe = f"{evento.ponto_id}:{regra.zona.id}:{regra.id}"
@@ -777,6 +820,51 @@ class MotorDeRegras:
             return "sem_gatilho"
         return None
 
+    def _a_bancada(self, regra: Regra, ponto_id: str) -> tuple[str | None, bool]:
+        """A olhada do quadro de bancada pode sair agora? Devolve `(o que a segura, o quadro está quieto)`.
+
+        Só o MOVIMENTO segura (há mão na frente). A olhada segurada fica
+        anotada: a auditoria a refaz quando o quadro parar — é esse o quadro
+        de "as mãos saíram".
+
+        Quando a quietude não sabe dizer (sem fluxo menor, fluxo parado),
+        não segura — e também não afirma que o quadro está quieto: a olhada
+        segue como sempre foi, com o borrão de rosto.
+        """
+        assert self._quietude is not None
+        lugar = self._lugar(regra)
+        esperando = self.esperando_as_maos.setdefault(str(ponto_id), set())
+        esperando.discard(lugar)
+        quieto = self._quietude.quieto(ponto_id, regra.zona.id)
+        if quieto is None:
+            return None, False
+        if not quieto:
+            esperando.add(lugar)
+            return f"há movimento em {self._nome_do_quadro(regra.zona)}: a olhada espera as mãos saírem", False
+        return None, True
+
+    def _ninguem_a_vista(self, regra: Regra, ponto_id: str, f: Any) -> bool:
+        """O detector olhou a imagem que vai sair e não viu ninguém — nem um "talvez"?
+
+        É o que deixa a imagem do quadro de bancada sair sem o borrão de
+        rosto. Por isso o que não se sabe conta como "pode haver alguém":
+        sem detector, ou com ele falhando, a resposta é não.
+        """
+        if self._pessoas is None:
+            return False
+        try:
+            pontos = self._pessoas(f.imagem, f"{ponto_id}:{regra.zona.id}", f.ts)
+        except Exception as e:  # noqa: BLE001
+            _log.warning(
+                "o detector não olhou %s (%s): a imagem vai com o borrão de rosto", self._nome_do_quadro(regra.zona), e
+            )
+            return False
+        return pontos is not None and not any(p >= self._duvida for p in pontos)
+
+    @staticmethod
+    def _nome_do_quadro(zona: Zona) -> str:
+        return f"Quadro {zona.numero} — {zona.nome}" if zona.numero else zona.nome
+
     def _lugar_de(self, c: Condicao, regra: Regra, ponto_id: str, melhor: Any, f: Any) -> Lugar | None:
         """Onde uma condição do estudo é lida nesta olhada.
 
@@ -802,7 +890,7 @@ class MotorDeRegras:
             recortado, _ = recorte.recortar_area(melhor, inteira)
             return Lugar(f"{ponto_id}:canal", recortado.imagem, inteira, "a imagem completa")
 
-        nome = f"Quadro {zona.numero} — {zona.nome}" if zona.numero else zona.nome
+        nome = self._nome_do_quadro(zona)
         if zona.id == regra.zona.id:
             imagem = f.imagem
         else:

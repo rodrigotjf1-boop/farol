@@ -3783,7 +3783,7 @@ Levantamento do código feito antes de começar. Três coisas dele mudam o jeito
 | **1.1 · o pedido com contexto** ✅ (09/10, migration 030) | a loja ganha "tipo de negócio"; o canal, a cena; o quadro, o papel e a ordem. O agente monta o pedido na anatomia do plano — cena, mapa do canal, recorte na resolução da câmera, pergunta — com o que é fixo em cache, no Haiku 5.5. Sem cena escrita o pedido não sai: a olhada conta como "sem juiz", com o motivo | não | desligado; a chave é **interna**, por loja (da distribuição): não é opção de tela |
 | **1.2 · os quatro estados** ✅ (09/10, migration 031) | observando · em ensaio · medido · valendo. Só "valendo" avisa; "observando" conta sem julgar. Critério que já avisa hoje continua valendo | não | os de hoje ficam como estão |
 | **1.3 · o estudo do critério e o funil** ◐ (09/10, migration 032: o motor e os números; falta a proposta) | as seis partes (contexto, gatilho, janela, ação, desfecho, fora de contexto), com cada condição ligada a um sinal da loja; a proposta do sistema, pedida ao agente como hoje se pede a descrição de um equipamento; o funil servido em números | não | sem estudo, o critério segue com o "quando vale a pena conferir" de hoje |
-| **1.4 · o quadro de bancada** | em quadro com papel "posição de montagem": sobe o quadro de quando as mãos saem, sem o borrão de rosto; quem aparecer é apagado | não | só onde o papel for esse |
+| **1.4 · o quadro de bancada** ✅ (09/10, sem migration; **uma parte mudou:** quem aparece não é apagado — a imagem com alguém à vista sai como hoje, com o borrão) | em quadro com papel "posição de montagem": sobe o quadro de quando as mãos saem, sem o borrão de rosto; quem aparecer é apagado | não | só onde o papel for esse — e o campo do papel só chega ao console na fatia 1.5 |
 | **1.5 · as telas** | o porte do protótipo aprovado para o console; a migração das áreas redesenhadas ("Quadro inteiro" que não é o quadro inteiro vira "Quadro 1", e o canal ganha a imagem completa de volta); as contagens "em N canais (M quadros)" | sim | depois do "aprovado" |
 
 **De onde sai cada número do funil que o protótipo mostra** (para não desenhar o que não
@@ -3897,6 +3897,40 @@ critério: o contexto, o gatilho e o funil"):
   estudo é proposto pelo sistema ou escrito por quem usa, como a cena;
 - **para a fatia 1.5:** a nuvem guardar o que o agente da loja sabe, para a tela dizer se o
   estudo já vale lá.
+
+**A fatia 1.4, entregue em 09/10** ([decisoes.md](decisoes.md), "O quadro de bancada: a
+imagem espera as mãos saírem"):
+
+- **o que entrou:** em quadro com o papel "posição de montagem", a imagem do critério só sai
+  com o quadro **quieto há um segundo e meio** — medido de meio em meio segundo no fluxo
+  menor, que já fica aberto. Com mão na frente a olhada é "nada a conferir" e é **refeita
+  quando o quadro para** (até duas tentativas por canal a cada volta de rotina). E a imagem
+  do quadro quieto em que o detector **não vê ninguém** vai **sem o borrão de rosto**. Sem
+  medida (fluxo menor parado), a olhada segue como sempre, com o borrão;
+- **vem antes do estudo:** a olhada que as mãos seguraram não gasta o gatilho;
+- **uma parte do plano mudou — "quem aparecer é apagado" não entrou.** O detector da loja dá
+  caixas, não contorno, e de cima vê mal quem está ali; apagar pela caixa cobriria o tampo.
+  No lugar, a imagem com alguém à vista sai **como sempre saiu, com o borrão** (e também
+  quando não há detector, ou ele falha). Apagar pelo contorno pede um modelo que a loja não
+  tem e ninguém mediu;
+- **medido na loja** (gravação de 08/10, canal 4, dez minutos, loja aberta): o tampo fica
+  quieto em 67% dos instantes; a classe do agente deu a mesma resposta da série medida em
+  1.125 de 1.125; **com o quadro quieto o detector não viu ninguém em nenhum dos 751
+  instantes** (nem um "talvez"); conferido a olho, nos 12 instantes em que o tampo parou não
+  havia mão nem braço. Pela conta sobre a série, a imagem sai já na rotina em 7 de cada 10
+  voltas, e em 9 de cada 10 com as duas tentativas;
+- **achado no caminho, antes de mesclar:** o laço acordando de segundo em segundo para a
+  bancada chamaria o vigia dez vezes mais. O vigia ganhou o passo dele;
+- **o que a regra não cobre:** a mão que entra no meio segundo entre a última medida e a
+  foto (3 em cada 100 instantes quietos, na série); e a **câmera que mostra rosto** — a regra
+  foi pensada para a câmera de cima, e num quadro de câmera lateral a imagem sem o borrão
+  depende só de o detector não ter visto ninguém;
+- **para a fatia 1.5:** a tela em que se escolhe o papel tem de dizer o que ele muda (a
+  imagem espera o quadro parar, e sai sem o borrão quando não há ninguém à vista); e, se o
+  funil for separar "havia mão na frente" do resto do "nada a conferir", é contador novo;
+- **ainda não dá para usar na loja:** nenhum quadro tem o papel, e o campo do papel só chega
+  ao console na fatia 1.5. Não foi medido com o fluxo menor de verdade e a loja aberta — o
+  gravador não guarda esse fluxo.
 
 **Uma escolha que fica para quando o protótipo for aprovado.** O plano manda o protótipo
 nascer na cara nova, e assim foi feito. O porte da cara nova inteira é a onda 8. Ao levar as
