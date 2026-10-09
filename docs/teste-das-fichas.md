@@ -5,9 +5,9 @@ Em 09/10, lendo o estudo do lote, o dono disse como a conferência vai funcionar
 sim todos os ingredientes"**. Citou quatro fichas e, durante o trabalho, a quinta. Este
 experimento mede, com as imagens dos lotes de 08/10, o que a nuvem consegue fazer com elas.
 
-Gasto: **R$ 1,03** (R$ 0,70 na primeira rodada, R$ 0,33 na segunda), dentro do teto de
-R$ 5,00 do teste da nuvem (acumulado: R$ 3,94). As imagens ficaram no PC da loja só durante
-o experimento e não estão neste repositório.
+Gasto: **R$ 1,32** (R$ 0,70 na primeira rodada, R$ 0,33 na segunda e R$ 0,29 na terceira, a
+do molho), dentro do teto de R$ 5,00 do teste da nuvem (acumulado: R$ 4,23). As imagens
+ficaram no PC da loja só durante o experimento e não estão neste repositório.
 
 ## As fichas
 
@@ -24,7 +24,9 @@ o experimento e não estão neste repositório.
 O lote estudado (08/10, 21h42 a 21h49), cinco posições:
 
 - quatro lanches cuja montagem bate com a ficha do **Número 01** nos cinco ingredientes, com
-  as quantidades (três discos de pão, duas carnes, duas fatias de queijo, alface, molho);
+  as quantidades (três discos de pão, duas carnes, duas fatias de queijo, alface, molho) —
+  **menos o da caixa, que levou 4 fatias de queijo: ver a errata na rodada 3. As tabelas
+  abaixo já estão com o gabarito corrigido;**
 - o quinto é o **Mussarela Bug** — dito pelo dono enquanto eu trabalhava. A leitura às cegas
   de 08/10 tinha anotado os seis ingredientes dele sem saber o nome de nenhum: carne grossa e
   escura, molho branco, molho vermelho de sachê, cobertura granulada, pão de um corte e, por
@@ -69,17 +71,17 @@ resto). "Firme" é quando a ficha mais próxima ganha da segunda por dois itens 
 
 | variante · modelo | chamadas | ficha dita pelo modelo | ficha pela conta | firmes (e certas) | itens com a quantidade certa | custo por posição | tempo |
 |---|---|---|---|---|---|---|---|
-| seco · Haiku 5.5 | 15 | 12 certas | **15 certas** | 12 (12) | 51 de 78 (65%) | 0,13 centavo | 2,0 s |
-| dicionário · Haiku 5.5 | 15 | 12 certas | **15 certas** | 13 (13) | 59 de 78 (76%) | 0,13 centavo | 1,8 s |
-| dicionário · Sonnet 5.5 | 5 | 5 certas | 5 certas | 4 (4) | 19 de 26 (73%) | 5,85 centavos | 6,4 s |
+| seco · Haiku 5.5 | 15 | 12 certas | **15 certas** | 12 (12) | 54 de 78 (69%) | 0,13 centavo | 2,0 s |
+| dicionário · Haiku 5.5 | 15 | 12 certas | **15 certas** | 13 (13) | 58 de 78 (74%) | 0,13 centavo | 1,8 s |
+| dicionário · Sonnet 5.5 | 5 | 5 certas | 5 certas | 4 (4) | 20 de 26 (77%) | 5,85 centavos | 6,4 s |
 
 O que cada variante errou, por item:
 
 | variante · modelo | não viu, ou contou errado |
 |---|---|
-| seco · Haiku 5.5 | molho rosé 10; carne 5; queijo 3; no Mussarela Bug: a mussarela, a geleia e a cebola crispy nas três vezes (chamou a geleia de "molho rosé") |
-| dicionário · Haiku 5.5 | molho rosé 12; pão 2; carne 2; queijo 1; mussarela 1; geleia 1 |
-| dicionário · Sonnet 5.5 | molho rosé 3; pão 2; carne 1; queijo 1 — e o Mussarela Bug com os seis itens certos |
+| seco · Haiku 5.5 | molho rosé 10; carne 5; no Mussarela Bug: a mussarela, a geleia e a cebola crispy nas três vezes (chamou a geleia de "molho rosé") |
+| dicionário · Haiku 5.5 | molho rosé 12; pão 2; carne 2; queijo 2 (na caixa, disse 2 fatias em duas das três vezes); mussarela 1; geleia 1 |
+| dicionário · Sonnet 5.5 | molho rosé 3; pão 2; carne 1 — e o Mussarela Bug com os seis itens certos |
 
 ## O que se lê disso
 
@@ -93,11 +95,12 @@ O que cada variante errou, por item:
    agente.
 3. **O dicionário de ingredientes vale o que custa** (nada: vai em cache). Sem ele o
    Mussarela Bug não foi reconhecido nenhuma vez; com ele, em 2 de 3 no modelo barato e com os
-   seis itens no maior. Os itens certos subiram de 65% para 76%.
+   seis itens no maior. Os itens certos subiram de 69% para 74%.
 4. **O molho embaixo da alface não se vê depois** (25 erros em 28). Os quadros que escolhi
    eram os do fim de cada fase; o molho entra e a alface cobre em segundos. Para conferir
    molho, o quadro tem de ser o da posição parada logo depois dele — a quietude por posição
-   do plano. O mesmo vale para o pão embaixo da carne.
+   do plano. O mesmo vale para o pão embaixo da carne. **Foi o que a rodada 3 mediu: com
+   esse quadro e a regra da casa, 12 de 12.**
 5. **Custa quase nada no caminho barato:** 0,13 centavo por lanche — R$ 0,0013. Mil lanches
    por dia: R$ 1,30. No modelo maior, R$ 58.
 6. **O modelo maior fica para a dúvida:** acertou tudo dizendo a ficha, mas custa 45 vezes
@@ -108,12 +111,102 @@ O que cada variante errou, por item:
 - **Não é o sistema lendo sozinho.** As posições foram recortadas por mim, à mão; os quadros
   foram escolhidos por mim. Achar as posições e os instantes é o trabalho das ondas 4 e 5.
 - **É um lote, cinco lanches, dois produtos**, três repetições. "15 de 15" aqui é pouco.
-- **Que os quatro são o Número 01** é leitura minha contra a ficha do dono: falta ele dizer.
+- **Que os quatro são o Número 01** é leitura minha contra a ficha do dono: falta ele dizer
+  — e o da caixa levou o dobro de queijo.
 - **Sem o pedido**: aqui a nuvem escolhe entre cinco fichas. Com o pedido conhecido (o Regem
   na loja), a pergunta fica mais fácil — "estes ingredientes estão todos?".
 - No lote anterior (21h37 a 21h41) há uma posição compatível com o Número 02 e três que não
   estão entre estas fichas; a rodada 1 passou por ele sem gabarito, e os números não entram
   na conta.
+
+## Rodada 3 — o molho, com a regra da casa (09/10)
+
+O dono, ao ler que o molho era o ponto fraco: **"os molhos são sempre colocados primeiro na
+tampa superior do pão, e geralmente usando bisnagas ou potes."**
+
+**O que a gravação mostra** (lote das 21h42, relido de segundo em segundo antes de sumir do
+gravador):
+
+| posição | o molho entra | fica à vista até | o que cobre |
+|---|---|---|---|
+| folha 1 | 21:44:19, de bisnaga | ≈ 21:44:26 (7 s, 4 deles sem ninguém na frente) | a alface |
+| folha 2 | 21:44:20 | entre 21:44:35 e 21:44:45 (15 a 25 s) | a alface |
+| folha 3 | 21:44:22 | entre 21:44:35 e 21:44:45 (13 a 23 s) | a alface |
+| caixa | 21:44:24 | entre 21:44:45 e 21:44:51 (21 a 27 s) | a alface |
+| folha 4 (Mussarela Bug) | 21:43:58, a geleia, de sachê | ≈ 21:44:05 (7 s) | a cebola crispy |
+
+A regra vale nas cinco tampas: o molho é a primeira coisa que entra nelas, e a bisnaga
+passa pelas quatro em 7 segundos. Uma coisa fora dela: a **maionese** (de pote) foi posta
+**sobre a carne**, na base, nas três vezes em que apareceu nos dois lotes — o dono diz se
+é o padrão. No lote das 21h37 a leitura começou com a tampa já coberta: não dá para dizer
+o que entrou primeiro.
+
+**O experimento.** Os mesmos quadros da rodada 2 e mais **um** por posição: o da tampa
+logo depois de o molho entrar (no Mussarela Bug, só o recorte da tampa). Duas variantes,
+as duas com o dicionário: "quadro" (o dicionário da rodada 2, sem mudar uma letra) e
+"regra" (o dicionário com a regra da casa — o texto está no fim deste arquivo). R$ 0,29.
+
+| variante · modelo | leituras | molho rosé visto (4 lanches) | geleia | itens certos | ficha dita pelo modelo | ficha pela conta | queijo a mais da caixa apontado | custo por posição | tempo |
+|---|---|---|---|---|---|---|---|---|---|
+| rodada 2 · dicionário · Haiku 5.5 | 15 | **0 de 12** | 2 de 3 | 58 de 78 (74%) | 12 | 15 | 1 de 3 | 0,13 centavo | 1,8 s |
+| quadro · Haiku 5.5 | 15 | 8 de 12 | 3 de 3 | 70 de 78 (90%) | 14 | 15 | 1 de 3 | 0,14 centavo | 1,8 s |
+| **regra · Haiku 5.5** | 15 | **12 de 12** | 3 de 3 | **78 de 78** | 15 | 15 (todas firmes) | 3 de 3 | 0,14 centavo | 1,8 s |
+| regra · Sonnet 5.5 | 5 | 4 de 4 | 1 de 1 | 26 de 26 | 5 | 5 | 1 de 1 | 5,04 centavos | 4,9 s |
+
+O que se lê:
+
+1. **O quadro certo é metade do caminho; a regra da casa é a outra metade.** Só com o
+   quadro a mais, o modelo barato viu o molho em 8 de 12 — e em nenhuma das três vezes na
+   folha 1, onde o molho é claro sobre uma tampa clara. Com a regra escrita ("o molho é
+   posto primeiro, na tampa; procure no quadro logo depois de ele entrar"), 12 de 12.
+2. **A regra da casa é dado de primeira classe.** Vai no dicionário de ingredientes da
+   loja, como as fichas: onde cada coisa entra, quando, e com que utensílio. Não custa
+   nada (vai em cache).
+3. **O instante certo existe e dura:** de 7 a mais de 20 segundos com o molho à vista. O
+   gatilho é o primeiro acontecimento da tampa; o quadro, o da posição parada logo depois.
+4. **O utensílio diz qual molho.** A bisnaga, o pote e o sachê aparecem na imagem. Se cada
+   molho tiver a sua bisnaga marcada (tampa ou fita de uma cor), "qual molho" deixa de
+   depender da cor do creme — é uma padronização barata, para o dono decidir.
+
+Limites: cinco lanches de um lote; as três repetições são a mesma imagem perguntada de
+novo, não imagens novas; o quadro do molho foi escolhido por mim (o mais parado e sem
+ninguém na frente), não pelo sistema; e o dicionário foi escrito olhando estes mesmos
+lanches. É prova de sinal.
+
+### Errata do gabarito — o queijo da caixa
+
+Ao conferir os recortes desta rodada apareceu uma segunda fatia no disco de baixo da caixa.
+Relido a 5 quadros por segundo (21:45:14 a 21:45:27): **o lanche da caixa levou 4 fatias
+de queijo** — em cada carne, uma fatia, a carne virada com o pegador por cima dela, e outra
+fatia por cima. O meu gabarito dizia 2, tirado do quadro parado (que mostra as de cima);
+nos quadros enviados aparecem 3.
+
+Na rodada 2, **5 das 7 leituras da caixa tinham dito "3 fatias, uma a mais que a ficha"** —
+e eu contei isso como erro delas. O erro era do gabarito. As tabelas deste arquivo estão
+com o gabarito corrigido (na caixa, "3 ou 4 fatias" é o certo; "2" é o errado). Os números
+antigos da rodada 2, de itens certos, eram 51, 59 e 19.
+
+Se a caixa era um Número 01 com queijo em dobro pedido pelo cliente, a montagem está certa;
+se era um Número 01 comum, sobraram duas fatias. Sem o pedido não dá para dizer — é o que a
+conta contra o pedido resolve quando o Regem estiver na loja.
+
+### E a loja, sozinha, vê o molho?
+
+O mesmo método do leitor local de teste (a mancha que mudou em cima de um disco), só nos
+molhos, com o quadro de depois tirado logo depois de o molho entrar; e 11 pares de controle
+em que nada entrou.
+
+| | resultado |
+|---|---|
+| Viu o molho entrar | 9 de 10 (escapou o da folha 1: molho claro sobre tampa clara) |
+| Inventou mancha onde nada entrou | 2 de 11 — as duas com um braço no quadro |
+| Tempo | 7 ms por posição |
+| A cor da mancha (L\*, a\*, b\*) | molho rosé 70, 11, 56 (três exemplos, a 6 um do outro) · geleia 35, 34, 31 · maionese 70, −8, 28 (três, a 23) |
+| Distância entre as médias | rosé × geleia 49; rosé × maionese 33; geleia × maionese 54 |
+
+Dizer **que** o molho entrou, e de que família de cor ele é, a loja faz sozinha. O que
+falta é o portão de "as mãos saíram" (as duas manchas falsas) e mais exemplos — o creme
+laranja forte, com dois, não ficou consistente.
 
 ## E sem nuvem? A prova do leitor local
 
@@ -239,6 +332,21 @@ confiança. Na conta em código, a distância entre o que foi visto e uma ficha 
 diferenças de quantidade (pão, carne, queijo, bacon, anel) mais um por ingrediente presente
 de um lado e ausente do outro, mais um se a carne vista é fina e a da ficha é grossa (ou o
 contrário).
+
+### A regra da casa, como entrou no dicionário (rodada 3)
+
+Só mudaram as linhas dos molhos:
+
+```
+- REGRA DA CASA PARA OS MOLHOS: o molho é posto PRIMEIRO, na TAMPA do pão (o disco de cima, o que
+  fica sem carne), com bisnaga ou de um pote, antes de qualquer outro ingrediente da tampa. Procure o
+  molho na tampa, no quadro logo depois de ele entrar: nos quadros seguintes ele costuma estar COBERTO
+  (pela alface, pela cebola crispy) e não aparece mais.
+- molho especial (meio rosé): creme laranja-claro, num montinho no centro da tampa; depois fica embaixo da alface.
+- molho cheddar cremoso: creme laranja forte, cobrindo a tampa.
+- maionese e maionese de alho: creme branco (nesta bancada já foi visto também em cima da carne).
+- geleia de pimenta: mancha vermelha brilhante no centro da tampa.
+```
 
 ## O roteiro do leitor local
 

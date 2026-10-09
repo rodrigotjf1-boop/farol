@@ -6,7 +6,7 @@
   "nivel": "basico",
   "nivel_motivo": "Até 8 fluxos; basta quando a câmera já entrega o evento pronto.",
   "status": "aceitavel",
-  "observacao": "Decodifica ~8 streams 1080p. Basta quando a câmera entrega o evento pronto.",
+  "observacao": "Decodifica ~8 streams 1080p. Basta quando a câmera entrega o evento pronto. Pela escala do que a loja de teste mede (o Farol ocupa um quarto de um núcleo de um i7-10700F com 6 canais e 2 critérios locais; em teste sintético de agregador um núcleo do N100 rende cerca de 65 % de um desse i7), o que ela roda HOJE ocuparia perto de 10 % desta máquina. É conta, não medição: testar um antes de indicar em quantidade. Não cobre a leitura da bancada do A19.",
   "specs": {
     "tem_igpu": true,
     "quicksync": true,

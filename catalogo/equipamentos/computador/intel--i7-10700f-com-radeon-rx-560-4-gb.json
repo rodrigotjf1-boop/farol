@@ -6,7 +6,7 @@
   "nivel": "intermediario",
   "nivel_motivo": "Medido: 14 canais no reduzido, 4 em alta e o detector local, com 90% da máquina livre.",
   "status": "aceitavel",
-  "observacao": "O PC da loja de teste. Sem iGPU: toda a decodificação é por software — e sobra. O detector roda na RX 560 por DirectML. 16 GB de RAM, Windows 10.",
+  "observacao": "O PC da loja de teste. Sem iGPU: toda a decodificação é por software — e sobra. O detector roda na RX 560 por DirectML. 16 GB de RAM, Windows 10. Em 09/10/2026 a máquina rodava também o servidor local do Regem da loja e vários outros programas (274 processos): o Farol era 1,6% do processador e 0,3 a 0,5 GB dos 7,9 GB de memória em uso.",
   "specs": {
     "tem_igpu": false,
     "quicksync": false,
@@ -54,6 +54,20 @@
       "valor": 88,
       "unidade": "ms",
       "condicao": "ONNX Runtime com DirectML na RX 560"
+    },
+    {
+      "em": "2026-10-09",
+      "onde": "loja de teste",
+      "metrica": "uso_do_farol",
+      "valor": "1,6 % do processador (pico 2,4 %): um quarto de um núcleo; 0,3 a 0,5 GB de memória em uso (1,2 GB reservados); 1 GB de disco",
+      "condicao": "6 canais na configuração, 2 critérios de presença julgados na loja, cerca de 300 julgamentos por hora, nenhum na nuvem; média por hora, da telemetria do próprio agente (08/10 23h a 09/10 2h)"
+    },
+    {
+      "em": "2026-10-09",
+      "onde": "loja de teste",
+      "metrica": "uso_da_maquina_inteira",
+      "valor": "3 % do processador (pico 10 %), 7,9 GB dos 16 GB de memória, 3 % da placa de vídeo, 161 GB dos 223 GB de disco",
+      "condicao": "com o Windows, o servidor local do Regem e os outros programas instalados nela"
     }
   ],
   "precos": [
