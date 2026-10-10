@@ -3837,7 +3837,7 @@ loja; o que o gravador entrega é medido na instalação.
 | 2 | Três acertos pequenos de tela: "área" → "quadro" em Análises e no Painel; a tabela do Painel, que rola de lado entre 820 e 1.280 px; o cartão "Critérios ligados" dizer quantos só observam | onda 1 | — |
 | 3 | **A base de fichas e produtos do Farol** (decisão de 10/10): puxar do Regem as fichas, os produtos e os adicionais de cada loja e guardar base própria; aceitar também planilha, para a loja sem Regem; por cima dela, o dicionário de ingredientes e as regras da casa | nova; antes da onda 5 | o plano do lado do Regem aprovado; o Regem com as fichas da loja |
 | 4 | **O plano no projeto Regem:** a porta por onde o Farol lê as fichas, os produtos e os pedidos em produção; e o que o modo do KDS "por produto, com baixa automática" pede de lá (o item poder ser dado como feito; a porta para o acontecimento de produção; o desfazer) | projeto Regem — plano antes do código | a aprovação do dono, lá |
-| 5 | **Onda 2 — sequência e banco de provas:** o agente buscar no gravador (cliente de arquivo, medindo o que cada gravador entrega), a busca pelo meio, a grade de 6 quadros, a família Acontecimento passando a julgar, "acertou / errou", o acerto medido de cada critério | onda 2 | o protótipo das telas aprovado; o dono marcar os exemplos |
+| 5 | **Onda 2 — sequência e banco de provas:** o agente buscar no gravador (cliente de arquivo, medindo o que cada gravador entrega), a busca pelo meio, a grade de 6 quadros, a família Acontecimento passando a julgar, "acertou / errou", o acerto medido de cada critério. **O plano está em "Onda 2 — como ela entra"** (10/10): sete fatias; as duas primeiras, só do agente e dormindo, começam já | onda 2 | o protótipo das telas aprovado; as três decisões do plano; o dono marcar os exemplos |
 | 6 | **Onda 3 — processo e medida:** etapas por quadro, cronômetros, contadores, episódios | onda 3 | a onda 2 medida |
 | 7 | **Onda 4 — a bancada, primeira parte:** achar sozinho as posições e o tipo de base; contar o que fecha, por tipo de base; as fases do lote; os números da semana | onda 4 | a cena do canal |
 | 8 | **Onda 5 — a bancada, segunda parte:** o leitor de ingredientes; o roteiro esperado (ficha + rotina); o produto; **o saldo de produção, com os dois números**; os especiais, um a um; o aviso na estação | onda 5 | os itens 3 e 4; o Regem na loja; a outra frente da ilha com câmera, para a conta fechar |
@@ -3856,7 +3856,7 @@ loja; o que o gravador entrega é medido na instalação.
 | 3 | **A cena do canal "montagem 1"** — console → Canais → montagem 1 → "A cena deste canal" → "Salvar a cena" | o pedido com contexto e a leitura da bancada | quando puder |
 | 4 | **Na loja, na semana de 12/10:** o HD no gravador; o cabo, e avisar "cabo trocado, pode"; as fotos padrão; o reflexo da luminária; a folha A4 por um minuto; **e, se topar, a prova da planta viva** — 15 a 20 pontos marcados no piso com fita e medidos com trena, e uma pessoa parando uns 10 segundos em cada um (uns 20 minutos, antes de abrir; o passo a passo está em [estudo-planta-viva.md](estudo-planta-viva.md), seção 8) | guardar mais dias de gravação; a rede; a comparação com a foto; a medida da câmera; saber quanto erra a posição de uma pessoa na planta, nesta loja | na visita |
 | 5 | **A câmera da outra frente da ilha** (a da chapa) | sem ela o saldo não fecha: parte da produção fica fora da conta | depois de o algoritmo estar alinhado no canal 4, como o dono definiu |
-| 6 | **Aprovar o protótipo das telas da onda 2** e, depois, **marcar os exemplos** "acertou / errou" | é o que deixa um critério novo chegar a avisar | quando for apresentado |
+| 6 | **Aprovar o protótipo das telas da onda 2**, responder às **três decisões do plano dela** (a imagem do exemplo na nuvem; a meta para "valendo"; quem marca) e, depois, **marcar os exemplos** "acertou / errou" | é o que deixa um critério novo chegar a avisar | quando for apresentado |
 | 7 | **Crédito da nuvem** | a chave tem R$ 0,40 dos R$ 5,00; o valor é dito antes da próxima rodada paga | antes de a onda 2 medir |
 | 8 | Respostas que ajudam, sem travar: as perguntas da página do plano (a caixinha de papelão, a caneta nas embalagens, a bisnaga marcada por cor, o horário dos critérios de presença, o "voltar a valer", quem aparece na imagem) | afinar | quando puder |
 | 9 | **Desenhar a planta da loja** — console → Canais → Planta → "Desenhar a planta" (uns dez minutos, sem medida exata) | é a base da planta viva e do cálculo de cada câmera; hoje a loja não tem planta | quando puder |
@@ -4149,6 +4149,76 @@ porte da cara nova inteira é a onda 8. As telas da onda 1 entram no console com
 as cores de hoje — o console não fica com duas caras —, e a cara nova chega para tudo de
 uma vez na onda 8. Foi o caminho recomendado; o dono aprovou o protótipo sem pedir o outro
 (adiantar "cores e tipos" para o console inteiro agora).
+
+### Onda 2 — como ela entra (10/10/2026)
+
+**É plano, não entrega.** Nada desta seção está no ar. Foi escrito depois de ler o código
+de ponta a ponta — o que o agente, a nuvem e a tela têm hoje para a sequência e para o banco
+de provas — e de reconferir os fatos em que ele se apoia.
+
+**Cinco coisas que o código mostrou, e o que cada uma muda no jeito de entrar:**
+
+1. **O agente não sabe buscar no gravador.** O cliente do gravador só fala ao vivo. O
+   caminho de arquivo foi medido à mão (rodada 5: o bloco de 2 s chega em ≈ 1,9 s), e três
+   coisas que ele exige não existem: **um pedido por vez** por gravador, **nunca repetir o
+   pedido recusado** (a conta é a mesma do ao vivo) e **medir o relógio** do gravador contra
+   o do computador (na loja, 24 a 30 s de diferença).
+2. **A nuvem não guarda cada análise.** Guarda o resumo por hora e o que virou aviso. O
+   critério em ensaio — justamente o que precisa ser medido — não deixa nada na nuvem sobre
+   o qual marcar "acertou / errou".
+3. **A imagem nunca sobe**, só a assinatura dela; fica 15 dias no computador da loja. Para
+   marcar, o responsável precisa **ver** o que o juiz viu.
+4. **"Ação" é julgada como "estado", por um quadro só,** e o agente nem recebe a família do
+   critério. A sequência entra como um caminho ao lado, só para o agente que declara saber.
+5. **O pedido à nuvem é conferido letra por letra,** e o texto fixo dele fica em cache em
+   todas as lojas. A grade de 6 quadros é **outro pedido**: o de hoje não muda uma vírgula.
+
+| fatia | o que entra | tela? | nasce |
+|---|---|---|---|
+| **2.0 · protótipo** | as telas da onda: os exemplos de um critério, com "acertou / errou" e "o que era"; o acerto medido à vista no critério, com a meta; a sequência (a grade de 6 quadros, com o instante marcado) | é o protótipo | espera a aprovação do dono |
+| **2.1 · o cliente de arquivo do gravador** | pedir ao gravador um trecho já gravado; um pedido por vez por gravador; pedido recusado não se repete; a diferença de relógio medida a cada busca. O que **cada gravador** entrega — o tamanho do bloco, o atraso até a gravação estar disponível — fica no perfil dele e é medido na instalação: nada disso é regra do motor | não | dormindo: nada o chama |
+| **2.2 · a busca pelo meio e a grade, na loja** | escolher o quadro parado dentro de um bloco; a busca pelo meio entre dois instantes; montar a grade de 6 quadros numerados; guardar a sequência ao lado da análise (≈ 0,3 MB cada, com teto e rodízio) | não | dormindo |
+| **2.3 · o exemplo chega à nuvem** | cada julgamento de critério em ensaio (e valendo) deixa na nuvem um **exemplo**: o veredito, o motivo, a versão do critério e a imagem que o juiz viu — com teto por critério por dia e prazo de guarda (decisão 1, abaixo) | não | desligado por loja; pede migration |
+| **2.4 · "acertou / errou" e o acerto medido** | a tela dos exemplos; a conta por critério e por versão — acerto, alarme falso, "não deu para ver"; o estado **medido** quando há exemplos marcados o bastante; **valendo** só com a meta batida; e a volta a "em ensaio" quando o texto, o quadro ou o modelo muda (ficou para esta onda) | sim | com o protótipo aprovado |
+| **2.5 · Acontecimento passa a julgar** | a pergunta em sequência ("aconteceu isto nesta sequência?"), com a grade de 6, num pedido à parte; a resposta traz o **instante**; a família passa a descer para o agente que sabe. Critério novo continua nascendo observando | sim (a troca de estado destrava) | só no agente que declara saber |
+| **2.6 · a primeira rodada de medida** | o dono marca os exemplos; medem-se os critérios que a loja tem e o primeiro acontecimento — "o molho vai na tampa antes da alface", que é regra da casa e já foi lido à mão na rodada 5 | — | depende dele e do crédito da nuvem |
+
+**A ordem.** A 2.1 e a 2.2 são só do agente, não ligam nada e não têm tela: **começam já**.
+A 2.0 vai ao dono assim que estiver desenhada. A 2.3 espera a decisão 1; a 2.4 e a 2.5
+esperam o protótipo aprovado. Trocar o pacote do agente na loja continua pedindo o "pode"
+dele.
+
+**Três decisões que são do dono:**
+
+1. **A imagem do exemplo na nuvem do Farol.** Recomendo: sobe **a imagem que o juiz viu** —
+   já recortada no quadro e com o borrão de rosto —, reduzida, só de critério em ensaio ou
+   valendo, no máximo 20 por critério por dia; o exemplo não marcado sai em 15 dias, e o
+   marcado fica enquanto o critério não mudar. É o que deixa marcar de qualquer lugar, com a
+   loja ligada ou não. A outra forma: a imagem só sobe quando alguém abre o exemplo — não
+   guarda nada, mas é lenta e depende de o computador da loja estar no ar.
+2. **A meta para "valendo".** Sugiro, para começar: no máximo **1 alarme falso em 10
+   avisos**, medido em pelo menos 40 exemplos marcados, dos quais pelo menos 10 em que o
+   juiz disse "fora". A meta é dele.
+3. **Quem marca.** Sugiro: quem já vê as análises — supervisão, gerência e diretoria.
+   Mudar o critério continua com a gerência.
+
+**As contas** (medidas onde diz; o resto é conta):
+
+| o quê | quanto | de onde vem |
+|---|---|---|
+| um passo da busca pelo meio | ≈ 3,3 s (1,9 s é baixar o bloco) | medido na loja, rodada 5, com a rede presa em 10 Mbit/s |
+| um quadro na nuvem | 0,10 centavo, em 1,2 s | medido, rodada 5 (Haiku 5.5) |
+| uma grade de 6 quadros na nuvem | 0,17 centavo, em 1,6 s | medido, rodada 5, com a grade daquele teste; com 6 recortes de 960 × 540 a conta do plano dá ≈ 0,3 centavo |
+| a sequência guardada na loja | ≈ 0,3 MB | conta |
+| os exemplos na nuvem, por loja | ≈ 90 MB, em regime | conta: 10 critérios × 20 por dia × 15 dias × 30 KB |
+
+**O que a onda 2 não faz:** ler a bancada (ondas 4 e 5), mostrar o momento em vídeo (onda
+6), dar baixa no KDS (onda 5, e só como opção da loja).
+
+**O que não foi medido:** o acerto do juiz em **sequências** desta loja (na rodada 5, lidas
+à mão: o que foi posto, 9 de 9; o utensílio, 6 de 9); o caminho de arquivo em outro gravador
+que não o do piloto; quanto o computador da loja aguenta buscando e julgando ao mesmo tempo;
+e a busca depois de o cabo ser trocado.
 
 ### O que não foi medido
 
