@@ -3675,6 +3675,20 @@ produção por destino e acusa embalagem trocada (triagem). E a caixa diz onde e
 na metade de cima, em todas as lidas — o que dá à revisão pelo gravador o alvo que hoje é
 apontado à mão. Detalhe em `docs/decisoes.md`, 10/10.
 
+**O piloto não vira regra do motor (do dono, 10/10).** O Mister Burguer é a cobaia; o Farol
+é para distribuir. As regras da casa acima — o molho, a rotina, a embalagem — são **perfil
+da loja**, não código: o motor trabalha com posição, item, acontecimento, roteiro esperado
+e saldo, e cada loja traz o seu perfil. As três camadas (motor, perfil da loja,
+adaptadores) e os degraus pelo que o cliente tem estão em
+[controle-de-producao.md](controle-de-producao.md), seção 5.
+
+**O saldo de produção (do dono, 10/10).** Agrupar os pedidos do KDS por produto, subtrair o
+que a montagem conclui, somar o que chega, e avisar do especial que demora. É o livro-caixa
+do estudo de 07/10, e fica como espinha da onda 5 — com o ajuste de que **a câmera confere
+o KDS, não dá baixa nele**. A avaliação, os cinco ajustes e as oito possibilidades de
+controle de produção (a começar pela demanda por ingrediente crítico, que não pede câmera)
+estão em [controle-de-producao.md](controle-de-producao.md).
+
 **O encaixe no Regem** (lido no código do Regem em 09/10; é tarefa de lá, com plano e PR
 próprios):
 
@@ -3683,13 +3697,18 @@ próprios):
   delivery" (embalagem) e a sub-receita (`sub_ficha_id`); o adicional pode apontar ficha
   ou insumo; e a fila de produção — o que alimenta o KDS — é `GET /producao/fila`, com
   descrição, quantidade, complementos em texto e observação de cada item.
-- O que falta: cada item da fila levar a **lista final de ingredientes** — a ficha, mais
-  os adicionais, menos o que o cliente tirou —, com nome, quantidade e unidade, **sem
-  custo e sem preço**; a linha "só no delivery" fica de fora; **a sub-receita vai como um
-  ingrediente só** (o "molho especial" é uma coisa na bancada, não cinco insumos).
-- Como o Farol lê: o agente da loja consulta a fila no servidor do Regem que fica na
-  própria loja, com a credencial de integração da loja. Nada de nuvem no meio.
-- O mesmo dado serve ao KDS: mostrar a ficha na tela para quem monta.
+- **Mudou em 10/10, por decisão do dono:** a fila **não** precisa levar os ingredientes. O
+  Farol **puxa as fichas, os produtos e os adicionais** de cada loja e guarda **base
+  própria** de consulta (a mesma base recebe planilha, para a loja sem Regem); se não for
+  viável, o Regem repassa de outro jeito. Na base do Farol a linha "só no delivery" fica
+  de fora e **a sub-receita entra como um ingrediente só** (o "molho especial" é uma coisa
+  na bancada, não cinco insumos).
+- Da fila de produção o Farol lê só **qual produto, quantos, com que adicionais e
+  observação, para onde vai e a que horas** — e quando ficou pronto. O agente da loja
+  consulta o servidor do Regem que fica na própria loja.
+- O que o Regem já entrega e o que falta para isso está em
+  [controle-de-producao.md](controle-de-producao.md), seção 6. Lá, o plano vem antes do
+  código.
 
 ### Impacto
 
@@ -3787,18 +3806,69 @@ ele corrigir alguma dessas leituras, vale a correção.
 | 2 | **Sequência e banco de provas:** olhar para trás (na dúvida, **a busca pelo meio** no gravador, por blocos de 2 s), grade de 6 quadros, a família Acontecimento; "acertou / errou"; o acerto medido de cada critério | G | o dono marcar os exemplos |
 | 3 | **Processo e Medida:** etapas por quadro, cronômetros e contadores, episódios, modelos prontos | G | onda 2 medida |
 | 4 | **Leitura da bancada, E0 → E1:** câmera regulada, números da semana, as fases do lote, contar montagens pelo fechamento, a comanda | G | a câmera do canal 4 foi regulada em 09/10 e o dono redesenhou o quadro da bancada na mesma noite (conferido contra a gravação); falta ele escrever a cena do canal |
-| 5 | **Leitura da bancada, E2 → E3:** **o leitor local de ingredientes** (ensinado pela nuvem; só o "não sei" sobe, uma posição por chamada), o dicionário de ingredientes (com as regras e a rotina da casa), a ficha comparada em código, o produto, **a conta do lote contra o KDS**, aviso na estação | G+ | as fichas de todos os lanches; a fila de produção com os ingredientes (Regem); alarme falso medido |
+| 5 | **Leitura da bancada, E2 → E3:** **o leitor local de ingredientes** (ensinado pela nuvem; só o "não sei" sobe, uma posição por chamada), o dicionário de ingredientes (com as regras e a rotina da casa), a ficha comparada em código, o produto, **a conta do lote contra o KDS**, aviso na estação | G+ | as fichas e os produtos puxados do Regem para a base do Farol (decisão de 10/10); os pedidos do KDS lidos na loja; alarme falso medido |
 | 6 | O momento em vídeo ("Ver o momento") — reaproveita a sequência da onda 2 | M | onde guardar na nuvem |
 | 7 | Relatórios, resumos e o início "fora do critério primeiro" | G | transportador |
 | 8 | Porte da cara nova | G | protótipo geral aprovado |
-| 9 | O ambiente que calcula; forma livre; rascunho | G+M+M | — |
-| 10 | A pessoa na planta; busca investigativa | G+G | ondas 2 e 9; disco maior |
+| 9 | O ambiente que calcula; forma livre; rascunho — com a 10, **a planta viva** (10/10): o ambiente em 3D, com as câmeras e as pessoas | G+M+M | a planta da loja desenhada; protótipo aprovado |
+| 10 | A pessoa na planta; busca investigativa | G+G | ondas 2 e 9; disco maior; o dono dizer de onde vem a identidade |
 
 O **protótipo** anda junto desde a onda 1 e já nasce na cara nova: a tela do canal com
 quadros e critérios, o cadastro do processo, a sequência com a resposta por etapa, o
 "acertou / errou", a bancada lida ao vivo.
 
 **Nenhuma onda liga aviso sem passar pelo banco de provas.**
+
+### As duas listas — o que falta (10/10/2026)
+
+Pedido do dono: "atualize nosso roadmap: um com suas pendências e outro com as minhas". É o
+retrato de 10/10; a ordem das ondas continua a da tabela acima. O que cada item de controle
+de produção é, e por que, está em [controle-de-producao.md](controle-de-producao.md).
+
+**Vale para as duas listas** (dono, 10/10): o Mister Burguer é o piloto, e o Farol é produto
+para distribuir. Nada do que se aprende lá vira regra do motor: regra da casa é perfil da
+loja; o que o gravador entrega é medido na instalação.
+
+#### A lista do Farol — o que falta eu fazer
+
+| # | o quê | onde entra | depende de |
+|---|---|---|---|
+| 1 | **Fechar a onda 1:** o sistema propor o estudo do critério — por regras, no servidor, que é o caminho recomendado (se o dono preferir outro, ajusta-se) | onda 1, fatia 1.3 | — |
+| 2 | Três acertos pequenos de tela: "área" → "quadro" em Análises e no Painel; a tabela do Painel, que rola de lado entre 820 e 1.280 px; o cartão "Critérios ligados" dizer quantos só observam | onda 1 | — |
+| 3 | **A base de fichas e produtos do Farol** (decisão de 10/10): puxar do Regem as fichas, os produtos e os adicionais de cada loja e guardar base própria; aceitar também planilha, para a loja sem Regem; por cima dela, o dicionário de ingredientes e as regras da casa | nova; antes da onda 5 | o plano do lado do Regem aprovado; o Regem com as fichas da loja |
+| 4 | **O plano no projeto Regem:** a porta por onde o Farol lê as fichas, os produtos e os pedidos em produção | projeto Regem — plano antes do código | a aprovação do dono, lá |
+| 5 | **Onda 2 — sequência e banco de provas:** o agente buscar no gravador (cliente de arquivo, medindo o que cada gravador entrega), a busca pelo meio, a grade de 6 quadros, a família Acontecimento passando a julgar, "acertou / errou", o acerto medido de cada critério | onda 2 | o protótipo das telas aprovado; o dono marcar os exemplos |
+| 6 | **Onda 3 — processo e medida:** etapas por quadro, cronômetros, contadores, episódios | onda 3 | a onda 2 medida |
+| 7 | **Onda 4 — a bancada, primeira parte:** achar sozinho as posições e o tipo de base; contar o que fecha, por tipo de base; as fases do lote; os números da semana | onda 4 | a cena do canal |
+| 8 | **Onda 5 — a bancada, segunda parte:** o leitor de ingredientes; o roteiro esperado (ficha + rotina); o produto; **o saldo de produção, com os dois números**; os especiais, um a um; o aviso na estação | onda 5 | os itens 3 e 4; o Regem na loja; a outra frente da ilha com câmera, para a conta fechar |
+| 9 | **Controle de produção sem câmera:** a demanda por ingrediente crítico (carnes por tipo), a partir dos pedidos e das fichas | novo; candidato a entrar cedo | os itens 3 e 4; o dono dizer onde quer ver |
+| 10 | **O perfil da loja:** o cadastro em que o sistema propõe e o responsável confirma — bases de montagem, dicionário, regras da casa, filas e bancadas —, para outra loja entrar sem engenheiro | atravessa as ondas 4 e 5 | protótipo aprovado |
+| 11 | **A planta viva** (as ondas 9 e 10 juntas, com a régua de acabamento mais alta): o estudo — como montar o ambiente, como pôr as pessoas na planta, de onde vem a identidade —; a prova de medida no piloto; e o protótipo em alta qualidade, para aprovar | ondas 9 e 10; o estudo e o protótipo podem andar antes | o dono dizer onde ela entra na ordem e de onde vem a identidade; a planta da loja desenhada |
+| 12 | Ondas 6 a 8: o momento em vídeo; relatórios e resumos; o porte da cara nova | ondas 6 a 8 | as de cada linha da tabela das ondas |
+| 13 | Medidas que ficaram devendo: o gravador depois do cabo novo; o juiz local do molho sobre o quadro que a busca escolhe; a loja reconhecer a base e achar a tampa; a rotina por produto, numa semana observando | — | o cabo; as fichas |
+
+#### A lista do dono
+
+| # | o quê | para quê | quando |
+|---|---|---|---|
+| 1 | **O Regem rodando na loja**, com as fichas dos lanches e os adicionais cadastrados | é de onde o Farol puxa fichas, produtos e pedidos; daí vem também a rotina dos outros itens | os testes estão para começar |
+| 2 | **Aprovar o plano do lado do Regem** (a porta de leitura para o Farol) | os itens 3, 4, 8 e 9 da outra lista | quando for apresentado |
+| 3 | **A cena do canal "montagem 1"** — console → Canais → montagem 1 → "A cena deste canal" → "Salvar a cena" | o pedido com contexto e a leitura da bancada | quando puder |
+| 4 | **Na loja, na semana de 12/10:** o HD no gravador; o cabo, e avisar "cabo trocado, pode"; as fotos padrão; o reflexo da luminária; a folha A4 por um minuto | guardar mais dias de gravação; a rede; a comparação com a foto; a medida da câmera | na visita |
+| 5 | **A câmera da outra frente da ilha** (a da chapa) | sem ela o saldo não fecha: parte da produção fica fora da conta | depois de o algoritmo estar alinhado no canal 4, como o dono definiu |
+| 6 | **Aprovar o protótipo das telas da onda 2** e, depois, **marcar os exemplos** "acertou / errou" | é o que deixa um critério novo chegar a avisar | quando for apresentado |
+| 7 | **Crédito da nuvem** | a chave tem R$ 0,40 dos R$ 5,00; o valor é dito antes da próxima rodada paga | antes de a onda 2 medir |
+| 8 | Respostas que ajudam, sem travar: as perguntas da página do plano (a caixinha de papelão, a caneta nas embalagens, a bisnaga marcada por cor, o horário dos critérios de presença, o "voltar a valer", quem aparece na imagem) | afinar | quando puder |
+| 9 | **Desenhar a planta da loja** — console → Canais → Planta → "Desenhar a planta" (uns dez minutos, sem medida exata) | é a base da planta viva e do cálculo de cada câmera; hoje a loja não tem planta | quando puder |
+| 10 | **Duas decisões da planta viva:** de onde vem a identidade de cada colaborador (o ponto e a escala do Regem, um sinal no uniforme, ou o rosto) e onde ela entra na ordem das ondas | molda o desenho; hoje são as ondas 9 e 10 | antes do protótipo |
+| 11 | **Ligar a chave do pedido com contexto** | só quando houver critério de estado que suba à nuvem; o passo a passo é preparado antes | mais adiante |
+| 12 | **A data para formatar o computador da loja** | a máquina é também o servidor do Regem: pede roteiro | quando decidir |
+
+Saíram da lista do dono em 10/10: a imagem dos dois lados da ilha (ele já tinha mandado em
+09/10, e mandou de novo; a ilha tem duas frentes, e o canal 4 vê a da fritadeira); a rotina
+dos outros itens (vem com as fichas); "em lote ou lanche por lanche" (não há regra: a lista
+do KDS nem sempre é seguida); o queijo em dobro (só como adicional); os ingredientes na fila
+de produção do Regem (não precisa: o Farol puxa as fichas).
 
 ### Onda 1 — como ela entra (09/10/2026)
 
