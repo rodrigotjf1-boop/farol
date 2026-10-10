@@ -18,6 +18,10 @@
 // que uma pessoa pode escolher, o estudo guardado e o funil. Critério novo
 // nasce "observando" e ligado: conta, sem julgar e sem avisar.
 //
+// O estudo pode ser PROPOSTO pelo sistema: o servidor lê o critério como
+// está na gaveta (salvo ou não) e devolve um rascunho, com o porquê. Pedir
+// a proposta não grava nada — ela só entra no banco ao salvar o critério.
+//
 // Salvar são até duas idas ao servidor — o critério e, se mudou, o estudo.
 // Se a segunda falhar, o critério já está salvo e a mensagem diz isso: a
 // gaveta nunca apaga um estudo que não conseguiu ler.
@@ -50,7 +54,14 @@ import { AbaDoFunil } from './aba-do-funil';
 import { ArvoreDeCanais } from './arvore-de-canais';
 import { contarCanais } from './canais';
 import { estadoConhecido, NOME_DO_ESTADO } from './estados';
-import { EstudoDoCriterio, estudoParaSalvar, mesmoEstudo, SEM_ESTUDO, type RascunhoDoEstudo } from './estudo-do-criterio';
+import {
+  EstudoDoCriterio,
+  estudoParaSalvar,
+  mesmoEstudo,
+  SEM_ESTUDO,
+  type NotasNaGaveta,
+  type RascunhoDoEstudo,
+} from './estudo-do-criterio';
 import { FAMILIAS, familiaNatural, familiaSoObserva, FORMAS_DE_ESTADO, quandoChegaOJulgamento, tipoDaFamilia } from './familias';
 import {
   CONFIRMACOES,
@@ -194,6 +205,14 @@ export function GavetaDoCriterio({
   const [estudoGuardado, setEstudoGuardado] = useState<RascunhoDoEstudo | null>(editando ? null : SEM_ESTUDO);
   const [estudo, setEstudo] = useState<RascunhoDoEstudo>(SEM_ESTUDO);
   const [erroDoEstudo, setErroDoEstudo] = useState<string | null>(null);
+  // As notas da ficha ("a câmera não vê", as sugestões): vêm prontas do servidor, com a ficha lida ou proposta.
+  const [notas, setNotas] = useState<NotasNaGaveta | null>(null);
+  // A proposta do sistema, enquanto a ficha da gaveta é a que ele acabou de propor — e o que havia antes dela.
+  const [proposta, setProposta] = useState<{ porque: string[] } | null>(null);
+  const [antesDaProposta, setAntesDaProposta] = useState<{ estudo: RascunhoDoEstudo; notas: NotasNaGaveta | null } | null>(null);
+  const [propondo, setPropondo] = useState(false);
+  const [erroDaProposta, setErroDaProposta] = useState<string | null>(null);
+  const [focoNoPropor, setFocoNoPropor] = useState(0);
 
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -212,6 +231,7 @@ export function GavetaDoCriterio({
         : SEM_ESTUDO;
       setEstudoGuardado(lido);
       setEstudo(lido);
+      setNotas(r.notas ? { ...r.notas, acao: r.estudo?.partes?.acao ?? '' } : null);
     } catch (e) {
       setErroDoEstudo(e instanceof ErroDaApi ? e.message : 'não consegui buscar o estudo deste critério');
     }
@@ -308,6 +328,58 @@ export function GavetaDoCriterio({
   const estudoCarregado = estudoGuardado !== null;
   const problemaDoEstudo = estudo.existe && usaContextoEGatilho ? problemaDasCondicoes(estudo.contexto, estudo.gatilho) : null;
   const estudoMudou = estudoCarregado && !mesmoEstudo(estudo, estudoGuardado, usaContextoEGatilho);
+
+  // ───────────────────────── a proposta do estudo ─────────────────────────
+  // O servidor propõe a partir do critério COMO ESTÁ NA GAVETA — salvo ou não —, e nada é gravado: o que volta
+  // é um rascunho aqui dentro, e só entra no banco quando a pessoa salvar o critério.
+  const faltaParaPropor = !criterio.trim()
+    ? 'Escreva antes a explicação do critério, lá em cima.'
+    : canais === 0
+      ? 'Marque antes ao menos um canal, em “Onde vale”.'
+      : null;
+
+  async function propor() {
+    if (propondo || faltaParaPropor) return;
+    setErroDaProposta(null);
+    setPropondo(true);
+    try {
+      const r = await regrasApi.proporEstudo(lojaId, {
+        nome: nome.trim(),
+        criterio: criterio.trim(),
+        tipo: tipoFinal,
+        familia,
+        zonaIds: [...marcadas],
+      });
+      // "Voltar ao que estava" volta ao que havia antes da PRIMEIRA proposta: propor de novo não o apaga.
+      if (!proposta) setAntesDaProposta({ estudo, notas });
+      setEstudo({ existe: true, partes: r.estudo.partes, contexto: r.estudo.contexto, gatilho: r.estudo.gatilho, confirmado: false });
+      setNotas({ avisos: r.avisos, sugestoes: r.sugestoes, acao: r.estudo.partes.acao ?? '' });
+      setProposta({ porque: r.porque });
+    } catch (e) {
+      setErroDaProposta(e instanceof ErroDaApi ? e.message : 'não deu certo');
+    } finally {
+      setPropondo(false);
+    }
+  }
+
+  function desfazerProposta() {
+    if (antesDaProposta) {
+      setEstudo(antesDaProposta.estudo);
+      setNotas(antesDaProposta.notas);
+    }
+    setProposta(null);
+    setAntesDaProposta(null);
+    setFocoNoPropor((n) => n + 1);
+  }
+
+  /** A ficha mudou pela mão da pessoa. Confirmada ou tirada, ela deixa de ser "a proposta do sistema". */
+  function mudarEstudo(novo: RascunhoDoEstudo) {
+    setEstudo(novo);
+    if (!novo.existe || novo.confirmado) {
+      setProposta(null);
+      setAntesDaProposta(null);
+    }
+  }
 
   function reclamar(naAba: Aba, texto: string, foco?: { current: HTMLElement | null }) {
     setAba(naAba);
@@ -797,13 +869,21 @@ export function GavetaDoCriterio({
                 <EstudoDoCriterio
                   prefixo={p}
                   valor={estudo}
-                  aoMudar={setEstudo}
+                  aoMudar={mudarEstudo}
                   lugares={lugares}
                   usaContextoEGatilho={usaContextoEGatilho}
                   configura={configura}
                   comoEHoje={peloDetector ? 'em toda olhada, no computador da loja' : COMO_SEM_ESTUDO[porteiroFinal]}
                   agenteSabe={agenteSabe}
                   problema={problemaDoEstudo}
+                  proposta={proposta}
+                  notas={notas}
+                  propondo={propondo}
+                  faltaParaPropor={faltaParaPropor}
+                  erroDaProposta={erroDaProposta}
+                  aoPropor={() => void propor()}
+                  aoDesfazerProposta={desfazerProposta}
+                  focoNoPropor={focoNoPropor}
                 />
               )}
             </div>
