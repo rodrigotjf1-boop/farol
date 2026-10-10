@@ -3410,7 +3410,7 @@
     a.revisao = {
       quem: 'Ana Souza', quando: 'hoje',
       texto: `${$('#fco-houve').value.trim()} ${$('#fco-feito').value.trim()}`,
-      virou: escolha === 'criar' && a.criterio ? `Propôs o critério “${a.criterio.nome}”, que nasce desligado.` : escolha === 'ajustar' && a.ajustar ? `Abriu “${CRITERIOS[a.ajustar].nome}” para ajuste.` : '',
+      virou: escolha === 'criar' && a.criterio ? `Propôs o critério “${a.criterio.nome}”, que nasce observando: conta, sem avisar.` : escolha === 'ajustar' && a.ajustar ? `Abriu “${CRITERIOS[a.ajustar].nome}” para ajuste.` : '',
     };
     $('#f-correcao').dataset.sucessoNovo = 'Correção registrada.';
     desenharPadroes();

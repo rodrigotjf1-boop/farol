@@ -53,7 +53,9 @@ import { QuadroDasAreas } from '@/componentes/areas/quadro-das-areas';
 import { MAX_QUADROS, nomeParaQuadroNovo, NOME_DA_IMAGEM_COMPLETA, rotuloDaArea } from '@/componentes/canal/quadros';
 import { useConsole } from '@/componentes/console';
 import { GavetaDoCriterio } from '@/componentes/criterios/formulario-criterio';
-import { iconeDoTipo, nomeDoTipo, resumoDaProcura, TIPOS_DO_DETECTOR } from '@/componentes/criterios/opcoes';
+import { estadoConhecido, NOME_DO_ESTADO, TOM_DO_ESTADO } from '@/componentes/criterios/estados';
+import { oQuePergunta } from '@/componentes/criterios/familias';
+import { iconeDoTipo, resumoDaProcura, TIPOS_DO_DETECTOR } from '@/componentes/criterios/opcoes';
 import { diaEHora, plural } from '@/componentes/formatos';
 import { useAvisar } from '@/componentes/ui/avisos';
 import { Botao } from '@/componentes/ui/botao';
@@ -783,11 +785,15 @@ export default function AreaDoCanal() {
                           <span className="min-w-0 flex-1">
                             <b className="block break-words font-semibold">{c.nome}</b>
                             <small className="block text-xs text-farol-suave">
-                              {nomeDoTipo(c.tipo)}
+                              {oQuePergunta(c)}
                               {procura ? ` · ${procura}` : ''}
                             </small>
                           </span>
-                          <Chip tom={c.ativa ? 'ok' : 'neutro'}>{c.ativa ? 'ligado' : 'desligado'}</Chip>
+                          {/* Ligado não é "avisando": o critério novo nasce ligado e só observando. A etiqueta
+                              diz o estado, como a árvore do canal — verde só no que avisa. */}
+                          <Chip tom={c.ativa ? TOM_DO_ESTADO[estadoConhecido(c.estado)] : 'neutro'}>
+                            {c.ativa ? NOME_DO_ESTADO[estadoConhecido(c.estado)] : 'desligado'}
+                          </Chip>
                         </li>
                       );
                     })}

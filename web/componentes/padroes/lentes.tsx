@@ -678,7 +678,9 @@ export function Sugestoes({
                 </p>
                 <div className="col-span-2 mt-1.5 md:col-span-1 md:col-start-3 md:row-span-2 md:row-start-1 md:mt-0 md:self-center [&>*]:max-md:w-full">
                   {s.acao.tipo === 'area' ? (
-                    <Link href={`/pontos/${s.acao.pontoId}`} className={classesDoBotao({ mini: true })}>
+                    // A foto padrão mora na tela do desenho ("Desenho, fotos e conexão"): quem clica em "Ver a
+                    // foto padrão" cai nela, e não na tela do canal, de onde ainda faltaria um clique.
+                    <Link href={`/pontos/${s.acao.pontoId}${s.icone === 'foto' ? '/area' : ''}`} className={classesDoBotao({ mini: true })}>
                       {s.acao.rotulo}
                       <ArrowRight className="h-[15px] w-[15px]" aria-hidden />
                     </Link>

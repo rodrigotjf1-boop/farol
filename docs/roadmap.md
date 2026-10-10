@@ -3784,7 +3784,7 @@ Levantamento do código feito antes de começar. Três coisas dele mudam o jeito
 | **1.2 · os quatro estados** ✅ (09/10, migration 031) | observando · em ensaio · medido · valendo. Só "valendo" avisa; "observando" conta sem julgar. Critério que já avisa hoje continua valendo | não | os de hoje ficam como estão |
 | **1.3 · o estudo do critério e o funil** ◐ (09/10, migration 032: o motor e os números; falta a proposta) | as seis partes (contexto, gatilho, janela, ação, desfecho, fora de contexto), com cada condição ligada a um sinal da loja; a proposta do sistema, pedida ao agente como hoje se pede a descrição de um equipamento; o funil servido em números | não | sem estudo, o critério segue com o "quando vale a pena conferir" de hoje |
 | **1.4 · o quadro de bancada** ✅ (09/10, sem migration; **uma parte mudou:** quem aparece não é apagado — a imagem com alguém à vista sai como hoje, com o borrão) | em quadro com papel "posição de montagem": sobe o quadro de quando as mãos saem, sem o borrão de rosto; quem aparecer é apagado | não | só onde o papel for esse — e o campo do papel só chega ao console na fatia 1.5 |
-| **1.5 · as telas** ◐ (09/10: a parte da nuvem — o que o agente declara saber, migration 033; **a tela do canal e a migração das áreas, migration 034**; falta a gaveta nova do critério) | o porte do protótipo aprovado para o console; a migração das áreas redesenhadas (a principal que não é o canal inteiro vira um quadro, e o canal ganha a imagem completa de volta); as contagens "em N canais (M quadros)" | sim | o protótipo foi aprovado em 09/10 |
+| **1.5 · as telas** ◐ (09/10: a parte da nuvem — o que o agente declara saber, migration 033; a tela do canal e a migração das áreas, migration 034; **a gaveta nova do critério — famílias, estudo, funil e estados —, migration 035**; faltam o "ir para" e a proposta do estudo, que é da fatia 1.3) | o porte do protótipo aprovado para o console; a migração das áreas redesenhadas (a principal que não é o canal inteiro vira um quadro, e o canal ganha a imagem completa de volta); as contagens "em N canais (M quadros)" | sim | o protótipo foi aprovado em 09/10 |
 
 **De onde sai cada número do funil que o protótipo mostra** (para não desenhar o que não
 existe):
@@ -3968,9 +3968,41 @@ completa de volta: o canal, os quadros e a tela do canal"; migration 034):
   área nenhuma. Passou a nascer com a imagem completa, e os que existiam ganharam a deles;
 - **onde diverge do protótipo:** dez pontos, listados na decisão — os principais: não há a
   barra de cima com o "ir para"; o texto de cada papel só diz o que o quadro é (o protótipo
-  prometia leituras que ainda não existem); e **o critério ainda abre a gaveta de hoje**;
-- **o que falta nesta fatia:** a gaveta nova do critério — o estudo com a proposta do
-  sistema, o funil, os estados e as famílias —, e o "ir para".
+  prometia leituras que ainda não existem); e o critério ainda abria a gaveta de antes
+  (**resolvido na parte seguinte**, abaixo);
+- **o que faltava nesta fatia:** a gaveta nova do critério — entregue em seguida — e o
+  "ir para".
+
+**A fatia 1.5, a gaveta nova do critério, entregue em 09/10** ([decisoes.md](decisoes.md), "A
+gaveta nova do critério: as famílias, o estudo, o funil e os estados"; migration 035):
+
+- **o que entrou:** as quatro **famílias** (estado, acontecimento, processo, medida), com a
+  regra no banco — só a família Estado tem juiz hoje, e as outras três só observam; o
+  critério criado pela tela nasce **observando e ligado** (conta, sem julgar e sem avisar);
+  a gaveta com as quatro abas do protótipo — o critério com **o estudo** (as seis partes, e
+  as condições de contexto e de gatilho que a loja confere sozinha), **o funil** em números,
+  **o estado** e o aviso; e, na tela do canal, cada critério com a família e os números dos
+  últimos 7 dias naquele lugar;
+- **a migration não muda critério nenhum:** a família vazia vale a natural do tipo, nada de
+  família desce para o agente e a configuração de loja nenhuma sobe de versão. O critério
+  de ação de antes, que já julgava, continua julgado pelo texto;
+- **a tela só afirma o que é verdade:** o custo usa o preço medido (sem preço, "—"); descer
+  de "valendo" não é oferecido (para parar um aviso, desliga-se o critério); "medido" e
+  "valendo" não têm botão; quem não configura abre a gaveta só para ler;
+- **onde diverge do protótipo:** onze pontos, listados na decisão — os principais: **"Propor
+  o estudo" não entrou** (no lugar, quatro modelos de partida e "escrever do zero"); o funil
+  mostra 7 dias, não 24 horas; a troca de estado vale ao salvar; não há "Parar de avisar";
+- **o que muda para quem cria critério:** até o banco de provas (onda 2), nenhum critério
+  NOVO chega a "valendo" — os que já avisam continuam. Por isso Padrões ("É problema" →
+  "criar um critério para acompanhar", no lugar de "que avisa quando repetir") e o Inventário
+  passaram a criar critério que observa, e a planta e a tela do desenho mostram o estado no
+  lugar de "ligado";
+- **achados no caminho:** em tela de 320 px a árvore "Onde vale" empurrava a gaveta 8 px
+  para o lado (texto da entrega anterior); as consultas do funil não filtravam pela loja e
+  não andavam pelo índice da tabela (uma delas no ar desde a fatia 1.3); e "Ver a foto
+  padrão", em Padrões, caía na tela do canal. Corrigidos;
+- **o que falta:** a proposta do estudo pelo sistema (fatia 1.3 — por regras, no servidor,
+  primeiro), o "ir para" (Ctrl K) e "quadro" no lugar de "área" em Análises e no Painel.
 
 **A escolha do porte.** O plano manda o protótipo nascer na cara nova, e assim foi feito; o
 porte da cara nova inteira é a onda 8. As telas da onda 1 entram no console com as peças e

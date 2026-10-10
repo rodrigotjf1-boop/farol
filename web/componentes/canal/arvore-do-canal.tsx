@@ -15,8 +15,8 @@
 import { Crop, Ellipsis, Pencil, Plus, Trash2 } from 'lucide-react';
 
 import { estadoConhecido, NOME_DO_ESTADO, O_QUE_FAZ_NO_ESTADO, TOM_DO_ESTADO } from '@/componentes/criterios/estados';
-import { nomeDoTipo } from '@/componentes/criterios/opcoes';
-import { plural } from '@/componentes/formatos';
+import { oQuePergunta } from '@/componentes/criterios/familias';
+import { numero, plural } from '@/componentes/formatos';
 import { Botao } from '@/componentes/ui/botao';
 import { Chip, type Tom } from '@/componentes/ui/pecas';
 import { DivisorDeMenu, ITEM_DE_MENU, Menu } from '@/componentes/ui/sobreposto';
@@ -24,9 +24,26 @@ import type { CriterioDaArea, ZonaCompleta } from '@/lib/api';
 
 import { emQuantosLugares, MAX_QUADROS, nomeDoPapel, NOME_DA_IMAGEM_COMPLETA } from './quadros';
 
+/**
+ * Os números do funil do critério NESTE lugar, numa linha — ou `null`
+ * quando quem está vendo não tem acesso ao funil (aí a linha diz o que o
+ * estado faz, sem número).
+ */
+export function linhaDoFunil(k: Pick<CriterioDaArea, 'funil' | 'estado'>): string | null {
+  const f = k.funil;
+  if (!f) return null;
+  if (f.olhadas === 0) return 'ainda sem dados';
+  const olhadas = `${numero(f.olhadas)} ${f.olhadas === 1 ? 'olhada' : 'olhadas'}`;
+  // Quem só observa não julga: o número que interessa é quantas vezes o gatilho aconteceu.
+  if (estadoConhecido(k.estado) === 'observando' && f.julgadas === 0) {
+    return `${numero(f.comGatilho)} ${f.comGatilho === 1 ? 'gatilho' : 'gatilhos'} em ${olhadas} · ainda não julga`;
+  }
+  return `${numero(f.julgadas)} ${f.julgadas === 1 ? 'julgada' : 'julgadas'} de ${olhadas} · ${numero(f.foraDoCriterio)} fora`;
+}
+
 /** A pastilha e a segunda linha de um critério: o que ele está fazendo agora. */
 export function situacaoDoCriterio(k: CriterioDaArea): { tom: Tom; pastilha: string; linha: string } {
-  const tipo = nomeDoTipo(k.tipo);
+  const tipo = oQuePergunta(k);
   const onde = k.canais > 1 ? ` · ${emQuantosLugares(k.canais, k.quadros)}` : '';
   if (!k.ativa) {
     return { tom: 'neutro', pastilha: 'desligado', linha: `${tipo} · não é conferido enquanto estiver desligado${onde}` };
@@ -42,7 +59,11 @@ export function situacaoDoCriterio(k: CriterioDaArea): { tom: Tom; pastilha: str
     };
   }
   const estado = estadoConhecido(k.estado);
-  return { tom: TOM_DO_ESTADO[estado], pastilha: NOME_DO_ESTADO[estado], linha: `${tipo} · ${O_QUE_FAZ_NO_ESTADO[estado]}${onde}` };
+  return {
+    tom: TOM_DO_ESTADO[estado],
+    pastilha: NOME_DO_ESTADO[estado],
+    linha: `${tipo} · ${linhaDoFunil(k) ?? O_QUE_FAZ_NO_ESTADO[estado]}${onde}`,
+  };
 }
 
 type Props = {
@@ -167,24 +188,17 @@ function No({ zona, ...p }: { zona: ZonaCompleta } & Omit<Props, 'zonas' | 'aoNo
                 <span className="col-span-full font-mono text-[12.5px] leading-snug text-farol-suave">{s.linha}</span>
               </>
             );
-            const classe =
-              'grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 rounded-lg border border-farol-borda bg-farol-painel px-[11px] py-[9px] text-left';
+            // Abre para todo mundo: quem configura edita; quem só vê, lê o estudo, o funil e o estado.
             return (
               <li key={k.id}>
-                {p.configura ? (
-                  <button
-                    type="button"
-                    data-criterio={k.id}
-                    onClick={() => p.aoAbrirCriterio(k.id, zona.id)}
-                    className={`${classe} transition-colors hover:border-farol-borda-forte`}
-                  >
-                    {conteudo}
-                  </button>
-                ) : (
-                  <div data-criterio={k.id} className={classe}>
-                    {conteudo}
-                  </div>
-                )}
+                <button
+                  type="button"
+                  data-criterio={k.id}
+                  onClick={() => p.aoAbrirCriterio(k.id, zona.id)}
+                  className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 rounded-lg border border-farol-borda bg-farol-painel px-[11px] py-[9px] text-left transition-colors hover:border-farol-borda-forte"
+                >
+                  {conteudo}
+                </button>
               </li>
             );
           })}

@@ -145,9 +145,6 @@ export const porcentoExato = (fracao: number | string): number => Number((Number
 /** Os ajustes de um critério numa linha: "prioridade intermediária · confiança mínima 70% · silêncio de 15 min · versão 3". */
 export const ajustesEmLinha = (r: Pick<Regra, 'prioridade' | 'confianca_minima' | 'cooldown_min' | 'criterio_versao'>): string =>
   `prioridade ${nomeDaPrioridade(r.prioridade)} · confiança mínima ${String(porcentoExato(r.confianca_minima)).replace('.', ',')}% · silêncio de ${r.cooldown_min} min · versão ${r.criterio_versao}`;
-export const nomeDoTipo = (v: string): string =>
-  TIPOS.find((t) => t.valor === v)?.titulo.toLowerCase() ?? v;
-
 export const PRIORIDADES: Array<{ v: string; r: string }> = [
   { v: 'leve', r: 'leve — pode esperar horas' },
   { v: 'intermediaria', r: 'intermediária — até 30 s' },

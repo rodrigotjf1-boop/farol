@@ -1564,7 +1564,8 @@ describe('o especialista (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABAS
     const revista = achar(r.json() as Resposta, somaDias(hoje, -2), 12)!;
     assert.equal(revista.estado, 'problema');
     assert.equal(revista.revisao!.texto, 'Um atendente faltou. Remanejei uma pessoa do salão.');
-    assert.equal(revista.revisao!.virou, 'Propôs o critério “Pelo menos 2 em Balcão às 12h”, que nasce desligado.');
+    // A frase guardada diz como o critério proposto nasce HOJE: pela gaveta, observando (fatia 1.5 do A19).
+    assert.equal(revista.revisao!.virou, 'Propôs o critério “Pelo menos 2 em Balcão às 12h”, que nasce observando: conta, sem avisar.');
     assert.equal(revista.revisao!.soDestaVez, false, '"foi só desta vez" é um jeito de ser esperado, não de ser problema');
     const linha = (await pool.query(`select to_char(dia, 'YYYY-MM-DD') as dia, hora, regra_id from padrao_revisao where loja_id = $1 and estado = 'problema'`, [lojaId])).rows[0];
     assert.deepEqual(linha, { dia: somaDias(hoje, -2), hora: 12, regra_id: regraId });

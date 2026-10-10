@@ -107,12 +107,16 @@ function LinhaDoCanal({
       <li>
         <div className="flex min-h-[34px] min-w-0 items-center gap-2">
           <span className="w-5 shrink-0" aria-hidden />
-          <span className="min-w-0 flex-1 break-words">
-            {rotuloDoCanal(ponto)}
-            {pausado}
-          </span>
-          <span className="shrink-0 text-xs text-farol-suave">
-            imagem completa e {plural(ponto.zonas.filter((z) => !z.principal).length, 'quadro', 'quadros')} · escolha onde
+          {/* A dica vai ao lado do nome enquanto cabe, e desce para a linha de baixo quando não cabe: presa na
+              mesma linha, ela empurrava a gaveta 8 px para o lado numa tela de 320. */}
+          <span className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-2">
+            <span className="min-w-0 break-words">
+              {rotuloDoCanal(ponto)}
+              {pausado}
+            </span>
+            <span className="text-xs text-farol-suave">
+              imagem completa e {plural(ponto.zonas.filter((z) => !z.principal).length, 'quadro', 'quadros')} · escolha onde
+            </span>
           </span>
         </div>
         <ul className="ml-[38px] border-l border-farol-borda pl-3" aria-label={`Onde, em ${rotuloDoCanal(ponto)}`}>

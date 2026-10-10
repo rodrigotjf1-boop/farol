@@ -174,10 +174,101 @@ export type Regra = {
   com_padrao: boolean;
   /** O que o critério LIGADO faz: só "valendo" avisa. */
   estado: EstadoDoCriterio;
+  /** O que o critério pergunta. Só a família "estado" tem juiz hoje. */
+  familia: Familia;
 };
 
 /** Observando só conta; em ensaio e medido julgam sem avisar; valendo avisa. */
 export type EstadoDoCriterio = 'observando' | 'ensaio' | 'medido' | 'valendo';
+
+/** O que o critério pergunta: como está, aconteceu, foi feito como manda, quanto. */
+export type Familia = 'estado' | 'acontecimento' | 'processo' | 'medida';
+
+// ───────────────────── o estudo do critério e o funil ─────────────────────
+
+/** As seis partes do estudo, em texto. */
+export type ParteDoEstudo = 'contexto' | 'gatilho' | 'janela' | 'acao' | 'desfecho' | 'fora';
+
+/** Onde a condição é lida: no lugar do próprio critério, na imagem completa ou num quadro do mesmo canal. */
+export type OndeDaCondicao = 'aqui' | 'canal' | 'quadro';
+
+/** Uma condição do estudo: um sinal lido num lugar do canal. `a_cada` leva os minutos e não tem lugar. */
+export type Condicao = { sinal: string; onde?: OndeDaCondicao; zonaId?: string; minutos?: number };
+
+export type Estudo = {
+  partes: Partial<Record<ParteDoEstudo, string>>;
+  /** O que precisa estar acontecendo: TODAS têm de valer. */
+  contexto: Condicao[];
+  /** O que abre a análise: basta UM. Vazio = toda olhada. */
+  gatilho: Condicao[];
+  /** Só o estudo confirmado vale — e só ele desce para a loja. */
+  confirmado: boolean;
+  confirmadoEm?: string | null;
+  atualizadoEm?: string;
+};
+
+/** A ficha de um critério, com os quadros que uma condição pode citar. */
+export type EstudoDoCriterio = {
+  regraId: string;
+  tipo: Regra['tipo'];
+  /** Presença e contagem são conferidas na loja em toda olhada: o estudo delas só tem os textos. */
+  usaContextoEGatilho: boolean;
+  estudo: Estudo | null;
+  canais: Array<{
+    pontoId: string;
+    nome: string;
+    canal: number | null;
+    quadros: Array<{ id: string; nome: string; papel: Papel; numero: number | null }>;
+  }>;
+};
+
+/** O funil: cada olhada termina num desfecho só, e as parcelas somam as olhadas. */
+export type Funil = {
+  olhadas: number;
+  semJuiz: number;
+  semImagem: number;
+  emSilencio: number;
+  semContexto: number;
+  comContexto: number;
+  semGatilho: number;
+  comGatilho: number;
+  julgadas: number;
+  naLoja: number;
+  naNuvem: number;
+  foraDoCriterio: number;
+  custoCentavos: number;
+};
+
+export type FunilDoCriterio = {
+  regraId: string;
+  nome: string;
+  tipo: Regra['tipo'];
+  estado: EstadoDoCriterio;
+  /** Sem estudo confirmado, "com contexto" é o que o "quando vale a pena conferir" deixou passar. */
+  temEstudo: boolean;
+  dias: number;
+  /** O dia de hoje no relógio da loja (AAAA-MM-DD). */
+  hoje: string;
+  total: Funil;
+  porQuadro: Array<Funil & { zonaId: string; pontoId: string }>;
+  porDia: Array<Funil & { dia: string }>;
+  seLigado: {
+    gatilhosPorDia: number;
+    /** Quanto custa UMA análise na nuvem, medido. Nulo = ainda sem medida. */
+    precoDoPedidoCentavos: number | null;
+    deOndeVemOPreco: 'criterio' | 'loja' | null;
+    /** O TETO por dia, se toda análise precisasse da nuvem. Nulo = sem preço medido. */
+    tetoPorDiaCentavos: number | null;
+    /** Conferido só no computador da loja: nunca custa nuvem. */
+    soNaLoja: boolean;
+    diasNaMedia: number;
+    /** A média é de um dia que ainda não acabou. */
+    parcial: boolean;
+  };
+};
+
+/** Os números do funil de um critério NUM lugar, na linha dele na tela do canal. */
+export type FunilNaLinha = { olhadas: number; comGatilho: number; julgadas: number; foraDoCriterio: number };
 
 export type ParametrosDoDetector = {
   objeto?: string;
@@ -411,6 +502,19 @@ export const regrasApi = {
   /** Exclui o critério de TODOS os canais. O histórico de vereditos fica. */
   excluir: (id: string) =>
     pedir<{ excluido: boolean; canais: number }>(`/regras/${id}`, { method: 'DELETE' }),
+
+  /** A ficha do critério (ou nada) e os quadros que ela pode citar. */
+  estudo: (id: string) => pedir<EstudoDoCriterio>(`/regras/${id}/estudo`),
+
+  /** Grava a ficha inteira. Só a confirmada vale. */
+  gravarEstudo: (id: string, estudo: Pick<Estudo, 'partes' | 'contexto' | 'gatilho' | 'confirmado'>) =>
+    pedir<{ regraId: string; estudo: Estudo }>(`/regras/${id}/estudo`, { method: 'PUT', body: JSON.stringify(estudo) }),
+
+  /** Tira o estudo: o critério volta a ser conferido como antes dele. */
+  tirarEstudo: (id: string) => pedir<{ regraId: string; removido: boolean }>(`/regras/${id}/estudo`, { method: 'DELETE' }),
+
+  /** O funil dos últimos dias (o servidor escolhe quantos, quando `dias` não vem). */
+  funil: (id: string, dias?: number) => pedir<FunilDoCriterio>(`/regras/${id}/funil${dias ? `?dias=${dias}` : ''}`),
 };
 
 // ───────────────────── o canal: ver e demarcar ─────────────────────
@@ -449,6 +553,13 @@ export type CriterioDaArea = {
   /** O critério depende de entender a imagem e, neste canal, não está sendo
    *  analisado porque falta descrever a cena. Quem diz é o servidor. */
   falta_a_cena: boolean;
+  /** O que o critério pergunta. */
+  familia: Familia;
+  /** O estudo dele está confirmado (só o confirmado vale). */
+  tem_estudo: boolean;
+  /** Os números do funil NESTE lugar, nos últimos `funil_dias` do canal.
+   *  Nulo = quem está vendo não tem acesso ao funil. */
+  funil: FunilNaLinha | null;
 };
 
 export type ZonaCompleta = {
@@ -498,6 +609,9 @@ export type PontoCompleto = {
   /** A cena está fazendo falta AGORA: critério deste canal que depende de
    *  entender a imagem não é analisado enquanto ela estiver em branco. */
   cena_em_falta: boolean;
+  /** De quantos dias são os números do funil de cada critério. Nulo = quem
+   *  está vendo não tem acesso ao funil. */
+  funil_dias: number | null;
   /** Que negócio é a loja. Mostrado e editado junto com a cena. */
   loja_tipo_negocio: string;
   setor_id: string;

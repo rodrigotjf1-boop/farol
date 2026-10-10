@@ -2314,3 +2314,229 @@ tela do canal tem o atalho "Desenho, fotos e conexão".
   local e uma loja inventada (214 conferências, 16 larguras de 320 a 1920
   px, tema claro e escuro, com e sem a gaveta). A migration foi conferida no
   banco local e num esquema de teste com os casos de antes.
+
+## 09/10/2026 · A gaveta nova do critério: as famílias, o estudo, o funil e os estados
+
+A19, onda 1 — a segunda parte das telas da fatia 1.5 (migration 035). É a
+gaveta do protótipo aprovado em 09/10, com as quatro abas: "O critério", "O
+funil", "Estado" e "Aviso".
+
+### Por quê
+
+Os estados (fatia 1.2) e o estudo com o funil (fatia 1.3) já existiam no
+servidor e no agente, e não tinham tela: o critério ainda abria a gaveta de
+antes, que não mostra nenhum dos dois. Sem tela ninguém escreve um estudo,
+ninguém vê quantas vezes por dia o gatilho acontece, e "observar → ensaiar"
+não sai do papel.
+
+### As famílias (migration 035)
+
+O plano troca os cinco tipos por quatro **famílias** — o que o critério
+pergunta: **estado** (como está?), **acontecimento** (aconteceu? alguém
+fez?), **processo** (foi feito como manda?) e **medida** (quanto? por quanto
+tempo?). Presença, contagem e a comparação com a foto padrão continuam: são
+**formas de conferir um Estado**.
+
+- A coluna `regra.familia` guarda a família; vazia vale a **natural do
+  tipo** (`acao` é acontecimento; os outros quatro são estado). **A
+  migration não muda critério nenhum**, e a configuração de loja nenhuma
+  sobe de versão: nada de família desce para o agente.
+- **Só a família Estado tem juiz hoje.** As outras três chegam com a
+  sequência (onda 2) e com a leitura da bancada. Até lá o critério delas **só
+  observa** — conta as olhadas, o contexto e o gatilho, sem julgar —, e é
+  guardado com o tipo de texto livre (`acao`), que o agente já conhece.
+- **A regra está no banco** (`regra_familia_cabe_no_tipo`): estado vai com os
+  quatro jeitos de conferir; as outras três, só com `acao`.
+- O servidor recusa: a família que não cabe no tipo (422); levar a "em
+  ensaio" um critério de família sem juiz, ao criar e ao editar
+  (`422 familia_so_observa`, com a frase de quando o julgamento chega); e
+  levar a uma família sem juiz um critério que está julgando, a não ser
+  descendo a "observando" no mesmo pedido.
+- **O critério de ação de antes das famílias, que já julgava, continua como
+  está** — julgado pelo texto, como sempre. Só a troca é recusada: quem não
+  muda de estado nem de família não é barrado. Se descer a "observando", não
+  volta ao ensaio antes de a família dele ter juiz.
+- Quem troca o tipo sem dizer a família fica com a natural do tipo novo;
+  mandar o mesmo tipo de volta (a gaveta manda o tipo em todo salvar) não
+  troca a família guardada.
+
+### Nascer observando — e ligado
+
+Até aqui todo critério nascia desligado. O critério criado pela gaveta nova
+nasce **observando e ligado**: observar não julga, não gasta e não avisa, e
+desligado ele não contaria nada — o funil ficaria em branco, que é
+justamente o que se quer ver antes de decidir julgar. O cadastro de antes
+(quem cria sem dizer o estado) continua nascendo valendo e desligado, e o
+que nasce "em ensaio" também nasce desligado. `ativa` no pedido de criação
+não manda: quem decide é o estado.
+
+### O que a tela do canal passou a receber
+
+De cada critério, em cada lugar (`GET /v1/pontos/:id`): a família, se o
+estudo está **confirmado**, e os números do funil **naquele lugar** nos
+últimos 7 dias — olhadas, com gatilho, julgadas, fora do critério. É a mesma
+conta e a mesma permissão do funil do critério (supervisão para cima, e o
+suporte): quem não pode ver recebe o canal sem número nenhum. Os dias são
+os do **relógio da loja**, e é uma consulta para o canal inteiro.
+
+Na árvore "onde cada critério vale", a segunda linha de cada critério diz a
+família (ou, num Estado, a forma de conferir) e esses números: "estado · 130
+julgadas de 2.880 olhadas · 11 fora"; quem só observa mostra os gatilhos
+("270 gatilhos em 270 olhadas · ainda não julga").
+
+### A gaveta
+
+- **O critério** — o nome, o texto ("como você explicaria a um funcionário
+  novo"), a família, a forma de conferir (num Estado), onde vale, em que
+  horário, e **o estudo**: as seis partes (contexto, gatilho, janela, ação,
+  desfecho, fora de contexto). O contexto e o gatilho têm, além do texto, as
+  **condições que a loja confere sozinha, de graça**: um sinal (há alguém,
+  está tudo parado, parou de se mexer, de tempos em tempos, está diferente
+  da foto padrão…) num lugar (onde o critério vale, a imagem completa, ou um
+  quadro do mesmo canal). O estudo começa por um de quatro **modelos** ou do
+  zero; só o **confirmado** vale — o rascunho fica guardado e não muda nada.
+- **O funil** — olhadas → com contexto → com gatilho → julgadas → fora do
+  critério, dos últimos 7 dias; o que não entrou no funil; quantas vezes por
+  dia o gatilho acontece; e quanto custa (ou custaria) por dia.
+- **Estado** — observando · em ensaio · medido · valendo, e o interruptor
+  de ligado/desligado. A troca fica marcada e **vale ao salvar**.
+- **Aviso** — prioridade, gravidade, confiança, silêncio e "avisar só se
+  continuar", como já eram.
+
+Salvar são até duas idas ao servidor — o critério e, se mudou, o estudo. Se
+a segunda falhar, o critério já está salvo e a mensagem diz; a gaveta nunca
+apaga um estudo que não conseguiu ler. **Quem não configura abre a gaveta
+para ler**: os campos ficam travados, o rodapé só tem "Fechar", e o funil
+aparece para quem pode vê-lo.
+
+### A tela só afirma o que é verdade
+
+- **Para onde vai o texto do critério**, caso a caso: enquanto só observa,
+  a nenhum modelo; em presença e contagem, a nenhum modelo; em comparação,
+  só quando a cena não é igual à foto padrão; nos outros, ao modelo, como
+  pergunta.
+- **O custo.** "Por dia, no máximo, quando julgar" é o teto — gatilhos por
+  dia × o preço **medido** de uma análise na nuvem (do critério ou, na
+  falta, da loja), e a tela diz de onde ele vem. Sem preço medido aparece
+  "—": número inventado não entra. No critério que já julga, o custo é a
+  média dos dias **em que houve olhada** (dividir pelos sete diria um dia
+  mais barato do que ele é).
+- **"Passar para em ensaio"** diz o que custa antes de salvar, e que não
+  avisa ninguém. "Medido" e "valendo" não têm botão: só se chega lá com o
+  acerto medido, e o banco de provas é a onda 2.
+- **Descer de "valendo" não é oferecido.** Não há caminho de volta antes do
+  banco de provas, e um toque errado deixaria a loja sem o aviso. Para parar
+  um aviso, desliga-se o critério — ali mesmo —, e ligar de novo volta a
+  avisar.
+- **O critério de antes das famílias** é dito como é: "já era julgado antes
+  de as famílias existirem, e continua". Em ensaio, a gaveta avisa antes do
+  clique que voltar a só observar não tem volta.
+- **Família sem juiz fica fora de alcance enquanto o critério julga** — é a
+  recusa do servidor, mostrada antes. A que está guardada continua ao
+  alcance (clicou em outra por engano: dá para voltar).
+- **O estudo na loja.** A gaveta avisa quando o computador da loja ainda
+  não sabe usar o estudo (pelo que o agente declara, migration 033): ele
+  fica guardado e passa a valer quando o programa de lá for atualizado. Em
+  presença e contagem o estudo guarda só os textos: são conferidas na loja
+  em toda olhada.
+
+### Onde a gaveta diverge do protótipo aprovado
+
+1. **"Propor o estudo" não entrou.** No lugar dele: "Começar por um modelo"
+   (com alguém no lugar, com o lugar livre, quando o lugar para, de tempos em
+   tempos) e "Escrever do zero". A proposta — por regras, no servidor,
+   primeiro — é a parte seguinte.
+2. **O contexto e o gatilho têm editor de condições** (o sinal e o lugar).
+   No protótipo o "pelo sinal: …" era resultado da proposta. Sem a proposta
+   não há a pastilha "a câmera não vê" nem a "Sugestão".
+3. **A aba "O critério" guarda os campos da gaveta de antes** que o
+   protótipo não mostrava e de que o critério precisa: a forma de conferir,
+   o que o detector procura, onde vale, o horário e a faixa de horas, a foto
+   padrão.
+4. **"Sem estudo confirmado, conferir"** — o "quando vale a pena conferir" de
+   antes continua valendo enquanto o critério não tem estudo confirmado, e
+   aparece só nesse caso.
+5. **O funil mostra os últimos 7 dias**, no relógio da loja (o protótipo
+   dizia "últimas 24 horas"), sem o "uma olhada a cada N s". Ganhou a linha
+   do que não entrou no funil, e "vezes por dia" é a média dos dias inteiros.
+6. **Estado:** não há "Parar de avisar (voltar a em ensaio)" nem o botão
+   "Medir" apagado (o texto do passo diz o que falta); a troca vale ao
+   salvar (no protótipo valia no clique); e o interruptor de
+   ligado/desligado mora nesta aba (o protótipo não tinha).
+7. **O passo "em ensaio"** diz "daqui só sobe com o acerto medido — pelo
+   banco de provas"; o protótipo dizia "quando você marcou acertou ou errou
+   num número mínimo de exemplos", que é a onda 2.
+8. **Aviso** tem os campos de hoje, editáveis (o protótipo mostrava uma
+   lista só para ler).
+9. **Trocar de família com o critério julgando:** as famílias sem juiz
+   ficam travadas (o protótipo deixava escolher e avisava depois).
+10. **Na árvore do canal**, os números são dos últimos 7 dias, e um Estado
+    mostra a forma de conferir ("presença", "contra a foto padrão") no lugar
+    da palavra "estado".
+11. **Na linha de condição**, o sinal e o lugar ficam um embaixo do outro:
+    lado a lado, na largura da gaveta, o seletor cortava o texto.
+
+### O que muda para quem cria critério — e nas telas que já existiam
+
+**Até o banco de provas (onda 2), nenhum critério NOVO chega a "valendo".**
+É a regra aprovada — observar, ensaiar, medir, avisar —, agora valendo em
+toda tela que cria critério. Os critérios que já avisam continuam avisando.
+O critério novo conta ("observando") e, quando quem configura decide, julga
+e mostra nas análises ("em ensaio"); aviso, só com o acerto medido.
+
+Por isso três telas que já existiam mudaram de texto:
+
+- **Padrões → "É problema".** A opção "Criar um critério que avisa quando
+  repetir — nasce desligado: você revisa e liga" passou a "Criar um critério
+  para acompanhar — nasce observando: conta, sem julgar e sem avisar. Na aba
+  Estado dele você passa a 'em ensaio', que julga e mostra". A frase que o
+  servidor guarda na revisão também: "…que nasce observando: conta, sem
+  avisar" (as revisões de antes guardam a frase de então). As três frases
+  foram levadas ao protótipo do console (`mockups/farol-console.html`).
+- **Padrões (sugestões) e Inventário ("o que vale conferir").** O critério
+  criado a partir deles abre na gaveta nova, com o que a sugestão trouxe (a
+  contagem e a faixa de horas; a área livre e a foto padrão), e nasce
+  observando e ligado.
+- **A planta e a tela do desenho.** A etiqueta de cada critério dizia
+  "ligado" (em verde) ou "desligado". Com critério nascendo ligado e só
+  observando, passou a dizer o estado — "observando", "em ensaio",
+  "valendo" —, como a árvore do canal: verde só no que avisa.
+
+### O que não entrou
+
+- A proposta do estudo pelo sistema ("Propor o estudo").
+- O "ir para" (Ctrl K).
+- "Quadro" no lugar de "área" nas telas de Análises e do Painel.
+- "Parar de avisar" como volta a "em ensaio": depende do banco de provas.
+- No cartão "Critérios ligados" da página da loja, dizer quantos dos ligados
+  só observam.
+
+### Achados no caminho
+
+- Na gaveta do critério, numa tela de 320 px, a dica "imagem completa e N
+  quadros · escolha onde" (da árvore "Onde vale", texto da entrega anterior)
+  empurrava a gaveta 8 px para o lado. A dica passou a descer de linha.
+- As consultas do funil sobre os resumos por hora — a do critério, no ar
+  desde a fatia 1.3, e a nova, da tela do canal — não filtravam pela loja, e
+  os índices da tabela começam por ela. Com a tabela pequena não aparece;
+  com muitas lojas, cada abertura de tela leria os resumos de todas. As três
+  consultas ganharam o filtro (conferido pelo plano de execução; o resultado
+  é o mesmo).
+- Em Padrões, "Ver a foto padrão" tinha passado a cair na tela do canal (na
+  entrega anterior), um clique antes da foto. Voltou a abrir a tela do
+  desenho, que é onde a foto padrão mora.
+
+### O que não foi medido
+
+- Com a loja de verdade: as telas foram conferidas num navegador, contra a
+  API local, o build de produção do console e lojas inventadas — 780
+  conferências na tela do canal e na gaveta do critério (16 larguras, de 320
+  a 1920 px, com a gaveta aberta em cada aba; tema claro e escuro; quatro
+  defeitos plantados de propósito, todos pegos), mais os roteiros das telas
+  que abrem a mesma gaveta: Padrões (730) e Inventário (246). As regras do
+  servidor e a migration: 96 mutações, 96 pegas pelos testes.
+- Na loja não há estudo escrito (não havia tela para isso), e a
+  configuração que desce para ela (lida em 09/10, versão 127) tem dois
+  critérios ligados, os dois de presença e valendo. Os números do funil que
+  a tela vai mostrar lá são os desses critérios, sem estudo: nenhum critério
+  da loja passou ainda por "observando" ou "em ensaio".

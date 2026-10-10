@@ -8,7 +8,10 @@
 //
 // "É problema": o que aconteceu, o que foi feito e como não repetir — um
 // critério novo com o costume daquela hora como limite, o ajuste de um
-// que já existe, ou só o registro. O critério proposto nasce desligado.
+// que já existe, ou só o registro. O critério proposto nasce como todo
+// critério criado pela gaveta: observando — conta, sem julgar e sem avisar.
+// (Até a fatia 1.5 do A19 ele nascia desligado, e a opção dizia "que avisa
+// quando repetir": hoje nenhum critério novo avisa antes do acerto medido.)
 //
 // Quem grava é a API, que confere de novo se aquela hora ainda é uma saída
 // do padrão e se ninguém respondeu antes.
@@ -204,7 +207,15 @@ export function GavetaDeCorrecao({
           valor={depois}
           aoMudar={setDepois}
           opcoes={[
-            ...(c ? [{ valor: 'criar' as const, titulo: 'Criar um critério que avisa quando repetir', ajuda: 'Nasce desligado: você revisa e liga.' }] : []),
+            ...(c
+              ? [
+                  {
+                    valor: 'criar' as const,
+                    titulo: 'Criar um critério para acompanhar',
+                    ajuda: 'Nasce observando: conta, sem julgar e sem avisar. Na aba Estado dele você passa a “em ensaio”, que julga e mostra.',
+                  },
+                ]
+              : []),
             ...(a.ajustar ? [{ valor: 'ajustar' as const, titulo: 'Ajustar um critério que já existe', ajuda: 'Abre o critério para você mudar o limite ou o silêncio.' }] : []),
             { valor: 'nada' as const, titulo: 'Só registrar', ajuda: 'Fica no histórico desta saída do padrão.' },
           ]}

@@ -42,6 +42,7 @@ import type { Ponto, Regra, Setor } from '@/lib/api';
 
 import { criteriosDoCanal, emOrdem, rotuloDoCanal, temVariasAreas } from './canais';
 import { estadoConhecido, NOME_DO_ESTADO, O_QUE_FAZ_NO_ESTADO, TOM_DO_ESTADO } from './estados';
+import { oQuePergunta } from './familias';
 import {
   ajustesEmLinha,
   faltaAFotoPadrao,
@@ -49,7 +50,6 @@ import {
   mandaAFotoPadrao,
   nomeDaSeveridade,
   etiquetaDoPorteiro,
-  nomeDoTipo,
   resumoDaFaixa,
   resumoDaProcura,
   TIPOS_DO_DETECTOR,
@@ -119,7 +119,7 @@ function Etiquetas({ regra, pontoId }: { regra: Regra; pontoId?: string }) {
           {NOME_DO_ESTADO[estado]}
         </Chip>
       )}
-      <Chip>{nomeDoTipo(regra.tipo)}</Chip>
+      <Chip>{oQuePergunta(regra)}</Chip>
       <Chip tom={grave ? 'critico' : 'neutro'}>{nomeDaSeveridade(regra.severidade)}</Chip>
       {n > 1 && (
         <Chip tom="vazado" title="É um cadastro só: editar aqui muda em todos os canais">

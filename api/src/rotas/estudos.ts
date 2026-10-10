@@ -28,12 +28,16 @@ import type pg from 'pg';
 import { repartirPorOnde } from '../analises.js';
 import { SQL_NUMERO_DO_QUADRO } from '../cena.js';
 import {
+  DIAS_DO_FUNIL,
   estudoNaoCabeNoTipo,
   lerEstudo,
   montarFunil,
   mediaDeGatilhosPorDia,
   quadrosCitados,
   quantoCustariaLigado,
+  SOMA_ZERO,
+  somarAoFunil,
+  SQL_SOMAS_DO_FUNIL,
   TIPOS_QUE_USAM_ESTUDO,
   type SomaDoFunil,
 } from '../estudo.js';
@@ -42,9 +46,8 @@ import { sessaoDe, type Sessao } from './sessao.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Quantos dias o funil devolve de uma vez, e quantos sem pedir. */
+/** Quantos dias o funil devolve de uma vez. (Sem pedir: `DIAS_DO_FUNIL`.) */
 const MAX_DIAS_DO_FUNIL = 31;
-const DIAS_DO_FUNIL = 7;
 /** De quantos dias sai o preço medido de uma análise na nuvem. */
 const DIAS_DO_PRECO = 30;
 
@@ -64,52 +67,6 @@ const paraATela = (e: LinhaDoEstudo | undefined) =>
         atualizadoEm: e.atualizado_em,
       }
     : null;
-
-const SOMAS = `sum(h.capturas)::integer as capturas,
-               sum(h.sem_juiz)::integer as sem_juiz,
-               sum(h.sem_quadro)::integer as sem_quadro,
-               sum(h.sem_cena)::integer as sem_cena,
-               sum(h.sem_condicao)::integer as sem_condicao,
-               sum(h.sem_gatilho)::integer as sem_gatilho,
-               sum(h.observadas)::integer as observadas,
-               sum(h.em_silencio)::integer as em_silencio,
-               sum(h.repetidas)::integer as repetidas,
-               sum(h.ja_julgadas)::integer as ja_julgadas,
-               sum(h.enfileiradas)::integer as enfileiradas,
-               sum(h.conformes)::integer as conformes,
-               sum(h.nao_conformes)::integer as nao_conformes,
-               sum(h.nao_avaliaveis)::integer as nao_avaliaveis,
-               sum(h.julgadas_loja)::integer as julgadas_loja,
-               sum(h.julgadas_nuvem)::integer as julgadas_nuvem,
-               sum(h.custo_centavos)::float8 as custo_centavos`;
-
-const ZERO: SomaDoFunil = {
-  capturas: 0, semJuiz: 0, semQuadro: 0, semCena: 0, semCondicao: 0, semGatilho: 0, observadas: 0, emSilencio: 0,
-  repetidas: 0, jaJulgadas: 0, enfileiradas: 0, conformes: 0, naoConformes: 0, naoAvaliaveis: 0,
-  julgadasLoja: 0, julgadasNuvem: 0, custoCentavos: 0,
-};
-
-function somar(a: SomaDoFunil, l: Record<string, unknown>): SomaDoFunil {
-  return {
-    capturas: a.capturas + Number(l.capturas),
-    semJuiz: a.semJuiz + Number(l.sem_juiz),
-    semQuadro: a.semQuadro + Number(l.sem_quadro),
-    semCena: a.semCena + Number(l.sem_cena),
-    semCondicao: a.semCondicao + Number(l.sem_condicao),
-    semGatilho: a.semGatilho + Number(l.sem_gatilho),
-    observadas: a.observadas + Number(l.observadas),
-    emSilencio: a.emSilencio + Number(l.em_silencio),
-    repetidas: a.repetidas + Number(l.repetidas),
-    jaJulgadas: a.jaJulgadas + Number(l.ja_julgadas),
-    enfileiradas: a.enfileiradas + Number(l.enfileiradas),
-    conformes: a.conformes + Number(l.conformes),
-    naoConformes: a.naoConformes + Number(l.nao_conformes),
-    naoAvaliaveis: a.naoAvaliaveis + Number(l.nao_avaliaveis),
-    julgadasLoja: a.julgadasLoja + Number(l.julgadas_loja),
-    julgadasNuvem: a.julgadasNuvem + Number(l.julgadas_nuvem),
-    custoCentavos: a.custoCentavos + Number(l.custo_centavos),
-  };
-}
 
 const funilDe = (tipo: string, s: SomaDoFunil) =>
   montarFunil(s, repartirPorOnde({
@@ -359,25 +316,28 @@ export function rotasDeEstudos(app: FastifyInstance, pool: pg.Pool): void {
     const regra = r.rows[0]!;
 
     // Os limites são meia-noite NO FUSO DA LOJA: `timestamp at time zone`
-    // lê o relógio de parede e devolve o instante.
+    // lê o relógio de parede e devolve o instante. A loja entra no filtro
+    // das consultas do critério para elas andarem pelo índice da tabela
+    // (`resumo_hora_loja_idx`: loja e hora), como a da loja inteira.
     const [linhas, doCriterio, daLoja] = await Promise.all([
       pool.query(
-        `select to_char(h.hora at time zone $2, 'YYYY-MM-DD') as dia, h.zona_id, z.ponto_id, ${SOMAS}
+        `select to_char(h.hora at time zone $2, 'YYYY-MM-DD') as dia, h.zona_id, z.ponto_id, ${SQL_SOMAS_DO_FUNIL}
            from resumo_hora h
            join zona z on z.id = h.zona_id
           where h.regra_id = $1
+            and h.loja_id = $5
             and h.hora >= (($3::date - ($4::integer - 1))::timestamp at time zone $2)
             and h.hora <  (($3::date + 1)::timestamp at time zone $2)
           group by 1, h.zona_id, z.ponto_id
           order by 1, z.ponto_id, h.zona_id`,
-        [id, regra.timezone, regra.hoje, dias],
+        [id, regra.timezone, regra.hoje, dias, regra.loja_id],
       ),
       // O preço medido: o que este critério pagou por análise na nuvem...
       pool.query<{ custo: number; na_nuvem: number }>(
         `select coalesce(sum(h.custo_centavos), 0)::float8 as custo, coalesce(sum(h.julgadas_nuvem), 0)::integer as na_nuvem
            from resumo_hora h
-          where h.regra_id = $1 and h.hora >= now() - make_interval(days => $2)`,
-        [id, DIAS_DO_PRECO],
+          where h.regra_id = $1 and h.loja_id = $3 and h.hora >= now() - make_interval(days => $2)`,
+        [id, DIAS_DO_PRECO, regra.loja_id],
       ),
       // ...e, na falta dele, o que a loja inteira pagou.
       pool.query<{ custo: number; na_nuvem: number }>(
@@ -388,14 +348,14 @@ export function rotasDeEstudos(app: FastifyInstance, pool: pg.Pool): void {
       ),
     ]);
 
-    let total = ZERO;
+    let total = SOMA_ZERO;
     const porQuadro = new Map<string, { pontoId: string; soma: SomaDoFunil }>();
     const porDia = new Map<string, SomaDoFunil>();
     for (const l of linhas.rows) {
-      total = somar(total, l);
-      const q = porQuadro.get(l.zona_id) ?? { pontoId: l.ponto_id as string, soma: ZERO };
-      porQuadro.set(l.zona_id, { pontoId: q.pontoId, soma: somar(q.soma, l) });
-      porDia.set(l.dia, somar(porDia.get(l.dia) ?? ZERO, l));
+      total = somarAoFunil(total, l);
+      const q = porQuadro.get(l.zona_id) ?? { pontoId: l.ponto_id as string, soma: SOMA_ZERO };
+      porQuadro.set(l.zona_id, { pontoId: q.pontoId, soma: somarAoFunil(q.soma, l) });
+      porDia.set(l.dia, somarAoFunil(porDia.get(l.dia) ?? SOMA_ZERO, l));
     }
 
     const funil = funilDe(regra.tipo, total);
