@@ -130,18 +130,32 @@
       "condicao": "mediaFileFind; arquivos de 30 min"
     },
     {
-      "em": "2026-10-09",
+      "em": "2026-10-10",
       "onde": "loja de teste",
       "metrica": "gravacao_entregue_em_blocos",
-      "valor": "blocos de 2 s, a partir de segundo par; o pedido é arredondado para baixo nas duas pontas",
-      "condicao": "loadfile.cgi, fluxo principal: pedir de :20 a :33 devolveu de :20 a :32; de :27 a :29, o bloco de :26 a :28"
+      "valor": "blocos de 2 s (30 quadros, uns 527 KB), a partir de segundo par; da gravação assentada, o gravador devolve os blocos que COMEÇAM dentro do pedido",
+      "condicao": "loadfile.cgi, fluxo principal, gravação de 10 min de idade: de :48 a :49 veio o bloco de :48; de :49 a :50, nada; de :49 a :51, só o bloco de :50; de :08 a :21, 210 quadros (7 blocos). Corrige a leitura de 09/10 (\"arredondado para baixo nas duas pontas\"), que estava errada"
     },
     {
-      "em": "2026-10-09",
+      "em": "2026-10-10",
       "onde": "loja de teste",
       "metrica": "atraso_ate_a_gravacao_poder_ser_pedida",
-      "valor": "o que foi gravado até uns 3 s antes já vem inteiro",
-      "condicao": "uma medida: o trecho que terminava 3 s antes do agora do gravador veio completo; o que terminava 3 s depois, com 9 quadros"
+      "valor": "o bloco recém-gravado só veio inteiro entre 1 min e 20 s e 2 min e 15 s depois de gravado; antes disso vem cortado, com o tamanho declarado batendo",
+      "condicao": "três blocos acompanhados com pedidos de 1 s: ainda pela metade aos 77, 78 e 130 s; inteiros aos 81, 84 e 135 s. Disco de 218,8 GB, cheio, sobrescrevendo. Corrige a leitura de 09/10 (\"uns 3 s\"), que era uma medida só"
+    },
+    {
+      "em": "2026-10-10",
+      "onde": "loja de teste",
+      "metrica": "gravacao_recente_por_http",
+      "valor": "vem cortada sem aviso: pedidos de 12 e 13 s em gravação de uns 45 s de idade devolveram de 141 a 185 quadros, onde eram 180 e 195",
+      "condicao": "loadfile.cgi, fluxo principal; seis pedidos; o Content-Length bate com o que chega"
+    },
+    {
+      "em": "2026-10-10",
+      "onde": "loja de teste",
+      "metrica": "perfil_de_arquivo_medido_pelo_agente",
+      "valor": "bloco de 2 s, desvio 0, 15 quadros por segundo; 6 pedidos em 4,7 s",
+      "condicao": "a rotina de medida do agente (sondas de 1 s na gravação de 10 min atrás), rodada à mão na loja; três blocos assentados: 1,58 MB em 2,25 s, 90 quadros de 90"
     },
     {
       "em": "2026-10-09",

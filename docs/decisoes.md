@@ -3057,13 +3057,18 @@ saber pedi-lo sem pôr o ao vivo em risco.
 3. **Nenhum número de aparelho mora no motor.** O tamanho do bloco e o atraso até a gravação
    poder ser pedida entram por um **perfil do gravador**. Sem medida, o agente não supõe
    bloco nenhum e espera 10 s, por cautela. O que se mediu de cada modelo fica na base de
-   equipamentos; quem mede o perfil na instalação é o próprio agente (fatia 2.2).
+   equipamentos; quem mede o perfil na instalação é o próprio agente (fatia 2.2a).
+   **Corrigido na fatia 2.2a (abaixo):** a cautela passou a 3 minutos — a gravação recente
+   não vem inteira.
 4. **A hora do pedido é a do gravador.** O agente mede a diferença entre o relógio do
    gravador e o do computador — perguntando a hora ao próprio gravador, por HTTP —, guarda
    por 5 minutos e converte.
 5. **Ou o trecho inteiro, ou nada.** O que chega cortado, maior que o teto (24 MB), fora do
    tempo (45 s) ou como página de texto no lugar do vídeo é apagado e dito como erro. Um
    pedido cobre no máximo 40 s: olhar para trás é coisa de segundos.
+   **Corrigido na fatia 2.2a (abaixo):** "inteiro" aqui é o que o gravador **declarou**. Ele
+   pode declarar e mandar menos vídeo do que foi pedido; se veio o vídeo todo, quem diz é
+   quem lê, contando os quadros.
 6. **Segredo.** Nada escreve em registro o usuário, a senha, o cabeçalho de autorização nem
    o identificador que o gravador manda no desafio (ele traz o número de série). Da senha
    recusada guarda-se só uma impressão, com sal que muda a cada vez que o agente sobe.
@@ -3095,3 +3100,138 @@ pelos testes.
 - Não foi medido: outro gravador que não o do piloto; horas de busca com o ao vivo aberto; o
   caminho depois do cabo novo; o desafio com SHA-256 num gravador de verdade (o do piloto
   usa MD5 — o SHA-256 está provado só contra o gravador de mentira dos testes).
+
+## 10/10/2026 · O agente mede o que o gravador entrega, e confere o que voltou — dormindo (onda 2, fatia 2.2a)
+
+A fatia 2.1 deixou o perfil do gravador para o agente medir. Ao escrever essa medida, a
+primeira rodada dela no gravador de verdade não fechou com o que a rodada 5 dizia. Medi de
+novo, pedido a pedido ([teste-das-fichas.md](teste-das-fichas.md), "O que o gravador
+entrega, medido de novo"), e duas coisas que eu tinha escrito estavam erradas.
+
+### O que a medida mostrou
+
+1. **Da gravação que já assentou, o gravador do piloto devolve os blocos que COMEÇAM dentro
+   do pedido.** Pedir 1 s a partir do começo de um bloco devolve o bloco todo; pedir o
+   segundo seguinte não devolve nada. Eu tinha escrito "o pedido é arredondado para baixo
+   nas duas pontas" — errado: o bloco em que o pedido começa, se já tinha começado, não vem.
+2. **A gravação recente vem cortada, e o gravador não avisa.** O tamanho que ele declara
+   bate com o que chega, e o vídeo tem menos do que foi pedido. Em três blocos acompanhados
+   desde a gravação, o bloco só passou a vir inteiro entre 1 min e 20 s e 2 min e 15 s
+   depois. Eu tinha escrito "o que foi gravado até uns 3 s antes já vem inteiro" — uma
+   medida só, que deu certo uma vez.
+
+### O que fica valendo
+
+1. **O pedido é feito em cima dos blocos.** Começa no começo do bloco em que o intervalo
+   começa — senão esse bloco não vem — e termina 1 s depois do começo do último bloco
+   preciso. Um segundo, e não o bloco inteiro, de propósito: se os blocos não estiverem onde
+   o perfil diz, volta um bloco a menos, e quem lê percebe pela conta dos quadros — em vez
+   de receber, calado, o vídeo do segundo ao lado.
+2. **Quem lê confere se o trecho veio inteiro.** Quem baixa não tem como saber. Quem lê
+   conta os quadros: eram para vir tantos segundos vezes a taxa do gravador, com um quadro
+   de tolerância. Não veio inteiro: quem chamou espera e pede de novo.
+3. **O instante de cada quadro sai do começo do trecho e da taxa medida** — não de esticar
+   os quadros entre as duas pontas, que num trecho cortado dá a hora errada.
+4. **A cautela de quem não mediu é de 3 minutos** (era de 10 s). Não é número de aparelho: o
+   único gravador medido levou até 2 min e 15 s, e a cautela fica acima. O agente **não
+   mede** em quanto tempo a gravação assenta — varia de bloco para bloco, e medir o pior
+   caso ocuparia o gravador por minutos. A conferência de verdade é a conta dos quadros.
+5. **A medida do gravador é do agente, e é curta:** o relógio; pedidos de 1 s, segundo a
+   segundo, na gravação de dez minutos atrás, até achar três começos de bloco; o tamanho do
+   bloco é a distância entre eles, o desvio conta da meia-noite, a taxa sai dos quadros de
+   um bloco; e um pedido de dois blocos seguidos confere a conta. No gravador do piloto,
+   seis pedidos.
+6. **Gravador que entrega de outro jeito sai sem bloco, e isso fica escrito:** blocos de
+   tamanho que varia, bloco maior que a sonda, bloco que veio cortado, conferência que não
+   bate. Sem bloco, o agente pede como veio e confere o que voltou — vale mais não saber do
+   que pedir com a conta de outro aparelho. Canal sem gravação naquele horário é erro, dito
+   com a pergunta "este canal está gravando?".
+7. **O perfil medido fica na máquina,** num arquivo ao lado da configuração, um registro por
+   gravador (endereço e porta). Número impossível no arquivo não é usado: mede-se de novo.
+8. **O quadro parado é escolhido na loja, sem modelo nenhum** — a regra medida na rodada 5,
+   agora em código: no alvo reduzido a 96 pontos de largura e suavizado, um ponto mudou
+   quando o cinza salta mais de 16; o quadro está parado quando menos de 1,2% mudou; fica o
+   do meio do trecho parado mais longo, que tem de durar um quarto de segundo. Sem trecho
+   parado, volta o de menor movimento, **marcado como não parado**. Esses quatro números
+   são a **régua de fábrica**: saíram de uma câmera, numa noite. A régua é da câmera e da
+   cena, não do motor — outra câmera pode ter a sua, que entra por quem chama.
+
+### O que foi medido (loja de teste, 10/10 à noite, só leitura)
+
+| o quê | quanto |
+|---|---|
+| a medida do gravador, pela rotina do agente | 6 pedidos em 4,7 s: blocos de 2 s a partir de segundo par, 15 quadros por segundo, relógio 24,8 s adiantado |
+| três blocos de cinco minutos de idade, pedidos pelo meio deles | 1,58 MB em 2,25 s; 90 quadros de 90 esperados — inteiro; o quadro parado escolhido em 0,9 s; o instante dele voltou no mesmo quadro |
+| um bloco de 21 s de idade | 268 KB, o tamanho declarado batendo; 17 quadros de 30 esperados — dito como não inteiro |
+| um bloco recém-gravado passar a vir inteiro | aos 81, 84 e 135 s (ainda pela metade aos 77, 78 e 130 s) |
+
+Uma medida de cada, fora a última (três blocos). A rede da loja segue presa em 10 Mbit/s.
+Nenhum pedido foi recusado; a pasta de medida foi conferida vazia no fim.
+
+### Como foi testado
+
+A medida, contra um gravador de mentira que entrega em blocos de vários jeitos — o medido e
+os que a medida não pode engolir. A leitura, com vídeos de verdade gravados pelo próprio
+teste. 63 testes novos e 5 mudados; 148 mutações das três peças, as 148 pegas pelos testes.
+Um erro achado no caminho: o instante de um quadro é guardado em microssegundos, e a conta de
+volta caía no quadro vizinho (2/15 s vira 0,133333 s, um fio antes do quadro 2) — corrigido,
+com teste.
+
+### O que não muda, e o que não foi medido
+
+- **Nada chama estas peças.** A loja segue com o pacote de antes; esta fatia não pede troca
+  de pacote. O cliente do ao vivo não foi tocado.
+- **O que isto muda na onda 2** está no [roadmap](roadmap.md) ("Os segundos que acabaram de
+  passar"): a onda 2 mede, e para medir a sequência pode ser lida 3 minutos depois. Avisar a
+  cozinha na hora por uma sequência pede outra peça — o agente guardar os últimos minutos do
+  canal —, que não foi provada e não entra agora.
+- Não foi medido: outro gravador; o pior caso do atraso (três blocos, uma noite); o mesmo
+  gravador com o disco novo; "tocar a gravação" nos segundos recentes; a medida rodando
+  sozinha dentro do agente (foi chamada à mão).
+
+## 10/10/2026 · O plano do lado do Regem foi aprovado; o aviso da cozinha vai pela rede da loja (dito pelo dono)
+
+O dono respondeu às seis decisões da página "Porta do Farol no Regem" e, em seguida,
+escreveu duas vezes sobre onde as coisas rodam.
+
+### O que fica valendo
+
+1. **A fase 1 pode começar** (o Farol como aplicativo conectado do Regem; a leitura de
+   produtos, variações, adicionais e fichas, sem preço e sem custo). O acesso é dado pela
+   página "Autorizar o Farol", com os textos aprovados como estão. **A fase 2** (a fila de
+   produção, só leitura) vem logo depois da 1, e **a observação do item sai na fila**.
+2. **O aviso da cozinha vai pela rede da loja.** O dono: "o Regem é feito para rodar
+   localmente, o servidor faz a ponte de comunicação com a nuvem justamente para quedas ou
+   oscilações de internet não influenciarem o funcionamento local; então o servidor de
+   análise do Farol é local, e é mais fácil e ágil enviar ao KDS de destino responsável pelo
+   alerta". O caminho é: câmera → agente do Farol → servidor local do Regem → KDS do setor
+   responsável. Nada dele passa pela internet.
+3. **Os canais, por tipo de aviso:**
+   - **alerta no KDS do Regem** — que já tem mensagens cadastradas — para o que interessa à
+     cozinha: erro, faltou ingrediente, caiu item;
+   - **WhatsApp**, quando é urgente e não interessa à cozinha: só para o responsável ou o
+     presidente;
+   - **e-mail**, para os relatórios.
+4. **A análise é local, e a ficha fica na loja.** Ele perguntou como as fichas "ficam na
+   nuvem" se a análise é local. A nuvem é só o caminho — Regem (nuvem) → Farol (nuvem) →
+   agente — e a cópia que chega fica guardada no computador da loja, como as áreas e os
+   critérios. A conferência da montagem usa essa cópia e não depende de internet.
+
+### O que isto muda no desenho dos alertas (A7), e o que não muda
+
+- **Não muda:** o Farol decide quem recebe o quê, e quem entrega é outro; o KDS é a
+  integração direta com o Regem; o WhatsApp e o e-mail saem pelo transportador.
+- **Muda, para o KDS:** hoje quem resolve a política e despacha é a API do Farol, na nuvem.
+  Para o aviso chegar com a internet fora, a decisão do aviso de cozinha tem de descer para
+  a loja com a configuração, a entrega tem de ser feita pelo agente, e o registro do envio
+  sobe depois. Do lado do Regem, o servidor local tem de aceitar o Farol como aparelho da
+  loja (hoje só aceita o próprio servidor e o totem).
+- **Nada disso entra agora.** É da fase 3, na onda 5, com o acerto medido antes — nenhum
+  aviso sai sem passar pelo banco de provas. O plano dela é apresentado antes do código, no
+  Farol e no Regem.
+
+### O que não foi conferido
+
+O sistema de alertas do KDS do Regem, no código de hoje: quais mensagens ele tem
+cadastradas, como escolhe o KDS de destino e se já recebe alerta de fora. É a primeira coisa
+do plano da fase 3.

@@ -3803,7 +3803,7 @@ ele corrigir alguma dessas leituras, vale a correção.
 |---|---|---|---|
 | 0 ✅ | Confiança em %; cliente do gravador | P | — |
 | 1 ✅ | **Quadros, estudo condicional e contexto:** imagem completa × quadros com papel; a ficha de cada critério (contexto, gatilho, janela, ação, desfecho) e o funil em números; **a anatomia do pedido à nuvem** (a cena, o mapa do canal, o recorte na resolução da câmera, a resposta na forma da família — o recorte nunca sobe sozinho); Haiku 5.5 (medido); no quadro de bancada, o quadro de "as mãos saíram" no lugar do borrão de rosto; os quatro estados do critério | G | protótipo aprovado |
-| 2 | **Sequência e banco de provas:** olhar para trás (na dúvida, **a busca pelo meio** no gravador, por blocos — de 2 s no gravador do piloto), grade de 6 quadros, a família Acontecimento; "acertou / errou"; o acerto medido de cada critério. **Em andamento:** a fatia 2.1 (o agente pedir ao gravador o que já foi gravado) feita em 10/10 | G | o dono marcar os exemplos |
+| 2 | **Sequência e banco de provas:** olhar para trás (na dúvida, **a busca pelo meio** no gravador, por blocos — de 2 s no gravador do piloto, e uns 3 minutos depois do fato, quando a gravação assentou), grade de 6 quadros, a família Acontecimento; "acertou / errou"; o acerto medido de cada critério. **Em andamento:** as fatias 2.1 e 2.2a (o agente pedir ao gravador o que já foi gravado, medir o que ele entrega e conferir o que voltou) feitas em 10/10 | G | o dono marcar os exemplos |
 | 3 | **Processo e Medida:** etapas por quadro, cronômetros e contadores, episódios, modelos prontos | G | onda 2 medida |
 | 4 | **Leitura da bancada, E0 → E1:** câmera regulada, números da semana, as fases do lote, contar montagens pelo fechamento, a comanda | G | a câmera do canal 4 foi regulada em 09/10 e o dono redesenhou o quadro da bancada na mesma noite (conferido contra a gravação); falta ele escrever a cena do canal |
 | 5 | **Leitura da bancada, E2 → E3:** **o leitor local de ingredientes** (ensinado pela nuvem; só o "não sei" sobe, uma posição por chamada), o dicionário de ingredientes (com as regras e a rotina da casa), a ficha comparada em código, o produto, **a conta do lote contra o KDS**, aviso na estação; o modo do KDS "por produto, com baixa automática" (opção da loja, desligada de fábrica — 10/10) | G+ | as fichas e os produtos puxados do Regem para a base do Farol (decisão de 10/10); os pedidos do KDS lidos na loja; alarme falso medido |
@@ -3836,8 +3836,8 @@ loja; o que o gravador entrega é medido na instalação.
 | 1 ✅ | **Fechar a onda 1:** o sistema propor o estudo do critério — **feito em 10/10**, por regras, no servidor, que era o caminho recomendado (se o dono preferir outro, o botão é o mesmo: troca-se quem responde) | onda 1, fatia 1.3 | — |
 | 2 | Três acertos pequenos de tela: "área" → "quadro" em Análises e no Painel; a tabela do Painel, que rola de lado entre 820 e 1.280 px; o cartão "Critérios ligados" dizer quantos só observam | onda 1 | — |
 | 3 | **A base de fichas e produtos do Farol** (decisão de 10/10): puxar do Regem as fichas, os produtos e os adicionais de cada loja e guardar base própria; aceitar também planilha, para a loja sem Regem; por cima dela, o dicionário de ingredientes e as regras da casa | nova; antes da onda 5 | o plano do lado do Regem aprovado; o Regem com as fichas da loja |
-| 4 | **O plano no projeto Regem — apresentado em 10/10** (a página "Porta do Farol no Regem"; o resumo está em "O lado do Regem — o plano apresentado"): três fases — o catálogo e as fichas, a fila de produção só para leitura, e o modo do KDS "por produto, com baixa automática". Nada foi implementado lá | projeto Regem — plano antes do código | **a aprovação do dono** (seis decisões na página) |
-| 5 | **Onda 2 — sequência e banco de provas:** o agente buscar no gravador (cliente de arquivo, medindo o que cada gravador entrega), a busca pelo meio, a grade de 6 quadros, a família Acontecimento passando a julgar, "acertou / errou", o acerto medido de cada critério. **O plano está em "Onda 2 — como ela entra"** (10/10): sete fatias; **a 2.1 (o cliente de arquivo do gravador) está feita, em 10/10**; a 2.2, também só do agente e dormindo, é a próxima | onda 2 | o protótipo das telas aprovado; as três decisões do plano; o dono marcar os exemplos |
+| 4 | **O plano no projeto Regem — aprovado pelo dono em 10/10** (a página "Porta do Farol no Regem"; o resumo e as respostas dele estão em "O lado do Regem — o plano, aprovado"): três fases — o catálogo e as fichas, a fila de produção só para leitura, e o modo do KDS "por produto, com baixa automática". **A fase 1 começa agora; a 2 vem logo depois; a 3 fica para a onda 5, com o aviso pela rede da loja.** Nada foi implementado lá ainda | projeto Regem — plano antes do código | a conexão com o banco de produção do Regem, para conferir e aplicar a migration; o segredo do aplicativo, que é do dono |
+| 5 | **Onda 2 — sequência e banco de provas:** o agente buscar no gravador (cliente de arquivo, medindo o que cada gravador entrega), a busca pelo meio, a grade de 6 quadros, a família Acontecimento passando a julgar, "acertou / errou", o acerto medido de cada critério. **O plano está em "Onda 2 — como ela entra"** (10/10): oito fatias; **a 2.1 (o cliente de arquivo do gravador) e a 2.2a (medir o gravador e ler o trecho) estão feitas, em 10/10**; a 2.2b (a busca pelo meio e a grade), também só do agente e dormindo, é a próxima | onda 2 | o protótipo das telas aprovado; as três decisões do plano; o dono marcar os exemplos |
 | 6 | **Onda 3 — processo e medida:** etapas por quadro, cronômetros, contadores, episódios | onda 3 | a onda 2 medida |
 | 7 | **Onda 4 — a bancada, primeira parte:** achar sozinho as posições e o tipo de base; contar o que fecha, por tipo de base; as fases do lote; os números da semana | onda 4 | a cena do canal |
 | 8 | **Onda 5 — a bancada, segunda parte:** o leitor de ingredientes; o roteiro esperado (ficha + rotina); o produto; **o saldo de produção, com os dois números**; os especiais, um a um; o aviso na estação | onda 5 | os itens 3 e 4; o Regem na loja; a outra frente da ilha com câmera, para a conta fechar |
@@ -3845,14 +3845,14 @@ loja; o que o gravador entrega é medido na instalação.
 | 10 | **O perfil da loja:** o cadastro em que o sistema propõe e o responsável confirma — bases de montagem, dicionário, regras da casa, filas e bancadas —, para outra loja entrar sem engenheiro | atravessa as ondas 4 e 5 | protótipo aprovado |
 | 11 | **A planta viva** (as ondas 9 e 10 juntas, com a régua de acabamento mais alta): **o estudo está escrito** ([estudo-planta-viva.md](estudo-planta-viva.md), 10/10) — o que dá para fazer em cada parte, com que erro, e em quatro degraus; faltam a prova de medida no piloto e o protótipo em alta qualidade, para aprovar | ondas 9 e 10; o protótipo pode andar antes | o dono dizer onde ela entra na ordem e de onde vem a identidade; a planta da loja desenhada; para a prova, os pontos marcados no piso |
 | 12 | Ondas 6 a 8: o momento em vídeo; relatórios e resumos; o porte da cara nova | ondas 6 a 8 | as de cada linha da tabela das ondas |
-| 13 | Medidas que ficaram devendo: o gravador depois do cabo novo; o juiz local do molho sobre o quadro que a busca escolhe; a loja reconhecer a base e achar a tampa; a rotina por produto, numa semana observando | — | o cabo; as fichas |
+| 13 | Medidas que ficaram devendo: o gravador depois do cabo novo; **o atraso da gravação recente depois do disco novo, e "tocar a gravação" nos segundos recentes** (10/10); o juiz local do molho sobre o quadro que a busca escolhe; a loja reconhecer a base e achar a tampa; a rotina por produto, numa semana observando | — | o cabo; o disco; as fichas |
 
 #### A lista do dono
 
 | # | o quê | para quê | quando |
 |---|---|---|---|
 | 1 | **O Regem rodando na loja**, com as fichas dos lanches e os adicionais cadastrados | é de onde o Farol puxa fichas, produtos e pedidos; daí vem também a rotina dos outros itens | os testes estão para começar |
-| 2 | **Aprovar o plano do lado do Regem** (a porta de leitura para o Farol): **está apresentado, na página "Porta do Farol no Regem", com seis decisões para marcar**. Depois do "pode" da fase 1, criar o segredo do aplicativo Farol e colá-lo nos dois painéis (o passo a passo vai na hora) | os itens 3, 4, 8 e 9 da outra lista | já pode: está com ele |
+| 2 | ✅ **O plano do lado do Regem foi aprovado em 10/10** (as seis decisões respondidas). **Fica da parte dele, quando a fase 1 estiver pronta:** criar o segredo do aplicativo Farol e colá-lo nos dois painéis (o passo a passo vai na hora; o valor não passa por mim) e autorizar o Farol na página, como presidente | os itens 3, 4, 8 e 9 da outra lista | quando eu avisar |
 | 3 | **A cena do canal "montagem 1"** — console → Canais → montagem 1 → "A cena deste canal" → "Salvar a cena" | o pedido com contexto e a leitura da bancada | quando puder |
 | 4 | **Na loja, na semana de 12/10:** o HD no gravador; o cabo, e avisar "cabo trocado, pode"; as fotos padrão; o reflexo da luminária; a folha A4 por um minuto; **e, se topar, a prova da planta viva** — 15 a 20 pontos marcados no piso com fita e medidos com trena, e uma pessoa parando uns 10 segundos em cada um (uns 20 minutos, antes de abrir; o passo a passo está em [estudo-planta-viva.md](estudo-planta-viva.md), seção 8) | guardar mais dias de gravação; a rede; a comparação com a foto; a medida da câmera; saber quanto erra a posição de uma pessoa na planta, nesta loja | na visita |
 | 5 | **A câmera da outra frente da ilha** (a da chapa) | sem ela o saldo não fecha: parte da produção fica fora da conta | depois de o algoritmo estar alinhado no canal 4, como o dono definiu |
@@ -4177,17 +4177,18 @@ de provas — e de reconferir os fatos em que ele se apoia.
 |---|---|---|---|
 | **2.0 · protótipo** | as telas da onda: os exemplos de um critério, com "acertou / errou" e "o que era"; o acerto medido à vista no critério, com a meta; a sequência (a grade de 6 quadros, com o instante marcado) | é o protótipo | espera a aprovação do dono |
 | **2.1 · o cliente de arquivo do gravador** ✅ (10/10) | pedir ao gravador um trecho já gravado; um pedido por vez por gravador; pedido recusado não se repete; a diferença de relógio medida a cada busca. O que **cada gravador** entrega — o tamanho do bloco, o atraso até a gravação estar disponível — fica no perfil dele e é medido na instalação: nada disso é regra do motor | não | dormindo: nada o chama |
-| **2.2 · a busca pelo meio e a grade, na loja** | **o agente medir o que o gravador entrega** (o tamanho do bloco e o atraso até a gravação poder ser pedida) e guardar esse perfil na máquina; escolher o quadro parado dentro de um bloco; a busca pelo meio entre dois instantes; montar a grade de 6 quadros numerados; guardar a sequência ao lado da análise (≈ 0,3 MB cada, com teto e rodízio) | não | dormindo |
+| **2.2a · o agente mede o gravador e lê o trecho** ✅ (10/10) | o agente mede sozinho o que o gravador entrega (o tamanho do bloco, onde ele começa e quantos quadros por segundo) e guarda esse perfil na máquina; pede o trecho em cima dos blocos; lê o trecho, **confere pelos quadros se ele veio inteiro** e escolhe o quadro parado | não | dormindo: nada o chama |
+| **2.2b · a busca pelo meio e a grade, na loja** | a busca pelo meio entre dois instantes; montar a grade de 6 quadros numerados; guardar a sequência ao lado da análise (≈ 0,3 MB cada, com teto e rodízio). **Muda pelo que a 2.2a mediu:** a busca só começa quando a gravação assentou no gravador (uns 3 minutos), e trecho que não veio inteiro é pedido de novo mais tarde | não | dormindo |
 | **2.3 · o exemplo chega à nuvem** | cada julgamento de critério em ensaio (e valendo) deixa na nuvem um **exemplo**: o veredito, o motivo, a versão do critério e a imagem que o juiz viu — com teto por critério por dia e prazo de guarda (decisão 1, abaixo) | não | desligado por loja; pede migration |
 | **2.4 · "acertou / errou" e o acerto medido** | a tela dos exemplos; a conta por critério e por versão — acerto, alarme falso, "não deu para ver"; o estado **medido** quando há exemplos marcados o bastante; **valendo** só com a meta batida; e a volta a "em ensaio" quando o texto, o quadro ou o modelo muda (ficou para esta onda) | sim | com o protótipo aprovado |
 | **2.5 · Acontecimento passa a julgar** | a pergunta em sequência ("aconteceu isto nesta sequência?"), com a grade de 6, num pedido à parte; a resposta traz o **instante**; a família passa a descer para o agente que sabe. Critério novo continua nascendo observando | sim (a troca de estado destrava) | só no agente que declara saber |
 | **2.6 · a primeira rodada de medida** | o dono marca os exemplos; medem-se os critérios que a loja tem e o primeiro acontecimento — "o molho vai na tampa antes da alface", que é regra da casa e já foi lido à mão na rodada 5 | — | depende dele e do crédito da nuvem |
 
-**A ordem.** A 2.1 e a 2.2 são só do agente, não ligam nada e não têm tela: a **2.1 está
-feita** (10/10, registro abaixo) e a 2.2 é a próxima.
-A 2.0 vai ao dono assim que estiver desenhada. A 2.3 espera a decisão 1; a 2.4 e a 2.5
-esperam o protótipo aprovado. Trocar o pacote do agente na loja continua pedindo o "pode"
-dele.
+**A ordem.** A 2.1 e a 2.2 são só do agente, não ligam nada e não têm tela: a **2.1 e a
+2.2a estão feitas** (10/10, registros abaixo) e a 2.2b é a próxima.
+A 2.0 foi apresentada ao dono em 10/10 e espera a aprovação dele. A 2.3 espera a decisão 1;
+a 2.4 e a 2.5 esperam o protótipo aprovado. Trocar o pacote do agente na loja continua
+pedindo o "pode" dele.
 
 **Três decisões que são do dono:**
 
@@ -4210,6 +4211,9 @@ dele.
 | um passo da busca pelo meio | ≈ 3,3 s (1,9 s é baixar o bloco) | medido na loja, rodada 5, com a rede presa em 10 Mbit/s |
 | um bloco de 2 s, pelo cliente do agente | 0,53 MB em 1,9 s (1,4 s até o primeiro byte); os 30 quadros lidos em 0,3 s | medido na loja em 10/10, uma medida, com a rede presa em 10 Mbit/s |
 | a hora do gravador, por HTTP | 0,6 s | medido na loja em 10/10, uma medida |
+| medir o que o gravador entrega | 6 pedidos, 4,7 s | medido na loja em 10/10, uma medida, pela rotina do agente |
+| três blocos já assentados (6 s) | 1,58 MB em 2,25 s; os 90 quadros contados e o quadro parado escolhido em 0,9 s | medido na loja em 10/10, uma medida |
+| um bloco recém-gravado passar a vir inteiro | de 1 min e 20 s a 2 min e 15 s | medido na loja em 10/10, três blocos; o pior caso não foi medido |
 | um quadro na nuvem | 0,10 centavo, em 1,2 s | medido, rodada 5 (Haiku 5.5) |
 | uma grade de 6 quadros na nuvem | 0,17 centavo, em 1,6 s | medido, rodada 5, com a grade daquele teste; com 6 recortes de 960 × 540 a conta do plano dá ≈ 0,3 centavo |
 | a sequência guardada na loja | ≈ 0,3 MB | conta |
@@ -4221,7 +4225,8 @@ dele.
 **O que não foi medido:** o acerto do juiz em **sequências** desta loja (na rodada 5, lidas
 à mão: o que foi posto, 9 de 9; o utensílio, 6 de 9); o caminho de arquivo em outro gravador
 que não o do piloto; quanto o computador da loja aguenta buscando e julgando ao mesmo tempo;
-e a busca depois de o cabo ser trocado.
+a busca depois de o cabo ser trocado; o pior caso do atraso da gravação recente, e se ele
+muda com o disco novo; e se "tocar a gravação" entrega os segundos recentes.
 
 **A fatia 2.1, o cliente de arquivo do gravador, entregue em 10/10** ([decisoes.md](decisoes.md),
 "O agente aprende a pedir ao gravador o que já foi gravado"; só o agente — sem migration e
@@ -4243,17 +4248,73 @@ sem tela):
 - **o que mudou do plano:** nenhum número de aparelho ficou no motor. O bloco de 2 s e o
   atraso medidos no piloto foram para a ficha do gravador na base de equipamentos; sem
   medida, o agente não supõe bloco nenhum. Quem mede o perfil de cada gravador é o próprio
-  agente — isso entrou na 2.2, a primeira que precisa dele;
+  agente — isso entrou na 2.2a, a primeira que precisa dele. **Corrigido na 2.2a:** duas
+  das medidas do piloto que foram para a ficha estavam erradas (o pedido "arredondado para
+  baixo" e a gravação disponível "uns 3 s" depois); a ficha e o módulo foram corrigidos;
 - **como foi testado:** 50 testes novos, contra um gravador de mentira que **confere** a
   resposta ao desafio de senha (a bateria do agente foi a 1.059); 79 mutações do módulo,
   as 79 pegas pelos testes;
 - **o que não foi medido:** outro gravador que não o do piloto; horas de busca com o ao vivo
   aberto; o caminho depois do cabo novo.
 
-### O lado do Regem — o plano apresentado (10/10/2026)
+**A fatia 2.2a, o agente mede o gravador e lê o trecho, entregue em 10/10**
+([decisoes.md](decisoes.md), "O agente mede o que o gravador entrega, e confere o que
+voltou"; só o agente — sem migration e sem tela):
 
-**É plano, e está com o dono para aprovar** (a página "Porta do Farol no Regem"). Nada foi
-implementado no Regem: lá o plano vem antes do código. Foi escrito em cima do código do
+- **o que entrou:** três peças no agente, todas dormindo (nada as chama; a loja segue com o
+  pacote de antes):
+  1. **a medida do gravador** (`sequencia/perfil.py`): com uns seis pedidos de 1 s, na
+     gravação de dez minutos atrás, o agente descobre o tamanho do bloco, onde os blocos
+     começam e quantos quadros por segundo o gravador grava; confere com um pedido de dois
+     blocos; e guarda o perfil ao lado da configuração. Gravador que entrega de outro jeito
+     sai **sem bloco**, com o motivo escrito — o agente não confia numa conta que não é a
+     daquele aparelho;
+  2. **o pedido em cima dos blocos** (`dvr/arquivo.py`): começa no começo do bloco em que o
+     intervalo começa e termina 1 s depois do começo do último bloco;
+  3. **a leitura do trecho** (`sequencia/bloco.py`): conta os quadros, diz se o trecho
+     **veio inteiro**, escolhe o quadro parado (a regra medida na rodada 5, como régua de
+     fábrica: cada câmera pode ter a sua) e dá o instante de cada quadro;
+- **o que a medida mostrou — e que corrige a rodada 5** ([teste-das-fichas.md](teste-das-fichas.md),
+  "O que o gravador entrega, medido de novo"): da gravação assentada, o gravador do piloto
+  devolve **os blocos que começam dentro do pedido** (eu tinha escrito "arredonda para baixo
+  nas duas pontas": errado). E **a gravação recente vem cortada, com o tamanho declarado
+  batendo**: em três blocos acompanhados, o bloco só passou a vir inteiro entre 1 min e 20 s
+  e 2 min e 15 s depois de gravado (eu tinha escrito "uns 3 s": uma medida só). Foi a rotina
+  de medida que mostrou — a primeira rodada dela no gravador de verdade não fechou com o que
+  estava escrito;
+- **provado no gravador da loja** (só leitura; a pasta de medida conferida vazia no fim): a
+  medida do perfil em 4,7 s, com 6 pedidos — blocos de 2 s a partir de segundo par, 15
+  quadros por segundo, relógio 24,8 s adiantado; três blocos de cinco minutos de idade,
+  pedidos pelo meio deles: 1,58 MB em 2,25 s, 90 quadros de 90 esperados, **inteiro**, o
+  quadro parado escolhido em 0,9 s; um bloco de 21 s de idade: 268 KB com o tamanho
+  declarado batendo, 17 quadros de 30 esperados — **dito como não inteiro**;
+- **como foi testado:** 63 testes novos e 5 mudados (a bateria do agente foi a 1.122); 148
+  mutações das três peças, as 148 pegas pelos testes. Um erro achado no caminho: o instante
+  de um quadro, guardado em microssegundos, voltava no quadro vizinho — corrigido, com teste;
+- **o que não foi medido:** outro gravador; o pior caso do atraso (foram três blocos); o
+  mesmo gravador com o disco novo; a medida rodando sozinha no agente (foi chamada à mão).
+
+**Os segundos que acabaram de passar — o que a medida muda na onda 2.** O plano contava
+olhar para trás "na hora": tampa nua agora, coberta 10 s depois, e o agente busca no
+gravador o que houve no meio. Neste gravador isso só é de confiança uns 3 minutos depois.
+
+| caminho | o que é | o que custa | para que serve |
+|---|---|---|---|
+| **esperar a gravação assentar** | o agente guarda o intervalo em dúvida, espera 3 minutos, pede, confere pelos quadros se veio inteiro e, se não veio, pede de novo mais tarde | nada de novo: é o que a 2.1 e a 2.2a já fazem | **medir** (a onda 2 inteira): para marcar "acertou / errou" não importa se a leitura saiu 3 minutos depois |
+| **a memória curta, no agente** | o agente guarda ele mesmo os últimos minutos do canal da bancada, direto do fluxo ao vivo, e olha para trás sem pedir nada ao gravador | pela conta do bloco medido (0,53 MB a cada 2 s): ≈ 2 Mbit/s de rede e ≈ 50 MB de memória por canal vigiado. **Não foi provado na loja** | **avisar a cozinha na hora** por uma sequência — o "faltou o molho" antes de o lanche sair (onda 5 em diante) |
+| **duas medidas baratas** | o mesmo teste depois do disco novo; e "tocar a gravação" nos segundos recentes | uma ida à loja que já está marcada; alguns pedidos de leitura | saber se o atraso é do disco de hoje, e se há um caminho mais curto |
+
+**O que eu recomendo, e já sigo:** a onda 2 vai pelo primeiro caminho — ela existe para
+medir, e medir não tem pressa. As duas medidas baratas eu faço quando o disco for trocado
+(semana de 12/10). A memória curta fica desenhada para quando houver aviso de cozinha
+dependendo de sequência (a onda 5), e entra com prova na loja antes de qualquer código de
+produção. Se o dono quiser a memória curta antes, é só dizer.
+
+### O lado do Regem — o plano, aprovado (10/10/2026)
+
+**Aprovado pelo dono em 10/10, à noite** — as respostas marcadas na página "Porta do Farol
+no Regem" e duas mensagens em seguida (abaixo, em "O que o dono respondeu"). A fase 1 pode
+começar; nada foi implementado no Regem ainda. O plano foi escrito em cima do código do
 Regem que está no ar (`origin/main` `bb7beca6`), com os fatos reconferidos um a um.
 
 **O que o código do Regem mostrou:**
@@ -4275,21 +4336,46 @@ Regem que está no ar (`origin/main` `bb7beca6`), com os fatos reconferidos um a
 
 | fase | o que entra | onde roda | pede da loja | quando |
 |---|---|---|---|---|
-| **1 · catálogo** | o Farol como aplicativo conectado do Regem, autorizado pelo presidente numa página (como o Liame); leitura de produtos, variações, adicionais e fichas, **sem preço e sem custo**; retrato inteiro com número de versão | só nuvem; uma migration só-nuvem no Regem | nada | com o "pode" do dono |
-| **2 · fila de produção, só leitura** | os pedidos em produção e os concluídos das últimas 2 horas, com o produto de cada item, os adicionais e os horários; sem o cliente e sem valores | só nuvem; sem migration | nada | quando o Regem estiver rodando na loja |
-| **3 · KDS por produto, com baixa automática** | somar pelo produto; o item poder ser dado como feito; a porta por onde o Farol avisa "fechou um X" — quem decide a baixa é o Regem; desfazer com um toque; o registro de cada baixa | nuvem e loja | atualização (`.zip` e `.exe`) | onda 5, com o acerto medido |
+| **1 · catálogo** | o Farol como aplicativo conectado do Regem, autorizado pelo presidente numa página (como o Liame); leitura de produtos, variações, adicionais e fichas, **sem preço e sem custo**; retrato inteiro com número de versão | só nuvem; uma migration só-nuvem no Regem | nada | **aprovada em 10/10; é a próxima coisa a fazer no Regem** |
+| **2 · fila de produção, só leitura** | os pedidos em produção e os concluídos das últimas 2 horas, com o produto de cada item, os adicionais, **a observação do item** e os horários; sem o cliente e sem valores | só nuvem; sem migration | nada | **logo depois da fase 1** (decidido em 10/10) |
+| **3 · KDS por produto, com baixa automática, e os avisos** | somar pelo produto; o item poder ser dado como feito; a porta por onde o Farol avisa "fechou um X" e entrega os avisos da cozinha — quem decide a baixa é o Regem; desfazer com um toque; o registro de cada baixa | **a rede da loja** (decidido em 10/10): o agente do Farol fala com o servidor local do Regem | atualização do servidor da loja | onda 5, com o acerto medido; o plano dela é apresentado antes do código |
 
 **O que o Farol faz com isso, do lado dele:** a base própria de fichas e produtos (item 3 da
 lista abaixo), alimentada pela fase 1; e, com a fase 2, a demanda por ingrediente crítico e
 os dois números do saldo de produção.
 
-**Seis decisões que são do dono** (estão na página, para marcar): a fase 1 pode começar;
-como o Farol recebe o acesso — recomendo a página de autorização, em que ninguém copia
-segredo; os textos dessa página; se a observação do item sai na fila — recomendo que sim, é
-o "sem cebola"; quando entra a fase 2 — recomendo logo depois da 1; e por onde chega o aviso
-da fase 3 — recomendo decidir na onda 5: pela rede da loja ele chega na hora e pede uma
-credencial de loja, que sai num `.exe`; pela nuvem, a quantidade só baixa na tela até
-1 minuto e meio depois.
+**O que o dono respondeu (10/10):**
+
+| decisão | resposta |
+|---|---|
+| 1 · a fase 1 pode começar? | **pode** |
+| 2 · como o Farol recebe o acesso | pela página "Autorizar o Farol" — o presidente autoriza, ninguém copia segredo |
+| 3 · os textos da página de autorização | aprovados como estão |
+| 4 · a observação do item (o "sem cebola") sai na fila? | sai |
+| 5 · quando entra a fase 2 | logo depois da fase 1 |
+| 6 · por onde chega o aviso do Farol (fase 3) | **pela rede da loja:** "o Regem é feito para rodar localmente, o servidor faz a ponte de comunicação com a nuvem justamente para quedas ou oscilações de internet não influenciarem o funcionamento local; então o servidor de análise do Farol é local, e é mais fácil e ágil enviar ao KDS de destino responsável pelo alerta" |
+
+**Os canais do aviso, ditos por ele na mesma resposta** (o desenho não muda: o Farol decide,
+o Regem entrega):
+
+- **na cozinha, pelo alerta do KDS do Regem** — que já tem mensagens cadastradas: erro,
+  faltou ingrediente, caiu item. Vai ao KDS do setor responsável, pela rede da loja;
+- **por WhatsApp, quando é urgente e não interessa à cozinha** — só para o responsável ou o
+  presidente;
+- **por e-mail, os relatórios.**
+
+O WhatsApp e o e-mail saem pela internet, porque o destino está fora da loja; o aviso da
+cozinha não passa por ela. O que isso pede do Regem entra no plano da fase 3: o servidor
+local aceitar o Farol como aparelho da loja (hoje só aceita o próprio servidor e o totem), a
+porta local do aviso, e o destino escolhido pelo setor.
+
+**Onde a ficha fica — pergunta do dono (10/10):** "o nosso agente não está no servidor
+local? não estamos fazendo as análises locais? (…) então como na nuvem ficam as fichas para
+analisar a precisão da montagem?" A análise é local. A nuvem é só o caminho por onde a ficha
+viaja — Regem (nuvem) → Farol (nuvem) → agente, no computador da loja — e a cópia que chega
+fica guardada na loja, como já ficam as áreas e os critérios. A conferência da montagem usa
+essa cópia e não depende de internet; para a nuvem só sobe o que o agente não conseguiu
+julgar.
 
 **O que não foi conferido:** o banco de produção do Regem (li as migrations e o schema); o
 atraso real do sincronismo da loja para a nuvem (1 minuto é do código, não de medida). E
@@ -4341,9 +4427,11 @@ ficha: o Farol casa pelo produto e pelo nome, e trata cada leitura como retrato 
 3. Escolher os **3 a 5 processos** que quer ver julgados primeiro. Sugestão: montagem
    conforme a ficha; sal na carne (o exemplo dele); lavar as mãos antes de montar; pedido
    completo na sacola; bancada limpa entre pedidos.
-4. Do lado do Regem (outro projeto): a fila de produção levar os ingredientes da ficha,
-   sem valores (o encaixe está descrito acima), e o código na comanda. O dono já disse o
-   caminho (09/10); falta o "pode" para planejar e fazer lá.
+4. ✅ **O lado do Regem: o plano foi apresentado e aprovado em 10/10** ("O lado do Regem —
+   o plano, aprovado"). O caminho mudou em relação ao de 09/10: o Farol puxa as fichas e os
+   produtos para base própria, e a fila de produção sai sem os ingredientes. Da parte dele
+   fica, quando a fase 1 estiver pronta, criar o segredo do aplicativo e autorizar o Farol
+   na página.
 5. ✅ **Aprovada em 09/10** ("tudo aprovado e revisado").
 6. ✅ O quinto lanche do lote das 21h42 é o **Mussarela Bug** (dito pelo dono em 09/10, com
    a ficha). Falta ele confirmar que os quatro são o **Número 01**, dizer o que são as
