@@ -2856,7 +2856,7 @@ Fica valendo:
 | parte | dá? | como |
 |---|---|---|
 | a planta em 3D, com acabamento de jogo | sim | a planta desenhada ganha volume; os equipamentos vêm de uma biblioteca de peças; é trabalho de desenho e de tela |
-| a imagem de cada câmera simulada a partir da planta | sim | a base de equipamentos já guarda a lente de cada modelo; serve para decidir onde pôr a câmera antes de furar a parede |
+| a imagem de cada câmera simulada a partir da planta | sim | serve para decidir onde pôr a câmera antes de furar a parede. Pede a inclinação de cada câmera e o ângulo da lente de cada modelo. *(Corrigido no mesmo dia: eu tinha escrito que a base de equipamentos "já guarda a lente de cada modelo"; ela guarda a lente em milímetros de 8 dos 16 modelos, e de nenhum o ângulo — a abertura é posta à mão na planta.)* |
 | montar o ambiente a partir das imagens das câmeras | em parte | cada câmera, calibrada, projeta o piso que ela vê sobre a planta: sai um mosaico visto de cima, para desenhar por cima e conferir. O volume inteiro, sozinho, a partir de poucas câmeras fixas, não é confiável hoje; para o ambiente fiel, o caminho é uma filmagem da loja com o celular |
 | as pessoas na planta, ao vivo | sim, com erro a medir | detecção nas câmeras de canto e o pé de cada pessoa projetado no piso. Na câmera de cima o detector de hoje não serve (medido: 15% de certeza) |
 | cada pessoa com o nome, o expediente inteiro | é a parte difícil | manter "quem é quem" por horas, numa cozinha apertada e de uniforme igual, falha sem âncoras. As que não pedem reconhecer rosto: o ponto e a escala do Regem (quem bateu o ponto, quem está escalado em qual posto), o posto fixo, um sinal no uniforme |
