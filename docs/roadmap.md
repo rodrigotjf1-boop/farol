@@ -3667,6 +3667,14 @@ molho antes da alface; na base, carne antes do queijo); **o que mudou foi qual l
 primeiro** — a tampa em um, as carnes em dois, na mesma noite com três minutos de
 diferença. A tabela e o que falta medir estão em `docs/decisoes.md`, 10/10.
 
+**A embalagem diz o destino (do dono, 10/10).** "A caixa é quando o pedido sai para viagem;
+quando é embalado só no papel kraft, o pedido é para consumo no local (mesa)." O destino
+aparece antes do primeiro ingrediente — a posição nasce como caixa aberta ou como folha —, e
+com isso a leitura separa os pedidos de viagem dos de mesa ao casar com o KDS, conta a
+produção por destino e acusa embalagem trocada (triagem). E a caixa diz onde está a tampa:
+na metade de cima, em todas as lidas — o que dá à revisão pelo gravador o alvo que hoje é
+apontado à mão. Detalhe em `docs/decisoes.md`, 10/10.
+
 **O encaixe no Regem** (lido no código do Regem em 09/10; é tarefa de lá, com plano e PR
 próprios):
 

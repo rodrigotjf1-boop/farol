@@ -108,7 +108,9 @@ do Regem precisa dizer **as camadas que se veem de cima e em que disco ficam**. 
 
 **5 · O fechamento é um acontecimento visível**, e de dois jeitos: a tampa da caixa que
 fecha o lanche junto; ou empilhar, virar a tampa e embrulhar. Cada um é **um lanche
-contado**, com o tipo da embalagem. O tempo aberto de cada posição sai de graça.
+contado**, com o tipo da embalagem. O tempo aberto de cada posição sai de graça. (O dono, em
+10/10: a caixa é pedido para viagem; embalado só no papel kraft é consumo no local — está
+em [decisoes.md](decisoes.md).)
 
 **6 · A conferência com o KDS é por lote, antes de ser por lanche.** As embalagens são
 marcadas **à caneta**, e neste lote nenhuma comanda de papel apareceu no recorte: não há
