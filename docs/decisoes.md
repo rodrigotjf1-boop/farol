@@ -2730,3 +2730,37 @@ e entendimento."
   mostarda: o dono diz.
 - Reconhecer sem nuvem que a tampa "já foi coberta" (indício: a alface mudou 21% e 27% do
   recorte da tampa, contra 9% e 10% do creme — duas posições).
+
+## 10/10/2026 · A embalagem diz o destino do pedido (dito pelo dono)
+
+O dono: "a caixa é quando o pedido sai para viagem; quando é embalado só no papel kraft
+(marrom), o pedido é para consumo no local (mesa)."
+
+### O que fica valendo
+
+- **Caixa = viagem; só o papel kraft = mesa.** É regra da casa, como a do molho e a rotina:
+  vai para o dicionário da loja.
+- **O destino aparece antes do primeiro ingrediente:** a posição nasce como caixa aberta ou
+  como folha de papel. Com isso a leitura (a) separa, entre os pedidos em preparo, os de
+  viagem dos de mesa — menos candidatos para casar com cada posição; (b) conta a produção e
+  o tempo por destino; (c) acusa "pedido de viagem montado no papel", ou o contrário — como
+  triagem, igual a qualquer outro erro de procedimento.
+- **A embalagem diz também onde está a tampa.** Na caixa, a tampa do pão fica na metade de
+  cima (a tampa da caixa) e a base na de baixo: foi assim nas quatro caixas lidas em 09/10 e
+  na de 08/10. Achar a caixa aberta — um quadrado branco grande — dá a posição da tampa sem
+  ninguém apontar, que é o que faltava à revisão pelo gravador. No papel os discos ficam
+  lado a lado, e a tampa é o disco que recebe o molho.
+
+### O que a gravação mostra
+
+- 09/10: às 19h51, duas caixas; às 19h54, três lanches no papel kraft, embrulhados e marcados
+  à caneta; às 23h50 e às 23h57, uma caixa cada; às 23h52, dois no papel.
+- 08/10, 21h42: três lanches montados sobre folhas, embrulhados no papel impresso e postos em
+  **caixinhas de papelão**; e um na caixa branca. Falta o dono dizer se o embrulho que vai
+  para a caixinha de papelão é viagem.
+
+### O que não foi medido
+
+- A loja reconhecer sozinha "caixa" × "papel" e achar a tampa por aí.
+- Quantos pedidos de cada destino por noite.
+- A embalagem contra o pedido: pede o pedido, que só chega com o Regem na loja.
