@@ -443,6 +443,22 @@ tampa nua, creme, alface, com repetições —, e em D2, 7. Funciona, e escolher
 caro é trazer tudo. Um número dali serve à busca: **o creme muda só 9% a 10% do recorte da
 tampa.** O limiar de "mudou" tem de ser baixo, e alguma repetição é o preço.
 
+### Relido com a rotina da casa
+
+Depois de ler esta rodada, o dono disse a rotina da casa — pão, molho, alface, carne, queijo,
+carne, queijo, com as manias de cada um ([decisoes.md](decisoes.md), 10/10). Ela diz **o que
+cobre o quê**, e com isso onde a revisão deve olhar: o último quadro parado **antes de a
+cobertura entrar**. Relendo os blocos desta rodada assim, nos três casos de dúvida o bloco
+imediatamente anterior ao da alface já trazia a resposta — molho à vista em D1 e em D2,
+tampa nua em A (as nove leituras certas). Achar o bloco da cobertura não deve pedir nuvem: a
+alface mudou 21% e 27% do recorte da tampa, contra 9% e 10% do creme (duas posições; não foi
+medido como regra).
+
+E nem toda tampa pede revisão. No lote das 19:54 (relido em 10/10, um quadro a cada 5 s) as
+carnes e o queijo entraram antes do molho, e a alface só veio 75 s depois dele: o molho
+ficou à vista esse tempo todo. O caso apertado é o de quem põe a alface em seguida — 5 a 8 s
+nas caixas das 19:51, 7 a 20 s em 08/10.
+
 ### O que se lê
 
 1. **Dá para rever só o que ficou em dúvida, e a busca pelo meio é o jeito barato.** Um passo

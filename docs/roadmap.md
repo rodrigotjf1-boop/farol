@@ -3518,7 +3518,8 @@ Cinco fichas (na loja o lanche tem número ou nome):
 
 1. **A prova 3 é o conjunto da ficha**, com quantidade onde se conta — não uma sequência de
    camadas. Some a exigência de "em que ordem": é o ponto fraco dos modelos, e deixou de
-   ser necessário.
+   ser necessário. (Em 10/10 o dono disse a rotina da casa: a ordem volta como **pista**,
+   não como exigência — ver "A rotina da casa", mais abaixo.)
 2. **Identificar o produto** é achar a ficha cujo conjunto bate com o que entrou na posição.
    A diferença sai **por item** — "falta a alface", "sobra uma fatia de queijo" —, nunca como
    veredito do lanche inteiro (0,95 elevado a 8 dá 0,66: é a regra do juiz binário, que já
@@ -3649,6 +3650,23 @@ geleia e a maionese; inventou mancha em 2 de 11 controles, as duas com um braço
 escolhido por mim: prova de sinal, não medida de acerto. Registro em
 [teste-das-fichas.md](teste-das-fichas.md), "Rodada 3".
 
+**A rotina da casa — a ordem é pista, não regra (do dono, 10/10).** "Os colaboradores têm
+manias, cada um diferente do outro, pode ter uma ordem diferente; porém na maioria das
+vezes vão usar a mesma rotina: pão, molho, alface, carne, queijo, carne, queijo. Os
+produtos que tiverem esses itens na ficha técnica vão ter um padrão de ordem de montagem."
+A conferência continua por conjunto — ordem diferente não é erro. A rotina entra como **o
+que se espera a seguir**: a leitura pergunta "entrou o que vinha agora?", sabe o que cobre
+o quê (a alface cobre o molho; o queijo, a carne) e sabe quando desconfiar de que perdeu
+uma etapa — é o que abre a revisão pelo gravador, que então olha o último quadro parado
+antes de a cobertura entrar. Vai para o dicionário de ingredientes: para cada um, em que
+pão entra e depois de quê. E aprende-se olhando, por produto (não por pessoa), com o pedido
+dizendo o que está em preparo.
+
+Nos três lotes lidos do começo ao fim, **a ordem dentro de cada pão não mudou** (na tampa,
+molho antes da alface; na base, carne antes do queijo); **o que mudou foi qual lado vem
+primeiro** — a tampa em um, as carnes em dois, na mesma noite com três minutos de
+diferença. A tabela e o que falta medir estão em `docs/decisoes.md`, 10/10.
+
 **O encaixe no Regem** (lido no código do Regem em 09/10; é tarefa de lá, com plano e PR
 próprios):
 
@@ -3761,7 +3779,7 @@ ele corrigir alguma dessas leituras, vale a correção.
 | 2 | **Sequência e banco de provas:** olhar para trás (na dúvida, **a busca pelo meio** no gravador, por blocos de 2 s), grade de 6 quadros, a família Acontecimento; "acertou / errou"; o acerto medido de cada critério | G | o dono marcar os exemplos |
 | 3 | **Processo e Medida:** etapas por quadro, cronômetros e contadores, episódios, modelos prontos | G | onda 2 medida |
 | 4 | **Leitura da bancada, E0 → E1:** câmera regulada, números da semana, as fases do lote, contar montagens pelo fechamento, a comanda | G | a câmera do canal 4 foi regulada em 09/10 e o dono redesenhou o quadro da bancada na mesma noite (conferido contra a gravação); falta ele escrever a cena do canal |
-| 5 | **Leitura da bancada, E2 → E3:** **o leitor local de ingredientes** (ensinado pela nuvem; só o "não sei" sobe, uma posição por chamada), o dicionário de ingredientes, a ficha comparada em código, o produto, **a conta do lote contra o KDS**, aviso na estação | G+ | as fichas de todos os lanches; a fila de produção com os ingredientes (Regem); alarme falso medido |
+| 5 | **Leitura da bancada, E2 → E3:** **o leitor local de ingredientes** (ensinado pela nuvem; só o "não sei" sobe, uma posição por chamada), o dicionário de ingredientes (com as regras e a rotina da casa), a ficha comparada em código, o produto, **a conta do lote contra o KDS**, aviso na estação | G+ | as fichas de todos os lanches; a fila de produção com os ingredientes (Regem); alarme falso medido |
 | 6 | O momento em vídeo ("Ver o momento") — reaproveita a sequência da onda 2 | M | onde guardar na nuvem |
 | 7 | Relatórios, resumos e o início "fora do critério primeiro" | G | transportador |
 | 8 | Porte da cara nova | G | protótipo geral aprovado |

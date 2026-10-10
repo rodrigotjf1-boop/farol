@@ -2668,3 +2668,65 @@ quadro só, vieram com a menor confiança da rodada. Custo: R$ 0,11.
   do passo.
 - Lanche montado sobre papel indo a juízo; molho coberto em menos de 2 s; molho claro sobre
   pão claro; o juiz local do molho em cima do quadro que a busca escolhe.
+
+## 10/10/2026 · A rotina de montagem é pista, não regra (dito pelo dono; conferido na gravação)
+
+O dono, depois de ler a rodada 5 do teste das fichas: "os colaboradores têm manias, cada um
+diferente do outro, pode ter uma ordem diferente; porém na maioria das vezes vão usar a
+mesma rotina: pão, molho, alface, carne, queijo, carne, queijo. Os produtos que tiverem
+esses itens na ficha técnica vão ter um padrão de ordem de montagem, ajudando nossa análise
+e entendimento."
+
+### O que fica valendo
+
+- **A conferência continua por conjunto** (09/10: "a ordem não é importante, e sim todos os
+  ingredientes"). Ordem diferente não é erro.
+- **A rotina é o que se espera a seguir.** Com a ficha (o conjunto) e a rotina (a ordem),
+  cada posição tem um roteiro: a leitura pergunta "entrou o que vinha agora?", sabe o que
+  cobre o quê e sabe quando desconfiar de que perdeu uma etapa. Montagem fora da rotina
+  **abre a revisão** (a busca no gravador, entrada anterior); não é o veredito.
+- **A rotina mora no dicionário de ingredientes da loja**, junto da regra do molho: para
+  cada ingrediente, em que pão entra (tampa ou base) e depois de quê. Vale para todo
+  produto cuja ficha tenha aqueles itens.
+- **Aprende-se por produto, olhando.** Em "observando", com o pedido dizendo qual produto
+  está em preparo, o sistema anota a ordem em que cada item entrou e guarda a rotina mais
+  comum e as variações. Por produto (e por turno, se servir) — **não por pessoa**: o Farol
+  não reconhece quem monta. Se um dia interessar por colaborador, viria da escala do Regem,
+  e é decisão do dono.
+
+### O que a gravação mostra (os três lotes lidos do começo ao fim)
+
+| lote | a ordem em que entrou |
+|---|---|
+| 08/10, 21h42 — cinco lanches, em folhas e caixa | pães → carnes → molho → alface → queijo |
+| 09/10, 19h51 — duas caixas | pães → molho → alface → carne → queijo (**a rotina do dono**) |
+| 09/10, 19h54 — três folhas | pães → carne → queijo → molho → … → alface, 75 s depois do molho |
+
+- **Dentro de cada pão a ordem não mudou em nenhum:** na tampa, o molho antes da alface —
+  nas 10 tampas em que o molho foi visto entrar, ele foi o primeiro; na base, a carne antes
+  do queijo dela, e no pão de um corte, carne, queijo, carne, queijo na mesma base (08/10,
+  21h40).
+- **O que mudou foi qual lado vem primeiro:** a tampa em um lote, as carnes em dois — na
+  mesma noite, com três minutos de diferença.
+- Três lotes não dizem "a maioria". Dizem que a parte firme da rotina é a de cada pão.
+
+### O que a rotina muda na leitura
+
+1. **A pergunta fica estreita:** "entrou o molho?", e não "o que há aqui?". Mais barata e
+   mais certa (rodada 3: de 8 para 12 leituras certas em 12 quando a regra do molho foi
+   escrita no dicionário).
+2. **A dúvida nasce da rotina:** chegou a alface e o molho não foi visto.
+3. **A revisão sabe onde olhar:** o último quadro parado antes de a cobertura entrar. Relida
+   assim, a rodada 5 se resolvia com um quadro em cada uma das três dúvidas.
+4. **Nem toda tampa pede revisão:** onde a alface só vem no fim (19h54: 75 s depois), o
+   molho fica à vista e a olhada comum pega. O caso apertado é o de quem põe a alface em
+   seguida (5 a 8 s nas caixas das 19h51).
+
+### O que não foi medido
+
+- Quantas vezes a rotina é seguida, por produto: pede as fichas, o pedido e uma semana em
+  "observando".
+- A rotina dos outros itens — bacon, picles, ovo, cebola crispy e ao shoyu, maionese,
+  mostarda: o dono diz.
+- Reconhecer sem nuvem que a tampa "já foi coberta" (indício: a alface mudou 21% e 27% do
+  recorte da tampa, contra 9% e 10% do creme — duas posições).

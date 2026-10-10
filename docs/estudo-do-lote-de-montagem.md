@@ -232,7 +232,12 @@ naquela posição —, ou de uma sequência de quadros bem mais densa.
 
 - Se **todo** lote é montado assim, por ingrediente. Foram dois lotes, da mesma noite e da
   mesma pessoa. Um lanche avulso, fora do pico, pode ser montado de uma vez. É uma semana em
-  "observando" que responde.
+  "observando" que responde. **O dono, em 10/10:** cada colaborador tem as suas manias e a
+  ordem pode mudar, mas na maioria das vezes a rotina é pão, molho, alface, carne, queijo,
+  carne, queijo. Na noite de 09/10 os dois jeitos apareceram com três minutos de diferença:
+  às 19h51, molho e alface antes das carnes; às 19h54, carnes e queijo antes do molho (como
+  neste lote das 21h42). Dentro de cada pão a ordem foi a mesma. Está em
+  [decisoes.md](decisoes.md), 10/10.
 - O que são as posições 1 e 2 do lote anterior, e se a 4 é o Número 02 com bacon.
 - **O que o KDS tinha em preparo: não dá para saber por aqui.** Eu tinha escrito que faltava
   ler o banco do Regem — estava errado. A loja ainda roda o Eclética; o Regem está sendo
