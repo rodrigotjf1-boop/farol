@@ -22,7 +22,10 @@ import { Botao, type Variante } from './botao';
 function useDialogoAberto(ocupado: boolean, aoFechar: () => void) {
   const ref = useRef<HTMLDialogElement>(null);
 
-  useEffect(() => {
+  // Efeito de LAYOUT, e não o comum: ao desmontar, o `close()` tem de rodar com o <dialog> ainda na página. É o
+  // `close()` que devolve o foco a quem abriu (o botão, a linha da lista); no efeito comum a limpeza roda depois
+  // de o React já ter tirado o elemento, e o foco caía na página — quem usa o teclado perdia o lugar.
+  useLayoutEffect(() => {
     const d = ref.current;
     if (d && !d.open) d.showModal();
     return () => {
@@ -315,7 +318,10 @@ export function Menu({
             }}
             className="fixed z-[75] min-w-[190px] animate-surge rounded-xl border border-farol-borda bg-farol-painel p-[5px] text-farol-tinta shadow-farol-2"
           >
-            {children(() => fechar())}
+            {/* Escolher um item devolve o foco ao botão do menu: a gaveta (ou o diálogo) que o item abrir guarda
+                esse botão como "quem abriu", e é para ele que o foco volta quando ela fechar. Sem isso o item
+                sumia com o foco, e fechar a gaveta largava quem usa o teclado no começo da página. */}
+            {children(() => fechar(true))}
           </div>,
           onde,
         )}
