@@ -128,6 +128,48 @@
       "valor": "0,3 a 2,3",
       "unidade": "s",
       "condicao": "mediaFileFind; arquivos de 30 min"
+    },
+    {
+      "em": "2026-10-09",
+      "onde": "loja de teste",
+      "metrica": "gravacao_entregue_em_blocos",
+      "valor": "blocos de 2 s, a partir de segundo par; o pedido é arredondado para baixo nas duas pontas",
+      "condicao": "loadfile.cgi, fluxo principal: pedir de :20 a :33 devolveu de :20 a :32; de :27 a :29, o bloco de :26 a :28"
+    },
+    {
+      "em": "2026-10-09",
+      "onde": "loja de teste",
+      "metrica": "atraso_ate_a_gravacao_poder_ser_pedida",
+      "valor": "o que foi gravado até uns 3 s antes já vem inteiro",
+      "condicao": "uma medida: o trecho que terminava 3 s antes do agora do gravador veio completo; o que terminava 3 s depois, com 9 quadros"
+    },
+    {
+      "em": "2026-10-09",
+      "onde": "loja de teste",
+      "metrica": "bloco_de_2s_por_http",
+      "valor": "0,53 MB, 30 quadros; mediana de 1,9 s (de 0,6 a 3,6 s, em 45 blocos)",
+      "condicao": "loadfile.cgi, fluxo principal, cabo a 10 Mbit/s; mais 0,18 s para decodificar"
+    },
+    {
+      "em": "2026-10-09",
+      "onde": "loja de teste",
+      "metrica": "desafio_de_senha_do_http",
+      "valor": "Digest, MD5, qop=auth",
+      "condicao": "porta 80, loadfile.cgi"
+    },
+    {
+      "em": "2026-10-10",
+      "onde": "loja de teste",
+      "metrica": "resposta_do_trecho_gravado",
+      "valor": "Content-Type application/http, com o tamanho declarado (Content-Length)",
+      "condicao": "um bloco de 2 s: 529.080 bytes em 1,89 s (1,43 s até o primeiro byte), pelo cliente de arquivo do agente; uma medida"
+    },
+    {
+      "em": "2026-10-10",
+      "onde": "loja de teste",
+      "metrica": "hora_do_gravador_por_http",
+      "valor": "responde em 0,6 s, em segundos inteiros",
+      "condicao": "global.cgi?action=getCurrentTime; uma medida, pelo cliente de arquivo do agente"
     }
   ],
   "precos": [

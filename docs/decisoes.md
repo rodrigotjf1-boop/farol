@@ -3035,3 +3035,63 @@ o KDS, não dá baixa nele":
 
 - Nada foi ligado nem implementado. A conta só fecha com câmera em todas as bancadas da
   fila (no piloto, a outra frente da ilha ainda não tem).
+
+## 10/10/2026 · O agente aprende a pedir ao gravador o que já foi gravado — dormindo (onda 2, fatia 2.1)
+
+A onda 2 precisa olhar **para trás**: os segundos antes de um gatilho, o bloco do meio de um
+intervalo em dúvida. O agente só sabia ver o agora. O caminho de arquivo do gravador tinha
+sido medido à mão na rodada 5 ([teste-das-fichas.md](teste-das-fichas.md)); faltava o agente
+saber pedi-lo sem pôr o ao vivo em risco.
+
+### O que fica valendo
+
+1. **Um pedido por vez, por gravador.** A vez é do aparelho (endereço e porta), não de quem
+   pede: dois pedaços do agente que falam com o mesmo gravador dividem a mesma vez. Quem
+   espera mais de 20 s desiste e diz que o gravador está ocupado.
+2. **Pedido recusado não se repete.** A conta é a mesma do ao vivo, e o gravador trava a
+   conta depois de algumas senhas erradas — aí a loja inteira fica cega. O cliente faz o
+   desafio de senha à mão: um pedido sem credencial, para receber o desafio, e **um** com
+   ela. Recusado, fecha a porta para aquela senha e não fala mais com o gravador até a senha
+   mudar ou o agente reiniciar. "Não há gravação nesse trecho" é outra resposta, e não fecha
+   nada.
+3. **Nenhum número de aparelho mora no motor.** O tamanho do bloco e o atraso até a gravação
+   poder ser pedida entram por um **perfil do gravador**. Sem medida, o agente não supõe
+   bloco nenhum e espera 10 s, por cautela. O que se mediu de cada modelo fica na base de
+   equipamentos; quem mede o perfil na instalação é o próprio agente (fatia 2.2).
+4. **A hora do pedido é a do gravador.** O agente mede a diferença entre o relógio do
+   gravador e o do computador — perguntando a hora ao próprio gravador, por HTTP —, guarda
+   por 5 minutos e converte.
+5. **Ou o trecho inteiro, ou nada.** O que chega cortado, maior que o teto (24 MB), fora do
+   tempo (45 s) ou como página de texto no lugar do vídeo é apagado e dito como erro. Um
+   pedido cobre no máximo 40 s: olhar para trás é coisa de segundos.
+6. **Segredo.** Nada escreve em registro o usuário, a senha, o cabeçalho de autorização nem
+   o identificador que o gravador manda no desafio (ele traz o número de série). Da senha
+   recusada guarda-se só uma impressão, com sal que muda a cada vez que o agente sobe.
+
+### O que foi medido (loja de teste, 10/10, só leitura)
+
+| o quê | quanto |
+|---|---|
+| a hora do gravador, pedida por HTTP | veio em 0,58 s; o gravador estava 25,1 s adiantado em relação ao computador da loja |
+| um bloco de 2 s do fluxo principal, pelo cliente novo | 529.080 bytes — o tamanho que o gravador declarou — em 1,89 s; 1,43 s até o primeiro byte |
+| o leitor de vídeo do agente sobre esse bloco | 30 quadros de 1920 × 1080, em 0,29 s |
+
+Uma medida de cada, com a rede da loja ainda presa em 10 Mbit/s. Cada chamada fez um pedido
+com a credencial, e nenhum foi recusado. O arquivo foi apagado; o agente da loja seguiu de
+pé — o mesmo processo desde a véspera, sem aviso nem erro no registro.
+
+### Como foi testado
+
+50 testes, contra um gravador de mentira que roda na própria máquina e **confere** a resposta
+ao desafio de senha (um dublê que aceitasse qualquer cabeçalho não provaria a conta). Depois,
+79 mutações do módulo — cada regra trocada de propósito, uma de cada vez —, as 79 pegas
+pelos testes.
+
+### O que não muda, e o que não foi medido
+
+- **Nada chama o módulo.** A loja segue com o pacote de antes; trocar o pacote continua
+  pedindo o "pode" do dono, e esta fatia não pede troca nenhuma. O cliente do ao vivo não
+  foi tocado.
+- Não foi medido: outro gravador que não o do piloto; horas de busca com o ao vivo aberto; o
+  caminho depois do cabo novo; o desafio com SHA-256 num gravador de verdade (o do piloto
+  usa MD5 — o SHA-256 está provado só contra o gravador de mentira dos testes).
