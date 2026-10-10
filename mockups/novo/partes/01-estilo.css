@@ -289,6 +289,58 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
 .seg button { appearance: none; padding: 5px 10px; border: 1px solid var(--fio-2); border-radius: 999px; background: transparent; color: var(--suave); font-size: 13px; cursor: pointer; }
 .seg button[aria-pressed="true"] { color: var(--facho-texto); background: var(--facho-fundo); border-color: var(--facho); }
 
+/* ── onda 2: os exemplos e o acerto medido ── */
+.progresso { display: grid; gap: 10px; }
+.progresso-linha { display: grid; grid-template-columns: minmax(0, 17em) minmax(0, 1fr); gap: 6px 14px; align-items: center; font-size: 14px; }
+.medidor { position: relative; height: 8px; border-radius: 4px; background: var(--bg-2); border: 1px solid var(--fio); overflow: hidden; }
+.medidor i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--dado); }
+.medidor.cheio i { background: var(--ok); }
+.ex-grade { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 320px); gap: 20px; align-items: start; }
+.ex-coluna-detalhe, .ex-coluna-lista { min-width: 0; }
+.ex-imagem { border-radius: 8px; overflow: hidden; background: var(--bg-2); }
+.ex-imagem > svg { display: block; width: 100%; height: auto; }
+.seq { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.seq-quadro { appearance: none; position: relative; display: grid; gap: 0; padding: 0; margin: 0; border: 2px solid var(--fio); border-radius: 8px; overflow: hidden; background: var(--bg-2); color: inherit; text-align: left; min-width: 0; }
+button.seq-quadro { cursor: pointer; }
+button.seq-quadro:hover { border-color: var(--fio-2); }
+.seq-quadro > svg { display: block; width: 100%; height: auto; }
+.seq-quadro .n { position: absolute; top: 6px; left: 6px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: #ffffff; color: #10161f; font: 600 12px/1 var(--f-dado); }
+.seq-quadro.do-juiz { border-color: var(--facho); }
+.seq-quadro.do-juiz .n { background: #f2b03c; }
+.seq-quadro.certo { border-color: var(--ok); }
+.seq-pe { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 5px 7px; font-size: 12px; color: var(--suave); min-height: 30px; }
+.veredito { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--fio); border-radius: 8px; background: var(--bg-2); }
+.veredito-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.veredito .rotulo { font-size: 13px; font-weight: 500; color: var(--suave); }
+.marcar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.marcar .btn { padding: 14px 12px; font-size: 16px; font-weight: 600; }
+.btn.acertou[aria-pressed="true"] { background: var(--ok-fundo); border-color: var(--ok); color: var(--ok); }
+.btn.errou[aria-pressed="true"] { background: var(--fora-fundo); border-color: var(--fora); color: var(--fora); }
+.oquera .btn[aria-pressed="true"] { border-color: var(--tinta); font-weight: 600; }
+.tecla { font: 500 11px/1 var(--f-dado); padding: 3px 5px; border: 1px solid currentColor; border-radius: 4px; opacity: 0.65; }
+.oquera { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid var(--fora); border-radius: 8px; background: var(--fora-fundo); }
+.oquera .opcoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.oquera .btn { background: var(--painel); }
+.oquera b { font-weight: 600; }
+.ex-rodape .empurra { margin-left: auto; }
+.ex-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 74vh; overflow-y: auto; }
+.ex-item { appearance: none; width: 100%; display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 10px; align-items: center; padding: 6px; border: 1px solid var(--fio); border-radius: 8px; background: var(--painel); color: inherit; text-align: left; cursor: pointer; }
+.ex-item:hover { border-color: var(--fio-2); }
+.ex-item[aria-current="true"] { border-color: var(--facho); background: var(--facho-fundo); }
+.ex-item .mini { display: block; aspect-ratio: 16 / 10; border-radius: 4px; overflow: hidden; background: var(--bg-2); }
+.ex-item .mini svg { display: block; width: 100%; height: 100%; }
+.ex-item-texto { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 8px; align-items: center; font-size: 12.5px; min-width: 0; }
+.ex-item-texto .chip { grid-column: 1 / -1; justify-self: start; }
+.filtros { display: flex; flex-wrap: wrap; gap: 6px; }
+.filtros button { appearance: none; padding: 6px 11px; border: 1px solid var(--fio-2); border-radius: 999px; background: transparent; color: var(--suave); font-weight: 500; font-size: 13.5px; cursor: pointer; }
+.filtros button:hover { color: var(--tinta); border-color: var(--suave); }
+.filtros button[aria-pressed="true"] { color: var(--sobre-acao); background: var(--acao); border-color: var(--acao); }
+/* o conteúdo recebe o foco quando a tela troca (é para o leitor de tela e para o teclado partirem dali): sem moldura */
+.conteudo:focus { outline: none; }
+.marca-ex { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--suave); }
+.marca-ex.certo { color: var(--ok); }
+.marca-ex.errado { color: var(--fora); }
+
 /* ── telas menores ── */
 @media (max-width: 1080px) {
   /* numa coluna só, a ordem de leitura é: o canal, a árvore, a cena */
@@ -305,6 +357,11 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
   .conteudo { padding: 16px 16px 96px; }
   .proto { bottom: calc(env(safe-area-inset-bottom, 0px) + 76px); }
   .busca span { display: none; }
+  /* os exemplos: o exemplo aberto em cima, a lista embaixo, em cartões que quebram a linha */
+  .ex-grade { grid-template-columns: minmax(0, 1fr); }
+  .ex-lista { max-height: none; overflow: visible; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .ex-item { grid-template-columns: minmax(0, 1fr); align-content: start; }
+  .ex-item-texto { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 560px) {
   .folha, .folha.estreita { width: 100%; border-left: 0; }
@@ -315,6 +372,9 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
   .dados { grid-template-columns: minmax(0, 1fr); }
   .dado + .dado { padding-left: 0; border-left: 0; border-top: 1px solid var(--fio); }
   .cab .acoes { margin-left: 0; }
+  .progresso-linha { grid-template-columns: minmax(0, 1fr); }
+  .seq { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ex-rodape .empurra { margin-left: 0; flex-basis: 100%; text-align: left; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
