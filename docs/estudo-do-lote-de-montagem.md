@@ -244,8 +244,12 @@ naquela posição —, ou de uma sequência de quadros bem mais densa.
 - **O que o KDS tinha em preparo: não dá para saber por aqui.** Eu tinha escrito que faltava
   ler o banco do Regem — estava errado. A loja ainda roda o Eclética; o Regem está sendo
   finalizado para entrar lá. Com ele, o pedido vai ao KDS com a ficha técnica (sem os
-  valores), e o Farol passa a ter o pedido e os ingredientes.
+  valores), e o Farol passa a ter o pedido e os ingredientes. **Mudou em 10/10:** a fila
+  não precisa levar os ingredientes — o Farol puxa as fichas e os produtos do Regem e
+  guarda base própria ([decisoes.md](decisoes.md)).
 - Se a caixa das 21h45 era um Número 01 com queijo em dobro pedido pelo cliente, ou outro
-  produto.
+  produto. **O dono, em 10/10:** queijo em dobro é só adicional; o geral é um queijo por
+  carne, e uma carne com dois queijos é raro. Era adicional, então — ou erro: com o pedido
+  em mãos o sistema saberá.
 - Se a maionese vai sobre a carne por padrão (a regra da casa é molho primeiro, na tampa).
 - O relógio do gravador está 27 s adiantado: para casar com a hora do pedido, desconta-se.

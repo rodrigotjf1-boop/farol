@@ -10,6 +10,13 @@
 > As primeiras medidas, o algoritmo de leitura da bancada e a prova ao vivo
 > estão no roadmap, seção **A19**, e em `docs/prova-leitura-da-bancada.md`.
 > Este estudo entrou no plano por lá.
+>
+> **10/10/2026:** o dono retomou o livro-caixa como "saldo de produção" — os pedidos do
+> KDS agrupados por produto, com baixa pelo que a montagem conclui e atenção aos
+> especiais. A avaliação e as outras possibilidades de controle de produção estão em
+> [controle-de-producao.md](controle-de-producao.md). A linha "a ficha como sequência de
+> camadas", da seção 7, mudou: a conferência é por conjunto, a ordem é pista, e as
+> fichas o Farol puxa do Regem para base própria.
 
 ## A pergunta do dono
 

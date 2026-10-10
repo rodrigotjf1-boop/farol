@@ -2764,3 +2764,124 @@ O dono: "a caixa é quando o pedido sai para viagem; quando é embalado só no p
 - A loja reconhecer sozinha "caixa" × "papel" e achar a tampa por aí.
 - Quantos pedidos de cada destino por noite.
 - A embalagem contra o pedido: pede o pedido, que só chega com o Regem na loja.
+
+## 10/10/2026 · O Farol é para distribuir; as fichas vêm do Regem para base própria; o saldo de produção; a planta viva (dito pelo dono)
+
+Cinco coisas ditas pelo dono na madrugada de 10/10, depois das regras da casa.
+
+### 1. O piloto não vira regra do motor
+
+"É um projeto que estamos produzindo para o Mister Burguer, que está sendo nossa cobaia para
+teste e produção; porém é um projeto para distribuição. (…) outros casos não vão ter as
+mesmas condições que temos no Mister Burguer; por isso temos que fazer de uma forma a se
+adaptar a vários tipos de situações para controle."
+
+Fica valendo, para tudo o que vier:
+
+- **O motor** é igual para todo cliente: posição de montagem, item, acontecimento, roteiro
+  esperado, a revisão pelo gravador, o saldo demanda × produção, os juízes, o banco de
+  provas.
+- **O perfil da loja** é cadastro — o sistema propõe, o responsável confirma: fichas,
+  dicionário de ingredientes, bases de montagem (tipos, o que significam, onde fica cada
+  parte), regras da casa, filas e bancadas. **Toda regra da casa entra aqui**, nunca no
+  código do motor: molho primeiro na tampa, a rotina, caixa = viagem, um queijo por carne.
+- **Os adaptadores** são por instalação: de onde vêm fichas e pedidos, o que o gravador
+  entrega (medido na instalação, guardado na base de equipamentos), para onde vai o aviso.
+- **Degraus pelo que o cliente tem:** só câmeras → com fichas → com pedidos → com todas as
+  bancadas de uma fila cobertas. Cada degrau entrega algo sozinho.
+
+### 2. As fichas: o Farol puxa do Regem e guarda base própria
+
+"Não precisa ingredientes na fila de produção. Na integração Farol e Regem o Farol já puxa
+as fichas técnicas e seus produtos, e fica com base própria de consulta; se não for viável
+usar dessa forma, vemos uma forma de o Regem repassar."
+
+Muda o plano de 09/10, em que cada item da fila levaria a lista de ingredientes. Agora:
+
+- o Farol **copia** fichas, produtos e adicionais de cada loja e consulta a própria cópia;
+- da fila de produção ele precisa só de **qual produto, quantos, com que adicionais e
+  observação, para onde vai e a que horas** — e de saber quando ficou pronto;
+- "base própria" serve também à loja sem Regem: a mesma base recebe fichas de planilha.
+
+O que o Regem já tem e o que falta para isso está em
+[controle-de-producao.md](controle-de-producao.md), seção 6. No Regem, o plano vem antes do
+código.
+
+### 3. O saldo de produção
+
+A ideia do dono — agrupar os pedidos do KDS por produto, subtrair o que a montagem conclui,
+somar o que chega, e avisar do especial que demora — é o livro-caixa do estudo de 07/10.
+Avaliada em [controle-de-producao.md](controle-de-producao.md): fica como espinha, com
+cinco ajustes (o principal: **a câmera confere o KDS, não dá baixa nele**) e oito
+possibilidades de controle de produção, a começar pela demanda por ingrediente crítico, que
+não pede câmera.
+
+### 4. Três respostas
+
+- **Queijo em dobro é só adicional.** O geral é um queijo por carne; uma carne com dois
+  queijos é raro. A caixa de 08/10 com quatro fatias era, então, adicional — ou erro: com o
+  pedido em mãos, o sistema saberá.
+- **Não há regra de "em lote" ou "lanche por lanche".** A lista do KDS nem sempre é seguida:
+  há produto mais demorado, e há hora em que um tipo de carne ainda não está pronto no
+  conservador.
+- **A rotina dos outros itens** (bacon, picles, ovo, cebola, maionese) vem com as fichas.
+
+### 5. A planta viva: o ambiente em 3D, com as pessoas
+
+"A nossa planta é algo de muito valor no projeto. Ela define o ambiente; vamos colocar
+representações com identificação dos colaboradores simulando seus passos durante o
+expediente, para análise de dados de seus movimentos e controle das ações para tomada de
+decisões. A ideia é que uma análise gráfica do ambiente vai ser gerada em formato 3D de
+acordo com as imagens das câmeras, que geralmente são espalhadas para cobrir o ambiente e
+não deixar pontos cegos, e com isso conseguimos montar o ambiente (como num jogo online)."
+
+Vieram quatro imagens de referência — "não para seguir fielmente, e sim para representar a
+ideia": a tela da Planta de hoje, ainda vazia na loja, e um ensaio dele em três vistas — a
+planta com os cones de cada câmera, as pessoas com nome e os trajetos, e uma barra de
+números (área, cobertura, câmeras, pessoas em cena, fora do critério); o mesmo ambiente em
+3D, girável, com cones e pessoas; e a imagem de cada canal simulada a partir da planta,
+para conferir o enquadramento antes de instalar. E a régua: "quando for produzir, usar o
+máximo de recurso para produzir algo de maior qualidade e detalhes".
+
+Fica valendo:
+
+- **A planta passa a ser uma das faces principais do produto**, não um cadastro de apoio:
+  o ambiente em 2D e em 3D, as câmeras e o que cada uma cobre, e as pessoas se movendo — ao
+  vivo e no replay do expediente.
+- É a junção das ondas 9 (o ambiente que calcula) e 10 (a pessoa na planta), com acabamento
+  mais alto. Entra pelo caminho de toda tela: plano, protótipo aprovado, código.
+
+**Primeira leitura, a confirmar no estudo** — nada disto foi medido:
+
+| parte | dá? | como |
+|---|---|---|
+| a planta em 3D, com acabamento de jogo | sim | a planta desenhada ganha volume; os equipamentos vêm de uma biblioteca de peças; é trabalho de desenho e de tela |
+| a imagem de cada câmera simulada a partir da planta | sim | a base de equipamentos já guarda a lente de cada modelo; serve para decidir onde pôr a câmera antes de furar a parede |
+| montar o ambiente a partir das imagens das câmeras | em parte | cada câmera, calibrada, projeta o piso que ela vê sobre a planta: sai um mosaico visto de cima, para desenhar por cima e conferir. O volume inteiro, sozinho, a partir de poucas câmeras fixas, não é confiável hoje; para o ambiente fiel, o caminho é uma filmagem da loja com o celular |
+| as pessoas na planta, ao vivo | sim, com erro a medir | detecção nas câmeras de canto e o pé de cada pessoa projetado no piso. Na câmera de cima o detector de hoje não serve (medido: 15% de certeza) |
+| cada pessoa com o nome, o expediente inteiro | é a parte difícil | manter "quem é quem" por horas, numa cozinha apertada e de uniforme igual, falha sem âncoras. As que não pedem reconhecer rosto: o ponto e a escala do Regem (quem bateu o ponto, quem está escalado em qual posto), o posto fixo, um sinal no uniforme |
+
+- **Uma decisão do dono molda o desenho: de onde vem a identidade** — do ponto e da escala
+  (o que eu recomendo), de um sinal no uniforme, ou do rosto, que é dado biométrico: o mais
+  delicado na lei e o que pior funciona com câmera alta. A LGPD segue para o final, como ele
+  definiu; esta escolha é de desenho.
+- **O que o projeto já tinha escrito** (`FAROL-Mapeamento-Arquitetura-e-Orcamento.md`, §10.4
+  e §18): "o Farol não identifica pessoas", a responsabilização vem de cruzar o evento com a
+  escala do Regem, e a base legal de auditoria de processo "não cobre avaliação de
+  produtividade individual". **O nome na planta cabe nessa posição se vier da escala e do
+  ponto** — o Farol acompanha figuras, e quem dá o nome é o Regem. Acompanhar os passos de
+  cada pessoa o expediente inteiro já é avaliação individual: é decisão do dono, e muda o
+  desenho desde o começo — o que se guarda por pessoa, quem pode ver, por quanto tempo. A
+  proposta: o padrão é por posto e sem nome; o nome é uma opção que o cliente liga.
+- **Muita análise não precisa de nome:** mapa de calor, fluxo, tempo em cada posto, posto
+  vazio, idas e vindas entre a chapa e a montagem. O nome entra por cima.
+- **É o mesmo motor para qualquer loja:** a planta, a calibração de cada câmera e a
+  biblioteca de peças são perfil da loja; projetar, acompanhar e desenhar são do motor.
+- **A primeira prova é barata e sem nuvem:** calibrar duas ou três câmeras de canto do
+  piloto por quatro pontos e medir o erro de posição, e por quanto tempo um trajeto se
+  mantém.
+
+### O que não muda
+
+- Nada foi ligado nem implementado. As ondas seguem na ordem aprovada; as duas listas do
+  que falta — a do Farol e a do dono — estão no roadmap, logo depois da tabela das ondas.
