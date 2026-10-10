@@ -207,6 +207,24 @@ export type Estudo = {
   atualizadoEm?: string;
 };
 
+/** O que a câmera — ou o Farol — não alcança, dito ao lado da parte do estudo a que se refere. */
+export type AvisoDoEstudo = { parte: ParteDoEstudo; rotulo: string; motivo: string };
+
+/**
+ * As notas de um estudo. Não são guardadas: o servidor as tira do texto da
+ * ação toda vez que a ficha é lida ou proposta — quem reescreve a ação para
+ * o que a câmera vê deixa de ser avisado.
+ */
+export type NotasDoEstudo = { avisos: AvisoDoEstudo[]; sugestoes: string[] };
+
+/** A proposta do sistema para o estudo: um rascunho, com o porquê de cada escolha. Nada é gravado ao pedir. */
+export type EstudoProposto = NotasDoEstudo & {
+  estudo: Pick<Estudo, 'partes' | 'contexto' | 'gatilho'>;
+  /** O que o sistema leu no texto e o que ele supôs sobre a câmera. */
+  porque: string[];
+  usaContextoEGatilho: boolean;
+};
+
 /** A ficha de um critério, com os quadros que uma condição pode citar. */
 export type EstudoDoCriterio = {
   regraId: string;
@@ -214,6 +232,8 @@ export type EstudoDoCriterio = {
   /** Presença e contagem são conferidas na loja em toda olhada: o estudo delas só tem os textos. */
   usaContextoEGatilho: boolean;
   estudo: Estudo | null;
+  /** As notas da ficha guardada. `null` = sem estudo. (Ausente em resposta de API antiga.) */
+  notas?: NotasDoEstudo | null;
   canais: Array<{
     pontoId: string;
     nome: string;
@@ -512,6 +532,16 @@ export const regrasApi = {
 
   /** Tira o estudo: o critério volta a ser conferido como antes dele. */
   tirarEstudo: (id: string) => pedir<{ regraId: string; removido: boolean }>(`/regras/${id}/estudo`, { method: 'DELETE' }),
+
+  /**
+   * Pede a proposta do estudo para o critério como está na gaveta — salvo
+   * ou ainda não. O servidor propõe por regras, a partir do texto e dos
+   * lugares marcados, e não grava nada.
+   */
+  proporEstudo: (
+    lojaId: string,
+    criterio: { nome: string; criterio: string; tipo: Regra['tipo']; familia: Familia; zonaIds: string[] },
+  ) => pedir<EstudoProposto>(`/lojas/${lojaId}/estudo-proposto`, { method: 'POST', body: JSON.stringify(criterio) }),
 
   /** O funil dos últimos dias (o servidor escolhe quantos, quando `dias` não vem). */
   funil: (id: string, dias?: number) => pedir<FunilDoCriterio>(`/regras/${id}/funil${dias ? `?dias=${dias}` : ''}`),

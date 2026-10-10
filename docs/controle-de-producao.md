@@ -90,6 +90,16 @@ O exemplo dele, na forma em que a tela mostraria:
    caixa ou papel) → dizer o produto pela ficha → os especiais → o aviso na estação. São as
    etapas E1 a E4 do estudo de 07/10 e as ondas 4 e 5 do A19.
 
+**O que o dono decidiu depois de ler (10/10).** Sobre o ajuste 1: o KDS ganha **um modo a
+mais**, ao lado do "por pedido" — "por produto, com baixa automática", em que a fila aparece
+somada por produto e a quantidade diminui sozinha quando o Farol identifica a montagem. É
+opção da loja e **nasce desligado**: só se liga com o acerto da identificação medido naquela
+loja, e a baixa errada tem de poder ser desfeita com um toque. Os dois números continuam
+guardados por baixo. Do lado do Regem pede o item poder ser dado como feito (hoje o avanço
+é por pedido) e uma porta para o Farol entregar o acontecimento de produção; entra no plano
+de lá. Registro em [decisoes.md](decisoes.md), 10/10, "O KDS 'por produto, com baixa
+automática'".
+
 ## 3 · Mais possibilidades de controle de produção
 
 | | o que entrega | precisa de | câmera? |

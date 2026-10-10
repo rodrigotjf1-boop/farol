@@ -1,19 +1,28 @@
 // =====================================================================
 // O estudo de um critério e o funil dele
 // =====================================================================
-//   GET    /v1/regras/:id/estudo   a ficha (ou nada) e os quadros que ela pode citar
-//   PUT    /v1/regras/:id/estudo   grava a ficha inteira
-//   DELETE /v1/regras/:id/estudo   tira o estudo: volta o "quando vale a pena conferir" de sempre
-//   GET    /v1/regras/:id/funil    olhadas → com contexto → com gatilho → julgadas, em números
+//   GET    /v1/regras/:id/estudo          a ficha (ou nada), as notas dela e os quadros que ela pode citar
+//   PUT    /v1/regras/:id/estudo          grava a ficha inteira
+//   DELETE /v1/regras/:id/estudo          tira o estudo: volta o "quando vale a pena conferir" de sempre
+//   GET    /v1/regras/:id/funil           olhadas → com contexto → com gatilho → julgadas, em números
+//   POST   /v1/lojas/:id/estudo-proposto  propõe a ficha a partir do texto e dos lugares — não grava nada
 //
 // As regras do estudo (o que cabe, o que desce para o agente, a conta do
-// funil) estão em `../estudo.ts`. Aqui fica o que depende do banco.
+// funil) estão em `../estudo.ts`; as da proposta, em
+// `../proposta-do-estudo.ts`. Aqui fica o que depende do banco.
 //
 // ## Quem pode
 //
-// Ler a ficha: quem vê os critérios da loja. Gravar e tirar: quem
-// configura (gerência para cima, e o suporte). O funil: supervisão para
-// cima e o suporte — como as análises, de que ele é um recorte.
+// Ler a ficha: quem vê os critérios da loja. Gravar, tirar e pedir a
+// proposta: quem configura (gerência para cima, e o suporte). O funil:
+// supervisão para cima e o suporte — como as análises, de que ele é um
+// recorte.
+//
+// ## A proposta não grava
+//
+// Ela vale para o critério como está na gaveta — salvo ou ainda não —, e o
+// que volta é um rascunho na tela. Só o PUT grava, e só o estudo confirmado
+// desce para a loja.
 //
 // ## O quadro citado é de um canal do critério
 //
@@ -41,7 +50,16 @@ import {
   TIPOS_QUE_USAM_ESTUDO,
   type SomaDoFunil,
 } from '../estudo.js';
+import { sqlFamilia } from '../familia.js';
+import {
+  caberNaParte,
+  lerPedidoDeProposta,
+  notasDoEstudo,
+  proporEstudo,
+  type CanalDaProposta,
+} from '../proposta-do-estudo.js';
 import { exigirConfigurar, peloMenos } from '../rbac.js';
+import { lerZonaIds } from './regras.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -67,6 +85,34 @@ const paraATela = (e: LinhaDoEstudo | undefined) =>
         atualizadoEm: e.atualizado_em,
       }
     : null;
+
+/** Uma área de um canal, como as consultas daqui a devolvem: com a cena e a foto padrão do canal dela. */
+type LinhaDeArea = {
+  ponto_id: string; ponto_nome: string; canal: number | null; cena: string; padroes: number;
+  id: string; nome: string; papel: string; numero: number | null; alvo: boolean;
+};
+
+/** As colunas de `LinhaDeArea`, para uma consulta em `zona z join ponto p`. `alvo` é a condição de "o critério vale nela". */
+const colunasDaArea = (alvo: string): string => `
+  p.id as ponto_id, p.nome as ponto_nome, p.canal, p.cena,
+  (select count(*)::int from foto_padrao f where f.ponto_id = p.id) as padroes,
+  z.id, z.nome, z.papel,
+  ${SQL_NUMERO_DO_QUADRO} as numero,
+  ${alvo} as alvo`;
+
+/** Os canais, com as áreas de cada um, na forma que a proposta lê. */
+function canaisDe(linhas: readonly LinhaDeArea[]): CanalDaProposta[] {
+  const canais = new Map<string, CanalDaProposta>();
+  for (const l of linhas) {
+    let c = canais.get(l.ponto_id);
+    if (!c) {
+      c = { pontoId: l.ponto_id, nome: l.ponto_nome, cena: l.cena, temFotoPadrao: l.padroes > 0, areas: [] };
+      canais.set(l.ponto_id, c);
+    }
+    c.areas.push({ id: l.id, nome: l.nome, papel: l.papel, numero: l.numero, alvo: l.alvo });
+  }
+  return [...canais.values()];
+}
 
 const funilDe = (tipo: string, s: SomaDoFunil) =>
   montarFunil(s, repartirPorOnde({
@@ -96,14 +142,15 @@ export function rotasDeEstudos(app: FastifyInstance, pool: pg.Pool): void {
     if (!UUID.test(id)) return naoAchei(resposta);
 
     // O critério de outra conta tem de ser indistinguível do que não existe.
-    const r = await pool.query<{ id: string; tipo: string }>(
-      `select r.id, r.tipo
+    const r = await pool.query<{ id: string; tipo: string; nome: string; criterio: string; familia: string }>(
+      `select r.id, r.tipo, r.nome, r.criterio, ${sqlFamilia('r')} as familia
          from regra r
          join loja l on l.id = r.loja_id
         where r.id = $1 and l.tenant_id = $2 and r.excluida_em is null`,
       [id, s.tenantId],
     );
     if (r.rowCount === 0) return naoAchei(resposta);
+    const regra = r.rows[0]!;
 
     const [estudo, quadros] = await Promise.all([
       pool.query<LinhaDoEstudo>(
@@ -111,10 +158,10 @@ export function rotasDeEstudos(app: FastifyInstance, pool: pg.Pool): void {
         [id],
       ),
       // Os quadros que uma condição pode citar: os dos canais em que o
-      // critério vale.
-      pool.query(
-        `select p.id as ponto_id, p.nome as ponto_nome, p.canal, z.id, z.nome, z.papel,
-                ${SQL_NUMERO_DO_QUADRO} as numero
+      // critério vale. `alvo` marca as áreas em que ele vale — é por elas
+      // que as notas falam do lugar.
+      pool.query<LinhaDeArea>(
+        `select ${colunasDaArea('exists (select 1 from regra_alvo ra where ra.regra_id = $1 and ra.zona_id = z.id)')}
            from zona z
            join ponto p on p.id = z.ponto_id
           where z.excluida_em is null and p.excluido_em is null
@@ -136,14 +183,97 @@ export function rotasDeEstudos(app: FastifyInstance, pool: pg.Pool): void {
       canais.get(q.ponto_id)!.quadros.push({ id: q.id, nome: q.nome, papel: q.papel, numero: q.numero });
     }
 
+    // As notas não são guardadas: saem do texto da ação (na falta dele, da
+    // explicação do critério), toda vez que a ficha é lida.
+    const guardado = estudo.rows[0];
+    const notas = guardado
+      ? notasDoEstudo({
+          nome: regra.nome,
+          acao: guardado.partes.acao ?? caberNaParte(regra.criterio),
+          tipo: regra.tipo,
+          familia: regra.familia,
+          canais: canaisDe(quadros.rows),
+        })
+      : null;
+
     return {
       regraId: id,
-      tipo: r.rows[0]!.tipo,
+      tipo: regra.tipo,
       // Presença e contagem são conferidas na loja em toda olhada: a ficha
       // delas tem os textos, e não leva contexto nem gatilho.
-      usaContextoEGatilho: TIPOS_QUE_USAM_ESTUDO.includes(r.rows[0]!.tipo),
-      estudo: paraATela(estudo.rows[0]),
+      usaContextoEGatilho: TIPOS_QUE_USAM_ESTUDO.includes(regra.tipo),
+      estudo: paraATela(guardado),
+      notas,
       canais: [...canais.values()],
+    };
+  });
+
+  // ─────────────────────── propor a ficha ───────────────────────
+
+  app.post('/v1/lojas/:id/estudo-proposto', async (req, resposta) => {
+    const s = await quem(req, resposta);
+    if (!s) return;
+    if (!exigirConfigurar(s, resposta)) return;
+    const { id } = req.params as { id: string };
+    // A loja de outra conta, e o canal de outra loja, têm de ser
+    // indistinguíveis do que não existe.
+    const naoAcheiOLugar = () =>
+      resposta.status(404).send({ erro: 'nao_encontrada', mensagem: 'loja ou canal não encontrado' });
+    if (!UUID.test(id)) return naoAcheiOLugar();
+
+    const lido = lerPedidoDeProposta(req.body);
+    if ('problema' in lido) {
+      return resposta.status(422).send({ erro: 'validacao', mensagem: lido.problema });
+    }
+    const z = lerZonaIds(req.body as Record<string, unknown>);
+    if (z.problema) {
+      return resposta.status(422).send({ erro: 'validacao', mensagem: z.problema });
+    }
+    if (!z.ids || z.ids.length === 0) {
+      return resposta.status(422).send({
+        erro: 'validacao',
+        mensagem: 'marque ao menos um canal: a proposta lê o canal e os quadros em que o critério vale',
+      });
+    }
+
+    // As áreas pedidas — só as desta loja e desta conta — e, com elas,
+    // TODAS as áreas dos canais em que estão: o papel de um quadro vizinho
+    // (o posto, a pia) entra na proposta. A área e o canal excluídos ficam
+    // de fora na consulta de baixo, e aí a conta das áreas pedidas não fecha.
+    const { rows } = await pool.query<LinhaDeArea>(
+      `with pedida as (
+         select zp.id, zp.ponto_id
+           from zona zp
+           join ponto pp on pp.id = zp.ponto_id
+           join setor st on st.id = pp.setor_id
+           join loja  l  on l.id  = st.loja_id
+          where zp.id = any($1::uuid[])
+            and l.id = $2 and l.tenant_id = $3
+       )
+       select ${colunasDaArea('exists (select 1 from pedida pd where pd.id = z.id)')}
+         from zona z
+         join ponto p on p.id = z.ponto_id
+        where z.excluida_em is null and p.excluido_em is null
+          and z.ponto_id in (select ponto_id from pedida)
+        order by p.nome, p.id, numero nulls first, z.nome, z.id`,
+      [z.ids, id, s.tenantId],
+    );
+    // Uma área que não é daqui no meio da lista não é ignorada em silêncio:
+    // a proposta seria de outro lugar que não o que a pessoa marcou.
+    if (rows.filter((l) => l.alvo).length !== z.ids.length) return naoAcheiOLugar();
+
+    const proposta = proporEstudo({ ...lido.ok, canais: canaisDe(rows) });
+    // Sem o texto do critério: só o que ajuda a afinar o vocabulário.
+    req.log.info(
+      { loja: id, por: s.usuarioId, assunto: proposta.assunto, avisos: proposta.avisos.length },
+      'estudo proposto',
+    );
+    return {
+      estudo: { partes: proposta.partes, contexto: proposta.contexto, gatilho: proposta.gatilho },
+      porque: proposta.porque,
+      avisos: proposta.avisos,
+      sugestoes: proposta.sugestoes,
+      usaContextoEGatilho: TIPOS_QUE_USAM_ESTUDO.includes(lido.ok.tipo),
     };
   });
 

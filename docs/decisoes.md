@@ -2885,3 +2885,153 @@ Fica valendo:
 
 - Nada foi ligado nem implementado. As ondas seguem na ordem aprovada; as duas listas do
   que falta — a do Farol e a do dono — estão no roadmap, logo depois da tabela das ondas.
+
+## 10/10/2026 · O sistema propõe o estudo do critério — por regras, no servidor (a onda 1 fecha)
+
+O protótipo aprovado em 09/10 tem o botão "Propor o estudo": "A partir do seu texto, deste
+canal e destes quadros, o sistema propõe as seis partes e liga cada condição a um sinal que a
+loja já dá. Você confirma ou corrige." Faltava decidir **quem** propõe. O plano de 08/10
+falava em pedir ao computador da loja, como a descrição de um equipamento (com modelo de
+nuvem); a recomendação levada ao dono foi começar **por regras, no servidor**. Em 10/10 ele
+mandou seguir com o que era da minha parte, e a fatia saiu pelo caminho recomendado. Se ele
+preferir outro, o botão é o mesmo: troca-se quem responde.
+
+### O que fica valendo
+
+1. **A proposta é por regras e mora no servidor** (`api/src/proposta-do-estudo.ts`; a rota é
+   `POST /v1/lojas/:id/estudo-proposto`). Não vai a modelo nenhum, não custa nada, responde
+   na hora, não depende do computador da loja estar ligado, e a mesma entrada dá sempre a
+   mesma proposta.
+2. **Pedir a proposta não grava nada.** Ela vale para o critério como está na gaveta — salvo
+   ou ainda não — e volta como **rascunho**: nunca confirmado. Só entra no banco quando a
+   pessoa salva o critério, e só o estudo confirmado desce para a loja (regra de 09/10).
+3. **O assunto sai do texto; o sinal sai do lugar.** O vocabulário é de cozinha e de loja em
+   geral — é dado, não regra do motor, e nada dele é do piloto (decisão de 10/10, "O piloto
+   não vira regra do motor"). O lugar é lido de três coisas que a conta já tem: a **cena**
+   escrita do canal (de onde a câmera olha), o **papel** de cada quadro e se o canal tem
+   **foto padrão**.
+
+| o texto fala de (exemplos de palavra) | câmera comum | a cena diz "de cima" | o critério vale em posição de montagem |
+|---|---|---|---|
+| o que alguém usa ou faz (touca, uniforme, luva, mãos, usar o celular) | contexto: há alguém · gatilho: alguém chegou, ou 5 min | contexto: algo se mexe · gatilho: 5 min | como "de cima", e a sugestão de mudar o critério de lugar |
+| limpeza e organização (limpo, restos, sujo, organizado); aberto ou fechado, ligado ou desligado (porta, tampa, fechada) | contexto: não há ninguém · gatilho: o lugar ficou sem ninguém, ou 10 min | contexto: está tudo parado · gatilho: parou de se mexer, ou 10 min | sem contexto · gatilho: 10 min |
+| abastecimento (abastecida, vazia, falta) | contexto: não há ninguém · gatilho: 15 min | contexto: está tudo parado · gatilho: 15 min | sem contexto · gatilho: 15 min |
+| nenhuma palavra conhecida (o caminho geral) | contexto: não há ninguém · gatilho: parou de se mexer, ou 10 min | contexto: está tudo parado · gatilho: parou de se mexer, ou 10 min | sem contexto · gatilho: 10 min |
+| comparação com a foto padrão | com foto em **todos** os canais do critério: gatilho "deixou de estar como na foto", ou 15 min, com o contexto de lugar livre da coluna; sem foto em algum: o caminho geral | idem | idem |
+| acontecimento, processo ou medida | contexto: há alguém — no quadro de posto do canal, quando o critério está num canal só e ele tem um posto só · gatilho: algo se mexeu desde a olhada anterior | sem contexto · gatilho: algo se mexeu | idem |
+| presença e contagem | só os seis textos: são conferidas na loja em toda olhada | idem | idem |
+
+"A cada N minutos" conta desde a última vez que a análise abriu — é como a loja conta.
+
+4. **Por que cada escolha** (o que a loja faz com o sinal está em `agent/farol_agent/sinais.py`
+   e `motor.py`):
+   - o que a loja não sabe ler **não segura**: gatilho da foto padrão em canal sem foto
+     abriria a análise em toda olhada. Por isso ele só entra com foto em todos os canais;
+   - de cima o detector de pessoas vê mão e braço, não gente: o sinal que serve é o
+     movimento. Basta **um** canal do critério ser de cima para a proposta inteira usar
+     movimento, que serve em todos;
+   - em **posição de montagem** a loja já espera as mãos saírem antes de conferir. Pôr "está
+     tudo parado" por cima compararia com a olhada de 30 s antes: no pico o quadro muda a
+     cada olhada, e o critério nunca seria conferido. Ali a proposta não leva condição de
+     lugar livre;
+   - a condição que olha **outro quadro** (o posto) só entra quando o critério está num
+     canal só: o quadro de um canal não existe no outro.
+5. **A proposta diz o porquê.** Junto com a ficha voltam as frases do que o sistema leu ("Li
+   'restos' no seu texto…") e do que ele supôs sobre a câmera ("Usei o detector de pessoas.
+   Se a câmera olha de cima, troque por movimento…"; "A cena deste canal ainda não foi
+   descrita…"). É o que deixa a pessoa corrigir sabendo de onde a escolha veio.
+6. **"A câmera não vê" e a sugestão.** São sete coisas que nenhuma câmera de loja alcança,
+   e só o que vale em qualquer instalação: o **gesto** de salgar ou temperar (o saleiro e o
+   pote aparecem; o sal, não), a temperatura, a data de uma etiqueta, o cheiro, o peso, o que
+   foi dito ou ouvido, e **quem** foi (o Farol não identifica pessoas). Cada uma vem com o
+   motivo e com uma sugestão do que escrever no lugar. Há mais duas sugestões, de lugar:
+   critério sobre o que alguém usa, marcado em posição de montagem (ali ele só é conferido
+   com as mãos fora); e "lavar as mãos" sem estar num quadro de pia.
+7. **As notas não são guardadas.** Saem do texto da parte "ação", pela mesma função, na
+   proposta e toda vez que a ficha é lida. Valem enquanto a causa está no texto: quem segue a
+   sugestão e reescreve a ação deixa de ser avisado. Nenhuma migration.
+8. **Quem pede:** quem configura (gerência para cima, e o suporte). O canal de outra conta,
+   de outra loja, excluído ou inexistente responde como o que não existe. No registro do
+   servidor fica só o assunto que a regra achou — nunca o texto do critério —, para afinar o
+   vocabulário.
+
+### Na tela
+
+- No critério sem estudo, o botão **"Propor o estudo"**. Sem a explicação escrita, ou sem
+  canal marcado, ele trava e diz o que falta. Os modelos e "Escrever do zero" continuam,
+  logo abaixo.
+- Proposta feita, a ficha abre com a faixa **"Proposto pelo sistema"**, o porquê e o elo
+  **"Voltar ao que estava"** — que devolve a ficha de antes da primeira proposta, mesmo
+  depois de "Propor de novo", e mesmo que ela fosse um estudo confirmado.
+- Ao lado da ação, o selo ("a câmera não vê", "a câmera não lê", "o Farol não ouve", "o Farol
+  não diz quem") com o motivo; depois da ficha, a "Sugestão". Quem só vê lê as duas coisas
+  e não tem o botão.
+- As caixas de texto da ficha passam a crescer com o texto (no celular, duas linhas escondiam
+  o fim da frase). Onde o navegador não sabe fazer isso, ficam como eram.
+
+### Onde diverge do protótipo aprovado
+
+- O protótipo escreve "pelo sinal: …" debaixo de cada parte. No console o sinal **é** a
+  condição, que se escolhe e se troca ali mesmo, com "A loja confere por: …" (está assim
+  desde a gaveta nova, de 09/10). As partes que não têm condição não têm linha de sinal.
+- A faixa traz o porquê e o "Voltar ao que estava", que o protótipo não tinha.
+- O vazio mantém os modelos e "Escrever do zero" (o protótipo mostra só o botão).
+- "Propor de novo" só aparece depois de uma proposta feita naquela gaveta; numa ficha escrita
+  à mão o botão diz "Propor o estudo".
+- Não há o aviso "Estudo proposto…" que some sozinho: quem diz é a faixa, que recebe o foco.
+- "Deste canal e destes quadros" virou "dos lugares em que o critério vale": o critério pode
+  valer em vários canais.
+
+### O que não foi medido, e o que isto não faz
+
+- **Quantas propostas são confirmadas sem correção** — só o uso diz. Não há contador disso.
+- A proposta **não lê a imagem**: do lugar ela sabe a cena escrita, o papel dos quadros e a
+  foto padrão. Canal sem cena cai no detector de pessoas, e a faixa diz isso.
+- "De cima" é lido da cena **por palavras** ("de cima", "zenital", "para baixo", "do teto",
+  "no teto"; "de lado", "de frente", "de canto" dizem o contrário). Cena que diz de outro
+  jeito não é entendida — e a frase "se a câmera olha de cima, troque por movimento" fica à
+  vista para isso.
+- O vocabulário é pequeno de propósito: palavra que engana ficou de fora ("salgados",
+  "cachorro-quente", "câmara fria", "anéis de cebola", "à mão").
+- Janela, ação e desfecho continuam sendo só texto: a loja confere o contexto e o gatilho.
+- Com isto **a onda 1 fecha**. A proposta por um modelo que lê a imagem pode vir depois,
+  atrás do mesmo botão.
+
+## 10/10/2026 · O KDS "por produto, com baixa automática": um modo a mais, desligado de fábrica (dito pelo dono)
+
+Depois de ler a avaliação do saldo de produção, o dono respondeu à ressalva "a câmera confere
+o KDS, não dá baixa nele":
+
+> a nao ser que uma mudança no kds ao exibir por pedido, colocar por produto agrupado no
+> regem ja tem essa opção, e conforme identifica a produção no farol podemos por uma opção
+> de diminuir automatico no kds, seria um modo de funcionar alem do kds separado por pedido
+> onde o usuario avança o pedido.
+
+### O que fica valendo
+
+1. **O KDS ganha um modo além do "por pedido":** "por produto, com baixa automática". Nele a
+   fila aparece somada por produto, e a quantidade **diminui sozinha** quando o Farol
+   identifica a montagem fechada. O modo "por pedido", em que a pessoa avança o pedido,
+   continua como é.
+2. **É opção da loja, e nasce desligado.** A ressalva de antes vira a condição de ligar: a
+   câmera identifica o produto em bem menos que 100% das vezes, e uma baixa errada esconde um
+   pedido que ainda falta. O modo só é ligado, loja a loja, **com o acerto da identificação
+   medido naquela loja** (o banco de provas, onda 2 em diante), e a baixa errada tem de poder
+   ser desfeita com um toque.
+3. **Os dois números continuam por baixo.** "No KDS" e "visto na bancada" seguem guardados
+   lado a lado: é a diferença entre eles que mostra o pronto sem montagem vista, a montagem
+   sem pedido e o esquecido. O modo muda o que a tela mostra e quem dá a baixa, não o que se
+   mede.
+4. **O que pede do lado do Regem.** Hoje o avanço é **por pedido**, e o item da fila não
+   tem estado próprio nem o id do produto. O modo precisa de: o item (ou a contagem por
+   produto) poder ser dado como feito; uma porta por onde o Farol entrega o **acontecimento
+   de produção** (qual produto fechou, em que bancada, a que horas, com que confiança) — quem
+   decide a baixa é o Regem; e o desfazer. Entra no **plano do lado do Regem**, que é
+   apresentado lá antes de qualquer código.
+5. **Quando:** com a identificação do produto, que é a onda 5. Antes disso não há o que
+   ligar.
+
+### O que não muda
+
+- Nada foi ligado nem implementado. A conta só fecha com câmera em todas as bancadas da
+  fila (no piloto, a outra frente da ilha ainda não tem).

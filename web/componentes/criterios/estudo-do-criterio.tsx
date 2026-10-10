@@ -8,21 +8,30 @@
 // SOZINHA, de graça: o contexto (todas as condições têm de valer) e o
 // gatilho (basta um). Cada condição lê um sinal num lugar do canal.
 //
+// O sistema PROPÕE a ficha (A19, onda 1, a última fatia): a partir do texto
+// do critério e dos lugares em que ele vale, o servidor devolve as seis
+// partes, as condições e o porquê de cada escolha. O que volta é um
+// rascunho — a pessoa confirma ou corrige.
+//
 // O que a tela afirma, e de onde tira:
 //   - só o estudo CONFIRMADO vale — e só ele desce para a loja. Rascunho
 //     fica guardado e não muda nada;
 //   - sem estudo confirmado, o critério segue como era conferido antes
 //     (`comoEHoje`);
 //   - presença e contagem são conferidas na loja em toda olhada: o estudo
-//     delas guarda os textos, e não leva contexto nem gatilho.
+//     delas guarda os textos, e não leva contexto nem gatilho;
+//   - "a câmera não vê" e as sugestões vêm PRONTAS do servidor, e valem
+//     para o texto da ação de que saíram: mudou o texto, a nota some até a
+//     ficha ser proposta ou lida de novo.
 // =====================================================================
 
-import { Check, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { Check, Lightbulb, Plus, RotateCcw, Sparkles, Trash2, Undo2, X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 import { Botao } from '@/componentes/ui/botao';
 import { AJUDA, ROTULO } from '@/componentes/ui/campo';
-import { Alerta } from '@/componentes/ui/pecas';
-import type { Condicao, OndeDaCondicao, ParteDoEstudo } from '@/lib/api';
+import { Alerta, Chip } from '@/componentes/ui/pecas';
+import type { Condicao, NotasDoEstudo, OndeDaCondicao, ParteDoEstudo } from '@/lib/api';
 
 import {
   chaveDoLugar,
@@ -51,6 +60,9 @@ export type RascunhoDoEstudo = {
 };
 
 export const SEM_ESTUDO: RascunhoDoEstudo = { existe: false, partes: {}, contexto: [], gatilho: [], confirmado: false };
+
+/** As notas de uma ficha, com o texto da ação de que saíram: é para ele que elas valem. */
+export type NotasNaGaveta = NotasDoEstudo & { acao: string };
 
 /** O que vai para o servidor: os textos sem espaço sobrando e as condições sem o que não é delas. */
 export function estudoParaSalvar(r: RascunhoDoEstudo, usaContextoEGatilho: boolean) {
@@ -94,6 +106,19 @@ type Props = {
   agenteSabe: boolean | null;
   /** O que falta para as condições poderem ser salvas — dito ao lado do botão de confirmar. */
   problema: string | null;
+  /** O que o sistema propôs NESTA gaveta: o porquê. `null` = a ficha que está aqui não acabou de ser proposta. */
+  proposta: { porque: string[] } | null;
+  /** O que a câmera não alcança e o que se sugere, como o servidor disse. `null` = nada a dizer. */
+  notas: NotasNaGaveta | null;
+  propondo: boolean;
+  /** O que falta para pedir a proposta — dito ao lado do botão. `null` = dá para pedir. */
+  faltaParaPropor: string | null;
+  erroDaProposta: string | null;
+  aoPropor: () => void;
+  /** Desfaz a proposta: a ficha volta a ser a de antes dela. */
+  aoDesfazerProposta: () => void;
+  /** Sobe a cada vez que o foco tem de voltar ao botão de propor (a proposta foi desfeita). */
+  focoNoPropor: number;
 };
 
 const SELETOR = 'entrada min-w-0 py-1.5 text-[13px]';
@@ -242,7 +267,67 @@ function Condicoes({
   );
 }
 
-export function EstudoDoCriterio({ prefixo, valor, aoMudar, lugares, usaContextoEGatilho, configura, comoEHoje, agenteSabe, problema }: Props) {
+export function EstudoDoCriterio({
+  prefixo,
+  valor,
+  aoMudar,
+  lugares,
+  usaContextoEGatilho,
+  configura,
+  comoEHoje,
+  agenteSabe,
+  problema,
+  proposta,
+  notas,
+  propondo,
+  faltaParaPropor,
+  erroDaProposta,
+  aoPropor,
+  aoDesfazerProposta,
+  focoNoPropor,
+}: Props) {
+  const botaoDePropor = useRef<HTMLButtonElement>(null);
+  const faixaDaProposta = useRef<HTMLDivElement>(null);
+
+  // A proposta chegou: o foco vai para a faixa que a anuncia. O botão que a pediu pode ter sumido (o "sem
+  // estudo" dá lugar à ficha), e o foco não pode ficar em lugar nenhum.
+  useEffect(() => {
+    if (proposta) faixaDaProposta.current?.focus();
+  }, [proposta]);
+  // A proposta foi desfeita: a faixa sumiu, e o foco volta ao botão de propor.
+  useEffect(() => {
+    if (focoNoPropor > 0) botaoDePropor.current?.focus();
+  }, [focoNoPropor]);
+
+  /** O botão de pedir a proposta, com o que falta (ou o que deu errado) dito ao lado. */
+  const pedirProposta = (rotulo: string, variante: 'primario' | 'secundario') => (
+    <>
+      <Botao
+        ref={botaoDePropor}
+        mini
+        variante={variante}
+        ocupado={propondo}
+        disabled={faltaParaPropor !== null}
+        aria-describedby={faltaParaPropor ? `${prefixo}-falta-para-propor` : undefined}
+        onClick={aoPropor}
+        data-propor-estudo
+      >
+        {!propondo && <Sparkles className="h-[15px] w-[15px]" aria-hidden />}
+        {propondo ? 'Propondo…' : rotulo}
+      </Botao>
+      {faltaParaPropor && (
+        <p id={`${prefixo}-falta-para-propor`} className="flex-[1_1_200px] text-[12.5px] text-farol-suave" data-falta-para-propor>
+          {faltaParaPropor}
+        </p>
+      )}
+    </>
+  );
+  const erroAoPropor = erroDaProposta && (
+    <p className="text-[12.5px] text-farol-critico" role="alert" data-erro-da-proposta>
+      Não deu para propor: {erroDaProposta}. A ficha continua como estava.
+    </p>
+  );
+
   // ───────────── sem estudo ─────────────
   if (!valor.existe) {
     return (
@@ -256,9 +341,18 @@ export function EstudoDoCriterio({ prefixo, valor, aoMudar, lugares, usaContexto
         </div>
         {configura && (
           <>
+            <div className="flex flex-col gap-2">
+              <p className="text-[13px] text-farol-suave">
+                {usaContextoEGatilho
+                  ? 'A partir do seu texto e dos lugares em que o critério vale, o sistema propõe as seis partes e liga cada condição a um sinal que a loja já dá. Você confirma ou corrige.'
+                  : 'A partir do seu texto, o sistema propõe as seis partes. Você confirma ou corrige.'}
+              </p>
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">{pedirProposta('Propor o estudo', 'primario')}</div>
+              {erroAoPropor}
+            </div>
             {usaContextoEGatilho && (
               <div className="flex flex-col gap-1.5">
-                <span className={ROTULO}>Começar por um modelo</span>
+                <span className={ROTULO}>Ou comece por um modelo</span>
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2">
                   {MODELOS_DE_ESTUDO.map((m) => (
                     <button
@@ -292,10 +386,45 @@ export function EstudoDoCriterio({ prefixo, valor, aoMudar, lugares, usaContexto
 
   // ───────────── a ficha ─────────────
   const mudar = (parte: Partial<RascunhoDoEstudo>) => aoMudar({ ...valor, ...parte });
+  // As notas valem para o texto da ação de que saíram: mudou o texto, somem até a ficha ser proposta ou lida de novo.
+  const notasQueValem = notas && (valor.partes.acao ?? '').trim() === notas.acao.trim() ? notas : null;
+  const daProposta = proposta !== null && !valor.confirmado;
 
   return (
     <div className="flex flex-col gap-3" data-estudo={valor.confirmado ? 'confirmado' : 'rascunho'}>
-      {!usaContextoEGatilho ? (
+      {daProposta ? (
+        // A faixa recebe o foco quando a proposta chega: é o foco que a anuncia, e por isso ela não é também
+        // uma região de "status" (o leitor de tela diria duas vezes).
+        <div
+          ref={faixaDaProposta}
+          tabIndex={-1}
+          role="group"
+          aria-label="Estudo proposto pelo sistema"
+          className="rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-farol-marca"
+          data-proposta
+        >
+          <Alerta tom="atencao" icone={Sparkles}>
+            <b className="font-semibold">Proposto pelo sistema</b>
+            {usaContextoEGatilho
+              ? `, a partir do seu texto e dos lugares em que o critério vale. Confira cada parte e corrija o que for preciso. Ainda não vale: enquanto não for confirmado, o critério segue sendo conferido ${comoEHoje}.`
+              : ', a partir do seu texto. Confira cada parte e corrija o que for preciso.'}
+            {proposta.porque.length > 0 && (
+              // A posição é a identidade da frase: o servidor não promete que duas não se repitam.
+              <ul className="mt-1.5 flex list-disc flex-col gap-1 pl-4" data-porque>
+                {proposta.porque.map((frase, i) => (
+                  <li key={i}>{frase}</li>
+                ))}
+              </ul>
+            )}
+            {configura && (
+              <button type="button" className="elo mt-1.5 inline-flex items-center gap-1 text-[13px]" onClick={aoDesfazerProposta} data-desfazer-proposta>
+                <Undo2 className="h-[13px] w-[13px]" aria-hidden />
+                Voltar ao que estava
+              </button>
+            )}
+          </Alerta>
+        </div>
+      ) : !usaContextoEGatilho ? (
         <Alerta>
           Presença e contagem são conferidas na loja em toda olhada: aqui o estudo guarda só os textos. Contexto e
           gatilho não se aplicam.
@@ -327,6 +456,7 @@ export function EstudoDoCriterio({ prefixo, valor, aoMudar, lugares, usaContexto
         {PARTES.map((p) => {
           const id = `${prefixo}-parte-${p.valor}`;
           const comCondicoes = usaContextoEGatilho && (p.valor === 'contexto' || p.valor === 'gatilho');
+          const avisos = (notasQueValem?.avisos ?? []).filter((a) => a.parte === p.valor);
           return (
             <div
               key={p.valor}
@@ -338,16 +468,31 @@ export function EstudoDoCriterio({ prefixo, valor, aoMudar, lugares, usaContexto
                 <small className="text-[11.5px] leading-snug text-farol-suave">{p.pergunta}</small>
               </label>
               <div className="flex min-w-0 flex-col gap-2">
+                {/* A caixa cresce com o texto (`field-sizing`): a proposta enche as seis partes, e no celular duas
+                    linhas escondiam o fim da frase. Onde o navegador não conhece a propriedade, fica como era. */}
                 <textarea
                   id={id}
                   rows={2}
                   maxLength={MAX_TEXTO_DA_PARTE}
-                  className="entrada min-h-[56px] resize-y text-[13.5px] leading-normal"
+                  className="entrada min-h-[56px] resize-y text-[13.5px] leading-normal [field-sizing:content]"
                   placeholder={p.exemplo}
                   value={valor.partes[p.valor] ?? ''}
                   disabled={!configura}
+                  aria-describedby={avisos.length > 0 ? `${id}-avisos` : undefined}
                   onChange={(e) => mudar({ partes: { ...valor.partes, [p.valor]: e.target.value } })}
                 />
+                {avisos.length > 0 && (
+                  <ul id={`${id}-avisos`} className="flex flex-col gap-1.5" data-avisos>
+                    {/* A posição é a identidade do aviso: o texto é do servidor. */}
+                    {avisos.map((a, i) => (
+                      <li key={i} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-farol-suave">
+                        {/* O espaço é para quem lê o texto corrido (o leitor de tela): "não vê O sal…", e não "vêO". */}
+                        <Chip tom="critico">{a.rotulo}</Chip>{' '}
+                        <span className="min-w-0 flex-[1_1_160px]">{a.motivo}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 {comCondicoes && (
                   <Condicoes
                     prefixo={prefixo}
@@ -364,28 +509,43 @@ export function EstudoDoCriterio({ prefixo, valor, aoMudar, lugares, usaContexto
         })}
       </div>
 
+      {notasQueValem && notasQueValem.sugestoes.length > 0 && (
+        <div className="flex flex-col gap-2" data-sugestoes>
+          {/* A posição é a identidade da sugestão: o texto é do servidor. */}
+          {notasQueValem.sugestoes.map((s, i) => (
+            <Alerta key={i} icone={Lightbulb}>
+              <b className="font-semibold text-farol-tinta">Sugestão.</b> {s}
+            </Alerta>
+          ))}
+        </div>
+      )}
+
       {configura && (
-        <div className="flex flex-wrap items-center gap-2.5">
-          {usaContextoEGatilho && !valor.confirmado && (
-            <Botao mini variante="primario" disabled={problema !== null} onClick={() => mudar({ confirmado: true })} data-confirmar-estudo>
-              <Check className="h-[15px] w-[15px]" aria-hidden />
-              Confirmar o estudo
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {usaContextoEGatilho && !valor.confirmado && (
+              <Botao mini variante="primario" disabled={problema !== null} onClick={() => mudar({ confirmado: true })} data-confirmar-estudo>
+                <Check className="h-[15px] w-[15px]" aria-hidden />
+                Confirmar o estudo
+              </Botao>
+            )}
+            {pedirProposta(proposta ? 'Propor de novo' : 'Propor o estudo', 'secundario')}
+            <Botao mini variante="perigo-leve" onClick={() => aoMudar(SEM_ESTUDO)} data-tirar-estudo>
+              <Trash2 className="h-[15px] w-[15px]" aria-hidden />
+              Tirar o estudo
             </Botao>
-          )}
-          <Botao mini variante="perigo-leve" onClick={() => aoMudar(SEM_ESTUDO)} data-tirar-estudo>
-            <Trash2 className="h-[15px] w-[15px]" aria-hidden />
-            Tirar o estudo
-          </Botao>
-          {problema ? (
-            <p className="flex-[1_1_200px] text-[12.5px] text-farol-critico" role="alert">
-              {problema}
-            </p>
-          ) : (
-            <p className="flex-[1_1_200px] text-[12.5px] text-farol-suave">
-              <RotateCcw className="mr-1 inline h-[13px] w-[13px] align-[-2px]" aria-hidden />
-              Nada disto vale antes de você salvar o critério.
-            </p>
-          )}
+            {problema ? (
+              <p className="flex-[1_1_200px] text-[12.5px] text-farol-critico" role="alert">
+                {problema}
+              </p>
+            ) : (
+              <p className="flex-[1_1_200px] text-[12.5px] text-farol-suave">
+                <RotateCcw className="mr-1 inline h-[13px] w-[13px] align-[-2px]" aria-hidden />
+                Nada disto vale antes de você salvar o critério.
+              </p>
+            )}
+          </div>
+          {erroAoPropor}
         </div>
       )}
     </div>

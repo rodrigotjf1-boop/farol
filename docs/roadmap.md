@@ -3802,11 +3802,11 @@ ele corrigir alguma dessas leituras, vale a correção.
 | onda | o quê | tamanho | depende de |
 |---|---|---|---|
 | 0 ✅ | Confiança em %; cliente do gravador | P | — |
-| 1 ▶ em andamento | **Quadros, estudo condicional e contexto:** imagem completa × quadros com papel; a ficha de cada critério (contexto, gatilho, janela, ação, desfecho) e o funil em números; **a anatomia do pedido à nuvem** (a cena, o mapa do canal, o recorte na resolução da câmera, a resposta na forma da família — o recorte nunca sobe sozinho); Haiku 5.5 (medido); no quadro de bancada, o quadro de "as mãos saíram" no lugar do borrão de rosto; os quatro estados do critério | G | protótipo aprovado |
+| 1 ✅ | **Quadros, estudo condicional e contexto:** imagem completa × quadros com papel; a ficha de cada critério (contexto, gatilho, janela, ação, desfecho) e o funil em números; **a anatomia do pedido à nuvem** (a cena, o mapa do canal, o recorte na resolução da câmera, a resposta na forma da família — o recorte nunca sobe sozinho); Haiku 5.5 (medido); no quadro de bancada, o quadro de "as mãos saíram" no lugar do borrão de rosto; os quatro estados do critério | G | protótipo aprovado |
 | 2 | **Sequência e banco de provas:** olhar para trás (na dúvida, **a busca pelo meio** no gravador, por blocos de 2 s), grade de 6 quadros, a família Acontecimento; "acertou / errou"; o acerto medido de cada critério | G | o dono marcar os exemplos |
 | 3 | **Processo e Medida:** etapas por quadro, cronômetros e contadores, episódios, modelos prontos | G | onda 2 medida |
 | 4 | **Leitura da bancada, E0 → E1:** câmera regulada, números da semana, as fases do lote, contar montagens pelo fechamento, a comanda | G | a câmera do canal 4 foi regulada em 09/10 e o dono redesenhou o quadro da bancada na mesma noite (conferido contra a gravação); falta ele escrever a cena do canal |
-| 5 | **Leitura da bancada, E2 → E3:** **o leitor local de ingredientes** (ensinado pela nuvem; só o "não sei" sobe, uma posição por chamada), o dicionário de ingredientes (com as regras e a rotina da casa), a ficha comparada em código, o produto, **a conta do lote contra o KDS**, aviso na estação | G+ | as fichas e os produtos puxados do Regem para a base do Farol (decisão de 10/10); os pedidos do KDS lidos na loja; alarme falso medido |
+| 5 | **Leitura da bancada, E2 → E3:** **o leitor local de ingredientes** (ensinado pela nuvem; só o "não sei" sobe, uma posição por chamada), o dicionário de ingredientes (com as regras e a rotina da casa), a ficha comparada em código, o produto, **a conta do lote contra o KDS**, aviso na estação; o modo do KDS "por produto, com baixa automática" (opção da loja, desligada de fábrica — 10/10) | G+ | as fichas e os produtos puxados do Regem para a base do Farol (decisão de 10/10); os pedidos do KDS lidos na loja; alarme falso medido |
 | 6 | O momento em vídeo ("Ver o momento") — reaproveita a sequência da onda 2 | M | onde guardar na nuvem |
 | 7 | Relatórios, resumos e o início "fora do critério primeiro" | G | transportador |
 | 8 | Porte da cara nova | G | protótipo geral aprovado |
@@ -3833,10 +3833,10 @@ loja; o que o gravador entrega é medido na instalação.
 
 | # | o quê | onde entra | depende de |
 |---|---|---|---|
-| 1 | **Fechar a onda 1:** o sistema propor o estudo do critério — por regras, no servidor, que é o caminho recomendado (se o dono preferir outro, ajusta-se) | onda 1, fatia 1.3 | — |
+| 1 ✅ | **Fechar a onda 1:** o sistema propor o estudo do critério — **feito em 10/10**, por regras, no servidor, que era o caminho recomendado (se o dono preferir outro, o botão é o mesmo: troca-se quem responde) | onda 1, fatia 1.3 | — |
 | 2 | Três acertos pequenos de tela: "área" → "quadro" em Análises e no Painel; a tabela do Painel, que rola de lado entre 820 e 1.280 px; o cartão "Critérios ligados" dizer quantos só observam | onda 1 | — |
 | 3 | **A base de fichas e produtos do Farol** (decisão de 10/10): puxar do Regem as fichas, os produtos e os adicionais de cada loja e guardar base própria; aceitar também planilha, para a loja sem Regem; por cima dela, o dicionário de ingredientes e as regras da casa | nova; antes da onda 5 | o plano do lado do Regem aprovado; o Regem com as fichas da loja |
-| 4 | **O plano no projeto Regem:** a porta por onde o Farol lê as fichas, os produtos e os pedidos em produção | projeto Regem — plano antes do código | a aprovação do dono, lá |
+| 4 | **O plano no projeto Regem:** a porta por onde o Farol lê as fichas, os produtos e os pedidos em produção; e o que o modo do KDS "por produto, com baixa automática" pede de lá (o item poder ser dado como feito; a porta para o acontecimento de produção; o desfazer) | projeto Regem — plano antes do código | a aprovação do dono, lá |
 | 5 | **Onda 2 — sequência e banco de provas:** o agente buscar no gravador (cliente de arquivo, medindo o que cada gravador entrega), a busca pelo meio, a grade de 6 quadros, a família Acontecimento passando a julgar, "acertou / errou", o acerto medido de cada critério | onda 2 | o protótipo das telas aprovado; o dono marcar os exemplos |
 | 6 | **Onda 3 — processo e medida:** etapas por quadro, cronômetros, contadores, episódios | onda 3 | a onda 2 medida |
 | 7 | **Onda 4 — a bancada, primeira parte:** achar sozinho as posições e o tipo de base; contar o que fecha, por tipo de base; as fases do lote; os números da semana | onda 4 | a cena do canal |
@@ -3889,7 +3889,7 @@ Levantamento do código feito antes de começar. Três coisas dele mudam o jeito
 | **1.0 · protótipo** | as telas da onda — o canal com a imagem completa, os quadros e os critérios; a cena; o estudo do critério, o funil e os estados — em `mockups/farol-console-novo.html`, na cara nova. Revisto em 09/10 com os dois recados do dono (abaixo) | é o protótipo | **aprovado pelo dono em 09/10** (versão 3) |
 | **1.1 · o pedido com contexto** ✅ (09/10, migration 030) | a loja ganha "tipo de negócio"; o canal, a cena; o quadro, o papel e a ordem. O agente monta o pedido na anatomia do plano — cena, mapa do canal, recorte na resolução da câmera, pergunta — com o que é fixo em cache, no Haiku 5.5. Sem cena escrita o pedido não sai: a olhada conta como "sem juiz", com o motivo | não | desligado; a chave é **interna**, por loja (da distribuição): não é opção de tela |
 | **1.2 · os quatro estados** ✅ (09/10, migration 031) | observando · em ensaio · medido · valendo. Só "valendo" avisa; "observando" conta sem julgar. Critério que já avisa hoje continua valendo | não | os de hoje ficam como estão |
-| **1.3 · o estudo do critério e o funil** ◐ (09/10, migration 032: o motor e os números; falta a proposta) | as seis partes (contexto, gatilho, janela, ação, desfecho, fora de contexto), com cada condição ligada a um sinal da loja; a proposta do sistema, pedida ao agente como hoje se pede a descrição de um equipamento; o funil servido em números | não | sem estudo, o critério segue com o "quando vale a pena conferir" de hoje |
+| **1.3 · o estudo do critério e o funil** ✅ (09/10, migration 032: o motor e os números; 10/10: a proposta do sistema, por regras, sem migration) | as seis partes (contexto, gatilho, janela, ação, desfecho, fora de contexto), com cada condição ligada a um sinal da loja; a proposta do sistema — que saiu **por regras, no servidor**, e não pedida ao agente como a descrição de um equipamento (decisão de 10/10); o funil servido em números | não | sem estudo, o critério segue com o "quando vale a pena conferir" de hoje |
 | **1.4 · o quadro de bancada** ✅ (09/10, sem migration; **uma parte mudou:** quem aparece não é apagado — a imagem com alguém à vista sai como hoje, com o borrão) | em quadro com papel "posição de montagem": sobe o quadro de quando as mãos saem, sem o borrão de rosto; quem aparecer é apagado | não | só onde o papel for esse — e o campo do papel só chega ao console na fatia 1.5 |
 | **1.5 · as telas** ✅ (09/10: a parte da nuvem — o que o agente declara saber, migration 033; a tela do canal e a migração das áreas, migration 034; a gaveta nova do critério — famílias, estudo, funil e estados —, migration 035; **o "ir para" (Ctrl K)**. A proposta do estudo é da fatia 1.3) | o porte do protótipo aprovado para o console; a migração das áreas redesenhadas (a principal que não é o canal inteiro vira um quadro, e o canal ganha a imagem completa de volta); as contagens "em N canais (M quadros)" | sim | o protótipo foi aprovado em 09/10 |
 
@@ -4123,6 +4123,26 @@ foco que volta a quem abriu"; sem migration):
   barra de cima), e a lista tem também as telas da loja;
 - **com isto a fatia 1.5 fecha.** Da onda 1 falta a proposta do estudo (1.3). Ficou para uma
   limpeza à parte trocar "área" por "quadro" nos textos de Análises e do Painel.
+
+**A fatia 1.3, a proposta do estudo, entregue em 10/10** ([decisoes.md](decisoes.md), "O sistema
+propõe o estudo do critério — por regras, no servidor"; sem migration):
+
+- **o que entrou:** o botão "Propor o estudo" na gaveta do critério. O servidor lê o texto
+  do critério e os lugares em que ele vale (a cena do canal, o papel dos quadros, a foto
+  padrão) e devolve as seis partes, o contexto e o gatilho já ligados a um sinal da loja, e
+  o porquê de cada escolha. É um rascunho: a pessoa confirma ou corrige, e nada é gravado
+  antes de ela salvar;
+- **o que a proposta sabe do lugar:** de cima, movimento no lugar do detector de pessoas; em
+  posição de montagem, nada de "lugar livre" (a loja já espera as mãos saírem); gatilho da
+  foto padrão só com foto em todos os canais; a condição "há alguém" olhando o quadro de
+  posto do canal, num acontecimento;
+- **"a câmera não vê":** sete coisas que nenhuma câmera de loja alcança (o gesto de salgar,
+  a temperatura, a data da etiqueta, o cheiro, o peso, o som, quem foi), com o motivo e a
+  sugestão do que escrever no lugar. Não são guardadas: saem do texto, toda vez;
+- **por regras, no servidor:** sem modelo, sem custo, sem depender do computador da loja.
+  A proposta por um modelo que lê a imagem pode vir depois, atrás do mesmo botão;
+- **o que não foi medido:** quantas propostas são confirmadas sem correção — só o uso diz;
+- **com isto a onda 1 fecha.**
 
 **A escolha do porte.** O plano manda o protótipo nascer na cara nova, e assim foi feito; o
 porte da cara nova inteira é a onda 8. As telas da onda 1 entram no console com as peças e
