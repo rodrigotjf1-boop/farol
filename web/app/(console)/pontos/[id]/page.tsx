@@ -424,6 +424,12 @@ export default function Canal() {
           <section aria-labelledby="t-arvore" className={`${CARTAO} order-2 flex min-w-0 flex-col xl:order-none`}>
             <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-farol-borda px-4 py-3.5">
               <Titulo id="t-arvore">Onde cada critério vale</Titulo>
+              {/* Os números de cada linha têm período — e só existem para quem pode ver o funil. */}
+              {ponto.funil_dias != null && total > 0 && (
+                <span className="ml-auto text-[12.5px] text-farol-suave" data-periodo-do-funil>
+                  números dos últimos {plural(ponto.funil_dias, 'dia', 'dias')}
+                </span>
+              )}
             </header>
             <div className="p-4">
               <ArvoreDoCanal
@@ -472,6 +478,8 @@ export default function Canal() {
           marcadasDeInicio={[criterio.zonaId]}
           objetosDoDetector={daLoja.objetos}
           horarioDaLoja={loja?.horario_funcionamento ?? []}
+          agentes={daLoja.agentes}
+          configura={configura}
           aoFechar={() => setCriterio(null)}
           aoSalvar={async (mensagem) => {
             setCriterio(null);

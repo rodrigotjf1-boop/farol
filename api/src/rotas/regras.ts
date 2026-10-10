@@ -7,10 +7,16 @@
 //
 // Duas invariantes do projeto moram nestas rotas:
 //
-// **1 · Regra nasce DESLIGADA.** Ligar exige acurácia medida contra o
-// conjunto de avaliação. Criar já ligada seria começar a alertar a
-// cozinha com base em critério que ninguém conferiu — e a loja aprende
-// rápido a ignorar quem erra.
+// **1 · Regra nasce sem avisar ninguém.** Criar já avisando seria começar
+// a alertar a cozinha com base em critério que ninguém conferiu — e a loja
+// aprende rápido a ignorar quem erra. Há dois jeitos de nascer:
+//
+//   - **observando** (o da tela nova): nasce LIGADA, porque observar é só
+//     contar — as olhadas, o contexto, o gatilho. Não julga, não gasta e
+//     não avisa. Desligada, não contaria nada;
+//   - **em qualquer outro estado** (o cadastro de antes, que não fala em
+//     estado e cria "valendo"): nasce DESLIGADA, como sempre. Ligar é outra
+//     ação, consciente.
 //
 // **2 · Mudar o critério SOBE a versão.** A chave de idempotência do
 // agente inclui `criterio_versao`; sem subir, um critério reescrito
@@ -42,6 +48,7 @@ import {
   TIPOS_DO_DETECTOR,
 } from '../detector.js';
 import { estadoNaoCabe } from '../estado.js';
+import { familiaNaoCabe, familiaNatural, familiaSoObserva, sqlFamilia } from '../familia.js';
 import { lerHorario, QUANDOS } from '../horario.js';
 import { exigirConfigurar } from '../rbac.js';
 import { sessaoDe, type Sessao } from './sessao.js';
@@ -215,9 +222,11 @@ async function criarRegra(
   zonaIds: string[],
   c: Corpo,
   parametros: Record<string, unknown>,
+  familia: string,
 ): Promise<Record<string, unknown> | null> {
-  // `ativa` NÃO entra: a regra nasce desligada, sempre. Ligar é outra
-  // ação, consciente, depois de medir.
+  // `ativa` não vem do corpo: quem decide é o estado com que o critério
+  // nasce. Observando nasce ligado (só conta); o resto nasce desligado, e
+  // ligar é outra ação, consciente.
   const { rows } = await pool.query(
     `with alvo as (
        select z.id as zona_id, st.loja_id
@@ -241,7 +250,7 @@ async function criarRegra(
        insert into regra (loja_id, nome, tipo, criterio, processo_descricao,
                           prioridade, severidade, confianca_minima, cooldown_min,
                           resolucao, janelas, acoes, retencao_midia_dias, parametros,
-                          quando, porteiro, confirmar_em, com_padrao, estado)
+                          quando, porteiro, confirmar_em, com_padrao, estado, familia, ativa)
        select dono.loja_id, $5, $6, $7, $8,
               coalesce($9,'intermediaria'), coalesce($10,'atencao'),
               coalesce($11, 0.700), coalesce($12, 15), $13,
@@ -251,14 +260,17 @@ async function criarRegra(
               coalesce($18, 'no_horario'),
               -- E nasce perguntando em toda olhada e avisando na primeira.
               coalesce($19, 'sempre'), coalesce($20, 1), coalesce($21, false),
-              -- Sem estado pedido, nasce como o cadastro de hoje sempre criou:
-              -- valendo. A tela nova é que pede "observando".
-              coalesce($22, 'valendo')
+              -- Sem estado pedido, nasce como o cadastro de antes sempre
+              -- criou: valendo. A tela nova é que pede "observando".
+              coalesce($22, 'valendo'),
+              $23,
+              -- Observando nasce LIGADO: só conta, não julga e não avisa.
+              coalesce($22, 'valendo') = 'observando'
          from dono
        returning id, nome, tipo, criterio, criterio_versao, prioridade,
                  severidade, confianca_minima, cooldown_min, resolucao,
                  janelas, acoes, ativa, parametros, quando, porteiro, confirmar_em, com_padrao,
-                 estado
+                 estado, ${sqlFamilia('')} as familia
      ),
      ligados as (
        insert into regra_alvo (regra_id, zona_id)
@@ -281,6 +293,7 @@ async function criarRegra(
       c.confirmarEm ?? null,
       typeof c.comPadrao === 'boolean' ? c.comPadrao : null,
       c.estado ?? null,
+      familia,
     ],
   );
   return rows[0] ?? null;
@@ -288,6 +301,34 @@ async function criarRegra(
 
 const AVISO_NASCE_DESLIGADA =
   'a regra nasce desligada; ligue só depois de conferir a acurácia';
+const AVISO_NASCE_OBSERVANDO =
+  'o critério nasce observando e ligado: conta as olhadas, o contexto e o gatilho, sem julgar e sem avisar';
+
+const avisoDeNascimento = (criada: Record<string, unknown>): string =>
+  criada.ativa === true ? AVISO_NASCE_OBSERVANDO : AVISO_NASCE_DESLIGADA;
+
+/**
+ * A família com que o critério nasce, já conferida contra o tipo e o
+ * estado pedidos. Devolve a família, ou a recusa (com o código HTTP).
+ *
+ * Família que ainda não tem juiz só nasce observando — ou pelo cadastro de
+ * antes, que não fala em estado e cria desligado.
+ */
+function familiaParaCriar(c: Corpo): { familia: string } | { recusa: { erro: string; mensagem: string } } {
+  const tipo = String(c.tipo);
+  const naoCabe = familiaNaoCabe(c.familia, tipo);
+  if (naoCabe) return { recusa: { erro: 'validacao', mensagem: naoCabe } };
+  const dita = typeof c.familia === 'string';
+  const familia = dita ? String(c.familia) : familiaNatural(tipo);
+  // Quem DIZ a família (a tela nova) só cria o que ainda não tem juiz em
+  // "observando". Quem não diz é o cadastro de antes: o critério de ação
+  // dele nasce como sempre nasceu — só não nasce "em ensaio".
+  if (c.estado === 'ensaio' || (dita && c.estado !== 'observando')) {
+    const soObserva = familiaSoObserva(familia);
+    if (soObserva) return { recusa: soObserva };
+  }
+  return { familia };
+}
 
 export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
   async function quem(req: Parameters<typeof sessaoDe>[1], resposta: {
@@ -317,6 +358,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
               r.confianca_minima, r.cooldown_min, r.resolucao,
               r.janelas, r.acoes, r.ativa, r.retencao_midia_dias, r.parametros,
               r.quando, r.porteiro, r.confirmar_em, r.com_padrao, r.estado,
+              ${sqlFamilia()} as familia,
               ${ALVOS_DO_CRITERIO} as alvos
          from regra r
          join loja l on l.id = r.loja_id
@@ -356,20 +398,22 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
     // O estado com que ele nasce: só os que uma pessoa escolhe.
     const estado = estadoNaoCabe(c.estado, null);
     if (estado) return resposta.status(422).send(estado);
+    const f = familiaParaCriar(c);
+    if ('recusa' in f) return resposta.status(422).send(f.recusa);
 
     const campos = parametrosParaCriar(c);
     if ('problema' in campos) {
       return resposta.status(422).send({ erro: 'validacao', mensagem: campos.problema });
     }
 
-    const criada = await criarRegra(pool, s.tenantId, id, z.ids, c, campos.ok);
+    const criada = await criarRegra(pool, s.tenantId, id, z.ids, c, campos.ok, f.familia);
     if (!criada) {
       return resposta.status(404).send({
         erro: 'nao_encontrada',
         mensagem: 'loja ou canal não encontrado. Nenhum critério foi criado.',
       });
     }
-    return resposta.status(201).send({ ...criada, aviso: AVISO_NASCE_DESLIGADA });
+    return resposta.status(201).send({ ...criada, aviso: avisoDeNascimento(criada) });
   });
 
   // Atalho de um canal só: o critério nasce valendo naquela área. Mantido
@@ -391,17 +435,19 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
     }
     const estado = estadoNaoCabe(c.estado, null);
     if (estado) return resposta.status(422).send(estado);
+    const f = familiaParaCriar(c);
+    if ('recusa' in f) return resposta.status(422).send(f.recusa);
 
     const campos = parametrosParaCriar(c);
     if ('problema' in campos) {
       return resposta.status(422).send({ erro: 'validacao', mensagem: campos.problema });
     }
 
-    const criada = await criarRegra(pool, s.tenantId, null, [id.toLowerCase()], c, campos.ok);
+    const criada = await criarRegra(pool, s.tenantId, null, [id.toLowerCase()], c, campos.ok, f.familia);
     if (!criada) {
       return resposta.status(404).send({ erro: 'nao_encontrada', mensagem: 'zona não encontrada' });
     }
-    return resposta.status(201).send({ ...criada, aviso: AVISO_NASCE_DESLIGADA });
+    return resposta.status(201).send({ ...criada, aviso: avisoDeNascimento(criada) });
   });
 
   // ──────────────────────── editar um critério ──────────────────────────
@@ -440,7 +486,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
       // decidir antes de gravar — e para duas edições simultâneas passarem
       // uma depois da outra.
       const antes = await cliente.query(
-        `select r.tipo, r.parametros, r.porteiro, r.estado
+        `select r.tipo, r.parametros, r.porteiro, r.estado, ${sqlFamilia()} as familia
            from regra r
            join loja l on l.id = r.loja_id
           where r.id = $1 and l.tenant_id = $2 and r.excluida_em is null
@@ -463,6 +509,37 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
       }
 
       const tipoFinal = String(c.tipo ?? antes.rows[0].tipo);
+
+      // A família: a pedida tem de caber no tipo FINAL. Quem troca o tipo sem
+      // dizer a família fica com a natural do tipo novo — a que estava
+      // guardada podia não caber mais (o banco recusaria).
+      const familiaRuim = familiaNaoCabe(c.familia, tipoFinal);
+      if (familiaRuim) {
+        await cliente.query('rollback');
+        return resposta.status(422).send({ erro: 'validacao', mensagem: familiaRuim });
+      }
+      const familiaAntes = String(antes.rows[0].familia);
+      const familiaFinal =
+        typeof c.familia === 'string'
+          ? c.familia
+          : c.tipo !== undefined && familiaNaoCabe(familiaAntes, tipoFinal)
+            ? familiaNatural(tipoFinal)
+            : familiaAntes;
+      // Família que ainda não tem juiz só observa. São recusados: levar um
+      // critério dela a "em ensaio", e levar a ela um critério que está
+      // sendo julgado sem descê-lo a "observando" no mesmo pedido. O
+      // critério de ação de ANTES das famílias, que já julgava, fica como
+      // está: quem não muda de estado nem de família não passa por aqui.
+      const estadoFinal = String(c.estado ?? estadoAntes);
+      const passaAEnsaio = estadoFinal === 'ensaio' && estadoAntes !== 'ensaio';
+      const trocaDeFamilia = familiaFinal !== familiaAntes;
+      if (passaAEnsaio || (trocaDeFamilia && estadoFinal !== 'observando')) {
+        const soObserva = familiaSoObserva(familiaFinal);
+        if (soObserva) {
+          await cliente.query('rollback');
+          return resposta.status(422).send(soObserva);
+        }
+      }
 
       // O porteiro tem de caber no tipo FINAL. Mudar o tipo para presença
       // com "só com pessoa na área" guardado deixaria na tela uma opção
@@ -535,6 +612,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
                 confirmar_em       = coalesce($19, r.confirmar_em),
                 com_padrao         = coalesce($20, r.com_padrao),
                 estado             = coalesce($21, r.estado),
+                familia            = $22,
                 atualizado_em      = now()
            from loja l
           where r.id = $1
@@ -544,6 +622,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
                    r.prioridade, r.severidade, r.confianca_minima,
                    r.cooldown_min, r.resolucao, r.janelas, r.acoes, r.ativa,
                    r.parametros, r.quando, r.porteiro, r.confirmar_em, r.com_padrao, r.estado,
+                   ${sqlFamilia()} as familia,
                    r.loja_id`,
         [
           id,
@@ -564,6 +643,7 @@ export function rotasDeRegras(app: FastifyInstance, pool: pg.Pool): void {
           c.confirmarEm ?? null,
           typeof c.comPadrao === 'boolean' ? c.comPadrao : null,
           c.estado ?? null,
+          familiaFinal,
         ],
       );
       if (rows.length === 0) {

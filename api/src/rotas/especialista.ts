@@ -228,8 +228,15 @@ export function rotasDoEspecialista(app: FastifyInstance, pool: pg.Pool): void {
     if (a.estado !== 'rever') return jaRevista();
     if (depois === 'criar' && !a.criterio) return invalido('esta saída do padrão não tem critério a propor');
     if (depois === 'ajustar' && !a.ajustar) return invalido('esta saída do padrão não tem critério a ajustar');
+    // O critério proposto é criado pela gaveta do critério, que cria "observando": ligado, contando, sem julgar
+    // e sem avisar (`rotas/regras.ts`). A frase guardada diz isso — até 09/10/2026 ele nascia desligado, e as
+    // revisões daquela época guardam a frase de então.
     const virou =
-      depois === 'criar' ? `Propôs o critério “${a.criterio!.nome}”, que nasce desligado.` : depois === 'ajustar' ? `Abriu “${a.ajustar!.nome}” para ajuste.` : null;
+      depois === 'criar'
+        ? `Propôs o critério “${a.criterio!.nome}”, que nasce observando: conta, sem avisar.`
+        : depois === 'ajustar'
+          ? `Abriu “${a.ajustar!.nome}” para ajuste.`
+          : null;
 
     try {
       await pool.query(

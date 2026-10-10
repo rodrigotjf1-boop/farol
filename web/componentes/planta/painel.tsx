@@ -13,7 +13,9 @@ import { ArrowRight, Crop, Package, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 
-import { iconeDoTipo, nomeDoTipo } from '@/componentes/criterios/opcoes';
+import { estadoConhecido, NOME_DO_ESTADO, TOM_DO_ESTADO } from '@/componentes/criterios/estados';
+import { oQuePergunta } from '@/componentes/criterios/familias';
+import { iconeDoTipo } from '@/componentes/criterios/opcoes';
 import { plural } from '@/componentes/formatos';
 import { nomeDoTipoDeEquipamento } from '@/componentes/inventario/rotulos';
 import type { Selecao } from '@/componentes/planta/desenho';
@@ -210,11 +212,15 @@ export function PainelDaPlanta({
                       <span className="min-w-0 flex-1">
                         <b className="block break-words text-[13.5px] font-semibold">{r.nome}</b>
                         <small className="text-xs text-farol-suave">
-                          {nomeDoTipo(r.tipo)}
+                          {oQuePergunta(r)}
                           {r.quando === 'fora_do_horario' ? ' · só com a loja fechada' : ''}
                         </small>
                       </span>
-                      <Chip tom={r.ativa ? 'ok' : 'neutro'}>{r.ativa ? 'ligado' : 'desligado'}</Chip>
+                      {/* Ligado não é "avisando": o critério novo nasce ligado e só observando. A etiqueta diz o
+                          estado, como a árvore do canal — verde só no que avisa. */}
+                      <Chip tom={r.ativa ? TOM_DO_ESTADO[estadoConhecido(r.estado)] : 'neutro'}>
+                        {r.ativa ? NOME_DO_ESTADO[estadoConhecido(r.estado)] : 'desligado'}
+                      </Chip>
                     </li>
                   );
                 })}

@@ -236,6 +236,57 @@ export type SomaDoFunil = {
   julgadasLoja: number; julgadasNuvem: number; custoCentavos: number;
 };
 
+/** Quantos dias o funil mostra sem ninguém pedir — na gaveta do critério e na linha dele, na tela do canal. */
+export const DIAS_DO_FUNIL = 7;
+
+/** As colunas de `resumo_hora` (apelido `h`) que o funil soma. */
+export const SQL_SOMAS_DO_FUNIL = `sum(h.capturas)::integer as capturas,
+               sum(h.sem_juiz)::integer as sem_juiz,
+               sum(h.sem_quadro)::integer as sem_quadro,
+               sum(h.sem_cena)::integer as sem_cena,
+               sum(h.sem_condicao)::integer as sem_condicao,
+               sum(h.sem_gatilho)::integer as sem_gatilho,
+               sum(h.observadas)::integer as observadas,
+               sum(h.em_silencio)::integer as em_silencio,
+               sum(h.repetidas)::integer as repetidas,
+               sum(h.ja_julgadas)::integer as ja_julgadas,
+               sum(h.enfileiradas)::integer as enfileiradas,
+               sum(h.conformes)::integer as conformes,
+               sum(h.nao_conformes)::integer as nao_conformes,
+               sum(h.nao_avaliaveis)::integer as nao_avaliaveis,
+               sum(h.julgadas_loja)::integer as julgadas_loja,
+               sum(h.julgadas_nuvem)::integer as julgadas_nuvem,
+               sum(h.custo_centavos)::float8 as custo_centavos`;
+
+export const SOMA_ZERO: SomaDoFunil = {
+  capturas: 0, semJuiz: 0, semQuadro: 0, semCena: 0, semCondicao: 0, semGatilho: 0, observadas: 0, emSilencio: 0,
+  repetidas: 0, jaJulgadas: 0, enfileiradas: 0, conformes: 0, naoConformes: 0, naoAvaliaveis: 0,
+  julgadasLoja: 0, julgadasNuvem: 0, custoCentavos: 0,
+};
+
+/** Soma uma linha de `SQL_SOMAS_DO_FUNIL` ao que já havia. */
+export function somarAoFunil(a: SomaDoFunil, l: Record<string, unknown>): SomaDoFunil {
+  return {
+    capturas: a.capturas + Number(l.capturas),
+    semJuiz: a.semJuiz + Number(l.sem_juiz),
+    semQuadro: a.semQuadro + Number(l.sem_quadro),
+    semCena: a.semCena + Number(l.sem_cena),
+    semCondicao: a.semCondicao + Number(l.sem_condicao),
+    semGatilho: a.semGatilho + Number(l.sem_gatilho),
+    observadas: a.observadas + Number(l.observadas),
+    emSilencio: a.emSilencio + Number(l.em_silencio),
+    repetidas: a.repetidas + Number(l.repetidas),
+    jaJulgadas: a.jaJulgadas + Number(l.ja_julgadas),
+    enfileiradas: a.enfileiradas + Number(l.enfileiradas),
+    conformes: a.conformes + Number(l.conformes),
+    naoConformes: a.naoConformes + Number(l.nao_conformes),
+    naoAvaliaveis: a.naoAvaliaveis + Number(l.nao_avaliaveis),
+    julgadasLoja: a.julgadasLoja + Number(l.julgadas_loja),
+    julgadasNuvem: a.julgadasNuvem + Number(l.julgadas_nuvem),
+    custoCentavos: a.custoCentavos + Number(l.custo_centavos),
+  };
+}
+
 export type Funil = {
   olhadas: number;
   /** Não chegaram a ser consideradas: critério sem quem julgue, câmera sem imagem, silêncio depois de um aviso. */

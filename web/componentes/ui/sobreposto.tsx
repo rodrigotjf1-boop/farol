@@ -54,6 +54,7 @@ export function Gaveta({
   children,
   rodape,
   ocupado = false,
+  larga = false,
   aoFechar,
 }: {
   titulo: string;
@@ -62,6 +63,8 @@ export function Gaveta({
   /** Os botões, sempre à vista no pé. */
   rodape: ReactNode;
   ocupado?: boolean;
+  /** Mais espaço para quem tem abas e uma ficha em duas colunas (a gaveta do critério). */
+  larga?: boolean;
   aoFechar: () => void;
 }) {
   const id = useId();
@@ -72,7 +75,7 @@ export function Gaveta({
       {...dialogo}
       aria-labelledby={`${id}-titulo`}
       className={
-        'fixed inset-y-0 left-auto right-0 m-0 h-full max-h-none w-[min(480px,100%)] max-w-none ' +
+        `fixed inset-y-0 left-auto right-0 m-0 h-full max-h-none ${larga ? 'w-[min(620px,100%)]' : 'w-[min(480px,100%)]'} max-w-none ` +
         'animate-desliza border-l border-farol-borda bg-farol-painel p-0 shadow-farol-2 ' +
         // No celular: folha que sobe de baixo.
         'max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:h-auto max-md:max-h-[92dvh] max-md:w-full ' +
@@ -91,7 +94,9 @@ export function Gaveta({
             <X className="h-[18px] w-[18px]" aria-hidden />
           </Botao>
         </header>
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-[18px]">{children}</div>
+        {/* `relative`: o que é `absolute` lá dentro (o texto só para leitor de tela, o rádio por cima do cartão)
+            fica preso a esta caixa. Sem isso ele escapa do corte e faz a gaveta INTEIRA rolar — o cabeçalho some. */}
+        <div className="relative flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-[18px]">{children}</div>
         <footer className="flex flex-wrap items-center gap-2.5 border-t border-farol-borda bg-farol-painel-2 px-5 py-3.5 pb-[calc(14px+env(safe-area-inset-bottom,0px))]">
           {rodape}
         </footer>

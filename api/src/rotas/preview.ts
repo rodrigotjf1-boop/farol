@@ -30,7 +30,9 @@ import {
   SQL_NUMERO_DO_QUADRO,
   TIPOS_QUE_DEPENDEM_DA_CENA,
 } from '../cena.js';
-import { exigirConfigurar } from '../rbac.js';
+import { DIAS_DO_FUNIL, montarFunil, SOMA_ZERO, somarAoFunil, SQL_SOMAS_DO_FUNIL } from '../estudo.js';
+import { sqlFamilia } from '../familia.js';
+import { exigirConfigurar, peloMenos } from '../rbac.js';
 import { validarPoligono } from '../poligono.js';
 import { registrarDescricao } from './inventario.js';
 import { sessaoDe } from './sessao.js';
@@ -233,6 +235,9 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
               -- Não sai daqui como veio: é a chave interna. Dela só se tira
               -- o que ESTÁ ACONTECENDO com este canal (abaixo).
               l.pedido_com_contexto as com_contexto,
+              -- O "hoje" no relógio DA LOJA: é por ele que o funil conta os dias.
+              l.timezone as fuso_da_loja,
+              to_char(now() at time zone l.timezone, 'YYYY-MM-DD') as hoje_na_loja,
               st.id as setor_id, st.nome as setor_nome, st.loja_id
          from ponto p
          join setor st on st.id = p.setor_id
@@ -243,7 +248,7 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
     if (p.rowCount === 0) {
       return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'ponto não encontrado' });
     }
-    const { com_contexto: comContexto, ...ponto } = p.rows[0];
+    const { com_contexto: comContexto, fuso_da_loja: fuso, hoje_na_loja: hoje, ...ponto } = p.rows[0];
 
     // A cena faz falta AGORA neste canal? Só quando a loja já pergunta com
     // contexto e o canal está sem a cena escrita: aí o critério que depende
@@ -260,7 +265,11 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
               coalesce((
                 select jsonb_agg(jsonb_build_object(
                          'id', r.id, 'nome', r.nome, 'tipo', r.tipo, 'ativa', r.ativa, 'estado', r.estado,
+                         'familia', ${sqlFamilia()},
                          'quando', r.quando, 'parametros', r.parametros,
+                         -- O estudo só vale (e só desce para a loja) depois de confirmado.
+                         'tem_estudo', exists (select 1 from regra_estudo e
+                                                where e.regra_id = r.id and e.confirmado_em is not null),
                          -- Em quantos canais este critério vale, e em quantos
                          -- quadros (fora as imagens completas): é o que a
                          -- tela diz antes de alguém editar o cadastro, que
@@ -282,13 +291,44 @@ export function rotasDePreview(app: FastifyInstance, pool: pg.Pool): void {
       [id],
     );
 
-    type CriterioDaZona = { tipo: string; ativa: boolean; estado: string } & Record<string, unknown>;
+    // Os números do funil de cada critério NESTE lugar, nos últimos dias —
+    // a mesma conta e a mesma permissão de `GET /v1/regras/:id/funil`
+    // (supervisão para cima, e o suporte). Uma consulta para o canal
+    // inteiro. Quem não pode ver recebe `null`: a tela não mostra número.
+    //
+    // A loja entra no filtro para a consulta andar pelo índice da tabela
+    // (`resumo_hora_loja_idx`: loja e hora): sem ela, cada abertura desta
+    // tela leria os resumos de todas as lojas.
+    const veOFunil = s.nivel === 'suporte' || peloMenos(s, 'supervisao');
+    const somas = new Map<string, ReturnType<typeof somarAoFunil>>();
+    if (veOFunil) {
+      const h = await pool.query(
+        `select h.regra_id, h.zona_id, ${SQL_SOMAS_DO_FUNIL}
+           from resumo_hora h
+           join zona z on z.id = h.zona_id
+          where z.ponto_id = $1
+            and h.loja_id = $5
+            and h.hora >= (($3::date - ($4::integer - 1))::timestamp at time zone $2)
+            and h.hora <  (($3::date + 1)::timestamp at time zone $2)
+          group by h.regra_id, h.zona_id`,
+        [id, fuso, hoje, DIAS_DO_FUNIL, ponto.loja_id],
+      );
+      for (const l of h.rows) somas.set(`${l.regra_id}:${l.zona_id}`, somarAoFunil(SOMA_ZERO, l));
+    }
+    const funilDe = (regraId: string, zonaId: string) => {
+      if (!veOFunil) return null;
+      const f = montarFunil(somas.get(`${regraId}:${zonaId}`) ?? SOMA_ZERO, { naLoja: 0, naNuvem: 0 });
+      return { olhadas: f.olhadas, comGatilho: f.comGatilho, julgadas: f.julgadas, foraDoCriterio: f.foraDoCriterio };
+    };
+
+    type CriterioDaZona = { id: string; tipo: string; ativa: boolean; estado: string } & Record<string, unknown>;
     return {
-      ponto: { ...ponto, cena_em_falta: cenaEmFalta },
+      ponto: { ...ponto, cena_em_falta: cenaEmFalta, funil_dias: veOFunil ? DIAS_DO_FUNIL : null },
       zonas: z.rows.map((zona) => ({
         ...zona,
         criterios: (zona.criterios as CriterioDaZona[]).map((k) => ({
           ...k,
+          funil: funilDe(k.id, zona.id as string),
           // Critério desligado não é conferido de jeito nenhum, e o que só
           // observa conta as olhadas sem precisar entender a imagem.
           falta_a_cena:

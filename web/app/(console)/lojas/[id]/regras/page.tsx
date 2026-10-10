@@ -28,7 +28,7 @@ import { useAvisar } from '@/componentes/ui/avisos';
 import { Botao, classesDoBotao } from '@/componentes/ui/botao';
 import { Alerta, Cabecalho, Ossos, Segmentado, Vazio } from '@/componentes/ui/pecas';
 import { Dialogo } from '@/componentes/ui/sobreposto';
-import { consoleApi, ErroDaApi, regrasApi, resultadosApi, type Ponto, type Regra, type Setor } from '@/lib/api';
+import { consoleApi, ErroDaApi, regrasApi, resultadosApi, type AgenteResumo, type Ponto, type Regra, type Setor } from '@/lib/api';
 
 /** O formulário aberto: criando (com canais já marcados) ou editando. */
 type Aberto = { chave: string; regra?: Regra; marcadas: string[] };
@@ -49,6 +49,8 @@ export default function Criterios() {
 
   const [regras, setRegras] = useState<Regra[] | null>(null);
   const [setores, setSetores] = useState<Setor[]>([]);
+  // Os agentes da loja: é pelo que eles declaram que a gaveta do critério sabe se o estudo já vale lá.
+  const [agentes, setAgentes] = useState<AgenteResumo[]>([]);
   const [objetosDoDetector, setObjetosDoDetector] = useState<string[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Filtro>('todos');
@@ -68,6 +70,7 @@ export default function Criterios() {
       setRegras(r.regras);
       setObjetosDoDetector(r.detector?.objetos ?? []);
       setSetores(l.setores);
+      setAgentes(l.agentes);
       setErro(null);
     } catch (e) {
       setErro(e instanceof ErroDaApi ? e.message : 'não deu certo');
@@ -277,6 +280,7 @@ export default function Criterios() {
           marcadasDeInicio={aberto.marcadas}
           objetosDoDetector={objetosDoDetector}
           horarioDaLoja={loja?.horario_funcionamento ?? []}
+          agentes={agentes}
           aoFechar={() => setAberto(null)}
           aoSalvar={async (mensagem) => {
             setAberto(null);

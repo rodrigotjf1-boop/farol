@@ -3469,7 +3469,7 @@ button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: v
     <div><h2 id="fcr-titulo" data-folha-titulo data-novo="Novo critério" data-editar="Editar o critério">Novo critério</h2><p data-so-novo>Cadastrado uma vez, vale nos canais que você marcar.</p><p data-so-editar>O que você mudar aqui muda em todos os canais em que ele vale.</p></div>
     <button class="btn fantasma quadrado mini" type="button" data-fecha aria-label="Fechar"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
   </header>
-  <form class="folha-corpo" id="f-criterio" data-sucesso-novo="Critério criado. Ele nasce desligado: ligue depois de conferir que acerta." data-sucesso-editar="Critério salvo.">
+  <form class="folha-corpo" id="f-criterio" data-sucesso-novo="Critério criado. Ele nasce observando e ligado: conta, sem julgar e sem avisar." data-sucesso-editar="Critério salvo.">
     <div class="campo">
       <label for="fcr-nome">Nome do critério</label>
       <input class="entrada" id="fcr-nome" placeholder="Bancada limpa entre pedidos" required data-preenche="nome">
@@ -3675,7 +3675,7 @@ button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: v
     <div class="campo">
       <span class="rotulo" id="fco-r">Para não repetir</span>
       <div class="escolhas empilha" role="radiogroup" aria-labelledby="fco-r">
-        <div class="escolha" data-fco-opcao="criar"><input type="radio" name="fco-depois" id="fco-criar" value="criar" checked><label for="fco-criar"><b>Criar um critério que avisa quando repetir</b><small>Nasce desligado: você revisa e liga.</small></label></div>
+        <div class="escolha" data-fco-opcao="criar"><input type="radio" name="fco-depois" id="fco-criar" value="criar" checked><label for="fco-criar"><b>Criar um critério para acompanhar</b><small>Nasce observando: conta, sem julgar e sem avisar. Na aba Estado dele você passa a “em ensaio”, que julga e mostra.</small></label></div>
         <div class="escolha" data-fco-opcao="ajustar"><input type="radio" name="fco-depois" id="fco-ajustar" value="ajustar"><label for="fco-ajustar"><b>Ajustar um critério que já existe</b><small>Abre o critério para você mudar o limite ou o silêncio.</small></label></div>
         <div class="escolha"><input type="radio" name="fco-depois" id="fco-nada" value="nada"><label for="fco-nada"><b>Só registrar</b><small>Fica no histórico desta saída do padrão.</small></label></div>
       </div>
@@ -7205,7 +7205,7 @@ button.uso-item[aria-pressed="true"] { border-color: var(--marca); background: v
     a.revisao = {
       quem: 'Ana Souza', quando: 'hoje',
       texto: `${$('#fco-houve').value.trim()} ${$('#fco-feito').value.trim()}`,
-      virou: escolha === 'criar' && a.criterio ? `Propôs o critério “${a.criterio.nome}”, que nasce desligado.` : escolha === 'ajustar' && a.ajustar ? `Abriu “${CRITERIOS[a.ajustar].nome}” para ajuste.` : '',
+      virou: escolha === 'criar' && a.criterio ? `Propôs o critério “${a.criterio.nome}”, que nasce observando: conta, sem avisar.` : escolha === 'ajustar' && a.ajustar ? `Abriu “${CRITERIOS[a.ajustar].nome}” para ajuste.` : '',
     };
     $('#f-correcao').dataset.sucessoNovo = 'Correção registrada.';
     desenharPadroes();
