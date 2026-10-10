@@ -18,7 +18,7 @@
 
 import { ArrowLeft, CircleMinus, PencilRuler, Plus, RefreshCw, ScanEye, TriangleAlert, VideoOff } from 'lucide-react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ArvoreDoCanal } from '@/componentes/canal/arvore-do-canal';
@@ -213,6 +213,25 @@ export default function Canal() {
     setSel(zonaId);
     setCriterio({ chave: `${criterioId ?? 'novo'}-${zonaId}-${Date.now()}`, regra, zonaId });
   }
+
+  // Quem chega pela paleta "Ir para…" traz o critério no endereço (`?criterio=<id>`). A gaveta dele abre assim
+  // que o canal e a loja chegam, e o endereço volta a ser o do canal: recarregar a tela não reabre nada.
+  const router = useRouter();
+  const criterioPedido = useSearchParams().get('criterio');
+  const prontoParaAbrir = ponto !== null && daLoja !== null;
+  useEffect(() => {
+    if (!criterioPedido || !prontoParaAbrir) return;
+    router.replace(`/pontos/${id}`);
+    const zona = zonas.find((z) => z.criterios.some((k) => k.id === criterioPedido));
+    if (!zona) {
+      // O critério saiu deste canal (ou foi excluído) entre a lista da paleta e a chegada aqui.
+      setErro('Este critério não vale mais neste canal.');
+      return;
+    }
+    abrirCriterio(zona.id, criterioPedido);
+    // Só quando o pedido muda ou os dados chegam: `zonas` e `abrirCriterio` mudam a cada desenho.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [criterioPedido, prontoParaAbrir, id]);
 
   // ───────────────────────── o que o cabeçalho afirma ─────────────────────────
 

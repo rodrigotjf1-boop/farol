@@ -3784,7 +3784,7 @@ Levantamento do código feito antes de começar. Três coisas dele mudam o jeito
 | **1.2 · os quatro estados** ✅ (09/10, migration 031) | observando · em ensaio · medido · valendo. Só "valendo" avisa; "observando" conta sem julgar. Critério que já avisa hoje continua valendo | não | os de hoje ficam como estão |
 | **1.3 · o estudo do critério e o funil** ◐ (09/10, migration 032: o motor e os números; falta a proposta) | as seis partes (contexto, gatilho, janela, ação, desfecho, fora de contexto), com cada condição ligada a um sinal da loja; a proposta do sistema, pedida ao agente como hoje se pede a descrição de um equipamento; o funil servido em números | não | sem estudo, o critério segue com o "quando vale a pena conferir" de hoje |
 | **1.4 · o quadro de bancada** ✅ (09/10, sem migration; **uma parte mudou:** quem aparece não é apagado — a imagem com alguém à vista sai como hoje, com o borrão) | em quadro com papel "posição de montagem": sobe o quadro de quando as mãos saem, sem o borrão de rosto; quem aparecer é apagado | não | só onde o papel for esse — e o campo do papel só chega ao console na fatia 1.5 |
-| **1.5 · as telas** ◐ (09/10: a parte da nuvem — o que o agente declara saber, migration 033; a tela do canal e a migração das áreas, migration 034; **a gaveta nova do critério — famílias, estudo, funil e estados —, migration 035**; faltam o "ir para" e a proposta do estudo, que é da fatia 1.3) | o porte do protótipo aprovado para o console; a migração das áreas redesenhadas (a principal que não é o canal inteiro vira um quadro, e o canal ganha a imagem completa de volta); as contagens "em N canais (M quadros)" | sim | o protótipo foi aprovado em 09/10 |
+| **1.5 · as telas** ✅ (09/10: a parte da nuvem — o que o agente declara saber, migration 033; a tela do canal e a migração das áreas, migration 034; a gaveta nova do critério — famílias, estudo, funil e estados —, migration 035; **o "ir para" (Ctrl K)**. A proposta do estudo é da fatia 1.3) | o porte do protótipo aprovado para o console; a migração das áreas redesenhadas (a principal que não é o canal inteiro vira um quadro, e o canal ganha a imagem completa de volta); as contagens "em N canais (M quadros)" | sim | o protótipo foi aprovado em 09/10 |
 
 **De onde sai cada número do funil que o protótipo mostra** (para não desenhar o que não
 existe):
@@ -4001,8 +4001,21 @@ gaveta nova do critério: as famílias, o estudo, o funil e os estados"; migrati
   para o lado (texto da entrega anterior); as consultas do funil não filtravam pela loja e
   não andavam pelo índice da tabela (uma delas no ar desde a fatia 1.3); e "Ver a foto
   padrão", em Padrões, caía na tela do canal. Corrigidos;
-- **o que falta:** a proposta do estudo pelo sistema (fatia 1.3 — por regras, no servidor,
-  primeiro), o "ir para" (Ctrl K) e "quadro" no lugar de "área" em Análises e no Painel.
+- **o que faltava:** a proposta do estudo pelo sistema (fatia 1.3 — por regras, no servidor,
+  primeiro) e o "ir para" (Ctrl K), entregue em seguida.
+
+**A fatia 1.5, o "ir para", entregue em 09/10** ([decisoes.md](decisoes.md), "O 'ir para' (Ctrl K), e o
+foco que volta a quem abriu"; sem migration):
+
+- **o que entrou:** o botão "Ir para…" e o atalho Ctrl K abrem uma busca com as telas da loja,
+  os canais e os critérios de cada canal; escolher um critério abre o canal já com a gaveta
+  dele. A busca não liga para acento e aceita várias palavras;
+- **achado no caminho:** ao fechar a paleta — e qualquer gaveta ou diálogo do console — o foco
+  caía na página. Corrigido na peça compartilhada: volta ao botão ou à linha que abriu;
+- **onde diverge do protótipo:** o botão mora no menu lateral (o console de hoje não tem a
+  barra de cima), e a lista tem também as telas da loja;
+- **com isto a fatia 1.5 fecha.** Da onda 1 falta a proposta do estudo (1.3). Ficou para uma
+  limpeza à parte trocar "área" por "quadro" nos textos de Análises e do Painel.
 
 **A escolha do porte.** O plano manda o protótipo nascer na cara nova, e assim foi feito; o
 porte da cara nova inteira é a onda 8. As telas da onda 1 entram no console com as peças e

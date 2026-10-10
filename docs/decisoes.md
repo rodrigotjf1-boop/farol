@@ -2540,3 +2540,83 @@ Por isso três telas que já existiam mudaram de texto:
   critérios ligados, os dois de presença e valendo. Os números do funil que
   a tela vai mostrar lá são os desses critérios, sem estudo: nenhum critério
   da loja passou ainda por "observando" ou "em ensaio".
+
+## 09/10/2026 · O "ir para" (Ctrl K), e o foco que volta a quem abriu
+
+A19, onda 1 — a última peça das telas da fatia 1.5, do protótipo aprovado
+em 09/10. Sem migration, e nada muda no servidor.
+
+### O que entrou
+
+- **A paleta.** O botão **Ir para…** (no menu lateral; no celular, uma lupa
+  no topo) e o atalho **Ctrl K** (ou ⌘ K) abrem um campo de busca com uma
+  lista: as telas da loja, os canais e os critérios de cada canal.
+- **Escolher um critério abre o canal já com a gaveta dele.** O critério que
+  vale em dois canais aparece nos dois, e quem procura escolhe em qual quer
+  abrir. O que não vale em canal nenhum leva à tela de critérios, onde fica
+  o "Sem canal".
+- **A busca** não liga para acento nem para maiúscula, e aceita várias
+  palavras em qualquer ordem: "montagem limpa" acha "Bancada limpa entre
+  pedidos", do canal Montagem 1.
+- **O teclado:** as setas escolhem (e dão a volta), Home e End vão às
+  pontas, Enter vai, Esc fecha. O foco não sai do campo; o leitor de tela
+  ouve a opção ativa.
+- **Fora de uma loja** (na lista de lojas), a paleta lista as lojas.
+- **Quem não vê Análises e Orçamento no menu não os vê na paleta** — é a
+  mesma regra do menu, e quem decide de fato é a API.
+- Os canais e os critérios saem do servidor na hora em que a paleta abre. Se
+  os critérios não chegarem, a paleta diz e segue servindo para as telas e
+  os canais.
+- Na tela do canal, o endereço com `?criterio=<id>` abre a gaveta daquele
+  critério e volta a ser o endereço do canal: recarregar não reabre nada. Se
+  o critério não vale mais ali, a tela diz.
+
+### O foco volta a quem abriu
+
+*Achado pelo roteiro da paleta:* ao fechar — a paleta, e também **toda
+gaveta e todo diálogo do console** —, o foco caía na página, e quem usa o
+teclado perdia o lugar. O `<dialog>` do navegador devolve o foco sozinho ao
+ser fechado, mas a limpeza que o fechava rodava depois de o React já ter
+tirado o elemento da página. Passou a rodar antes (efeito de layout, na
+peça compartilhada): o foco volta ao botão, ou à linha da lista, que abriu.
+
+E o menu "⋯" passou a devolver o foco ao botão dele quando um item é
+escolhido: a gaveta (ou o diálogo) que o item abre guarda esse botão como
+"quem abriu", e é para ele que o foco volta ao fechar. Antes o item sumia
+com o foco. O que cada gaveta faz ao ABRIR não mudou: o nome no critério
+novo, o botão de excluir na gaveta aberta para excluir, o "Cancelar" no
+diálogo de exclusão.
+
+### Onde diverge do protótipo
+
+1. **O botão mora no menu lateral** (no celular, no topo): o console de hoje
+   não tem a barra de cima do protótipo.
+2. **A lista tem também as telas da loja** — as do menu e as que moram
+   dentro delas (Padrões, Planta, Inventário). O protótipo, que só tem a
+   tela de canais, lista "Canais".
+3. **A busca aceita várias palavras.**
+4. **Com uma gaveta ou um diálogo aberto, o atalho não faz nada:** a tela de
+   baixo está inerte, e a paleta não se empilha por cima.
+5. **"Ctrl K" aparece escrito só na coluna larga do menu;** no trilho do
+   tablet e no celular fica o botão.
+
+### O que não entrou
+
+- Os quadros na lista (o protótipo também não os lista).
+- "Quadro" no lugar de "área" nos textos de Análises e do Painel: é uma
+  limpeza de vocabulário à parte, palavra por palavra ("área" também é
+  palavra da cozinha).
+- *Visto no caminho, e não mexido:* a tabela do Painel rola para o lado
+  entre 820 e 1.280 px de largura quando a loja tem muitos critérios. É a
+  peça de tabela de antes; fica anotado.
+
+### O que não foi medido
+
+- Com a loja de verdade. A paleta foi conferida num navegador, contra o
+  build de produção e uma loja inventada: 218 conferências (o botão, o
+  atalho, a lista contra o que a API devolve, a busca, o teclado, ir a uma
+  tela, a um canal e a um critério, quem só vê, e 16 larguras de 320 a 1.920
+  px). E, por ter mexido na peça dos diálogos e dos menus, os roteiros das
+  telas que a usam rodaram de novo — a gaveta do critério (782),
+  Padrões (730) e Inventário (246) —, mais um roteiro só do
+  foco, ao abrir e ao fechar, pela linha, pelo menu e pelo "+ critério" (36).

@@ -28,6 +28,7 @@ import {
   ListChecks,
   LogOut,
   Moon,
+  Search,
   Store,
   Sun,
   Unplug,
@@ -50,6 +51,7 @@ import {
   type Console,
   type Saude,
 } from './console';
+import { IrPara } from './ir-para';
 import { Palavra, Selo } from './marca';
 import { Alerta, Ossos, Ponto } from './ui/pecas';
 import { DivisorDeMenu, ITEM_DE_MENU, Menu, RotuloDeMenu } from './ui/sobreposto';
@@ -319,6 +321,22 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [lojaDaPagina, setLojaDaPagina] = useState<string | null>(null);
   const [sinais, setSinais] = useState<number | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  /** A paleta "Ir para…" está aberta. */
+  const [paleta, setPaleta] = useState(false);
+
+  // Ctrl K (ou ⌘ K) abre a paleta de qualquer tela — e fecha, se ela já está aberta. Com uma gaveta ou um
+  // diálogo aberto o atalho não faz nada: a tela de baixo está inerte, e a paleta não se empilha por cima.
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== 'k') return;
+      const aberto = document.querySelector('dialog[open]');
+      if (aberto && !aberto.hasAttribute('data-paleta')) return;
+      e.preventDefault();
+      setPaleta((era) => !era);
+    };
+    document.addEventListener('keydown', tecla);
+    return () => document.removeEventListener('keydown', tecla);
+  }, []);
 
   // Em qual loja se está. O endereço diz na maior parte das telas; na de
   // um canal (`/pontos/…`) não diz, e a própria tela avisa.
@@ -470,6 +488,24 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
         <TrocaDeLoja lojas={lojas} loja={loja} />
 
+        {/* "Ir para…": no protótipo mora na barra de cima, que o console de hoje não tem. */}
+        {eu && (
+          <button
+            type="button"
+            data-ir-para
+            aria-haspopup="dialog"
+            aria-keyshortcuts="Control+K"
+            onClick={() => setPaleta(true)}
+            className="flex h-10 w-full items-center justify-center gap-2.5 rounded-[10px] border border-farol-borda bg-farol-painel-2 text-farol-suave transition-colors hover:border-farol-borda-forte hover:text-farol-tinta lg:justify-start lg:px-2.5"
+          >
+            <Search className="h-[18px] w-[18px] shrink-0" aria-hidden />
+            <span className="sr-only lg:not-sr-only lg:min-w-0 lg:flex-1 lg:text-left lg:text-sm">Ir para…</span>
+            <kbd className="hidden shrink-0 rounded-md border border-farol-borda px-1.5 py-px font-mono text-[11px] leading-4 lg:block" aria-hidden>
+              Ctrl K
+            </kbd>
+          </button>
+        )}
+
         {eu ? <Navegacao itens={itens} atual={atual} deitada={false} /> : <Ossos alturas={[40, 40, 40]} />}
 
         <div className="!shrink min-h-3 flex-1" />
@@ -522,6 +558,18 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Ponto tom={tom} pulsa={saude.estado === 'ativo'} />
           </span>
         )}
+        {eu && (
+          <button
+            type="button"
+            data-ir-para
+            aria-haspopup="dialog"
+            aria-label="Ir para…"
+            onClick={() => setPaleta(true)}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] text-farol-suave transition-colors hover:bg-farol-realce hover:text-farol-tinta"
+          >
+            <Search className="h-[18px] w-[18px]" aria-hidden />
+          </button>
+        )}
         {eu && <Conta eu={eu} escuro={escuro} trocarTema={trocarTema} sair={sair} />}
       </header>
 
@@ -553,6 +601,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       {/* ───────────── celular: a barra de baixo ───────────── */}
       {eu && <Navegacao itens={itens} atual={atual} deitada />}
+
+      {eu && paleta && <IrPara lojaId={lojaId} lojas={lojas} veResultados={veResultados} configura={configura} aoFechar={() => setPaleta(false)} />}
     </div>
   );
 }
