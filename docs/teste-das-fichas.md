@@ -7,7 +7,8 @@ experimento mede, com as imagens dos lotes de 08/10, o que a nuvem consegue faze
 
 Gasto: **R$ 1,32** (R$ 0,70 na primeira rodada, R$ 0,33 na segunda e R$ 0,29 na terceira, a
 do molho), dentro do teto de R$ 5,00 do teste da nuvem (acumulado: R$ 4,23). **A rodada 4,
-de 09/10 à noite, com a câmera regulada, custou mais R$ 0,21 e está mais abaixo.** As imagens
+de 09/10 à noite, com a câmera regulada, custou mais R$ 0,21 e está mais abaixo; a rodada 5,
+da madrugada de 10/10 (a revisão pelo gravador), mais R$ 0,11 — acumulado: R$ 4,60.** As imagens
 ficaram no PC da loja só durante o experimento e não estão neste repositório.
 
 ## As fichas
@@ -320,6 +321,154 @@ sistema; o gabarito é meu, e eu não sei o nome dos produtos (falta a ficha del
 "o nome certo" do molho cremoso é o que a imagem mostra, um creme laranja-claro); o
 dicionário da noite foi escrito olhando estes mesmos lanches; as imagens ficaram no
 computador da loja só durante a medida e foram apagadas. Não foi medido o leitor local.
+
+## Rodada 5 — a revisão pelo gravador: a busca pelo meio (09 para 10/10)
+
+O dono, ao ler a rodada 4: "quando houver uma perda de etapa ou gerar confiança baixa de que
+foi colocado um ingrediente ou não, é possível puxar frames rapidamente no HD somente da
+etapa que faltou análise? Exemplo: imagem aos 15 s mostra o tampo do pão e o próximo frame,
+aos 25 s, já mostra alface sobre o molho; então, na dúvida, uma busca dos frames entre os 15
+e os 25 s procurando a colocação do molho (…) seria uma forma de rever e considerar a
+confirmação do erro na montagem". E, com a medida em andamento: "não é necessário puxar
+todos os segundos do intervalo. Puxa o valor do meio (…) como se fosse uma busca, vai ganhar
+desempenho"; "a ideia é reduzir, para não ter tantos frames a carregar sem necessidade só
+para achar um ponto que passou pelo intervalo"; "ainda podemos ter ganho quando o cabo for
+substituído".
+
+É o "olhar para trás" da onda 2, com um jeito de escolher o que buscar. Foi medido na loja,
+na mesma madrugada, só com leitura da gravação do canal 4.
+
+**De onde saíram os quadros.** O lote das caixas da rodada 4 e doze minutos do pico (23:46 a
+23:58, um instante a cada 10 s, 73 instantes), de onde saíram mais três lotes:
+
+| lote | o que é | o que acontece na tampa |
+|---|---|---|
+| D1 e D2 — 19:51:18 a 19:51:38 | duas caixas | nua → a bisnaga passa por cima → creme à vista por **5 s** (D1) e **7 s** (D2) → alface |
+| A — 23:50:08 a 23:50:24 | uma caixa | nua por 5 s → **alface direto**, sem molho |
+| B — 23:51:48 a 23:52:24 | duas folhas de papel, quatro metades de pão | as duas tampas nuas por mais de 20 s → fatia de queijo, sem molho |
+| C — 23:57:16 a 23:57:34 | uma caixa | nua → um saco de molho, 5 s sobre a tampa → molho vermelho, que **continua à vista** |
+
+Eu não sei se os lanches de A e de B levam molho na tampa: falta a ficha deles. O que a
+gravação mostra é o que entrou.
+
+### Quanto custa voltar no gravador
+
+| jeito | o que se pede | quanto demora (medido) |
+|---|---|---|
+| tocar a gravação | 10 s | **11,2 a 13,4 s** (5 medidas): abre em 2,0 a 3,5 s e entrega na velocidade do relógio |
+| tocar a gravação | um quadro só, uma conexão por instante | 3,0 s cada (73 em 219 s) |
+| baixar por horário (arquivo) | 10 s — 2,6 MB, 150 quadros | **3,9 e 6,2 s** para baixar, mais 0,9 s para decodificar |
+| baixar por horário | 13 s | 6,0 s, mais 1,1 s |
+| baixar por horário | **um bloco de 2 s** — 0,53 MB, 30 quadros | **mediana de 1,9 s** (de 0,6 a 3,6; 45 blocos, contando o pedido do desafio), mais 0,18 s para decodificar |
+
+- **O gravador entrega a gravação em blocos de 2 s.** O pedido é arredondado para baixo nas
+  duas pontas: pedir de :20 a :33 devolveu de :20 a :32 (180 quadros); pedir de :27 a :29
+  devolveu o bloco de :26 a :28. Para ver um instante pede-se o bloco que o contém. Nesta
+  gravação os blocos começam em segundo par.
+- **O pedido** é o "baixar por horário" da API oficial do gravador
+  (`/cgi-bin/loadfile.cgi?action=startLoad&channel=…&startTime=…&endTime=…&subtype=0`, com
+  autenticação digest). O arquivo vem no formato do gravador, e o leitor de vídeo que o
+  agente já usa abre como está.
+- **A rede entregou de 3 a 9 Mbit/s:** a placa do computador da loja está presa em
+  10 Mbit/s até a troca do cabo. Baixar é a maior parte do passo — **depois do cabo é para
+  medir de novo.**
+- **O que foi gravado até uns 3 s antes já vem inteiro** (o relógio do gravador anda cerca
+  de 27 s adiantado: a janela que terminava 24 s à frente do relógio do computador veio
+  completa; a que terminava 30 s à frente, com 9 quadros).
+- **Cada pedido com a credencial foi feito uma vez só** — a conta do gravador é a mesma do ao
+  vivo, e pedido recusado não se repete. Não houve recusa. O agente da loja não registrou
+  aviso nem erro durante a medida.
+
+### A busca pelo meio, nos lotes
+
+Cada passo é um bloco: **baixar**, **escolher na loja** o melhor quadro da tampa e **julgar
+só esse quadro**. A escolha é local: no recorte da tampa, o quadro do meio do trecho mais
+parado do bloco (25 ms por tampa). Tampa nua: o molho, se houve, veio depois — a busca anda
+para a frente. Coberta: veio antes — anda para trás. Molho à vista: achou, e a dúvida acaba.
+Bloco sem trecho parado é a mão em cima da tampa: não vai a juízo. Dos 73 pares de bloco e
+tampa desta rodada, 64 tinham um trecho parado e 9 não (em três desses nove o quadro de menor
+movimento saiu limpo; dois foram a juízo assim mesmo, e saíram certos).
+
+| lote | as pontas (o que as olhadas espaçadas veriam) | passos | resultado |
+|---|---|---|---|
+| D1 | nua às 19:51:20 · coberta às 19:51:36 | **1** — o bloco do meio, 19:51:28 | **molho à vista** |
+| D2 | nua às 19:51:22 · coberta às 19:51:36 | **1** — o bloco do meio, 19:51:28 | **molho à vista** |
+| A | nua às 23:50:14 · coberta às 23:50:20 | **2 blocos** — 23:50:16 (nua) e 23:50:18 (a mão em cima) — **e a grade** | **alface direto sobre a tampa nua** |
+
+Quando a busca não acha o molho, ela aperta a dúvida até sobrar a janela em que a mão está
+sobre a tampa (2 a 6 s). Dessa janela, que àquela altura já foi baixada, sai **uma grade de
+6 quadros numerados**, e a pergunta muda: o que foi posto, e com que utensílio.
+
+**Um passo leva cerca de 3,3 s na rede de hoje:** 1,9 s para baixar, 0,2 s para decodificar e
+1,2 s para julgar na nuvem. D1 e D2: um passo, R$ 0,001. A: dois blocos, um quadro e uma
+grade julgados, cerca de 7 s e R$ 0,003. Para comparar: tocar o intervalo inteiro de D (16 s)
+levaria uns 18 a 20 s antes de julgar qualquer coisa (os 24 s medidos levaram 25,6 e 30,4 s);
+baixá-lo inteiro, uns 8 a 11 s, pela conta dos 10 e dos 13 s medidos.
+
+Os passos da tabela foram refeitos em cima dos blocos já baixados e julgados um a um: o laço
+automático ainda não existe.
+
+### O juízo
+
+Para a busca andar, alguém tem de dizer o estado da tampa em cada quadro. Nesta rodada foi o
+Haiku 5.5, com a cena e a regra da casa em poucas linhas, um quadro por chamada, três
+leituras de cada. Os quadros são os que a loja escolheu sozinha em cada bloco, no tamanho em
+que a câmera entrega (uns 300 × 300 px). Olhei cada um antes de mandar: nenhum mostra a
+cabeça de ninguém; nas três grades aparecem mãos.
+
+| estado (o gabarito é meu) | quadros | leituras certas |
+|---|---|---|
+| caixa sem pão | 5 | 15 de 15 |
+| tampa nua | 10 | 27 de 30 |
+| molho à vista (creme laranja-claro e molho vermelho) | 10 | **30 de 30** |
+| coberta pela alface | 5 | 15 de 15 |
+| **total** | **30** | **87 de 90** |
+
+- **As três erradas são o mesmo quadro** — a tampa nua de D2 às 19:51:20, lida como "coberta:
+  farelo ou ingrediente granulado". É a face tostada do pão, o engano da rodada 4. As três
+  vieram com confiança 0,6; **as 87 certas, com 0,8 ou mais**: nesta amostra um corte em 0,7
+  separa. O bloco vizinho (19:51:22) saiu certo.
+- **As grades**, três leituras de cada: **o que foi posto saiu certo nas 9** — folhas em A,
+  molho em D1 e em C. Em A, as três disseram "folhas, só a mão, molho em nenhum quadro". O
+  utensílio saiu certo em 6 de 9: a bisnaga vista de cima foi chamada de "pote" nas três de
+  D1, e nelas o modelo disse "molho à vista" em quadros em que só a bisnaga aparece.
+- **1,2 s por quadro** (de 0,9 a 1,6) e 1,6 s por grade; **0,10 centavo por quadro** e 0,17
+  por grade. 102 leituras, **R$ 0,11** (acumulado da chave: R$ 4,60 de R$ 5,00).
+
+### A primeira tentativa: o intervalo inteiro
+
+Antes da proposta da busca, o intervalo foi lido inteiro, tocando a gravação, e a loja ficou
+com um quadro por "repouso" da tampa. Em D1, dos 457 quadros de 30 s sobraram 8 — caixa vazia,
+tampa nua, creme, alface, com repetições —, e em D2, 7. Funciona, e escolher leva 4 ms; o
+caro é trazer tudo. Um número dali serve à busca: **o creme muda só 9% a 10% do recorte da
+tampa.** O limiar de "mudou" tem de ser baixo, e alguma repetição é o preço.
+
+### O que se lê
+
+1. **Dá para rever só o que ficou em dúvida, e a busca pelo meio é o jeito barato.** Um passo
+   quando o molho foi posto e coberto — o caso que hoje viraria alarme falso —, dois blocos e
+   uma grade quando não foi.
+2. **O meio cai no molho porque ele fica de 5 a 8 s à vista** (rodadas 4 e 5) num intervalo
+   de 10 a 20 s entre a tampa nua e a coberta, e porque dentro do bloco de 2 s a loja escolhe
+   o quadro sem mão.
+3. **O que sobe é pouco:** um quadro de 300 px por passo. Com o quadro certo, o molho foi
+   lido em 30 de 30.
+4. **Dizer que NÃO houve molho pede a janela da mão:** é ela que mostra a alface entrando
+   direto. E continua triagem, com revisão de gente — nenhum aviso sai antes do banco de
+   provas.
+5. **O que falta é o que já estava no plano:** a loja saber sozinha onde está a tampa (a
+   leitura da bancada, ondas 4 e 5) e a ficha de cada lanche — sem ela, "sem molho" não é
+   erro nem acerto.
+6. **O cabo ainda dá ganho:** baixar é 1,9 s dos 3,3 s do passo, numa rede presa em
+   10 Mbit/s. Julgar (1,2 s) e decodificar (0,2 s) não dependem dele.
+
+Limites: quatro posições em caixa, de uma noite (e duas em papel, que não foram a juízo); o
+alvo — onde está a tampa — foi apontado por mim; o gabarito é meu; as três leituras de cada
+quadro são a mesma imagem perguntada de novo; a busca foi refeita sobre blocos já baixados,
+não rodou como laço; não houve nesta amostra molho coberto em menos de 2 s, nem molho claro
+sobre pão claro; o juiz local do molho (o da rodada 3) não foi posto em cima do quadro que a
+busca escolhe; depois da troca do cabo nada foi medido. As imagens ficaram no computador da
+loja só durante a medida e foram apagadas (a pasta foi conferida vazia).
 
 ## E sem nuvem? A prova do leitor local
 

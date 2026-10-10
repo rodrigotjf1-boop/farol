@@ -2620,3 +2620,51 @@ diálogo de exclusão.
   telas que a usam rodaram de novo — a gaveta do critério (782),
   Padrões (730) e Inventário (246) —, mais um roteiro só do
   foco, ao abrir e ao fechar, pela linha, pelo menu e pelo "+ critério" (36).
+
+## 10/10/2026 · A revisão na dúvida é uma busca pelo meio no gravador (pedido do dono, medido)
+
+O dono, ao ler a rodada 4 do teste das fichas: quando a leitura perder uma etapa, ou não
+tiver confiança de que um ingrediente entrou, **rever no gravador só o trecho que ficou sem
+análise antes de emitir o alerta do erro**. E como: "não é necessário puxar todos os segundos
+do intervalo. Puxa o valor do meio (…) como se fosse uma busca, vai ganhar desempenho"; "a
+ideia é reduzir, para não ter tantos frames a carregar sem necessidade só para achar um ponto
+que passou pelo intervalo".
+
+### O que fica valendo
+
+- **A revisão é uma busca, não uma releitura.** Entre a olhada em que a tampa está nua e a
+  olhada em que está coberta, o agente pede ao gravador o bloco de 2 s do meio, escolhe na
+  loja o quadro parado e julga só esse. Nua: o molho, se houve, veio depois; coberta: veio
+  antes; molho à vista: achou, e não há erro a avisar.
+- **Dizer que NÃO houve pede a janela da mão.** Quando a busca aperta a dúvida sem achar o
+  molho, sobra a janela em que a mão está sobre a tampa; dela sai a grade de 6 quadros com a
+  pergunta "o que foi posto, e com que utensílio".
+- **O pedido ao gravador é o de arquivo** ("baixar por horário"), em blocos de 2 s — e nunca
+  se repete um pedido recusado: a conta é a mesma do ao vivo.
+- **Entra com o "olhar para trás" da onda 2** e serve à leitura da bancada (ondas 4 e 5).
+  Nada foi ligado nem implementado agora.
+
+### O que foi medido
+
+Na loja, na madrugada de 10/10, só com leitura da gravação (rodada 5 de
+`docs/teste-das-fichas.md`): um passo leva cerca de 3,3 s — 1,9 s para baixar o bloco, 0,2 s
+para decodificar, 1,2 s para julgar; nos dois lotes em que o molho foi posto e coberto
+bastou **um passo**; no lote sem molho, dois blocos e uma grade (cerca de 7 s). Tocar 10 s de
+gravação leva de 11 a 13 s, e baixá-los inteiros, de 5 a 7 s. O juízo dos quadros escolhidos
+pela loja: 87 de 90 leituras certas, as 30 de molho todas certas; as três erradas, de um
+quadro só, vieram com a menor confiança da rodada. Custo: R$ 0,11.
+
+### O que não muda
+
+- Erro de procedimento continua **triagem, com revisão de gente**; nenhum aviso sai antes do
+  banco de provas.
+- Sem a ficha do lanche, "sem molho" não é erro nem acerto.
+
+### O que não foi medido
+
+- O laço automático (os passos foram refeitos sobre blocos já baixados e julgados um a um).
+- A loja achar sozinha onde está a tampa: o alvo foi apontado à mão.
+- Depois da troca do cabo: a rede da loja está presa em 10 Mbit/s, e baixar é a maior parte
+  do passo.
+- Lanche montado sobre papel indo a juízo; molho coberto em menos de 2 s; molho claro sobre
+  pão claro; o juiz local do molho em cima do quadro que a busca escolhe.
