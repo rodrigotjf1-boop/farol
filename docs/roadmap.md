@@ -3206,6 +3206,17 @@ resolução da câmera, cada um numerado — o formato que a pesquisa mediu como
 processo longo, os quadros são escolhidos **por mudança** (o instante depois que a mão sai),
 não por relógio.
 
+**Na dúvida, a busca pelo meio** (pedido do dono em 10/10/2026, medido na mesma madrugada —
+rodada 5 de `docs/teste-das-fichas.md`). Quando a leitura perde uma etapa — a tampa aparece
+nua numa olhada e coberta na seguinte —, o agente não busca o intervalo inteiro: pede ao
+gravador **o bloco de 2 s do meio**, escolhe na loja o quadro parado da tampa e julga só
+esse. Nua: anda para a frente; coberta: para trás; molho à vista: achou, e a dúvida acaba
+sem aviso. Se não achar, sobra a janela em que a mão está sobre a tampa, e dela sai a grade
+de 6 quadros com a pergunta "o que foi posto". Medido: um passo leva cerca de 3,3 s (1,9 s
+é baixar, numa rede presa em 10 Mbit/s até a troca do cabo); nos lotes com molho coberto
+bastou um passo, e no lote sem molho, dois blocos e uma grade (cerca de 7 s). Tocar 10 s de
+gravação leva de 11 a 13 s; baixá-los inteiros, de 5 a 7 s.
+
 **A escada de juízes** — do barato ao caro, local primeiro:
 
 | degrau | o quê | onde | custo |
@@ -3747,9 +3758,9 @@ ele corrigir alguma dessas leituras, vale a correção.
 |---|---|---|---|
 | 0 ✅ | Confiança em %; cliente do gravador | P | — |
 | 1 ▶ em andamento | **Quadros, estudo condicional e contexto:** imagem completa × quadros com papel; a ficha de cada critério (contexto, gatilho, janela, ação, desfecho) e o funil em números; **a anatomia do pedido à nuvem** (a cena, o mapa do canal, o recorte na resolução da câmera, a resposta na forma da família — o recorte nunca sobe sozinho); Haiku 5.5 (medido); no quadro de bancada, o quadro de "as mãos saíram" no lugar do borrão de rosto; os quatro estados do critério | G | protótipo aprovado |
-| 2 | **Sequência e banco de provas:** olhar para trás, grade de 6 quadros, a família Acontecimento; "acertou / errou"; o acerto medido de cada critério | G | o dono marcar os exemplos |
+| 2 | **Sequência e banco de provas:** olhar para trás (na dúvida, **a busca pelo meio** no gravador, por blocos de 2 s), grade de 6 quadros, a família Acontecimento; "acertou / errou"; o acerto medido de cada critério | G | o dono marcar os exemplos |
 | 3 | **Processo e Medida:** etapas por quadro, cronômetros e contadores, episódios, modelos prontos | G | onda 2 medida |
-| 4 | **Leitura da bancada, E0 → E1:** câmera regulada, números da semana, as fases do lote, contar montagens pelo fechamento, a comanda | G | a câmera do canal 4 foi regulada em 09/10; falta o dono redesenhar o quadro da bancada (a câmera mudou de lugar) |
+| 4 | **Leitura da bancada, E0 → E1:** câmera regulada, números da semana, as fases do lote, contar montagens pelo fechamento, a comanda | G | a câmera do canal 4 foi regulada em 09/10 e o dono redesenhou o quadro da bancada na mesma noite (conferido contra a gravação); falta ele escrever a cena do canal |
 | 5 | **Leitura da bancada, E2 → E3:** **o leitor local de ingredientes** (ensinado pela nuvem; só o "não sei" sobe, uma posição por chamada), o dicionário de ingredientes, a ficha comparada em código, o produto, **a conta do lote contra o KDS**, aviso na estação | G+ | as fichas de todos os lanches; a fila de produção com os ingredientes (Regem); alarme falso medido |
 | 6 | O momento em vídeo ("Ver o momento") — reaproveita a sequência da onda 2 | M | onde guardar na nuvem |
 | 7 | Relatórios, resumos e o início "fora do critério primeiro" | G | transportador |
