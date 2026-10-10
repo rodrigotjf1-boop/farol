@@ -3836,7 +3836,7 @@ loja; o que o gravador entrega é medido na instalação.
 | 1 ✅ | **Fechar a onda 1:** o sistema propor o estudo do critério — **feito em 10/10**, por regras, no servidor, que era o caminho recomendado (se o dono preferir outro, o botão é o mesmo: troca-se quem responde) | onda 1, fatia 1.3 | — |
 | 2 | Três acertos pequenos de tela: "área" → "quadro" em Análises e no Painel; a tabela do Painel, que rola de lado entre 820 e 1.280 px; o cartão "Critérios ligados" dizer quantos só observam | onda 1 | — |
 | 3 | **A base de fichas e produtos do Farol** (decisão de 10/10): puxar do Regem as fichas, os produtos e os adicionais de cada loja e guardar base própria; aceitar também planilha, para a loja sem Regem; por cima dela, o dicionário de ingredientes e as regras da casa | nova; antes da onda 5 | o plano do lado do Regem aprovado; o Regem com as fichas da loja |
-| 4 | **O plano no projeto Regem:** a porta por onde o Farol lê as fichas, os produtos e os pedidos em produção; e o que o modo do KDS "por produto, com baixa automática" pede de lá (o item poder ser dado como feito; a porta para o acontecimento de produção; o desfazer) | projeto Regem — plano antes do código | a aprovação do dono, lá |
+| 4 | **O plano no projeto Regem — apresentado em 10/10** (a página "Porta do Farol no Regem"; o resumo está em "O lado do Regem — o plano apresentado"): três fases — o catálogo e as fichas, a fila de produção só para leitura, e o modo do KDS "por produto, com baixa automática". Nada foi implementado lá | projeto Regem — plano antes do código | **a aprovação do dono** (seis decisões na página) |
 | 5 | **Onda 2 — sequência e banco de provas:** o agente buscar no gravador (cliente de arquivo, medindo o que cada gravador entrega), a busca pelo meio, a grade de 6 quadros, a família Acontecimento passando a julgar, "acertou / errou", o acerto medido de cada critério. **O plano está em "Onda 2 — como ela entra"** (10/10): sete fatias; **a 2.1 (o cliente de arquivo do gravador) está feita, em 10/10**; a 2.2, também só do agente e dormindo, é a próxima | onda 2 | o protótipo das telas aprovado; as três decisões do plano; o dono marcar os exemplos |
 | 6 | **Onda 3 — processo e medida:** etapas por quadro, cronômetros, contadores, episódios | onda 3 | a onda 2 medida |
 | 7 | **Onda 4 — a bancada, primeira parte:** achar sozinho as posições e o tipo de base; contar o que fecha, por tipo de base; as fases do lote; os números da semana | onda 4 | a cena do canal |
@@ -3852,7 +3852,7 @@ loja; o que o gravador entrega é medido na instalação.
 | # | o quê | para quê | quando |
 |---|---|---|---|
 | 1 | **O Regem rodando na loja**, com as fichas dos lanches e os adicionais cadastrados | é de onde o Farol puxa fichas, produtos e pedidos; daí vem também a rotina dos outros itens | os testes estão para começar |
-| 2 | **Aprovar o plano do lado do Regem** (a porta de leitura para o Farol) | os itens 3, 4, 8 e 9 da outra lista | quando for apresentado |
+| 2 | **Aprovar o plano do lado do Regem** (a porta de leitura para o Farol): **está apresentado, na página "Porta do Farol no Regem", com seis decisões para marcar**. Depois do "pode" da fase 1, criar o segredo do aplicativo Farol e colá-lo nos dois painéis (o passo a passo vai na hora) | os itens 3, 4, 8 e 9 da outra lista | já pode: está com ele |
 | 3 | **A cena do canal "montagem 1"** — console → Canais → montagem 1 → "A cena deste canal" → "Salvar a cena" | o pedido com contexto e a leitura da bancada | quando puder |
 | 4 | **Na loja, na semana de 12/10:** o HD no gravador; o cabo, e avisar "cabo trocado, pode"; as fotos padrão; o reflexo da luminária; a folha A4 por um minuto; **e, se topar, a prova da planta viva** — 15 a 20 pontos marcados no piso com fita e medidos com trena, e uma pessoa parando uns 10 segundos em cada um (uns 20 minutos, antes de abrir; o passo a passo está em [estudo-planta-viva.md](estudo-planta-viva.md), seção 8) | guardar mais dias de gravação; a rede; a comparação com a foto; a medida da câmera; saber quanto erra a posição de uma pessoa na planta, nesta loja | na visita |
 | 5 | **A câmera da outra frente da ilha** (a da chapa) | sem ela o saldo não fecha: parte da produção fica fora da conta | depois de o algoritmo estar alinhado no canal 4, como o dono definiu |
@@ -4249,6 +4249,52 @@ sem tela):
   as 79 pegas pelos testes;
 - **o que não foi medido:** outro gravador que não o do piloto; horas de busca com o ao vivo
   aberto; o caminho depois do cabo novo.
+
+### O lado do Regem — o plano apresentado (10/10/2026)
+
+**É plano, e está com o dono para aprovar** (a página "Porta do Farol no Regem"). Nada foi
+implementado no Regem: lá o plano vem antes do código. Foi escrito em cima do código do
+Regem que está no ar (`origin/main` `bb7beca6`), com os fatos reconferidos um a um.
+
+**O que o código do Regem mostrou:**
+
+1. **Os dados existem; falta a porta.** Ficha, ingredientes, variações e adicionais estão no
+   banco. As rotas de hoje pedem o login de uma pessoa, e a leitura para máquina que existe
+   (a do totem) não traz ficha, variação nem tempo de preparo.
+2. **A API de integração já serve de molde.** É a do Liame e do RegemCast: acesso por loja,
+   escopo, limite de 60 chamadas por minuto e revogação que vale na chamada seguinte. Só
+   roda na nuvem, e hoje só tem vendas, clientes e cupons.
+3. **O item da fila guarda só o texto.** O produto, a variação e os adicionais estão na
+   comanda, a um passo. Quem avança é o pedido inteiro: o item não tem estado próprio.
+4. **A soma por produto do KDS é do navegador, pelo texto da descrição.** "X-Burger" e
+   "X-Burger · Grande" são dois grupos.
+5. **No servidor da loja, nenhuma credencial de outro sistema vale,** fora a do totem. O
+   servidor da loja conversa com a nuvem a cada 1 minuto.
+6. **No piloto, o agente do Farol roda no mesmo computador do servidor local do Regem** (os
+   cinco serviços dele de pé, conferido em 10/10).
+
+| fase | o que entra | onde roda | pede da loja | quando |
+|---|---|---|---|---|
+| **1 · catálogo** | o Farol como aplicativo conectado do Regem, autorizado pelo presidente numa página (como o Liame); leitura de produtos, variações, adicionais e fichas, **sem preço e sem custo**; retrato inteiro com número de versão | só nuvem; uma migration só-nuvem no Regem | nada | com o "pode" do dono |
+| **2 · fila de produção, só leitura** | os pedidos em produção e os concluídos das últimas 2 horas, com o produto de cada item, os adicionais e os horários; sem o cliente e sem valores | só nuvem; sem migration | nada | quando o Regem estiver rodando na loja |
+| **3 · KDS por produto, com baixa automática** | somar pelo produto; o item poder ser dado como feito; a porta por onde o Farol avisa "fechou um X" — quem decide a baixa é o Regem; desfazer com um toque; o registro de cada baixa | nuvem e loja | atualização (`.zip` e `.exe`) | onda 5, com o acerto medido |
+
+**O que o Farol faz com isso, do lado dele:** a base própria de fichas e produtos (item 3 da
+lista abaixo), alimentada pela fase 1; e, com a fase 2, a demanda por ingrediente crítico e
+os dois números do saldo de produção.
+
+**Seis decisões que são do dono** (estão na página, para marcar): a fase 1 pode começar;
+como o Farol recebe o acesso — recomendo a página de autorização, em que ninguém copia
+segredo; os textos dessa página; se a observação do item sai na fila — recomendo que sim, é
+o "sem cebola"; quando entra a fase 2 — recomendo logo depois da 1; e por onde chega o aviso
+da fase 3 — recomendo decidir na onda 5: pela rede da loja ele chega na hora e pede uma
+credencial de loja, que sai num `.exe`; pela nuvem, a quantidade só baixa na tela até
+1 minuto e meio depois.
+
+**O que não foi conferido:** o banco de produção do Regem (li as migrations e o schema); o
+atraso real do sincronismo da loja para a nuvem (1 minuto é do código, não de medida). E
+alguns identificadores do Regem mudam a cada salvamento — a variação, o ingrediente da
+ficha: o Farol casa pelo produto e pelo nome, e trata cada leitura como retrato inteiro.
 
 ### O que não foi medido
 
