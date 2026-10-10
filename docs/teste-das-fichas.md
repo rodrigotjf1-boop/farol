@@ -361,10 +361,13 @@ gravação mostra é o que entrou.
 | baixar por horário | 13 s | 6,0 s, mais 1,1 s |
 | baixar por horário | **um bloco de 2 s** — 0,53 MB, 30 quadros | **mediana de 1,9 s** (de 0,6 a 3,6; 45 blocos, contando o pedido do desafio), mais 0,18 s para decodificar |
 
-- **O gravador entrega a gravação em blocos de 2 s.** O pedido é arredondado para baixo nas
-  duas pontas: pedir de :20 a :33 devolveu de :20 a :32 (180 quadros); pedir de :27 a :29
-  devolveu o bloco de :26 a :28. Para ver um instante pede-se o bloco que o contém. Nesta
-  gravação os blocos começam em segundo par.
+- **O gravador entrega a gravação em blocos de 2 s** (nesta gravação, a partir de segundo
+  par). Para ver um instante pede-se o bloco que o contém. **Corrigido em 10/10:** eu tinha
+  escrito aqui que "o pedido é arredondado para baixo nas duas pontas" e que pedir de :27 a
+  :29 devolvia o bloco de :26 a :28. Não é assim: medido de novo, o gravador devolve **os
+  blocos que começam dentro do pedido** — o pedido de 2 s que começa em segundo ímpar
+  devolve o bloco SEGUINTE, e de :20 a :33 são sete blocos (210 quadros), não seis. As
+  medidas estão em "O que o gravador entrega, medido de novo", no fim desta rodada.
 - **O pedido** é o "baixar por horário" da API oficial do gravador
   (`/cgi-bin/loadfile.cgi?action=startLoad&channel=…&startTime=…&endTime=…&subtype=0`, com
   autenticação digest). O arquivo vem no formato do gravador, e o leitor de vídeo que o
@@ -372,9 +375,12 @@ gravação mostra é o que entrou.
 - **A rede entregou de 3 a 9 Mbit/s:** a placa do computador da loja está presa em
   10 Mbit/s até a troca do cabo. Baixar é a maior parte do passo — **depois do cabo é para
   medir de novo.**
-- **O que foi gravado até uns 3 s antes já vem inteiro** (o relógio do gravador anda cerca
-  de 27 s adiantado: a janela que terminava 24 s à frente do relógio do computador veio
-  completa; a que terminava 30 s à frente, com 9 quadros).
+- **A gravação recente NÃO vem inteira.** **Corrigido em 10/10:** eu tinha escrito aqui que
+  "o que foi gravado até uns 3 s antes já vem inteiro" — uma medida só, que deu certo uma
+  vez. Acompanhando três blocos desde a gravação, o bloco só passou a vir inteiro entre
+  1 min e 20 s e 2 min e 15 s depois de gravado; antes disso vem pela metade, com o tamanho
+  declarado batendo (as medidas estão no fim desta rodada). O relógio do gravador anda de
+  24 a 27 s adiantado em relação ao do computador.
 - **Cada pedido com a credencial foi feito uma vez só** — a conta do gravador é a mesma do ao
   vivo, e pedido recusado não se repete. Não houve recusa. O agente da loja não registrou
   aviso nem erro durante a medida.
@@ -485,6 +491,73 @@ não rodou como laço; não houve nesta amostra molho coberto em menos de 2 s, n
 sobre pão claro; o juiz local do molho (o da rodada 3) não foi posto em cima do quadro que a
 busca escolhe; depois da troca do cabo nada foi medido. As imagens ficaram no computador da
 loja só durante a medida e foram apagadas (a pasta foi conferida vazia).
+
+### O que o gravador entrega, medido de novo (10/10, à noite)
+
+Ao escrever a rotina que mede o gravador sozinha (onda 2, fatia 2.2a), a primeira medida de
+verdade não bateu com o que esta rodada dizia: "o pedido de 1 s devolveu 0,8 s". Medi de
+novo, pedido a pedido, contando os quadros de cada resposta (canal 4, `loadfile.cgi`, só
+leitura). São dois comportamentos, conforme a idade da gravação.
+
+**Gravação que já assentou (dez minutos de idade): vêm os blocos que COMEÇAM dentro do
+pedido.** Os segundos são de um mesmo minuto; cada bloco tem 30 quadros e uns 527 KB.
+
+| pedido | o que voltou |
+|---|---|
+| de :48 a :49 | o bloco de :48 inteiro — 30 quadros |
+| de :48 a :50 | 30 quadros |
+| de :48 a :51 · de :48 a :52 | 60 quadros |
+| de :49 a :50 · de :51 a :52 | nada |
+| de :49 a :51 · de :49 a :52 | só o bloco de :50 — 30 quadros |
+| de :50 a :51 · de :50 a :52 | 30 quadros |
+| de :48 a :53 | 90 quadros |
+| de :49 a :53 | 60 quadros |
+| de :48 a :60 | 180 quadros |
+| 2 s antes a 2 s depois da virada do minuto · 4 s antes a 4 s depois | 60 · 120 quadros: a virada não muda nada |
+| de :08 a :21 (o formato do "de :20 a :33" de cima) | **210 quadros**, 3,69 MB em 8,7 s |
+| de :08 a :20 | 180 quadros, 3,16 MB em 6,3 s |
+| de :15 a :17 (o formato do "de :27 a :29" de cima) | 525.385 bytes — **o mesmo arquivo** do pedido de :16 a :17; o bloco de :14 tem 526.565 |
+
+Então, para ter um intervalo, o pedido começa no começo do bloco em que o intervalo começa
+— senão esse bloco não vem — e basta terminar 1 s depois do começo do último bloco.
+
+**Gravação recente: vem cortada, e o gravador não avisa.**
+
+- Pedidos de 12 e 13 s em gravação de uns 45 s de idade devolveram 141, 145, 163, 161, 168 e
+  185 quadros, onde eram 180 e 195.
+- Um bloco pedido de novo de 5 em 5 s, com pedidos de 1 s, desde que acabou de ser gravado:
+  veio **pela metade** (≈ 267 KB, e o leitor de vídeo tira dele 0, 14 ou 15 quadros) até
+  passar a vir inteiro (≈ 528 KB, 30 quadros). Três blocos acompanhados:
+
+  | bloco | ainda pela metade aos | inteiro aos |
+  |---|---|---|
+  | 18:57:00 | 77 s | 81 s |
+  | 19:10:30 | 78 s | 84 s |
+  | 19:06:44 | 130 s | 135 s |
+
+- **O tamanho declarado bate nos dois casos.** Quem baixa não tem como perceber que veio
+  menos; quem lê percebe, contando os quadros.
+
+**A rotina do agente, no gravador da loja** (a mesma que entra no agente, rodada à mão):
+
+| passo | resultado |
+|---|---|
+| medir o gravador | 6 pedidos, 4,7 s: blocos de 2 s a partir de segundo par, 15 quadros por segundo, relógio 24,8 s adiantado |
+| três blocos assentados (5 min de idade), pedidos pelo meio deles | 1,58 MB em 2,25 s; 90 quadros de 90 esperados — **inteiro**; o quadro parado escolhido em 0,9 s |
+| um bloco de 21 s de idade | 268 KB, tamanho declarado batendo; 17 quadros de 30 esperados — **dito como não inteiro** |
+
+**O que isto muda.** Os números de custo desta rodada (um bloco em 1,9 s, um passo em 3,3 s)
+foram tirados de gravação assentada e continuam valendo. O que cai é a ideia de olhar, pelo
+caminho de arquivo, os segundos que acabaram de passar: neste gravador, antes de uns 2 a
+3 minutos a resposta não é de confiança. A busca pelo meio continua possível — começa mais
+tarde. Como a onda 2 lida com isso está em [decisoes.md](decisoes.md) (10/10) e no
+[roadmap](roadmap.md).
+
+Limites: um gravador, um canal, uma noite; três blocos acompanhados (não sei o pior caso, nem
+de que depende — o palpite é o fechamento do pedaço do disco em que o bloco está, e não foi
+medido); o disco é o de hoje (218,8 GB, cheio, sobrescrevendo) e vai ser trocado na semana
+de 12/10 — **depois da troca é para medir de novo**; não foi medido se "tocar a gravação"
+(RTSP) entrega os segundos recentes.
 
 ## E sem nuvem? A prova do leitor local
 

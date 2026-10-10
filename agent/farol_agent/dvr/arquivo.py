@@ -23,13 +23,19 @@ Este módulo é só o pedido. Não escolhe quadro, não decide o que buscar e
    agente reiniciar). O `urllib` do cliente ao vivo repete sozinho, e por isso
    não serve aqui.
 3. **O que o gravador entrega é do PERFIL dele, não do motor.** O gravador
-   da loja de teste entrega em blocos de 2 s (um quadro-chave a cada 2 s), a
-   partir de segundo par, e arredonda as duas pontas do pedido para baixo; a
-   gravação fica disponível alguns segundos depois do instante real. Outro
-   gravador entrega outra coisa. Por isso nenhum número de aparelho mora
-   aqui: eles entram por `PerfilDeArquivo`, medidos na instalação, e o que
-   se mediu de cada modelo fica na base de equipamentos
-   (`catalogo/equipamentos/gravador/`).
+   da loja de teste grava em blocos de 2 s (um quadro-chave a cada 2 s) e,
+   da gravação que já tem alguns minutos, devolve **os blocos que começam
+   dentro do pedido**: pedir de :49 a :51 devolve o bloco de :50 a :52 — o de
+   :48, que já tinha começado, não vem. Da gravação RECENTE ele devolve mais
+   ou menos o tempo pedido, cortado por tamanho e sem lugar certo: muitas
+   vezes o leitor nem abre. Em três blocos acompanhados em 10/10/2026, o
+   bloco só passou a vir inteiro entre 1 min e 20 s e 2 min e 15 s depois de
+   gravado. Outro gravador entrega outra coisa. Por isso nenhum número de aparelho
+   mora aqui: eles entram por `PerfilDeArquivo`, medidos na instalação, e o
+   que se mediu de cada modelo fica na base de equipamentos
+   (`catalogo/equipamentos/gravador/`). E por isso este módulo **não garante
+   que o trecho veio inteiro**: o tamanho declarado bate mesmo quando o
+   gravador entrega menos vídeo do que foi pedido. Quem lê conta os quadros.
 4. **O relógio é o do gravador.** O pedido vai na hora DELE (na loja, 24 a 30 s
    adiantado em relação ao computador). Quem chama converte, com a diferença
    medida por `relogio()`.
@@ -75,6 +81,10 @@ TETO_DO_TRECHO = 24 * 1024 * 1024
 MAIOR_TRECHO = timedelta(seconds=40)
 # De quanto em quanto tempo a diferença de relógio é medida de novo.
 IDADE_DO_RELOGIO = 300.0
+# Quanto se espera para pedir a gravação de um instante, quando não se mediu o
+# gravador: três minutos. (O único gravador medido até hoje levou de 1 min e
+# 20 s a 2 min e 15 s para entregar um bloco inteiro; a cautela fica acima.)
+ATRASO_DE_CAUTELA = 180.0
 
 _PEDACO = 65536
 _HORA = "%Y-%m-%d %H:%M:%S"
@@ -102,20 +112,46 @@ class PerfilDeArquivo:
 
     # O tamanho do bloco, em segundos; os blocos começam em múltiplo dele.
     bloco_s: int | None = None
-    # Quanto depois do instante real a gravação já pode ser pedida. Sem medida,
-    # 10 s: é cautela, não número de aparelho.
-    atraso_s: float = 10.0
+    # Quanto depois do instante real vale a pena pedir a gravação: antes
+    # disso ela ainda não assentou no gravador, e vem cortada. Não é número de
+    # aparelho: é a cautela de quem não mediu (`ATRASO_DE_CAUTELA`), e quem
+    # pede confere, pelos quadros, se veio inteira.
+    atraso_s: float = ATRASO_DE_CAUTELA
     # A porta HTTP do gravador (a do ponto é a do RTSP).
     porta: int = 80
+    # Onde os blocos começam: quantos segundos depois de um múltiplo do bloco,
+    # contando da meia-noite (0 = em cima do múltiplo).
+    desvio_s: int = 0
+    # Quantos quadros por segundo o gravador grava. `None` = não medido.
+    qps: float | None = None
+
+
+@dataclass(frozen=True)
+class Pedido:
+    """O que pedir ao gravador para ter o que vai de um instante a outro."""
+
+    # Onde o pedido começa e termina, na hora do gravador.
+    comeco: datetime
+    fim: datetime
+    # Até onde vai o que volta — se os blocos estiverem onde o perfil diz.
+    cobre_ate: datetime
+    # Quantos blocos voltam. `None` = não se sabe o bloco.
+    blocos: int | None
 
 
 @dataclass(frozen=True)
 class Trecho:
-    """Um trecho baixado. As horas são as do PEDIDO, no relógio do gravador."""
+    """Um trecho baixado. `de` e `ate` são o que o pedido COBRE, no relógio do gravador.
+
+    Não quer dizer que veio tudo: o gravador pode entregar menos vídeo do que
+    o pedido cobre, com o tamanho declarado batendo. Quem lê conta os quadros.
+    """
 
     canal: int
     de: datetime
     ate: datetime
+    # Quantos blocos o pedido cobre. `None` = não se sabe o bloco.
+    blocos: int | None
     caminho: Path
     tamanho: int
     # O que o gravador disse que mandaria. `None` = não disse.
@@ -167,32 +203,42 @@ def _segundo_do_dia(t: datetime) -> int:
     return t.hour * 3600 + t.minute * 60 + t.second
 
 
-def inicio_do_bloco(t: datetime, bloco_s: int) -> datetime:
-    """O começo do bloco em que `t` cai."""
+def inicio_do_bloco(t: datetime, bloco_s: int, desvio_s: int = 0) -> datetime:
+    """O começo do bloco em que `t` cai. `desvio_s`: quantos segundos depois do múltiplo os blocos começam."""
     if bloco_s < 1:
         raise ValueError("o bloco tem pelo menos 1 segundo")
     sem_fracao = t.replace(microsecond=0)
-    return sem_fracao - timedelta(seconds=_segundo_do_dia(sem_fracao) % bloco_s)
+    return sem_fracao - timedelta(seconds=(_segundo_do_dia(sem_fracao) - desvio_s) % bloco_s)
 
 
-def pedido_que_cobre(de: datetime, ate: datetime, bloco_s: int | None) -> tuple[datetime, datetime]:
-    """As duas pontas a PEDIR para o que volta conter de `de` até `ate`.
+def pedido_que_cobre(de: datetime, ate: datetime, bloco_s: int | None, desvio_s: int = 0) -> Pedido:
+    """O que PEDIR para o que volta conter de `de` até `ate`.
 
-    O gravador arredonda as duas pontas para baixo, para o começo do bloco:
-    pedir de 20 a 33 s devolve de 20 a 32. Para ter o segundo 33 é preciso
-    pedir até 34. Sem saber o bloco, só se tira a fração de segundo — para
-    cima no fim, para o trecho pedido não ficar menor que o desejado.
+    O gravador devolve os blocos que COMEÇAM dentro do pedido (medido em
+    10/10/2026: de :49 a :51 veio o bloco de :50 a :52; de :48 a :49, o de
+    :48 a :50; de :49 a :50, nada). Então o pedido começa no começo do bloco
+    em que `de` cai, e termina UM segundo depois do começo do último bloco
+    preciso. Um segundo, e não o bloco inteiro, de propósito: se os blocos
+    não estiverem onde o perfil diz, volta um bloco a menos — e quem lê
+    percebe pela conta dos quadros, em vez de receber, calado, o vídeo de um
+    segundo ao lado.
+
+    Sem saber o bloco, só se tira a fração de segundo — para cima no fim,
+    para o trecho pedido não ficar menor que o desejado.
     """
     if ate <= de:
         raise ValueError("o trecho termina depois de começar")
     if bloco_s is None:
         fim = ate.replace(microsecond=0)
-        return de.replace(microsecond=0), fim if fim == ate else fim + timedelta(seconds=1)
-    comeco = inicio_do_bloco(de, bloco_s)
-    fim = inicio_do_bloco(ate, bloco_s)
-    if fim < ate:
-        fim += timedelta(seconds=bloco_s)
-    return comeco, fim
+        fim = fim if fim == ate else fim + timedelta(seconds=1)
+        return Pedido(comeco=de.replace(microsecond=0), fim=fim, cobre_ate=fim, blocos=None)
+    comeco = inicio_do_bloco(de, bloco_s, desvio_s)
+    # o bloco em que cai o último instante pedido (`ate` em si já é do bloco seguinte)
+    ultimo = inicio_do_bloco(ate - timedelta(microseconds=1), bloco_s, desvio_s)
+    return Pedido(
+        comeco=comeco, fim=ultimo + timedelta(seconds=1), cobre_ate=ultimo + timedelta(seconds=bloco_s),
+        blocos=int((ultimo - comeco).total_seconds()) // bloco_s + 1,
+    )
 
 
 # ───────────────────────── o desafio de senha ─────────────────────────
@@ -434,13 +480,17 @@ class ClienteDeArquivo:
         """Baixa o trecho gravado do canal, de `de` até `ate` (no relógio do gravador), para `destino`.
 
         As pontas são ajustadas aos blocos do perfil, para o que volta conter
-        o intervalo pedido. O arquivo que não chegou inteiro é apagado: ou o
-        trecho está todo em `destino`, ou `destino` não existe.
+        o intervalo pedido. O arquivo que não chegou como o gravador declarou
+        é apagado: ou está em `destino` tudo o que ele mandou, ou `destino`
+        não existe. Se o que ele mandou é o vídeo INTEIRO do intervalo, quem
+        diz é quem lê, contando os quadros (`Trecho.blocos` diz quantos blocos
+        eram para vir).
         """
         if canal < 1:
             raise ValueError("canal começa em 1, como na tela do gravador")
-        comeco, fim = pedido_que_cobre(de, ate, self.perfil.bloco_s)
-        if fim - comeco > MAIOR_TRECHO:
+        pedido = pedido_que_cobre(de, ate, self.perfil.bloco_s, self.perfil.desvio_s)
+        comeco, fim = pedido.comeco, pedido.fim
+        if pedido.cobre_ate - comeco > MAIOR_TRECHO:
             raise ValueError(f"trecho de no máximo {MAIOR_TRECHO.total_seconds():.0f} segundos por pedido")
         caminho = (
             f"/cgi-bin/loadfile.cgi?action=startLoad&channel={canal}"
@@ -497,7 +547,8 @@ class ClienteDeArquivo:
                     pass
                 raise
             return Trecho(
-                canal=canal, de=comeco, ate=fim, caminho=destino, tamanho=total, declarado=declarado, tipo=tipo,
+                canal=canal, de=comeco, ate=pedido.cobre_ate, blocos=pedido.blocos, caminho=destino,
+                tamanho=total, declarado=declarado, tipo=tipo,
                 ate_o_primeiro_byte_s=primeiro if primeiro is not None else 0.0, total_s=self._agora() - saiu,
             )
 

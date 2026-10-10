@@ -34,6 +34,7 @@ from farol_agent.dvr import arquivo
 from farol_agent.dvr.arquivo import (
     ClienteDeArquivo,
     GravadorOcupado,
+    Pedido,
     PedidoRecusado,
     PerfilDeArquivo,
     SemGravacao,
@@ -219,21 +220,25 @@ def _cliente(porta: int, senha: str = SENHA, **mais) -> ClienteDeArquivo:
 # ───────────────────────── a hora, em blocos ─────────────────────────
 
 
-def test_o_pedido_cobre_o_intervalo_porque_o_gravador_arredonda_para_baixo():
+def test_o_pedido_cobre_o_intervalo_porque_o_gravador_devolve_os_blocos_que_comecam_dentro_dele():
     s = lambda segundos, micro=0: T.replace(second=0) + timedelta(seconds=segundos, microseconds=micro)  # noqa: E731
-    # O exemplo medido: pedir de 20 a 33 devolve de 20 a 32. Para ter o 33, pede-se até 34.
-    assert pedido_que_cobre(s(20), s(33), 2) == (s(20), s(34))
-    assert pedido_que_cobre(s(21), s(33), 2) == (s(20), s(34))
-    # Já em cima do bloco: nada a esticar.
-    assert pedido_que_cobre(s(20), s(32), 2) == (s(20), s(32))
-    # A fração de segundo conta: 32,1 já pede o bloco seguinte; 21,9 começa no 20.
-    assert pedido_que_cobre(s(21, 900_000), s(32, 100_000), 2) == (s(20), s(34))
-    assert pedido_que_cobre(s(20, 1), s(21), 2) == (s(20), s(22))
+    # O medido em 10/10/2026: o gravador devolve os blocos que COMEÇAM dentro do pedido. Para ter de 20 a 33, o
+    # pedido vai do 20 (começo do primeiro bloco) até o 33 (1 s depois do começo do último, o das 32): 7 blocos.
+    assert pedido_que_cobre(s(20), s(33), 2) == Pedido(comeco=s(20), fim=s(33), cobre_ate=s(34), blocos=7)
+    # Começando no meio de um bloco, o pedido recua até o começo dele — senão esse bloco não vem.
+    assert pedido_que_cobre(s(21), s(33), 2) == Pedido(comeco=s(20), fim=s(33), cobre_ate=s(34), blocos=7)
+    # Terminando em cima de um bloco, esse bloco já não é preciso: o último é o das 30.
+    assert pedido_que_cobre(s(20), s(32), 2) == Pedido(comeco=s(20), fim=s(31), cobre_ate=s(32), blocos=6)
+    # A fração de segundo conta: 32,1 já precisa do bloco das 32; 21,9 começa no 20.
+    assert pedido_que_cobre(s(21, 900_000), s(32, 100_000), 2) == Pedido(comeco=s(20), fim=s(33), cobre_ate=s(34), blocos=7)
+    # Um bloco só: o pedido é de 1 s, a partir do começo dele.
+    assert pedido_que_cobre(s(20, 1), s(21), 2) == Pedido(comeco=s(20), fim=s(21), cobre_ate=s(22), blocos=1)
+    assert pedido_que_cobre(s(20), s(22), 2) == Pedido(comeco=s(20), fim=s(21), cobre_ate=s(22), blocos=1)
     # Bloco de 10 s, e a virada do minuto e da hora.
-    assert pedido_que_cobre(s(57), s(63), 10) == (s(50), s(70))
+    assert pedido_que_cobre(s(57), s(63), 10) == Pedido(comeco=s(50), fim=s(61), cobre_ate=s(70), blocos=2)
     fim_da_hora = datetime(2026, 10, 9, 19, 59, 59)
-    assert pedido_que_cobre(fim_da_hora, fim_da_hora + timedelta(seconds=2), 2) == (
-        datetime(2026, 10, 9, 19, 59, 58), datetime(2026, 10, 9, 20, 0, 2),
+    assert pedido_que_cobre(fim_da_hora, fim_da_hora + timedelta(seconds=2), 2) == Pedido(
+        comeco=datetime(2026, 10, 9, 19, 59, 58), fim=datetime(2026, 10, 9, 20, 0, 1), cobre_ate=datetime(2026, 10, 9, 20, 0, 2), blocos=2,
     )
     # O bloco conta do começo do DIA, não do minuto: 19:51:20 é o segundo 71.480 do dia, e 71.480 = 7 × 10.211 + 3.
     assert inicio_do_bloco(T, 7) == datetime(2026, 10, 9, 19, 51, 17)
@@ -243,8 +248,37 @@ def test_o_pedido_cobre_o_intervalo_porque_o_gravador_arredonda_para_baixo():
 
 def test_sem_saber_o_bloco_so_sai_a_fracao_de_segundo():
     de, ate = T.replace(microsecond=400_000), T + timedelta(seconds=3, microseconds=200_000)
-    assert pedido_que_cobre(de, ate, None) == (T, T + timedelta(seconds=4))
-    assert pedido_que_cobre(T, T + timedelta(seconds=3), None) == (T, T + timedelta(seconds=3))
+    assert pedido_que_cobre(de, ate, None) == Pedido(comeco=T, fim=T + timedelta(seconds=4), cobre_ate=T + timedelta(seconds=4), blocos=None)
+    em_cima = T + timedelta(seconds=3)
+    assert pedido_que_cobre(T, em_cima, None) == Pedido(comeco=T, fim=em_cima, cobre_ate=em_cima, blocos=None)
+
+
+def test_blocos_que_nao_comecam_em_cima_do_multiplo():
+    s = lambda segundos: T.replace(second=0) + timedelta(seconds=segundos)  # noqa: E731
+    # Blocos de 2 s que começam em segundo ÍMPAR (desvio 1): 19:51:20 está no bloco de :19 a :21.
+    assert inicio_do_bloco(T, 2, 1) == s(19)
+    assert inicio_do_bloco(s(21), 2, 1) == s(21)
+    # De :20 a :22 pega dois blocos, o das :19 e o das :21: o pedido vai até 1 s depois do começo do segundo.
+    assert pedido_que_cobre(s(20), s(22), 2, 1) == Pedido(comeco=s(19), fim=s(22), cobre_ate=s(23), blocos=2)
+    assert pedido_que_cobre(s(21), s(23), 2, 1) == Pedido(comeco=s(21), fim=s(22), cobre_ate=s(23), blocos=1)
+    # Blocos de 4 s com desvio 3: 71.479 = 4 × 17.869 + 3, então :19, :23 e :27 são começos de bloco.
+    assert inicio_do_bloco(T, 4, 3) == s(19)
+    assert pedido_que_cobre(s(20), s(24), 4, 3) == Pedido(comeco=s(19), fim=s(24), cobre_ate=s(27), blocos=2)
+    # A virada do dia: à meia-noite o bloco em curso começou às 23:59:59 da véspera.
+    assert inicio_do_bloco(datetime(2026, 10, 9, 0, 0, 0), 2, 1) == datetime(2026, 10, 8, 23, 59, 59)
+    # Sem dizer, o desvio é zero.
+    assert inicio_do_bloco(T, 2) == inicio_do_bloco(T, 2, 0) == T
+    assert pedido_que_cobre(s(20), s(22), 2) == pedido_que_cobre(s(20), s(22), 2, 0)
+
+
+def test_o_pedido_sai_com_o_desvio_do_perfil(gravador, tmp_path: Path):
+    estado, porta = gravador
+    c = ClienteDeArquivo("127.0.0.1", USUARIO, lambda: SENHA, perfil=PerfilDeArquivo(bloco_s=2, desvio_s=1, porta=porta))
+    t = c.baixar(4, T, T + timedelta(seconds=2), tmp_path / "trecho.dav")
+    # de :20 a :22, com os blocos começando em segundo ímpar: o que cobre é de :19 a :23, em dois blocos —
+    # e o pedido vai de :19 a :22 (1 s depois do começo do bloco das :21)
+    assert (t.de, t.ate, t.blocos) == (T - timedelta(seconds=1), T + timedelta(seconds=3), 2)
+    assert estado.pedidos[-1][0].endswith("startTime=2026-10-09%2019:51:19&endTime=2026-10-09%2019:51:22&subtype=0")
 
 
 def test_trecho_que_nao_e_trecho_e_recusado_antes_de_qualquer_pedido(gravador, tmp_path: Path):
@@ -257,6 +291,10 @@ def test_trecho_que_nao_e_trecho_e_recusado_antes_de_qualquer_pedido(gravador, t
         c.baixar(4, T, T + timedelta(seconds=41), tmp_path / "t.dav")
     # 40 s cabem — e 39,5 s que viram 40 depois de esticar, também.
     c.baixar(4, T, T + timedelta(seconds=40), tmp_path / "ok.dav")
+    # O limite é do que VOLTA, não do que se pede: com blocos de 30 s, um pedido de 11 s pega dois blocos (60 s).
+    de_blocos_grandes = ClienteDeArquivo("127.0.0.1", USUARIO, lambda: SENHA, perfil=PerfilDeArquivo(bloco_s=30, porta=porta))
+    with pytest.raises(ValueError, match="no máximo 40 segundos"):
+        de_blocos_grandes.baixar(4, T, T + timedelta(seconds=11), tmp_path / "t.dav")
     with pytest.raises(ValueError, match="canal começa em 1"):
         c.baixar(0, T, T + timedelta(seconds=2), tmp_path / "t.dav")
     with pytest.raises(ValueError, match="pelo menos 1 segundo"):
@@ -265,8 +303,9 @@ def test_trecho_que_nao_e_trecho_e_recusado_antes_de_qualquer_pedido(gravador, t
 
 
 def test_sem_medida_nao_se_supoe_o_que_o_gravador_entrega():
-    # Nenhum número de aparelho mora no motor: sem medida, não há bloco, e a espera é a de cautela.
-    assert PerfilDeArquivo() == PerfilDeArquivo(bloco_s=None, atraso_s=10.0, porta=80)
+    # Nenhum número de aparelho mora no motor: sem medida, não há bloco, e a espera é a de cautela (três minutos).
+    assert PerfilDeArquivo() == PerfilDeArquivo(bloco_s=None, atraso_s=180.0, porta=80, desvio_s=0, qps=None)
+    assert arquivo.ATRASO_DE_CAUTELA == 180.0
     assert not [nome for nome in vars(arquivo) if nome.startswith("PERFIL_")]
 
 
@@ -292,11 +331,13 @@ def test_baixa_o_trecho_com_um_desafio_e_um_pedido_com_credencial(gravador, tmp_
     t = _cliente(porta).baixar(4, T + timedelta(seconds=1, milliseconds=400), T + timedelta(seconds=5, milliseconds=200), destino)
 
     assert destino.read_bytes() == estado.corpo
-    assert (t.canal, t.de, t.ate) == (4, T, T + timedelta(seconds=6))
+    # de 21,4 a 25,2 s são três blocos (os das :20, :22 e :24): o trecho cobre de :20 a :26
+    assert (t.canal, t.de, t.ate, t.blocos) == (4, T, T + timedelta(seconds=6), 3)
     assert (t.tamanho, t.declarado, t.tipo, t.caminho) == (5000, 5000, "application/http", destino)
     assert 0 <= t.ate_o_primeiro_byte_s <= t.total_s < 10
     # O pedido, na forma medida no gravador de verdade — e só dois: o do desafio e UM com a credencial.
-    caminho = "/cgi-bin/loadfile.cgi?action=startLoad&channel=4&startTime=2026-10-09%2019:51:20&endTime=2026-10-09%2019:51:26&subtype=0"
+    # Termina 1 s depois do começo do último bloco (:25): é o que faz voltarem os três, e não quatro.
+    caminho = "/cgi-bin/loadfile.cgi?action=startLoad&channel=4&startTime=2026-10-09%2019:51:20&endTime=2026-10-09%2019:51:25&subtype=0"
     assert estado.pedidos == [(caminho, False), (caminho, True)]
     # Com nome próprio: o do `urllib` é assinatura de robô para qualquer filtro no caminho.
     assert estado.agentes == ["farol-agent", "farol-agent"]
