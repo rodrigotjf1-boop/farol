@@ -3590,3 +3590,103 @@ cópia ficaria no disco sem ninguém para atualizá-la ou apagá-la.
 - **Nada em produção com base de verdade:** nenhuma loja está conectada ao Regem.
 - **O tamanho do documento do piloto** e quanto leva para descer pela internet da loja: só
   com as fichas cadastradas no Regem.
+
+## 11/10/2026 · A busca pelo meio e a grade de seis quadros entram no agente, dormindo (fatia 2.2b)
+
+A fatia 2.2b da onda 2: o agente passa a saber fazer, sozinho, o que em 10/10 foi feito à mão
+— entre duas olhadas, achar no gravador onde a cena mudou, lendo um bloco por passo; e,
+quando não acha, montar a grade de quadros numerados da janela que sobrou. Só o agente, sem
+migration e sem tela. **Nada chama estas peças ainda**, e a loja segue com o pacote de antes.
+PR #104.
+
+### O que entrou
+
+Quatro módulos em `agent/farol_agent/sequencia/`:
+
+- **`busca.py` — a busca pelo meio, como conta.** Recebe quem lê um bloco e quem julga um
+  quadro. Pede o bloco do meio, julga o quadro parado dele e anda: "ainda como antes" →
+  para a frente; "já como depois" → para trás; "achou" → acaba.
+- **`grade.py` — a grade.** Seis quadros da janela, três por linha, numerados na ordem do
+  tempo; o número devolve o instante ("aconteceu no quadro 4" vira uma hora).
+- **`gravado.py` — as duas, com o gravador da loja.** A hora dele, só o que já assentou, e o
+  trecho conferido pelos quadros.
+- **`guarda.py` — a sequência guardada** ao lado das análises (a imagem e uma ficha), com
+  teto em bytes e rodízio.
+
+### O que eu decidi no caminho, e por quê
+
+1. **A busca para de quatro jeitos, e todos dizem de onde tirar a grade.** *A mão em cima*:
+   o bloco não tem trecho parado — esse quadro **não vai a juízo**, e o bloco é a janela da
+   grade (é o lote A da rodada 5). *Apertou*: o bloco do meio já foi lido, e não há quadro
+   novo entre as pontas. *Não sei*: o juiz não soube dizer — a busca não chuta um lado.
+   *Limite*: seis passos, que apertam uma dúvida de até 64 blocos.
+2. **A ponta só anda com um quadro de dentro da dúvida.** O bloco do meio pode passar das
+   pontas, e o quadro escolhido cair fora delas: ele não diz nada de novo, e uma resposta
+   que contradiga a olhada da ponta não inverte a dúvida.
+3. **Quem chama fala no relógio do computador; o pedido sai na hora do gravador.** É no
+   relógio do computador que as olhadas são marcadas. O que volta — o resultado, os passos,
+   o que o juiz recebe, os instantes da grade — está nele também. A hora do gravador não
+   sai do módulo.
+4. **Só se pede o que já assentou**, e isso é conferido ANTES de qualquer pedido: o último
+   bloco de que a busca pode precisar tem de ter a idade do perfil (a cautela de 180 s).
+   Cedo demais não é erro: é "ainda não", com quanto falta.
+5. **O que voltou é conferido pelos quadros.** Bloco com menos quadros do que o gravador
+   grava naquele tempo não vai a juízo; janela com quadro faltando não vira grade (com um
+   buraco no meio, o instante de cada quadro sairia errado). Os dois são "voltar depois" —
+   em um minuto, a mesma espera das outras coisas que o agente tenta de novo.
+6. **A célula da grade é o recorte do alvo no tamanho da câmera**, só reduzida quando passa
+   de 960 × 540. Nunca é ampliada: ponto inventado não ajuda quem julga.
+7. **Os instantes da grade saem da janela inteira, numa conta só.** Somando fatias já
+   arredondadas (o instante é guardado em microssegundos), o erro de uma ia para todos os
+   quadros — o teste achou isso antes de qualquer uso.
+8. **A guarda é por teto, não por prazo.** Passou do teto (200 MB de fábrica; é escolha do
+   produto, e quem instala pode dar outro), saem as mais antigas; a que acabou de entrar
+   nunca sai. O disco do computador da loja não cresce para sempre.
+9. **Nenhum número do piloto no motor.** O tamanho do bloco, onde ele começa e a taxa vêm
+   do perfil medido de cada gravador; gravador sem perfil não tem busca.
+
+### Provado no gravador da loja (11/10, só leitura; a loja estava fechada)
+
+As mesmas rotinas, com os módulos novos levados para a pasta de medição (a instalação do
+agente não foi tocada; a pasta ficou vazia no fim), e um juiz de mentira — mede a mecânica,
+não o juízo:
+
+- **o laço da busca**, numa janela de 16 s com cinco minutos de idade: três blocos em 4,5 s
+  (de 1,07 a 1,25 s e uns 513 KB por bloco), todos inteiros; andando para trás, quatro
+  blocos em 6,2 s. Um pedido por vez, 21 pedidos de trecho ao todo, nenhuma recusa;
+- **a grade** de uma janela de 1,7 s: dois blocos (1.030 KB) num pedido só, 3,3 s do pedido
+  à imagem pronta; 2.888 × 1.084 pontos, 488 KB em JPEG (o quadro inteiro, células de
+  960 × 540). Olhei a imagem: os seis números legíveis, e o relógio que o gravador escreve
+  em cada quadro é o da janela pedida;
+- **cedo demais** (janela que acabou havia 30 s): "ainda não, faltam 150,8 s" — e nenhum
+  pedido saiu.
+
+### O que a medida mostrou, e que ninguém tinha visto: o perfil envelhece
+
+Em 10/10 os blocos deste gravador começavam em **segundo par**; em 11/10, em **segundo
+ímpar** (bloco de 2 s e 15 quadros por segundo nos dois dias). Não conferi o que mudou — o
+computador da loja foi reiniciado em 10/10; do gravador não sei.
+
+O que isso muda: o perfil guardado deixa de valer sem aviso. Com ele velho, o bloco pedido
+cai entre dois blocos de verdade — o gravador responde **sem gravação**, e uma janela de
+vários blocos volta com **um bloco a menos** (é para isso que o pedido termina um segundo
+depois do começo do último bloco: quem lê percebe pela conta dos quadros). **Trecho que já
+assentou e volta assim é sinal de medir o gravador de novo**, antes de concluir que não há
+gravação. Está escrito no módulo e tem teste; quem decide medir de novo é a peça que vai
+chamar a busca (fatia 2.5), que ainda não existe.
+
+### O que foi medido aqui
+
+- **110 testes novos.** A busca, com os dois lotes da rodada 5 (um passo quando o molho foi
+  posto e coberto; dois blocos e a janela da mão quando não foi). A grade, até o algarismo
+  de cada célula. O gravador de mentira entrega **vídeo de verdade**, gravado na hora, como
+  o da loja entrega. A suíte inteira do agente passa.
+- **169 estragos de propósito, 169 pegos por um teste**, na primeira rodada.
+
+### O que não foi medido
+
+- **O juízo dentro do laço.** Com juiz de verdade, cada passo ganha o tempo dele (1,2 s na
+  rodada 5); e o acerto em sequências desta loja continua sem medida.
+- **A busca com a loja aberta**, com gente na frente do alvo e o ao vivo carregado.
+- Outro gravador; o mesmo depois do disco novo; o porquê de o começo dos blocos ter mudado.
+- A grade com o recorte do alvo: os 488 KB são do quadro inteiro.

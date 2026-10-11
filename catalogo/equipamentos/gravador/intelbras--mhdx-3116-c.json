@@ -158,6 +158,20 @@
       "condicao": "a rotina de medida do agente (sondas de 1 s na gravação de 10 min atrás), rodada à mão na loja; três blocos assentados: 1,58 MB em 2,25 s, 90 quadros de 90"
     },
     {
+      "em": "2026-10-11",
+      "onde": "loja de teste",
+      "metrica": "perfil_de_arquivo_medido_pelo_agente",
+      "valor": "bloco de 2 s, desvio 1 (os blocos começam em segundo ÍMPAR), 15 quadros por segundo; 7 pedidos em 21,4 s; relógio 22,6 s adiantado",
+      "condicao": "a mesma rotina de medida, rodada à mão na loja um dia depois da de 10/10, que deu desvio 0 (segundo par). O começo dos blocos NÃO é fixo neste aparelho: o perfil guardado envelhece. O que mudou entre as duas medidas não foi conferido (o computador da loja foi reiniciado em 10/10; o gravador, não se sabe)"
+    },
+    {
+      "em": "2026-10-11",
+      "onde": "loja de teste",
+      "metrica": "busca_pelo_meio_pelo_agente",
+      "valor": "três blocos em 4,5 s (de 1,07 a 1,25 s e uns 513 KB por bloco), todos inteiros; quatro blocos em 6,2 s; a grade de 6 quadros de uma janela de 1,7 s (dois blocos, 1.030 KB) em 3,3 s",
+      "condicao": "o laço da busca do agente (um pedido por vez), em gravação de cinco minutos de idade, com a loja fechada (cena parada) e um juiz de mentira: mede a mecânica, não o juízo. Quatro buscas e uma grade, 21 pedidos de trecho ao todo, nenhuma recusa"
+    },
+    {
       "em": "2026-10-09",
       "onde": "loja de teste",
       "metrica": "bloco_de_2s_por_http",
