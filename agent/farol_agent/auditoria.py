@@ -56,6 +56,7 @@ from farol_agent.contrato import (
     resumo_para_nuvem,
     uso_para_nuvem,
 )
+from farol_agent.fichas import Fichas
 from farol_agent.fila import Fila
 from farol_agent.mapas import Mapas
 from farol_agent.modelos import EventoGatilho, TipoRegra
@@ -168,6 +169,8 @@ def _usa_o_padrao(regra) -> bool:
 # De quanto em quanto tempo o agente tenta de novo baixar a foto padrão que
 # ainda não desceu (rede fora, nuvem reiniciando).
 NOVA_BUSCA_DE_PADROES = timedelta(seconds=60)
+# O mesmo, para a base de fichas que ainda não desceu.
+NOVA_BUSCA_DE_FICHAS = timedelta(seconds=60)
 
 
 def _relogios_do_gravador(ponto: PontoConfig) -> dict[int, tuple[float, float, float, float]]:
@@ -241,6 +244,13 @@ class Auditoria:
             Path(self.fila.caminho).parent / "padroes", baixar=getattr(cliente, "baixar_padrao", None)
         )
         self._proxima_busca_de_padroes: datetime | None = None
+        # A base de fichas da loja (o que ela vende e do que cada produto é
+        # feito), em disco, ao lado da fila. A configuração diz qual base a
+        # loja tem de ter; quem baixa é o cliente da nuvem.
+        self.fichas = Fichas(
+            Path(self.fila.caminho).parent / "fichas.json", baixar=getattr(cliente, "baixar_fichas", None)
+        )
+        self._proxima_busca_de_fichas: datetime | None = None
         # Os mapas dos canais (a câmera inteira, pequena, com os quadros
         # numerados), ao lado da fila. Só existem em loja que pergunta com
         # contexto; quem os desenha é o motor.
@@ -432,6 +442,17 @@ class Auditoria:
         except Exception:  # noqa: BLE001
             _log.exception("erro inesperado ao buscar as fotos padrão; a auditoria segue")
 
+    def _buscar_fichas(self, agora: datetime | None = None, *, ja: bool = False) -> None:
+        """Baixa a base de fichas, se a que a configuração anuncia não está em disco. Rede fora não derruba nada."""
+        agora = agora or datetime.now()
+        if not ja and self._proxima_busca_de_fichas is not None and agora < self._proxima_busca_de_fichas:
+            return
+        self._proxima_busca_de_fichas = agora + NOVA_BUSCA_DE_FICHAS
+        try:
+            self.fichas.baixar_se_falta()
+        except Exception:  # noqa: BLE001
+            _log.exception("erro inesperado ao buscar a base de fichas; a auditoria segue")
+
     def _montar_vigia(self, regras) -> None:
         """O vigia olha o fluxo menor entre uma olhada e outra (ver `vigia.py`).
 
@@ -566,6 +587,13 @@ class Auditoria:
         # guardar uma foto já tem com o que comparar.
         self.padroes.declarar({p.id: p.padroes for p in config.pontos})
         self._buscar_padroes(ja=True)
+
+        # A base de fichas: qual a loja tem de ter, segundo a configuração —
+        # ou nenhuma, e aí a cópia sai do disco. Configuração que não fala
+        # de fichas não mexe em nada.
+        if config.diz_das_fichas:
+            self.fichas.declarar(config.fichas)
+        self._buscar_fichas(ja=True)
 
         # O juiz vem primeiro: é ele que sabe dizer quais regras alguém
         # consegue julgar.
@@ -1023,6 +1051,7 @@ class Auditoria:
         """Uma volta completa: mede a máquina, captura, julga, sobe — e, de hora em hora, limpa o disco."""
         agora = agora or datetime.now()
         self._buscar_padroes(agora)
+        self._buscar_fichas(agora)
         self.medir(agora)
         enfileirados = self.capturar(agora)
         alertas = self.julgar(agora)

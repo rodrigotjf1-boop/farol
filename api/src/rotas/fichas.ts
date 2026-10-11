@@ -13,11 +13,16 @@
 //
 // A loja do vizinho é 404, como em toda rota: o filtro pela conta vai na
 // mesma consulta.
+//
+// O AGENTE da loja também lê daqui (`GET /v1/agentes/fichas`): é por onde a
+// cópia da base chega ao computador da loja. A configuração diz a ele qual
+// base a loja tem (a impressão); quando a cópia dele é outra, ele vem buscar.
 // =====================================================================
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type pg from 'pg';
 
+import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import { lerBase, resumoDoProduto } from '../fichas.js';
 import { LEITURA_MORTA_MIN, lerFichasDaLoja } from '../leitura.js';
 import { ehDiretoria, podeConfigurar } from '../rbac.js';
@@ -185,5 +190,36 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
       produtos: depois?.produtos ?? 0,
       comFicha: depois?.com_ficha ?? 0,
     };
+  });
+
+  // ─────────────────────── o agente baixa a base ───────────────────────
+  // Quem pede é o agente, de dentro para fora, com o token dele — a loja é
+  // a do token, e nenhum parâmetro escolhe outra.
+  //
+  // Vai o documento inteiro, como está guardado, com a impressão DELE: as
+  // duas saem da mesma linha. Se a base mudou depois que a configuração
+  // desceu, o agente recebe a de agora — e a configuração seguinte confirma.
+  //
+  // Sem preço, custo nem cliente: a base nunca os teve.
+  app.get('/v1/agentes/fichas', async (req, resposta) => {
+    let agente;
+    try {
+      agente = await autenticarAgente(pool, req.headers.authorization);
+    } catch (e) {
+      if (e instanceof ErroDeAuth) {
+        return resposta.status(e.status).send({ erro: e.motivo, mensagem: e.message });
+      }
+      throw e;
+    }
+
+    const { rows } = await pool.query<{ impressao: string; conteudo: unknown }>(
+      'select impressao, conteudo from fichas_da_loja where loja_id = $1',
+      [agente.lojaId],
+    );
+    if (rows.length === 0) {
+      // Desconectada (ou o acesso foi tirado) entre a configuração e o pedido.
+      return resposta.status(404).send({ erro: 'sem_fichas', mensagem: 'esta loja não tem base de fichas' });
+    }
+    return resposta.header('cache-control', 'no-store').send({ impressao: rows[0]!.impressao, base: rows[0]!.conteudo });
   });
 }
