@@ -5,10 +5,91 @@
 /* o atributo `hidden` tem de valer mesmo em quem define `display` (o painel dos controles do protótipo).
    A página publicada já traz esta regra; o arquivo aberto com dois cliques, não. */
 [hidden] { display: none !important; }
-/* a entrada de "Conexões": no trilho (largo) e no topo (estreito, onde o rodapé do trilho some) */
+/* a entrada de "Conexões": no rodapé do trilho (largo); no celular, dentro do "Mais" */
 .trilho a.ir.conta { font-size: 14px; }
 .so-estreito { display: none; }
 .so-largo { display: inline-flex; }
+/* o que só existe na barra do celular (o "Mais") e o que só existe na coluna (o que foi para dentro dele) */
+.trilho .so-barra { display: none; }
+.trilho button.ir { appearance: none; font: inherit; font-weight: 500; cursor: pointer; background: none; border: 1px solid transparent; border-radius: 8px; color: var(--suave); align-items: center; gap: 10px; padding: 9px 10px; }
+.trilho button.ir:hover { color: var(--tinta); background: var(--painel); }
+.trilho button.ir[aria-current="page"], .trilho button.ir[aria-expanded="true"] { color: var(--tinta); background: var(--painel); border-color: var(--fio); }
+.trilho button.ir[aria-current="page"] .ic { color: var(--facho-texto); }
+.trilho .ir > span { min-width: 0; overflow-wrap: normal; }
+
+/* o "Mais": a folha que sobe de baixo, acima da barra */
+.mais-folha { position: fixed; z-index: 21; left: 0; right: 0; bottom: 0; display: grid; gap: 4px; padding: 14px 12px calc(env(safe-area-inset-bottom, 0px) + 14px); border-top: 1px solid var(--fio-2); border-radius: 14px 14px 0 0; background: var(--painel); animation: subir 0.16s ease-out; }
+@keyframes subir { from { transform: translateY(16px); opacity: 0; } }
+.mais-folha h2 { font-size: 13px; font-weight: 600; color: var(--suave); padding: 0 8px 6px; }
+.mais-folha a, .mais-folha button.item { appearance: none; display: grid; grid-template-columns: 22px minmax(0, 1fr) 16px; align-items: center; gap: 12px; width: 100%; padding: 13px 10px; border: 0; border-radius: 8px; background: none; color: var(--tinta); font: inherit; font-weight: 500; text-align: left; text-decoration: none; cursor: pointer; }
+.mais-folha a:hover, .mais-folha a:focus-visible { background: var(--painel-2); }
+.mais-folha a[aria-current="page"] { background: var(--painel-2); }
+.mais-folha a[aria-current="page"] .ic:first-child { color: var(--facho-texto); }
+.mais-folha a small { display: block; font-weight: 400; font-size: 12.5px; color: var(--suave); }
+.mais-folha a > .ic:last-child { color: var(--fraco); }
+.mais-folha .fechar { justify-self: stretch; margin-top: 6px; }
+
+/* os três jeitos de a loja ter fichas */
+.vias { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.via { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 8px; padding: 18px 16px 16px; border: 1px solid var(--fio); border-radius: var(--raio); background: var(--painel); min-width: 0; }
+.via > .ic { color: var(--facho-texto); }
+.via h3 { font-size: 16px; font-weight: 600; }
+.via p { font-size: 14px; color: var(--suave); }
+.via .para { font: 500 12px/1.5 var(--f-dado); color: var(--fraco); text-transform: uppercase; letter-spacing: 0.04em; }
+.via .btn { justify-self: start; margin-top: 6px; }
+.via .nota { margin-top: 6px; }
+.abre-vias { display: grid; gap: 6px; }
+.abre-vias h2 { font-size: 18px; font-weight: 600; }
+.abre-vias p { color: var(--suave); max-width: 64ch; }
+
+/* a importação por planilha: os passos e o modelo de colunas */
+.passos { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 10px; counter-reset: p; }
+.passos li { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--fraco); counter-increment: p; }
+.passos li::before { content: counter(p); display: grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; border: 1px solid var(--fio-2); font: 500 12px/1 var(--f-dado); }
+.passos li[aria-current="step"] { color: var(--tinta); font-weight: 600; }
+.passos li[aria-current="step"]::before { border-color: var(--facho); color: var(--facho-texto); background: var(--facho-fundo); }
+.passos li.feito::before { content: '✓'; color: var(--ok); border-color: var(--ok); }
+.colunas { display: grid; border: 1px solid var(--fio); border-radius: 8px; overflow: hidden; }
+.colunas .cab-col, .colunas .col { display: grid; grid-template-columns: minmax(0, 1.1fr) 92px minmax(0, 0.9fr) minmax(0, 2fr); gap: 6px 12px; padding: 9px 12px; align-items: baseline; }
+.colunas .cab-col { font: 500 12px/1.4 var(--f-dado); color: var(--suave); background: var(--painel-2); text-transform: uppercase; letter-spacing: 0.04em; }
+.colunas .col { border-top: 1px solid var(--fio); font-size: 14px; }
+.colunas .col b { font-weight: 600; }
+.colunas .col .ex { font: 500 13px/1.5 var(--f-dado); color: var(--dado); overflow-wrap: anywhere; }
+.colunas .col .oq { color: var(--suave); font-size: 13.5px; }
+.colunas .rot { display: none; }
+.abas-do-modelo { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.abas-do-modelo li { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--fio); border-radius: 8px; font-size: 14px; }
+.abas-do-modelo li small { color: var(--suave); font-size: 13px; }
+.abas-do-modelo .mono { font-size: 12.5px; color: var(--dado); overflow-wrap: anywhere; }
+.soltar { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 10px; padding: 28px 16px; border: 1px dashed var(--fio-2); border-radius: var(--raio); text-align: center; }
+.soltar > .ic { color: var(--fraco); }
+.soltar p { color: var(--suave); font-size: 14px; max-width: 44ch; }
+/* o campo de arquivo do navegador tem largura própria: aqui ele ocupa a peça, e não a empurra */
+.soltar input[type="file"] { width: 100%; max-width: 340px; min-width: 0; font: inherit; color: var(--suave); }
+.so-proto { display: grid; gap: 8px; padding: 10px 12px; border: 1px dashed var(--facho); border-radius: 8px; }
+.so-proto > span { font: 500 12px/1.5 var(--f-dado); color: var(--facho-texto); text-transform: uppercase; letter-spacing: 0.04em; }
+.contas { display: flex; flex-wrap: wrap; gap: 8px; }
+.problemas { list-style: none; margin: 0; padding: 0; display: grid; border: 1px solid var(--fio); border-radius: 8px; overflow: hidden; }
+.problemas li { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 4px 12px; padding: 10px 12px; border-top: 1px solid var(--fio); font-size: 14px; }
+.problemas li:first-child { border-top: 0; }
+.problemas .onde { font: 500 12.5px/1.6 var(--f-dado); color: var(--fora); }
+.problemas small { display: block; color: var(--suave); font-size: 13px; }
+
+/* o acesso de outro sistema */
+.acesso { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.3fr) auto; align-items: center; gap: 10px 16px; padding: 14px 16px; border-top: 1px solid var(--fio); }
+.acesso:first-child { border-top: 0; }
+.acesso .de { display: grid; gap: 2px; min-width: 0; }
+.acesso .de b { font-weight: 600; overflow-wrap: anywhere; }
+.acesso .de small { color: var(--suave); font-size: 12.5px; }
+.acesso .estado { display: grid; justify-items: start; gap: 4px; min-width: 0; }
+.acesso .acoes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.codigo { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--fio-2); border-radius: 8px; background: var(--bg-2); }
+.codigo code { font: 500 14px/1.5 var(--f-dado); overflow-wrap: anywhere; user-select: all; }
+.entregar { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: e; }
+.entregar li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; font-size: 14px; counter-increment: e; }
+.entregar li::before { content: counter(e); display: grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; border: 1px solid var(--fio-2); font: 500 12px/1 var(--f-dado); color: var(--suave); }
+.entregar .mono { color: var(--dado); overflow-wrap: anywhere; }
+.erro-do-campo { color: var(--fora); font-size: 13px; }
 
 /* a lista de produtos: linha em grade no largo, cartão empilhado no estreito — sem tabela, sem rolar para o lado */
 .barra { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
@@ -86,8 +167,21 @@
   .duas { grid-template-columns: minmax(0, 1fr); }
   .conexao { grid-template-columns: minmax(0, 1fr); }
   .conexao .acoes { justify-content: flex-start; }
+  .acesso { grid-template-columns: minmax(0, 1fr); }
+  .acesso .acoes { justify-content: flex-start; }
+  .vias { grid-template-columns: minmax(0, 1fr); }
+  /* a barra de baixo: cinco telas e o "Mais"; o que não cabe mora dentro dele */
+  .trilho a.ir.so-coluna { display: none; }
+  .trilho button.ir.so-barra { display: flex; }
+  .trilho a.ir, .trilho button.ir { flex-direction: column; gap: 3px; padding: 6px 2px; font-size: 11px; flex: 1 1 0; min-width: 0; text-align: center; }
+  .trilho .ir > span { max-width: 100%; white-space: nowrap; }
 }
 @media (max-width: 720px) {
+  /* o modelo de colunas vira uma ficha por coluna: nada rola para o lado */
+  .colunas .cab-col { display: none; }
+  .colunas .col { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .colunas .rot { display: inline; font: 500 11.5px/1.5 var(--f-dado); color: var(--fraco); text-transform: uppercase; letter-spacing: 0.04em; margin-right: 6px; }
+  .problemas li { grid-template-columns: minmax(0, 1fr); }
   .lista-cab { display: none; }
   .linha { grid-template-columns: minmax(0, 1fr) 22px; align-items: start; }
   .linha .nome { grid-column: 1; }
