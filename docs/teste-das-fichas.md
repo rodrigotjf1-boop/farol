@@ -559,6 +559,35 @@ medido); o disco é o de hoje (218,8 GB, cheio, sobrescrevendo) e vai ser trocad
 de 12/10 — **depois da troca é para medir de novo**; não foi medido se "tocar a gravação"
 (RTSP) entrega os segundos recentes.
 
+### O laço da busca, no gravador de verdade (11/10)
+
+Em 10/10 os passos da busca foram refeitos à mão, em cima de blocos já baixados. Em 11/10 o
+**laço** rodou sozinho no gravador da loja — as rotinas da fatia 2.2b, levadas para a pasta
+de medição, com a loja fechada (cena parada) e um juiz de mentira ("sempre antes", "sempre
+depois"): o que se mede é a mecânica, não o juízo.
+
+| passo | resultado |
+|---|---|
+| medir o gravador | 7 pedidos, 21,4 s: blocos de 2 s **a partir de segundo ímpar**, 15 quadros por segundo, relógio 22,6 s adiantado |
+| a busca, andando para a frente (janela de 16 s, 5 min de idade) | 3 blocos em 4,5 s — 1,25, 1,07 e 1,13 s, uns 513 KB cada; todos inteiros, todos com quadro parado |
+| a busca, andando para trás | 4 blocos em 6,2 s |
+| a busca com o alvo no centro, e num canto | 3 blocos em 4,2 s, e em 3,9 s |
+| a grade de 6 quadros da janela que sobrou (1,7 s) | dois blocos num pedido (1.030 KB em 2,4 s); 3,3 s do pedido à imagem; 2.888 × 1.084 pontos, 488 KB em JPEG |
+| uma busca cedo demais (a janela acabou havia 30 s) | "ainda não: faltam 150,8 s" — nenhum pedido saiu |
+
+Vinte e um pedidos de trecho ao todo, um de cada vez, nenhuma recusa; a pasta de medição
+ficou vazia e o agente da loja seguiu de pé.
+
+**O começo dos blocos mudou.** Em 10/10 a mesma rotina mediu blocos a partir de segundo
+**par**; em 11/10, de segundo **ímpar**. O tamanho do bloco e a taxa são os mesmos. Não sei
+o que mudou entre as duas medidas (o computador da loja foi reiniciado em 10/10; do
+gravador não sei). O perfil guardado, portanto, envelhece: o que isso pede do agente está em
+[decisoes.md](decisoes.md) (11/10).
+
+Limites: uma medida de cada, um canal, loja fechada. O bloco chegou mais depressa do que na
+rodada 5 (mediana de 1,9 s lá); não sei por quê — a rede da loja mudou de caminho em 10/10
+(o Wi-Fi 2 caiu) e não foi medida.
+
 ## E sem nuvem? A prova do leitor local
 
 O dono, ao ler o resultado: "ainda não é possível a análise de comparação na loja, sem

@@ -3804,7 +3804,7 @@ ele corrigir alguma dessas leituras, vale a correção.
 |---|---|---|---|
 | 0 ✅ | Confiança em %; cliente do gravador | P | — |
 | 1 ✅ | **Quadros, estudo condicional e contexto:** imagem completa × quadros com papel; a ficha de cada critério (contexto, gatilho, janela, ação, desfecho) e o funil em números; **a anatomia do pedido à nuvem** (a cena, o mapa do canal, o recorte na resolução da câmera, a resposta na forma da família — o recorte nunca sobe sozinho); Haiku 5.5 (medido); no quadro de bancada, o quadro de "as mãos saíram" no lugar do borrão de rosto; os quatro estados do critério | G | protótipo aprovado |
-| 2 | **Sequência e banco de provas:** olhar para trás (na dúvida, **a busca pelo meio** no gravador, por blocos — de 2 s no gravador do piloto, e uns 3 minutos depois do fato, quando a gravação assentou), grade de 6 quadros, a família Acontecimento; "acertou / errou"; o acerto medido de cada critério. **Em andamento:** as fatias 2.1 e 2.2a (o agente pedir ao gravador o que já foi gravado, medir o que ele entrega e conferir o que voltou) feitas em 10/10 | G | o dono marcar os exemplos |
+| 2 | **Sequência e banco de provas:** olhar para trás (na dúvida, **a busca pelo meio** no gravador, por blocos — de 2 s no gravador do piloto, e uns 3 minutos depois do fato, quando a gravação assentou), grade de 6 quadros, a família Acontecimento; "acertou / errou"; o acerto medido de cada critério. **Em andamento:** as fatias 2.1 e 2.2a (o agente pedir ao gravador o que já foi gravado, medir o que ele entrega e conferir o que voltou) feitas em 10/10, e a 2.2b (a busca pelo meio e a grade, no agente) em 11/10 | G | o dono marcar os exemplos |
 | 3 | **Processo e Medida:** etapas por quadro, cronômetros e contadores, episódios, modelos prontos | G | onda 2 medida |
 | 4 | **Leitura da bancada, E0 → E1:** câmera regulada, números da semana, as fases do lote, contar montagens pelo fechamento, a comanda | G | a câmera do canal 4 foi regulada em 09/10 e o dono redesenhou o quadro da bancada na mesma noite (conferido contra a gravação); falta ele escrever a cena do canal |
 | 5 | **Leitura da bancada, E2 → E3:** **o leitor local de ingredientes** (ensinado pela nuvem; só o "não sei" sobe, uma posição por chamada), o dicionário de ingredientes (com as regras e a rotina da casa), a ficha comparada em código, o produto, **a conta do lote contra o KDS**, aviso na estação; o modo do KDS "por produto, com baixa automática" (opção da loja, desligada de fábrica — 10/10) | G+ | as fichas e os produtos puxados do Regem para a base do Farol (decisão de 10/10); os pedidos do KDS lidos na loja; alarme falso medido |
@@ -3838,7 +3838,7 @@ loja; o que o gravador entrega é medido na instalação.
 | 2 | Três acertos pequenos de tela: "área" → "quadro" em Análises e no Painel; a tabela do Painel, que rola de lado entre 820 e 1.280 px; o cartão "Critérios ligados" dizer quantos só observam | onda 1 | — |
 | 3 | **A base de fichas e produtos do Farol** (decisão de 10/10): puxar do Regem as fichas, os produtos e os adicionais de cada loja e guardar base própria; aceitar também planilha, para a loja sem Regem; por cima dela, o dicionário de ingredientes e as regras da casa. **O plano e o protótipo das duas telas foram aprovados pelo dono em 11/10** ("O lado do Farol que usa o Regem — o plano, aprovado"); a fatia 1 (conectar e ligar as lojas) foi entregue em 11/10 (PR #101); a fatia 2 (ler e guardar as fichas; a tela Fichas) também, no mesmo dia (PR #102); a fatia 3 (a cópia chega ao computador da loja) também (PR #103); falta trocar o pacote do agente na loja, com o "pode" do dono; as fatias 4 e 5 ficam para depois | nova; antes da onda 5 | o Regem com as fichas da loja |
 | 4 | **O plano no projeto Regem — aprovado pelo dono em 10/10** (a página "Porta do Farol no Regem"; o resumo e as respostas dele estão em "O lado do Regem — o plano, aprovado"): três fases — o catálogo e as fichas, a fila de produção só para leitura, e o modo do KDS "por produto, com baixa automática". **As fases 1 e 2 estão no ar desde 11/10** ("A fase 1, entregue" e "A fase 2, entregue"); **a 3 fica para a onda 5, com o aviso pela rede da loja** | projeto Regem — plano antes do código | o lado do Farol que consome (item 3); o segredo do aplicativo, que é do dono, só quando esse lado existir |
-| 5 | **Onda 2 — sequência e banco de provas:** o agente buscar no gravador (cliente de arquivo, medindo o que cada gravador entrega), a busca pelo meio, a grade de 6 quadros, a família Acontecimento passando a julgar, "acertou / errou", o acerto medido de cada critério. **O plano está em "Onda 2 — como ela entra"** (10/10): oito fatias; **a 2.1 (o cliente de arquivo do gravador) e a 2.2a (medir o gravador e ler o trecho) estão feitas, em 10/10**; a 2.2b (a busca pelo meio e a grade), também só do agente e dormindo, é a próxima | onda 2 | o protótipo das telas aprovado; as três decisões do plano; o dono marcar os exemplos |
+| 5 | **Onda 2 — sequência e banco de provas:** o agente buscar no gravador (cliente de arquivo, medindo o que cada gravador entrega), a busca pelo meio, a grade de 6 quadros, a família Acontecimento passando a julgar, "acertou / errou", o acerto medido de cada critério. **O plano está em "Onda 2 — como ela entra"** (10/10): oito fatias; **a 2.1 (o cliente de arquivo do gravador) e a 2.2a (medir o gravador e ler o trecho) estão feitas, em 10/10**; a 2.2b (a busca pelo meio e a grade) também, em 11/10 (PR #104) — as três só do agente e dormindo; a 2.3 espera a decisão 1 do dono | onda 2 | o protótipo das telas aprovado; as três decisões do plano; o dono marcar os exemplos |
 | 6 | **Onda 3 — processo e medida:** etapas por quadro, cronômetros, contadores, episódios | onda 3 | a onda 2 medida |
 | 7 | **Onda 4 — a bancada, primeira parte:** achar sozinho as posições e o tipo de base; contar o que fecha, por tipo de base; as fases do lote; os números da semana | onda 4 | a cena do canal |
 | 8 | **Onda 5 — a bancada, segunda parte:** o leitor de ingredientes; o roteiro esperado (ficha + rotina); o produto; **o saldo de produção, com os dois números**; os especiais, um a um; o aviso na estação | onda 5 | os itens 3 e 4; o Regem na loja; a outra frente da ilha com câmera, para a conta fechar |
@@ -4179,14 +4179,14 @@ de provas — e de reconferir os fatos em que ele se apoia.
 | **2.0 · protótipo** | as telas da onda: os exemplos de um critério, com "acertou / errou" e "o que era"; o acerto medido à vista no critério, com a meta; a sequência (a grade de 6 quadros, com o instante marcado) | é o protótipo | espera a aprovação do dono |
 | **2.1 · o cliente de arquivo do gravador** ✅ (10/10) | pedir ao gravador um trecho já gravado; um pedido por vez por gravador; pedido recusado não se repete; a diferença de relógio medida a cada busca. O que **cada gravador** entrega — o tamanho do bloco, o atraso até a gravação estar disponível — fica no perfil dele e é medido na instalação: nada disso é regra do motor | não | dormindo: nada o chama |
 | **2.2a · o agente mede o gravador e lê o trecho** ✅ (10/10) | o agente mede sozinho o que o gravador entrega (o tamanho do bloco, onde ele começa e quantos quadros por segundo) e guarda esse perfil na máquina; pede o trecho em cima dos blocos; lê o trecho, **confere pelos quadros se ele veio inteiro** e escolhe o quadro parado | não | dormindo: nada o chama |
-| **2.2b · a busca pelo meio e a grade, na loja** | a busca pelo meio entre dois instantes; montar a grade de 6 quadros numerados; guardar a sequência ao lado da análise (≈ 0,3 MB cada, com teto e rodízio). **Muda pelo que a 2.2a mediu:** a busca só começa quando a gravação assentou no gravador (uns 3 minutos), e trecho que não veio inteiro é pedido de novo mais tarde | não | dormindo |
+| **2.2b · a busca pelo meio e a grade, na loja** ✅ (11/10) | a busca pelo meio entre dois instantes; montar a grade de 6 quadros numerados; guardar a sequência ao lado da análise (≈ 0,3 MB cada, com teto e rodízio). **Muda pelo que a 2.2a mediu:** a busca só começa quando a gravação assentou no gravador (uns 3 minutos), e trecho que não veio inteiro é pedido de novo mais tarde | não | dormindo |
 | **2.3 · o exemplo chega à nuvem** | cada julgamento de critério em ensaio (e valendo) deixa na nuvem um **exemplo**: o veredito, o motivo, a versão do critério e a imagem que o juiz viu — com teto por critério por dia e prazo de guarda (decisão 1, abaixo) | não | desligado por loja; pede migration |
 | **2.4 · "acertou / errou" e o acerto medido** | a tela dos exemplos; a conta por critério e por versão — acerto, alarme falso, "não deu para ver"; o estado **medido** quando há exemplos marcados o bastante; **valendo** só com a meta batida; e a volta a "em ensaio" quando o texto, o quadro ou o modelo muda (ficou para esta onda) | sim | com o protótipo aprovado |
 | **2.5 · Acontecimento passa a julgar** | a pergunta em sequência ("aconteceu isto nesta sequência?"), com a grade de 6, num pedido à parte; a resposta traz o **instante**; a família passa a descer para o agente que sabe. Critério novo continua nascendo observando | sim (a troca de estado destrava) | só no agente que declara saber |
 | **2.6 · a primeira rodada de medida** | o dono marca os exemplos; medem-se os critérios que a loja tem e o primeiro acontecimento — "o molho vai na tampa antes da alface", que é regra da casa e já foi lido à mão na rodada 5 | — | depende dele e do crédito da nuvem |
 
-**A ordem.** A 2.1 e a 2.2 são só do agente, não ligam nada e não têm tela: a **2.1 e a
-2.2a estão feitas** (10/10, registros abaixo) e a 2.2b é a próxima.
+**A ordem.** A 2.1 e a 2.2 são só do agente, não ligam nada e não têm tela: a **2.1, a
+2.2a e a 2.2b estão feitas** (10 e 11/10, registros abaixo).
 A 2.0 foi apresentada ao dono em 10/10 e espera a aprovação dele. A 2.3 espera a decisão 1;
 a 2.4 e a 2.5 esperam o protótipo aprovado. Trocar o pacote do agente na loja continua
 pedindo o "pode" dele.
@@ -4217,7 +4217,9 @@ pedindo o "pode" dele.
 | um bloco recém-gravado passar a vir inteiro | de 1 min e 20 s a 2 min e 15 s | medido na loja em 10/10, três blocos; o pior caso não foi medido |
 | um quadro na nuvem | 0,10 centavo, em 1,2 s | medido, rodada 5 (Haiku 5.5) |
 | uma grade de 6 quadros na nuvem | 0,17 centavo, em 1,6 s | medido, rodada 5, com a grade daquele teste; com 6 recortes de 960 × 540 a conta do plano dá ≈ 0,3 centavo |
-| a sequência guardada na loja | ≈ 0,3 MB | conta |
+| o laço da busca pelo meio, pelo agente | três blocos em 4,5 s; quatro em 6,2 s | medido na loja em 11/10, uma medida de cada, loja fechada, juiz de mentira |
+| a grade de 6 quadros, do pedido à imagem | 3,3 s para uma janela de 1,7 s (dois blocos) | medido na loja em 11/10, uma medida |
+| a sequência guardada na loja | ≈ 0,3 MB pela conta; 0,49 MB medido com o quadro inteiro (células de 960 × 540) | conta; e uma medida na loja em 11/10 |
 | os exemplos na nuvem, por loja | ≈ 90 MB, em regime | conta: 10 critérios × 20 por dia × 15 dias × 30 KB |
 
 **O que a onda 2 não faz:** ler a bancada (ondas 4 e 5), mostrar o momento em vídeo (onda
@@ -4294,6 +4296,29 @@ voltou"; só o agente — sem migration e sem tela):
   de um quadro, guardado em microssegundos, voltava no quadro vizinho — corrigido, com teste;
 - **o que não foi medido:** outro gravador; o pior caso do atraso (foram três blocos); o
   mesmo gravador com o disco novo; a medida rodando sozinha no agente (foi chamada à mão).
+
+**A fatia 2.2b, a busca pelo meio e a grade, entregue em 11/10** ([decisoes.md](decisoes.md),
+"A busca pelo meio e a grade de seis quadros entram no agente"; só o agente — sem migration e
+sem tela; PR #104):
+
+- **o que entrou:** quatro peças no agente, todas dormindo. **A busca pelo meio** (um bloco
+  por passo; para ao achar, na janela da mão, quando não há quadro novo, quando o juiz não
+  sabe e no teto de seis passos); **a grade** de seis quadros numerados, em que o número
+  devolve o instante; **as duas com o gravador** (a hora dele por dentro, o relógio do
+  computador por fora; só pede o que já assentou; confere pelos quadros o que voltou e, se
+  veio cortado, volta em um minuto); e **a guarda** das sequências, com teto e rodízio;
+- **provado no gravador da loja** (só leitura, loja fechada, juiz de mentira): o laço em
+  4,5 s para três blocos e 6,2 s para quatro, todos inteiros; a grade de uma janela de
+  1,7 s em 3,3 s (488 KB com o quadro inteiro); "cedo demais" respondido sem pedido nenhum;
+  21 pedidos de trecho, um de cada vez, nenhuma recusa;
+- **o que a medida mostrou — o perfil do gravador envelhece:** em 10/10 os blocos começavam
+  em segundo par; em 11/10, em ímpar. Com o perfil velho o bloco volta sem gravação, e a
+  janela, com um bloco a menos. Trecho assentado que volta assim é sinal de medir de novo
+  — decisão de quem vai chamar a busca (fatia 2.5);
+- **como foi testado:** 110 testes novos (o gravador de mentira entrega vídeo de verdade);
+  169 mutações das quatro peças, as 169 pegas;
+- **o que não foi medido:** o juízo dentro do laço; a busca com a loja aberta; outro
+  gravador; por que o começo dos blocos mudou.
 
 **Os segundos que acabaram de passar — o que a medida muda na onda 2.** O plano contava
 olhar para trás "na hora": tampa nua agora, coberta 10 s depois, e o agente busca no
