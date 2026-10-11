@@ -3836,7 +3836,7 @@ loja; o que o gravador entrega é medido na instalação.
 | 1 ✅ | **Fechar a onda 1:** o sistema propor o estudo do critério — **feito em 10/10**, por regras, no servidor, que era o caminho recomendado (se o dono preferir outro, o botão é o mesmo: troca-se quem responde) | onda 1, fatia 1.3 | — |
 | 2 | Três acertos pequenos de tela: "área" → "quadro" em Análises e no Painel; a tabela do Painel, que rola de lado entre 820 e 1.280 px; o cartão "Critérios ligados" dizer quantos só observam | onda 1 | — |
 | 3 | **A base de fichas e produtos do Farol** (decisão de 10/10): puxar do Regem as fichas, os produtos e os adicionais de cada loja e guardar base própria; aceitar também planilha, para a loja sem Regem; por cima dela, o dicionário de ingredientes e as regras da casa | nova; antes da onda 5 | o plano do lado do Regem aprovado; o Regem com as fichas da loja |
-| 4 | **O plano no projeto Regem — aprovado pelo dono em 10/10** (a página "Porta do Farol no Regem"; o resumo e as respostas dele estão em "O lado do Regem — o plano, aprovado"): três fases — o catálogo e as fichas, a fila de produção só para leitura, e o modo do KDS "por produto, com baixa automática". **A fase 1 está no ar desde 11/10** ("A fase 1, entregue"); **a 2 é a próxima; a 3 fica para a onda 5, com o aviso pela rede da loja** | projeto Regem — plano antes do código | o lado do Farol que consome (item 3); o segredo do aplicativo, que é do dono, só quando esse lado existir |
+| 4 | **O plano no projeto Regem — aprovado pelo dono em 10/10** (a página "Porta do Farol no Regem"; o resumo e as respostas dele estão em "O lado do Regem — o plano, aprovado"): três fases — o catálogo e as fichas, a fila de produção só para leitura, e o modo do KDS "por produto, com baixa automática". **As fases 1 e 2 estão no ar desde 11/10** ("A fase 1, entregue" e "A fase 2, entregue"); **a 3 fica para a onda 5, com o aviso pela rede da loja** | projeto Regem — plano antes do código | o lado do Farol que consome (item 3); o segredo do aplicativo, que é do dono, só quando esse lado existir |
 | 5 | **Onda 2 — sequência e banco de provas:** o agente buscar no gravador (cliente de arquivo, medindo o que cada gravador entrega), a busca pelo meio, a grade de 6 quadros, a família Acontecimento passando a julgar, "acertou / errou", o acerto medido de cada critério. **O plano está em "Onda 2 — como ela entra"** (10/10): oito fatias; **a 2.1 (o cliente de arquivo do gravador) e a 2.2a (medir o gravador e ler o trecho) estão feitas, em 10/10**; a 2.2b (a busca pelo meio e a grade), também só do agente e dormindo, é a próxima | onda 2 | o protótipo das telas aprovado; as três decisões do plano; o dono marcar os exemplos |
 | 6 | **Onda 3 — processo e medida:** etapas por quadro, cronômetros, contadores, episódios | onda 3 | a onda 2 medida |
 | 7 | **Onda 4 — a bancada, primeira parte:** achar sozinho as posições e o tipo de base; contar o que fecha, por tipo de base; as fases do lote; os números da semana | onda 4 | a cena do canal |
@@ -4313,8 +4313,9 @@ produção. Se o dono quiser a memória curta antes, é só dizer.
 ### O lado do Regem — o plano, aprovado (10/10/2026)
 
 **Aprovado pelo dono em 10/10, à noite** — as respostas marcadas na página "Porta do Farol
-no Regem" e duas mensagens em seguida (abaixo, em "O que o dono respondeu"). **A fase 1
-está no ar desde 11/10/2026** (abaixo, em "A fase 1, entregue"); a fase 2 é a próxima. O
+no Regem" e duas mensagens em seguida (abaixo, em "O que o dono respondeu"). **As fases 1 e
+2 estão no ar desde 11/10/2026** (abaixo, em "A fase 1, entregue" e "A fase 2, entregue");
+a fase 3 fica para a onda 5. O
 plano foi escrito em cima do código do Regem que estava no ar em 10/10 (`origin/main`
 `bb7beca6`), com os fatos reconferidos um a um.
 
@@ -4338,7 +4339,7 @@ plano foi escrito em cima do código do Regem que estava no ar em 10/10 (`origin
 | fase | o que entra | onde roda | pede da loja | quando |
 |---|---|---|---|---|
 | **1 · catálogo** | o Farol como aplicativo conectado do Regem, autorizado pelo presidente numa página (como o Liame); leitura de produtos, variações, adicionais e fichas, **sem preço e sem custo**; retrato inteiro com número de versão | só nuvem; uma migration só-nuvem no Regem | nada | ✅ **no ar em 11/10/2026** (PR 648 do Regem, migration 315) |
-| **2 · fila de produção, só leitura** | os pedidos em produção e os concluídos das últimas 2 horas, com o produto de cada item, os adicionais, **a observação do item** e os horários; sem o cliente e sem valores | só nuvem; sem migration | nada | **é a próxima coisa a fazer no Regem** ("logo depois da fase 1", decidido em 10/10) |
+| **2 · fila de produção, só leitura** | os pedidos em produção e os concluídos das últimas 2 horas, com o produto de cada item, os adicionais, **a observação do item** e os horários; sem o cliente e sem valores | só nuvem; sem migration | nada | ✅ **no ar em 11/10/2026** (PR 649 do Regem) |
 | **3 · KDS por produto, com baixa automática, e os avisos** | somar pelo produto; o item poder ser dado como feito; a porta por onde o Farol avisa "fechou um X" e entrega os avisos da cozinha — quem decide a baixa é o Regem; desfazer com um toque; o registro de cada baixa | **a rede da loja** (decidido em 10/10): o agente do Farol fala com o servidor local do Regem | atualização do servidor da loja | onda 5, com o acerto medido; o plano dela é apresentado antes do código |
 
 #### A fase 1, entregue (11/10/2026)
@@ -4371,6 +4372,37 @@ volta padrão já registrado lá é `https://api.monitorfarol.com.br/v1/regem/re
 página do Regem diz que o acesso pode ser revogado "no Farol" — o console do Farol **tem
 de ter o "desconectar"**, que chama a rota de revogar de lá; e o acesso de cada loja é um
 segredo — fica cifrado no servidor do Farol, nunca na tela, nunca na loja.
+
+#### A fase 2, entregue (11/10/2026)
+
+No ar no Regem desde 11/10/2026, de manhã cedo (PR 649 de lá; sem migration — o acesso do
+Farol já levava esta leitura desde a fase 1).
+
+| o que entrou | como ficou |
+|---|---|
+| a leitura da fila da cozinha | os pedidos **em produção** (recebido ou em preparo) das últimas 24 horas e os **concluídos ou cancelados** das últimas 2 horas, na ordem em que entraram |
+| o pedido | o número na fila, de onde veio (balcão, mesa, comanda, delivery, totem), o canal (iFood, cardápio…), **comer na loja ou viagem**, a etapa e os horários de cada etapa, e se foi alterado depois de entrar |
+| o item | o produto, a ficha e a variação como ficaram na venda; as escolhas — com o mesmo número fixo da opção que vem no catálogo, quantas vezes foi escolhida, o que acrescenta e o que retira —; **a observação**, como foi escrita; e se o item foi retirado do pedido |
+| a versão | o mesmo esquema do catálogo: o Farol manda a que tem e recebe só "nada mudou" |
+| o que não sai | quem é o cliente, a mesa, a senha de retirada, o motivo do cancelamento e qualquer valor — a leitura nem toca a tabela onde isso fica, e o teste varre a resposta atrás de cada um |
+
+**Como foi conferido:** 9 testes novos contra banco de verdade (a janela, com os casos de
+borda; o pedido e o item campo a campo; a loja A não lê a B; a versão; três consultas com 5
+pedidos ou com 300); a suíte inteira do Regem (2.284 testes) e o CI verdes; e o deploy pela
+rota nova respondendo.
+
+**Três coisas que o Farol precisa saber ao consumir:**
+
+- **O atraso.** Na loja com servidor próprio (o caso do piloto), a fila chega à nuvem pelo
+  sincronismo do Regem: até 1 minuto depois. Somado aos 2 a 3 minutos que o gravador leva
+  para entregar a gravação inteira, a conferência por sequência continua sendo "depois do
+  fato" — a leitura pela nuvem não é o gargalo. O aviso na hora é assunto da fase 3, pela
+  rede da loja.
+- **"Viagem ou comer na loja" vem do pedido.** O campo sai na leitura, e casa com a pista
+  que o dono deu em 10/10 (caixa = viagem; papel kraft = consumo na loja): a embalagem vista
+  pela câmera pode ser conferida contra o que o pedido dizia.
+- **Quem avança é o pedido inteiro, e nem toda loja usa todas as etapas.** Há loja que vai
+  de "recebido" direto a "pronto". O item não tem etapa própria — é o que a fase 3 muda.
 
 **O que o Farol faz com isso, do lado dele:** a base própria de fichas e produtos (item 3 da
 lista abaixo), alimentada pela fase 1; e, com a fase 2, a demanda por ingrediente crítico e
