@@ -222,7 +222,9 @@ export async function lerFichasDaLoja(
          values ($1, $2, 'regem', $3::jsonb, $4, $5, $6, now())
          on conflict (loja_id) do update
             set tenant_id = excluded.tenant_id, fonte = excluded.fonte, conteudo = excluded.conteudo, impressao = excluded.impressao,
-                produtos = excluded.produtos, com_ficha = excluded.com_ficha, atualizada_em = now()
+                produtos = excluded.produtos, com_ficha = excluded.com_ficha, atualizada_em = now(),
+                -- a base passa a ser a do Regem: o registro de uma planilha importada antes não vale mais
+                importacao = null
           where fichas_da_loja.impressao is distinct from excluded.impressao`,
         [linha.loja_id, linha.tenant_id, JSON.stringify(base), impressaoDaBase(base), total.produtos, total.comFicha],
       );

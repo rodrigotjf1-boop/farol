@@ -3932,3 +3932,115 @@ enquanto o Regem responde "ainda não aceito", o Farol segue só com a leitura d
   não a página de bloqueio da borda).
 - O atraso entre a mudança no Regem e a leitura no Farol: depende do lado de lá (o aviso sai,
   no máximo, um por minuto por loja).
+
+**Conferido depois do deploy (11/10, 20h04):** a migration 039 aplicada; um pedido de fora,
+com a identificação do Regem e sem assinatura, a um id sorteado, respondeu 404 em JSON
+("não existe esse aviso") — a rota está no ar e a borda deixa a identificação passar.
+
+---
+
+## 11/10/2026 (noite) · A primeira conexão de verdade, as respostas do dono e as fichas por planilha — o servidor (migration 040)
+
+### A primeira conexão de verdade
+
+Às 20h23 o dono conectou a conta dele ao Regem e ligou a loja do piloto. Conferido:
+
+- **no servidor:** a tela Conexões mostra a loja "atualizada hoje, 20:23", com 68 produtos e
+  nenhuma ficha (as fichas ainda vão ser cadastradas no Regem);
+- **no computador da loja** (só leitura): a cópia chegou no mesmo minuto — 68 produtos, a
+  marca igual à que a configuração anuncia, nenhum campo de dinheiro ou de cliente —, e o
+  agente escreveu "base de fichas em disco: 68 produto(s), 0 com ficha", sem aviso nem erro.
+
+Era o que a fatia 3 não tinha conseguido medir: a cópia chegando à loja de verdade.
+
+### As respostas do dono (página do plano, 11/10 à noite)
+
+1. **O protótipo "fichas de qualquer origem" está aprovado: "pode começar pela planilha".**
+2. **Planilha com problema: "entra o que está certo e a tela lista o que ficou de fora"** —
+   e não "nada entra", que era o que eu recomendava e o que o protótipo mostrava.
+3. Acesso tirado lá no Regem: o Farol apaga as fichas daquela loja (como está).
+4. Telas antigas que dizem "nuvem" e "versão": fazer o protótipo do antes e depois.
+
+### O que "entra o que está certo" quer dizer aqui
+
+**O grão é o produto.** Um produto com qualquer linha errada fica INTEIRO de fora, com a
+linha e o motivo; os outros entram. Não entra "o produto menos a linha errada": o Farol
+conferiria a montagem contra uma ficha com um ingrediente a menos, e ninguém saberia. Pela
+mesma razão, o combo que leva um produto que ficou de fora fica de fora junto. Foi dito ao
+dono antes de fazer; se ele preferir por linha, muda-se num lugar só (`planilha-fichas.ts`).
+
+O que impede a planilha INTEIRA é só o que não deixa lê-la: sem a aba Fichas, sem uma coluna
+obrigatória, grande demais.
+
+### O que entrou (só o servidor; a tela é a entrega seguinte)
+
+- **`planilha-fichas.ts`** — o segundo adaptador da base (o primeiro é o do Regem). Recebe as
+  células, aba por aba, e devolve a base no formato do Farol, as contas, o que ficou de fora
+  e o que não é de produto nenhum. Os títulos valem em qualquer ordem, com ou sem acento. A
+  unidade é de lista (dez), aceita do jeito que se escreve ("gr", "fatias", "UN"). O id do
+  produto sai do nome: é o mesmo a cada importação. Faz também a volta (a base em linhas) e
+  guarda o modelo.
+- **Quem abre o arquivo é o navegador de quem importa.** Para o servidor vão só as células.
+  O servidor não abre .xlsx: um arquivo compactado vindo de fora é o tipo de coisa que
+  derruba servidor, e aqui ele nem chega. Toda regra continua no servidor.
+- **Rotas** (de quem configura a loja; a supervisão vê as fichas e não importa):
+  `POST /v1/lojas/:id/fichas/importar` (confere; com `gravar: true`, importa),
+  `GET …/fichas/importacao` (o registro da última importação, com a lista do que ficou de
+  fora), `GET …/fichas/planilha` (as fichas da loja de volta em planilha) e
+  `GET /v1/fichas/modelo` (o modelo sai do servidor: é sempre o que o servidor lê).
+- **Uma loja recebe as fichas de um lugar só.** A que está ligada ao Regem não importa nem
+  confere planilha (409) — e a que é ligada no meio da importação não fica com as duas: a
+  gravação é uma instrução só, que só grava se a loja continua sem ligação. Ler o Regem
+  depois substitui a base e apaga o registro da planilha.
+- **Importar troca a base inteira.** A mesma planilha de novo não muda nada: a data da base
+  não anda e o agente da loja não baixa de novo.
+- **Migration 040:** a origem `planilha` passa a valer em `fichas_da_loja`, e entra a coluna
+  `importacao` (o registro da última importação). Nenhuma base existente muda.
+- A lista da tela Fichas passou a dizer a origem de verdade (`fonte`), se a pessoa pode
+  importar (`podeImportar`) e o resumo da importação.
+
+### O que eu decidi no caminho, e por quê
+
+- **O modelo é o do protótipo, sem tirar nem pôr:** as sete colunas da aba Fichas (Produto,
+  Código, Categoria, Vai para a cozinha, Ingrediente, Quantidade, Unidade) e as três abas
+  opcionais. O exemplo do modelo é lido sem problema nenhum, e há teste disso.
+- **"Tira" só o que está na ficha.** "Sem cebola" num produto cuja ficha não tem cebola é
+  problema: quase sempre é o nome escrito diferente, e o Farol precisaria casar os dois.
+- **Linha preenchida sem o nome do produto derruba o produto de cima.** É o hábito de quem
+  escreve o nome só na primeira linha; pular a linha calado faria o produto entrar com um
+  ingrediente a menos.
+- **O registro guarda só o nome do arquivo**, sem a pasta: o caminho no computador de quem
+  importou não é assunto do servidor.
+- **A lista de problemas tem teto (500); a conta, não.**
+
+### O que foi medido
+
+- **36 testes novos:** 23 do leitor, sem banco (o modelo lido sem problema; a ida e a volta;
+  cada defeito de linha deixando o produto de fora e o vizinho entrando; as outras abas; o
+  combo que cai junto, inclusive o que vem antes daquele de que depende; o que impede tudo), e
+  13 das rotas, com banco (quem pode; a loja do vizinho; conferir sem gravar; importar; importar
+  de novo; nada certo; a loja ligada ao Regem; a loja ligada **no meio** da importação; a
+  planilha e depois o Regem; o modelo; a planilha de volta; o nome do arquivo).
+- **91 estragos de propósito** no leitor, nas rotas e na leitura do Regem: os 91 pegos. Dois
+  tinham sobrevivido, e os dois eram código redundante — a chave do nome tirava de novo os
+  espaços que a célula já vinha sem, e a medida devolvia "não serve" quando o recado já deixava
+  o produto de fora. Saíram do código, em vez de ganhar teste de enfeite.
+- Os testes vizinhos (fichas, conexão, aviso) seguem passando; dois deles comparavam a
+  resposta inteira da lista e ganharam os campos novos.
+- A migration aplicada duas vezes no banco local: nenhuma base existente muda, nenhuma versão
+  de configuração sobe, a regra da origem aceita `regem` e `planilha`.
+
+### O que não foi medido
+
+- **Um arquivo de Excel de verdade.** O servidor recebe células; quem as tira do arquivo é a
+  tela, que é a entrega seguinte.
+- Uma planilha grande de loja (centenas de produtos): o teto é 20 mil linhas e 8 MB; o tempo
+  de leitura não foi medido.
+- A lista de unidades é a minha proposta, mostrada ao dono no modelo; a loja pode pedir outras.
+
+### O que vem
+
+A tela (protótipo aprovado): a loja sem fichas com os jeitos de tê-las, a importação em três
+passos, a etiqueta da origem — com o passo "Conferir" refeito para a resposta 2 do dono: o
+que entra, o que fica de fora, e o botão que importa o que está certo. Depois, a porta para
+outro sistema e o "Mais" na barra do celular.
