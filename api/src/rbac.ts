@@ -49,6 +49,14 @@ export function exigirConfigurar(sessao: Sessao, resposta: FastifyReply): boolea
 }
 
 /**
+ * Quem acompanha a operação da loja: supervisão para cima e o suporte. Vê o
+ * que a loja tem (as fichas, por exemplo) sem poder montar nem pedir nada.
+ */
+export function podeAcompanhar(sessao: Sessao): boolean {
+  return sessao.nivel === 'suporte' || peloMenos(sessao, 'supervisao');
+}
+
+/**
  * A diretoria — o nível `presidente`, e só ele. É a primeira decisão do
  * console que nem o suporte toma: deixar OUTRO sistema ser lido (ou deixar
  * de ser) é do dono do negócio, não de quem instala.

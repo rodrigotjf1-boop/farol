@@ -453,8 +453,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
       ...(veResultados ? [{ href: `${base}/analises`, rotulo: 'Análises', icone: ChartColumn }] : []),
       { href: `${base}/canais`, rotulo: 'Canais', icone: Cctv },
       { href: `${base}/regras`, rotulo: 'Critérios', icone: ListChecks },
-      // As fichas são de quem configura a loja (a API responde 403 aos outros).
-      ...(configura ? [{ href: `${base}/fichas`, rotulo: 'Fichas', icone: ClipboardList, soNaColuna: true }] : []),
+      // As fichas são de quem acompanha a loja — supervisão para cima e o suporte, o mesmo grupo
+      // que vê os resultados (a API responde 403 aos outros).
+      ...(veResultados ? [{ href: `${base}/fichas`, rotulo: 'Fichas', icone: ClipboardList, soNaColuna: true }] : []),
       { href: `${base}/alertas`, rotulo: 'Alertas', icone: BellRing },
       // Orçamento é decisão de compra: só para quem configura.
       ...(configura ? [{ href: `${base}/orcamento`, rotulo: 'Orçamento', icone: Calculator }] : []),

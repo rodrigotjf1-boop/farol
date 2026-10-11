@@ -4586,6 +4586,25 @@ nenhum critério usa a ficha. **Do dono:** o "pode" para trocar o pacote do agen
 lá, o agente de lá ignora a base. **As fatias 4 (planilha) e 5 (fila da cozinha) ficam para
 depois**, como ele decidiu; a planilha tem protótipo próprio antes.
 
+**Depois da fatia 3, em 11/10 à noite (respostas do dono):**
+
+- **O pacote do agente da loja foi trocado** (18h38, antes de a loja abrir; pacote `81183e3`):
+  o agente declara que sabe das fichas, subiu sem aviso nem erro e não tem cópia — a loja
+  ainda não tem base na nuvem.
+- **A supervisão vê as fichas** (só ver): entregue. "Buscar agora" segue de quem configura a
+  loja; conectar segue da diretoria.
+- **O dono pediu, e entra no plano:** (1) o Regem **avisar** o Farol quando o cardápio ou a
+  ficha muda, em vez de o Farol só buscar uma vez por dia — o pedido ao projeto Regem está em
+  `docs/pedido-farol-aviso-de-mudanca.md` daquele repositório; o lado do Farol (registrar o
+  aviso ao ligar a loja, recebê-lo e ler na hora) é fatia nova, com migration; (2) a
+  **planilha** agora, com o **modelo de colunas** para o usuário preencher (era a fatia 4,
+  "depois"); (3) as telas Conexões e Fichas **não podem ser só do Regem**: o Farol é produto
+  para distribuição, e uma operação que não usa o Regem tem de conseguir mandar as fichas dela
+  por uma porta documentada, com o acesso gerado **pelo próprio usuário no console** (ninguém
+  da distribuição cola credencial por cliente); o hub de MCP vem depois. As três passam por
+  plano e protótipo antes de tela.
+- **A barra de baixo do celular** ganha um item "Mais" (o recomendado): protótipo antes.
+
 ### O que não foi medido
 
 - O acerto dos modelos de nuvem em **sequências** desta loja. Em quadro único foi medido
