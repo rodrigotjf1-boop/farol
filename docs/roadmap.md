@@ -3704,8 +3704,9 @@ próprios):
   de fora e **a sub-receita entra como um ingrediente só** (o "molho especial" é uma coisa
   na bancada, não cinco insumos).
 - Da fila de produção o Farol lê só **qual produto, quantos, com que adicionais e
-  observação, para onde vai e a que horas** — e quando ficou pronto. O agente da loja
-  consulta o servidor do Regem que fica na própria loja.
+  observação, para onde vai e a que horas** — e quando ficou pronto. **Entregue pela
+  nuvem em 11/10** (a fase 2 do lado do Regem), com até 1 minuto de atraso na loja que
+  tem servidor próprio; a conversa pela rede da loja ficou para a fase 3.
 - O que o Regem já entrega e o que falta para isso está em
   [controle-de-producao.md](controle-de-producao.md), seção 6. Lá, o plano vem antes do
   código.
@@ -3835,7 +3836,7 @@ loja; o que o gravador entrega é medido na instalação.
 |---|---|---|---|
 | 1 ✅ | **Fechar a onda 1:** o sistema propor o estudo do critério — **feito em 10/10**, por regras, no servidor, que era o caminho recomendado (se o dono preferir outro, o botão é o mesmo: troca-se quem responde) | onda 1, fatia 1.3 | — |
 | 2 | Três acertos pequenos de tela: "área" → "quadro" em Análises e no Painel; a tabela do Painel, que rola de lado entre 820 e 1.280 px; o cartão "Critérios ligados" dizer quantos só observam | onda 1 | — |
-| 3 | **A base de fichas e produtos do Farol** (decisão de 10/10): puxar do Regem as fichas, os produtos e os adicionais de cada loja e guardar base própria; aceitar também planilha, para a loja sem Regem; por cima dela, o dicionário de ingredientes e as regras da casa | nova; antes da onda 5 | o plano do lado do Regem aprovado; o Regem com as fichas da loja |
+| 3 | **A base de fichas e produtos do Farol** (decisão de 10/10): puxar do Regem as fichas, os produtos e os adicionais de cada loja e guardar base própria; aceitar também planilha, para a loja sem Regem; por cima dela, o dicionário de ingredientes e as regras da casa. **O plano e o protótipo das duas telas foram apresentados em 11/10** ("O lado do Farol que usa o Regem — o plano") | nova; antes da onda 5 | a aprovação do plano e do protótipo; o Regem com as fichas da loja |
 | 4 | **O plano no projeto Regem — aprovado pelo dono em 10/10** (a página "Porta do Farol no Regem"; o resumo e as respostas dele estão em "O lado do Regem — o plano, aprovado"): três fases — o catálogo e as fichas, a fila de produção só para leitura, e o modo do KDS "por produto, com baixa automática". **As fases 1 e 2 estão no ar desde 11/10** ("A fase 1, entregue" e "A fase 2, entregue"); **a 3 fica para a onda 5, com o aviso pela rede da loja** | projeto Regem — plano antes do código | o lado do Farol que consome (item 3); o segredo do aplicativo, que é do dono, só quando esse lado existir |
 | 5 | **Onda 2 — sequência e banco de provas:** o agente buscar no gravador (cliente de arquivo, medindo o que cada gravador entrega), a busca pelo meio, a grade de 6 quadros, a família Acontecimento passando a julgar, "acertou / errou", o acerto medido de cada critério. **O plano está em "Onda 2 — como ela entra"** (10/10): oito fatias; **a 2.1 (o cliente de arquivo do gravador) e a 2.2a (medir o gravador e ler o trecho) estão feitas, em 10/10**; a 2.2b (a busca pelo meio e a grade), também só do agente e dormindo, é a próxima | onda 2 | o protótipo das telas aprovado; as três decisões do plano; o dono marcar os exemplos |
 | 6 | **Onda 3 — processo e medida:** etapas por quadro, cronômetros, contadores, episódios | onda 3 | a onda 2 medida |
@@ -4446,6 +4447,74 @@ atraso real do sincronismo da loja para a nuvem (1 minuto é do código, não de
 alguns identificadores do Regem mudam a cada salvamento — a variação, o ingrediente da
 ficha: o Farol casa pelo produto e pelo nome, e trata cada leitura como retrato inteiro.
 
+### O lado do Farol que usa o Regem — o plano, à espera de aprovação (11/10/2026)
+
+**Apresentado ao dono em 11/10, de manhã cedo**, na página "Regem no Farol", com o protótipo
+das duas telas (`mockups/farol-conexoes-e-fichas.html`; ramo `proto/regem-conexoes-e-fichas`,
+enviado **sem PR** — só depois do "pode"). Nada foi implementado no Farol.
+
+**O que o código do Farol mostrou** (lido na `main` de 11/10):
+
+1. **O servidor do Farol nunca chamou outro sistema.** Não há cliente de saída, nem molde de
+   prazo e de nova tentativa a seguir.
+2. **Ele não guarda segredo que precise ser lido de volta.** Senha, sessão e acesso do agente
+   ficam só como impressão digital; senha de câmera nem sobe. O acesso de cada loja ao Regem
+   é o primeiro segredo que o servidor precisa guardar e usar — entra cifrado.
+3. **O console não tem tela de conexão nem de configuração da conta**, e não existe ação só
+   da diretoria: o que o gerente configura, a diretoria também.
+4. **A sessão do console só vale no endereço do console.** Por isso a volta do Regem tem de
+   chegar pelo console, e não pelo servidor: é o que permite exigir que quem volta é quem
+   começou.
+5. **O agente já tem o jeito de receber uma cópia:** a configuração leva só a marca do que
+   mudou, e ele baixa o que falta (é como chegam as fotos padrão).
+
+**O caminho de uma ficha:** Regem → servidor do Farol (que pergunta de tempos em tempos,
+guarda a cópia e a mostra na tela) → computador da loja (o agente baixa quando muda e
+guarda). A conferência usa a cópia da loja e não depende de internet; nem o acesso ao Regem
+nem o segredo descem para a loja.
+
+**As duas telas do protótipo:**
+
+| tela | para quê | o que dá para fazer |
+|---|---|---|
+| **Conexões** (da conta) | dizer de onde o Farol lê; mostra o que ele lê e o que não lê antes de a pessoa sair para o Regem | conectar; dizer qual loja do Farol é cada loja de lá (o Farol sugere pelo nome); autorizar outra loja; desconectar |
+| **Fichas** (da loja, no menu) | ver o que o Farol sabe de cada produto: a ficha na ordem, as variações, o que o cliente pode pedir a mais ou tirar | buscar e filtrar; **não se edita** — as fichas são do Regem |
+
+Na ficha, o preparo da casa entra como um ingrediente só e a embalagem de viagem fica de
+fora (as duas decisões de 10/10). A tela diz quando a leitura está parada e quando o acesso
+foi tirado no Regem; nos dois casos as fichas que já vieram continuam valendo.
+
+**Cinco fatias, uma de cada vez:**
+
+| fatia | o que entra | onde | banco | pede do dono |
+|---|---|---|---|---|
+| **1 · conectar e ligar as lojas** | a tela Conexões e o que há por trás: a ida, a volta, a troca do código pelo acesso de cada loja, o par das lojas e o desconectar, que devolve o acesso | servidor e console | migration 036 | duas variáveis no painel; autorizar no Regem |
+| **2 · ler e guardar as fichas** | o servidor pergunta ao Regem a cada 5 minutos; quando muda, refaz a cópia da loja no formato do Farol; a tela Fichas | servidor e console | migration 037 | as fichas cadastradas no Regem |
+| **3 · a cópia chega à loja** | o agente baixa as fichas quando mudam e as guarda; a partir daqui um critério pode dizer "montado como a ficha manda" | servidor e agente | sem migration | o "pode" para trocar o pacote na loja |
+| **4 · planilha, para a loja sem Regem** | a mesma base recebe as fichas por planilha; tela nova, com protótipo próprio | servidor e console | a ver | aprovar o protótipo |
+| **5 · a fila da cozinha chega à loja** | o servidor repassa ao agente o que a cozinha tem para fazer; alimenta a demanda e o saldo | servidor e agente | sem migration | nada |
+
+**O que o plano respeita:** o acesso ao Regem é segredo — cifrado no servidor, fora da tela,
+fora da loja e fora dos registros; só quem começou a conexão a termina; o Regem é um
+**adaptador** (a base tem o formato do Farol e amanhã recebe planilha ou outro sistema); a
+tela diz "atualizado há 4 min", e não como a leitura é feita; uma migration por vez; e nos
+testes um Regem de mentira que recusa o que o de verdade recusa, com uma chamada de verdade
+antes de dizer que funciona.
+
+**Um ajuste pequeno no Regem vai junto com a fatia 1:** o endereço para onde o Regem devolve
+a pessoa passa a ser o do console do Farol (hoje aponta para o servidor).
+
+**As quatro decisões que são do dono** (a primeira opção é a recomendada): (1) as duas
+telas — aprovadas ou a mudar; (2) quem conecta e desconecta — só a diretoria, ou diretoria e
+gerente; (3) ao desconectar, as fichas — ficam, paradas na última leitura, ou são apagadas na
+hora; (4) a ordem — fatias 1, 2 e 3 agora, com a planilha e a fila depois; ou a fila junto;
+ou a planilha antes.
+
+**O que não foi conferido:** quantas fichas o piloto terá e como os adicionais serão
+cadastrados; o atraso real da leitura (os números vêm do código, não de medida); e nada foi
+executado contra o Regem de verdade — a página de autorização só abre depois que o segredo
+do aplicativo existir nos dois painéis.
+
 ### O que não foi medido
 
 - O acerto dos modelos de nuvem em **sequências** desta loja. Em quadro único foi medido
@@ -4493,9 +4562,12 @@ ficha: o Farol casa pelo produto e pelo nome, e trata cada leitura como retrato 
    completo na sacola; bancada limpa entre pedidos.
 4. ✅ **O lado do Regem: o plano foi apresentado e aprovado em 10/10** ("O lado do Regem —
    o plano, aprovado"). O caminho mudou em relação ao de 09/10: o Farol puxa as fichas e os
-   produtos para base própria, e a fila de produção sai sem os ingredientes. **A fase 1
-   entrou no ar em 11/10.** Da parte dele fica, quando o lado do Farol que consome estiver
-   pronto, criar o segredo do aplicativo e autorizar o Farol na página.
+   produtos para base própria, e a fila de produção sai sem os ingredientes. **As fases 1
+   e 2 entraram no ar em 11/10.** No mesmo dia foi apresentado o plano do lado do Farol
+   ("O lado do Farol que usa o Regem — o plano"), com o protótipo das duas telas: **espera
+   a aprovação dele (quatro decisões).** Depois do "pode", da parte dele fica colar duas
+   variáveis nos painéis (o passo a passo vai na hora; os valores não passam por mim) e
+   autorizar o Farol no Regem.
 5. ✅ **Aprovada em 09/10** ("tudo aprovado e revisado").
 6. ✅ O quinto lanche do lote das 21h42 é o **Mussarela Bug** (dito pelo dono em 09/10, com
    a ficha). Falta ele confirmar que os quatro são o **Número 01**, dizer o que são as
