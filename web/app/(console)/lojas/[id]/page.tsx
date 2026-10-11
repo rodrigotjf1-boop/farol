@@ -127,6 +127,8 @@ function Saude({ r, fechada }: { r: Resultados; fechada: boolean }) {
   const semImagem = r.sinais.find((s) => s.tipo === 'canal_sem_imagem');
   const parados = r.canais.verificados - r.canais.comImagem;
   const desligados = r.criterios.total - r.criterios.ligados;
+  // Dos ligados, os que só observam: sem dizer isso, "4 de 4" parece "4 conferindo".
+  const soObservam = r.criterios.observando ?? 0;
 
   const item = 'flex min-w-0 items-start gap-3 px-4 py-3.5 max-md:flex-col max-md:gap-2 max-md:p-3';
   const selo = 'grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[10px] max-md:h-[30px] max-md:w-[30px]';
@@ -189,6 +191,7 @@ function Saude({ r, fechada }: { r: Resultados; fechada: boolean }) {
               : desligados === 0
                 ? 'todos ligados'
                 : `${plural(desligados, 'desligado', 'desligados')}`}
+            {soObservam > 0 && ` · ${plural(soObservam, 'só observa', 'só observam')}`}
             {/* Loja fechada: os critérios "no horário" estão certos em não
                 rodar — e é isso que explica os números parados. */}
             {fechada && r.criterios.total > 0 && ' · loja fechada agora: os do horário esperam'}

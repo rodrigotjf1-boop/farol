@@ -111,7 +111,7 @@ export function rotasDeResultados(app: FastifyInstance, pool: pg.Pool): void {
 
         // Todo critério da loja, com o número de canais ATIVOS em que vale.
         pool.query(
-          `select r.id, r.nome, r.tipo, r.ativa,
+          `select r.id, r.nome, r.tipo, r.ativa, r.estado,
                   coalesce(nullif(r.parametros->>'objeto', ''), '') <> '' as tem_objeto,
                   -- "Vale sempre" é o critério que deveria estar sendo olhado a
                   -- qualquer hora: sem horário próprio, e sem depender do
@@ -356,6 +356,9 @@ export function rotasDeResultados(app: FastifyInstance, pool: pg.Pool): void {
       criterios: {
         total: comCanal.length,
         ligados: comCanal.filter((c) => c.ligado).length,
+        // Dos ligados, os que só observam: contam o que veem, sem julgar nem
+        // avisar. Sem este número, "4 de 4 ligados" parece "4 conferindo".
+        observando: criterios.rows.filter((c) => c.ativa && c.canais > 0 && c.estado === 'observando').length,
       },
       totais: somarTotais(asLinhas),
       serie: {

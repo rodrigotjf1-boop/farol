@@ -1015,7 +1015,8 @@ export type Resultados = {
   temHistorico: boolean;
   agentes: AgenteResumo[];
   canais: { verificados: number; comImagem: number };
-  criterios: { total: number; ligados: number };
+  /** `observando`: dos ligados, os que só observam (contam, sem julgar nem avisar). */
+  criterios: { total: number; ligados: number; observando?: number };
   totais: {
     capturas: number;
     analises: number;

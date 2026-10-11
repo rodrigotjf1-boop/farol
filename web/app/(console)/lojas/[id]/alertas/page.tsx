@@ -396,7 +396,7 @@ export default function Alertas() {
           <div
             role="tablist"
             aria-label="Partes dos alertas"
-            className="flex gap-1 overflow-x-auto border-b border-farol-borda max-sm:gap-0"
+            className="flex flex-wrap gap-x-1 border-b border-farol-borda max-sm:gap-x-0"
           >
             {ABAS.map((a) => {
               const ativa = a.id === aba;
