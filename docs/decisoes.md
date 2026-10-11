@@ -3280,3 +3280,112 @@ lados. Ficou dito na página e na conversa, para ele mudar se preferir que nesse
 Nada foi executado contra o Regem de verdade: a página de autorização só abre depois que o
 segredo do aplicativo existir nos dois painéis. Quantas fichas o piloto terá, e como os
 adicionais serão cadastrados, só se sabe com as fichas no Regem da loja.
+
+## 11/10/2026 · A conta do Farol se conecta ao Regem: a primeira chamada a outro sistema, o primeiro segredo guardado e a primeira ação só da diretoria (fatia 1)
+
+A fatia 1 do plano "Regem no Farol" (aprovado em 11/10): a conta conecta, cada loja de lá é
+ligada a uma loja daqui, e dá para desconectar. Nada é lido ainda — a leitura das fichas é a
+fatia 2. Migration 036, PR #101.
+
+### O que entrou
+
+- **A tela Conexões** (da conta; entrada no pé da coluna do console e, no celular, no menu da
+  conta), para quem configura: gerente para cima e o suporte veem; **só a diretoria** conecta,
+  liga e desconecta — nem o suporte.
+- **O caminho:** "Conectar ao Regem" leva à página de autorização de lá → a pessoa volta com
+  as lojas autorizadas → diz qual loja do Farol é cada uma (o Farol sugere pelo nome) →
+  conectado. "Não usar esta loja agora" devolve o acesso dela ao Regem.
+- **No servidor:** `GET /v1/regem`, `POST /v1/regem/conectar`, `GET /v1/regem/retorno`,
+  `PUT /v1/regem/lojas` e `POST /v1/regem/lojas/:id/desconectar`; duas tabelas
+  (`regem_pedido`, `regem_loja`).
+- **Duas variáveis novas no serviço `farol-api`:** o segredo do aplicativo (o mesmo valor que o
+  `regem-api` tem) e a chave que cifra os acessos guardados. Sem as duas, a tela diz que a
+  conexão ainda não está disponível, e a rota de conectar recusa.
+
+### O que eu decidi no caminho, e por quê
+
+1. **A volta do Regem chega pelo console, não pelo servidor.** A sessão de quem pediu só
+   existe no endereço do console; é ela que deixa o servidor exigir que quem volta é a mesma
+   pessoa, da mesma conta, e que continua da diretoria. O `state` sozinho não diz de quem é.
+   Pediu um ajuste no Regem: o endereço de volta padrão do aplicativo `farol` passou a ser o
+   do console.
+2. **O pedido de conexão é gasto ANTES de trocar o código**, numa instrução só, qualquer que
+   seja o desfecho. O Regem faz o mesmo com o código (a tentativa que falha também gasta):
+   não existe segunda chance, e fingir que existe abriria espaço para a mesma volta passar
+   duas vezes. Sem sessão, o pedido não é gasto — quem chega deslogado não é, que se saiba,
+   quem começou.
+3. **Um pedido em curso por pessoa, valendo dez minutos** (o tempo que o código do Regem
+   vale). Pedir de novo derruba o anterior da mesma pessoa e limpa os vencidos; não há rotina
+   de faxina à parte.
+4. **O acesso de cada loja fica cifrado (AES-256-GCM) com a chave do ambiente, e o texto é
+   cifrado PARA a conta e a loja de lá.** Colado em outra linha do banco, não decifra. Quem
+   copiar o banco sem a chave não leva acesso nenhum. O acesso não sai por rota nenhuma (a
+   consulta da tela nem o busca), não desce para o agente e não entra em registro; a rota da
+   volta tem o registro de pedidos desligado, porque o endereço dela carrega o código e o
+   `state`.
+5. **Devolver o acesso tem três desfechos, e só um mantém a ligação:** *devolvido* (o Regem
+   aceitou, ou o acesso já não valia lá); *sem devolver* (o Regem recusou, ou o que está
+   guardado não dá para ler: a ligação sai daqui e a tela diz que o acesso se tira pelo
+   Regem); *sem resposta* (fora do ar, lento, ou quem respondeu foi a borda com uma página: a
+   ligação fica, e a tela pede para tentar de novo). Apagar a ligação sem o Regem ter
+   respondido deixaria lá um acesso valendo que ninguém mais guarda.
+6. **Ligar é tudo ou nada; "não usar" é loja a loja.** Os pares são gravados numa transação;
+   as devoluções vêm depois, uma chamada ao Regem por loja, e a resposta diz qual não foi
+   devolvida. "Uma loja do Farol, um par" e "uma loja do Regem por conta" são índices do
+   banco, não só conferência da rota.
+7. **A sugestão de pares só existe quando não há dúvida** (uma loja de cada lado, ou o nome
+   que casa sem empate). Sem sugestão, a escolha começa VAZIA e o Salvar fica travado: um
+   valor de fábrica "não usar" devolveria o acesso sem ninguém ter decidido.
+8. **Autorizar de novo uma loja já ligada troca o acesso e mantém o par.**
+9. **A tela só afirma o que o serviço sustenta.** Nesta entrega ela diz o que o Farol *pode
+   ler*, e não que lê; a linha da loja diz "ligada desde", e não "atualizado hoje"; o diálogo
+   de desconectar não fala das fichas. As frases do protótipo voltam com a fatia 2, junto do
+   código que as torna verdadeiras.
+
+### O que foi medido
+
+- **97 testes novos** (a cifra, a sugestão de pares, o cliente do Regem e as rotas), com um
+  Regem de teste que é um servidor de verdade e recusa o que o Regem recusa, na mesma ordem.
+  A suíte inteira da API passa — menos a de sempre no banco local, que não tem a extensão de
+  vetores.
+- **111 estragos de propósito no código, 111 pegos por um teste.** Na primeira rodada três
+  passaram: um teste frouxo (as duas lojas do caso tinham o mesmo id, e quem recusava era
+  outra conferência) e duas conferências duplicadas na cifra — o tamanho da marca conferido à
+  mão E pela biblioteca, e o formato da chave que já garantia o tamanho. Ficou uma conferência
+  para cada coisa.
+- **A tela, num navegador de verdade:** 133 passos do caminho inteiro (ida, cancelar,
+  autorizar, ligar, repetição acusada, "não usar", autorizar outra loja, os perfis, o Regem
+  fora do ar no meio, o diálogo e o foco), nenhuma resposta 429 ou 401; 144 medidas — oito
+  estados em 16 larguras, claro e escuro nas pontas, com o diálogo aberto — sem nenhuma barra
+  para o lado; e o estado da instalação sem as variáveis. O roteiro foi conferido estragando a
+  tela em três lugares: 14 conferências acusaram.
+- **Uma chamada de verdade:** o cliente do Farol, o mesmo código que vai para produção, contra
+  o Regem real (o servidor dele com as proteções de produção e Postgres). Segredo errado é
+  recusado sem gastar o código; a troca devolveu o acesso das duas lojas; o código não vale
+  duas vezes; verificador errado gasta o código; o acesso lê o cardápio, as fichas e a fila, e
+  **não lê as vendas** (403); devolvido, a leitura seguinte é recusada; devolver de novo conta
+  como devolvido.
+
+### Onde a tela difere do protótipo
+
+1. No celular, a entrada "Conexões" mora no menu da conta: o topo do console de verdade já
+   leva a troca de loja, a busca e a conta, e não cabe mais um botão.
+2. As frases sobre fichas e sobre "atualizado hoje" ficaram para a fatia 2 (item 9, acima):
+   o cartão diz "O que o Farol pode ler"; a linha diz "ligada desde"; não há "Ver fichas"; o
+   diálogo de desconectar e o aviso depois de ligar não falam das fichas.
+3. Sem sugestão, a escolha começa em "Escolha a loja…" (item 7). No protótipo sempre havia
+   sugestão.
+4. Para o gerente, o cartão de ligar diz "Só a diretoria liga as lojas." — o protótipo só
+   travava os campos.
+5. Estados que o protótipo não tinha: a conexão ainda não disponível na instalação; os
+   recados da volta (cancelada, vencida, de outra pessoa, que falhou); e o desconectar em que
+   o acesso continua aparecendo no Regem.
+
+### O que não foi conferido
+
+- **Nada em produção.** A autorização de verdade só acontece depois que o dono puser as duas
+  variáveis no `farol-api` e o segredo no `regem-api`.
+- O repasse da volta pelo console foi conferido no console local; em produção há a borda na
+  frente, e só a primeira autorização dirá.
+- A borda do Regem aceitando o nome com que o servidor do Farol se apresenta: a chamada de
+  verdade foi direta, sem ela.

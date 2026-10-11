@@ -47,3 +47,21 @@ export function exigirConfigurar(sessao: Sessao, resposta: FastifyReply): boolea
   });
   return false;
 }
+
+/**
+ * A diretoria — o nível `presidente`, e só ele. É a primeira decisão do
+ * console que nem o suporte toma: deixar OUTRO sistema ser lido (ou deixar
+ * de ser) é do dono do negócio, não de quem instala.
+ */
+export function ehDiretoria(sessao: Sessao): boolean {
+  return sessao.nivel === 'presidente';
+}
+
+export function exigirDiretoria(sessao: Sessao, resposta: FastifyReply): boolean {
+  if (ehDiretoria(sessao)) return true;
+  resposta.status(403).send({
+    erro: 'so_diretoria',
+    mensagem: 'só a diretoria conecta e desconecta outro sistema',
+  });
+  return false;
+}

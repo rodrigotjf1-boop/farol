@@ -28,6 +28,7 @@ import {
   ListChecks,
   LogOut,
   Moon,
+  Plug,
   Search,
   Store,
   Sun,
@@ -253,7 +254,20 @@ function TrocaDeLoja({
 
 // ───────────────────────── a conta ─────────────────────────
 
-function Conta({ eu, escuro, trocarTema, sair }: { eu: Eu; escuro: boolean; trocarTema: () => void; sair: () => void }) {
+function Conta({
+  eu,
+  escuro,
+  conexoes,
+  trocarTema,
+  sair,
+}: {
+  eu: Eu;
+  escuro: boolean;
+  /** Quem configura a conta vê as conexões dela. No celular, é por aqui que se chega lá. */
+  conexoes: boolean;
+  trocarTema: () => void;
+  sair: () => void;
+}) {
   return (
     <Menu
       alinhar="fim"
@@ -273,6 +287,12 @@ function Conta({ eu, escuro, trocarTema, sair }: { eu: Eu; escuro: boolean; troc
           <RotuloDeMenu>
             {eu.nome} · {nomeDoNivel(eu.nivel)}
           </RotuloDeMenu>
+          {conexoes && (
+            <Link href="/conexoes" role="menuitem" onClick={fechar} className={ITEM_DE_MENU}>
+              <Plug className="h-[18px] w-[18px] shrink-0" aria-hidden />
+              Conexões
+            </Link>
+          )}
           <button
             type="button"
             role="menuitem"
@@ -510,6 +530,24 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
         <div className="!shrink min-h-3 flex-1" />
 
+        {/* Da CONTA, não da loja: fica no pé da coluna, fora das seções. */}
+        {eu && configura && (
+          <Link
+            href="/conexoes"
+            aria-current={caminho === '/conexoes' ? 'page' : undefined}
+            className={
+              'flex h-14 flex-col items-center justify-center gap-[3px] rounded-[10px] border px-0.5 text-center text-[11px] no-underline transition-colors ' +
+              'lg:h-10 lg:flex-row lg:justify-start lg:gap-[11px] lg:px-[11px] lg:text-left lg:text-sm ' +
+              (caminho === '/conexoes'
+                ? 'border-farol-borda bg-farol-painel font-semibold text-farol-tinta shadow-farol-1'
+                : 'border-transparent font-medium text-farol-suave hover:text-farol-tinta')
+            }
+          >
+            <Plug className={`h-[18px] w-[18px] shrink-0 ${caminho === '/conexoes' ? 'text-farol-facho-icone' : ''}`} aria-hidden />
+            <span>Conexões</span>
+          </Link>
+        )}
+
         {saude && (
           <div
             className="flex items-start justify-center gap-2.5 rounded-[10px] border border-farol-borda bg-farol-painel-2 px-0 py-2.5 text-[12.5px] leading-snug lg:justify-start lg:px-2.5"
@@ -530,7 +568,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
         {eu && (
           <div className="flex items-center justify-center gap-2.5 lg:justify-start lg:px-1.5 lg:py-1">
-            <Conta eu={eu} escuro={escuro} trocarTema={trocarTema} sair={sair} />
+            <Conta eu={eu} escuro={escuro} conexoes={configura} trocarTema={trocarTema} sair={sair} />
             <span className="hidden min-w-0 flex-1 leading-tight lg:block">
               <b className="block truncate font-semibold">{eu.nome}</b>
               <small className="text-xs text-farol-suave">{nomeDoNivel(eu.nivel)}</small>
@@ -570,7 +608,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Search className="h-[18px] w-[18px]" aria-hidden />
           </button>
         )}
-        {eu && <Conta eu={eu} escuro={escuro} trocarTema={trocarTema} sair={sair} />}
+        {eu && <Conta eu={eu} escuro={escuro} conexoes={configura} trocarTema={trocarTema} sair={sair} />}
       </header>
 
       {/* ───────────── o conteúdo: é ele que rola ───────────── */}
