@@ -15,6 +15,7 @@ tela deve ficar e reagir; não é o app, e os dados dentro dele são exemplo.
 | `farol-console.html`, linha **“nada a conferir”** (dentro de Análises) | quantas olhadas a loja segurou sem perguntar à nuvem, no recorte, por critério | entrou junto com a fase 1 (08/10/2026), **sem ter passado pela aprovação das telas**: é uma linha de texto, e está em `web/` |
 | `farol-console.html`, **área por pontos** (em "Quadro e área") | o contorno da área feito de pontos: arrastar ponto, criar ponto pelo meio do lado, teclado, tirar, desfazer, números, aviso de contorno cruzado e de sobreposição | pedido do dono em 08/10/2026 ("a marcação tem que ser flexível"); entrou junto no protótipo e em `web/`, **sem ter passado pela aprovação das telas** |
 | `farol-console-novo.html` — **a cara nova**, telas da onda 1 do A19 | o canal com a imagem completa, os quadros (com papel) e os critérios de cada um; a cena do canal e o tipo de negócio; a gaveta do critério com o estudo (contexto, gatilho, janela, ação, desfecho, fora de contexto), o funil em números e os quatro estados; a gaveta do quadro; "ir para" (Ctrl+K) | **aprovado pelo dono em 09/10/2026** (versão 3, com os dois recados dele: a cena é escrita por quem usa, sem "propor a partir da imagem", e o que sobe para a nuvem é lógica interna, fora da tela). No console entraram, com as peças de hoje, a tela do canal, a cena e a gaveta do quadro (`/pontos/:id`) e, em seguida, **a gaveta do critério** — as famílias, o estudo, o funil e os estados — e **o "ir para" (Ctrl K)**, com o botão no menu lateral; o "Propor o estudo" ainda não (no lugar da proposta, o estudo começa por um modelo ou do zero). Onde cada tela diverge do aprovado está em `docs/decisoes.md` (09/10, "A imagem completa de volta…", "A gaveta nova do critério…" e "O 'ir para' (Ctrl K)…"). Com o critério novo nascendo "observando", três frases de `farol-console.html` que diziam "nasce desligado" foram trocadas no mesmo PR (o aviso de critério criado e, em Padrões, a opção de "É problema" e a frase da revisão). Partes em `novo/partes/`; montar com `node mockups/novo/montar.mjs`. É a primeira peça do protótipo geral da cara nova (roadmap, A18, frente 7) |
+| `farol-conexoes-e-fichas.html` — **as telas que usam o Regem** | **Conexões** (da conta): o que o Farol lê e o que não lê, conectar ao Regem, ligar cada loja de lá a uma loja daqui, autorizar outra loja e desconectar. **Fichas** (da loja): os produtos com a ficha na ordem, as variações e o que o cliente pode pedir a mais ou tirar — só leitura, com o "Buscar agora". Situações: sem conexão, voltou do Regem, conectado, Regem sem fichas, a busca falhou, acesso tirado no Regem, carregando, sem resposta; e os dois perfis (diretoria e gerente) | **aprovado pelo dono em 11/10/2026**, com o plano "Regem no Farol" e as respostas dele (as fichas são apagadas ao desconectar; a busca é uma vez por dia). O console ainda não tem estas telas: entram com as fatias 1 e 2 |
 
 Abre com dois cliques. No canto de baixo, o botão **Protótipo** troca a
 situação da loja (em operação, loja nova, carregando, agente fora do ar), o
@@ -49,6 +50,13 @@ Depois de mexer:
 
 ```
 node mockups/console/montar.mjs
+```
+
+O protótipo das telas que usam o Regem fica em `regem/partes/` e usa o estilo de base da cara nova
+(`novo/partes/01-estilo.css`), acrescentando só o que é dele (`20-regem.css`):
+
+```
+node mockups/regem/montar.mjs
 ```
 
 ## De onde vêm as peças

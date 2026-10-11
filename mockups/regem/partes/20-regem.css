@@ -1,0 +1,102 @@
+/* O que as duas telas do lado do Regem acrescentam à cara nova (o resto vem de ../novo/partes/01-estilo.css).
+   Nada de cor crua: só as fichas (tokens) do estilo de base. */
+
+
+/* o atributo `hidden` tem de valer mesmo em quem define `display` (o painel dos controles do protótipo).
+   A página publicada já traz esta regra; o arquivo aberto com dois cliques, não. */
+[hidden] { display: none !important; }
+/* a entrada de "Conexões": no trilho (largo) e no topo (estreito, onde o rodapé do trilho some) */
+.trilho a.ir.conta { font-size: 14px; }
+.so-estreito { display: none; }
+.so-largo { display: inline-flex; }
+
+/* a lista de produtos: linha em grade no largo, cartão empilhado no estreito — sem tabela, sem rolar para o lado */
+.barra { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.barra .entrada { flex: 1 1 220px; max-width: 360px; }
+.barra .seg { margin-left: auto; }
+.lista { display: grid; border: 1px solid var(--fio); border-radius: var(--raio); background: var(--painel); overflow: hidden; }
+.lista-cab, .linha { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.2fr) minmax(0, 1.6fr) 28px; align-items: center; gap: 10px 14px; padding: 11px 16px; }
+.lista-cab { font: 500 12px/1.4 var(--f-dado); color: var(--suave); border-bottom: 1px solid var(--fio); background: var(--painel-2); text-transform: uppercase; letter-spacing: 0.04em; }
+.linha { appearance: none; width: 100%; border: 0; border-top: 1px solid var(--fio); background: none; color: inherit; text-align: left; cursor: pointer; font: inherit; }
+.linha:first-of-type { border-top: 0; }
+.linha:hover, .linha:focus-visible { background: var(--painel-2); }
+.linha .nome { display: grid; gap: 2px; min-width: 0; }
+.linha .nome b { font-weight: 600; overflow-wrap: anywhere; }
+.linha .nome small { color: var(--suave); font-size: 12.5px; }
+.linha .marcas { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.linha .ic { color: var(--fraco); justify-self: end; }
+.linha .rot { display: none; }
+
+/* ligar as lojas e as lojas conectadas */
+.pares { display: grid; gap: 10px; }
+.par { display: grid; grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr); align-items: center; gap: 10px 12px; padding: 12px 14px; border: 1px solid var(--fio); border-radius: 8px; background: var(--bg-2); }
+.par .de { display: grid; gap: 2px; min-width: 0; }
+.par .de b { font-weight: 600; overflow-wrap: anywhere; }
+.par .de small { color: var(--suave); font-size: 12.5px; }
+.par > .ic { color: var(--fraco); justify-self: center; }
+.par select.entrada { min-width: 0; }
+.par.erro { border-color: var(--fora); }
+.conexao { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) 214px; align-items: center; gap: 10px 16px; padding: 14px 16px; border-top: 1px solid var(--fio); }
+.conexao:first-child { border-top: 0; }
+.conexao .de { display: grid; gap: 2px; min-width: 0; }
+.conexao .de b { font-weight: 600; overflow-wrap: anywhere; }
+.conexao .de small { color: var(--suave); font-size: 12.5px; overflow-wrap: anywhere; }
+.conexao .estado { display: grid; justify-items: start; gap: 4px; min-width: 0; }
+.conexao .estado .linha-de-estado { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.conexao .acoes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.cartao .miolo.sem-folga { padding: 0; gap: 0; }
+
+/* o que o Farol lê e o que não lê */
+.duas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.duas h3 { font-size: 13px; font-weight: 600; color: var(--suave); margin-bottom: 8px; }
+.duas ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.duas li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 9px; font-size: 14px; }
+.duas li .ic { margin-top: 2px; }
+.duas .le .ic { color: var(--ok); }
+.duas .nao .ic { color: var(--fraco); }
+.passo-a-passo { display: grid; gap: 8px; counter-reset: passo; list-style: none; margin: 0; padding: 0; }
+.passo-a-passo li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; font-size: 14px; counter-increment: passo; }
+.passo-a-passo li::before { content: counter(passo); display: grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; border: 1px solid var(--fio-2); font: 500 12px/1 var(--f-dado); color: var(--suave); }
+
+/* a ficha, na gaveta */
+.ingredientes { list-style: none; margin: 0; padding: 0; display: grid; counter-reset: ing; border: 1px solid var(--fio); border-radius: 8px; overflow: hidden; }
+.ingredientes li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: baseline; gap: 10px; padding: 9px 12px; border-top: 1px solid var(--fio); counter-increment: ing; }
+.ingredientes li:first-child { border-top: 0; }
+.ingredientes li::before { content: counter(ing); font: 500 12px/1.6 var(--f-dado); color: var(--fraco); }
+.ingredientes .q { font: 500 13px/1.5 var(--f-dado); color: var(--suave); white-space: nowrap; }
+.ingredientes small { display: block; color: var(--suave); font-size: 12.5px; }
+.bloco { display: grid; gap: 10px; }
+.bloco > h3 { font-size: 14px; font-weight: 600; }
+.escolhas { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.escolhas li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 9px; font-size: 14px; }
+.escolhas li .ic { margin-top: 2px; color: var(--suave); }
+.escolhas small { display: block; color: var(--suave); font-size: 12.5px; }
+.variacoes { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* o diálogo de confirmar */
+.dialogo { position: fixed; z-index: 22; inset: 0; display: grid; place-items: center; padding: 16px; pointer-events: none; }
+.dialogo > div { pointer-events: auto; width: min(480px, 100%); display: grid; gap: 14px; padding: 20px; border: 1px solid var(--fio-2); border-radius: var(--raio); background: var(--painel); }
+.dialogo h2 { font-size: 17px; font-weight: 600; }
+.dialogo p { font-size: 14px; color: var(--suave); }
+.dialogo .linha-acoes { justify-content: flex-end; }
+
+@media (max-width: 900px) {
+  .so-estreito { display: inline-flex; }
+  .so-largo { display: none; }
+  .duas { grid-template-columns: minmax(0, 1fr); }
+  .conexao { grid-template-columns: minmax(0, 1fr); }
+  .conexao .acoes { justify-content: flex-start; }
+}
+@media (max-width: 720px) {
+  .lista-cab { display: none; }
+  .linha { grid-template-columns: minmax(0, 1fr) 22px; align-items: start; }
+  .linha .nome { grid-column: 1; }
+  .linha .marcas { grid-column: 1; }
+  .linha .ic { grid-column: 2; grid-row: 1; }
+  .barra .seg { margin-left: 0; }
+  .barra .entrada { max-width: none; }
+}
+@media (max-width: 560px) {
+  .par { grid-template-columns: minmax(0, 1fr); }
+  .par > .ic { transform: rotate(90deg); justify-self: start; }
+}

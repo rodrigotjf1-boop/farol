@@ -3235,3 +3235,48 @@ escreveu duas vezes sobre onde as coisas rodam.
 O sistema de alertas do KDS do Regem, no código de hoje: quais mensagens ele tem
 cadastradas, como escolhe o KDS de destino e se já recebe alerta de fora. É a primeira coisa
 do plano da fase 3.
+
+## 11/10/2026 · O plano do lado do Farol que usa o Regem foi aprovado; as fichas saem com a conexão, e a busca é uma vez por dia (dito pelo dono)
+
+As duas leituras do Regem entraram no ar em 11/10 (o catálogo e as fichas; a fila da cozinha).
+No mesmo dia o dono recebeu o plano do lado do Farol — a página "Regem no Farol" — com o
+protótipo de duas telas (`mockups/farol-conexoes-e-fichas.html`), e respondeu.
+
+### O que fica valendo
+
+1. **As duas telas estão aprovadas** — Conexões (da conta) e Fichas (da loja) —, e a fatia 1
+   (conectar e ligar as lojas) pode começar. A ordem é a do plano: fatias 1, 2 e 3 agora; a
+   planilha e a fila da cozinha depois.
+2. **Só a diretoria conecta e desconecta o Regem.** É a primeira ação do Farol que só a
+   diretoria faz: até aqui, o que o gerente configura a diretoria também configura, e nada era
+   só dela. O gerente vê a conexão e as fichas, sem os botões.
+3. **Ao desconectar, as fichas daquela loja são apagadas na hora.** Eu tinha recomendado que
+   ficassem, paradas na última leitura, para os critérios seguirem funcionando; o dono preferiu
+   o contrário. O diálogo de desconectar diz isso antes de confirmar, e os critérios que usam
+   ficha param de conferir até a loja ser conectada de novo.
+4. **O servidor não pergunta ao Regem de cinco em cinco minutos.** O dono: "o servidor não
+   precisa perguntar ao Regem a cada 5 min; ficha técnica não é algo que se mude
+   constantemente". A busca é feita quando a loja é ligada e, depois, uma vez por dia; para
+   trazer uma mudança na hora, a tela Fichas tem o "Buscar agora".
+
+### O que eu apliquei pela mesma regra, e disse a ele
+
+Quando o acesso é tirado **pelo Regem** (lá, em Configurações → Aplicativos conectados), o
+Farol também apaga as fichas daquela loja assim que percebe: sem acesso, sem fichas, dos dois
+lados. Ficou dito na página e na conversa, para ele mudar se preferir que nesse caso fiquem.
+
+### O que isto muda no desenho
+
+- **Frequência proporcional ao dado.** Cadastro que muda pouco não se consulta de minutos em
+  minutos: lê-se ao ligar, uma vez por dia e sob pedido. Vale para qualquer outra fonte de
+  fichas que entrar depois (planilha, outro sistema).
+- **Sem conexão, sem dado.** A cópia das fichas existe enquanto a loja está conectada. O que
+  já foi usado numa análise fica na análise; a base de consulta, não.
+- **Uma ação só da diretoria.** O servidor passa a ter a conferência "é a diretoria?", ao lado
+  da que já existia ("pode configurar?").
+
+### O que não foi conferido
+
+Nada foi executado contra o Regem de verdade: a página de autorização só abre depois que o
+segredo do aplicativo existir nos dois painéis. Quantas fichas o piloto terá, e como os
+adicionais serão cadastrados, só se sabe com as fichas no Regem da loja.
