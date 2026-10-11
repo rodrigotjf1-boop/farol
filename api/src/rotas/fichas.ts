@@ -21,7 +21,7 @@ import type pg from 'pg';
 import { lerBase, resumoDoProduto } from '../fichas.js';
 import { LEITURA_MORTA_MIN, lerFichasDaLoja } from '../leitura.js';
 import { ehDiretoria, podeConfigurar } from '../rbac.js';
-import { conexaoDisponivel, type ConfigDoRegem } from '../regem.js';
+import type { ConfigDoRegem } from '../regem.js';
 import { leituraParaTela, type LeituraDaLinha } from './regem.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 
@@ -148,7 +148,9 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
             : 'esta loja não está ligada ao Regem',
       });
     }
-    if (!conexaoDisponivel(cfg)) {
+    // Para LER basta a chave que abre o acesso guardado (o segredo do
+    // aplicativo é só para conectar).
+    if (cfg.chave === null) {
       return resposta.status(503).send({
         erro: 'conexao_indisponivel',
         mensagem: 'a conexão com o Regem não está disponível nesta instalação. Fale com quem cuida do Farol',

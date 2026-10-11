@@ -267,7 +267,8 @@ export async function lerAsLojasDaVez(
   pool: pg.Pool,
   cfg: ConfigDoRegem,
   log: Registro,
-  limite = 5,
+  /** `contas`: só as lojas destas contas. Ausente = todas — é assim que o servidor chama. */
+  opcoes: { limite?: number; contas?: string[] } = {},
 ): Promise<{ lidas: number; desfechos: Partial<Record<Desfecho, number>> }> {
   const desfechos: Partial<Record<Desfecho, number>> = {};
   const { rows } = await pool.query<{ id: string }>(
@@ -275,9 +276,10 @@ export async function lerAsLojasDaVez(
       where loja_id is not null and acesso_tirado_em is null
         and (proxima_em is null or proxima_em <= now())
         and (lendo_desde is null or lendo_desde < now() - make_interval(mins => $2))
+        and ($3::uuid[] is null or tenant_id = any($3::uuid[]))
       order by proxima_em nulls first, id
       limit $1`,
-    [limite, LEITURA_MORTA_MIN],
+    [opcoes.limite ?? 5, LEITURA_MORTA_MIN, opcoes.contas ?? null],
   );
   for (const { id } of rows) {
     try {
@@ -313,10 +315,11 @@ export async function voltaDaLeitura(
   log: Registro,
   podeRodar: () => boolean,
   memoria: MemoriaDaRotina,
+  opcoes: { limite?: number; contas?: string[] } = {},
 ): Promise<void> {
   if (!podeRodar() || cfg.chave === null) return;
   try {
-    const r = await lerAsLojasDaVez(pool, cfg, log);
+    const r = await lerAsLojasDaVez(pool, cfg, log, opcoes);
     memoria.avisouQueFaltaMigrar = false;
     if (r.lidas > 0) log.info({ lidas: r.lidas, ...r.desfechos }, 'regem: leitura das fichas das lojas da vez');
   } catch (e) {
