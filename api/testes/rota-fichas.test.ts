@@ -231,9 +231,20 @@ describe('fichas: as rotas da tela', { skip: !URL_DO_BANCO && 'sem DATABASE_URL'
 
   it('sem conexão; depois, autorizada lá mas sem par aqui: a tela sabe a diferença', async () => {
     const sem = (await fichas(minha.gerente, minha.centro)).json();
-    assert.deepEqual(sem, { situacao: 'sem_conexao', podeConectar: false, podeBuscar: true, fonte: null, regemLojaNome: null, leitura: null, totais: null, produtos: [] });
-    // A supervisão vê o mesmo estado, sem nenhum dos dois botões.
-    assert.deepEqual((await fichas(minha.supervisao, minha.centro)).json(), { ...sem, podeBuscar: false });
+    assert.deepEqual(sem, {
+      situacao: 'sem_conexao',
+      podeConectar: false,
+      podeBuscar: true,
+      podeImportar: true,
+      fonte: null,
+      importacao: null,
+      regemLojaNome: null,
+      leitura: null,
+      totais: null,
+      produtos: [],
+    });
+    // A supervisão vê o mesmo estado, sem nenhum dos botões.
+    assert.deepEqual((await fichas(minha.supervisao, minha.centro)).json(), { ...sem, podeBuscar: false, podeImportar: false });
 
     await autorizar(minha.dono, [{ id: randomUUID(), nome: 'Centro de lá' }]);
     const falta = (await fichas(minha.dono, minha.centro)).json();
@@ -411,7 +422,9 @@ describe('fichas: as rotas da tela', { skip: !URL_DO_BANCO && 'sem DATABASE_URL'
       situacao: 'sem_conexao',
       podeConectar: false,
       podeBuscar: true,
+      podeImportar: true,
       fonte: null,
+      importacao: null,
       regemLojaNome: null,
       leitura: null,
       totais: null,

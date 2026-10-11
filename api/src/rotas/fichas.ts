@@ -6,11 +6,20 @@
 // ar, e mostra o que valia na última leitura boa.
 //
 // Não se edita por aqui: as fichas são da fonte. O que dá para fazer é pedir
-// uma leitura na hora ("Buscar agora").
+// uma leitura na hora ("Buscar agora") — ou, na loja que não usa o Regem,
+// IMPORTAR UMA PLANILHA no modelo do Farol (`planilha-fichas.ts`).
+//
+// A PLANILHA. Quem abre o arquivo é o navegador; para cá vêm as células, e
+// toda regra é daqui. `POST …/fichas/importar` confere e diz o que entraria
+// e o que ficaria de fora; com `gravar: true`, troca a base da loja pelo que
+// está certo (decisão do dono, 11/10/2026: "entra o que está certo e a tela
+// lista o que ficou de fora"). O registro da última importação fica
+// guardado, com a lista do que ficou de fora. Uma loja recebe as fichas de
+// um lugar só: loja ligada ao Regem não importa planilha.
 //
 // QUEM. Ver: quem acompanha a loja (supervisão para cima e o suporte —
-// decisão do dono em 11/10/2026). Pedir a busca: quem configura a loja
-// (gerente para cima e o suporte). Conectar é da diretoria, e mora em
+// decisão do dono em 11/10/2026). Pedir a busca e importar: quem configura a
+// loja (gerente para cima e o suporte). Conectar é da diretoria, e mora em
 // `rotas/regem.ts`.
 //
 // A loja do vizinho é 404, como em toda rota: o filtro pela conta vai na
@@ -25,14 +34,37 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type pg from 'pg';
 
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
-import { lerBase, resumoDoProduto } from '../fichas.js';
+import { impressaoDaBase, lerBase, resumoDoProduto } from '../fichas.js';
 import { LEITURA_MORTA_MIN, lerFichasDaLoja } from '../leitura.js';
+import { COLUNAS, lerPlanilha, linhasDaBase, MODELO, NOME_DA_ABA, UNIDADES, type Contas, type Leitura } from '../planilha-fichas.js';
 import { ehDiretoria, podeAcompanhar, podeConfigurar } from '../rbac.js';
 import type { ConfigDoRegem } from '../regem.js';
 import { leituraParaTela, type LeituraDaLinha } from './regem.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** O maior corpo que a importação aceita: as células de uma planilha de loja cabem com folga. */
+const MAX_DA_PLANILHA = 8 * 1024 * 1024;
+
+/** O registro da última importação por planilha, como fica guardado. */
+export type Importacao = {
+  arquivo: string;
+  em: string;
+  por: { id: string; nome: string };
+  contas: Contas;
+  semFicha: Leitura['semFicha'];
+  deFora: Leitura['deFora'];
+  soltos: Leitura['soltos'];
+  problemas: number;
+};
+
+/** O nome do arquivo, só para a tela dizer qual foi: sem pasta e sem caractere de controle. */
+function nomeDoArquivo(v: unknown): string {
+  if (typeof v !== 'string') return '';
+  const semPasta = v.split(/[\\/]/).pop() ?? '';
+  const visivel = [...semPasta].filter((c) => c.charCodeAt(0) >= 32 && c.charCodeAt(0) !== 127).join('');
+  return visivel.trim().slice(0, 120);
+}
 
 /** Em que pé está a loja, do ponto de vista de quem quer ver as fichas. */
 export type SituacaoDasFichas =
@@ -52,11 +84,14 @@ type Linha = LeituraDaLinha & {
   esperando: number;
   atualizada_em: Date | null;
   conteudo: unknown;
+  fonte: 'regem' | 'planilha' | null;
+  impressao: string | null;
+  importacao: Importacao | null;
 };
 
 export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoRegem): void {
-  /** `paraBuscar`: a rota faz o Farol ler a fonte — é de quem configura, não de quem só vê. */
-  async function quem(req: FastifyRequest, resposta: FastifyReply, paraBuscar = false): Promise<Sessao | null> {
+  /** `paraBuscar`: a rota MEXE na base (lê a fonte, importa) — é de quem configura, não de quem só vê. */
+  async function quem(req: FastifyRequest, resposta: FastifyReply, paraBuscar = false, oQue = 'pede a busca'): Promise<Sessao | null> {
     const s = await sessaoDe(pool, req);
     if (!s) {
       resposta.status(401).send({ erro: 'sem_sessao', mensagem: 'faça login' });
@@ -67,7 +102,7 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
       return null;
     }
     if (paraBuscar && !podeConfigurar(s)) {
-      resposta.status(403).send({ erro: 'sem_permissao', mensagem: 'seu perfil vê as fichas, mas quem pede a busca é quem configura a loja' });
+      resposta.status(403).send({ erro: 'sem_permissao', mensagem: `seu perfil vê as fichas, mas quem ${oQue} é quem configura a loja` });
       return null;
     }
     return s;
@@ -79,7 +114,7 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
       `select l.nome as loja_nome, l.timezone as fuso,
               r.id as conexao_id, r.regem_loja_nome, r.lida_em, r.falha, r.acesso_tirado_em,
               (r.lendo_desde is not null and r.lendo_desde > now() - make_interval(mins => $3)) as lendo,
-              f.produtos, f.com_ficha, f.atualizada_em,
+              f.produtos, f.com_ficha, f.atualizada_em, f.fonte, f.impressao, f.importacao,
               ${comConteudo ? 'f.conteudo' : 'null::jsonb as conteudo'},
               (select count(*)::int from regem_loja e where e.tenant_id = l.tenant_id and e.loja_id is null) as esperando
          from loja l
@@ -114,8 +149,15 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
       podeConectar: ehDiretoria(s),
       /** Quem configura a loja pede a busca na hora; a supervisão só vê. */
       podeBuscar: podeConfigurar(s),
-      /** De onde as fichas vieram. Nulo = a loja não tem base. */
-      fonte: base ? 'regem' : null,
+      /** Quem configura importa planilha — na loja que não está ligada ao Regem (uma origem por loja). */
+      podeImportar: podeConfigurar(s) && l.conexao_id === null,
+      /** De onde as fichas vieram: `regem` ou `planilha`. Nulo = a loja não tem base. */
+      fonte: base ? l.fonte : null,
+      /** A última importação por planilha: qual arquivo, quando, quem, e quantos produtos ficaram de fora. */
+      importacao:
+        base && l.fonte === 'planilha' && l.importacao
+          ? { arquivo: l.importacao.arquivo, em: l.importacao.em, por: l.importacao.por.nome, deFora: l.importacao.deFora.length, problemas: l.importacao.problemas }
+          : null,
       /** O nome da loja no Regem, para a tela dizer com qual loja de lá esta está ligada. */
       regemLojaNome: l.regem_loja_nome,
       leitura: l.conexao_id ? leituraParaTela(l) : null,
@@ -199,6 +241,118 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
       produtos: depois?.produtos ?? 0,
       comFicha: depois?.com_ficha ?? 0,
     };
+  });
+
+  // ─────────────────────── a planilha ───────────────────────
+
+  // O modelo: os títulos das colunas, a lista de unidades e um exemplo
+  // pequeno. Sai DAQUI, e não de um arquivo guardado no console, para o
+  // modelo que a pessoa baixa ser sempre o que o servidor lê.
+  app.get('/v1/fichas/modelo', async (req, resposta) => {
+    const s = await quem(req, resposta, true, 'importa a planilha');
+    if (!s) return;
+    return { abas: MODELO, nomes: NOME_DA_ABA, colunas: COLUNAS, unidades: UNIDADES };
+  });
+
+  // Confere a planilha e, com `gravar: true`, importa o que está certo.
+  //
+  // Sem `gravar`, nada é escrito: é a conferência, que diz o que entraria e
+  // o que ficaria de fora, linha por linha. A planilha que não dá para ler
+  // (sem a aba Fichas, sem uma coluna obrigatória) é 422, com o motivo.
+  app.post('/v1/lojas/:id/fichas/importar', { bodyLimit: MAX_DA_PLANILHA }, async (req, resposta) => {
+    const s = await quem(req, resposta, true, 'importa a planilha');
+    if (!s) return;
+    const { id } = req.params as { id: string };
+    if (!UUID.test(id)) return resposta.status(422).send({ erro: 'validacao', mensagem: 'id inválido' });
+    const corpo = req.body as { arquivo?: unknown; abas?: unknown; gravar?: unknown } | null;
+    if (!corpo || typeof corpo !== 'object' || Array.isArray(corpo)) {
+      return resposta.status(422).send({ erro: 'validacao', mensagem: 'envie a planilha' });
+    }
+    // Liga-desliga é exato: "true" em texto não grava nada por engano.
+    if (corpo.gravar !== undefined && typeof corpo.gravar !== 'boolean') {
+      return resposta.status(422).send({ erro: 'validacao', mensagem: 'gravar: verdadeiro ou falso' });
+    }
+
+    const l = await daLoja(s, id, false);
+    if (!l) return semLoja(resposta);
+    const ocupada = () =>
+      resposta.status(409).send({
+        erro: 'origem_ocupada',
+        mensagem: 'esta loja recebe as fichas do Regem. Uma loja recebe de um lugar só: para importar planilha, desconecte a loja do Regem antes',
+      });
+    if (l.conexao_id !== null) return ocupada();
+
+    const lida = lerPlanilha(corpo.abas);
+    if (lida.impede !== null) return resposta.status(422).send({ erro: 'planilha_invalida', mensagem: lida.impede });
+
+    const relatorio = { contas: lida.contas, semFicha: lida.semFicha, deFora: lida.deFora, soltos: lida.soltos, problemas: lida.problemas };
+    /** O que a loja tem hoje, e que a importação troca inteiro. Nulo = não tem nada. */
+    const troca = l.fonte ? { produtos: l.produtos ?? 0, comFicha: l.com_ficha ?? 0 } : null;
+    if (corpo.gravar !== true) return { gravado: false, ...relatorio, troca };
+
+    if (lida.contas.produtos === 0) {
+      return resposta.status(422).send({
+        erro: 'nada_a_importar',
+        mensagem: 'nenhum produto da planilha está certo, e nada foi importado. Corrija o que a lista aponta e envie de novo',
+        ...relatorio,
+      });
+    }
+
+    const impressao = impressaoDaBase(lida.base);
+    const importacao: Importacao = { arquivo: nomeDoArquivo(corpo.arquivo), em: new Date().toISOString(), por: { id: s.usuarioId, nome: s.nome }, ...relatorio };
+    // A base é trocada INTEIRA, numa instrução só — e só se a loja continua
+    // sem ligação com o Regem (alguém pode ter ligado entre a conferência e
+    // agora). A data da base só anda se o documento mudou.
+    const gravou = await pool.query(
+      `insert into fichas_da_loja (loja_id, tenant_id, fonte, conteudo, impressao, produtos, com_ficha, atualizada_em, importacao)
+       select $1, $2, 'planilha', $3::jsonb, $4, $5, $6, now(), $7::jsonb
+        where not exists (select 1 from regem_loja where loja_id = $1)
+       on conflict (loja_id) do update
+          set tenant_id = excluded.tenant_id, fonte = excluded.fonte, conteudo = excluded.conteudo, impressao = excluded.impressao,
+              produtos = excluded.produtos, com_ficha = excluded.com_ficha, importacao = excluded.importacao,
+              atualizada_em = case when fichas_da_loja.impressao is distinct from excluded.impressao then now() else fichas_da_loja.atualizada_em end`,
+      [id, s.tenantId, JSON.stringify(lida.base), impressao, lida.contas.produtos, lida.contas.comFicha, JSON.stringify(importacao)],
+    );
+    if ((gravou.rowCount ?? 0) === 0) return ocupada();
+
+    req.log.info({ loja: id, usuario: s.usuarioId, ...lida.contas, deFora: lida.deFora.length, problemas: lida.problemas }, 'fichas: planilha importada');
+    return {
+      gravado: true,
+      /** `atualizada`: as fichas da loja mudaram. `nada_mudou`: a planilha traz o que a loja já tinha. */
+      resultado: l.impressao === impressao ? 'nada_mudou' : 'atualizada',
+      ...relatorio,
+      troca,
+    };
+  });
+
+  // O registro da última importação, com a lista do que ficou de fora — para
+  // quem vai corrigir a planilha depois de fechar a tela.
+  app.get('/v1/lojas/:id/fichas/importacao', async (req, resposta) => {
+    const s = await quem(req, resposta, true, 'importa a planilha');
+    if (!s) return;
+    const { id } = req.params as { id: string };
+    if (!UUID.test(id)) return resposta.status(422).send({ erro: 'validacao', mensagem: 'id inválido' });
+    const l = await daLoja(s, id, false);
+    if (!l) return semLoja(resposta);
+    if (l.fonte !== 'planilha' || !l.importacao) {
+      return resposta.status(404).send({ erro: 'sem_importacao', mensagem: 'esta loja não tem fichas de planilha' });
+    }
+    const i = l.importacao;
+    return { arquivo: i.arquivo, em: i.em, por: i.por.nome, contas: i.contas, semFicha: i.semFicha, deFora: i.deFora, soltos: i.soltos, problemas: i.problemas };
+  });
+
+  // As fichas da loja de volta em planilha, no modelo: para corrigir e
+  // importar de novo. Só da base que veio de planilha — a do Regem se muda lá.
+  app.get('/v1/lojas/:id/fichas/planilha', async (req, resposta) => {
+    const s = await quem(req, resposta, true, 'importa a planilha');
+    if (!s) return;
+    const { id } = req.params as { id: string };
+    if (!UUID.test(id)) return resposta.status(422).send({ erro: 'validacao', mensagem: 'id inválido' });
+    const l = await daLoja(s, id, true);
+    if (!l) return semLoja(resposta);
+    const base = l.fonte === 'planilha' ? lerBase(l.conteudo) : null;
+    if (!base) return resposta.status(404).send({ erro: 'sem_importacao', mensagem: 'esta loja não tem fichas de planilha' });
+    return { abas: linhasDaBase(base), nomes: NOME_DA_ABA };
   });
 
   // ─────────────────────── o agente baixa a base ───────────────────────

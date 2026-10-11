@@ -4607,6 +4607,24 @@ depois**, como ele decidiu; a planilha tem protótipo próprio antes.
   plano e protótipo antes de tela.
 - **A barra de baixo do celular** ganha um item "Mais" (o recomendado): protótipo antes.
 
+**Ainda em 11/10, às 20h23, a primeira conexão de verdade:** o dono conectou a conta ao Regem
+e ligou a loja do piloto. O servidor leu 68 produtos (nenhuma ficha ainda: ele está
+cadastrando no Regem) e a cópia chegou ao computador da loja no mesmo minuto — o que a fatia 3
+não tinha conseguido medir.
+
+**O protótipo "fichas de qualquer origem" foi aprovado na mesma noite** ("pode começar pela
+planilha"), com uma mudança: planilha com problema **"entra o que está certo e a tela lista o
+que ficou de fora"**. A ordem: a planilha, a porta para outro sistema, o "Mais" no celular.
+
+- **Planilha — o servidor: entregue** (migration 040; [decisoes.md](decisoes.md), "as fichas
+  por planilha"): o leitor da planilha no modelo do Farol, conferir e importar (o que está
+  certo entra; o produto com linha errada fica inteiro de fora, com o motivo), o registro do
+  que ficou de fora, a planilha de volta e o modelo. Sem tela ainda.
+- **Planilha — a tela:** a próxima entrega (a loja sem fichas com os jeitos de tê-las, a
+  importação em três passos, a etiqueta da origem). É a tela que abre o arquivo do Excel.
+- **Porta para outro sistema** e **"Mais" no celular:** depois da tela da planilha.
+- **Telas antigas que dizem "nuvem" e "versão":** o dono pediu o protótipo do antes e depois.
+
 ### O que não foi medido
 
 - O acerto dos modelos de nuvem em **sequências** desta loja. Em quadro único foi medido
