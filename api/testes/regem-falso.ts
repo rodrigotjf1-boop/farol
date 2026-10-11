@@ -1,0 +1,212 @@
+// =====================================================================
+// O Regem, para o teste — um servidor de verdade
+// =====================================================================
+// Não é um dublê de função: é um servidor HTTP que o cliente do Farol
+// chama pela rede, como chama o Regem. O que ele recusa é o que o Regem
+// recusa, na mesma ordem e com o mesmo formato (`application/problem+json`),
+// copiado do serviço de lá (`autorizacao-loja.service.ts`, `trocar`, e
+// `integracao-token.service.ts`, `revogarPelaIntegracao`):
+//
+//   • a troca confere PRIMEIRO o cliente e o segredo (401 cliente-invalido);
+//   • depois o formato do código; depois GASTA o código — e só então confere
+//     o endereço de volta e o PKCE. Tentativa que falha depois de gastar
+//     também gasta (400 autorizacao-invalida, a mesma frase em todo caso);
+//   • a loja que já tinha acesso deste cliente troca: o antigo deixa de valer;
+//   • devolver um acesso que não vale é 401 token-invalido.
+//
+// Arquivo de apoio: não termina em `.test.ts`, então o corredor de testes
+// não o trata como teste.
+// =====================================================================
+
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
+
+export type LojaDeLa = { id: string; nome: string };
+
+type Autorizacao = {
+  lojas: LojaDeLa[];
+  empresa: string;
+  desafio: string;
+  redirectUri: string;
+  usado: boolean;
+  vencido: boolean;
+};
+
+export type Chamada = {
+  caminho: string;
+  agente: string;
+  tipo: string | null;
+  comAcesso: boolean;
+  corpo: Record<string, unknown> | null;
+};
+
+export type RegemFalso = {
+  /** O que vai em `apiUrl`: já com o prefixo, como o de verdade. */
+  url: string;
+  segredo: string;
+  /** O que a página de lá faz quando o presidente autoriza: devolve o código de uso único. */
+  autorizar(p: { lojas: LojaDeLa[]; empresa?: string; desafio: string; redirectUri: string; vencido?: boolean }): string;
+  /** O acesso ainda vale lá? */
+  vale(acesso: string): boolean;
+  /** Tira um acesso por lá — o presidente em "Aplicativos conectados". */
+  tirar(acesso: string): void;
+  /** Todo acesso que já saiu daqui, valendo ou não: para o teste procurar onde ele NÃO pode estar. */
+  emitidos: string[];
+  chamadas: Chamada[];
+  /**
+   * normal    responde como o Regem;
+   * fora      503 em tudo;
+   * mudo      aceita a conexão e não responde (para o prazo do cliente);
+   * devagar   429 em tudo;
+   * proibido  403 em tudo (uma recusa que não é "o acesso não vale");
+   * desvia    302 para outro caminho deste mesmo servidor;
+   * pagina    200 com uma página, não com JSON;
+   * ou uma função que monta a resposta da TROCA (para o que foge do contrato).
+   */
+  modo: 'normal' | 'fora' | 'mudo' | 'devagar' | 'proibido' | 'desvia' | 'pagina' | ((lojas: unknown[]) => unknown);
+  fechar(): Promise<void>;
+};
+
+const FORMATO_CODIGO = /^rgm_ac_[A-Za-z0-9_-]{43}$/;
+const FORMATO_VERIFICADOR = /^[A-Za-z0-9\-._~]{43,128}$/;
+const BASE = 'https://api.dmsregem.com/problemas/';
+
+export async function subirRegemFalso(): Promise<RegemFalso> {
+  const segredo = randomBytes(32).toString('base64url');
+  const codigos = new Map<string, Autorizacao>();
+  /** acesso → loja de lá */
+  const acessos = new Map<string, string>();
+  const chamadas: Chamada[] = [];
+  const emitidos: string[] = [];
+  const presos = new Set<http.ServerResponse>();
+
+  const problema = (r: http.ServerResponse, status: number, tipo: string, titulo: string, detalhe: string) => {
+    r.writeHead(status, { 'content-type': 'application/problem+json; charset=utf-8' });
+    r.end(JSON.stringify({ type: BASE + tipo, title: titulo, status, detail: detalhe, request_id: randomUUID() }));
+  };
+  const json = (r: http.ServerResponse, status: number, corpo: unknown) => {
+    r.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
+    r.end(JSON.stringify(corpo));
+  };
+
+  const falso: RegemFalso = {
+    url: '',
+    segredo,
+    chamadas,
+    emitidos,
+    modo: 'normal',
+    autorizar(p) {
+      const codigo = `rgm_ac_${randomBytes(32).toString('base64url')}`;
+      codigos.set(codigo, {
+        lojas: p.lojas,
+        empresa: p.empresa ?? 'Casa do Lanche Alimentação Ltda',
+        desafio: p.desafio,
+        redirectUri: p.redirectUri,
+        usado: false,
+        vencido: p.vencido === true,
+      });
+      return codigo;
+    },
+    vale: (acesso) => acessos.has(acesso),
+    tirar: (acesso) => void acessos.delete(acesso),
+    fechar: () =>
+      new Promise((ok) => {
+        for (const r of presos) r.destroy();
+        servidor.close(() => ok());
+        servidor.closeAllConnections();
+      }),
+  };
+
+  const servidor = http.createServer((req, res) => {
+    const pedacos: Buffer[] = [];
+    req.on('data', (p: Buffer) => pedacos.push(p));
+    req.on('end', () => {
+      const texto = Buffer.concat(pedacos).toString('utf8');
+      let corpo: Record<string, unknown> | null = null;
+      try {
+        corpo = texto ? (JSON.parse(texto) as Record<string, unknown>) : null;
+      } catch {
+        corpo = null;
+      }
+      const caminho = (req.url ?? '').replace(/^\/api\/v1/, '');
+      const autorizacao = String(req.headers.authorization ?? '');
+      chamadas.push({
+        caminho,
+        agente: String(req.headers['user-agent'] ?? ''),
+        tipo: req.headers['content-type'] ? String(req.headers['content-type']) : null,
+        comAcesso: autorizacao.length > 0,
+        corpo,
+      });
+
+      const modo = falso.modo;
+      if (modo === 'mudo') return void presos.add(res);
+      if (modo === 'fora') return problema(res, 503, 'erro-interno', 'Erro interno', 'Serviço indisponível.');
+      if (modo === 'devagar') return problema(res, 429, 'limite-de-chamadas', 'Limite de chamadas', 'Muitas chamadas.');
+      if (modo === 'proibido') return problema(res, 403, 'escopo-insuficiente', 'Escopo insuficiente', 'Não pode.');
+      if (modo === 'desvia') {
+        // Para ESTE servidor, noutro caminho: se o cliente seguir o
+        // desvio, a segunda chamada fica anotada em `chamadas`.
+        if (caminho === '/outro-lugar') return problema(res, 404, 'nao-encontrado', 'Não encontrado', 'Rota inexistente.');
+        res.writeHead(302, { location: `${falso.url}/outro-lugar` });
+        return void res.end();
+      }
+      if (modo === 'pagina') {
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        return void res.end('<!doctype html><title>Um momento…</title>');
+      }
+      if (req.method !== 'POST') return problema(res, 404, 'nao-encontrado', 'Não encontrado', 'Rota inexistente.');
+
+      // ── a troca do código ──
+      if (caminho === '/integracao/autorizacao/token') {
+        if (corpo?.client_id !== 'farol' || corpo?.client_secret !== segredo) {
+          return problema(res, 401, 'cliente-invalido', 'Cliente inválido', 'Cliente ou segredo de cliente inválido.');
+        }
+        const recusar = () =>
+          problema(res, 400, 'autorizacao-invalida', 'Autorização inválida', 'Código de autorização inválido, vencido ou já usado.');
+        const codigo = corpo?.code;
+        if (typeof codigo !== 'string' || !FORMATO_CODIGO.test(codigo)) return recusar();
+        const a = codigos.get(codigo);
+        if (!a || a.usado || a.vencido) return recusar();
+        a.usado = true; // gasto ANTES das conferências seguintes, como lá
+        if (corpo?.redirect_uri !== a.redirectUri) return recusar();
+        const v = corpo?.code_verifier;
+        if (typeof v !== 'string' || !FORMATO_VERIFICADOR.test(v)) return recusar();
+        if (createHash('sha256').update(v, 'ascii').digest('base64url') !== a.desafio) return recusar();
+
+        const lojas = a.lojas.map((l) => {
+          // A loja que já tinha acesso troca: o antigo para de valer.
+          for (const [antigo, loja] of acessos) if (loja === l.id) acessos.delete(antigo);
+          const token = `rgm_it_${randomBytes(32).toString('base64url')}`;
+          acessos.set(token, l.id);
+          emitidos.push(token);
+          return {
+            loja_id: l.id,
+            loja_nome: l.nome,
+            empresa_nome: a.empresa,
+            fuso: 'America/Sao_Paulo',
+            moeda: 'BRL',
+            escopos: ['catalogo.ler', 'fichas.ler', 'producao.ler'],
+            cardapio_url: null,
+            token,
+          };
+        });
+        return json(res, 200, typeof modo === 'function' ? modo(lojas) : { lojas });
+      }
+
+      // ── a integração devolve o próprio acesso ──
+      if (caminho === '/integracao/autorizacao/revogar') {
+        const acesso = /^Bearer (.+)$/.exec(autorizacao)?.[1] ?? '';
+        if (!acessos.has(acesso)) return problema(res, 401, 'token-invalido', 'Token inválido', 'Token ausente, inválido ou revogado.');
+        acessos.delete(acesso);
+        return json(res, 200, { revogado: true, revogado_em: new Date().toISOString() });
+      }
+
+      return problema(res, 404, 'nao-encontrado', 'Não encontrado', 'Rota inexistente.');
+    });
+  });
+
+  await new Promise<void>((ok) => servidor.listen(0, '127.0.0.1', ok));
+  falso.url = `http://127.0.0.1:${(servidor.address() as AddressInfo).port}/api/v1`;
+  return falso;
+}

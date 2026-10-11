@@ -9,6 +9,7 @@ import type pg from 'pg';
 import { instalarTratamentoDeErros } from './erros.js';
 import type { Subida } from './guarda.js';
 import { acharMigrations, conferirEsquema } from './preflight.js';
+import { configDoRegem, type ConfigDoRegem } from './regem.js';
 import { rotasDeAgentes } from './rotas/agentes.js';
 import { rotasDeAlertas } from './rotas/alertas.js';
 import { rotasDoConsole } from './rotas/console.js';
@@ -19,6 +20,7 @@ import { rotasDePlanta } from './rotas/planta.js';
 import { rotasDoEspecialista } from './rotas/especialista.js';
 import { rotasDePadroes } from './rotas/padroes.js';
 import { rotasDePreview } from './rotas/preview.js';
+import { rotasDoRegem } from './rotas/regem.js';
 import { rotasDeRegras } from './rotas/regras.js';
 import { rotasDeEstudos } from './rotas/estudos.js';
 import { rotasDeEventos } from './rotas/eventos.js';
@@ -34,10 +36,20 @@ export const VERSAO = process.env.APP_VERSION ?? '0.1.0';
 
 export function criarApp(
   pool: pg.Pool,
-  opcoes: { logger?: boolean; pastaDeMigrations?: string | null; subida?: Subida } = {},
+  opcoes: {
+    /** `false` cala. Um objeto com `stream` manda o registro para onde o teste lê. */
+    logger?: boolean | { level?: string; stream: { write(linha: string): void } };
+    pastaDeMigrations?: string | null;
+    subida?: Subida;
+    /** Como falar com o Regem. Ausente: o que o ambiente diz. O teste passa o dele. */
+    regem?: ConfigDoRegem;
+  } = {},
 ): FastifyInstance {
   const app = Fastify({
-    logger: opcoes.logger === false ? false : { level: process.env.LOG_LEVEL ?? 'info' },
+    logger:
+      opcoes.logger === false
+        ? false
+        : { level: process.env.LOG_LEVEL ?? 'info', ...(typeof opcoes.logger === 'object' ? opcoes.logger : {}) },
     // O agente manda lote; 500 eventos com embedding de 768 passam folgado
     // do padrão de 1 MB do Fastify.
     bodyLimit: 32 * 1024 * 1024,
@@ -163,6 +175,7 @@ export function criarApp(
   rotasDeAgentes(app, pool);
   rotasDeConfiguracao(app, pool);
   rotasDePreview(app, pool);
+  rotasDoRegem(app, pool, opcoes.regem ?? configDoRegem(process.env, VERSAO));
   rotasDePadroes(app, pool);
   rotasDeInventario(app, pool);
   rotasDePlanta(app, pool);

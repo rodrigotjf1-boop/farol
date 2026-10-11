@@ -1380,3 +1380,57 @@ export const analisesApi = {
     return promessa;
   },
 };
+
+// ───────────────────────── a conexão com o Regem ─────────────────────────
+
+/** Uma loja autorizada no Regem que ainda espera alguém dizer qual loja do Farol ela é. */
+export type LojaDoRegemEsperando = {
+  id: string;
+  regemLojaNome: string;
+  regemEmpresaNome: string;
+  autorizadaEm: string;
+  /** O par que o servidor sugere pelo nome. Nulo = sem sugestão: a pessoa escolhe. */
+  sugestaoLojaId: string | null;
+};
+
+export type LojaDoRegemLigada = {
+  id: string;
+  lojaId: string;
+  lojaNome: string;
+  regemLojaNome: string;
+  regemEmpresaNome: string;
+  ligadaEm: string;
+};
+
+export type ConexaoComORegem = {
+  /** A conexão pode ser feita aqui. Falso: o botão de conectar não aparece. */
+  disponivel: boolean;
+  /** Só a diretoria conecta, liga e desconecta. Quem decide é a API; isto só esconde o botão. */
+  podeConectar: boolean;
+  /** As lojas do Farol que ainda não têm par. */
+  lojasLivres: Array<{ id: string; nome: string }>;
+  esperando: LojaDoRegemEsperando[];
+  ligadas: LojaDoRegemLigada[];
+};
+
+/** Como terminou a volta do Regem. Chega no endereço: `/conexoes?regem=…`. */
+export type VoltaDoRegem = 'autorizado' | 'cancelado' | 'vencido' | 'outra_conta' | 'sem_sessao' | 'sem_permissao' | 'invalido' | 'falhou';
+
+export const regemApi = {
+  obter: () => pedir<ConexaoComORegem>('/regem'),
+
+  /** Devolve o endereço da página de autorização do Regem: a tela leva a pessoa para lá. */
+  conectar: () => pedir<{ url: string }>('/regem/conectar', { method: 'POST' }),
+
+  /** `lojaId` nulo = não usar esta loja: o acesso dela é devolvido ao Regem. */
+  ligar: (pares: Array<{ id: string; lojaId: string | null }>) =>
+    pedir<{ ligadas: number; descartadas: number; naoDescartadas: Array<{ id: string; regemLojaNome: string }> }>('/regem/lojas', {
+      method: 'PUT',
+      body: JSON.stringify({ pares }),
+    }),
+
+  desconectar: (id: string) =>
+    pedir<{ desconectada: true; devolvido: boolean; lojaNome: string | null; regemLojaNome: string }>(`/regem/lojas/${id}/desconectar`, {
+      method: 'POST',
+    }),
+};

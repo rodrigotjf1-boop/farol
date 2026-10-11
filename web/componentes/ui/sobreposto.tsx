@@ -121,6 +121,7 @@ export function Dialogo({
   children,
   rotuloConfirmar,
   rotuloOcupado = 'Aguarde…',
+  rotuloCancelar = 'Cancelar',
   variante = 'perigo',
   ocupado = false,
   erro,
@@ -132,6 +133,8 @@ export function Dialogo({
   children: ReactNode;
   rotuloConfirmar: string;
   rotuloOcupado?: string;
+  /** O botão de quem desiste. "Manter", quando a pergunta é sobre tirar algo que está funcionando. */
+  rotuloCancelar?: string;
   variante?: Variante;
   ocupado?: boolean;
   erro?: string | null;
@@ -172,7 +175,7 @@ export function Dialogo({
         )}
         <div className="mt-1.5 flex flex-wrap justify-end gap-2.5">
           <Botao autoFocus={!formulario} onClick={aoCancelar} disabled={ocupado}>
-            Cancelar
+            {rotuloCancelar}
           </Botao>
           {/* Numa pergunta, o botão de confirmar NÃO é o de envio: Enter no
               Cancelar focado não pode excluir nada. */}
