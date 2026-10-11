@@ -71,7 +71,8 @@ export function telasDaLoja(lojaId: string, pode: { veResultados: boolean; confi
     tela('Planta', `${base}/canais/planta`, Mapa),
     tela('Inventário', `${base}/canais/inventario`, Boxes),
     tela('Critérios', `${base}/regras`, ListChecks),
-    ...(pode.configura ? [tela('Fichas', `${base}/fichas`, ClipboardList)] : []),
+    // Quem vê os resultados vê as fichas (supervisão para cima e o suporte).
+    ...(pode.veResultados ? [tela('Fichas', `${base}/fichas`, ClipboardList)] : []),
     tela('Alertas', `${base}/alertas`, BellRing),
     ...(pode.configura ? [tela('Orçamento', `${base}/orcamento`, Calculator)] : []),
   ];

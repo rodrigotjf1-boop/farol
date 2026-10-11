@@ -8,8 +8,10 @@
 // Não se edita por aqui: as fichas são da fonte. O que dá para fazer é pedir
 // uma leitura na hora ("Buscar agora").
 //
-// QUEM. Ver e buscar: quem configura a loja (gerente para cima e o
-// suporte). Conectar é da diretoria, e mora em `rotas/regem.ts`.
+// QUEM. Ver: quem acompanha a loja (supervisão para cima e o suporte —
+// decisão do dono em 11/10/2026). Pedir a busca: quem configura a loja
+// (gerente para cima e o suporte). Conectar é da diretoria, e mora em
+// `rotas/regem.ts`.
 //
 // A loja do vizinho é 404, como em toda rota: o filtro pela conta vai na
 // mesma consulta.
@@ -25,7 +27,7 @@ import type pg from 'pg';
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import { lerBase, resumoDoProduto } from '../fichas.js';
 import { LEITURA_MORTA_MIN, lerFichasDaLoja } from '../leitura.js';
-import { ehDiretoria, podeConfigurar } from '../rbac.js';
+import { ehDiretoria, podeAcompanhar, podeConfigurar } from '../rbac.js';
 import type { ConfigDoRegem } from '../regem.js';
 import { leituraParaTela, type LeituraDaLinha } from './regem.js';
 import { sessaoDe, type Sessao } from './sessao.js';
@@ -53,14 +55,19 @@ type Linha = LeituraDaLinha & {
 };
 
 export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoRegem): void {
-  async function quem(req: FastifyRequest, resposta: FastifyReply): Promise<Sessao | null> {
+  /** `paraBuscar`: a rota faz o Farol ler a fonte — é de quem configura, não de quem só vê. */
+  async function quem(req: FastifyRequest, resposta: FastifyReply, paraBuscar = false): Promise<Sessao | null> {
     const s = await sessaoDe(pool, req);
     if (!s) {
       resposta.status(401).send({ erro: 'sem_sessao', mensagem: 'faça login' });
       return null;
     }
-    if (!podeConfigurar(s)) {
+    if (!podeAcompanhar(s)) {
       resposta.status(403).send({ erro: 'sem_permissao', mensagem: 'seu perfil não vê as fichas da loja' });
+      return null;
+    }
+    if (paraBuscar && !podeConfigurar(s)) {
+      resposta.status(403).send({ erro: 'sem_permissao', mensagem: 'seu perfil vê as fichas, mas quem pede a busca é quem configura a loja' });
       return null;
     }
     return s;
@@ -105,6 +112,8 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
       situacao: situacaoDe(l),
       /** Só a diretoria conecta e liga: a tela mostra o botão ou a frase. */
       podeConectar: ehDiretoria(s),
+      /** Quem configura a loja pede a busca na hora; a supervisão só vê. */
+      podeBuscar: podeConfigurar(s),
       /** De onde as fichas vieram. Nulo = a loja não tem base. */
       fonte: base ? 'regem' : null,
       /** O nome da loja no Regem, para a tela dizer com qual loja de lá esta está ligada. */
@@ -136,7 +145,7 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
   // ─────────────────────────── buscar agora ───────────────────────────
 
   app.post('/v1/lojas/:id/fichas/buscar', async (req, resposta) => {
-    const s = await quem(req, resposta);
+    const s = await quem(req, resposta, true);
     if (!s) return;
     const { id } = req.params as { id: string };
     if (!UUID.test(id)) return resposta.status(422).send({ erro: 'validacao', mensagem: 'id inválido' });

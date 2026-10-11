@@ -1507,6 +1507,8 @@ export type FichasDaLoja = {
   situacao: 'sem_conexao' | 'falta_ligar' | 'acesso_tirado' | 'ligada';
   /** Só a diretoria conecta e liga. Quem decide é a API; isto só escolhe entre o botão e a frase. */
   podeConectar: boolean;
+  /** Quem configura a loja pede a busca na hora; a supervisão só vê. Quem decide é a API. */
+  podeBuscar: boolean;
   /** De onde as fichas vieram. Nulo = a loja não tem fichas guardadas. */
   fonte: 'regem' | null;
   regemLojaNome: string | null;

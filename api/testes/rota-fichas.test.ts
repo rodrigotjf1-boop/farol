@@ -2,8 +2,8 @@
 //
 // O que se protege:
 //
-//   • só quem configura a loja vê as fichas e pede a busca; a loja do
-//     vizinho é 404;
+//   • quem acompanha a loja (supervisão para cima e o suporte) vê as
+//     fichas; pedir a busca é só de quem configura; a loja do vizinho é 404;
 //   • a tela recebe a base DO FAROL, sem dinheiro e sem nada do acesso;
 //   • ligar a loja dispara a primeira busca; desconectar apaga as fichas;
 //     acesso tirado no Regem apaga também, e conectar de novo as traz;
@@ -163,27 +163,45 @@ describe('fichas: as rotas da tela', { skip: !URL_DO_BANCO && 'sem DATABASE_URL'
 
   // ───────────────────────── quem pode ─────────────────────────
 
-  it('sem sessão, 401; supervisão e execução, 403 sem dado nenhum; gerente e suporte veem', async () => {
+  it('sem sessão, 401; execução, 403 sem dado nenhum; a supervisão VÊ e não pede a busca; gerente e suporte veem e buscam', async () => {
     await ligada(minha.centro, 'Centro de lá');
+    const produto = (await fichas(minha.dono, minha.centro)).json().produtos[0].id as string;
     const rotas: Array<[string, string]> = [
       ['GET', `/v1/lojas/${minha.centro}/fichas`],
-      ['GET', `/v1/lojas/${minha.centro}/fichas/produtos/${randomUUID()}`],
+      ['GET', `/v1/lojas/${minha.centro}/fichas/produtos/${produto}`],
       ['POST', `/v1/lojas/${minha.centro}/fichas/buscar`],
     ];
+    const recusada = (r: { statusCode: number; json: () => { erro: string } }, url: string) => {
+      assert.equal(r.statusCode, 403, url);
+      assert.deepEqual(Object.keys(r.json()).sort(), ['erro', 'mensagem']);
+      assert.equal(r.json().erro, 'sem_permissao');
+    };
     for (const [method, url] of rotas) {
       const sem = await app.inject({ method: method as 'GET', url });
       assert.equal(sem.statusCode, 401, url);
-      for (const cookie of [minha.supervisao, minha.execucao]) {
-        const r = await app.inject({ method: method as 'GET', url, headers: { cookie } });
-        assert.equal(r.statusCode, 403, url);
-        assert.deepEqual(Object.keys(r.json()).sort(), ['erro', 'mensagem']);
-        assert.equal(r.json().erro, 'sem_permissao');
-      }
+      recusada(await app.inject({ method: method as 'GET', url, headers: { cookie: minha.execucao } }), url);
     }
+
+    // A supervisão vê o mesmo que a gerência — a lista e o produto — e não faz o Farol ler a fonte.
+    const [daSupervisao, daGerencia] = [await fichas(minha.supervisao, minha.centro), await fichas(minha.gerente, minha.centro)];
+    assert.equal(daSupervisao.statusCode, 200);
+    assert.ok(daSupervisao.json().produtos.length > 0);
+    assert.deepEqual(daSupervisao.json().produtos, daGerencia.json().produtos);
+    assert.deepEqual(daSupervisao.json().totais, daGerencia.json().totais);
+    const [oDaSupervisao, oDaGerencia] = [await umProduto(minha.supervisao, minha.centro, produto), await umProduto(minha.gerente, minha.centro, produto)];
+    assert.equal(oDaSupervisao.statusCode, 200);
+    assert.deepEqual(oDaSupervisao.json(), oDaGerencia.json());
+    const busca = await buscar(minha.supervisao, minha.centro);
+    recusada(busca, 'a busca, pela supervisão');
+    assert.match(busca.json().mensagem, /quem configura a loja/);
     assert.equal(falso.chamadas.length, 0, 'ninguém sem permissão fez o Farol chamar o Regem');
-    const [d, g, s] = [await fichas(minha.dono, minha.centro), await fichas(minha.gerente, minha.centro), await fichas(minha.suporte, minha.centro)];
-    assert.deepEqual([d.statusCode, g.statusCode, s.statusCode], [200, 200, 200]);
-    assert.deepEqual([d.json().podeConectar, g.json().podeConectar, s.json().podeConectar], [true, false, false]);
+
+    const [d, s] = [await fichas(minha.dono, minha.centro), await fichas(minha.suporte, minha.centro)];
+    assert.deepEqual([d.statusCode, s.statusCode], [200, 200]);
+    const telas = [d.json(), daGerencia.json(), s.json(), daSupervisao.json()];
+    assert.deepEqual(telas.map((t) => t.podeConectar), [true, false, false, false]);
+    // O botão "Buscar agora" segue quem a rota aceita: a tela não oferece o que o servidor recusa.
+    assert.deepEqual(telas.map((t) => t.podeBuscar), [true, true, true, false]);
     assert.deepEqual([(await buscar(minha.gerente, minha.centro)).statusCode, (await buscar(minha.suporte, minha.centro)).statusCode], [200, 200]);
   });
 
@@ -213,7 +231,9 @@ describe('fichas: as rotas da tela', { skip: !URL_DO_BANCO && 'sem DATABASE_URL'
 
   it('sem conexão; depois, autorizada lá mas sem par aqui: a tela sabe a diferença', async () => {
     const sem = (await fichas(minha.gerente, minha.centro)).json();
-    assert.deepEqual(sem, { situacao: 'sem_conexao', podeConectar: false, fonte: null, regemLojaNome: null, leitura: null, totais: null, produtos: [] });
+    assert.deepEqual(sem, { situacao: 'sem_conexao', podeConectar: false, podeBuscar: true, fonte: null, regemLojaNome: null, leitura: null, totais: null, produtos: [] });
+    // A supervisão vê o mesmo estado, sem nenhum dos dois botões.
+    assert.deepEqual((await fichas(minha.supervisao, minha.centro)).json(), { ...sem, podeBuscar: false });
 
     await autorizar(minha.dono, [{ id: randomUUID(), nome: 'Centro de lá' }]);
     const falta = (await fichas(minha.dono, minha.centro)).json();
@@ -390,6 +410,7 @@ describe('fichas: as rotas da tela', { skip: !URL_DO_BANCO && 'sem DATABASE_URL'
     assert.deepEqual((await fichas(minha.gerente, minha.centro)).json(), {
       situacao: 'sem_conexao',
       podeConectar: false,
+      podeBuscar: true,
       fonte: null,
       regemLojaNome: null,
       leitura: null,

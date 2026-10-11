@@ -10,6 +10,10 @@
 // Não se edita por aqui: as fichas são do Regem. Preço, custo e cliente não
 // aparecem porque o Farol nem recebe.
 //
+// Quem vê: a supervisão para cima e o suporte (decisão do dono em
+// 11/10/2026). "Buscar agora" é de quem configura a loja: para a supervisão
+// o botão não aparece, e as frases não mandam usar o que ela não tem.
+//
 // Do protótipo aprovado em 11/10/2026 (`mockups/farol-conexoes-e-fichas.html`).
 // Duas frases de lá ficaram de fora por enquanto: as que dizem que o Farol
 // "confere pela câmera" pela ficha — isso chega quando um critério passar a
@@ -114,7 +118,7 @@ function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode
   );
 }
 
-function Folha({ lojaId, resumo, aoFechar }: { lojaId: string; resumo: ProdutoNaLista; aoFechar: () => void }) {
+function Folha({ lojaId, resumo, podeBuscar, aoFechar }: { lojaId: string; resumo: ProdutoNaLista; podeBuscar: boolean; aoFechar: () => void }) {
   const [p, setP] = useState<ProdutoDaFicha | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -137,7 +141,7 @@ function Folha({ lojaId, resumo, aoFechar }: { lojaId: string; resumo: ProdutoNa
       rodape={
         <>
           <p className={`${AJUDA} min-w-0 flex-[1_1_220px]`}>
-            Para mudar, mude no Regem. O Farol busca as fichas uma vez por dia; para trazer já, use “Buscar agora”.
+            Para mudar, mude no Regem. O Farol busca as fichas uma vez por dia{podeBuscar ? '; para trazer já, use “Buscar agora”.' : '.'}
           </p>
           <Botao onClick={aoFechar}>Fechar</Botao>
         </>
@@ -326,6 +330,8 @@ export default function Fichas() {
   }, [d, busca, filtro]);
 
   const temBase = d?.situacao === 'ligada' && d.fonte !== null;
+  // Quem decide é a API (a rota da busca recusa quem só vê); aqui só se escolhe entre o botão e a frase.
+  const podeBuscar = d?.podeBuscar === true;
   const n = d?.totais?.produtos ?? 0;
   const comFicha = d?.totais?.comFicha ?? 0;
 
@@ -354,12 +360,15 @@ export default function Fichas() {
           </span>
         }
         acoes={
-          d?.situacao === 'ligada' && (
+          d?.situacao === 'ligada' &&
+          (podeBuscar || d.podeConectar) && (
             <>
-              <Botao ocupado={buscando} onClick={buscarAgora}>
-                {!buscando && <RefreshCw className="h-4 w-4" aria-hidden />}
-                {buscando ? 'Buscando…' : 'Buscar agora'}
-              </Botao>
+              {podeBuscar && (
+                <Botao ocupado={buscando} onClick={buscarAgora}>
+                  {!buscando && <RefreshCw className="h-4 w-4" aria-hidden />}
+                  {buscando ? 'Buscando…' : 'Buscar agora'}
+                </Botao>
+              )}
               {d.podeConectar && (
                 <Link href="/conexoes" className={classesDoBotao()}>
                   <Plug className="h-4 w-4" aria-hidden />
@@ -377,8 +386,8 @@ export default function Fichas() {
 
       {falha &&
         (falha.semPermissao ? (
-          <Vazio icone={Lock} titulo="Esta tela é de quem configura a loja">
-            Seu perfil não vê as fichas da loja.
+          <Vazio icone={Lock} titulo="Seu perfil não vê as fichas da loja">
+            As fichas aparecem para a supervisão, a gerência e a diretoria.
           </Vazio>
         ) : (
           <Vazio
@@ -469,8 +478,8 @@ export default function Fichas() {
           {!temBase &&
             (d.leitura?.falhou ? (
               <Alerta tom="critico" icone={TriangleAlert} papel="status">
-                <b className="font-semibold">O Farol ainda não conseguiu ler o Regem desta loja.</b> Ele tenta de novo sozinho; para
-                tentar já, use “Buscar agora”.
+                <b className="font-semibold">O Farol ainda não conseguiu ler o Regem desta loja.</b> Ele tenta de novo sozinho
+                {podeBuscar ? '; para tentar já, use “Buscar agora”.' : '.'}
               </Alerta>
             ) : (
               <div role="status" className={`${CARTAO} flex items-center gap-3 px-[18px] py-4`} data-buscando>
@@ -485,7 +494,7 @@ export default function Fichas() {
           {temBase && d.leitura?.falhou && (
             <Alerta tom="critico" icone={TriangleAlert} papel="status">
               <b className="font-semibold">O Farol não conseguiu ler o Regem na última busca.</b> As fichas abaixo são as da busca de{' '}
-              {diaFaladoNaLoja(d.leitura.lidaEm, fuso)}. Ele tenta de novo sozinho; para tentar já, use “Buscar agora”.
+              {diaFaladoNaLoja(d.leitura.lidaEm, fuso)}. Ele tenta de novo sozinho{podeBuscar ? '; para tentar já, use “Buscar agora”.' : '.'}
             </Alerta>
           )}
 
@@ -493,14 +502,15 @@ export default function Fichas() {
             <Alerta tom="atencao" icone={Info} papel="status">
               <b className="font-semibold">O Regem desta loja ainda não tem fichas técnicas.</b> Sem ficha, o Farol sabe o que a loja
               vende, mas não como cada produto é montado. As fichas se cadastram no Regem, em{' '}
-              <b className="font-semibold">Estoque › Fichas técnicas</b>; depois, use “Buscar agora” para trazê-las.
+              <b className="font-semibold">Estoque › Fichas técnicas</b>
+              {podeBuscar ? '; depois, use “Buscar agora” para trazê-las.' : '; depois, elas chegam aqui na busca do dia seguinte.'}
             </Alerta>
           )}
 
           {temBase && n === 0 && (
             <Vazio icone={ClipboardList} titulo="O Regem desta loja ainda não tem produtos">
-              Quando o cardápio for cadastrado no Regem, os produtos aparecem aqui na busca do dia seguinte — ou na hora, com “Buscar
-              agora”.
+              Quando o cardápio for cadastrado no Regem, os produtos aparecem aqui na busca do dia seguinte
+              {podeBuscar ? ' — ou na hora, com “Buscar agora”.' : '.'}
             </Vazio>
           )}
 
@@ -576,7 +586,7 @@ export default function Fichas() {
         </>
       )}
 
-      {aberto && <Folha lojaId={id} resumo={aberto} aoFechar={() => setAberto(null)} />}
+      {aberto && <Folha lojaId={id} resumo={aberto} podeBuscar={podeBuscar} aoFechar={() => setAberto(null)} />}
     </>
   );
 }

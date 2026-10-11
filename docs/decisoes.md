@@ -3768,3 +3768,85 @@ isso é mudar o que a tela de Análises conta — não é acerto pequeno.
 - Com a loja de verdade e os nomes de critério dela.
 - O roteiro antigo da tela do canal (`ver_canal`) continua sem rodar desde o PR 85: não foi
   posto em dia aqui.
+
+---
+
+## 11/10/2026 (noite) · A supervisão vê as fichas — e o pacote do agente da loja foi trocado
+
+O dono respondeu às perguntas da página do plano "Regem no Farol": **"1 pode ver"** (a
+supervisão vê as fichas), **"2 o recomendado"** (um item "Mais" na barra do celular —
+protótipo antes), **"3 não entendi"** (a pergunta do acesso tirado no Regem foi explicada de
+novo; até ele responder, fica como está: as fichas são apagadas) e **"4 pode"** (trocar o
+pacote do agente na loja).
+
+### 1. Quem vê as fichas
+
+| | vê a lista e o produto | pede "Buscar agora" | conecta e desconecta |
+|---|---|---|---|
+| diretoria | sim | sim | sim |
+| gerente | sim | sim | não |
+| suporte | sim | sim | não |
+| supervisão | **sim (novo)** | não | não |
+| execução | não | não | não |
+
+- **No servidor** (é onde a regra mora): `podeAcompanhar` em `rbac.ts` — supervisão para cima
+  e o suporte. As duas rotas de ver usam essa; a de buscar continua exigindo quem configura a
+  loja, e responde 403 dizendo de quem é a busca. A execução recebe 403 sem dado nenhum.
+- **A tela não oferece o que o servidor recusa:** a resposta da lista leva `podeBuscar`, e é
+  ela (não o perfil lido no navegador) que decide se o botão aparece.
+- **As frases acompanham o botão.** Para quem não busca, nenhuma frase manda usar "Buscar
+  agora": o aviso da busca que falhou termina em "Ele tenta de novo sozinho."; o de "o Regem
+  ainda não tem fichas" termina em "depois, elas chegam aqui na busca do dia seguinte."; o
+  rodapé da gaveta, em "O Farol busca as fichas uma vez por dia.". Cada uma é verdade pelo
+  serviço: a rotina diária e a nova tentativa não dependem de ninguém clicar.
+- **A recusa** deixou de dizer "Esta tela é de quem configura a loja" (não é mais verdade):
+  "Seu perfil não vê as fichas da loja — as fichas aparecem para a supervisão, a gerência e a
+  diretoria."
+- **O item "Fichas" do menu** (e do "Ir para…") aparece para quem vê os resultados: é o mesmo
+  grupo. Não criei uma marca nova na moldura para dizer a mesma coisa.
+
+### 2. O pacote do agente na loja
+
+Trocado às **18h38**, com a loja fechada (ela abre às 19h no domingo; li o horário na
+configuração guardada antes de trocar): pacote `81183e3`, pelo `trocar_pacote.ps1` de sempre —
+monta ao lado, confere, troca o conjunto. Em 15 segundos o agente estava no ar. Conferido
+depois, só lendo: o código instalado declara `estados, estudo, bancada, fichas`; a
+configuração guardada foi pedida de novo com essa declaração ("o agente sabe mais do que sabia
+quando a configuração desceu (fichas): puxando de novo"); nenhum aviso nem erro no registro;
+3 processos, 7,9% de um núcleo; e **não há `fichas.json`** — certo, porque a loja ainda não
+tem base de fichas na nuvem. O pacote anterior (`e09ed16`) ficou guardado; para voltar a ele,
+`voltar_pacote.ps1` e apagar também o `fichas.json`, se existir.
+
+### O que o dono pediu a mais, e que NÃO está nesta entrega
+
+1. **O Regem avisa o Farol quando a ficha muda** (em vez de o Farol só buscar uma vez por
+   dia). O Regem já tem o mecanismo de aviso (assinado, padrão Standard Webhooks) para outro
+   produto; falta deixar o Farol registrar e o cardápio e as fichas virarem "recurso que
+   avisa". O pedido está escrito para o projeto Regem. Do lado do Farol: registrar o aviso ao
+   ligar a loja (endereço e segredo sorteados pelo servidor, o segredo guardado cifrado),
+   receber, conferir a assinatura e ler na hora. A leitura diária e o "Buscar agora" ficam,
+   como rede de segurança.
+2. **Importar fichas por planilha**, com o modelo de colunas à mão do usuário.
+3. **Conexões e Fichas não podem ser telas "do Regem".** O Farol é produto para distribuição:
+   quem não usa o Regem tem de conseguir mandar as fichas por uma porta documentada, e o
+   acesso é gerado pelo próprio usuário no console. Depois, o hub de MCP.
+
+Os itens 2 e 3 mudam tela: plano e protótipo antes.
+
+### O que foi medido
+
+- **Servidor:** os 14 testes das rotas de fichas (o de "quem pode" foi refeito: sem sessão,
+  execução, supervisão, gerente, suporte e diretoria, nas três rotas); **15 estragos de
+  propósito** na regra — a execução passa a ver, a supervisão deixa de ver, a supervisão pede
+  a busca, o botão oferecido a quem não pode… —, os 15 pegos.
+- **Tela, num navegador, contra o build de produção e uma conta inventada:** 131 passos (a
+  supervisão chega pelo menu, vê a mesma lista da gerência, abre a gaveta, não tem botão; a
+  busca pedida à mão por ela é recusada; a execução não vê o item e, pelo endereço, recebe a
+  recusa) e 396 medidas em 16 larguras, com os três estados novos da supervisão: nada rola
+  para o lado, nenhum erro de script.
+- Olhei as fotos da lista e dos avisos da supervisão, a 1.440 e a 375 px.
+
+### O que não foi medido
+
+- A cópia das fichas chegando ao computador da loja de verdade: não há base na nuvem para
+  essa loja enquanto ninguém conectar o Regem dela em produção.
