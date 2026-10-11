@@ -24,6 +24,7 @@ import {
   Cctv,
   ChevronsUpDown,
   ChartColumn,
+  ClipboardList,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -58,11 +59,23 @@ import { Alerta, Ossos, Ponto } from './ui/pecas';
 import { DivisorDeMenu, ITEM_DE_MENU, Menu, RotuloDeMenu } from './ui/sobreposto';
 
 const UUID_DA_LOJA = /^\/lojas\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
-const SECOES = ['analises', 'canais', 'regras', 'alertas', 'orcamento'] as const;
+const SECOES = ['analises', 'canais', 'regras', 'fichas', 'alertas', 'orcamento'] as const;
 /** De quanto em quanto tempo a moldura pergunta como vai o agente. */
 const BATIDA_MS = 30_000;
 
-type Item = { href: string; rotulo: string; icone: LucideIcon; conta?: number | null };
+type Item = {
+  href: string;
+  rotulo: string;
+  icone: LucideIcon;
+  conta?: number | null;
+  /**
+   * Fica só na coluna (computador e tablet). A barra de baixo do celular
+   * comporta seis itens: com o sétimo, em telas de 320 a 375 px, os rótulos
+   * "Alertas" e "Orçamento" se encostam (medido em 11/10/2026). No celular a
+   * tela abre pelo "Ir para…".
+   */
+  soNaColuna?: boolean;
+};
 
 // ───────────────────────── o tema ─────────────────────────
 
@@ -440,6 +453,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
       ...(veResultados ? [{ href: `${base}/analises`, rotulo: 'Análises', icone: ChartColumn }] : []),
       { href: `${base}/canais`, rotulo: 'Canais', icone: Cctv },
       { href: `${base}/regras`, rotulo: 'Critérios', icone: ListChecks },
+      // As fichas são de quem configura a loja (a API responde 403 aos outros).
+      ...(configura ? [{ href: `${base}/fichas`, rotulo: 'Fichas', icone: ClipboardList, soNaColuna: true }] : []),
       { href: `${base}/alertas`, rotulo: 'Alertas', icone: BellRing },
       // Orçamento é decisão de compra: só para quem configura.
       ...(configura ? [{ href: `${base}/orcamento`, rotulo: 'Orçamento', icone: Calculator }] : []),
@@ -638,7 +653,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* ───────────── celular: a barra de baixo ───────────── */}
-      {eu && <Navegacao itens={itens} atual={atual} deitada />}
+      {eu && <Navegacao itens={itens.filter((i) => !i.soNaColuna)} atual={atual} deitada />}
 
       {eu && paleta && <IrPara lojaId={lojaId} lojas={lojas} veResultados={veResultados} configura={configura} aoFechar={() => setPaleta(false)} />}
     </div>

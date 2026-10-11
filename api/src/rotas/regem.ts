@@ -34,6 +34,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type pg from 'pg';
 
 import { cifrar, decifrar } from '../cifra.js';
+import { LEITURA_MORTA_MIN, lerEmSegundoPlano } from '../leitura.js';
 import { sugerirPares } from '../pares.js';
 import { ehDiretoria, exigirDiretoria, podeConfigurar } from '../rbac.js';
 import {
@@ -87,6 +88,35 @@ type Linha = {
   conectado_em: Date;
   ligado_em: Date | null;
 };
+
+/** O estado da leitura das fichas, como vem do banco. */
+export type LeituraDaLinha = {
+  fuso: string | null;
+  lida_em: Date | null;
+  falha: string | null;
+  acesso_tirado_em: Date | null;
+  lendo: boolean;
+  produtos: number | null;
+  com_ficha: number | null;
+};
+
+/**
+ * O estado da leitura, como a tela o diz. O MOTIVO da falha não vai: é
+ * assunto de quem cuida do sistema (está no registro), e para quem olha a
+ * tela a consequência é uma só — a busca falhou, e ele tenta de novo.
+ */
+export function leituraParaTela(r: Pick<LeituraDaLinha, 'lida_em' | 'falha' | 'acesso_tirado_em' | 'lendo'>) {
+  return {
+    /** A última busca que deu certo. Nulo = ainda não conseguiu ler. */
+    lidaEm: r.lida_em,
+    /** A última tentativa falhou: o que a loja tem é o da última busca boa. */
+    falhou: r.falha !== null,
+    /** Há uma busca em curso agora. */
+    lendo: r.lendo,
+    /** O Regem tirou o acesso desta loja: as fichas dela foram apagadas. */
+    acessoTiradoEm: r.acesso_tirado_em,
+  };
+}
 
 const INDISPONIVEL = {
   erro: 'conexao_indisponivel',
@@ -152,14 +182,18 @@ export function rotasDoRegem(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoR
       pool.query<{ id: string; nome: string }>('select id, nome from loja where tenant_id = $1 order by nome, id', [s.tenantId]),
       // O acesso cifrado NÃO entra nesta consulta: o que a tela não mostra,
       // a rota nem busca.
-      pool.query<Omit<Linha, 'acesso_cifrado'>>(
+      pool.query<Omit<Linha, 'acesso_cifrado'> & LeituraDaLinha>(
         `select r.id, r.loja_id, l.nome as loja_nome, r.regem_loja_id, r.regem_loja_nome,
-                r.regem_empresa_nome, r.conectado_em, r.ligado_em
+                r.regem_empresa_nome, r.conectado_em, r.ligado_em,
+                l.timezone as fuso, r.lida_em, r.falha, r.acesso_tirado_em,
+                (r.lendo_desde is not null and r.lendo_desde > now() - make_interval(mins => $2)) as lendo,
+                f.produtos, f.com_ficha
            from regem_loja r
            left join loja l on l.id = r.loja_id
+           left join fichas_da_loja f on f.loja_id = r.loja_id
           where r.tenant_id = $1
           order by r.regem_empresa_nome, r.regem_loja_nome, r.id`,
-        [s.tenantId],
+        [s.tenantId, LEITURA_MORTA_MIN],
       ),
     ]);
 
@@ -194,6 +228,12 @@ export function rotasDoRegem(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoR
         regemLojaNome: r.regem_loja_nome,
         regemEmpresaNome: r.regem_empresa_nome,
         ligadaEm: r.ligado_em,
+        /** O relógio da loja: é nele que a tela diz "hoje, 04:10". */
+        fuso: r.fuso,
+        leitura: leituraParaTela(r),
+        /** O que a base da loja tem. Nulo = ainda não há base (nunca leu, ou foi apagada). */
+        produtos: r.produtos,
+        comFicha: r.com_ficha,
       })),
     };
   });
@@ -310,8 +350,10 @@ export function rotasDoRegem(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoR
     // Uma linha por loja autorizada, numa instrução só. A loja que já
     // estava na conta troca o acesso e MANTÉM o par: autorizar de novo não
     // desfaz o que a diretoria já ligou. (O acesso antigo deixou de valer
-    // no Regem no instante da troca.)
-    await pool.query(
+    // no Regem no instante da troca.) Com o acesso novo, o estado da
+    // leitura recomeça: "acesso tirado" e a falha de antes deixam de valer,
+    // e a agenda vazia põe a loja na frente da fila.
+    const gravadas = await pool.query<{ id: string; loja_id: string | null }>(
       `insert into regem_loja (tenant_id, regem_loja_id, regem_loja_nome, regem_empresa_nome, acesso_cifrado, conectado_por)
        select $1, v.regem_loja_id, v.nome, v.empresa, v.acesso, $2
          from unnest($3::uuid[], $4::text[], $5::text[], $6::text[]) as v(regem_loja_id, nome, empresa, acesso)
@@ -320,7 +362,10 @@ export function rotasDoRegem(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoR
               regem_empresa_nome = excluded.regem_empresa_nome,
               acesso_cifrado = excluded.acesso_cifrado,
               conectado_por = excluded.conectado_por,
-              conectado_em = now()`,
+              conectado_em = now(),
+              acesso_tirado_em = null, falha = null, proxima_em = null, lendo_desde = null,
+              versao_catalogo = null, versao_fichas = null
+       returning id, loja_id`,
       [
         s.tenantId,
         s.usuarioId,
@@ -329,6 +374,13 @@ export function rotasDoRegem(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoR
         lojas.map((l) => l.empresa),
         lojas.map((l) => cifrar(l.acesso, cfg.chave, contextoDoAcesso(s.tenantId, l.regemLojaId))),
       ],
+    );
+    // A loja que já tinha par volta a ser lida agora, sem esperar a rotina.
+    lerEmSegundoPlano(
+      pool,
+      cfg,
+      gravadas.rows.filter((g) => g.loja_id !== null).map((g) => g.id),
+      app.log,
     );
     // Pelo registro da APLICAÇÃO: o desta rota só fala de aviso para cima.
     app.log.info({ lojas: lojas.length }, 'regem: lojas autorizadas');
@@ -424,6 +476,15 @@ export function rotasDoRegem(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoR
       }
     }
 
+    // A loja que acabou de ser ligada é lida agora, sem segurar a resposta:
+    // a tela diz "o Farol está buscando as fichas" e pergunta de novo em seguida.
+    lerEmSegundoPlano(
+      pool,
+      cfg,
+      ligar.map((p) => p.id),
+      app.log,
+    );
+
     // ── não usar: devolve o acesso e apaga a linha ──
     // Depois de ligar, e loja a loja: cada devolução é uma chamada ao
     // Regem. A que ele não responder FICA esperando — a resposta diz qual.
@@ -480,12 +541,25 @@ export function rotasDoRegem(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoR
       });
     }
 
-    await pool.query('delete from regem_loja where id = $1 and tenant_id = $2', [id, s.tenantId]);
-    req.log.info({ regemLoja: id, devolvido: desfecho === 'devolvido' }, 'regem: loja desconectada');
+    // A ligação e as fichas que vieram por ela saem JUNTAS, numa instrução
+    // só (decisão do dono, 11/10: "ao desconectar, as fichas são apagadas
+    // na hora"). Uma leitura que estivesse no meio não as traz de volta: ela
+    // só grava com a ligação ainda de pé.
+    const apagadas = await pool.query(
+      `with saiu as (
+         delete from regem_loja where id = $1 and tenant_id = $2 returning loja_id
+       )
+       delete from fichas_da_loja f using saiu where f.loja_id = saiu.loja_id and f.fonte = 'regem'`,
+      [id, s.tenantId],
+    );
+    const fichasApagadas = (apagadas.rowCount ?? 0) > 0;
+    req.log.info({ regemLoja: id, devolvido: desfecho === 'devolvido', fichasApagadas }, 'regem: loja desconectada');
     return {
       desconectada: true,
       /** Falso: a ligação saiu daqui, mas o acesso ainda aparece no Regem — é lá que se tira. */
       devolvido: desfecho === 'devolvido',
+      /** A loja tinha fichas vindas do Regem, e elas foram apagadas agora. */
+      fichasApagadas,
       lojaNome: linha.loja_nome,
       regemLojaNome: linha.regem_loja_nome,
     };

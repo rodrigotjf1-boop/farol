@@ -19,6 +19,7 @@ import pg from 'pg';
 
 import { criarApp } from '../src/app.js';
 import { decifrar } from '../src/cifra.js';
+import { semLeituraEmCurso } from '../src/leitura.js';
 import type { ConfigDoRegem } from '../src/regem.js';
 import { VALIDADE_DO_PEDIDO_MIN } from '../src/rotas/regem.js';
 import { subirRegemFalso, type LojaDeLa, type RegemFalso } from './regem-falso.js';
@@ -116,6 +117,7 @@ describe('regem: a conexão da conta', { skip: !URL_DO_BANCO && 'sem DATABASE_UR
   after(async () => {
     if (adminAntes === undefined) delete process.env.FAROL_ADMIN_TOKEN;
     else process.env.FAROL_ADMIN_TOKEN = adminAntes;
+    await semLeituraEmCurso();
     await Promise.all([app?.close(), appSemAmbiente?.close(), appOutraChave?.close(), appOutroSegredo?.close()]);
     await falso?.fechar();
     await pool?.query('delete from tenant where nome like $1', [`${marca}%`]);
@@ -125,8 +127,12 @@ describe('regem: a conexão da conta', { skip: !URL_DO_BANCO && 'sem DATABASE_UR
   // Cada teste começa sem conexão nenhuma — só nas DUAS contas deste
   // arquivo (V93: os outros arquivos rodam ao mesmo tempo, no mesmo banco).
   beforeEach(async () => {
+    // Ligar uma loja dispara a leitura das fichas em segundo plano: a do
+    // teste anterior termina antes de este começar a contar chamadas.
     falso.modo = 'normal';
+    await semLeituraEmCurso();
     falso.chamadas.length = 0;
+    await pool.query('delete from fichas_da_loja where tenant_id = any($1::uuid[])', [[minha.tenantId, vizinha.tenantId]]);
     await pool.query('delete from regem_loja where tenant_id = any($1::uuid[])', [[minha.tenantId, vizinha.tenantId]]);
     await pool.query('delete from regem_pedido where tenant_id = any($1::uuid[])', [[minha.tenantId, vizinha.tenantId]]);
   });
@@ -209,6 +215,9 @@ describe('regem: a conexão da conta', { skip: !URL_DO_BANCO && 'sem DATABASE_UR
       { id: idDe(t, b.nome), lojaId: minha.barra },
     ]);
     assert.equal(r.statusCode, 200, r.body);
+    // A leitura das fichas que o ligar disparou termina antes: daqui para a
+    // frente, as chamadas ao Regem são só as do teste.
+    await semLeituraEmCurso();
     falso.chamadas.length = 0;
     return { c, b, t: await tela(minha.dono) };
   }
@@ -870,7 +879,13 @@ describe('regem: a conexão da conta', { skip: !URL_DO_BANCO && 'sem DATABASE_UR
 
     const r = await desconectar(minha.dono, alvo.id);
     assert.equal(r.statusCode, 200, r.body);
-    assert.deepEqual(r.json(), { desconectada: true, devolvido: true, lojaNome: 'Loja Centro', regemLojaNome: 'Casa do Lanche · Centro' });
+    assert.deepEqual(r.json(), {
+      desconectada: true,
+      devolvido: true,
+      fichasApagadas: true,
+      lojaNome: 'Loja Centro',
+      regemLojaNome: 'Casa do Lanche · Centro',
+    });
     assert.equal(falso.vale(doCentro), false);
     assert.equal(falso.vale(daBarra), true, 'a outra loja segue conectada');
     const depois = await tela(minha.dono);
@@ -888,7 +903,7 @@ describe('regem: a conexão da conta', { skip: !URL_DO_BANCO && 'sem DATABASE_UR
     const acesso = acessoDe((await guardadas())[0]!)!;
 
     const r = await desconectar(minha.dono, t.esperando[0]!.id);
-    assert.deepEqual(r.json(), { desconectada: true, devolvido: true, lojaNome: null, regemLojaNome: c.nome });
+    assert.deepEqual(r.json(), { desconectada: true, devolvido: true, fichasApagadas: false, lojaNome: null, regemLojaNome: c.nome });
     assert.equal(falso.vale(acesso), false);
     assert.equal((await guardadas()).length, 0);
   });

@@ -25,6 +25,7 @@ import {
   Calculator,
   Cctv,
   ChartColumn,
+  ClipboardList,
   LayoutDashboard,
   ListChecks,
   Map as Mapa,
@@ -70,6 +71,7 @@ export function telasDaLoja(lojaId: string, pode: { veResultados: boolean; confi
     tela('Planta', `${base}/canais/planta`, Mapa),
     tela('Inventário', `${base}/canais/inventario`, Boxes),
     tela('Critérios', `${base}/regras`, ListChecks),
+    ...(pode.configura ? [tela('Fichas', `${base}/fichas`, ClipboardList)] : []),
     tela('Alertas', `${base}/alertas`, BellRing),
     ...(pode.configura ? [tela('Orçamento', `${base}/orcamento`, Calculator)] : []),
   ];

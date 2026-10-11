@@ -1,0 +1,368 @@
+{
+  "catalogo": {
+    "versao": "6e3ab732384396d09bca57f044b12c79",
+    "atualizado": true,
+    "gerado_em": "2026-10-11T11:10:41.290Z",
+    "loja_id": "1e40a288-de53-46ea-b019-376b712d34af",
+    "categorias": [
+      {
+        "id": "9a65f169-7679-4e73-8152-506954c49f65",
+        "nome": "Lanches",
+        "categoria_pai_id": null,
+        "ordem": 1,
+        "ativo": true
+      },
+      {
+        "id": "72196ddc-05cd-4f33-9b19-d60aca114db1",
+        "nome": "Burgers",
+        "categoria_pai_id": "9a65f169-7679-4e73-8152-506954c49f65",
+        "ordem": 2,
+        "ativo": true
+      },
+      {
+        "id": "93a08f1c-ce7b-4c4f-9e40-057f2942cb23",
+        "nome": "Bebidas",
+        "categoria_pai_id": null,
+        "ordem": 3,
+        "ativo": false
+      }
+    ],
+    "setores": [
+      {
+        "id": "ee00e99f-073f-4181-ad1f-a6f70d70f47a",
+        "nome": "Chapa"
+      },
+      {
+        "id": "c2d9e30e-daee-4454-9b4e-a4890fe3d999",
+        "nome": "Montagem"
+      }
+    ],
+    "produtos": [
+      {
+        "id": "b607f977-d697-4083-86be-0dbd2876f805",
+        "codigo": "CMB",
+        "nome": "Combo da casa",
+        "descricao": null,
+        "tipo": "combo",
+        "unidade_medida": "un",
+        "categoria_id": null,
+        "vai_para_producao": true,
+        "setor_producao_id": null,
+        "tempo_preparo_min": null,
+        "ficha_id": null,
+        "ativo": true,
+        "variacoes": [],
+        "combo": [
+          {
+            "produto_id": "6ab4f749-56f0-4ed1-88b2-47eedc343f87",
+            "quantidade": 2
+          },
+          {
+            "produto_id": "f0c98d36-9e88-4d68-a1c8-58d8897cb82b",
+            "quantidade": 1
+          }
+        ],
+        "adicionais": []
+      },
+      {
+        "id": "6ab4f749-56f0-4ed1-88b2-47eedc343f87",
+        "codigo": "REF",
+        "nome": "Refrigerante lata",
+        "descricao": null,
+        "tipo": "simples",
+        "unidade_medida": "un",
+        "categoria_id": "93a08f1c-ce7b-4c4f-9e40-057f2942cb23",
+        "vai_para_producao": false,
+        "setor_producao_id": null,
+        "tempo_preparo_min": null,
+        "ficha_id": null,
+        "ativo": true,
+        "variacoes": [],
+        "combo": [],
+        "adicionais": []
+      },
+      {
+        "id": "b5f58d3c-3332-409b-90d3-8af911949068",
+        "codigo": null,
+        "nome": "Só da matriz",
+        "descricao": null,
+        "tipo": "simples",
+        "unidade_medida": "un",
+        "categoria_id": null,
+        "vai_para_producao": true,
+        "setor_producao_id": null,
+        "tempo_preparo_min": null,
+        "ficha_id": null,
+        "ativo": true,
+        "variacoes": [],
+        "combo": [],
+        "adicionais": []
+      },
+      {
+        "id": "f0c98d36-9e88-4d68-a1c8-58d8897cb82b",
+        "codigo": "XB",
+        "nome": "X-Burger",
+        "descricao": "Pão, blend e queijo",
+        "tipo": "variavel",
+        "unidade_medida": "un",
+        "categoria_id": "72196ddc-05cd-4f33-9b19-d60aca114db1",
+        "vai_para_producao": true,
+        "setor_producao_id": "c2d9e30e-daee-4454-9b4e-a4890fe3d999",
+        "tempo_preparo_min": 12,
+        "ficha_id": "6d38edd2-2aeb-4fec-bf51-ecd32ac11b49",
+        "ativo": true,
+        "variacoes": [
+          {
+            "id": "c33781ea-23da-4a26-9596-c63fdf69a037",
+            "nome": "Duplo",
+            "codigo": "XB-D",
+            "fator_ficha": 2,
+            "ativo": true
+          },
+          {
+            "id": "ee3bd570-d841-4a8b-9c75-8c1a2ca811e7",
+            "nome": "Simples",
+            "codigo": "XB-S",
+            "fator_ficha": 1,
+            "ativo": true
+          }
+        ],
+        "combo": [],
+        "adicionais": [
+          {
+            "id": "6fbc9155-85bc-4fdd-827a-c0c468defd41",
+            "etapa_id": "ae0c74db-da66-4578-a20e-4139aeae151b",
+            "nome": "Adicionais",
+            "tipo": "adicionar",
+            "min": 0,
+            "max": 3,
+            "obrigatorio": false,
+            "ordem": 0,
+            "opcoes": [
+              {
+                "id": "a6640724-1b37-41cf-b2cb-5896adef11f2",
+                "opcao_id": "dfadee78-9bf6-44fd-b3ea-bf1bfbe6005c",
+                "nome": "Bacon",
+                "codigo": "AD-BAC",
+                "ordem": 0,
+                "informativa": false,
+                "acrescenta": {
+                  "tipo": "insumo",
+                  "insumo_id": "ea943083-47ba-4d7e-96e7-e9dc528e8bad",
+                  "nome": "Bacon fatiado",
+                  "quantidade_estoque": 0.02,
+                  "unidade_estoque": "kg"
+                },
+                "retira": null
+              },
+              {
+                "id": "4708de3a-ee16-410d-a09e-9632ecbeadd0",
+                "opcao_id": "3b131feb-3d81-4581-862e-4b0c4ab49dce",
+                "nome": "Ovo",
+                "codigo": "AD-OVO",
+                "ordem": 1,
+                "informativa": false,
+                "acrescenta": {
+                  "tipo": "ficha",
+                  "ficha_id": "412e3e07-5266-4f44-80d3-11965f33e30f"
+                },
+                "retira": null
+              },
+              {
+                "id": "f73cfbf2-3be4-467d-a6c4-fa27b215c146",
+                "opcao_id": "a47158c8-b10a-493c-87c0-63958dd2cb74",
+                "nome": "Refrigerante",
+                "codigo": "AD-REF",
+                "ordem": 2,
+                "informativa": false,
+                "acrescenta": {
+                  "tipo": "produto",
+                  "produto_id": "6ab4f749-56f0-4ed1-88b2-47eedc343f87"
+                },
+                "retira": null
+              },
+              {
+                "id": "0e68d477-533e-403c-ac2c-2ab0c39859ed",
+                "opcao_id": "3a27cc30-43f4-44ea-86c1-427682a726a7",
+                "nome": "Ponto da carne",
+                "codigo": null,
+                "ordem": 3,
+                "informativa": true,
+                "acrescenta": null,
+                "retira": null
+              }
+            ]
+          },
+          {
+            "id": "ab2f3fef-14e6-4290-bf99-69805fae259b",
+            "etapa_id": null,
+            "nome": "Retirar",
+            "tipo": "remover",
+            "min": 0,
+            "max": null,
+            "obrigatorio": false,
+            "ordem": 1,
+            "opcoes": [
+              {
+                "id": "5b5f3cf4-5f09-4610-9d03-ba325511378f",
+                "opcao_id": null,
+                "nome": "Sem cebola",
+                "codigo": "RM-CEB",
+                "ordem": 0,
+                "informativa": false,
+                "acrescenta": null,
+                "retira": {
+                  "insumo_id": "8a0426eb-b764-4af9-9aa2-378601b9c43f",
+                  "sub_ficha_id": null,
+                  "nome": "Cebola roxa"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "4a9a5121-2d9f-4165-af62-c889aafee07f",
+        "codigo": null,
+        "nome": "X-Parado",
+        "descricao": null,
+        "tipo": "simples",
+        "unidade_medida": "un",
+        "categoria_id": null,
+        "vai_para_producao": true,
+        "setor_producao_id": null,
+        "tempo_preparo_min": null,
+        "ficha_id": null,
+        "ativo": false,
+        "variacoes": [],
+        "combo": [],
+        "adicionais": []
+      }
+    ]
+  },
+  "fichas": {
+    "versao": "a06291a63b62718742cd619eb61ca2f7",
+    "atualizado": true,
+    "gerado_em": "2026-10-11T11:10:41.296Z",
+    "loja_id": "1e40a288-de53-46ea-b019-376b712d34af",
+    "fichas": [
+      {
+        "id": "e31a1517-99d7-403a-8a6c-7ce7d1010161",
+        "nome": "Blend da casa",
+        "categoria": "base",
+        "rendimento": 10,
+        "rendimento_unidade": "kg",
+        "porcao_tamanho": null,
+        "porcao_unidade": null,
+        "setor_id": null,
+        "ativo": true,
+        "ingredientes": []
+      },
+      {
+        "id": "412e3e07-5266-4f44-80d3-11965f33e30f",
+        "nome": "Ovo frito",
+        "categoria": "base",
+        "rendimento": 1,
+        "rendimento_unidade": null,
+        "porcao_tamanho": null,
+        "porcao_unidade": null,
+        "setor_id": null,
+        "ativo": false,
+        "ingredientes": []
+      },
+      {
+        "id": "6d38edd2-2aeb-4fec-bf51-ecd32ac11b49",
+        "nome": "X-Burger",
+        "categoria": "lanche",
+        "rendimento": 1,
+        "rendimento_unidade": "porção",
+        "porcao_tamanho": 1,
+        "porcao_unidade": "unidade",
+        "setor_id": "c2d9e30e-daee-4454-9b4e-a4890fe3d999",
+        "ativo": true,
+        "ingredientes": [
+          {
+            "ordem": 0,
+            "insumo_id": "b1e56fcd-7c18-45de-936d-7f8e84d7bd19",
+            "sub_ficha_id": null,
+            "nome": "Pão brioche",
+            "quantidade": 1,
+            "unidade": "unidade",
+            "quantidade_estoque": 1,
+            "unidade_estoque": "unidade",
+            "fator_correcao": 1,
+            "so_delivery": false
+          },
+          {
+            "ordem": 1,
+            "insumo_id": null,
+            "sub_ficha_id": "e31a1517-99d7-403a-8a6c-7ce7d1010161",
+            "nome": "Blend da casa",
+            "quantidade": 0.12,
+            "unidade": "kg",
+            "quantidade_estoque": 0.12,
+            "unidade_estoque": null,
+            "fator_correcao": 1,
+            "so_delivery": false
+          },
+          {
+            "ordem": 2,
+            "insumo_id": "7cf0df2f-42e9-4754-9571-08639f3a01d7",
+            "sub_ficha_id": null,
+            "nome": "Queijo prato",
+            "quantidade": 2,
+            "unidade": "fatia",
+            "quantidade_estoque": 0.04,
+            "unidade_estoque": "kg",
+            "fator_correcao": 1,
+            "so_delivery": false
+          },
+          {
+            "ordem": 3,
+            "insumo_id": "8a0426eb-b764-4af9-9aa2-378601b9c43f",
+            "sub_ficha_id": null,
+            "nome": "Cebola roxa",
+            "quantidade": 0.01,
+            "unidade": "kg",
+            "quantidade_estoque": 0.01,
+            "unidade_estoque": "kg",
+            "fator_correcao": 1.2,
+            "so_delivery": false
+          },
+          {
+            "ordem": 4,
+            "insumo_id": "23326302-b450-4409-bd9b-fa7e4b736d9f",
+            "sub_ficha_id": null,
+            "nome": "Caixa de lanche",
+            "quantidade": 1,
+            "unidade": "unidade",
+            "quantidade_estoque": 1,
+            "unidade_estoque": "unidade",
+            "fator_correcao": 1,
+            "so_delivery": true
+          },
+          {
+            "ordem": 5,
+            "insumo_id": null,
+            "sub_ficha_id": null,
+            "nome": "Sal",
+            "quantidade": 2,
+            "unidade": "g",
+            "quantidade_estoque": 2,
+            "unidade_estoque": null,
+            "fator_correcao": 1,
+            "so_delivery": false
+          }
+        ]
+      }
+    ]
+  },
+  "catalogoSemMudanca": {
+    "versao": "6e3ab732384396d09bca57f044b12c79",
+    "atualizado": false
+  },
+  "fichasSemMudanca": {
+    "versao": "a06291a63b62718742cd619eb61ca2f7",
+    "atualizado": false
+  }
+}
