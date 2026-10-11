@@ -3836,7 +3836,7 @@ loja; o que o gravador entrega é medido na instalação.
 | 1 ✅ | **Fechar a onda 1:** o sistema propor o estudo do critério — **feito em 10/10**, por regras, no servidor, que era o caminho recomendado (se o dono preferir outro, o botão é o mesmo: troca-se quem responde) | onda 1, fatia 1.3 | — |
 | 2 | Três acertos pequenos de tela: "área" → "quadro" em Análises e no Painel; a tabela do Painel, que rola de lado entre 820 e 1.280 px; o cartão "Critérios ligados" dizer quantos só observam | onda 1 | — |
 | 3 | **A base de fichas e produtos do Farol** (decisão de 10/10): puxar do Regem as fichas, os produtos e os adicionais de cada loja e guardar base própria; aceitar também planilha, para a loja sem Regem; por cima dela, o dicionário de ingredientes e as regras da casa | nova; antes da onda 5 | o plano do lado do Regem aprovado; o Regem com as fichas da loja |
-| 4 | **O plano no projeto Regem — aprovado pelo dono em 10/10** (a página "Porta do Farol no Regem"; o resumo e as respostas dele estão em "O lado do Regem — o plano, aprovado"): três fases — o catálogo e as fichas, a fila de produção só para leitura, e o modo do KDS "por produto, com baixa automática". **A fase 1 começa agora; a 2 vem logo depois; a 3 fica para a onda 5, com o aviso pela rede da loja.** Nada foi implementado lá ainda | projeto Regem — plano antes do código | a conexão com o banco de produção do Regem, para conferir e aplicar a migration; o segredo do aplicativo, que é do dono |
+| 4 | **O plano no projeto Regem — aprovado pelo dono em 10/10** (a página "Porta do Farol no Regem"; o resumo e as respostas dele estão em "O lado do Regem — o plano, aprovado"): três fases — o catálogo e as fichas, a fila de produção só para leitura, e o modo do KDS "por produto, com baixa automática". **A fase 1 está no ar desde 11/10** ("A fase 1, entregue"); **a 2 é a próxima; a 3 fica para a onda 5, com o aviso pela rede da loja** | projeto Regem — plano antes do código | o lado do Farol que consome (item 3); o segredo do aplicativo, que é do dono, só quando esse lado existir |
 | 5 | **Onda 2 — sequência e banco de provas:** o agente buscar no gravador (cliente de arquivo, medindo o que cada gravador entrega), a busca pelo meio, a grade de 6 quadros, a família Acontecimento passando a julgar, "acertou / errou", o acerto medido de cada critério. **O plano está em "Onda 2 — como ela entra"** (10/10): oito fatias; **a 2.1 (o cliente de arquivo do gravador) e a 2.2a (medir o gravador e ler o trecho) estão feitas, em 10/10**; a 2.2b (a busca pelo meio e a grade), também só do agente e dormindo, é a próxima | onda 2 | o protótipo das telas aprovado; as três decisões do plano; o dono marcar os exemplos |
 | 6 | **Onda 3 — processo e medida:** etapas por quadro, cronômetros, contadores, episódios | onda 3 | a onda 2 medida |
 | 7 | **Onda 4 — a bancada, primeira parte:** achar sozinho as posições e o tipo de base; contar o que fecha, por tipo de base; as fases do lote; os números da semana | onda 4 | a cena do canal |
@@ -3852,7 +3852,7 @@ loja; o que o gravador entrega é medido na instalação.
 | # | o quê | para quê | quando |
 |---|---|---|---|
 | 1 | **O Regem rodando na loja**, com as fichas dos lanches e os adicionais cadastrados | é de onde o Farol puxa fichas, produtos e pedidos; daí vem também a rotina dos outros itens | os testes estão para começar |
-| 2 | ✅ **O plano do lado do Regem foi aprovado em 10/10** (as seis decisões respondidas). **Fica da parte dele, quando a fase 1 estiver pronta:** criar o segredo do aplicativo Farol e colá-lo nos dois painéis (o passo a passo vai na hora; o valor não passa por mim) e autorizar o Farol na página, como presidente | os itens 3, 4, 8 e 9 da outra lista | quando eu avisar |
+| 2 | ✅ **O plano do lado do Regem foi aprovado em 10/10** (as seis decisões respondidas). A fase 1 entrou no ar em 11/10. **Fica da parte dele, quando o lado do Farol que consome estiver pronto** (antes disso não há o que fazer: sem o segredo a página responde "ainda não disponível"): criar o segredo do aplicativo Farol e colá-lo nos dois painéis (o passo a passo vai na hora; o valor não passa por mim) e autorizar o Farol na página, como presidente | os itens 3, 4, 8 e 9 da outra lista | quando eu avisar |
 | 3 | **A cena do canal "montagem 1"** — console → Canais → montagem 1 → "A cena deste canal" → "Salvar a cena" | o pedido com contexto e a leitura da bancada | quando puder |
 | 4 | **Na loja, na semana de 12/10:** o HD no gravador; o cabo, e avisar "cabo trocado, pode"; as fotos padrão; o reflexo da luminária; a folha A4 por um minuto; **e, se topar, a prova da planta viva** — 15 a 20 pontos marcados no piso com fita e medidos com trena, e uma pessoa parando uns 10 segundos em cada um (uns 20 minutos, antes de abrir; o passo a passo está em [estudo-planta-viva.md](estudo-planta-viva.md), seção 8) | guardar mais dias de gravação; a rede; a comparação com a foto; a medida da câmera; saber quanto erra a posição de uma pessoa na planta, nesta loja | na visita |
 | 5 | **A câmera da outra frente da ilha** (a da chapa) | sem ela o saldo não fecha: parte da produção fica fora da conta | depois de o algoritmo estar alinhado no canal 4, como o dono definiu |
@@ -4313,9 +4313,10 @@ produção. Se o dono quiser a memória curta antes, é só dizer.
 ### O lado do Regem — o plano, aprovado (10/10/2026)
 
 **Aprovado pelo dono em 10/10, à noite** — as respostas marcadas na página "Porta do Farol
-no Regem" e duas mensagens em seguida (abaixo, em "O que o dono respondeu"). A fase 1 pode
-começar; nada foi implementado no Regem ainda. O plano foi escrito em cima do código do
-Regem que está no ar (`origin/main` `bb7beca6`), com os fatos reconferidos um a um.
+no Regem" e duas mensagens em seguida (abaixo, em "O que o dono respondeu"). **A fase 1
+está no ar desde 11/10/2026** (abaixo, em "A fase 1, entregue"); a fase 2 é a próxima. O
+plano foi escrito em cima do código do Regem que estava no ar em 10/10 (`origin/main`
+`bb7beca6`), com os fatos reconferidos um a um.
 
 **O que o código do Regem mostrou:**
 
@@ -4336,9 +4337,40 @@ Regem que está no ar (`origin/main` `bb7beca6`), com os fatos reconferidos um a
 
 | fase | o que entra | onde roda | pede da loja | quando |
 |---|---|---|---|---|
-| **1 · catálogo** | o Farol como aplicativo conectado do Regem, autorizado pelo presidente numa página (como o Liame); leitura de produtos, variações, adicionais e fichas, **sem preço e sem custo**; retrato inteiro com número de versão | só nuvem; uma migration só-nuvem no Regem | nada | **aprovada em 10/10; é a próxima coisa a fazer no Regem** |
-| **2 · fila de produção, só leitura** | os pedidos em produção e os concluídos das últimas 2 horas, com o produto de cada item, os adicionais, **a observação do item** e os horários; sem o cliente e sem valores | só nuvem; sem migration | nada | **logo depois da fase 1** (decidido em 10/10) |
+| **1 · catálogo** | o Farol como aplicativo conectado do Regem, autorizado pelo presidente numa página (como o Liame); leitura de produtos, variações, adicionais e fichas, **sem preço e sem custo**; retrato inteiro com número de versão | só nuvem; uma migration só-nuvem no Regem | nada | ✅ **no ar em 11/10/2026** (PR 648 do Regem, migration 315) |
+| **2 · fila de produção, só leitura** | os pedidos em produção e os concluídos das últimas 2 horas, com o produto de cada item, os adicionais, **a observação do item** e os horários; sem o cliente e sem valores | só nuvem; sem migration | nada | **é a próxima coisa a fazer no Regem** ("logo depois da fase 1", decidido em 10/10) |
 | **3 · KDS por produto, com baixa automática, e os avisos** | somar pelo produto; o item poder ser dado como feito; a porta por onde o Farol avisa "fechou um X" e entrega os avisos da cozinha — quem decide a baixa é o Regem; desfazer com um toque; o registro de cada baixa | **a rede da loja** (decidido em 10/10): o agente do Farol fala com o servidor local do Regem | atualização do servidor da loja | onda 5, com o acerto medido; o plano dela é apresentado antes do código |
+
+#### A fase 1, entregue (11/10/2026)
+
+No ar no Regem desde 11/10/2026, de madrugada (PR 648 de lá; migration 315, só da nuvem — o
+número mudou porque a 314 ficou com outra frente do Regem, mesclada minutos antes).
+
+| o que entrou | como ficou |
+|---|---|
+| o Farol como aplicativo conectado | acesso **por loja**, dado pelo presidente na página "Autorizar o Farol" (os textos aprovados); as três leituras vão juntas, sem chave para ligar ou desligar. Ele revoga em Configurações → Aplicativos conectados |
+| a leitura do catálogo | categorias, setores da loja, produtos, variações, combos e adicionais — o que cada adicional acrescenta (insumo, ficha ou produto) e o ingrediente que ele retira |
+| a leitura das fichas | as fichas e os ingredientes, na ordem, com a quantidade como foi informada e a do estoque |
+| a versão | cada leitura é o retrato inteiro, com a impressão do conteúdo; o Farol manda a que tem e, se nada mudou, recebe só "nada mudou" |
+| o que não sai | preço, custo, margem, CMV, cliente, venda — nenhuma consulta das duas leituras toca nesses campos, e o teste varre as respostas atrás de nome e de valor de dinheiro |
+
+**Como foi conferido:** 23 testes novos contra banco de verdade (o retrato campo a campo; a
+loja A não lê a B nem outra empresa; o mesmo número de consultas com 5 produtos e com 500);
+a suíte inteira do Regem (2.275 testes) e o CI verdes; a página em 16 larguras de tela, sem
+barra de rolagem para o lado; a migration na nuvem com a conferência dela; e o deploy pela
+rota nova respondendo.
+
+**Um achado no caminho, corrigido antes de ir ao ar:** no Regem, "ter um aplicativo
+conectado" ligava a cópia das vendas que serve ao Liame e ao RegemCast. O acesso do Farol,
+que não lê vendas, ligaria a cópia de 91 dias de uma empresa que ninguém ia ler. A rotina
+de lá passou a olhar o que o acesso libera; para os dois aplicativos de antes nada mudou.
+
+**O que isso combina para o lado do Farol** (item 3 da lista abaixo, com plano e protótipo
+antes do código): o contrato está no Regem, em `docs/integracao-farol.md`; o endereço de
+volta padrão já registrado lá é `https://api.monitorfarol.com.br/v1/regem/retorno`; a
+página do Regem diz que o acesso pode ser revogado "no Farol" — o console do Farol **tem
+de ter o "desconectar"**, que chama a rota de revogar de lá; e o acesso de cada loja é um
+segredo — fica cifrado no servidor do Farol, nunca na tela, nunca na loja.
 
 **O que o Farol faz com isso, do lado dele:** a base própria de fichas e produtos (item 3 da
 lista abaixo), alimentada pela fase 1; e, com a fase 2, a demanda por ingrediente crítico e
@@ -4429,9 +4461,9 @@ ficha: o Farol casa pelo produto e pelo nome, e trata cada leitura como retrato 
    completo na sacola; bancada limpa entre pedidos.
 4. ✅ **O lado do Regem: o plano foi apresentado e aprovado em 10/10** ("O lado do Regem —
    o plano, aprovado"). O caminho mudou em relação ao de 09/10: o Farol puxa as fichas e os
-   produtos para base própria, e a fila de produção sai sem os ingredientes. Da parte dele
-   fica, quando a fase 1 estiver pronta, criar o segredo do aplicativo e autorizar o Farol
-   na página.
+   produtos para base própria, e a fila de produção sai sem os ingredientes. **A fase 1
+   entrou no ar em 11/10.** Da parte dele fica, quando o lado do Farol que consome estiver
+   pronto, criar o segredo do aplicativo e autorizar o Farol na página.
 5. ✅ **Aprovada em 09/10** ("tudo aprovado e revisado").
 6. ✅ O quinto lanche do lote das 21h42 é o **Mussarela Bug** (dito pelo dono em 09/10, com
    a ficha). Falta ele confirmar que os quatro são o **Número 01**, dizer o que são as
