@@ -81,6 +81,8 @@
 
   function diretoria() { return est.perfil === 'diretoria'; }
   function conectada() { return ['conectado', 'semfichas', 'problema', 'revogado'].indexOf(est.situacao) >= 0; }
+  // com o acesso tirado no Regem as fichas são apagadas (a mesma regra do desconectar): a loja fica sem fichas
+  function temFichas() { return ['conectado', 'semfichas', 'problema'].indexOf(est.situacao) >= 0; }
   function produtos() {
     if (est.situacao !== 'semfichas') return PRODUTOS;
     return PRODUTOS.map(function (p) { var c = {}; for (var k in p) c[k] = p[k]; c.ficha = null; return c; });
@@ -89,20 +91,15 @@
 
   /* ─────────── a situação da leitura, dita uma vez ─────────── */
   function chipDaLeitura() {
-    if (est.situacao === 'problema') return '<span class="chip fora">parado desde 14:32</span>';
-    if (est.situacao === 'revogado') return '<span class="chip fora">acesso tirado no Regem</span>';
-    return '<span class="chip ok">atualizado há 4 min</span>';
+    if (est.situacao === 'problema') return '<span class="chip fora">a busca de hoje falhou</span>';
+    return '<span class="chip ok">atualizado hoje, 04:10</span>';
   }
   function avisoDaLeitura() {
     if (est.situacao === 'problema') {
-      return '<div class="aviso fora" role="status">' + ic('alerta') + '<div><b>O Farol não consegue ler o Regem desde 14:32.</b> As fichas abaixo são as da última leitura (hoje, 14:28). Não precisa fazer nada: ele tenta de novo sozinho, e avisa aqui quando voltar.</div></div>';
-    }
-    if (est.situacao === 'revogado') {
-      return '<div class="aviso fora" role="status">' + ic('alerta') + '<div><b>O acesso desta loja foi tirado no Regem hoje, às 09:12.</b> As fichas abaixo ficaram como estavam naquela hora. ' +
-        (diretoria() ? 'Para voltar a atualizar, conecte de novo. <button class="elo" type="button" data-ir="conexoes">Abrir Conexões</button>' : 'Para voltar a atualizar, a diretoria conecta de novo.') + '</div></div>';
+      return '<div class="aviso fora" role="status">' + ic('alerta') + '<div><b>O Farol não conseguiu ler o Regem na busca de hoje, às 04:10.</b> As fichas abaixo são as de ontem. Ele tenta de novo sozinho; para tentar já, use “Buscar agora”.</div></div>';
     }
     if (est.situacao === 'semfichas') {
-      return '<div class="aviso facho" role="status">' + ic('info') + '<div><b>O Regem desta loja ainda não tem fichas técnicas.</b> Sem ficha, o Farol sabe o que foi pedido, mas não como o produto é montado. As fichas se cadastram no Regem, em <b>Estoque › Fichas técnicas</b>; aqui elas chegam em alguns minutos.</div></div>';
+      return '<div class="aviso facho" role="status">' + ic('info') + '<div><b>O Regem desta loja ainda não tem fichas técnicas.</b> Sem ficha, o Farol sabe o que foi pedido, mas não como o produto é montado. As fichas se cadastram no Regem, em <b>Estoque › Fichas técnicas</b>; depois, use “Buscar agora” para trazê-las.</div></div>';
     }
     return '';
   }
@@ -120,9 +117,13 @@
   }
   function telaFichas() {
     var s = '<div class="cab"><div><h1>Fichas</h1>';
-    if (conectada()) s += '<div class="sobre"><span class="chip mono">do Regem</span>' + chipDaLeitura() + '</div>';
+    if (temFichas()) s += '<div class="sobre"><span class="chip mono">do Regem</span>' + chipDaLeitura() + '</div>';
     s += '<p class="suave" style="margin-top:8px;max-width:64ch">O que a loja vende e do que cada produto é feito. O Farol usa isto para conferir, pela câmera, se o pedido foi montado como a ficha manda.</p></div>';
-    if (conectada() && diretoria()) s += '<div class="acoes"><button class="btn so-largo" type="button" data-ir="conexoes">' + ic('tomada', 'p') + 'Conexões</button></div>';
+    if (temFichas()) {
+      s += '<div class="acoes"><button class="btn" type="button" data-buscar>' + ic('atualizar', 'p') + 'Buscar agora</button>';
+      if (diretoria()) s += '<button class="btn so-largo" type="button" data-ir="conexoes">' + ic('tomada', 'p') + 'Conexões</button>';
+      s += '</div>';
+    }
     s += '</div>';
 
     if (est.situacao === 'nao') {
@@ -130,8 +131,12 @@
         (diretoria() ? '<button class="btn cheio" type="button" data-ir="conexoes">' + ic('tomada', 'p') + 'Conectar ao Regem</button>' : '<p class="nota">Só a diretoria conecta o Regem.</p>') + '</div>';
     }
     if (est.situacao === 'voltou') {
-      return s + '<div class="vazio">' + ic('tomada', 'g') + '<h2>Falta ligar esta loja ao Regem</h2><p>O Regem já autorizou. Falta dizer qual loja de lá é a Loja Centro; depois disso as fichas chegam em alguns minutos.</p>' +
+      return s + '<div class="vazio">' + ic('tomada', 'g') + '<h2>Falta ligar esta loja ao Regem</h2><p>O Regem já autorizou. Falta dizer qual loja de lá é a Loja Centro; feito isso, o Farol busca as fichas na hora.</p>' +
         (diretoria() ? '<button class="btn cheio" type="button" data-ir="conexoes">Ligar as lojas</button>' : '<p class="nota">Quem liga as lojas é a diretoria.</p>') + '</div>';
+    }
+    if (est.situacao === 'revogado') {
+      return s + '<div class="vazio" role="status">' + ic('alerta', 'g') + '<h2>O acesso desta loja foi tirado no Regem</h2><p>Foi hoje, às 09:12. Sem o acesso, o Farol apagou as fichas que tinha de lá, e os critérios que usam ficha pararam de conferir. Para tê-las de volta, é conectar de novo.</p>' +
+        (diretoria() ? '<button class="btn cheio" type="button" data-ir="conexoes">' + ic('tomada', 'p') + 'Conectar de novo</button>' : '<p class="nota">Só a diretoria conecta o Regem.</p>') + '</div>';
     }
 
     var todos = produtos(), n = todos.length, cf = comFicha(todos);
@@ -185,7 +190,7 @@
       p.adicionais.forEach(function (a) { s += '<li>' + ic(a[0], 'p') + '<span>' + esc(a[1]) + '<small>' + esc(a[2]) + '</small></span></li>'; });
       s += '</ul></div>';
     }
-    s += '</div><div class="folha-pe"><p class="nota">Para mudar, mude no Regem: aqui chega em alguns minutos.</p><button class="btn" type="button" data-fechar>Fechar</button></div></aside>';
+    s += '</div><div class="folha-pe"><p class="nota">Para mudar, mude no Regem. O Farol busca as fichas uma vez por dia; para trazer já, use “Buscar agora”.</p><button class="btn" type="button" data-fechar>Fechar</button></div></aside>';
     return s;
   }
 
@@ -230,12 +235,13 @@
   }
   function linhaDaConexao(farol, regem, i) {
     var estado, numeros;
-    if (est.situacao === 'problema' && i === 0) estado = '<span class="linha-de-estado"><span class="chip fora">parado desde 14:32</span><span class="suave">tentando de novo</span></span>';
-    else if (est.situacao === 'revogado' && i === 0) estado = '<span class="linha-de-estado"><span class="chip fora">acesso tirado no Regem</span><span class="suave">hoje, 09:12</span></span>';
-    else estado = '<span class="linha-de-estado"><span class="chip ok">atualizado há ' + (i === 0 ? 4 : 7) + ' min</span></span>';
-    numeros = est.situacao === 'semfichas' ? '7 produtos · nenhuma ficha' : (i === 0 ? '7 produtos · 3 com ficha' : '9 produtos · 5 com ficha');
+    var tirado = est.situacao === 'revogado' && i === 0;
+    if (est.situacao === 'problema' && i === 0) estado = '<span class="linha-de-estado"><span class="chip fora">a busca de hoje falhou</span><span class="suave">tenta de novo sozinho</span></span>';
+    else if (tirado) estado = '<span class="linha-de-estado"><span class="chip fora">acesso tirado no Regem</span><span class="suave">hoje, 09:12</span></span>';
+    else estado = '<span class="linha-de-estado"><span class="chip ok">atualizado hoje, ' + (i === 0 ? '04:10' : '04:12') + '</span></span>';
+    numeros = tirado ? 'as fichas foram apagadas' : est.situacao === 'semfichas' ? '7 produtos · nenhuma ficha' : (i === 0 ? '7 produtos · 3 com ficha' : '9 produtos · 5 com ficha');
     var s = '<div class="conexao"><div class="de"><b>' + esc(farol) + '</b><small>' + esc(regem) + ', no Regem</small></div><div class="estado">' + estado + '<span class="suave mono">' + numeros + '</span></div><div class="acoes">';
-    if (i === 0) s += '<button class="btn mini" type="button" data-ir="fichas">Ver fichas</button>';
+    if (i === 0 && !tirado) s += '<button class="btn mini" type="button" data-ir="fichas">Ver fichas</button>';
     if (diretoria()) {
       if (est.situacao === 'revogado' && i === 0) s += '<button class="btn mini" type="button" data-conectar>' + ic('fora', 'p') + 'Conectar de novo</button>';
       else s += '<button class="btn mini perigo" type="button" data-desconectar="' + esc(farol) + '">Desconectar</button>';
@@ -248,7 +254,7 @@
     s += '</header><div class="miolo sem-folga">';
     s += linhaDaConexao('Loja Centro', 'Casa do Lanche · Centro', 0) + linhaDaConexao('Loja Barra', 'Casa do Lanche · Barra', 1);
     s += '</div></section>';
-    s += '<section class="cartao" aria-labelledby="t-le"><header><h2 id="t-le">O que esta conexão lê</h2></header><div class="miolo">' + oQueLe() + '<p class="nota">O acesso também pode ser tirado pelo Regem, em <b>Configurações → Aplicativos conectados</b>. Aqui ele aparece como “acesso tirado no Regem”.</p></div></section>';
+    s += '<section class="cartao" aria-labelledby="t-le"><header><h2 id="t-le">O que esta conexão lê</h2></header><div class="miolo">' + oQueLe() + '<p class="nota">O Farol busca as fichas quando a loja é ligada e, depois, uma vez por dia — ficha técnica não muda a toda hora. Para trazer uma mudança na hora, a tela Fichas tem o “Buscar agora”.</p><p class="nota">O acesso também pode ser tirado pelo Regem, em <b>Configurações → Aplicativos conectados</b>. Aqui ele aparece como “acesso tirado no Regem”, e as fichas daquela loja são apagadas.</p></div></section>';
     return s;
   }
   function telaConexoes() {
@@ -259,7 +265,7 @@
   }
   function dialogoDesconectar(loja) {
     return '<div class="dialogo" role="alertdialog" aria-modal="true" aria-labelledby="dlg-t" aria-describedby="dlg-d"><div><h2 id="dlg-t">Desconectar a ' + esc(loja) + ' do Regem?</h2>' +
-      '<p id="dlg-d">O Farol para de ler o Regem desta loja agora, e devolve o acesso. As fichas que já vieram continuam aqui, paradas na leitura de hoje, e os critérios que usam ficha seguem funcionando com elas. Para ler de novo, é preciso autorizar outra vez no Regem.</p>' +
+      '<p id="dlg-d">O Farol para de ler o Regem desta loja agora, devolve o acesso e <b>apaga as fichas que vieram de lá</b>. Os critérios que usam ficha param de conferir. Para ter as fichas de volta, é preciso autorizar outra vez no Regem.</p>' +
       '<div class="linha-acoes"><button class="btn" type="button" data-fechar data-foco>Manter</button><button class="btn perigo" type="button" data-confirmar-desconectar="' + esc(loja) + '">Desconectar</button></div></div></div>';
   }
 
@@ -348,6 +354,12 @@
     if ((el = t.closest('[data-filtro]'))) { est.filtro = el.getAttribute('data-filtro'); pintar(); var b = document.querySelector('[data-filtro="' + est.filtro + '"]'); if (b) b.focus(); return; }
     if (t.closest('[data-limpar]')) { est.filtro = 'todos'; est.busca = ''; pintar(); return; }
     if (t.closest('[data-tentar]')) { aplicarSituacao('conectado'); return; }
+    if (t.closest('[data-buscar]')) {
+      if (est.situacao === 'semfichas') { avisar('Busquei agora: o Regem desta loja continua sem fichas técnicas.', true); return; }
+      if (est.situacao === 'problema') { aplicarSituacao('conectado'); avisar('Fichas atualizadas agora.'); return; }
+      avisar('Busquei agora: nada mudou desde a busca de hoje.');
+      return;
+    }
     if (t.closest('[data-conectar]')) {
       avisar('No console, aqui você vai para o Regem e autoriza. O protótipo já simula a volta.', true);
       est.tela = 'conexoes';
@@ -358,7 +370,7 @@
       var ligadas = LOJAS_DO_REGEM.filter(function (r) { return est.pares[r.id]; }).length;
       if (!ligadas) { avisar('Nenhuma loja foi ligada: o acesso foi devolvido ao Regem.', true); aplicarSituacao('nao'); return; }
       aplicarSituacao('conectado');
-      avisar(plural(ligadas, 'loja ligada', 'lojas ligadas') + '. As fichas chegam em alguns minutos.');
+      avisar(plural(ligadas, 'loja ligada', 'lojas ligadas') + '. O Farol está buscando as fichas agora.');
       return;
     }
     if ((el = t.closest('[data-desconectar]'))) { abrir(dialogoDesconectar(el.getAttribute('data-desconectar')), '[data-desconectar="' + el.getAttribute('data-desconectar') + '"]'); return; }
@@ -366,7 +378,7 @@
       var loja = el.getAttribute('data-confirmar-desconectar');
       sobre.innerHTML = '';
       aplicarSituacao('nao');
-      avisar('A ' + loja + ' foi desconectada do Regem. As fichas dela ficaram como estavam.');
+      avisar('A ' + loja + ' foi desconectada do Regem. As fichas dela foram apagadas.');
       return;
     }
     if (t.closest('#tema')) { raiz.setAttribute('data-theme', temaEscuro() ? 'light' : 'dark'); marcar('proto-tema', raiz.getAttribute('data-theme')); pintarTema(); return; }
