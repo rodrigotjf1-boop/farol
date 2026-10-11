@@ -19,6 +19,10 @@
 //   4. `POST /v1/regem/lojas/:id/desconectar` — devolve o acesso de uma loja
 //      e apaga a ligação.
 //
+// E uma rota que NÃO é do console: `POST /v1/regem/avisos/:conexaoId`, por
+// onde o Regem avisa "algo mudou nesta loja" (`aviso.ts`). Quem chama é o
+// servidor do Regem, sem sessão: o que a protege é a assinatura do aviso.
+//
 // QUEM PODE. Ver a conexão: quem configura a conta (gerente para cima, e o
 // suporte). Conectar, ligar e desconectar: **só a diretoria** — nem o
 // suporte. Deixar outro sistema ser lido é decisão do dono do negócio
@@ -33,12 +37,14 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type pg from 'pg';
 
+import { chaveDoSegredo, conferirAviso, contextoDoAviso } from '../aviso.js';
 import { cifrar, decifrar } from '../cifra.js';
 import { LEITURA_MORTA_MIN, lerEmSegundoPlano } from '../leitura.js';
 import { sugerirPares } from '../pares.js';
 import { ehDiretoria, exigirDiretoria, podeConfigurar } from '../rbac.js';
 import {
   conexaoDisponivel,
+  contextoDoAcesso,
   devolverAcesso,
   ErroDoRegem,
   impressao,
@@ -74,8 +80,11 @@ export type DesfechoDaVolta =
   | 'falhou';
 
 const contextoDoPedido = (estadoHash: string) => `pedido:${estadoHash}`;
-// O acesso é cifrado PARA a conta e a loja de lá: colado em outra linha, não decifra.
-const contextoDoAcesso = (tenantId: string, regemLojaId: string) => `acesso:${tenantId}:${regemLojaId}`;
+
+/** O maior aviso que se aceita ler. O do Regem tem menos de 200 bytes. */
+const MAX_DO_AVISO = 4096;
+/** Aviso que chega com a última leitura mais recente do que isto só marca a loja: quem lê é a rotina, em até um minuto. */
+const FOLGA_ENTRE_LEITURAS_S = 15;
 
 type Linha = {
   id: string;
@@ -364,7 +373,9 @@ export function rotasDoRegem(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoR
               conectado_por = excluded.conectado_por,
               conectado_em = now(),
               acesso_tirado_em = null, falha = null, proxima_em = null, lendo_desde = null,
-              versao_catalogo = null, versao_fichas = null
+              versao_catalogo = null, versao_fichas = null,
+              -- o aviso era do acesso de antes: com o novo, registra-se de novo (o segredo guardado serve)
+              aviso_registrado_em = null, aviso_tentado_em = null
        returning id, loja_id`,
       [
         s.tenantId,
@@ -563,5 +574,72 @@ export function rotasDoRegem(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoR
       lojaNome: linha.loja_nome,
       regemLojaNome: linha.regem_loja_nome,
     };
+  });
+
+  // ─────────────────────── o aviso do Regem ───────────────────────
+  // Quem chama é o servidor do Regem, sem sessão e sem cookie. O que vale é a
+  // assinatura: o segredo é o que ESTE servidor sorteou para esta conexão e
+  // entregou ao Regem no registro.
+  //
+  // Num contexto à parte, porque a assinatura é conferida sobre o texto
+  // EXATO que chegou: aqui o corpo não é interpretado, só lido como texto.
+  //
+  // O que cada resposta diz ao Regem:
+  //   204  recebido (a leitura acontece depois, em segundo plano);
+  //   401  a assinatura não confere — ele tenta de novo, com recuo;
+  //   404  esta conexão não existe (ou não tem aviso): se ficar assim por
+  //        uma hora, o Regem para de avisar. É o que se quer depois de
+  //        desconectar;
+  //   503  esta instalação não tem como conferir agora.
+  void app.register(async (escopo) => {
+    escopo.removeAllContentTypeParsers();
+    escopo.addContentTypeParser('*', { parseAs: 'string', bodyLimit: MAX_DO_AVISO }, (_req, corpo, feito) => feito(null, corpo));
+
+    const umSo = (v: string | string[] | undefined): string | undefined => (typeof v === 'string' ? v : undefined);
+    const naoExiste = (resposta: FastifyReply) => resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'não existe esse aviso' });
+
+    escopo.post('/v1/regem/avisos/:conexaoId', { bodyLimit: MAX_DO_AVISO }, async (req, resposta) => {
+      const { conexaoId } = req.params as { conexaoId: string };
+      if (!UUID.test(conexaoId)) return naoExiste(resposta);
+      if (cfg.chave === null) return resposta.status(503).send(INDISPONIVEL);
+
+      const { rows } = await pool.query<{ tenant_id: string; regem_loja_id: string; aviso_segredo_cifrado: string | null }>(
+        `select tenant_id, regem_loja_id, aviso_segredo_cifrado
+           from regem_loja
+          where id = $1 and loja_id is not null and acesso_tirado_em is null`,
+        [conexaoId],
+      );
+      const linha = rows[0];
+      const segredo = linha?.aviso_segredo_cifrado ? decifrar(linha.aviso_segredo_cifrado, cfg.chave, contextoDoAviso(linha.tenant_id, linha.regem_loja_id)) : null;
+      const chave = segredo ? chaveDoSegredo(segredo) : null;
+      // Sem ligação, sem segredo guardado, ou com um que não abre mais: para o Regem é a mesma coisa.
+      if (!chave) return naoExiste(resposta);
+
+      const conferencia = conferirAviso({
+        id: umSo(req.headers['webhook-id']),
+        timestamp: umSo(req.headers['webhook-timestamp']),
+        assinatura: umSo(req.headers['webhook-signature']),
+        corpo: typeof req.body === 'string' ? req.body : '',
+        chave,
+        agora: new Date(),
+      });
+      if (conferencia !== 'ok') {
+        req.log.warn({ regemLoja: conexaoId, motivo: conferencia }, 'regem: aviso recusado');
+        return resposta.status(401).send({ erro: 'aviso_invalido', mensagem: 'o aviso não tem assinatura válida' });
+      }
+
+      // O aviso só MARCA a loja; quem busca é a leitura. Com uma leitura
+      // recém-começada, fica para a rotina (em até um minuto): um aviso
+      // repetido de propósito não vira uma leitura por pedido.
+      const marcada = await pool.query<{ ja: boolean }>(
+        `update regem_loja
+            set aviso_recebido_em = now(), aviso_pendente_desde = now()
+          where id = $1 and loja_id is not null and acesso_tirado_em is null
+          returning (tentada_em is null or tentada_em < now() - make_interval(secs => $2)) as ja`,
+        [conexaoId, FOLGA_ENTRE_LEITURAS_S],
+      );
+      if (marcada.rows[0]?.ja) lerEmSegundoPlano(pool, cfg, [conexaoId], app.log);
+      return resposta.status(204).send();
+    });
   });
 }

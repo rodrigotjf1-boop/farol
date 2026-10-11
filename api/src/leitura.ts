@@ -15,6 +15,12 @@
 //
 // Uma falha não espera o dia seguinte: tenta de novo em meia hora.
 //
+// E um quarto momento, pedido pelo dono na noite de 11/10/2026: quando o
+// REGEM AVISA que algo mudou (`aviso.ts`). O aviso não traz dado — só marca
+// a loja como "tem aviso esperando", e é esta leitura que busca. Começar
+// uma leitura limpa a marca; o aviso que chega no meio de uma leitura fica
+// marcado, e a rotina lê a loja de novo na volta seguinte.
+//
 // O QUE ACONTECE:
 //
 //   atualizada     a base da loja foi trocada pela nova;
@@ -37,9 +43,10 @@ import { createHash } from 'node:crypto';
 
 import type pg from 'pg';
 
+import { garantirAviso } from './aviso.js';
 import { decifrar } from './cifra.js';
 import { contarBase, impressaoDaBase } from './fichas.js';
-import { ErroDoRegem, lerRetrato, type ConfigDoRegem, type Retrato } from './regem.js';
+import { contextoDoAcesso, ErroDoRegem, lerRetrato, type ConfigDoRegem, type Retrato } from './regem.js';
 import { baseDoRegem } from './regem-fichas.js';
 
 export type Desfecho = 'atualizada' | 'nada_mudou' | 'acesso_tirado' | 'falhou' | 'ocupada' | 'nao_ligada';
@@ -54,8 +61,6 @@ export const HORA_DA_LEITURA = 4;
 export const ESPERA_DEPOIS_DA_FALHA_MIN = 30;
 /** Leitura que não terminou neste tempo é dada por morta: outra pode começar. */
 export const LEITURA_MORTA_MIN = 3;
-
-const contextoDoAcesso = (tenantId: string, regemLojaId: string) => `acesso:${tenantId}:${regemLojaId}`;
 
 /** O minuto da loja, entre 0 e 59 — sempre o mesmo para a mesma loja. */
 export function minutoDaLoja(lojaId: string): number {
@@ -128,9 +133,11 @@ export async function lerFichasDaLoja(
   agora: () => Date = () => new Date(),
 ): Promise<Resultado> {
   // Pega a vez — uma instrução só: de duas leituras ao mesmo tempo, uma leva.
+  // O aviso que esperava é atendido por ESTA leitura: a marca sai aqui, no
+  // começo. O que chegar depois deste instante marca de novo.
   const pego = await pool.query<Linha>(
     `update regem_loja r
-        set lendo_desde = now(), tentada_em = now()
+        set lendo_desde = now(), tentada_em = now(), aviso_pendente_desde = null
        from loja l
       where r.id = $1 and l.id = r.loja_id and r.acesso_tirado_em is null
         and (r.lendo_desde is null or r.lendo_desde < now() - make_interval(mins => $2))
@@ -184,6 +191,7 @@ export async function lerFichasDaLoja(
     const proxima = proximaLeitura(agora(), linha.timezone, linha.loja_id);
     if (!catalogo.mudou || !fichas.mudou) {
       await pool.query('update regem_loja set lendo_desde = null, lida_em = now(), falha = null, proxima_em = $2 where id = $1', [linha.id, proxima]);
+      registrarOAvisoEmSegundoPlano(pool, cfg, linha.id, log);
       return { desfecho: 'nada_mudou' };
     }
 
@@ -227,6 +235,7 @@ export async function lerFichasDaLoja(
       await cliente.query('commit');
       const mudou = (gravou.rowCount ?? 0) > 0;
       if (mudou) log.info({ regemLoja: linha.id, ...total }, 'regem: a base de fichas da loja foi atualizada');
+      registrarOAvisoEmSegundoPlano(pool, cfg, linha.id, log);
       return { desfecho: mudou ? 'atualizada' : 'nada_mudou' };
     } catch (e) {
       await cliente.query('rollback').catch(() => {});
@@ -247,7 +256,9 @@ async function tirarOAcesso(pool: pg.Pool, linha: Linha, log: Registro): Promise
   await pool.query(
     `with tirado as (
        update regem_loja
-          set lendo_desde = null, acesso_tirado_em = now(), falha = null, proxima_em = null, versao_catalogo = null, versao_fichas = null
+          set lendo_desde = null, acesso_tirado_em = now(), falha = null, proxima_em = null, versao_catalogo = null, versao_fichas = null,
+              -- sem acesso não há aviso: o segredo sai, e a conexão passa a responder 404 a quem avisar
+              aviso_segredo_cifrado = null, aviso_registrado_em = null
         where id = $1
         returning loja_id
      )
@@ -274,7 +285,7 @@ export async function lerAsLojasDaVez(
   const { rows } = await pool.query<{ id: string }>(
     `select id from regem_loja
       where loja_id is not null and acesso_tirado_em is null
-        and (proxima_em is null or proxima_em <= now())
+        and (proxima_em is null or proxima_em <= now() or aviso_pendente_desde is not null)
         and (lendo_desde is null or lendo_desde < now() - make_interval(mins => $2))
         and ($3::uuid[] is null or tenant_id = any($3::uuid[]))
       order by proxima_em nulls first, id
@@ -341,6 +352,17 @@ export async function voltaDaLeitura(
 // estado de negócio: é só a lista de promessas em curso, para quem precisa
 // esperar por elas (os testes; o encerramento).
 const emCurso = new Set<Promise<void>>();
+
+/**
+ * Depois de uma leitura que deu certo: garante que o Regem sabe para onde
+ * avisar. Em segundo plano — o "Buscar agora" não espera por isso — e sem
+ * rejeitar (`garantirAviso` trata por dentro o que der errado).
+ */
+function registrarOAvisoEmSegundoPlano(pool: pg.Pool, cfg: ConfigDoRegem, conexaoId: string, log: Registro): void {
+  const registro = garantirAviso(pool, cfg, conexaoId, log).then(() => undefined);
+  emCurso.add(registro);
+  void registro.finally(() => emCurso.delete(registro));
+}
 
 /** Dispara a leitura de lojas recém-ligadas sem segurar quem pediu. Nunca rejeita. */
 export function lerEmSegundoPlano(pool: pg.Pool, cfg: ConfigDoRegem, conexaoIds: string[], log: Registro): void {

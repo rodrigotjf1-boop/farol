@@ -3850,3 +3850,85 @@ Os itens 2 e 3 mudam tela: plano e protótipo antes.
 
 - A cópia das fichas chegando ao computador da loja de verdade: não há base na nuvem para
   essa loja enquanto ninguém conectar o Regem dela em produção.
+
+---
+
+## 11/10/2026 (noite) · O aviso do Regem — o lado do Farol (migration 039)
+
+Pedido do dono: "as fichas, ao serem alteradas no Regem, já enviam ao Farol as modificações,
+em vez de o Farol ficar buscando". O Regem já tem um aviso assinado de "algo mudou nesta loja"
+(padrão Standard Webhooks), usado por outro produto. Esta entrega é a metade do Farol:
+**registrar** o aviso e **receber**. A metade do Regem (deixar o Farol registrar e o cardápio
+e as fichas avisarem) é plano do projeto de lá. As duas metades entram em qualquer ordem:
+enquanto o Regem responde "ainda não aceito", o Farol segue só com a leitura diária.
+
+### Como funciona
+
+1. **O aviso não leva dado.** É só o gatilho; quem lê é a leitura de sempre, com a versão que
+   já tem. Aviso repetido não custa e aviso perdido não perde nada: a leitura diária e o
+   "Buscar agora" continuam.
+2. **Ninguém digita nada.** O endereço (`/v1/regem/avisos/<id da conexão>`) e o segredo do
+   aviso são sorteados pelo servidor do Farol. O segredo fica cifrado com a mesma chave dos
+   acessos, com contexto próprio (o da loja A, colado na linha da loja B, não abre), e não
+   sai por rota, tela nem registro.
+3. **Registra depois de ler.** Depois de uma leitura que deu certo — ao ligar a loja, uma vez
+   por dia e a pedido —, em segundo plano. Refaz o registro a cada 20 horas, com o mesmo
+   endereço e o mesmo segredo: é o que religa um aviso que o Regem tenha pausado. Não há
+   relógio novo nem consulta de minutos em minutos.
+4. **O aviso só marca a loja.** A rota confere a assinatura sobre o texto exato que chegou e
+   o relógio (cinco minutos), marca "tem aviso esperando" e dispara a leitura em segundo
+   plano. Começar uma leitura limpa a marca; o aviso que chega **no meio** de uma leitura
+   fica marcado e a rotina lê a loja de novo na volta seguinte.
+5. **Aviso repetido não vira uma leitura por pedido.** Com a última leitura começada há menos
+   de 15 segundos, o aviso só marca: quem lê é a rotina, em até um minuto.
+6. **O fim.** Desconectar apaga a conexão: quem avisar recebe 404, que é o que faz o Regem
+   parar. Acesso tirado no Regem apaga o segredo junto com as fichas. Conectar de novo
+   registra com o acesso novo.
+
+### O que eu decidi no caminho, e por quê
+
+- **Não chamo `DELETE /integracao/webhook` ao desconectar.** O Regem já apaga o registro do
+  acesso devolvido e não avisa acesso devolvido. Uma chamada a menos é um jeito a menos de o
+  desconectar falhar pela metade. (O pedido ao Regem dizia que o Farol chamaria; corrigi lá.)
+- **Um segredo por conexão, guardado antes de ir ao Regem.** Se o Regem aceitar e a resposta
+  se perder, o aviso que chegar já pode ser conferido.
+- **A rota responde 404 igual** para conexão que não existe, sem segredo ou com segredo que
+  não abre mais: para quem avisa é a mesma coisa, e o registro seguinte conserta sozinho.
+- **O `tipo` do aviso não é lido** — o corpo nem é interpretado. Qualquer aviso assinado
+  dispara a leitura das duas rotas.
+- **Nenhuma tela mudou.** A tela Fichas só passa a mostrar "atualizado" mais cedo. Dizer
+  "atualiza sozinho" fica para quando houver um aviso de verdade chegando.
+- **Uma variável nova, opcional:** `REGEM_AVISO_URL`, só para teste e desenvolvimento. Em
+  produção o endereço é o do próprio servidor.
+
+### O que foi medido
+
+- **18 testes novos** (`aviso-do-regem.test.ts`): a assinatura conferida contra a conta do
+  Regem (copiada para o Regem de mentira dos testes); o registro ao ligar, o 422, a meia
+  hora de espera, o registro diário com o mesmo segredo, as falhas, duas tentativas ao mesmo
+  tempo; o aviso que chega, o que chega logo depois de uma leitura, o que chega no meio de
+  uma; nove jeitos de aviso que não vale (outro segredo, corpo mexido, relógio, cabeçalho
+  faltando, o aviso de outra loja); desconectar, acesso tirado e conectar de novo.
+- **66 estragos de propósito**, em quatro arquivos: na assinatura (o relógio, o corpo, o id ou
+  o instante fora da conta, assinatura de outra versão, comparar só o tamanho), no segredo,
+  no registro (cedo demais, tarde demais, sem esperar, duas tentativas ao mesmo tempo, o
+  endereço errado, o segredo novo que não é guardado), na leitura (a marca que não é limpa, a
+  rotina que ignora a loja com aviso) e na rota (o corpo interpretado antes de conferir, o
+  relógio de quem mandou, o aviso recusado que é atendido). **Os 66 pegos.** Um tinha
+  sobrevivido — "sem a chave do ambiente, tenta assim mesmo" —, porque o teste chamava com a
+  meia hora de espera ainda valendo e a tentativa nem começava: o teste passou a envelhecer a
+  tentativa antes e a conferir que nada é anotado.
+- Os 121 testes vizinhos (fichas e conexão), que usam o mesmo Regem de mentira, seguem
+  passando.
+- A migration aplicada duas vezes no banco local: as cinco colunas nascem vazias e nenhuma
+  conexão que já existia muda.
+
+### O que não foi medido
+
+- **Um aviso de verdade.** O Regem ainda não envia aviso de cardápio nem de ficha, e não
+  aceita o registro do Farol: tudo acima foi medido contra o Regem de mentira.
+- **A borda.** O aviso do Regem chega com a identificação `Regem-Integracao/1`. Depois do
+  deploy confiro, de fora, que um pedido com essa identificação chega à rota (404 em JSON, e
+  não a página de bloqueio da borda).
+- O atraso entre a mudança no Regem e a leitura no Farol: depende do lado de lá (o aviso sai,
+  no máximo, um por minuto por loja).

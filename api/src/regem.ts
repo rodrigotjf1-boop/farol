@@ -44,6 +44,13 @@ export type ConfigDoRegem = {
   segredo: string | null;
   /** A chave que cifra os acessos guardados. `null` = não configurada. */
   chave: Buffer | null;
+  /**
+   * Onde ESTE servidor recebe o aviso do Regem, visto de fora — com a barra
+   * no fim; o que vem depois é o id da conexão. Ausente: o endereço de
+   * produção. O Regem só aceita registrar endereço dentro do que a
+   * distribuição de lá listou para o Farol.
+   */
+  avisoUrl?: string;
   buscar: typeof fetch;
   prazoMs: number;
   agente: string;
@@ -51,6 +58,15 @@ export type ConfigDoRegem = {
 
 /** O segredo mais curto que isto é tratado como não configurado — a mesma régua do Regem. */
 const SEGREDO_MINIMO = 32;
+
+/** Onde o servidor do Farol recebe o aviso do Regem, em produção (o que o Regem tem listado para o Farol). */
+export const AVISO_URL_DE_PRODUCAO = 'https://api.monitorfarol.com.br/v1/regem/avisos/';
+
+/**
+ * O contexto que entra na cifra do acesso de uma loja: o acesso da loja A,
+ * colado na linha da loja B, não abre.
+ */
+export const contextoDoAcesso = (tenantId: string, regemLojaId: string): string => `acesso:${tenantId}:${regemLojaId}`;
 
 export function configDoRegem(env: NodeJS.ProcessEnv = process.env, versao = '0.1.0'): ConfigDoRegem {
   const semBarra = (u: string) => u.replace(/\/+$/, '');
@@ -63,6 +79,7 @@ export function configDoRegem(env: NodeJS.ProcessEnv = process.env, versao = '0.
     consoleUrl,
     segredo: segredo.length >= SEGREDO_MINIMO ? segredo : null,
     chave: lerChave(env.FAROL_CHAVE_DOS_ACESSOS),
+    avisoUrl: `${semBarra(env.REGEM_AVISO_URL || AVISO_URL_DE_PRODUCAO)}/`,
     buscar: fetch,
     prazoMs: 10_000,
     agente: `farol-api/${versao} (+https://monitorfarol.com.br)`,
@@ -126,7 +143,7 @@ const texto = (v: unknown, max: number): string | null => (typeof v === 'string'
 async function chamar(
   cfg: ConfigDoRegem,
   caminho: string,
-  opcoes: { corpo?: unknown; acesso?: string; metodo?: 'GET' | 'POST' },
+  opcoes: { corpo?: unknown; acesso?: string; metodo?: 'GET' | 'POST' | 'PUT' },
 ): Promise<{ status: number; json: unknown }> {
   let r: Response;
   try {
@@ -201,6 +218,31 @@ export async function trocarCodigo(
 export async function devolverAcesso(cfg: ConfigDoRegem, acesso: string): Promise<void> {
   const { status } = await chamar(cfg, '/integracao/autorizacao/revogar', { acesso });
   if (status === 200 || status === 401) return;
+  throw new ErroDoRegem('recusado', status);
+}
+
+// ───────────────────────────── o aviso ─────────────────────────────
+
+/**
+ * Diz ao Regem para onde avisar "algo mudou nesta loja", e com que segredo
+ * assinar. Registrar de novo com o mesmo endereço e o mesmo segredo é o
+ * dia a dia: religa o que o Regem tiver pausado e não muda mais nada.
+ *
+ *   registrado      o Regem aceitou;
+ *   nao_habilitado  o Regem (ainda) não aceita aviso para o Farol, ou não
+ *                   para este endereço. Não é erro: vale a leitura diária.
+ *
+ * O segredo vai no corpo e não aparece em erro nem em registro.
+ */
+export async function registrarAviso(
+  cfg: ConfigDoRegem,
+  acesso: string,
+  p: { url: string; segredo: string },
+): Promise<'registrado' | 'nao_habilitado'> {
+  const { status } = await chamar(cfg, '/integracao/webhook', { acesso, metodo: 'PUT', corpo: { url: p.url, segredo: p.segredo } });
+  if (status === 200) return 'registrado';
+  if (status === 422) return 'nao_habilitado';
+  if (status === 401) throw new ErroDoRegem('acesso_tirado', status);
   throw new ErroDoRegem('recusado', status);
 }
 
