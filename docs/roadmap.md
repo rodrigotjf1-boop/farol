@@ -4595,8 +4595,10 @@ depois**, como ele decidiu; a planilha tem protótipo próprio antes.
   loja; conectar segue da diretoria.
 - **O dono pediu, e entra no plano:** (1) o Regem **avisar** o Farol quando o cardápio ou a
   ficha muda, em vez de o Farol só buscar uma vez por dia — o pedido ao projeto Regem está em
-  `docs/pedido-farol-aviso-de-mudanca.md` daquele repositório; o lado do Farol (registrar o
-  aviso ao ligar a loja, recebê-lo e ler na hora) é fatia nova, com migration; (2) a
+  `docs/pedido-farol-aviso-de-mudanca.md` daquele repositório; **o lado do Farol está
+  entregue** (migration 039: registra o aviso depois de ler, recebe o aviso assinado em
+  `POST /v1/regem/avisos/<id da conexão>` e lê na hora; [decisoes.md](decisoes.md), "O aviso
+  do Regem"), e fica dormindo até o Regem aceitar o registro e passar a avisar; (2) a
   **planilha** agora, com o **modelo de colunas** para o usuário preencher (era a fatia 4,
   "depois"); (3) as telas Conexões e Fichas **não podem ser só do Regem**: o Farol é produto
   para distribuição, e uma operação que não usa o Regem tem de conseguir mandar as fichas dela

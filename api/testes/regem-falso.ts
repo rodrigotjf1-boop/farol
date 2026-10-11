@@ -14,11 +14,21 @@
 //   • a loja que já tinha acesso deste cliente troca: o antigo deixa de valer;
 //   • devolver um acesso que não vale é 401 token-invalido.
 //
+// O AVISO (`webhook-integracao.service.ts` e `webhook-integracao.ts`, de lá):
+//
+//   • `PUT /integracao/webhook` confere, nesta ordem: o acesso (401); o
+//     corpo, só com "url" e "segredo" (400); se o cliente TEM aviso
+//     habilitado (422); se o endereço está dentro da base permitida, com um
+//     trecho só depois dela (422); o formato do segredo (400). Aceito: 200;
+//   • o aviso sai assinado como lá: `v1,` + HMAC-SHA256 (base64) de
+//     `id.timestamp.corpo`, com a chave que vem depois de `whsec_`;
+//   • acesso devolvido ou trocado leva o registro junto.
+//
 // Arquivo de apoio: não termina em `.test.ts`, então o corredor de testes
 // não o trata como teste.
 // =====================================================================
 
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -83,8 +93,32 @@ export type RegemFalso = {
   soltar(): void;
   /** Quantas leituras estão paradas esperando o `soltar()`. */
   seguradas(): number;
+  /**
+   * O aviso. `base`: o endereço dentro do qual o Farol pode pedir aviso —
+   * `null` = o Regem ainda não aceita aviso para o Farol (422), que é como
+   * todo teste começa. `pedidos`: o que chegou em `/integracao/webhook`
+   * (fica FORA de `chamadas`, para os testes de antes contarem o que já
+   * contavam).
+   */
+  avisos: {
+    base: string | null;
+    pedidos: Array<{ metodo: string; comAcesso: boolean; corpo: Record<string, unknown> | null; status: number }>;
+    /** O registro que a loja de lá tem agora (o do acesso que vale), ou `null`. */
+    registroDe(lojaId: string): { url: string; segredo: string } | null;
+    /**
+     * O aviso que o Regem mandaria agora a essa loja: o endereço, os
+     * cabeçalhos e o corpo, assinados como lá. `null` se não há registro.
+     */
+    montar(lojaId: string, opcoes?: { tipo?: string; agora?: Date; segredo?: string }): { url: string; cabecalhos: Record<string, string>; corpo: string } | null;
+  };
   fechar(): Promise<void>;
 };
+
+/** A assinatura, como o Regem faz (`assinarAviso` e `chaveDoSegredo`, de lá). */
+export function assinarComoORegem(segredo: string, id: string, timestampSeg: number, corpo: string): string {
+  const chave = Buffer.from(segredo.slice('whsec_'.length), 'base64');
+  return `v1,${createHmac('sha256', chave).update(`${id}.${timestampSeg}.${corpo}`).digest('base64')}`;
+}
 
 /** O que uma loja responde em `GET /integracao/catalogo` e `GET /integracao/fichas`, sem a versão. */
 export type Cardapio = {
@@ -122,6 +156,30 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
   const cardapios = new Map<string, Cardapio>();
   let segurando = false;
   const esperando: Array<() => void> = [];
+  /** acesso → o registro do aviso dele */
+  const registros = new Map<string, { url: string; segredo: string }>();
+  /** O formato do segredo, como lá: `whsec_` + base64 de 24 a 64 bytes, sem lixo no meio. */
+  const segredoServe = (v: unknown): v is string => {
+    if (typeof v !== 'string' || !v.startsWith('whsec_') || v.length > 200) return false;
+    const b64 = v.slice('whsec_'.length);
+    const chave = Buffer.from(b64, 'base64');
+    const semEnchimento = (t: string) => t.replace(/=+$/, '');
+    return semEnchimento(chave.toString('base64')) === semEnchimento(b64) && chave.length >= 24 && chave.length <= 64;
+  };
+  /** O endereço está DENTRO da base, com um trecho só depois dela — como `enderecoPermitido`, de lá. */
+  const enderecoServe = (v: unknown, base: string): v is string => {
+    if (typeof v !== 'string' || !v.length || v.length > 500) return false;
+    let u: URL;
+    try {
+      u = new URL(v);
+    } catch {
+      return false;
+    }
+    const b = new URL(base);
+    if (u.username || u.password || u.search || u.hash) return false;
+    if (u.protocol !== b.protocol || u.host !== b.host || !u.pathname.startsWith(b.pathname)) return false;
+    return /^[A-Za-z0-9_-]{1,64}$/.test(u.pathname.slice(b.pathname.length));
+  };
 
   const problema = (r: http.ServerResponse, status: number, tipo: string, titulo: string, detalhe: string) => {
     r.writeHead(status, { 'content-type': 'application/problem+json; charset=utf-8' });
@@ -151,9 +209,42 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
       return codigo;
     },
     vale: (acesso) => acessos.has(acesso),
-    tirar: (acesso) => void acessos.delete(acesso),
+    tirar: (acesso) => {
+      acessos.delete(acesso);
+      registros.delete(acesso);
+    },
     tirarDaLoja: (lojaId) => {
-      for (const [acesso, loja] of acessos) if (loja.toLowerCase() === lojaId.toLowerCase()) acessos.delete(acesso);
+      for (const [acesso, loja] of acessos) {
+        if (loja.toLowerCase() !== lojaId.toLowerCase()) continue;
+        acessos.delete(acesso);
+        registros.delete(acesso);
+      }
+    },
+    avisos: {
+      base: null,
+      pedidos: [],
+      registroDe: (lojaId) => {
+        for (const [acesso, loja] of acessos) if (loja.toLowerCase() === lojaId.toLowerCase()) return registros.get(acesso) ?? null;
+        return null;
+      },
+      montar: (lojaId, opcoes = {}) => {
+        const registro = falso.avisos.registroDe(lojaId);
+        if (!registro) return null;
+        const corpo = JSON.stringify({ tipo: opcoes.tipo ?? 'fichas.alterado', loja_id: lojaId });
+        const id = randomUUID();
+        const ts = Math.floor((opcoes.agora ?? new Date()).getTime() / 1000);
+        return {
+          url: registro.url,
+          cabecalhos: {
+            'content-type': 'application/json',
+            'user-agent': 'Regem-Integracao/1',
+            'webhook-id': id,
+            'webhook-timestamp': String(ts),
+            'webhook-signature': assinarComoORegem(opcoes.segredo ?? registro.segredo, id, ts, corpo),
+          },
+          corpo,
+        };
+      },
     },
     cardapio: (lojaId, c) => void cardapios.set(lojaId.toLowerCase(), c),
     amostra,
@@ -185,19 +276,25 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
       }
       const caminho = (req.url ?? '').replace(/^\/api\/v1/, '');
       const autorizacao = String(req.headers.authorization ?? '');
-      chamadas.push({
-        caminho,
-        agente: String(req.headers['user-agent'] ?? ''),
-        tipo: req.headers['content-type'] ? String(req.headers['content-type']) : null,
-        comAcesso: autorizacao.length > 0,
-        corpo,
-      });
+      // O pedido de aviso é anotado à parte (`avisos.pedidos`), com o que foi respondido.
+      const ehAviso = caminho === '/integracao/webhook';
+      const doAviso = { metodo: req.method ?? '', comAcesso: autorizacao.length > 0, corpo, status: 0 };
+      if (ehAviso) falso.avisos.pedidos.push(doAviso);
+      else {
+        chamadas.push({
+          caminho,
+          agente: String(req.headers['user-agent'] ?? ''),
+          tipo: req.headers['content-type'] ? String(req.headers['content-type']) : null,
+          comAcesso: autorizacao.length > 0,
+          corpo,
+        });
+      }
 
       const modo = falso.modo;
       if (modo === 'mudo') return void presos.add(res);
-      if (modo === 'fora') return problema(res, 503, 'erro-interno', 'Erro interno', 'Serviço indisponível.');
-      if (modo === 'devagar') return problema(res, 429, 'limite-de-chamadas', 'Limite de chamadas', 'Muitas chamadas.');
-      if (modo === 'proibido') return problema(res, 403, 'escopo-insuficiente', 'Escopo insuficiente', 'Não pode.');
+      if (modo === 'fora') return void ((doAviso.status = 503), problema(res, 503, 'erro-interno', 'Erro interno', 'Serviço indisponível.'));
+      if (modo === 'devagar') return void ((doAviso.status = 429), problema(res, 429, 'limite-de-chamadas', 'Limite de chamadas', 'Muitas chamadas.'));
+      if (modo === 'proibido') return void ((doAviso.status = 403), problema(res, 403, 'escopo-insuficiente', 'Escopo insuficiente', 'Não pode.'));
       if (modo === 'desvia') {
         // Para ESTE servidor, noutro caminho: se o cliente seguir o
         // desvio, a segunda chamada fica anotada em `chamadas`.
@@ -209,6 +306,37 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
         return void res.end('<!doctype html><title>Um momento…</title>');
       }
+      // ── o aviso: registrar (PUT) e parar de avisar (DELETE) ──
+      if (ehAviso) {
+        const acesso = /^Bearer (.+)$/.exec(autorizacao)?.[1] ?? '';
+        const recusar = (status: number, tipo: string, titulo: string, detalhe: string) => {
+          doAviso.status = status;
+          return problema(res, status, tipo, titulo, detalhe);
+        };
+        if (!acessos.has(acesso)) return recusar(401, 'token-invalido', 'Token inválido', 'Token ausente, inválido ou revogado.');
+        if (req.method === 'DELETE') {
+          registros.delete(acesso);
+          doAviso.status = 204;
+          res.writeHead(204);
+          return void res.end();
+        }
+        if (req.method !== 'PUT') return recusar(404, 'nao-encontrado', 'Não encontrado', 'Rota inexistente.');
+        if (!corpo || Array.isArray(corpo)) return recusar(400, 'parametro-invalido', 'Parâmetro inválido', 'Envie um JSON com "url" e "segredo".');
+        const estranhos = Object.keys(corpo).filter((k) => k !== 'url' && k !== 'segredo');
+        if (estranhos.length) return recusar(400, 'parametro-invalido', 'Parâmetro inválido', `Campo desconhecido: ${estranhos.join(', ')}.`);
+        const base = falso.avisos.base;
+        if (base === null) return recusar(422, 'endereco-nao-permitido', 'Endereço não permitido', 'Esta integração não tem aviso habilitado no Regem.');
+        if (!enderecoServe(corpo.url, base)) {
+          return recusar(422, 'endereco-nao-permitido', 'Endereço não permitido', '"url" precisa ser um endereço da própria integração, registrado no Regem pela distribuição.');
+        }
+        if (!segredoServe(corpo.segredo)) {
+          return recusar(400, 'parametro-invalido', 'Parâmetro inválido', '"segredo" precisa estar no formato Standard Webhooks: "whsec_" + base64 de 24 a 64 bytes.');
+        }
+        registros.set(acesso, { url: new URL(corpo.url).href, segredo: corpo.segredo });
+        doAviso.status = 200;
+        return json(res, 200, { url: new URL(corpo.url).href, pausado: false, registrado_em: new Date().toISOString(), falhas_seguidas: 0 });
+      }
+
       // ── as leituras: o cardápio e as fichas da loja do acesso ──
       const leitura = /^\/integracao\/(catalogo|fichas)(?:\?versao=([0-9a-f]*))?$/.exec(caminho);
       if (req.method === 'GET' && leitura) {
@@ -253,7 +381,11 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
 
         const lojas = a.lojas.map((l) => {
           // A loja que já tinha acesso troca: o antigo para de valer.
-          for (const [antigo, loja] of acessos) if (loja === l.id) acessos.delete(antigo);
+          for (const [antigo, loja] of acessos) {
+            if (loja !== l.id) continue;
+            acessos.delete(antigo);
+            registros.delete(antigo); // o registro é do acesso: vai junto
+          }
           const token = `rgm_it_${randomBytes(32).toString('base64url')}`;
           acessos.set(token, l.id);
           emitidos.push(token);
@@ -276,6 +408,7 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
         const acesso = /^Bearer (.+)$/.exec(autorizacao)?.[1] ?? '';
         if (!acessos.has(acesso)) return problema(res, 401, 'token-invalido', 'Token inválido', 'Token ausente, inválido ou revogado.');
         acessos.delete(acesso);
+        registros.delete(acesso);
         return json(res, 200, { revogado: true, revogado_em: new Date().toISOString() });
       }
 
