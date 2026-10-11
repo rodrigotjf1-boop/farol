@@ -25,7 +25,7 @@ export function NadaAConferir({ dados, seguradas }: { dados: Analises; seguradas
           <b className="font-semibold text-farol-tinta">
             {numero(seguradas.total)} {seguradas.total === 1 ? 'olhada ficou' : 'olhadas ficaram'} em “nada a conferir”
           </b>{' '}
-          neste recorte: a loja viu que a condição do critério não valia — ninguém na área, gente na frente ou nada se
+          neste recorte: a loja viu que a condição do critério não valia — ninguém no quadro, gente na frente ou nada se
           mexeu — e não perguntou à nuvem. Não entram nas análises.
         </p>
         {seguradas.porCriterio.length > 1 && (

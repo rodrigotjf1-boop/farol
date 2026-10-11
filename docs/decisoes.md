@@ -3690,3 +3690,81 @@ chamar a busca (fatia 2.5), que ainda não existe.
 - **A busca com a loja aberta**, com gente na frente do alvo e o ao vivo carregado.
 - Outro gravador; o mesmo depois do disco novo; o porquê de o começo dos blocos ter mudado.
 - A grade com o recorte do alvo: os 488 KB são do quadro inteiro.
+
+## 11/10/2026 · Três acertos pequenos de tela: a tabela que decide pelo próprio espaço, "só observam" e "quadro"
+
+Os três acertos que ficaram anotados na onda 1 (o item 2 da lista "o que falta eu fazer", no
+roadmap). Nenhuma tela nova. PR #105.
+
+### 1. A tabela vira cartões quando NÃO CABE — e quem decide é o espaço dela
+
+A tabela do Painel rolava para o lado de 768 a 1.280 px de largura: com o menu ao lado, a
+peça tinha de 641 a 960 px, e as nove colunas pedem 1.045. A peça de tabela decidia pela
+largura da **tela** (cartões abaixo de 768 px), e isso errava no meio do caminho — tablet,
+notebook, janela pela metade.
+
+Agora a tabela **mede a si mesma**: se, como tabela, precisa de mais largura do que a caixa
+tem, vira cartões; quando volta a caber, volta a ser tabela. Não há número de tela: a largura
+de que ela precisa muda com o que está escrito nela (o nome do critério, a data da última
+análise), e nenhum número serviria para toda loja.
+
+- Vale para as três telas que usam a peça: **Painel, Análises e Alertas**. Em Alertas a
+  tabela das regras de aviso (cinco colunas) passou a ser tabela já a partir de 600 px —
+  porque cabe.
+- O cartão largo (tablet e notebook) tem **quatro colunas** de rótulo e valor, no lugar das
+  duas do celular; o título ocupa a linha toda.
+- A medida é feita antes de a tela ser pintada: não há troca à vista ao abrir. Ao
+  redimensionar a janela, a troca acontece no quadro seguinte.
+
+### 2. O cartão "Critérios ligados" diz quantos só observam
+
+"5 de 6" parecia "5 conferindo". Com critério que nasce ligado e só observando, o cartão do
+Painel passou a dizer: "1 desligado · 2 só observam". A conta é do servidor: dos critérios
+ligados e com canal ativo, os que estão em "observando" (em ensaio, medido e valendo já
+julgam, e não entram).
+
+### 3. "Quadro" no lugar de "área"
+
+Em Análises e no Painel sobrava UMA frase de tela com "área" no sentido do desenho — "ninguém
+na área", no aviso das olhadas que a loja segurou. Passou a "ninguém no quadro". O Painel não
+tinha nenhuma. O resto era comentário de código.
+
+### Achado no caminho — e corrigido, porque é a mesma regra (nada rola para o lado)
+
+- **Um rótulo de coluna que não quebrava a linha.** No cartão do celular, o nome da coluna
+  herdava o "não quebra" da célula de número: em Análises, "Custo por análise na nuvem"
+  passava 7 px da caixa a 320 px. Já era assim; a medida nova pegou. O rótulo passou a
+  quebrar a linha.
+- **As abas de Alertas rolavam para o lado a 320 px.** Passaram a quebrar a linha
+  ("Chegou?" desce para a segunda).
+
+Na primeira tentativa eu atribuí os 7 px ao cabeçalho escondido da tabela e mexi nele; a
+medida seguinte mostrou que não era (a sobra continuava com o cabeçalho fora). Desfiz, e a
+causa certa — o rótulo — saiu de um diagnóstico que tira uma peça de cada vez.
+
+### O que eu vi e NÃO mexi (é pergunta para o dono)
+
+A regra "a lógica interna não aparece na tela" é de depois destas telas, e elas ainda dizem:
+"não perguntou à nuvem" e a etiqueta "na nuvem" / "na loja" (Análises, coluna "Onde julga"),
+"Custo por análise na nuvem" (Análises) e "versão 0.9.4" no cartão do agente (Painel). Trocar
+isso é mudar o que a tela de Análises conta — não é acerto pequeno.
+
+### O que foi medido
+
+- **As três telas em 16 larguras** (de 320 a 1.920 px), num navegador de verdade contra o
+  build de produção e uma loja inventada: nenhuma página passa da tela, nenhuma peça rola
+  para o lado, nenhum erro de script. **Antes**, a mesma medida acusava o Painel em sete
+  larguras (de 768 a 1.280).
+- Olhei as fotos das peças que mudaram: os cartões do Painel a 1.024 px e os de Análises a
+  900 px; as abas de Alertas a 320 px.
+- A linha do total, em Análises: com o fio em cima como tabela, sem ele em cartões.
+- O cartão com 0, 1 e 2 critérios só observando: sem a frase, "1 só observa", "2 só
+  observam".
+- No servidor: um teste novo na rota de resultados; 6 estragos de propósito na conta, os 6
+  pegos; a suíte inteira passa (menos a de sempre no banco local).
+
+### O que não foi medido
+
+- Com a loja de verdade e os nomes de critério dela.
+- O roteiro antigo da tela do canal (`ver_canal`) continua sem rodar desde o PR 85: não foi
+  posto em dia aqui.

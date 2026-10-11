@@ -271,7 +271,41 @@ describe('resultados da loja (Postgres real)', { skip: !URL_DO_BANCO && 'sem DAT
     assert.equal(d.agentes[0].versao, '0.9.4');
     assert.ok(d.agentes[0].segundos_sem_bater < 60);
     assert.deepEqual(d.canais, { verificados: 2, comImagem: 1 });
-    assert.deepEqual(d.criterios, { total: 2, ligados: 1 });
+    assert.deepEqual(d.criterios, { total: 2, ligados: 1, observando: 0 });
+  });
+
+  it('dos critérios ligados, diz quantos só observam — o desligado e o que já julga não entram', async () => {
+    const por = (id: string, estado: string) => pool.query('update regra set estado = $2 where id = $1', [id, estado]);
+    const criterios = async () => (await resultados()).json().criterios;
+    try {
+      // "Bancada limpa" está ligada; "Produto", desligado.
+      await por(bancada, 'observando');
+      assert.deepEqual(await criterios(), { total: 2, ligados: 1, observando: 1 });
+
+      // Em ensaio (e medido, e valendo) o critério já julga: não é "só observa".
+      for (const estado of ['ensaio', 'medido', 'valendo']) {
+        await por(bancada, estado);
+        assert.deepEqual(await criterios(), { total: 2, ligados: 1, observando: 0 }, estado);
+      }
+
+      // O desligado que estava observando não é um ligado que só observa.
+      await por(produto, 'observando');
+      assert.deepEqual(await criterios(), { total: 2, ligados: 1, observando: 0 });
+
+      // Os dois ligados e observando: os dois contam.
+      await pool.query('update regra set ativa = true where id = $1', [produto]);
+      await por(bancada, 'observando');
+      assert.deepEqual(await criterios(), { total: 2, ligados: 2, observando: 2 });
+
+      // Sem canal ativo, o critério não entra no total — nem aqui. ("Produto" só vale no canal da montagem.)
+      await pool.query('update ponto set ativo = false where id = $1', [montagem.pontoId]);
+      assert.deepEqual(await criterios(), { total: 1, ligados: 1, observando: 1 });
+    } finally {
+      await pool.query('update ponto set ativo = true where id = $1', [montagem.pontoId]);
+      await por(bancada, 'valendo');
+      await por(produto, 'valendo');
+      await pool.query('update regra set ativa = false where id = $1', [produto]);
+    }
   });
 
   it('agente que parou de bater vira o sinal, e a câmera deixa de levar a culpa', async () => {
@@ -340,7 +374,7 @@ describe('resultados da loja (Postgres real)', { skip: !URL_DO_BANCO && 'sem DAT
 
     const d = (await resultados()).json();
     assert.ok(!d.sinais.some((s: { tipo: string }) => s.tipo === 'falta_dizer_o_que_procurar'));
-    assert.deepEqual(d.criterios, { total: 1, ligados: 1 });
+    assert.deepEqual(d.criterios, { total: 1, ligados: 1, observando: 0 });
     assert.equal(d.totais.conformes, 44, 'excluir um critério não mexe no que os outros registraram');
   });
 
