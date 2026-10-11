@@ -3389,3 +3389,107 @@ fatia 2. Migration 036, PR #101.
   frente, e só a primeira autorização dirá.
 - A borda do Regem aceitando o nome com que o servidor do Farol se apresenta: a chamada de
   verdade foi direta, sem ela.
+
+## 11/10/2026 · As fichas do Regem viram a base de fichas do Farol: lidas ao ligar a loja, uma vez por dia e a pedido (fatia 2)
+
+A fatia 2 do plano "Regem no Farol": o servidor lê do Regem o cardápio e as fichas de cada
+loja ligada, guarda a cópia **no formato do Farol** e a mostra na tela Fichas. Migration 037,
+PR #102.
+
+### O que entrou
+
+- **A base de fichas da loja** (`fichas_da_loja`): um documento por loja — os produtos que ela
+  vende, a ficha de cada um na ordem, as variações, o que vem no combo e o que cada opção muda
+  na montagem. Sem preço, custo nem cliente: o Regem nem manda.
+- **A leitura**, em três momentos e só neles (decisão do dono: "ficha técnica não é algo que
+  se mude constantemente"): quando a loja é ligada ou conectada de novo; uma vez por dia, às
+  04h e pouco **do relógio da loja**; e no botão "Buscar agora".
+- **A tela Fichas** (da loja, no menu de quem configura): a lista com busca e filtros, a
+  gaveta do produto, e o "Buscar agora". Não se edita.
+- **A tela Conexões** passou a dizer, de cada loja: quando foi a última busca boa, se a última
+  falhou, o que a base tem, e quando o acesso foi tirado no Regem.
+- **No servidor:** `GET /v1/lojas/:id/fichas`, `GET /v1/lojas/:id/fichas/produtos/:produtoId`
+  e `POST /v1/lojas/:id/fichas/buscar`; um relógio novo no serviço, de um minuto, que só olha
+  a agenda.
+
+### O que eu decidi no caminho, e por quê
+
+1. **A base é um documento por loja, trocado inteiro** — e não tabelas de produto, ficha e
+   ingrediente. Quem a consome lê tudo de uma vez (a tela; e, na fatia 3, o agente, que baixa
+   a cópia quando ela muda), e a regra "quando muda, refaz a cópia" pede troca inteira: não
+   existe meia base. O dicionário de ingredientes e as regras da casa, quando vierem, apontam
+   para os ids que o documento já carrega.
+2. **O formato é o do Farol, não o do Regem.** O adaptador deixa de fora o que não se vende
+   (produto, variação e opção inativos; ficha inativa), a linha que só vale para viagem, e os
+   ids que o Regem troca a cada salvamento. Por isso "mudou" não é a versão de lá: é a
+   **impressão do documento daqui**. O Regem pode dizer que mudou e a base ficar igual — e aí
+   nada é regravado, e o agente não baixa cópia à toa.
+3. **O preparo da casa entra como um ingrediente só**, apontando para a ficha dele (decisão
+   de 10/10). A quantidade é a que a pessoa escreveu na ficha ("2 fatias"), não a do estoque.
+4. **A agenda é pelo relógio de cada loja, e cada loja tem o seu minuto** (tirado do id dela):
+   mil lojas não batem no Regem no mesmo instante. Falhou, tenta de novo em meia hora — não
+   espera o dia seguinte. O relógio do servidor é à parte do vigia dos agentes: cada um com o
+   seu passo.
+5. **Falha na leitura não apaga nada.** Sem resposta, recusa ou resposta fora do contrato: a
+   base de ontem continua valendo, a tela diz que a última busca falhou, e o motivo fica no
+   registro — para quem olha a tela a consequência é uma só.
+6. **Acesso tirado no Regem apaga a base da loja na hora** (a mesma regra do desconectar,
+   dita ao dono em 11/10), e só a dela. A ligação fica, para a tela dizer o que houve, com
+   dois caminhos: "Conectar de novo" (o par é mantido e as fichas voltam) e "Desconectar".
+7. **Uma leitura por loja de cada vez, e nenhuma grava depois que a conexão saiu.** A vez é
+   pega numa instrução só (vale entre réplicas e entre a rotina e o botão); a base é gravada
+   na mesma transação em que a ligação é travada. Quem desconecta no meio de uma busca não vê
+   as fichas reaparecerem.
+8. **Um mudou e o outro não:** o Farol busca os dois inteiros de novo. A base se monta com o
+   cardápio e as fichas juntos, e o Farol não guarda a resposta crua de lá.
+9. **Quem vê as fichas: quem configura a loja** (gerente para cima e o suporte) — os perfis
+   do protótipo. A supervisão ficou de fora por enquanto; é pergunta para o dono.
+10. **Frases do protótipo que continuam de fora**, porque ainda não são verdade: "o Farol usa
+    isto para conferir, pela câmera" e "os critérios que usam ficha param de conferir" (nenhum
+    critério usa a ficha ainda); e "sabe o que foi pedido" (a fila da cozinha é a fatia 5).
+
+### O que foi medido
+
+- **67 testes novos** — a conversão (contra uma resposta de verdade do Regem, gravada em
+  `contratos/regem-catalogo-e-fichas.json`), a leitura e as rotas. A suíte inteira da API
+  passa, menos a de sempre no banco local.
+- **131 estragos de propósito no código, 131 pegos por um teste.** Na primeira rodada seis
+  passaram, e os seis eram teste frouxo: opções que já chegavam na ordem, item nulo numa
+  lista, o "mudou?" que não era sim nem não, a vez que não era solta, a contagem de produtos
+  e a falha que não era limpa. Cada um ganhou o caso que faltava.
+- **As duas telas num navegador de verdade:** 119 passos na Fichas e 134 na Conexões, sem
+  nenhuma resposta 429 ou 401; e 360 medidas — 20 estados das duas telas em 16 larguras
+  (claro e escuro nas pontas), com a gaveta e o diálogo abertos e uma lista de 44 produtos de
+  nome comprido — sem barra para o lado.
+- **A chamada de verdade:** o código de leitura que vai para produção, contra o Regem real.
+  Leu o cardápio e as fichas, montou a base (4 produtos, 1 com ficha), recebeu "nada mudou" ao
+  perguntar com a versão, e, com o acesso devolvido, recebeu "acesso tirado".
+
+### O que a medida de largura não pegou, e a foto pegou
+
+Com "Fichas", a barra de baixo do celular passaria a sete itens — e, de 320 a 375 px, os
+rótulos "Alertas" e "Orçamento" se encostavam. Nada passava da tela, então a medida de "sem
+barra para o lado" não acusou; foi a foto. **No celular a barra ficou como estava (seis
+itens)**, e "Fichas" abre pelo "Ir para…" e pelo "Ver fichas" da tela Conexões. Como a barra
+deve ficar com sete itens é pergunta para o dono, com protótipo.
+
+### Onde a tela difere do protótipo
+
+1. As três frases do item 10, que voltam quando forem verdade.
+2. A linha de uma loja com o acesso tirado tem "Conectar de novo" **e** "Desconectar": sem o
+   segundo, a loja do Farol ficaria presa a uma ligação morta.
+3. Estados que o protótipo não tinha: "Buscando as fichas no Regem…" (a primeira busca, que a
+   tela acompanha sozinha) e "O Farol ainda não conseguiu ler o Regem desta loja" (a primeira
+   busca falhou, e não há fichas de ontem para mostrar).
+4. O aviso da busca que falhou diz de quando são as fichas que estão na tela ("as da busca de
+   hoje, 04:10"), e não "as de ontem": é o que o servidor sabe com certeza.
+5. No celular, "Fichas" não está na barra de baixo (acima).
+
+### O que não foi conferido
+
+- **Nada em produção:** nenhuma loja está conectada. A primeira leitura de verdade acontece
+  quando o dono puser as variáveis e autorizar.
+- **O piloto ainda não tem fichas no Regem.** O tamanho real do documento de uma loja, e
+  quanto leva a leitura dela, só se sabe com as fichas cadastradas.
+- A leitura do dia às 04h do relógio da loja foi provada pela conta e pelos testes; ninguém
+  esperou uma madrugada.
