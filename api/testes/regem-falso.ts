@@ -52,6 +52,8 @@ export type RegemFalso = {
   vale(acesso: string): boolean;
   /** Tira um acesso por lá — o presidente em "Aplicativos conectados". */
   tirar(acesso: string): void;
+  /** O mesmo, por loja: tira todo acesso que aquela loja de lá tiver. */
+  tirarDaLoja(lojaId: string): void;
   /** Todo acesso que já saiu daqui, valendo ou não: para o teste procurar onde ele NÃO pode estar. */
   emitidos: string[];
   chamadas: Chamada[];
@@ -150,6 +152,9 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
     },
     vale: (acesso) => acessos.has(acesso),
     tirar: (acesso) => void acessos.delete(acesso),
+    tirarDaLoja: (lojaId) => {
+      for (const [acesso, loja] of acessos) if (loja.toLowerCase() === lojaId.toLowerCase()) acessos.delete(acesso);
+    },
     cardapio: (lojaId, c) => void cardapios.set(lojaId.toLowerCase(), c),
     amostra,
     leituraTorta: null,

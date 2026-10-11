@@ -1393,6 +1393,18 @@ export type LojaDoRegemEsperando = {
   sugestaoLojaId: string | null;
 };
 
+/** Em que pé está a leitura das fichas de uma loja ligada. */
+export type LeituraDasFichas = {
+  /** A última busca que deu certo. Nulo = ainda não conseguiu ler. */
+  lidaEm: string | null;
+  /** A última tentativa falhou: o que a loja tem é o da última busca boa. */
+  falhou: boolean;
+  /** Há uma busca em curso agora. */
+  lendo: boolean;
+  /** O Regem tirou o acesso desta loja: as fichas dela foram apagadas. */
+  acessoTiradoEm: string | null;
+};
+
 export type LojaDoRegemLigada = {
   id: string;
   lojaId: string;
@@ -1400,6 +1412,12 @@ export type LojaDoRegemLigada = {
   regemLojaNome: string;
   regemEmpresaNome: string;
   ligadaEm: string;
+  /** O relógio da loja: é nele que a tela diz "hoje, 04:10". */
+  fuso: string;
+  leitura: LeituraDasFichas;
+  /** O que a base da loja tem. Nulo = ainda não há base (nunca leu, ou foi apagada). */
+  produtos: number | null;
+  comFicha: number | null;
 };
 
 export type ConexaoComORegem = {
@@ -1430,7 +1448,78 @@ export const regemApi = {
     }),
 
   desconectar: (id: string) =>
-    pedir<{ desconectada: true; devolvido: boolean; lojaNome: string | null; regemLojaNome: string }>(`/regem/lojas/${id}/desconectar`, {
-      method: 'POST',
-    }),
+    pedir<{ desconectada: true; devolvido: boolean; fichasApagadas: boolean; lojaNome: string | null; regemLojaNome: string }>(
+      `/regem/lojas/${id}/desconectar`,
+      { method: 'POST' },
+    ),
+};
+
+// ───────────────────────── as fichas da loja ─────────────────────────
+
+/** A linha da lista: o que o Farol sabe do produto, sem o detalhe. */
+export type ProdutoNaLista = {
+  id: string;
+  nome: string;
+  categoria: string | null;
+  /** Passa pela cozinha. */
+  cozinha: boolean;
+  /** Quantos ingredientes a ficha tem. Nulo = sem ficha. */
+  ingredientes: number | null;
+  /** Quantos produtos o combo junta. Nulo = não é combo. */
+  combo: number | null;
+  variacoes: number;
+  /** Quantas opções o cliente pode pedir a mais ou tirar. */
+  adicionais: number;
+};
+
+/** O que uma opção muda na montagem. */
+export type EfeitoDaOpcao =
+  | { tipo: 'observacao' }
+  | { tipo: 'insumo'; nome: string; quantidade: number | null; unidade: string | null }
+  | { tipo: 'preparo'; nome: string | null }
+  | { tipo: 'produto'; nome: string | null }
+  | { tipo: 'retira'; nome: string }
+  | { tipo: 'nada' };
+
+export type ProdutoDaFicha = {
+  id: string;
+  nome: string;
+  categoria: string | null;
+  tipo: 'simples' | 'variavel' | 'combo';
+  cozinha: boolean;
+  setor: string | null;
+  preparoMin: number | null;
+  ficha: null | {
+    id: string;
+    nome: string;
+    /** Na ordem em que foi cadastrada; `preparo` = um preparo da casa, que entra como um ingrediente só. */
+    ingredientes: Array<{ nome: string; quantidade: number | null; unidade: string | null; preparo: boolean }>;
+  };
+  /** `fator`: quanto da ficha a variação usa. */
+  variacoes: Array<{ nome: string; codigo: string | null; fator: number }>;
+  combo: Array<{ produtoId: string; nome: string | null; quantidade: number }>;
+  adicionais: Array<{ nome: string; tipo: 'adicionar' | 'remover'; opcoes: Array<{ id: string | null; nome: string; efeito: EfeitoDaOpcao }> }>;
+};
+
+export type FichasDaLoja = {
+  /** `sem_conexao`, `falta_ligar` (o Regem autorizou, falta dizer qual loja é esta), `acesso_tirado` ou `ligada`. */
+  situacao: 'sem_conexao' | 'falta_ligar' | 'acesso_tirado' | 'ligada';
+  /** Só a diretoria conecta e liga. Quem decide é a API; isto só escolhe entre o botão e a frase. */
+  podeConectar: boolean;
+  /** De onde as fichas vieram. Nulo = a loja não tem fichas guardadas. */
+  fonte: 'regem' | null;
+  regemLojaNome: string | null;
+  leitura: LeituraDasFichas | null;
+  totais: { produtos: number; comFicha: number } | null;
+  produtos: ProdutoNaLista[];
+};
+
+export const fichasApi = {
+  obter: (lojaId: string) => pedir<FichasDaLoja>(`/lojas/${lojaId}/fichas`),
+
+  produto: (lojaId: string, produtoId: string) => pedir<ProdutoDaFicha>(`/lojas/${lojaId}/fichas/produtos/${produtoId}`),
+
+  /** Pede uma leitura na hora. `nada_mudou`: o que a loja tinha continua valendo. */
+  buscar: (lojaId: string) =>
+    pedir<{ resultado: 'atualizada' | 'nada_mudou'; produtos: number; comFicha: number }>(`/lojas/${lojaId}/fichas/buscar`, { method: 'POST' }),
 };

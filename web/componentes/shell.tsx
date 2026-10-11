@@ -24,6 +24,7 @@ import {
   Cctv,
   ChevronsUpDown,
   ChartColumn,
+  ClipboardList,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -58,7 +59,7 @@ import { Alerta, Ossos, Ponto } from './ui/pecas';
 import { DivisorDeMenu, ITEM_DE_MENU, Menu, RotuloDeMenu } from './ui/sobreposto';
 
 const UUID_DA_LOJA = /^\/lojas\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
-const SECOES = ['analises', 'canais', 'regras', 'alertas', 'orcamento'] as const;
+const SECOES = ['analises', 'canais', 'regras', 'fichas', 'alertas', 'orcamento'] as const;
 /** De quanto em quanto tempo a moldura pergunta como vai o agente. */
 const BATIDA_MS = 30_000;
 
@@ -440,6 +441,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
       ...(veResultados ? [{ href: `${base}/analises`, rotulo: 'Análises', icone: ChartColumn }] : []),
       { href: `${base}/canais`, rotulo: 'Canais', icone: Cctv },
       { href: `${base}/regras`, rotulo: 'Critérios', icone: ListChecks },
+      // As fichas são de quem configura a loja (a API responde 403 aos outros).
+      ...(configura ? [{ href: `${base}/fichas`, rotulo: 'Fichas', icone: ClipboardList }] : []),
       { href: `${base}/alertas`, rotulo: 'Alertas', icone: BellRing },
       // Orçamento é decisão de compra: só para quem configura.
       ...(configura ? [{ href: `${base}/orcamento`, rotulo: 'Orçamento', icone: Calculator }] : []),

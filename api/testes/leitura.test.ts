@@ -157,6 +157,20 @@ describe('leitura: a volta da rotina, sem banco', () => {
     }
   });
 
+  it('uma loja que quebra não segura as outras: as duas da vez são tentadas, e a rotina não rejeita', async () => {
+    let consulta = 0;
+    const b = banco(() => {
+      consulta += 1;
+      // A primeira consulta é a lista das lojas da vez; daí em diante, o banco "cai".
+      if (consulta === 1) return { rows: [{ id: 'a' }, { id: 'b' }] };
+      throw new Error('o banco caiu no meio');
+    });
+    const r = registro();
+    const feito = await lerAsLojasDaVez(b.pool, cfgCom, r.log);
+    assert.deepEqual(feito, { lidas: 2, desfechos: { falhou: 2 } });
+    assert.deepEqual(r.linhas.map((l) => l[0]), ['error', 'error'], 'cada uma com o seu erro no registro');
+  });
+
   it('qualquer outro erro vai para o registro, a cada volta — e a rotina nunca rejeita', async () => {
     const b = banco(() => {
       throw Object.assign(new Error('conexão recusada'), { code: '08006' });
@@ -317,6 +331,8 @@ describe('leitura: as fichas de uma loja', { skip: !URL_DO_BANCO && 'sem DATABAS
     assert.ok(Date.now() - e2.lida_em.getTime() < 10_000, 'a hora da leitura andou');
     assert.ok(e2.proxima_em > new Date(), 'e a agenda foi para a frente');
     assert.deepEqual([e2.versao_catalogo, e2.versao_fichas, e2.falha], [e1.versao_catalogo, e1.versao_fichas, null]);
+    assert.equal(e2.lendo_desde, null, 'a vez foi solta: a leitura seguinte não encontra a loja "ocupada"');
+    assert.deepEqual(await ler(c.id), { desfecho: 'nada_mudou' });
   });
 
   it('mudou só o cardápio: o Farol busca os DOIS inteiros e troca a base', async () => {
@@ -443,6 +459,42 @@ describe('leitura: as fichas de uma loja', { skip: !URL_DO_BANCO && 'sem DATABAS
     assert.equal((await estado(c.id)).falha, 'resposta_torta');
   });
 
+  it('"nada mudou" como resposta a quem NÃO perguntou com versão não vale: sem base, não há o que manter', async () => {
+    const c = await ligada(minha.tenantId, minha.centro);
+    falso.leituraTorta = (_q, corpo) => ({ versao: corpo.versao, atualizado: false });
+    assert.deepEqual(await ler(c.id), { desfecho: 'falhou', falha: 'resposta_torta' });
+    assert.equal(await baseDe(minha.centro), null);
+    assert.deepEqual(leituras().sort(), ['/integracao/catalogo', '/integracao/fichas'], 'a pergunta foi sem versão');
+  });
+
+  it('resposta inteira, mas sem dizer direito se mudou ("atualizado" que não é sim nem não): não vale', async () => {
+    const c = await ligada(minha.tenantId, minha.centro);
+    // O corpo vem completo — produtos, fichas, versão —, e só o `atualizado` não é o que o contrato diz.
+    falso.leituraTorta = (_q, corpo) => ({ ...corpo, atualizado: 'sim' });
+    assert.deepEqual(await ler(c.id), { desfecho: 'falhou', falha: 'resposta_torta' });
+    assert.equal(await baseDe(minha.centro), null, 'nenhuma base nasce de uma resposta fora do contrato');
+  });
+
+  it('a loja tirou produtos do cardápio: a contagem da base acompanha', async () => {
+    const c = await ligada(minha.tenantId, minha.centro);
+    await ler(c.id);
+    assert.deepEqual([(await baseDe(minha.centro)).produtos, (await baseDe(minha.centro)).com_ficha], [4, 1]);
+    falso.cardapio(c.regemLojaId, mudado((m) => void (m.produtos = m.produtos.filter((p) => p.nome === 'Refrigerante lata'))));
+    assert.deepEqual(await ler(c.id), { desfecho: 'atualizada' });
+    const b = await baseDe(minha.centro);
+    assert.deepEqual([b.produtos, b.com_ficha, b.conteudo.produtos.length], [1, 0, 1]);
+  });
+
+  it('a base sumiu e a versão ficou anotada: a leitura não pergunta "mudou?" — traz tudo de novo', async () => {
+    const c = await ligada(minha.tenantId, minha.centro);
+    await ler(c.id);
+    await pool.query('delete from fichas_da_loja where loja_id = $1', [minha.centro]);
+    falso.chamadas.length = 0;
+    assert.deepEqual(await ler(c.id), { desfecho: 'atualizada' });
+    assert.deepEqual(leituras().sort(), ['/integracao/catalogo', '/integracao/fichas'], 'sem versão: "nada mudou" não traria base nenhuma');
+    assert.equal((await baseDe(minha.centro)).produtos, 4);
+  });
+
   it('primeira leitura que falha: a loja fica sem base, com o motivo — e a seguinte, boa, a cria', async () => {
     const c = await ligada(minha.tenantId, minha.centro);
     falso.modo = 'fora';
@@ -452,6 +504,10 @@ describe('leitura: as fichas de uma loja', { skip: !URL_DO_BANCO && 'sem DATABAS
     falso.modo = 'normal';
     assert.deepEqual(await ler(c.id), { desfecho: 'atualizada' });
     assert.equal((await baseDe(minha.centro)).produtos, 4);
+    // A leitura boa que TROCA a base também limpa o motivo da falha de antes.
+    const e = await estado(c.id);
+    assert.deepEqual([e.falha, e.lendo_desde], [null, null]);
+    assert.ok(e.lida_em && e.proxima_em > new Date());
   });
 
   it('acesso tirado no Regem: a base da loja é apagada na hora — e só a dela', async () => {

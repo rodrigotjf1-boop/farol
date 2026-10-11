@@ -16,19 +16,21 @@
 // Só a diretoria conecta, liga e desconecta. O gerente e o suporte veem a
 // tela, sem os botões — e quem decide é a API: aqui só se esconde.
 //
-// ESTA É A PRIMEIRA ENTREGA da conexão: a conta conecta e liga as lojas. A
-// leitura das fichas vem na seguinte, e por isso a tela ainda não diz
-// "atualizado hoje" nem fala em fichas — frase de tela só vale com o
+// Cada loja ligada tem as fichas lidas na hora e, depois, uma vez por dia;
+// a linha dela diz quando foi a última busca boa, se a última falhou e o
+// que a base tem. A tela diz o que o Farol PODE ler pela conexão — a fila
+// da cozinha está liberada e ainda não é lida. Frase de tela só vale com o
 // serviço que a sustenta.
 // =====================================================================
 
 import { ArrowRight, Building2, Check, ExternalLink, Lock, Plus, TriangleAlert } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
-import { frase, plural } from '@/componentes/formatos';
+import { diaFaladoNaLoja, frase, plural } from '@/componentes/formatos';
 import { useAvisar } from '@/componentes/ui/avisos';
-import { Botao } from '@/componentes/ui/botao';
+import { Botao, classesDoBotao } from '@/componentes/ui/botao';
 import { AJUDA, ROTULO } from '@/componentes/ui/campo';
 import { Alerta, Cabecalho, CARTAO, Chip, Ossos, Vazio } from '@/componentes/ui/pecas';
 import { Dialogo } from '@/componentes/ui/sobreposto';
@@ -52,11 +54,9 @@ const RECADO_DA_VOLTA: Partial<Record<VoltaDoRegem, Recado>> = {
   },
 };
 
-const dia = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-const diaDe = (iso: string): string => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : dia.format(d);
-};
+/** De quanto em quanto tempo a tela pergunta de novo enquanto a primeira busca de uma loja não termina. */
+const ESPERA_DA_BUSCA_MS = 3000;
+const MAX_PERGUNTAS = 20;
 
 const mensagemDe = (e: unknown): string => (e instanceof ErroDaApi ? e.message : 'não deu certo');
 
@@ -137,8 +137,8 @@ function SemConexao({
       </CabecaDoCartao>
       <div className="flex flex-col gap-4 p-[18px]">
         <p className="max-w-[68ch]">
-          O Regem é onde a loja cadastra o cardápio e as fichas técnicas. Conectar deixa o Farol ler de lá o que cada loja
-          vende e como cada produto é montado.
+          O Regem é onde a loja cadastra o cardápio e as fichas técnicas. Conectado, o Farol passa a saber o que cada loja
+          vende e como cada produto deve ser montado.
         </p>
         <OQueLibera />
         <div>
@@ -370,6 +370,37 @@ function Par({
 
 // ───────────────────────── conectado ─────────────────────────
 
+/** Como vai a leitura das fichas da loja, numa pastilha e uma frase curta. */
+function SituacaoDaLeitura({ l }: { l: LojaDoRegemLigada }) {
+  const { leitura, fuso } = l;
+  if (leitura.acessoTiradoEm) {
+    return (
+      <>
+        <Chip tom="critico">acesso tirado no Regem</Chip>
+        <span className="text-xs text-farol-suave">{diaFaladoNaLoja(leitura.acessoTiradoEm, fuso)}</span>
+      </>
+    );
+  }
+  if (leitura.falhou) {
+    return (
+      <>
+        <Chip tom="critico">a última busca falhou</Chip>
+        <span className="text-xs text-farol-suave">tenta de novo sozinho</span>
+      </>
+    );
+  }
+  if (leitura.lidaEm) return <Chip tom="ok">atualizado {diaFaladoNaLoja(leitura.lidaEm, fuso)}</Chip>;
+  return <Chip>buscando as fichas…</Chip>;
+}
+
+/** "7 produtos · 3 com ficha" — ou o que houve com as fichas. */
+function oQueABaseTem(l: LojaDoRegemLigada): string {
+  if (l.leitura.acessoTiradoEm) return 'as fichas foram apagadas';
+  if (l.produtos === null) return '';
+  const fichas = l.comFicha ? `${l.comFicha} com ficha` : 'nenhuma ficha';
+  return `${plural(l.produtos, 'produto', 'produtos')} · ${fichas}`;
+}
+
 function Conectadas({
   c,
   indo,
@@ -423,17 +454,30 @@ function Conectadas({
                   {empresas.length > 1 ? ` · ${l.regemEmpresaNome}` : ''}, no Regem
                 </small>
               </div>
-              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                <Chip tom="ok">ligada</Chip>
-                {diaDe(l.ligadaEm) && <span className="text-xs text-farol-suave">desde {diaDe(l.ligadaEm)}</span>}
+              <div className="flex min-w-0 flex-col items-start gap-1" data-estado>
+                <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                  <SituacaoDaLeitura l={l} />
+                </span>
+                <span className="font-mono text-xs text-farol-suave">{oQueABaseTem(l)}</span>
               </div>
-              {c.podeConectar && (
-                <div className="flex flex-wrap gap-2 md:justify-end">
+              <div className="flex flex-wrap gap-2 md:justify-end">
+                {!l.leitura.acessoTiradoEm && (
+                  <Link href={`/lojas/${l.lojaId}/fichas`} className={classesDoBotao({ mini: true })}>
+                    Ver fichas
+                  </Link>
+                )}
+                {c.podeConectar && l.leitura.acessoTiradoEm && c.disponivel && (
+                  <Botao mini ocupado={indo} onClick={aoConectar}>
+                    {!indo && <ExternalLink className="h-[15px] w-[15px]" aria-hidden />}
+                    Conectar de novo
+                  </Botao>
+                )}
+                {c.podeConectar && (
                   <Botao mini variante="perigo-leve" data-desconectar={l.id} onClick={() => aoPedirParaDesconectar(l)}>
                     Desconectar
                   </Botao>
-                </div>
-              )}
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -444,7 +488,12 @@ function Conectadas({
         <div className="flex flex-col gap-3.5 p-[18px]">
           <OQueLibera />
           <p className={AJUDA}>
+            O Farol busca as fichas quando a loja é ligada e, depois, uma vez por dia — ficha técnica não muda a toda hora. Para
+            trazer uma mudança na hora, a tela Fichas tem o “Buscar agora”.
+          </p>
+          <p className={AJUDA}>
             O acesso também pode ser tirado pelo Regem, em <b className="font-semibold text-farol-tinta">Configurações → Aplicativos conectados</b>.
+            Aqui ele aparece como “acesso tirado no Regem”, e as fichas daquela loja são apagadas.
           </p>
         </div>
       </section>
@@ -518,7 +567,7 @@ export default function Conexoes() {
       const r = await regemApi.ligar(pares);
       await buscar();
       const devolvidas = r.descartadas > 0 ? ` O acesso de ${plural(r.descartadas, 'loja foi devolvido', 'lojas foi devolvido')} ao Regem.` : '';
-      if (r.ligadas > 0) avisar(`${plural(r.ligadas, 'loja ligada', 'lojas ligadas')}.${devolvidas}`);
+      if (r.ligadas > 0) avisar(`${plural(r.ligadas, 'loja ligada', 'lojas ligadas')}. O Farol está buscando as fichas agora.${devolvidas}`);
       else if (r.descartadas > 0) avisar('Nenhuma loja foi ligada: o acesso foi devolvido ao Regem.');
       if (r.naoDescartadas.length > 0) {
         const nomes = r.naoDescartadas.map((l) => l.regemLojaNome).join(', ');
@@ -542,7 +591,7 @@ export default function Conexoes() {
       const r = await regemApi.desconectar(alvo.id);
       await buscar();
       setAlvo(null);
-      if (r.devolvido) avisar(`A ${alvo.lojaNome} foi desconectada do Regem.`);
+      if (r.devolvido) avisar(`A ${alvo.lojaNome} foi desconectada do Regem.${r.fichasApagadas ? ' As fichas dela foram apagadas.' : ''}`);
       else {
         // Pede providência: fica na página, não num aviso que some.
         setRecado({
@@ -565,6 +614,24 @@ export default function Conexoes() {
 
   const temEsperando = (c?.esperando.length ?? 0) > 0;
   const temLigadas = (c?.ligadas.length ?? 0) > 0;
+
+  // Loja recém-ligada: a primeira busca das fichas corre no servidor. A
+  // tela pergunta de novo de tempos em tempos até ela terminar (bem ou
+  // mal) — e para sozinha.
+  const perguntas = useRef(0);
+  const haPrimeiraBusca = (c?.ligadas ?? []).some((l) => !l.leitura.lidaEm && !l.leitura.falhou && !l.leitura.acessoTiradoEm);
+  useEffect(() => {
+    if (!haPrimeiraBusca) {
+      perguntas.current = 0;
+      return;
+    }
+    const t = setInterval(() => {
+      perguntas.current += 1;
+      if (perguntas.current > MAX_PERGUNTAS) return clearInterval(t);
+      if (document.visibilityState === 'visible') void buscar();
+    }, ESPERA_DA_BUSCA_MS);
+    return () => clearInterval(t);
+  }, [haPrimeiraBusca, buscar]);
 
   return (
     <>
@@ -646,10 +713,17 @@ export default function Conexoes() {
           aoConfirmar={desconectar}
           aoCancelar={() => setAlvo(null)}
         >
-          <p>
-            O Farol devolve o acesso desta loja ao Regem e deixa de poder ler o que é dela. Para conectar de novo, é preciso
-            autorizar outra vez no Regem.
-          </p>
+          {alvo.leitura.acessoTiradoEm ? (
+            <p>
+              O acesso desta loja já foi tirado no Regem, e as fichas dela já foram apagadas. Desconectar tira a ligação daqui: a
+              loja do Farol fica livre para ser ligada de novo.
+            </p>
+          ) : (
+            <p>
+              O Farol para de ler o Regem desta loja agora, devolve o acesso e <strong>apaga as fichas que vieram de lá</strong>. Para
+              ter as fichas de volta, é preciso autorizar outra vez no Regem.
+            </p>
+          )}
         </Dialogo>
       )}
     </>

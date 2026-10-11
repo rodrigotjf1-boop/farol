@@ -54,6 +54,50 @@ export function quandoNaLoja(iso: string | null, fuso: string, agora: string): s
   return d === dia.format(new Date(agora)) ? horaNaLoja(iso, fuso) : `${d} ${horaNaLoja(iso, fuso)}`;
 }
 
+/**
+ * "hoje, 04:10", "ontem, 04:10" ou "09/10, 04:10" — no relógio DA LOJA.
+ * Para o que acontece uma vez por dia (a busca das fichas): o que importa é
+ * de que dia é, dito como se fala.
+ */
+export function diaFaladoNaLoja(iso: string | null, fuso: string, agora: Date = new Date()): string {
+  if (!iso) return '—';
+  const dia = new Intl.DateTimeFormat('pt-BR', { timeZone: fuso, day: '2-digit', month: '2-digit', year: 'numeric' });
+  const quando = new Date(iso);
+  const d = dia.format(quando);
+  const hora = horaNaLoja(iso, fuso);
+  if (d === dia.format(agora)) return `hoje, ${hora}`;
+  if (d === dia.format(new Date(agora.getTime() - 24 * 3600_000))) return `ontem, ${hora}`;
+  return `${d.slice(0, 5)}, ${hora}`;
+}
+
+const UNIDADES_QUE_NAO_MUDAM = new Set(['kg', 'g', 'mg', 'l', 'ml', 'un', 'und', 'cm', 'm']);
+
+/** O plural de uma unidade escrita por extenso: "fatia" → "fatias", "porção" → "porções", "colher" → "colheres". */
+function noPlural(unidade: string): string {
+  const u = unidade.trim();
+  if (u.length < 3 || UNIDADES_QUE_NAO_MUDAM.has(u.toLowerCase()) || /[^\p{L}]/u.test(u) || /s$/i.test(u)) return u;
+  if (/ão$/i.test(u)) return u.replace(/ão$/i, 'ões');
+  if (/[rz]$/i.test(u)) return `${u}es`;
+  if (/m$/i.test(u)) return u.replace(/m$/i, 'ns');
+  return `${u}s`;
+}
+
+/**
+ * A quantidade de um ingrediente, como se lê numa ficha: "1 unidade",
+ * "2 fatias", "120 g" (a fração de quilo vira gramas), "15 ml".
+ */
+export function quantidadeDaFicha(quantidade: number | null, unidade: string | null): string {
+  if (quantidade === null) return unidade ?? '—';
+  let q = quantidade;
+  let u = (unidade ?? '').trim();
+  const pequena = q > 0 && q < 1;
+  if (pequena && u.toLowerCase() === 'kg') [q, u] = [q * 1000, 'g'];
+  else if (pequena && u.toLowerCase() === 'l') [q, u] = [q * 1000, 'ml'];
+  const numeroEscrito = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 }).format(Math.round(q * 1000) / 1000);
+  if (!u) return numeroEscrito;
+  return `${numeroEscrito} ${q > 1 ? noPlural(u) : u}`;
+}
+
 /** "07/10 21:42" no relógio de quem olha — para telas sem loja definida. */
 export function diaEHora(iso: string | null): string {
   if (!iso) return '—';

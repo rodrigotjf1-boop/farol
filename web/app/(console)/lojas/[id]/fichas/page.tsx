@@ -1,0 +1,582 @@
+'use client';
+
+// =====================================================================
+// Fichas — o que a loja vende e do que cada produto é feito
+// =====================================================================
+// A tela mostra a BASE DE FICHAS que o Farol guarda da loja. Hoje ela vem
+// do Regem, lida quando a loja é ligada, uma vez por dia e a pedido
+// ("Buscar agora").
+//
+// Não se edita por aqui: as fichas são do Regem. Preço, custo e cliente não
+// aparecem porque o Farol nem recebe.
+//
+// Do protótipo aprovado em 11/10/2026 (`mockups/farol-conexoes-e-fichas.html`).
+// Duas frases de lá ficaram de fora por enquanto: as que dizem que o Farol
+// "confere pela câmera" pela ficha — isso chega quando um critério passar a
+// usá-la. Frase de tela só vale com o serviço que a sustenta.
+// =====================================================================
+
+import { ChevronRight, ClipboardList, Info, Lock, Minus, Plug, Plus, RefreshCw, Store, TriangleAlert } from 'lucide-react';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+
+import { useConsole } from '@/componentes/console';
+import { diaFaladoNaLoja, frase, numero, plural, quantidadeDaFicha } from '@/componentes/formatos';
+import { useAvisar } from '@/componentes/ui/avisos';
+import { Botao, classesDoBotao } from '@/componentes/ui/botao';
+import { AJUDA } from '@/componentes/ui/campo';
+import { Alerta, Cabecalho, CARTAO, Chip, Ossos, Segmentado, Vazio } from '@/componentes/ui/pecas';
+import { Gaveta } from '@/componentes/ui/sobreposto';
+import { ErroDaApi, fichasApi, type EfeitoDaOpcao, type FichasDaLoja, type ProdutoDaFicha, type ProdutoNaLista } from '@/lib/api';
+
+type Filtro = 'todos' | 'com' | 'sem';
+
+/** De quanto em quanto tempo a tela pergunta de novo enquanto a primeira busca não termina. */
+const ESPERA_DA_BUSCA_MS = 3000;
+/** Quantas vezes pergunta antes de parar (a rotina do servidor segue tentando). */
+const MAX_PERGUNTAS = 20;
+
+const semAcento = (s: string): string => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+const mensagemDe = (e: unknown): string => (e instanceof ErroDaApi ? e.message : 'não deu certo');
+
+/** Quanto da ficha a variação usa, dito como se fala. */
+function fatorFalado(fator: number): string {
+  if (fator === 1) return 'a ficha inteira';
+  if (fator === 0.5) return 'meia ficha';
+  if (fator === 1.5) return 'uma vez e meia a ficha';
+  if (fator === 2) return 'duas vezes a ficha';
+  if (fator === 3) return 'três vezes a ficha';
+  return `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(fator)} vezes a ficha`;
+}
+
+/** O que a opção muda na montagem, numa frase curta. */
+function efeitoFalado(e: EfeitoDaOpcao): string {
+  switch (e.tipo) {
+    case 'observacao':
+      return 'só uma observação para a cozinha';
+    case 'insumo':
+      return e.quantidade === null ? `acrescenta ${e.nome}` : `acrescenta ${quantidadeDaFicha(e.quantidade, e.unidade)} de ${e.nome}`;
+    case 'preparo':
+      return e.nome ? `acrescenta o preparo “${e.nome}”` : 'acrescenta um preparo da casa';
+    case 'produto':
+      return e.nome ? `acrescenta o produto “${e.nome}”` : 'acrescenta outro produto';
+    case 'retira':
+      return `tira: ${e.nome}`;
+    default:
+      return 'o Regem não diz o que muda na montagem';
+  }
+}
+
+// ───────────────────────── a linha da lista ─────────────────────────
+
+function Linha({ p, aoAbrir }: { p: ProdutoNaLista; aoAbrir: () => void }) {
+  return (
+    <li className="border-b border-farol-borda last:border-b-0">
+      <button
+        type="button"
+        data-produto={p.id}
+        onClick={aoAbrir}
+        className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 px-[18px] py-3 text-left transition-colors hover:bg-farol-painel-2 md:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,1.5fr)_auto]"
+      >
+        <span className="min-w-0">
+          <b className="block break-words font-semibold">{p.nome}</b>
+          {p.categoria && <small className="block break-words text-xs text-farol-suave">{p.categoria}</small>}
+        </span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-farol-suave md:order-last" aria-hidden />
+        <span className="col-span-full min-w-0 md:col-span-1">
+          {p.cozinha ? <Chip tom="atencao">vai para a cozinha</Chip> : <span className="text-xs text-farol-suave">não passa pela cozinha</span>}
+        </span>
+        <span className="col-span-full flex min-w-0 flex-wrap gap-1.5 md:col-span-1">
+          {p.ingredientes !== null ? (
+            <Chip tom="ok">{plural(p.ingredientes, 'ingrediente', 'ingredientes')}</Chip>
+          ) : p.combo !== null ? (
+            <Chip>combo de {numero(p.combo)}</Chip>
+          ) : (
+            <Chip>sem ficha</Chip>
+          )}
+          {p.variacoes > 0 && <Chip>{plural(p.variacoes, 'variação', 'variações')}</Chip>}
+          {p.adicionais > 0 && <Chip>{plural(p.adicionais, 'adicional', 'adicionais')}</Chip>}
+        </span>
+      </button>
+    </li>
+  );
+}
+
+// ───────────────────────── a gaveta do produto ─────────────────────────
+
+function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="text-[13px] font-semibold">{titulo}</h3>
+      {children}
+    </section>
+  );
+}
+
+function Folha({ lojaId, resumo, aoFechar }: { lojaId: string; resumo: ProdutoNaLista; aoFechar: () => void }) {
+  const [p, setP] = useState<ProdutoDaFicha | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    fichasApi
+      .produto(lojaId, resumo.id)
+      .then((r) => vivo && setP(r))
+      .catch((e) => vivo && setErro(frase(mensagemDe(e))));
+    return () => {
+      vivo = false;
+    };
+  }, [lojaId, resumo.id]);
+
+  return (
+    <Gaveta
+      titulo={resumo.nome}
+      descricao={`${resumo.categoria ? `${resumo.categoria} · ` : ''}${resumo.cozinha ? 'vai para a cozinha' : 'não passa pela cozinha'}`}
+      aoFechar={aoFechar}
+      rodape={
+        <>
+          <p className={`${AJUDA} min-w-0 flex-[1_1_220px]`}>
+            Para mudar, mude no Regem. O Farol busca as fichas uma vez por dia; para trazer já, use “Buscar agora”.
+          </p>
+          <Botao onClick={aoFechar}>Fechar</Botao>
+        </>
+      }
+    >
+      {erro && (
+        <Alerta tom="critico" icone={TriangleAlert} papel="alert">
+          {erro}
+        </Alerta>
+      )}
+      {!p && !erro && <Ossos alturas={[120, 60]} />}
+      {p && (
+        <>
+          {p.ficha ? (
+            <Bloco titulo="A ficha, na ordem em que foi cadastrada">
+              {p.ficha.ingredientes.length === 0 ? (
+                <p className="text-[13px] text-farol-suave">A ficha está cadastrada, mas ainda sem ingredientes.</p>
+              ) : (
+                <ol className="flex flex-col" data-ingredientes>
+                  {p.ficha.ingredientes.map((i, n) => (
+                    // A ordem É a informação, e o ingrediente não tem id: a posição serve de chave.
+                    <li key={n} className="flex items-baseline gap-3 border-b border-farol-borda py-2 last:border-b-0">
+                      <span className="w-5 shrink-0 text-right font-mono text-xs text-farol-suave">{n + 1}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="break-words">{i.nome}</span>
+                        {i.preparo && <small className="block text-xs text-farol-suave">preparo da casa — entra como um ingrediente só</small>}
+                      </span>
+                      <span className="shrink-0 font-mono text-[13px] tabular-nums">{quantidadeDaFicha(i.quantidade, i.unidade)}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              <p className={AJUDA}>A embalagem que só entra no pedido para viagem fica fora desta lista.</p>
+            </Bloco>
+          ) : p.tipo === 'combo' ? (
+            <Bloco titulo="O que vem no combo">
+              <ul className="flex flex-col gap-1.5" data-combo>
+                {p.combo.map((c) => (
+                  <li key={c.produtoId} className="flex items-start gap-2 text-[13.5px]">
+                    <Plus className="mt-0.5 h-[15px] w-[15px] shrink-0 text-farol-ok" aria-hidden />
+                    <span className="min-w-0 break-words">
+                      {numero(c.quantidade)} {c.nome ?? 'produto que não está nas fichas'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className={AJUDA}>Cada produto do combo tem a ficha dele.</p>
+            </Bloco>
+          ) : (
+            <Alerta icone={Info}>
+              <b className="font-semibold text-farol-tinta">Este produto não tem ficha no Regem.</b>{' '}
+              {p.cozinha ? (
+                <>
+                  O Farol sabe que a loja o vende, mas não como é montado. A ficha se cadastra no Regem, em{' '}
+                  <b className="font-semibold text-farol-tinta">Estoque › Fichas técnicas</b>.
+                </>
+              ) : (
+                'Para o que não passa pela cozinha, não faz falta.'
+              )}
+            </Alerta>
+          )}
+
+          {p.variacoes.length > 0 && (
+            <Bloco titulo="Variações">
+              <div className="flex flex-wrap gap-1.5" data-variacoes>
+                {p.variacoes.map((v) => (
+                  <Chip key={`${v.nome}|${v.codigo ?? ''}`}>
+                    {v.nome}
+                    {p.ficha ? ` · ${fatorFalado(v.fator)}` : ''}
+                  </Chip>
+                ))}
+              </div>
+            </Bloco>
+          )}
+
+          {p.adicionais.length > 0 && (
+            <Bloco titulo="O que o cliente pode pedir a mais ou tirar">
+              <ul className="flex flex-col gap-2" data-adicionais>
+                {p.adicionais.flatMap((g, ng) =>
+                  g.opcoes.map((o, no) => {
+                    const Icone = o.efeito.tipo === 'retira' ? Minus : o.efeito.tipo === 'observacao' || o.efeito.tipo === 'nada' ? Info : Plus;
+                    return (
+                      // O id fixo falta em parte das opções; o grupo e a posição não se repetem.
+                      <li key={`${ng}-${no}`} className="flex items-start gap-2">
+                        <Icone className="mt-0.5 h-[15px] w-[15px] shrink-0 text-farol-suave" aria-hidden />
+                        <span className="min-w-0">
+                          <span className="block break-words text-[13.5px]">{o.nome}</span>
+                          <small className="block break-words text-xs text-farol-suave">{efeitoFalado(o.efeito)}</small>
+                        </span>
+                      </li>
+                    );
+                  }),
+                )}
+              </ul>
+            </Bloco>
+          )}
+        </>
+      )}
+    </Gaveta>
+  );
+}
+
+// ───────────────────────── a tela ─────────────────────────
+
+export default function Fichas() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const avisar = useAvisar();
+  const { loja } = useConsole();
+  const idBusca = useId();
+
+  const [d, setD] = useState<FichasDaLoja | null>(null);
+  const [falha, setFalha] = useState<{ semPermissao: boolean; texto: string } | null>(null);
+  const [busca, setBusca] = useState('');
+  const [filtro, setFiltro] = useState<Filtro>('todos');
+  const [buscando, setBuscando] = useState(false);
+  const [erroDaBusca, setErroDaBusca] = useState<string | null>(null);
+  const [aberto, setAberto] = useState<ProdutoNaLista | null>(null);
+  const perguntas = useRef(0);
+
+  const fuso = loja?.timezone ?? 'America/Sao_Paulo';
+  const nomeDaLoja = loja?.nome ?? 'esta loja';
+
+  const carregar = useCallback(async (): Promise<FichasDaLoja | null> => {
+    try {
+      const r = await fichasApi.obter(id);
+      setD(r);
+      setFalha(null);
+      return r;
+    } catch (e) {
+      if (e instanceof ErroDaApi && e.status === 401) {
+        router.replace('/entrar');
+        return null;
+      }
+      setFalha({ semPermissao: e instanceof ErroDaApi && e.status === 403, texto: mensagemDe(e) });
+      return null;
+    }
+  }, [id, router]);
+
+  useEffect(() => {
+    setD(null);
+    perguntas.current = 0;
+    void carregar();
+  }, [carregar]);
+
+  // A loja acabou de ser ligada: a primeira busca corre no servidor. A tela
+  // pergunta de novo de tempos em tempos, até as fichas chegarem (ou a
+  // busca falhar) — e para sozinha: quem quiser, usa o "Buscar agora".
+  const esperandoAPrimeira = d?.situacao === 'ligada' && d.fonte === null && !d.leitura?.falhou;
+  useEffect(() => {
+    if (!esperandoAPrimeira) return;
+    const t = setInterval(() => {
+      perguntas.current += 1;
+      if (perguntas.current > MAX_PERGUNTAS) return clearInterval(t);
+      if (document.visibilityState === 'visible') void carregar();
+    }, ESPERA_DA_BUSCA_MS);
+    return () => clearInterval(t);
+  }, [esperandoAPrimeira, carregar]);
+
+  async function buscarAgora() {
+    setBuscando(true);
+    setErroDaBusca(null);
+    try {
+      const r = await fichasApi.buscar(id);
+      await carregar();
+      if (r.resultado === 'atualizada') avisar('Fichas atualizadas agora.');
+      else if (r.comFicha === 0) avisar('Busquei agora: o Regem desta loja continua sem fichas técnicas.');
+      else avisar('Busquei agora: nada mudou desde a última busca.');
+    } catch (e) {
+      // O que mudou de estado (o acesso foi tirado, a loja foi desconectada) a tela mostra ao recarregar.
+      await carregar();
+      setErroDaBusca(frase(mensagemDe(e)));
+    } finally {
+      setBuscando(false);
+    }
+  }
+
+  const lista = useMemo(() => {
+    const b = semAcento(busca.trim());
+    return (d?.produtos ?? []).filter((p) => {
+      const temFicha = p.ingredientes !== null;
+      if (filtro === 'com' && !temFicha) return false;
+      if (filtro === 'sem' && temFicha) return false;
+      return !b || semAcento(`${p.nome} ${p.categoria ?? ''}`).includes(b);
+    });
+  }, [d, busca, filtro]);
+
+  const temBase = d?.situacao === 'ligada' && d.fonte !== null;
+  const n = d?.totais?.produtos ?? 0;
+  const comFicha = d?.totais?.comFicha ?? 0;
+
+  return (
+    <>
+      <Cabecalho
+        sobre={
+          <>
+            <Store className="h-[15px] w-[15px]" aria-hidden />
+            {loja?.nome ?? 'Loja'}
+          </>
+        }
+        titulo={
+          <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+            Fichas
+            {temBase && d?.leitura && (
+              <span className="flex flex-wrap items-center gap-1.5 font-sans text-sm font-normal tracking-normal" data-leitura>
+                <Chip tom="vazado">do Regem</Chip>
+                {d.leitura.falhou ? (
+                  <Chip tom="critico">a última busca falhou</Chip>
+                ) : (
+                  <Chip tom="ok">atualizado {diaFaladoNaLoja(d.leitura.lidaEm, fuso)}</Chip>
+                )}
+              </span>
+            )}
+          </span>
+        }
+        acoes={
+          d?.situacao === 'ligada' && (
+            <>
+              <Botao ocupado={buscando} onClick={buscarAgora}>
+                {!buscando && <RefreshCw className="h-4 w-4" aria-hidden />}
+                {buscando ? 'Buscando…' : 'Buscar agora'}
+              </Botao>
+              {d.podeConectar && (
+                <Link href="/conexoes" className={classesDoBotao()}>
+                  <Plug className="h-4 w-4" aria-hidden />
+                  Conexões
+                </Link>
+              )}
+            </>
+          )
+        }
+      >
+        O que a loja vende e do que cada produto é feito, como está cadastrado no Regem.
+      </Cabecalho>
+
+      {!d && !falha && <Ossos alturas={[44, 300]} />}
+
+      {falha &&
+        (falha.semPermissao ? (
+          <Vazio icone={Lock} titulo="Esta tela é de quem configura a loja">
+            Seu perfil não vê as fichas da loja.
+          </Vazio>
+        ) : (
+          <Vazio
+            icone={TriangleAlert}
+            titulo="O console não respondeu"
+            acao={
+              <Botao
+                variante="primario"
+                onClick={() => {
+                  setFalha(null);
+                  void carregar();
+                }}
+              >
+                Tentar de novo
+              </Botao>
+            }
+          >
+            Não deu para carregar esta tela ({falha.texto}). Nada foi perdido: as fichas que a loja já tem continuam valendo.
+          </Vazio>
+        ))}
+
+      {d && !falha && d.situacao === 'sem_conexao' && (
+        <Vazio
+          icone={ClipboardList}
+          titulo="Esta loja ainda não tem fichas"
+          acao={
+            d.podeConectar ? (
+              <Link href="/conexoes" className={classesDoBotao({ variante: 'primario' })}>
+                <Plug className="h-4 w-4" aria-hidden />
+                Conectar ao Regem
+              </Link>
+            ) : (
+              <span className={AJUDA}>Só a diretoria conecta o Regem.</span>
+            )
+          }
+        >
+          As fichas vêm do sistema onde a loja cadastra o cardápio. Com o Regem conectado, o Farol lê os produtos, as fichas
+          técnicas e os adicionais — e passa a saber como cada lanche deve ser montado.
+        </Vazio>
+      )}
+
+      {d && !falha && d.situacao === 'falta_ligar' && (
+        <Vazio
+          icone={Plug}
+          titulo="Falta ligar esta loja ao Regem"
+          acao={
+            d.podeConectar ? (
+              <Link href="/conexoes" className={classesDoBotao({ variante: 'primario' })}>
+                Ligar as lojas
+              </Link>
+            ) : (
+              <span className={AJUDA}>Quem liga as lojas é a diretoria.</span>
+            )
+          }
+        >
+          O Regem já autorizou. Falta dizer qual loja de lá é a {nomeDaLoja}; feito isso, o Farol busca as fichas na hora.
+        </Vazio>
+      )}
+
+      {d && !falha && d.situacao === 'acesso_tirado' && (
+        <Vazio
+          icone={TriangleAlert}
+          titulo="O acesso desta loja foi tirado no Regem"
+          acao={
+            d.podeConectar ? (
+              <Link href="/conexoes" className={classesDoBotao({ variante: 'primario' })}>
+                <Plug className="h-4 w-4" aria-hidden />
+                Conectar de novo
+              </Link>
+            ) : (
+              <span className={AJUDA}>Só a diretoria conecta o Regem.</span>
+            )
+          }
+        >
+          Foi {diaFaladoNaLoja(d.leitura?.acessoTiradoEm ?? null, fuso).replace(', ', ', às ')}. Sem o acesso, o Farol apagou as
+          fichas que tinha de lá. Para tê-las de volta, é conectar de novo.
+        </Vazio>
+      )}
+
+      {d && !falha && d.situacao === 'ligada' && (
+        <>
+          {erroDaBusca && (
+            <Alerta tom="critico" icone={TriangleAlert} papel="alert">
+              {erroDaBusca}
+            </Alerta>
+          )}
+
+          {!temBase &&
+            (d.leitura?.falhou ? (
+              <Alerta tom="critico" icone={TriangleAlert} papel="status">
+                <b className="font-semibold">O Farol ainda não conseguiu ler o Regem desta loja.</b> Ele tenta de novo sozinho; para
+                tentar já, use “Buscar agora”.
+              </Alerta>
+            ) : (
+              <div role="status" className={`${CARTAO} flex items-center gap-3 px-[18px] py-4`} data-buscando>
+                <RefreshCw className="h-[18px] w-[18px] shrink-0 animate-spin text-farol-suave motion-reduce:animate-none" aria-hidden />
+                <span>
+                  <b className="font-semibold">Buscando as fichas no Regem…</b>{' '}
+                  <span className="text-farol-suave">Costuma levar poucos segundos.</span>
+                </span>
+              </div>
+            ))}
+
+          {temBase && d.leitura?.falhou && (
+            <Alerta tom="critico" icone={TriangleAlert} papel="status">
+              <b className="font-semibold">O Farol não conseguiu ler o Regem na última busca.</b> As fichas abaixo são as da busca de{' '}
+              {diaFaladoNaLoja(d.leitura.lidaEm, fuso)}. Ele tenta de novo sozinho; para tentar já, use “Buscar agora”.
+            </Alerta>
+          )}
+
+          {temBase && n > 0 && comFicha === 0 && (
+            <Alerta tom="atencao" icone={Info} papel="status">
+              <b className="font-semibold">O Regem desta loja ainda não tem fichas técnicas.</b> Sem ficha, o Farol sabe o que a loja
+              vende, mas não como cada produto é montado. As fichas se cadastram no Regem, em{' '}
+              <b className="font-semibold">Estoque › Fichas técnicas</b>; depois, use “Buscar agora” para trazê-las.
+            </Alerta>
+          )}
+
+          {temBase && n === 0 && (
+            <Vazio icone={ClipboardList} titulo="O Regem desta loja ainda não tem produtos">
+              Quando o cardápio for cadastrado no Regem, os produtos aparecem aqui na busca do dia seguinte — ou na hora, com “Buscar
+              agora”.
+            </Vazio>
+          )}
+
+          {temBase && n > 0 && (
+            <>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <label htmlFor={idBusca} className="sr-only">
+                  Buscar produto
+                </label>
+                <input
+                  id={idBusca}
+                  type="search"
+                  className="entrada min-w-0 flex-[1_1_220px]"
+                  placeholder="Buscar produto ou categoria"
+                  autoComplete="off"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                />
+                <Segmentado
+                  rotulo="Quais produtos"
+                  valor={filtro}
+                  aoMudar={setFiltro}
+                  opcoes={[
+                    { valor: 'todos', rotulo: `Todos ${numero(n)}` },
+                    { valor: 'com', rotulo: `Com ficha ${numero(comFicha)}` },
+                    { valor: 'sem', rotulo: `Sem ficha ${numero(n - comFicha)}` },
+                  ]}
+                />
+              </div>
+
+              {lista.length === 0 ? (
+                <Vazio
+                  icone={ClipboardList}
+                  titulo="Nenhum produto com esse filtro"
+                  acao={
+                    <Botao
+                      onClick={() => {
+                        setBusca('');
+                        setFiltro('todos');
+                      }}
+                    >
+                      Ver todos
+                    </Botao>
+                  }
+                >
+                  Mude a busca ou volte a ver todos.
+                </Vazio>
+              ) : (
+                <div className={CARTAO}>
+                  <div
+                    aria-hidden
+                    className="hidden grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,1.5fr)_auto] gap-x-3 border-b border-farol-borda px-[18px] py-2.5 text-xs font-semibold text-farol-suave md:grid"
+                  >
+                    <span>Produto</span>
+                    <span>Cozinha</span>
+                    <span>O que o Farol sabe dele</span>
+                    <span className="w-4" />
+                  </div>
+                  <ul aria-label="Produtos da loja" data-produtos>
+                    {lista.map((p) => (
+                      <Linha key={p.id} p={p} aoAbrir={() => setAberto(p)} />
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <p className={`${AJUDA} flex items-start gap-1.5`}>
+                <Lock className="mt-px h-[13px] w-[13px] shrink-0" aria-hidden />
+                Aqui não se edita: as fichas são do Regem. O Farol não recebe preço, custo, nem quem é o cliente.
+              </p>
+            </>
+          )}
+        </>
+      )}
+
+      {aberto && <Folha lojaId={id} resumo={aberto} aoFechar={() => setAberto(null)} />}
+    </>
+  );
+}

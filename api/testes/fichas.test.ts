@@ -204,6 +204,10 @@ describe('fichas: o que não entra, e o que não derruba', () => {
       ['produtos que não é lista', (c) => void (c.catalogo.produtos = 'muitos')],
       ['sem a lista de fichas', (c) => void delete c.fichas.fichas],
       ['produto que não é objeto', (c) => void c.catalogo.produtos.push('x')],
+      // nulo e lista no lugar de um item: sem a conferência, viraria um erro de programa, e não "resposta torta"
+      ['produto nulo', (c) => void c.catalogo.produtos.push(null)],
+      ['ficha que é uma lista', (c) => void c.fichas.fichas.push([])],
+      ['ingrediente nulo', (c) => void c.fichas.fichas.find((f: Obj) => f.nome === 'X-Burger').ingredientes.push(null)],
       ['produto sem nome', (c) => void (c.catalogo.produtos[0].nome = '  ')],
       ['produto sem id', (c) => void (c.catalogo.produtos[0].id = null)],
       ['ficha sem nome', (c) => void (c.fichas.fichas[0].nome = null)],
@@ -240,6 +244,7 @@ describe('fichas: a impressão da base', () => {
     c.catalogo.categorias.reverse();
     c.fichas.fichas.reverse();
     c.catalogo.produtos.find((p: Obj) => p.nome === 'X-Burger').variacoes.reverse();
+    for (const g of c.catalogo.produtos.find((p: Obj) => p.nome === 'X-Burger').adicionais) g.opcoes.reverse();
     c.catalogo.produtos.find((p: Obj) => p.nome === 'X-Burger').adicionais.reverse();
     c.fichas.fichas.find((f: Obj) => f.nome === 'X-Burger').ingredientes.reverse();
     assert.equal(impressaoDaBase(baseDoRegem(c.catalogo, c.fichas)), a);
