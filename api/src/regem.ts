@@ -79,11 +79,13 @@ export function conexaoDisponivel(cfg: ConfigDoRegem): cfg is ConfigDoRegem & { 
  *   sem_resposta      rede, prazo ou erro do servidor de lá (vale tentar de novo);
  *   recusado          o Regem recusou o pedido (código vencido ou já usado; acesso que não vale);
  *   cliente_invalido  o segredo do aplicativo daqui não é o que o Regem tem;
- *   resposta_torta    respondeu, mas não no formato do contrato.
+ *   resposta_torta    respondeu, mas não no formato do contrato;
+ *   acesso_tirado     numa LEITURA, o Regem disse que o acesso da loja não vale mais
+ *                     (alguém o tirou por lá, ou a loja foi autorizada de novo em outro lugar).
  */
 export class ErroDoRegem extends Error {
   constructor(
-    readonly motivo: 'sem_resposta' | 'recusado' | 'cliente_invalido' | 'resposta_torta',
+    readonly motivo: 'sem_resposta' | 'recusado' | 'cliente_invalido' | 'resposta_torta' | 'acesso_tirado',
     readonly status: number | null = null,
   ) {
     super(`regem: ${motivo}${status ? ` (${status})` : ''}`);
@@ -124,12 +126,12 @@ const texto = (v: unknown, max: number): string | null => (typeof v === 'string'
 async function chamar(
   cfg: ConfigDoRegem,
   caminho: string,
-  opcoes: { corpo?: unknown; acesso?: string },
+  opcoes: { corpo?: unknown; acesso?: string; metodo?: 'GET' | 'POST' },
 ): Promise<{ status: number; json: unknown }> {
   let r: Response;
   try {
     r = await cfg.buscar(`${cfg.apiUrl}${caminho}`, {
-      method: 'POST',
+      method: opcoes.metodo ?? 'POST',
       headers: {
         accept: 'application/json',
         'user-agent': cfg.agente,
@@ -200,4 +202,38 @@ export async function devolverAcesso(cfg: ConfigDoRegem, acesso: string): Promis
   const { status } = await chamar(cfg, '/integracao/autorizacao/revogar', { acesso });
   if (status === 200 || status === 401) return;
   throw new ErroDoRegem('recusado', status);
+}
+
+// ───────────────────────────── as leituras ─────────────────────────────
+
+/** O que uma leitura devolve: o retrato inteiro, ou só "nada mudou desde a versão que você tem". */
+export type Retrato = { mudou: true; versao: string; corpo: unknown } | { mudou: false; versao: string };
+
+const VERSAO = /^[0-9a-f]{8,64}$/i;
+
+/**
+ * Lê um retrato da loja do acesso (o cardápio ou as fichas). Com a versão
+ * que se tem guardada, o Regem responde só "nada mudou" quando é o caso.
+ *
+ * 401 aqui quer dizer UMA coisa: o acesso desta loja não vale mais.
+ */
+export async function lerRetrato(
+  cfg: ConfigDoRegem,
+  acesso: string,
+  qual: 'catalogo' | 'fichas',
+  versaoQueTenho: string | null,
+): Promise<Retrato> {
+  const pergunta = versaoQueTenho && VERSAO.test(versaoQueTenho) ? `?versao=${versaoQueTenho}` : '';
+  const { status, json } = await chamar(cfg, `/integracao/${qual}${pergunta}`, { acesso, metodo: 'GET' });
+  if (status === 401) throw new ErroDoRegem('acesso_tirado', status);
+  if (status !== 200) throw new ErroDoRegem('recusado', status);
+  const corpo = json as { versao?: unknown; atualizado?: unknown } | null;
+  const versao = corpo && typeof corpo.versao === 'string' && VERSAO.test(corpo.versao) ? corpo.versao : null;
+  if (!versao || typeof corpo!.atualizado !== 'boolean') throw new ErroDoRegem('resposta_torta', status);
+  if (corpo!.atualizado === false) {
+    // "Nada mudou" só vale como resposta a quem perguntou com versão.
+    if (!pergunta) throw new ErroDoRegem('resposta_torta', status);
+    return { mudou: false, versao };
+  }
+  return { mudou: true, versao, corpo: json };
 }

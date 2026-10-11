@@ -19,6 +19,7 @@
 // =====================================================================
 
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 
@@ -65,7 +66,30 @@ export type RegemFalso = {
    * ou uma função que monta a resposta da TROCA (para o que foge do contrato).
    */
   modo: 'normal' | 'fora' | 'mudo' | 'devagar' | 'proibido' | 'desvia' | 'pagina' | ((lojas: unknown[]) => unknown);
+  /**
+   * O cardápio e as fichas que uma loja de lá responde nas LEITURAS. Sem
+   * nada definido, toda loja responde a amostra de verdade
+   * (`contratos/regem-catalogo-e-fichas.json`).
+   */
+  cardapio(lojaId: string, c: Cardapio): void;
+  /** A amostra de verdade, para o teste montar variações dela. */
+  amostra: Cardapio;
+  /** Estraga a resposta de uma leitura (para o que foge do contrato). Nulo = responde certo. */
+  leituraTorta: null | ((qual: 'catalogo' | 'fichas', corpo: Record<string, unknown>) => unknown);
+  /** Segura as respostas das leituras até `soltar()`: o teste mexe no meio de uma leitura. */
+  segurar(): void;
+  soltar(): void;
+  /** Quantas leituras estão paradas esperando o `soltar()`. */
+  seguradas(): number;
   fechar(): Promise<void>;
+};
+
+/** O que uma loja responde em `GET /integracao/catalogo` e `GET /integracao/fichas`, sem a versão. */
+export type Cardapio = {
+  categorias: unknown[];
+  setores: unknown[];
+  produtos: unknown[];
+  fichas: unknown[];
 };
 
 const FORMATO_CODIGO = /^rgm_ac_[A-Za-z0-9_-]{43}$/;
@@ -80,6 +104,22 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
   const chamadas: Chamada[] = [];
   const emitidos: string[] = [];
   const presos = new Set<http.ServerResponse>();
+
+  // A resposta DE VERDADE do Regem (gravada de uma chamada ao servidor dele),
+  // sem a versão e a hora: é o que toda loja responde até o teste dizer outra coisa.
+  const real = JSON.parse(readFileSync(new URL('../../contratos/regem-catalogo-e-fichas.json', import.meta.url), 'utf8')) as {
+    catalogo: Cardapio;
+    fichas: { fichas: unknown[] };
+  };
+  const amostra: Cardapio = {
+    categorias: real.catalogo.categorias,
+    setores: real.catalogo.setores,
+    produtos: real.catalogo.produtos,
+    fichas: real.fichas.fichas,
+  };
+  const cardapios = new Map<string, Cardapio>();
+  let segurando = false;
+  const esperando: Array<() => void> = [];
 
   const problema = (r: http.ServerResponse, status: number, tipo: string, titulo: string, detalhe: string) => {
     r.writeHead(status, { 'content-type': 'application/problem+json; charset=utf-8' });
@@ -110,6 +150,15 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
     },
     vale: (acesso) => acessos.has(acesso),
     tirar: (acesso) => void acessos.delete(acesso),
+    cardapio: (lojaId, c) => void cardapios.set(lojaId.toLowerCase(), c),
+    amostra,
+    leituraTorta: null,
+    segurar: () => void (segurando = true),
+    soltar: () => {
+      segurando = false;
+      for (const seguir of esperando.splice(0)) seguir();
+    },
+    seguradas: () => esperando.length,
     fechar: () =>
       new Promise((ok) => {
         for (const r of presos) r.destroy();
@@ -155,6 +204,29 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
         return void res.end('<!doctype html><title>Um momento…</title>');
       }
+      // ── as leituras: o cardápio e as fichas da loja do acesso ──
+      const leitura = /^\/integracao\/(catalogo|fichas)(?:\?versao=([0-9a-f]*))?$/.exec(caminho);
+      if (req.method === 'GET' && leitura) {
+        const qual = leitura[1] as 'catalogo' | 'fichas';
+        const acesso = /^Bearer (.+)$/.exec(autorizacao)?.[1] ?? '';
+        const responder = () => {
+          // O acesso é conferido NA HORA de responder: tirado enquanto a leitura esperava, é 401.
+          const lojaId = acessos.get(acesso);
+          if (!lojaId) return problema(res, 401, 'token-invalido', 'Token inválido', 'Token ausente, inválido ou revogado.');
+          const c = cardapios.get(lojaId.toLowerCase()) ?? amostra;
+          const retrato = qual === 'catalogo' ? { categorias: c.categorias, setores: c.setores, produtos: c.produtos } : { fichas: c.fichas };
+          // A versão é a impressão do conteúdo, como lá: muda quando o retrato muda.
+          const versao = createHash('md5').update(JSON.stringify(retrato)).digest('hex');
+          const corpo: Record<string, unknown> =
+            leitura[2] === versao
+              ? { versao, atualizado: false }
+              : { versao, atualizado: true, gerado_em: new Date().toISOString(), loja_id: lojaId, ...retrato };
+          return json(res, 200, falso.leituraTorta ? falso.leituraTorta(qual, corpo) : corpo);
+        };
+        if (segurando) return void esperando.push(responder);
+        return responder();
+      }
+
       if (req.method !== 'POST') return problema(res, 404, 'nao-encontrado', 'Não encontrado', 'Rota inexistente.');
 
       // ── a troca do código ──

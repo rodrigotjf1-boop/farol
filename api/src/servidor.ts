@@ -5,20 +5,26 @@
 // construir a aplicação sem abrir porta.
 // =====================================================================
 
-import { criarApp } from './app.js';
+import { criarApp, VERSAO } from './app.js';
 import { carregarCatalogo } from './catalogo.js';
 import { pool } from './db.js';
 import { conferirEsquema } from './preflight.js';
 import { despacharAgentesCaidos, vigiaPodeAcusar } from './despacho.js';
 import { instalarGuarda, type Subida } from './guarda.js';
+import { voltaDaLeitura, type MemoriaDaRotina } from './leitura.js';
 import { migrarNaSubida } from './migracao.js';
+import { configDoRegem } from './regem.js';
 
 const PORTA = Number(process.env.PORT ?? 3000);
 
 // O que a subida fez com as migrations. A rota de saúde lê daqui.
 const subida: Subida = { migracao: null };
 
-const app = criarApp(pool, { subida });
+// Como falar com o Regem, lido do ambiente UMA vez: as rotas e a rotina de
+// leitura usam o mesmo.
+const regem = configDoRegem(process.env, VERSAO);
+
+const app = criarApp(pool, { subida, regem });
 
 async function encerrar(sinal: string) {
   app.log.info(`${sinal} recebido, encerrando`);
@@ -127,6 +133,26 @@ const vigia = setInterval(() => {
 }, INTERVALO_VIGIA_MS);
 // Sem isto o contêiner não sai no SIGTERM e o orquestrador o mata à força.
 vigia.unref();
+
+// ─────────────── a leitura das fichas ───────────────
+// As fichas de cada loja ligada ao Regem são lidas ao ligar, uma vez por dia
+// (de madrugada, no relógio da loja) e a pedido. Este relógio só olha, a
+// cada minuto, se chegou a hora de alguma — a consulta usa um índice e, na
+// imensa maioria das voltas, não acha nada.
+//
+// É um relógio À PARTE do vigia, de propósito: cada um guarda o seu passo, e
+// mexer num não muda o ritmo do outro.
+//
+// Em toda réplica, sem coordenar: cada leitura pega a vez da loja numa
+// instrução só, e de duas réplicas uma leva.
+const INTERVALO_DA_LEITURA_MS = 60_000;
+const memoriaDaLeitura: MemoriaDaRotina = { avisouQueFaltaMigrar: false };
+
+const leitura = setInterval(() => {
+  // `voltaDaLeitura` nunca rejeita: trata por dentro o que der errado.
+  void voltaDaLeitura(pool, regem, app.log, () => !porta.recusando, memoriaDaLeitura);
+}, INTERVALO_DA_LEITURA_MS);
+leitura.unref();
 
 try {
   // 0.0.0.0 é obrigatório no contêiner: ouvindo só em localhost, o
