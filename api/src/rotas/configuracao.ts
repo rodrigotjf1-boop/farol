@@ -53,10 +53,17 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
     // versão nova com configuração velha — e parar de puxar, porque para
     // ele já estaria em dia. O erro se esconderia até alguém conferir na
     // mão por que a loja analisa pela regra antiga.
+    //
+    // A marca da base de fichas vem na mesma consulta pelo mesmo motivo: a
+    // base muda → a versão sobe (migration 038), e as duas têm de ser lidas
+    // juntas.
     const l = await pool.query(
-      `select id, nome, config_versao, modo_julgamento, resolucao_padrao,
-              horario_funcionamento, tipo_negocio, pedido_com_contexto
-         from loja where id = $1`,
+      `select l.id, l.nome, l.config_versao, l.modo_julgamento, l.resolucao_padrao,
+              l.horario_funcionamento, l.tipo_negocio, l.pedido_com_contexto,
+              f.impressao as fichas_impressao, f.produtos as fichas_produtos, f.com_ficha as fichas_com_ficha
+         from loja l
+         left join fichas_da_loja f on f.loja_id = l.id
+        where l.id = $1`,
       [quem.lojaId],
     );
     if (l.rowCount === 0) {
@@ -276,6 +283,18 @@ export function rotasDeConfiguracao(app: FastifyInstance, pool: pg.Pool): void {
       },
       versao: l.rows[0].config_versao,
       geradoEm: new Date().toISOString(),
+      // A base de fichas que a loja tem de ter em disco (o que ela vende e
+      // do que cada produto é feito): só a marca do documento. O agente
+      // compara com a cópia dele e baixa (por `GET /v1/agentes/fichas`)
+      // quando difere. Nulo = a loja não tem base, e a cópia de lá sai do
+      // disco. O agente antigo ignora a entrada.
+      fichas: l.rows[0].fichas_impressao
+        ? {
+            impressao: l.rows[0].fichas_impressao,
+            produtos: l.rows[0].fichas_produtos,
+            comFicha: l.rows[0].fichas_com_ficha,
+          }
+        : null,
       pontos: pontos.rows.map((p) => ({
         id: p.id,
         nome: p.nome,

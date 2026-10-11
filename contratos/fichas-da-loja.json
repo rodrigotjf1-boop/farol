@@ -1,0 +1,220 @@
+{
+  "sabe": "fichas",
+  "configuracao": {
+    "comBase": {
+      "fichas": {
+        "impressao": "3bc941fa0adb6ea6699c3a3f956b7ceaf006e649d627bb0d3d7968209430eb94",
+        "produtos": 4,
+        "comFicha": 1
+      }
+    },
+    "semBase": {
+      "fichas": null
+    }
+  },
+  "baixar": "/v1/agentes/fichas",
+  "resposta": {
+    "impressao": "3bc941fa0adb6ea6699c3a3f956b7ceaf006e649d627bb0d3d7968209430eb94",
+    "base": {
+      "formato": 1,
+      "produtos": [
+        {
+          "id": "f0c98d36-9e88-4d68-a1c8-58d8897cb82b",
+          "nome": "X-Burger",
+          "codigo": "XB",
+          "categoria": "Burgers",
+          "tipo": "variavel",
+          "cozinha": true,
+          "setor": "Montagem",
+          "preparoMin": 12,
+          "ficha": {
+            "id": "6d38edd2-2aeb-4fec-bf51-ecd32ac11b49",
+            "nome": "X-Burger",
+            "ingredientes": [
+              {
+                "nome": "Pão brioche",
+                "quantidade": 1,
+                "unidade": "unidade",
+                "preparo": false,
+                "insumoId": "b1e56fcd-7c18-45de-936d-7f8e84d7bd19",
+                "fichaId": null
+              },
+              {
+                "nome": "Blend da casa",
+                "quantidade": 0.12,
+                "unidade": "kg",
+                "preparo": true,
+                "insumoId": null,
+                "fichaId": "e31a1517-99d7-403a-8a6c-7ce7d1010161"
+              },
+              {
+                "nome": "Queijo prato",
+                "quantidade": 2,
+                "unidade": "fatia",
+                "preparo": false,
+                "insumoId": "7cf0df2f-42e9-4754-9571-08639f3a01d7",
+                "fichaId": null
+              },
+              {
+                "nome": "Cebola roxa",
+                "quantidade": 0.01,
+                "unidade": "kg",
+                "preparo": false,
+                "insumoId": "8a0426eb-b764-4af9-9aa2-378601b9c43f",
+                "fichaId": null
+              },
+              {
+                "nome": "Sal",
+                "quantidade": 2,
+                "unidade": "g",
+                "preparo": false,
+                "insumoId": null,
+                "fichaId": null
+              }
+            ]
+          },
+          "variacoes": [
+            {
+              "nome": "Simples",
+              "codigo": "XB-S",
+              "fator": 1
+            },
+            {
+              "nome": "Duplo",
+              "codigo": "XB-D",
+              "fator": 2
+            }
+          ],
+          "combo": [],
+          "adicionais": [
+            {
+              "nome": "Adicionais",
+              "tipo": "adicionar",
+              "opcoes": [
+                {
+                  "id": "dfadee78-9bf6-44fd-b3ea-bf1bfbe6005c",
+                  "nome": "Bacon",
+                  "codigo": "AD-BAC",
+                  "efeito": {
+                    "tipo": "insumo",
+                    "nome": "Bacon fatiado",
+                    "quantidade": 0.02,
+                    "unidade": "kg",
+                    "insumoId": "ea943083-47ba-4d7e-96e7-e9dc528e8bad"
+                  }
+                },
+                {
+                  "id": "3b131feb-3d81-4581-862e-4b0c4ab49dce",
+                  "nome": "Ovo",
+                  "codigo": "AD-OVO",
+                  "efeito": {
+                    "tipo": "preparo",
+                    "fichaId": "412e3e07-5266-4f44-80d3-11965f33e30f",
+                    "nome": "Ovo frito"
+                  }
+                },
+                {
+                  "id": "a47158c8-b10a-493c-87c0-63958dd2cb74",
+                  "nome": "Refrigerante",
+                  "codigo": "AD-REF",
+                  "efeito": {
+                    "tipo": "produto",
+                    "produtoId": "6ab4f749-56f0-4ed1-88b2-47eedc343f87",
+                    "nome": "Refrigerante lata"
+                  }
+                },
+                {
+                  "id": "3a27cc30-43f4-44ea-86c1-427682a726a7",
+                  "nome": "Ponto da carne",
+                  "codigo": null,
+                  "efeito": {
+                    "tipo": "observacao"
+                  }
+                }
+              ]
+            },
+            {
+              "nome": "Retirar",
+              "tipo": "remover",
+              "opcoes": [
+                {
+                  "id": null,
+                  "nome": "Sem cebola",
+                  "codigo": "RM-CEB",
+                  "efeito": {
+                    "tipo": "retira",
+                    "nome": "Cebola roxa",
+                    "insumoId": "8a0426eb-b764-4af9-9aa2-378601b9c43f",
+                    "fichaId": null
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6ab4f749-56f0-4ed1-88b2-47eedc343f87",
+          "nome": "Refrigerante lata",
+          "codigo": "REF",
+          "categoria": "Bebidas",
+          "tipo": "simples",
+          "cozinha": false,
+          "setor": null,
+          "preparoMin": null,
+          "ficha": null,
+          "variacoes": [],
+          "combo": [],
+          "adicionais": []
+        },
+        {
+          "id": "b607f977-d697-4083-86be-0dbd2876f805",
+          "nome": "Combo da casa",
+          "codigo": "CMB",
+          "categoria": null,
+          "tipo": "combo",
+          "cozinha": true,
+          "setor": null,
+          "preparoMin": null,
+          "ficha": null,
+          "variacoes": [],
+          "combo": [
+            {
+              "produtoId": "6ab4f749-56f0-4ed1-88b2-47eedc343f87",
+              "nome": "Refrigerante lata",
+              "quantidade": 2
+            },
+            {
+              "produtoId": "f0c98d36-9e88-4d68-a1c8-58d8897cb82b",
+              "nome": "X-Burger",
+              "quantidade": 1
+            }
+          ],
+          "adicionais": []
+        },
+        {
+          "id": "b5f58d3c-3332-409b-90d3-8af911949068",
+          "nome": "Só da matriz",
+          "codigo": null,
+          "categoria": null,
+          "tipo": "simples",
+          "cozinha": true,
+          "setor": null,
+          "preparoMin": null,
+          "ficha": null,
+          "variacoes": [],
+          "combo": [],
+          "adicionais": []
+        }
+      ]
+    }
+  },
+  "semBaseNaNuvem": {
+    "status": 404,
+    "erro": "sem_fichas"
+  },
+  "guardado": [
+    "impressao",
+    "baixadaEm",
+    "base"
+  ]
+}

@@ -3836,7 +3836,7 @@ loja; o que o gravador entrega é medido na instalação.
 |---|---|---|---|
 | 1 ✅ | **Fechar a onda 1:** o sistema propor o estudo do critério — **feito em 10/10**, por regras, no servidor, que era o caminho recomendado (se o dono preferir outro, o botão é o mesmo: troca-se quem responde) | onda 1, fatia 1.3 | — |
 | 2 | Três acertos pequenos de tela: "área" → "quadro" em Análises e no Painel; a tabela do Painel, que rola de lado entre 820 e 1.280 px; o cartão "Critérios ligados" dizer quantos só observam | onda 1 | — |
-| 3 | **A base de fichas e produtos do Farol** (decisão de 10/10): puxar do Regem as fichas, os produtos e os adicionais de cada loja e guardar base própria; aceitar também planilha, para a loja sem Regem; por cima dela, o dicionário de ingredientes e as regras da casa. **O plano e o protótipo das duas telas foram aprovados pelo dono em 11/10** ("O lado do Farol que usa o Regem — o plano, aprovado"); a fatia 1 (conectar e ligar as lojas) foi entregue em 11/10 (PR #101); a fatia 2 (ler e guardar as fichas; a tela Fichas) também, no mesmo dia (PR #102); a próxima é a fatia 3 | nova; antes da onda 5 | o Regem com as fichas da loja |
+| 3 | **A base de fichas e produtos do Farol** (decisão de 10/10): puxar do Regem as fichas, os produtos e os adicionais de cada loja e guardar base própria; aceitar também planilha, para a loja sem Regem; por cima dela, o dicionário de ingredientes e as regras da casa. **O plano e o protótipo das duas telas foram aprovados pelo dono em 11/10** ("O lado do Farol que usa o Regem — o plano, aprovado"); a fatia 1 (conectar e ligar as lojas) foi entregue em 11/10 (PR #101); a fatia 2 (ler e guardar as fichas; a tela Fichas) também, no mesmo dia (PR #102); a fatia 3 (a cópia chega ao computador da loja) também (PR #103); falta trocar o pacote do agente na loja, com o "pode" do dono; as fatias 4 e 5 ficam para depois | nova; antes da onda 5 | o Regem com as fichas da loja |
 | 4 | **O plano no projeto Regem — aprovado pelo dono em 10/10** (a página "Porta do Farol no Regem"; o resumo e as respostas dele estão em "O lado do Regem — o plano, aprovado"): três fases — o catálogo e as fichas, a fila de produção só para leitura, e o modo do KDS "por produto, com baixa automática". **As fases 1 e 2 estão no ar desde 11/10** ("A fase 1, entregue" e "A fase 2, entregue"); **a 3 fica para a onda 5, com o aviso pela rede da loja** | projeto Regem — plano antes do código | o lado do Farol que consome (item 3); o segredo do aplicativo, que é do dono, só quando esse lado existir |
 | 5 | **Onda 2 — sequência e banco de provas:** o agente buscar no gravador (cliente de arquivo, medindo o que cada gravador entrega), a busca pelo meio, a grade de 6 quadros, a família Acontecimento passando a julgar, "acertou / errou", o acerto medido de cada critério. **O plano está em "Onda 2 — como ela entra"** (10/10): oito fatias; **a 2.1 (o cliente de arquivo do gravador) e a 2.2a (medir o gravador e ler o trecho) estão feitas, em 10/10**; a 2.2b (a busca pelo meio e a grade), também só do agente e dormindo, é a próxima | onda 2 | o protótipo das telas aprovado; as três decisões do plano; o dono marcar os exemplos |
 | 6 | **Onda 3 — processo e medida:** etapas por quadro, cronômetros, contadores, episódios | onda 3 | a onda 2 medida |
@@ -4451,8 +4451,8 @@ ficha: o Farol casa pelo produto e pelo nome, e trata cada leitura como retrato 
 
 **Apresentado ao dono em 11/10, de manhã cedo**, na página "Regem no Farol", com o protótipo
 das duas telas (`mockups/farol-conexoes-e-fichas.html`), e **aprovado por ele no mesmo dia**
-(as respostas estão abaixo, em "O que o dono respondeu"). **As fatias 1 e 2 foram entregues** (mais
-abaixo, "A fatia 1, entregue" e "A fatia 2, entregue"); a próxima é a fatia 3.
+(as respostas estão abaixo, em "O que o dono respondeu"). **As fatias 1, 2 e 3 foram entregues** (mais
+abaixo, "A fatia 1, entregue", "A fatia 2, entregue" e "A fatia 3, entregue"); as fatias 4 e 5 ficam para depois.
 
 **O que o código do Farol mostrou** (lido na `main` de 11/10):
 
@@ -4547,7 +4547,19 @@ testes novos; 131 estragos de propósito, todos pegos; as duas telas num navegad
 passos; 20 estados em 16 larguras); e a leitura de produção contra o Regem real. **Do dono:**
 as mesmas três variáveis da fatia 1 e, depois, as fichas cadastradas no Regem; e duas
 perguntas — a supervisão vê as fichas? como fica a barra de baixo do celular com sete itens?
-**A próxima é a fatia 3** (a cópia das fichas chega ao computador da loja).
+A fatia 3 veio em seguida (abaixo).
+
+**A fatia 3, entregue (11/10/2026 · PR #103, migration 038):** a base de fichas passa a
+ter uma **cópia no computador da loja**. Base nova, trocada ou apagada sobe a versão da
+configuração da loja (um gatilho no banco); a configuração leva a marca da base, ou nulo; o
+agente baixa o documento quando a marca não é a da cópia dele (`GET /v1/agentes/fichas`),
+guarda em `fichas.json` e **apaga a cópia quando a loja deixa de ter base**. Só a configuração
+apaga: falha de rede e resposta torta deixam a cópia de antes valendo. Medido: 13 testes
+novos na API e 69 no agente; 119 estragos de propósito, todos pegos; e os dois
+lados de verdade, um contra o outro (25 conferências). **Ainda não muda o que a loja confere:**
+nenhum critério usa a ficha. **Do dono:** o "pode" para trocar o pacote do agente na loja — até
+lá, o agente de lá ignora a base. **As fatias 4 (planilha) e 5 (fila da cozinha) ficam para
+depois**, como ele decidiu; a planilha tem protótipo próprio antes.
 
 ### O que não foi medido
 

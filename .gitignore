@@ -44,9 +44,12 @@ fila.db-*
 # `maquina.json` é a identidade que prende o token a ESTA máquina — no
 # repositório, toda instalação nasceria com a mesma, e a trava de
 # clone deixaria de existir. `configuracao.json` é a configuração de
-# UMA loja, que desce da nuvem e é diferente em cada uma.
+# UMA loja, que desce da nuvem e é diferente em cada uma. `fichas.json` é
+# a cópia da base de fichas dessa loja.
 /agent/configuracao.json
 /agent/maquina.json
+/agent/fichas.json
+/agent/fichas.json.tmp
 web/tsconfig.tsbuildinfo
 
 # O modelo do detector local (108 MB): baixado na instalação e conferido

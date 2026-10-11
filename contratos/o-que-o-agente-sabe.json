@@ -3,9 +3,10 @@
   "saberes": {
     "estados": "o estado do critério: observando não julga; ensaio e medido não avisam",
     "estudo": "o estudo do critério: o contexto e o gatilho que a loja confere sozinha",
-    "bancada": "o quadro de bancada: a imagem espera as mãos saírem"
+    "bancada": "o quadro de bancada: a imagem espera as mãos saírem",
+    "fichas": "a base de fichas da loja: o agente baixa a cópia e a guarda"
   },
   "mudamOQueDesce": ["estados", "estudo"],
-  "pedido": "/v1/agentes/configuracao?sabe=estados,estudo,bancada",
-  "guardado": ["bancada", "estados", "estudo"]
+  "pedido": "/v1/agentes/configuracao?sabe=estados,estudo,bancada,fichas",
+  "guardado": ["bancada", "estados", "estudo", "fichas"]
 }

@@ -3493,3 +3493,100 @@ deve ficar com sete itens é pergunta para o dono, com protótipo.
   quanto leva a leitura dela, só se sabe com as fichas cadastradas.
 - A leitura do dia às 04h do relógio da loja foi provada pela conta e pelos testes; ninguém
   esperou uma madrugada.
+
+## 11/10/2026 · A cópia das fichas chega ao computador da loja: a configuração anuncia a base e o agente a baixa (fatia 3)
+
+A fatia 3 do plano "Regem no Farol": a base de fichas que o servidor guarda (fatia 2) passa a
+ter uma cópia no computador da loja — é lá que um critério vai poder conferir "montado como a
+ficha manda", sem internet. Migration 038, PR #103.
+
+### O que entrou
+
+- **A base muda → a loja fica sabendo.** Base nova, base trocada ou base apagada sobem a
+  versão da configuração da loja (`loja.config_versao`), que é o que o agente compara a cada
+  batida. Quem sobe é um gatilho no banco (migration 038).
+- **A configuração leva a marca da base** (`fichas`: a impressão do documento e as duas
+  contas), ou **nulo** quando a loja não tem base.
+- **O agente baixa o documento** por `GET /v1/agentes/fichas` quando a marca anunciada não é a
+  da cópia dele, e o guarda em `fichas.json`, ao lado da fila. Quando a configuração diz que a
+  loja não tem base (desconectou, ou o Regem tirou o acesso), **a cópia sai do disco**.
+- **O agente declara que sabe guardar fichas** (`?sabe=…,fichas`).
+- O contrato: `contratos/fichas-da-loja.json`, lido pelos testes dos dois lados.
+
+### O que eu decidi no caminho, e por quê
+
+1. **O mesmo caminho das fotos padrão:** a configuração leva só a marca, e o documento desce
+   por uma rota própria, só quando difere. A base de uma loja grande não trafega a cada
+   mudança de critério.
+2. **O plano dizia "sem migration"; entrou uma, pequena — um gatilho.** A base é escrita por
+   três caminhos (a leitura, o desconectar e o acesso tirado) e vai ganhar outros (a
+   planilha). Avisar a loja em cada rota deixaria a primeira que esquecesse com a ficha velha
+   no computador da loja, sem erro nenhum. No banco, quem escreve na base avisa — como ponto,
+   área, critério e foto padrão já fazem. Leitura que não mudou nada não escreve, e escrita
+   que não mexe na impressão não sobe a versão: a loja não puxa configuração à toa.
+3. **A marca desce para todo agente.** O pacote antigo ignora a entrada, e não há o que
+   esconder dele. A palavra `fichas` na declaração só informa — e faz o pacote novo, ao subir,
+   pedir a configuração de novo (a regra do ERR-064), que é quando ele descobre a base.
+4. **Só a configuração apaga.** Nulo = "a loja não tem base": a cópia (e o temporário, se
+   houver) sai do disco. Configuração que não fala de fichas, entrada torta, nuvem fora do ar
+   ou um 404 na hora de baixar **não apagam nada**: "não sei" não é "não tem".
+5. **A impressão é uma marca de versão, não um resumo dos bytes.** O banco guarda o documento
+   em `jsonb`, que reordena as chaves: o que desce não tem os mesmos bytes do que foi
+   impresso. A loja não recalcula; compara. O que garante o documento inteiro é outra coisa:
+   resposta cortada não é JSON (provado com um servidor de verdade que derruba a conexão no
+   meio), o formato é conferido antes de gravar, e a gravação é por troca de arquivo.
+6. **A nuvem entrega a base que tem AGORA, com a impressão dela** (as duas saem da mesma
+   linha). Se a base mudou depois que a configuração desceu, o agente guarda a nova e **espera
+   a configuração confirmar** — não fica pedindo de novo a cada minuto.
+7. **Formato que o agente não conhece não vira cópia** (a nuvem é mais nova que ele), e também
+   não é pedido todo minuto: só de novo quando a configuração anunciar outra base, ou quando o
+   agente for outro.
+8. **O que falha é pedido de novo em um minuto** — a mesma espera das fotos padrão —, e
+   enquanto isso vale a cópia que há. Nada disso derruba a auditoria.
+9. **Uma trava própria:** o laço da nuvem (que declara) e o da auditoria (que busca) rodam em
+   linhas diferentes; duas voltas ao mesmo tempo baixam uma vez só.
+
+### O que isto NÃO faz
+
+- **Nenhum critério usa a ficha ainda.** A cópia chega e fica; o que a loja confere não muda.
+- **O console não diz se a cópia chegou.** Não há tela nem frase nova: isso pede protótipo.
+  Sabe-se pela declaração do agente (`agente.sabe` com `fichas`) e, no piloto, olhando o
+  arquivo no computador da loja.
+- **"Apagadas na hora" vale na nuvem.** No computador da loja a cópia sai quando o agente
+  pega a configuração seguinte — segundos, com a loja ligada; com o agente desligado ou sem
+  internet, quando ele voltar.
+
+### O que foi medido
+
+- **13 testes novos na API e 69 no agente.** Na API, a base é escrita e apagada
+  pelos caminhos de produção (a leitura contra o Regem de teste, o desconectar, o acesso
+  tirado), não por SQL do teste. No agente, três deles usam um servidor HTTP de verdade — um
+  cortando a resposta em quatro pontos.
+- **119 estragos de propósito, 119 pegos por um teste:** 17 nas duas rotas,
+  7 no gatilho (trocado no banco local e devolvido) e 95 no agente. Antes
+  de rodar, a lista pediu três casos que faltavam: a outra loja **da mesma conta** não sobe de
+  versão, não ter quem baixe não é falha, e a cópia apagada à mão é baixada de novo. E na
+  primeira rodada do agente um estrago passou ("diz que apagou o que não apagou"): o teste
+  procurava a frase no registro num nível em que ela não aparece — olhava para o lugar errado
+  e passava sempre. Corrigido o teste, o estrago foi pego.
+- **Os dois lados de verdade, um contra o outro:** o código do agente como roda na loja
+  (cliente, sincronizador, o passo do serviço e a auditoria) contra a API de pé no banco
+  local, com a base lida de um Regem de teste. 25 conferências: loja sem base; conecta e
+  liga → a versão sobe uma vez, uma puxada de configuração e um download; "Buscar agora" sem
+  mudança → a loja bate e não puxa nada; cardápio muda → mais um download, e só; o agente
+  reinicia → acha a cópia e não baixa; desconecta → a cópia sai do disco.
+- As suítes inteiras: a da API (menos a de sempre no banco local) e a do agente.
+
+### Na volta de pacote
+
+Voltar o agente da loja para um pacote de antes desta fatia: além de apagar
+`configuracao.json` (ERR-070), **apagar `fichas.json`** — o pacote antigo não a conhece, e a
+cópia ficaria no disco sem ninguém para atualizá-la ou apagá-la.
+
+### O que não foi conferido
+
+- **Nada na loja.** O pacote do agente do piloto não foi trocado: isso espera o "pode" do
+  dono. Até lá o agente de lá ignora a marca da base.
+- **Nada em produção com base de verdade:** nenhuma loja está conectada ao Regem.
+- **O tamanho do documento do piloto** e quanto leva para descer pela internet da loja: só
+  com as fichas cadastradas no Regem.

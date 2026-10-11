@@ -65,11 +65,14 @@ class ErroDaNuvem(Exception):
 #   estados  o estado do critério: observando não julga, ensaio e medido não avisam.
 #   estudo   o estudo do critério: o contexto e o gatilho que a loja confere sozinha.
 #   bancada  o quadro de bancada: a imagem espera as mãos saírem.
+#   fichas   a base de fichas da loja: o agente baixa a cópia e a guarda.
 #
 # A nuvem GUARDA a declaração (é como o console sabe o que já vale na loja).
-# "bancada" não muda o que desce — o papel do quadro desce para todos —,
-# só informa. A lista é a de `contratos/o-que-o-agente-sabe.json`.
-SABE: tuple[str, ...] = ("estados", "estudo", "bancada")
+# "bancada" e "fichas" não mudam o que desce — o papel do quadro e a marca
+# da base descem para todos —, só informam. E fazem o agente que acabou de
+# aprender pedir a configuração de novo. A lista é a de
+# `contratos/o-que-o-agente-sabe.json`.
+SABE: tuple[str, ...] = ("estados", "estudo", "bancada", "fichas")
 
 
 class ClienteNuvem:
@@ -119,6 +122,10 @@ class ClienteNuvem:
     def baixar_padrao(self, foto_id: str) -> bytes:
         """A imagem de uma foto padrão desta loja, para comparar aqui."""
         return self._buscar("GET", f"/v1/agentes/padroes/{foto_id}", None, aceita="image/*")
+
+    def baixar_fichas(self) -> dict[str, Any]:
+        """A base de fichas desta loja: `{impressao, base}`. 404 = a loja não tem base."""
+        return self._pedir("GET", "/v1/agentes/fichas")
 
     def baixar_foto_do_inventario(self, foto_id: str) -> bytes:
         """A imagem de uma foto de equipamento desta loja, para a análise única dela."""

@@ -850,7 +850,7 @@ def test_o_agente_baixa_a_foto_em_bytes_e_o_resto_continua_em_json(monkeypatch):
     assert pedidos == [
         ("GET", "https://api.exemplo/v1/agentes/padroes/n1", "image/*", "Bearer tok"),
         # O agente diz o que sabe fazer ao pedir a configuração (ver `nuvem.SABE`).
-        ("GET", "https://api.exemplo/v1/agentes/configuracao?sabe=estados,estudo,bancada", "application/json", "Bearer tok"),
+        ("GET", "https://api.exemplo/v1/agentes/configuracao?sabe=estados,estudo,bancada,fichas", "application/json", "Bearer tok"),
     ]
 
 

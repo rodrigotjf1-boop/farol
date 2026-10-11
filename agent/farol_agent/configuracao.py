@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any
 
 from farol_agent.contexto import PAPEIS
+from farol_agent.fichas import FichasRef, ref_da_configuracao
 from farol_agent.padroes import PadraoRef
 from farol_agent.porteiro import PORTEIROS
 from farol_agent.modelos import (
@@ -123,6 +124,13 @@ class ConfigDaLoja:
     # configuração pedida sabendo menos pode estar incompleta, mesmo com a
     # versão em dia. Vazio = baixada por um agente de antes disto.
     pedida_sabendo: tuple[str, ...] = ()
+    # A base de fichas que a loja tem de ter em disco: o que ela vende e do
+    # que cada produto é feito. `None` = a loja não tem base.
+    fichas: FichasRef | None = None
+    # A nuvem DISSE alguma coisa sobre as fichas? Configuração que não fala
+    # delas (baixada antes de isto existir) não manda apagar a cópia que a
+    # loja tem: "não sei" não é "não tem".
+    diz_das_fichas: bool = False
 
     def ponto(self, ponto_id: str) -> PontoConfig | None:
         return next((p for p in self.pontos if p.id == ponto_id), None)
@@ -407,6 +415,8 @@ def de_json(dados: dict[str, Any]) -> ConfigDaLoja:
             )
         )
 
+    diz_das_fichas, fichas = _fichas(dados)
+
     return ConfigDaLoja(
         loja_id=str(dados["loja"]["id"]),
         loja_nome=str(dados["loja"].get("nome") or ""),
@@ -419,6 +429,8 @@ def de_json(dados: dict[str, Any]) -> ConfigDaLoja:
         # ("sim", 1) não muda o que sai da loja.
         pedido_com_contexto=dados["loja"].get("pedidoComContexto") is True,
         pedida_sabendo=_pedida_sabendo(dados.get(MARCA_DO_AGENTE)),
+        fichas=fichas,
+        diz_das_fichas=diz_das_fichas,
     )
 
 
@@ -431,6 +443,27 @@ MARCA_DO_AGENTE = "_agente"
 def _pedida_sabendo(marca: Any) -> tuple[str, ...]:
     sabe = marca.get("sabe") if isinstance(marca, dict) else None
     return tuple(str(x) for x in sabe) if isinstance(sabe, list) else ()
+
+
+def _fichas(dados: dict[str, Any]) -> tuple[bool, FichasRef | None]:
+    """A base de fichas da loja: (a nuvem disse algo?, a base que ela descreve).
+
+    Configuração sem a entrada (baixada antes de isto existir) não disse
+    nada, e a cópia que a loja tem fica. Entrada nula = a loja não tem base.
+    Entrada torta (sem a impressão) vale como não dita: não derruba a
+    configuração nem apaga a cópia — sem a base nova, a loja segue com a que
+    tem.
+    """
+    if "fichas" not in dados:
+        return False, None
+    bruto = dados["fichas"]
+    if bruto is None:
+        return True, None
+    ref = ref_da_configuracao(bruto)
+    if ref is None:
+        _log.warning("a configuração descreve a base de fichas de um jeito que este agente não entende: ignorada")
+        return False, None
+    return True, ref
 
 
 def _padroes(bruto: Any) -> list[PadraoRef]:
