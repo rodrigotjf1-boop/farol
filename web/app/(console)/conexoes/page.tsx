@@ -3,8 +3,13 @@
 // =====================================================================
 // Conexões — de onde o Farol lê o que as lojas vendem e produzem
 // =====================================================================
-// Tela da CONTA, não de uma loja. Hoje há uma conexão possível: o Regem,
-// onde a loja cadastra o cardápio e as fichas técnicas.
+// Tela da CONTA, não de uma loja. As fichas de uma loja vêm de UM de três
+// lugares: do Regem (esta tela conecta e liga as lojas), de outro sistema
+// (a diretoria cria aqui o acesso dele) ou de uma planilha (importada na
+// tela Fichas da loja). Os cartões do outro sistema e da planilha moram em
+// `componentes/conexoes/outro-sistema.tsx`.
+//
+// O Regem:
 //
 // O caminho, do protótipo aprovado em 11/10/2026
 // (`mockups/farol-conexoes-e-fichas.html`):
@@ -34,7 +39,8 @@ import { Botao, classesDoBotao } from '@/componentes/ui/botao';
 import { AJUDA, ROTULO } from '@/componentes/ui/campo';
 import { Alerta, Cabecalho, CARTAO, Chip, Ossos, Vazio } from '@/componentes/ui/pecas';
 import { Dialogo } from '@/componentes/ui/sobreposto';
-import { ErroDaApi, regemApi, type ConexaoComORegem, type LojaDoRegemEsperando, type LojaDoRegemLigada, type VoltaDoRegem } from '@/lib/api';
+import { OutroSistema, Planilha } from '@/componentes/conexoes/outro-sistema';
+import { acessosApi, ErroDaApi, regemApi, type AcessosDaConta, type ConexaoComORegem, type LojaDoRegemEsperando, type LojaDoRegemLigada, type VoltaDoRegem } from '@/lib/api';
 
 /** "Não usar esta loja agora": o acesso dela é devolvido ao Regem. */
 const NAO_USAR = '';
@@ -508,6 +514,7 @@ export default function Conexoes() {
   const avisar = useAvisar();
 
   const [c, setC] = useState<ConexaoComORegem | null>(null);
+  const [acessos, setAcessos] = useState<AcessosDaConta | null>(null);
   const [falha, setFalha] = useState<{ semPermissao: boolean; texto: string } | null>(null);
   const [recado, setRecado] = useState<Recado | null>(null);
   const [indo, setIndo] = useState(false);
@@ -518,8 +525,10 @@ export default function Conexoes() {
 
   const buscar = useCallback(async (): Promise<ConexaoComORegem | null> => {
     try {
-      const r = await regemApi.obter();
+      // As duas metades da tela: a conexão com o Regem e os acessos de outro sistema (com a origem de cada loja).
+      const [r, a] = await Promise.all([regemApi.obter(), acessosApi.obter()]);
       setC(r);
+      setAcessos(a);
       setFalha(null);
       return r;
     } catch (e) {
@@ -644,7 +653,7 @@ export default function Conexoes() {
         }
         titulo="Conexões"
       >
-        De onde o Farol lê o que as lojas vendem e produzem. Vale para a conta inteira; cada loja é ligada à loja dela.
+        De onde o Farol recebe o que as lojas vendem e produzem. Vale para a conta inteira; cada loja recebe as fichas de um lugar só.
       </Cabecalho>
 
       {recado && (
@@ -699,6 +708,9 @@ export default function Conexoes() {
             />
           )}
           {!temEsperando && !temLigadas && <SemConexao c={c} indo={indo} erro={erroAoConectar} aoConectar={conectar} />}
+          {/* As outras origens: o Regem é uma delas, não a única. */}
+          {acessos && <OutroSistema a={acessos} aoMudar={buscar} />}
+          {acessos && <Planilha a={acessos} />}
         </>
       )}
 

@@ -1509,11 +1509,16 @@ export type FichasDaLoja = {
   podeConectar: boolean;
   /** Quem configura a loja pede a busca na hora; a supervisão só vê. Quem decide é a API. */
   podeBuscar: boolean;
-  /** Quem configura importa planilha — na loja que não está ligada ao Regem (uma origem por loja). */
+  /** Quem configura importa planilha — na loja que não recebe as fichas de outro lugar (uma origem por loja). */
   podeImportar: boolean;
   /** De onde as fichas vieram. Nulo = a loja não tem fichas guardadas. */
-  fonte: 'regem' | 'planilha' | null;
-  /** A última importação por planilha (só quando a origem é `planilha`). */
+  fonte: 'regem' | 'planilha' | 'sistema' | null;
+  /** O sistema que tem acesso para enviar as fichas desta loja (pode ainda não ter enviado nada). Nulo = nenhum. */
+  sistema: { nome: string; criadoEm: string; recebidoEm: string | null } | null;
+  /**
+   * A última importação por planilha — ou o último envio do outro sistema (aí `arquivo` vem vazio e `por` é o
+   * nome do sistema). Só quando a origem é `planilha` ou `sistema`.
+   */
   importacao: { arquivo: string; em: string; por: string; deFora: number; quais: string[]; problemas: number } | null;
   regemLojaNome: string | null;
   leitura: LeituraDasFichas | null;
@@ -1525,8 +1530,16 @@ export type FichasDaLoja = {
 
 /** Um problema da planilha: onde está e o que fazer. */
 export type ProblemaDaPlanilha = { aba: string; linha: number; texto: string; corrigir: string };
-/** Um produto que ficou de fora, com o motivo de cada linha. */
-export type ProdutoDeFora = { produto: string; problemas: ProblemaDaPlanilha[] };
+/** Um problema do envio de outro sistema: onde está, no que foi enviado (`produtos[1].ingredientes[2]`). */
+export type ProblemaDoEnvio = { onde: string; texto: string };
+/** Um produto que ficou de fora, com o motivo de cada linha (da planilha) ou de cada item (do envio). */
+export type ProdutoDeFora<P = ProblemaDaPlanilha> = { produto: string; problemas: P[] };
+
+/** O registro do que ficou de fora na última importação (planilha) ou no último envio (outro sistema). */
+export type RegistroDoQueFicouDeFora = { arquivo: string; em: string; por: string; problemas: number } & (
+  | { origem: 'planilha'; deFora: ProdutoDeFora[]; soltos: ProblemaDaPlanilha[] }
+  | { origem: 'sistema'; deFora: Array<ProdutoDeFora<ProblemaDoEnvio>>; soltos: ProblemaDoEnvio[] }
+);
 
 /** O que a conferência (ou a importação) diz da planilha. */
 export type RelatorioDaPlanilha = {
@@ -1575,9 +1588,50 @@ export const fichasApi = {
   importar: (lojaId: string, arquivo: string, abas: unknown) =>
     pedir<ConferenciaDaPlanilha>(`/lojas/${lojaId}/fichas/importar`, { method: 'POST', body: JSON.stringify({ arquivo, abas, gravar: true }) }),
 
-  /** O registro da última importação, com a lista do que ficou de fora. */
-  importacao: (lojaId: string) => pedir<RelatorioDaPlanilha & { arquivo: string; em: string; por: string }>(`/lojas/${lojaId}/fichas/importacao`),
+  /** O registro da última importação (ou do último envio de outro sistema), com a lista do que ficou de fora. */
+  importacao: (lojaId: string) => pedir<RegistroDoQueFicouDeFora>(`/lojas/${lojaId}/fichas/importacao`),
 
   /** As fichas da loja de volta em planilha, no modelo. */
   planilha: (lojaId: string) => pedir<Pick<ModeloDaPlanilha, 'abas' | 'nomes'>>(`/lojas/${lojaId}/fichas/planilha`),
+};
+
+// ───────────────────────── o acesso de outro sistema ─────────────────────────
+
+/** De onde uma loja recebe as fichas: só a livre e a de planilha podem ganhar um acesso. */
+export type OrigemDaLoja = 'livre' | 'planilha' | 'regem' | 'sistema';
+
+/** O acesso que deixa um sistema enviar as fichas de UMA loja. O código dele não vem aqui: aparece só ao criar. */
+export type AcessoDeOutroSistema = {
+  id: string;
+  /** Como a conta chama o sistema. */
+  nome: string;
+  lojaId: string;
+  lojaNome: string;
+  /** O relógio da loja: é nele que a tela diz "hoje, 14:02". */
+  fuso: string | null;
+  criadoEm: string;
+  /** O último envio que o Farol aceitou. Nulo = o sistema ainda não enviou nada. */
+  recebidoEm: string | null;
+  /** O que a loja tem DESTE sistema. Nulo = ainda nada. */
+  produtos: number | null;
+  comFicha: number | null;
+};
+
+export type AcessosDaConta = {
+  /** Só a diretoria cria e revoga. Quem decide é a API; isto só escolhe entre o botão e a frase. */
+  podeCriar: boolean;
+  acessos: AcessoDeOutroSistema[];
+  lojas: Array<{ id: string; nome: string; origem: OrigemDaLoja }>;
+};
+
+/** A resposta de quem criou: é a ÚNICA vez em que o código aparece. */
+export type AcessoCriado = { id: string; nome: string; lojaId: string; lojaNome: string; criadoEm: string; codigo: string; temPlanilha: boolean };
+
+export const acessosApi = {
+  obter: () => pedir<AcessosDaConta>('/acessos'),
+
+  criar: (nome: string, lojaId: string) => pedir<AcessoCriado>('/acessos', { method: 'POST', body: JSON.stringify({ nome, lojaId }) }),
+
+  /** Vale na hora: o sistema deixa de conseguir enviar, e as fichas que ele mandou são apagadas. */
+  revogar: (id: string) => pedir<{ revogado: true; fichasApagadas: boolean }>(`/acessos/${id}`, { method: 'DELETE' }),
 };
