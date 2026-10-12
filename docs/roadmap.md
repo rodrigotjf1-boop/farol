@@ -4728,7 +4728,7 @@ que ficou de fora"**. A ordem: a planilha, a porta para outro sistema, o "Mais" 
 
 ---
 
-## A20 · O vigia: atenção, reflexo e aprendizado (direção do dono em 12/10/2026; núcleo primeiro; passo 0 feito e fatia 1.1 no repositório em 12/10)
+## A20 · O vigia: atenção, reflexo e aprendizado (direção do dono em 12/10/2026; núcleo primeiro; passo 0 feito; a fatia 1.1 na loja desde 12/10, 16h43; a fatia 1.3 no repositório)
 
 **A régua, dita pelo dono:** "a ideia de controle do Farol é como se um ser humano estivesse
 parado olhando fixo para aquele local e respondendo o mais rápido possível aos critérios".
@@ -4789,9 +4789,9 @@ passo 0 do A20: o que as medições disseram".
 
 | fatia | o que entra | o antes e o depois | depende de |
 |---|---|---|---|
-| **1.1 ✅ · O juiz na mesma volta** (12/10, PR #114) | o relógio do julgamento alcança o quadro mais novo da fila | da imagem à resposta: de 11 a 18 s (mediana medida) para o fim da captura da própria volta. O número de verdade, só com o pacote trocado | o "pode" da troca do pacote |
-| **1.2 · A leitura contínua e os estados do quadro** | o motor mede o movimento em cada quadro duas vezes por segundo, na imagem leve que já fica aberta, com a conta de hoje e um filtro de clarão; cada quadro tem quatro estados (repouso, acordou, em atividade, assentou); a análise sai no acontecimento — ao acordar, para critério de pessoa e de acontecimento; ao assentar, para critério de estado —, com uma conferência de tempos em tempos no repouso e um teto por minuto. Nasce desligado, por loja, como a chave do contexto: a rotina de 30 s continua valendo até a medida na loja | medido na gravação (o tampo): 120 olhadas por hora na rotina; de 46 a 68 análises por hora saindo no "assentou" de 5 s, e de 22 a 34 com 10 s; a rotina vê 3 a 6 paradas por meia hora, a leitura contínua vê de 23 a 43 | o plano da fatia aprovado (é a maior mudança do motor desde a onda 1); o "pode" da troca do pacote |
-| **1.3 · A resposta guardada da cena idêntica** | hoje "já julgada" vale dentro do mesmo minuto, e a cena repetida, por 30 s; passa a valer por mais tempo para a cena de impressão idêntica | 39% das análises pagas eram cena idêntica a uma já julgada (medido) | **decisão do dono:** para quais respostas e por quanto tempo (abaixo) |
+| **1.1 ✅ · O juiz na mesma volta** (12/10, PR #114; **na loja desde 12/10, 16h43**) | o relógio do julgamento alcança o quadro mais novo da fila | da imagem à resposta: de 11 a 18 s (mediana medida) para o fim da captura da própria volta. O número de verdade se mede com a loja aberta | — |
+| **1.2 · A leitura contínua e os estados do quadro** (aprovada em 12/10: "contar primeiro, agir depois de uma semana de números") | o motor mede o movimento em cada quadro duas vezes por segundo, na imagem leve que já fica aberta, com a conta de hoje e um filtro de clarão; cada quadro tem quatro estados (repouso, acordou, em atividade, assentou); a análise sai no acontecimento — ao acordar, para critério de pessoa e de acontecimento; ao assentar, para critério de estado —, com uma conferência de tempos em tempos no repouso e um teto por minuto. Nasce desligado, por loja, como a chave do contexto: a rotina de 30 s continua valendo até a medida na loja | medido na gravação (o tampo): 120 olhadas por hora na rotina; de 46 a 68 análises por hora saindo no "assentou" de 5 s, e de 22 a 34 com 10 s; a rotina vê 3 a 6 paradas por meia hora, a leitura contínua vê de 23 a 43 | o plano da fatia aprovado (é a maior mudança do motor desde a onda 1); o "pode" da troca do pacote |
+| **1.3 ✅ · A resposta vazia guardada** (12/10, no repositório; migration 042) | a cena de impressão idêntica a uma que a nuvem não conseguiu avaliar, duas vezes seguidas, não é paga de novo por 2 horas; no resumo da hora, quantas olhadas foram seguradas assim; e o sinal "não conseguiu avaliar" passa a contá-las | refeita a conta nas 1.722 análises pagas: segura 556 (32%) e não esconde nenhum "fora"; na forma simples seguraria 670 (39%) e esconderia 1 dos 81 (abaixo) | **o dono escolher a forma** (duas vazias, ou uma) e o "pode" da troca do pacote |
 | **1.4 · As condições ligadas** | sem código: "Propor o estudo" em cada critério pago, ler e confirmar | "há alguém aqui?" teria segurado 48% (chapa) e 49% (touca e uniforme) das pagas, sem perder resposta (medido) | o dono religar os critérios; a cena dos canais; a chave do contexto |
 | **1.5 · O limite por volta** | o que a loja julga sozinha deixa de contar no limite de dez análises por volta | com muitos critérios no mesmo instante, nada local espera a volta seguinte | — |
 | **1.6 · Medir na loja** | o antes e o depois, com os números do próprio motor: tempo até a resposta, olhadas, pagas, sem resposta, reais por dia | — | o pacote trocado e os critérios pagos rodando |
@@ -4802,11 +4802,20 @@ idêntica já julgada — e a resposta guardada era outra). Três jeitos:
 
 | jeito | o que guarda | ganha | perde |
 |---|---|---|---|
-| **A · só a resposta vazia** (recomendado para começar) | "não deu para avaliar", por 2 horas | corta o que foi 99% das repetições medidas (670 de 676), sem risco de esconder um "fora" | com a pergunta nova a nuvem responde mais, e o ganho encolhe |
+| **A · só a resposta vazia** (escolhido pelo dono em 12/10: "só a resposta vazia, por 2 horas") | "não deu para avaliar", por 2 horas | corta o que foi 99% das repetições medidas (670 de 676) | com a pergunta nova a nuvem responde mais, e o ganho encolhe. **E esconde 1 dos 81 "fora" medidos** — ver a correção abaixo |
 | **B · a vazia e o "dentro"** | as duas, o "dentro" por poucos minutos | segura também a cena parada que está em ordem | um detalhe que mudou sem mexer na impressão fica sem aviso até a guarda vencer |
 | **C · todas** | qualquer resposta | o maior corte | repete um "fora" sem olhar de novo; o risco de B, maior |
 
-### A fatia 1.2, em detalhe (plano de 12/10; espera o "pode" do dono)
+**A correção (12/10, à tarde).** Esta tabela dizia que o jeito A não tinha "risco de
+esconder um 'fora'". Tinha: a "outra" resposta guardada daquele caso era justamente a
+vazia — a mesma impressão recebeu "não deu para avaliar" e, 37 s depois, "fora do
+critério". Refeita a conta com a regra exata ([decisoes.md](decisoes.md), "As respostas do
+dono ao passo 0"), a fatia entrou guardando **só depois de duas vazias seguidas** para a
+mesma cena: segura 556 análises no lugar de 670 (R$ 7,27 no lugar de R$ 8,78, no período
+medido) e não esconde nenhum dos 81. A forma simples fica a uma constante de distância
+(`VAZIAS_PARA_GUARDAR`), e a escolha é do dono.
+
+### A fatia 1.2, em detalhe (plano de 12/10; aprovado pelo dono no mesmo dia: "aprovo as duas partes: contar primeiro, agir depois de uma semana de números")
 
 **O que ela é.** O estudo de cada critério já tem os gatilhos "mexeu", "parou", "entrou",
 "saiu" e "a cada N minutos". Hoje eles são conferidos **na olhada de 30 s**, comparando com
@@ -4855,7 +4864,11 @@ lados); a 1.2b, uma migration (a chave por loja) e a troca do pacote. Nenhuma te
 dúvida passa pelo nosso servidor"; os recortes de objeto e de cena sobem, e critério de
 pessoa sobe só número; o que uma loja ensina vale para as outras "depois de visto em mais
 de uma loja e medido; entra no contrato de uso"; a nossa nuvem "só quando a conta fechar".
-A régua do que a nuvem ensina ficou sem resposta.
+
+**A régua do que a nuvem ensina**, respondida à tarde: "avaliou, com confiança de 0,85 ou
+mais, e com uma amostra conferida por gente antes de valer". É a regra do passo 3: a
+resposta da nuvem só vira exemplo se avaliou, com confiança de 0,85 ou mais, e depois de
+uma amostra das respostas daquele critério ter sido conferida por uma pessoa.
 
 ### Os adicionais — por último
 
@@ -4872,20 +4885,27 @@ A régua do que a nuvem ensina ficou sem resposta.
 
 1. ✅ **As duas autorizações do passo 0** — dadas em 12/10. As imagens que a nuvem julgou
    ficaram guardadas no computador da loja, em `C:\Farol\guardado\`.
-2. **O "pode" da troca do pacote na loja**, para a fatia 1.1 valer lá (a resposta sair na
-   mesma volta) e ser medida.
+2. ✅ **O "pode" da troca do pacote na loja** — dado em 12/10 ("pode trocar o pacote, fora
+   do horário de movimento"); trocado às 16h43, com a loja fechada. A fatia 1.1 está lá;
+   falta medir o tempo até a resposta com a loja aberta. **A próxima troca** (para a fatia
+   1.3 valer na loja) pede outro "pode".
 3. **Os quatro critérios pagos** (gaveta, chapa, touca e uniforme, ingredientes) não estão na
    configuração que o motor tem hoje: dizer se saíram de propósito. Para voltarem bem: a
    cena de cada canal em que eles rodam (console → Canais → o canal → "A cena deste canal"
    → "Salvar a cena"); em cada critério, "Propor o estudo", ler e confirmar (console →
    Critérios); e a chave do pedido com contexto ligada (o item 11 da lista do A19; a linha
    é preparada antes).
-4. **A decisão da fatia 1.3:** que resposta da cena idêntica se guarda, e por quanto tempo.
-5. **O plano da fatia 1.2** (a leitura contínua e os estados do quadro): aprovar antes do
-   código.
+4. ✅ **A decisão da fatia 1.3** — "só a resposta vazia, por 2 horas" (12/10). **Falta
+   escolher a forma:** guardar depois de **duas** vazias seguidas para a mesma cena (como
+   entrou: segura 556 das 1.722 e não esconde nenhum "fora" medido) ou depois de **uma** (a
+   forma simples: segura 670 e esconderia 1 dos 81 "fora").
+5. ✅ **O plano da fatia 1.2** — aprovado em 12/10: "aprovo as duas partes: contar primeiro,
+   agir depois de uma semana de números".
 6. **Referências para o passo 2:** uma foto padrão por canal e as fotos dos equipamentos no
    inventário — sem elas não há como medir "reconhecer o que foi apresentado".
 7. **Conferir o total no painel da nuvem:** o motor registrou R$ 22,44 em 07 e 08/10; o teto
    de R$ 5,00 (item 7 da lista do A19) é o das rodadas de teste.
-8. **Ficou sem resposta:** a régua do que a nuvem ensina (soma com as três decisões da onda
-   2). As outras escolhas foram respondidas em 12/10 e estão acima.
+8. ✅ **A régua do que a nuvem ensina** — respondida em 12/10: "avaliou, com confiança de
+   0,85 ou mais, e com uma amostra conferida por gente antes de valer". Soma com as três
+   decisões da onda 2, que continuam abertas (a imagem do exemplo na nuvem; a meta para
+   "valendo"; quem marca).

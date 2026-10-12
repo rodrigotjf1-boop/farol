@@ -91,6 +91,11 @@ export type ResumoEntrada = {
    *  Agente anterior à migration 027 não manda. */
   extras?: number;
   extrasFora?: number;
+  /** As "já julgadas" que foram seguradas pela resposta vazia guardada: a
+   *  cena era idêntica a uma que a nuvem não conseguiu avaliar há pouco.
+   *  Já estão dentro de `jaJulgadas`. Agente anterior à migration 042 não
+   *  manda. */
+  vaziasGuardadas?: number;
 } & Record<(typeof CONTADORES)[number], number>;
 
 export function validarResumo(r: unknown, i: number): string | null {
@@ -204,6 +209,18 @@ export function validarResumo(r: unknown, i: number): string | null {
     return `${onde}.extrasFora: inteiro de 0 a extras (${extras}), sem passar de naoConformes`;
   }
 
+  // As olhadas seguradas pela resposta vazia guardada. Opcional: agente
+  // antigo não manda, e não guardava. Elas são PARTE das "já julgadas" —
+  // nunca mais que elas. Sem esta conta, "não pôde avaliar" (as vazias mais
+  // as guardadas) poderia passar do que foi olhado.
+  const vaziasGuardadas = v.vaziasGuardadas ?? 0;
+  if (
+    typeof vaziasGuardadas !== 'number' || !Number.isInteger(vaziasGuardadas) || vaziasGuardadas < 0 ||
+    vaziasGuardadas > (v.jaJulgadas as number)
+  ) {
+    return `${onde}.vaziasGuardadas: inteiro de 0 a jaJulgadas (${v.jaJulgadas as number})`;
+  }
+
   if (v.ultimoResultado != null) {
     if (typeof v.ultimoResultado !== 'string' || !RESULTADOS.has(v.ultimoResultado)) {
       return `${onde}.ultimoResultado: um de ${[...RESULTADOS].join(', ')}`;
@@ -268,6 +285,7 @@ export async function gravarResumos(
     max_medida: r.maxMedida ?? null,
     extras: r.extras ?? 0,
     extras_fora: r.extrasFora ?? 0,
+    vazias_guardadas: r.vaziasGuardadas ?? 0,
     ultimo_resultado: r.ultimoResultado ?? null,
     ultimo_motivo: cortar(r.ultimoMotivo),
     ultimo_impedimento: cortar(r.ultimoImpedimento),
@@ -292,7 +310,7 @@ export async function gravarResumos(
         ja_julgadas, enfileiradas, conformes, nao_conformes, nao_avaliaveis,
         falhas, alertas, soma_confianca, com_confianca, soma_latencia_ms,
         com_latencia, custo_centavos, julgadas_loja, julgadas_nuvem,
-        soma_medida, com_medida, max_medida, extras, extras_fora,
+        soma_medida, com_medida, max_medida, extras, extras_fora, vazias_guardadas,
         ultimo_resultado, ultimo_motivo, ultimo_impedimento, ultima_em)
      select distinct on (e.regra_id, e.zona_id, e.hora)
             $1, $2, $3, e.regra_id, e.zona_id, e.hora,
@@ -300,7 +318,7 @@ export async function gravarResumos(
             e.ja_julgadas, e.enfileiradas, e.conformes, e.nao_conformes, e.nao_avaliaveis,
             e.falhas, e.alertas, e.soma_confianca, e.com_confianca, e.soma_latencia_ms,
             e.com_latencia, e.custo_centavos, e.julgadas_loja, e.julgadas_nuvem,
-            e.soma_medida, e.com_medida, e.max_medida, e.extras, e.extras_fora,
+            e.soma_medida, e.com_medida, e.max_medida, e.extras, e.extras_fora, e.vazias_guardadas,
             e.ultimo_resultado, e.ultimo_motivo, e.ultimo_impedimento, e.ultima_em
        from jsonb_to_recordset($4::jsonb) as e(
             i integer, regra_id uuid, zona_id uuid, hora timestamptz,
@@ -313,7 +331,7 @@ export async function gravarResumos(
             com_latencia integer, custo_centavos numeric,
             julgadas_loja integer, julgadas_nuvem integer,
             soma_medida numeric, com_medida integer, max_medida numeric,
-            extras integer, extras_fora integer, ultimo_resultado text,
+            extras integer, extras_fora integer, vazias_guardadas integer, ultimo_resultado text,
             ultimo_motivo text, ultimo_impedimento text, ultima_em timestamptz)
        join regra r on r.id = e.regra_id and r.loja_id = $2
        join zona  z on z.id = e.zona_id
@@ -349,6 +367,7 @@ export async function gravarResumos(
         max_medida = excluded.max_medida,
         extras = excluded.extras,
         extras_fora = excluded.extras_fora,
+        vazias_guardadas = excluded.vazias_guardadas,
         ultimo_resultado = excluded.ultimo_resultado,
         ultimo_motivo = excluded.ultimo_motivo,
         ultimo_impedimento = excluded.ultimo_impedimento,

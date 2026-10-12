@@ -106,6 +106,7 @@ describe('contrato do resumo (validação)', () => {
     // e o maior valor espera a primeira olhada de rotina da hora.
     const so_extra = {
       ...CONTRATO, capturas: 1, semQuadro: 0, semCena: 0, semCondicao: 0, emSilencio: 0, repetidas: 0, jaJulgadas: 0,
+      vaziasGuardadas: 0,
       enfileiradas: 1, conformes: 1, naoConformes: 0, naoAvaliaveis: 0, falhas: 0, alertas: 0,
       somaConfianca: 0.9, comConfianca: 1, comLatencia: 1, julgadasLoja: 1, julgadasNuvem: 0,
       somaMedida: 0, comMedida: 0, maxMedida: null, extras: 1, extrasFora: 0,
@@ -113,6 +114,40 @@ describe('contrato do resumo (validação)', () => {
     assert.equal(validarResumo(so_extra, 0), null);
     // e o que o agente NÃO pode mandar continua recusado: pico sem medida
     assert.match(String(validarResumo({ ...so_extra, maxMedida: 7 }, 0)), /sem medida/);
+  });
+
+  it('as olhadas seguradas pela resposta vazia guardada são PARTE das já julgadas', () => {
+    // O contrato: 1 já julgada, e ela foi segurada pela vazia guardada.
+    assert.deepEqual([CONTRATO.jaJulgadas, CONTRATO.vaziasGuardadas], [1, 1]);
+    assert.equal(validarResumo({ ...CONTRATO, jaJulgadas: 9, vaziasGuardadas: 9 }, 0), null, 'todas seguradas: pode');
+    assert.equal(validarResumo({ ...CONTRATO, jaJulgadas: 9, vaziasGuardadas: 0 }, 0), null, 'nenhuma: pode');
+    assert.match(
+      String(validarResumo({ ...CONTRATO, jaJulgadas: 9, vaziasGuardadas: 10 }, 0)),
+      /\.vaziasGuardadas: inteiro de 0 a jaJulgadas \(9\)/,
+    );
+    assert.match(String(validarResumo({ ...CONTRATO, vaziasGuardadas: -1 }, 0)), /\.vaziasGuardadas: inteiro/);
+    assert.match(String(validarResumo({ ...CONTRATO, vaziasGuardadas: 0.5 }, 0)), /\.vaziasGuardadas: inteiro/);
+    assert.match(String(validarResumo({ ...CONTRATO, vaziasGuardadas: '1' }, 0)), /\.vaziasGuardadas: inteiro/);
+  });
+
+  it('agente de antes da resposta vazia guardada não manda o campo, e continua aceito', () => {
+    const { vaziasGuardadas: _, ...antigo } = CONTRATO;
+    assert.equal(validarResumo(antigo, 0), null);
+    assert.equal(validarResumo({ ...antigo, jaJulgadas: 0 }, 0), null, 'e sem nenhuma já julgada também');
+  });
+
+  it('a hora em que TODA olhada foi segurada pela vazia guardada é aceita', () => {
+    // O pior caso do caminho novo: a câmera parada numa cena que a nuvem
+    // não avalia. Cento e vinte olhadas, nenhuma paga, nada julgado.
+    const so_guardadas = {
+      ...CONTRATO, capturas: 120, semJuiz: 0, semQuadro: 0, semCena: 0, semCondicao: 0, semGatilho: 0, observadas: 0,
+      emSilencio: 0, repetidas: 0, jaJulgadas: 120, vaziasGuardadas: 120, enfileiradas: 0,
+      conformes: 0, naoConformes: 0, naoAvaliaveis: 0, falhas: 0, alertas: 0,
+      somaConfianca: 0, comConfianca: 0, somaLatenciaMs: 0, comLatencia: 0, custoCentavos: 0,
+      julgadasLoja: 0, julgadasNuvem: 0, somaMedida: 0, comMedida: 0, maxMedida: null, extras: 0, extrasFora: 0,
+      ultimoResultado: null, ultimoMotivo: null, ultimoImpedimento: null, ultimaEm: null,
+    };
+    assert.equal(validarResumo(so_guardadas, 0), null);
   });
 });
 
@@ -241,6 +276,7 @@ describe('resumo por hora (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
     assert.equal(l.em_silencio, 10);
     assert.equal(l.repetidas, 71);
     assert.equal(l.ja_julgadas, 1);
+    assert.equal(l.vazias_guardadas, 1);
     assert.equal(l.enfileiradas, 24);
     assert.equal(l.conformes, 20);
     assert.equal(l.nao_conformes, 2);
@@ -265,10 +301,11 @@ describe('resumo por hora (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
 
   it('a mesma hora de novo SUBSTITUI: o agente manda o acumulado', async () => {
     const hora = '2026-10-07T09:00:00-03:00';
-    await mandar([corpo({ hora, capturas: 10, repetidas: 4, enfileiradas: 6, emSilencio: 0, semQuadro: 0, semCena: 0, jaJulgadas: 0 })]);
-    await mandar([corpo({ hora, capturas: 25, repetidas: 12, enfileiradas: 13, emSilencio: 0, semQuadro: 0, semCena: 0, jaJulgadas: 0 })]);
+    const sem = { emSilencio: 0, semQuadro: 0, semCena: 0, jaJulgadas: 0, vaziasGuardadas: 0 };
+    await mandar([corpo({ hora, capturas: 10, repetidas: 4, enfileiradas: 6, ...sem })]);
+    await mandar([corpo({ hora, capturas: 25, repetidas: 12, enfileiradas: 13, ...sem })]);
     // E um pedido repetido depois de uma queda de rede dá no mesmo.
-    await mandar([corpo({ hora, capturas: 25, repetidas: 12, enfileiradas: 13, emSilencio: 0, semQuadro: 0, semCena: 0, jaJulgadas: 0 })]);
+    await mandar([corpo({ hora, capturas: 25, repetidas: 12, enfileiradas: 13, ...sem })]);
 
     const linhas = await gravadas(hora);
     assert.equal(linhas.length, 1, 'três pedidos, uma linha');
@@ -289,6 +326,27 @@ describe('resumo por hora (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
     assert.deepEqual(r.json(), { aceitos: 1, recusados: [] });
     [l] = await gravadas('2026-10-07T07:00:00-03:00');
     assert.deepEqual([l.extras, l.extras_fora], [0, 0]);
+  });
+
+  it('as vazias guardadas também são SUBSTITUÍDAS pelo acumulado, e agente antigo grava zero', async () => {
+    const hora = '2026-10-07T06:00:00-03:00';
+    const r1 = await mandar([corpo({ hora, jaJulgadas: 3, vaziasGuardadas: 2 })]);
+    assert.deepEqual(r1.json(), { aceitos: 1, recusados: [] }, r1.body);
+    await mandar([corpo({ hora, jaJulgadas: 40, vaziasGuardadas: 38 })]);
+    let [l] = await gravadas(hora);
+    assert.deepEqual([l.ja_julgadas, l.vazias_guardadas], [40, 38], 'vale o último acumulado');
+
+    const { vaziasGuardadas: _, ...antigo } = corpo({ hora: '2026-10-07T05:00:00-03:00', jaJulgadas: 7 });
+    const r = await mandar([antigo]);
+    assert.deepEqual(r.json(), { aceitos: 1, recusados: [] }, r.body);
+    [l] = await gravadas('2026-10-07T05:00:00-03:00');
+    assert.deepEqual([l.ja_julgadas, l.vazias_guardadas], [7, 0]);
+
+    // Mais guardadas do que já julgadas: o lote inteiro volta com o motivo, e nada é gravado.
+    const ruim = await mandar([corpo({ hora: '2026-10-07T04:00:00-03:00', jaJulgadas: 1, vaziasGuardadas: 2 })]);
+    assert.equal(ruim.statusCode, 422, ruim.body);
+    assert.match(ruim.body, /vaziasGuardadas/);
+    assert.deepEqual(await gravadas('2026-10-07T04:00:00-03:00'), []);
   });
 
   it('DOIS agentes na mesma hora não se apagam', async () => {

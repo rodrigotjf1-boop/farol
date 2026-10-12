@@ -368,7 +368,7 @@ describe('porteiro, confirmação e faixa de horas (Postgres real)', { skip: !UR
     const linha = {
       ...CONTRATO, regraId: id, zonaId, hora, ultimaEm: null,
       capturas: 50, semCondicao: 31, emSilencio: 4, repetidas: 5, enfileiradas: 10,
-      semJuiz: 0, semQuadro: 0, semCena: 0, jaJulgadas: 0,
+      semJuiz: 0, semQuadro: 0, semCena: 0, jaJulgadas: 0, vaziasGuardadas: 0,
     };
     const mandar = (l: Record<string, unknown>) =>
       app.inject({ method: 'POST', url: '/v1/resumos', headers: { authorization: `Bearer ${token}` }, payload: { resumos: [l] } });

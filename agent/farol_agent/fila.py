@@ -175,6 +175,12 @@ create index if not exists idx_alerta_envio on alerta (enviado, ts);
 -- na área e não havia ninguém (ou pede a área livre e havia gente, ou pede
 -- movimento e nada se mexeu). Não é análise, não vai à nuvem e não custa.
 --
+-- `vazias_guardadas` não é um desfecho a mais: é a PARTE de `ja_julgadas`
+-- em que a cena era idêntica a uma que a nuvem não conseguiu avaliar há
+-- pouco, e por isso não foi paga de novo (motor.py, "a resposta vazia
+-- guardada"). Fica contada à parte porque, para dizer em quantas olhadas o
+-- critério não pôde ser avaliado, ela conta junto com `nao_avaliaveis`.
+--
 -- Os contadores são somados na hora em que a coisa acontece, e não
 -- recontados da tabela `analise`: ela é limpa, e um resumo que dependesse
 -- dela encolheria sozinho.
@@ -196,6 +202,7 @@ create table if not exists resumo_hora (
   em_silencio        integer not null default 0,
   repetidas          integer not null default 0,
   ja_julgadas        integer not null default 0,
+  vazias_guardadas   integer not null default 0,
   enfileiradas       integer not null default 0,
   conformes          integer not null default 0,
   nao_conformes      integer not null default 0,
@@ -270,6 +277,8 @@ CONTADORES_DO_RESUMO = (
     "em_silencio",
     "repetidas",
     "ja_julgadas",
+    # Parte de `ja_julgadas`, e não um desfecho a mais (ver o esquema).
+    "vazias_guardadas",
     "enfileiradas",
     "conformes",
     "nao_conformes",
@@ -357,6 +366,7 @@ _COLUNAS_NOVAS = (
     ("resumo_hora", "extras_fora", "integer not null default 0"),
     ("resumo_hora", "observadas", "integer not null default 0"),
     ("resumo_hora", "sem_gatilho", "integer not null default 0"),
+    ("resumo_hora", "vazias_guardadas", "integer not null default 0"),
 )
 
 

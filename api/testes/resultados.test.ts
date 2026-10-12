@@ -30,6 +30,7 @@ function linha(mais: Partial<Linha> = {}): Linha {
     regraId: 'r1', regraNome: 'Bancada limpa', tipo: 'estado', regraLigada: true, regraExcluida: false,
     pontoId: 'p1', pontoNome: 'Montagem 1', canal: 4, setor: 'Cozinha', pontoAtivo: true, pontoExcluido: false,
     capturas: 100, semJuiz: 0, semQuadro: 0, semCena: 0, emSilencio: 0, repetidas: 60, jaJulgadas: 0,
+    vaziasGuardadas: 0,
     enfileiradas: 40, conformes: 36, naoConformes: 3, naoAvaliaveis: 1, falhas: 0, alertas: 2,
     somaConfianca: 34, comConfianca: 40, somaLatenciaMs: 80_000, comLatencia: 40,
     ultimaEm: hora(15), ultimoImpedimento: null,
@@ -193,6 +194,69 @@ describe('câmera que não mostra o bastante', () => {
   it('três "não deu para avaliar" em quatro julgamentos é pouco para afirmar', () => {
     const l = linha({ conformes: 1, naoConformes: 0, naoAvaliaveis: 3 });
     assert.deepEqual(sinaisDe({ linhas: [l] }), []);
+  });
+});
+
+describe('a resposta vazia guardada conta como "não deu para avaliar"', () => {
+  // O agente deixa de pagar pela cena idêntica a uma que a nuvem não avaliou:
+  // a olhada vira "já julgada", marcada à parte como vazia guardada. Para o
+  // sinal ela é uma vez em que o critério não pôde ser avaliado.
+  const parada = (mais: Partial<Linha> = {}) =>
+    linha({
+      regraNome: 'Uso de touca', capturas: 120, repetidas: 0, enfileiradas: 2,
+      conformes: 0, naoConformes: 0, naoAvaliaveis: 2, jaJulgadas: 118, vaziasGuardadas: 118,
+      somaConfianca: 0.6, comConfianca: 2, somaLatenciaMs: 4000, comLatencia: 2, alertas: 0,
+      ...mais,
+    });
+
+  it('a câmera parada numa cena que a nuvem não avalia: duas análises pagas, e o sinal aparece', () => {
+    const s = sinaisDe({ linhas: [parada()] });
+
+    assert.deepEqual(tipos(s), ['avalia_pouco']);
+    assert.equal(s[0]!.percentual, 100);
+    assert.equal(marcaDaLinha(parada(), false), 'avalia_pouco');
+  });
+
+  it('as mesmas duas análises SEM as guardadas não bastam para afirmar', () => {
+    // É o que o sinal veria se a guardada não contasse: o defeito ficaria
+    // escondido atrás do mínimo.
+    const l = parada({ jaJulgadas: 0, vaziasGuardadas: 0, capturas: 2 });
+    assert.deepEqual(sinaisDe({ linhas: [l] }), []);
+    assert.equal(marcaDaLinha(l, false), null);
+  });
+
+  it('a proporção é das VEZES em que o critério pediu resposta', () => {
+    // 6 dentro, 2 vazias pagas e 4 guardadas: 12 vezes, 6 sem avaliar = 50%.
+    const meio = parada({ conformes: 6, naoAvaliaveis: 2, jaJulgadas: 4, vaziasGuardadas: 4 });
+    const s = sinaisDe({ linhas: [meio] });
+    assert.deepEqual(tipos(s), ['avalia_pouco']);
+    assert.equal(s[0]!.percentual, 50);
+
+    // Uma guardada a menos: 11 vezes, 5 sem avaliar = 45%. Abaixo da metade, não acusa.
+    const menos = parada({ conformes: 6, naoAvaliaveis: 2, jaJulgadas: 3, vaziasGuardadas: 3 });
+    assert.deepEqual(sinaisDe({ linhas: [menos] }), []);
+    assert.equal(marcaDaLinha(menos, false), null);
+  });
+
+  it('o mínimo de vezes conta as guardadas: nove não bastam, dez bastam', () => {
+    const nove = parada({ naoAvaliaveis: 2, jaJulgadas: 7, vaziasGuardadas: 7 });
+    assert.deepEqual(sinaisDe({ linhas: [nove] }), []);
+    const dez = parada({ naoAvaliaveis: 2, jaJulgadas: 8, vaziasGuardadas: 8 });
+    assert.deepEqual(tipos(sinaisDe({ linhas: [dez] })), ['avalia_pouco']);
+  });
+
+  it('as "já julgadas" que NÃO são vazia guardada não entram na conta', () => {
+    // Cena repetida dentro do mesmo minuto: não se sabe o que a resposta era.
+    const l = parada({ jaJulgadas: 118, vaziasGuardadas: 0 });
+    assert.deepEqual(sinaisDe({ linhas: [l] }), []);
+  });
+
+  it('as guardadas não viram análise: os números da tela continuam sendo do que foi julgado', () => {
+    const [l] = montarLinhas([parada()], new Set());
+    assert.equal(l!.analises, 2);
+    assert.equal(l!.naoAvaliaveis, 2);
+    assert.equal(l!.marca, 'avalia_pouco');
+    assert.equal(somarTotais([parada()]).analises, 2);
   });
 });
 

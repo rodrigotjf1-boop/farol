@@ -4759,3 +4759,134 @@ jeito; o arquivo de dados ir junto; o roteiro de troca do pacote aceitar o módu
 da pasta; a assinatura do arquivo, que pede um certificado de assinatura de código (compra
 do dono); e a prova na loja, com o "pode".
 
+## 12/10/2026 (tarde) · As respostas do dono ao passo 0, o pacote trocado na loja e a resposta vazia guardada (fatia 1.3, migration 042)
+
+### O que o dono respondeu
+
+Na página do passo 0, à tarde:
+
+1. **Trocar o pacote do agente na loja:** "pode trocar o pacote, fora do horário de
+   movimento."
+2. **A leitura contínua (fatia 1.2):** "aprovo as duas partes: contar primeiro, agir depois
+   de uma semana de números."
+3. **A resposta guardada da cena idêntica (fatia 1.3):** "só a resposta vazia, por 2 horas."
+4. **A régua do que a nuvem ensina:** "avaliou, com confiança de 0,85 ou mais, e com uma
+   amostra conferida por gente antes de valer."
+
+A régua fecha o que faltava para o passo 3 (o caderno com a prova): a resposta da nuvem só
+vira exemplo se avaliou, com confiança de 0,85 ou mais, e depois de uma amostra das
+respostas daquele critério ter sido conferida por uma pessoa.
+
+### O pacote trocado na loja
+
+Em 12/10, às 16h43, com a loja fechada (ela abre às 19h). O pacote é o da `main` em
+`9831ae0`: em relação ao que estava lá (o de 11/10), muda só a correção do relógio do
+julgamento (ERR-108, a fatia 1.1) — dois arquivos. O agente subiu sem aviso nem erro, com a
+mesma configuração; o pacote anterior ficou guardado ao lado. **O tempo da imagem até a
+resposta, com a correção, se mede com a loja aberta** — ainda não foi medido.
+
+### A conta refeita antes de programar a fatia 1.3 — e o que estava errado
+
+A regra do dono foi simulada sobre as 1.722 análises que a nuvem julgou em 07 e 08/10,
+andando no tempo como o motor andaria: a olhada segurada não cria resposta nova, e a
+resposta mais nova da mesma cena é a que vale.
+
+| por quanto tempo a vazia vale | seguradas (das 1.722 pagas) | o que a nuvem respondeu de verdade nelas | reais poupados (de 22,44) |
+|---|---|---|---|
+| 30 minutos | 639 (37,1%) | 638 vazias · 1 "fora" | 8,37 |
+| 1 hora | 658 (38,2%) | 657 vazias · 1 "fora" | 8,62 |
+| **2 horas** | **670 (38,9%)** | **669 vazias · 1 "fora"** | **8,78** |
+| 4 horas ou mais | 671 (39,0%) | 670 vazias · 1 "fora" | 8,79 |
+
+Depois de uma resposta vazia, a cena idêntica voltou em até 1 minuto 305 vezes, entre 1 e 5
+minutos 303, entre 5 e 30 minutos 50, entre 30 minutos e 2 horas 13, e nunca depois de 2
+horas: as 2 horas cobrem tudo o que foi medido.
+
+**O erro.** A página do passo 0 e o roteiro diziam que guardar só a resposta vazia não tinha
+"risco de esconder um 'fora'". Tinha: em 08/10, no critério de touca e uniforme, a mesma
+impressão de imagem recebeu "não deu para avaliar" (confiança 0,2) e, na olhada seguinte,
+37 segundos depois, "fora do critério" (confiança 0,85). Com a regra na forma simples, a
+segunda pergunta não teria sido feita. É 1 das 81 respostas "fora" do período. O número
+estava na medição ("das 81 respostas 'fora', uma tinha cena idêntica já julgada — e a
+resposta guardada era outra"); faltou conferir que a "outra" era justamente a vazia.
+
+**A variante medida.** Guardar só depois de a nuvem devolver vazio mais de uma vez
+**seguida** para a mesma cena:
+
+| vazias seguidas antes de guardar | seguradas | delas, "fora" | reais poupados |
+|---|---|---|---|
+| 1 (a forma simples) | 670 (38,9%) | 1 | 8,78 |
+| **2** | **556 (32,3%)** | **0** | **7,27** |
+| 3 | 495 (28,7%) | 0 | 6,48 |
+| 5 | 418 (24,3%) | 0 | 5,47 |
+
+A amostra é pequena (81 respostas "fora"; um caso). O que ela mostra é a direção: a mesma
+impressão pode receber duas respostas, e pedir a vazia duas vezes tira o caso visto por
+R$ 1,51 no período (114 análises a mais).
+
+### A regra, como ficou no motor
+
+- **Só a resposta vazia que veio da nuvem é guardada**, e **por 2 horas** contadas da cena
+  da última vazia paga. A olhada segurada não renova o prazo.
+- **A guarda vale depois de duas vazias seguidas** para a mesma cena. É uma constante
+  (`VAZIAS_PARA_GUARDAR`); com 1 ela é a forma simples. **A escolha entre as duas é do
+  dono**, e a loja só recebe a fatia depois dela (a troca do pacote pede o "pode").
+- **A mesma cena** é a mesma pergunta: o critério e a redação dele, o canal, o quadro e a
+  impressão da imagem que sairia — idêntica, e não "parecida".
+- **A resposta mais nova é a que vale:** um "dentro" ou um "fora" para a mesma cena desfaz
+  o que estava guardado. Nenhum dos dois é repetido de memória.
+- **A olhada segurada não confirma nem desmente:** como o "não deu para avaliar" de
+  verdade, não anda nem zera a espera do "avisar só se continuar".
+- **A guarda mora na memória do motor**, que é montado de novo a cada mudança de
+  configuração da loja e a cada partida do programa. Mexeu no quadro, na resolução, na
+  cena escrita ou no modelo: a próxima olhada pergunta de novo. A resposta de uma olhada
+  que já esperava na fila quando a configuração mudou não conta. Passado o prazo, a vazia
+  sai da memória — é o que faz a contagem recomeçar da primeira.
+- Presença e contagem não passam por ela: ali cada olhada é a medida.
+
+### O resumo da hora e o sinal "não conseguiu avaliar"
+
+A olhada segurada é uma "já julgada" — o desfecho continua um dos dez. À parte, o resumo
+passa a levar **quantas das "já julgadas" foram seguradas pela resposta vazia guardada**
+(`vaziasGuardadas` no contrato, `resumo_hora.vazias_guardadas` na migration 042; opcional:
+agente antigo não manda, e fica zero).
+
+Ela existe por causa de uma conta. O sinal "X não conseguiu avaliar N% das vezes em tal
+canal" pedia pelo menos 10 análises, com metade ou mais vazias. Com a guarda, o canal em
+que a nuvem **nunca** consegue avaliar passaria a ter duas análises pagas a cada duas
+horas: o sinal que mais importa levaria perto de dez horas para aparecer. Agora ele conta
+as **vezes em que o critério pediu resposta** — as análises e as olhadas seguradas —, e a
+segurada conta como uma vez em que não deu para avaliar. A frase da tela é a mesma. Os
+números da tabela ("análises", "sem avaliar") continuam sendo do que foi julgado de
+verdade.
+
+### Como foi conferido
+
+- **Agente:** 30 testes novos; a suíte inteira passa (1.336). 44 mutações, nenhuma viva. A
+  primeira rodada deixou duas vivas, as duas na mesma conferência — a contagem que
+  recomeçava depois de vencer estava escrita duas vezes (na anotação da resposta e na
+  limpeza da memória); ficou só na limpeza.
+- **Servidor:** a validação (a segurada nunca passa das "já julgadas"), a gravação (a hora
+  que sobe de novo substitui), o sinal (com as contas à mão) e o caminho inteiro, do corpo
+  do agente até a tela de resultados, com dois canais — num a nuvem não avalia, no outro
+  avalia. 24 mutações, nenhuma viva.
+- **A migration 042**, aplicada duas vezes no banco local: uma coluna, zero de fábrica,
+  nenhuma linha existente alterada.
+- **O pior caso do caminho novo** (a hora em que toda olhada foi segurada: 120 "já
+  julgadas", nada julgado) é aceito pela validação do resumo.
+
+### O que não foi medido
+
+- **O ganho na loja.** A conta acima é sobre dois dias, com a pergunta do jeito antigo. Os
+  quatro critérios pagos não estão na configuração de hoje; com eles de volta, com o estudo
+  ligado e com a pergunta com contexto, a nuvem deve responder mais, e a guarda segura
+  menos.
+- **Quantas vezes a configuração muda por dia** numa loja em operação (cada mudança zera a
+  guarda): no piloto mudou muito, porque está sendo montado.
+- **Se a variante de duas vazias esconde algum "fora"** numa amostra maior: em 81, nenhum.
+
+Lido no código, ainda sem teste que reproduza: a cena que o motor dá como **repetida**
+(parecida com uma de até 30 s antes) conta como "continua fora" para o "avisar só se
+continuar", mesmo quando a cena repetida não é a que estava fora. A conferir antes de os
+critérios pagos voltarem a valer.
+

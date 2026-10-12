@@ -247,6 +247,7 @@ def linha_do_contrato() -> dict:
         "em_silencio": 10,
         "repetidas": 71,
         "ja_julgadas": 1,
+        "vazias_guardadas": 1,
         "enfileiradas": 24,
         "conformes": 20,
         "nao_conformes": 2,
@@ -298,6 +299,8 @@ def test_o_exemplo_do_contrato_fecha_a_conta():
     # As olhadas extras do vigia já estão DENTRO dos resultados: são parte deles.
     assert c["extrasFora"] <= c["extras"] <= c["conformes"] + c["naoConformes"] + c["naoAvaliaveis"]
     assert c["extrasFora"] <= c["naoConformes"]
+    # A vazia guardada não é um desfecho a mais: é parte das "já julgadas".
+    assert 0 < c["vaziasGuardadas"] <= c["jaJulgadas"]
 
 
 def test_nenhuma_chave_do_resumo_em_snake_case():
