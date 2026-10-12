@@ -51,7 +51,9 @@ alerta** é este arquivo.
    Quando o critério pede **"só avisar se continuar"** (`confirmar_em`
    maior que 1), o primeiro fora do critério não avisa: fica esperando
    as olhadas seguintes. Conta como "continua" tanto um novo veredito
-   fora do critério quanto a cena que não mudou desde o último. Um
+   fora do critério quanto a cena que não mudou desde ele — a repetição
+   DAQUELA cena, e não a de uma que ninguém conseguiu avaliar: "não deu
+   para avaliar" não confirma nem desmente, e repeti-lo também não. Um
    conforme no meio zera a espera. A olhada extra do vigia não conta
    como "mais uma": ela vem segundos depois, e não meio minuto.
 
@@ -270,6 +272,10 @@ class MotorDeRegras:
         self._vazias_para_guardar = vazias_para_guardar
         self._perguntas: dict[str, tuple[_Pergunta, datetime]] = {}
         self._vazias: dict[_Pergunta, tuple[int, datetime]] = {}
+        # De que item (a chave) é cada cena que passou há pouco, por lugar e
+        # instante: a olhada que repete uma cena precisa saber QUAL — a que
+        # foi dada como fora do critério, ou uma que ninguém avaliou.
+        self._itens_das_cenas: dict[tuple[str, datetime], str] = {}
         # A loja pergunta com contexto? `None` = não: tudo como sempre.
         self._contexto = contexto
         # Quem lê os sinais do estudo de cada critério. Sem ele (modo de
@@ -394,7 +400,7 @@ class MotorDeRegras:
             chave, motivo = self._processar_e_enfileirar(
                 regra, evento, quadros, contexto
             )
-            if chave is not None:
+            if motivo == "ok":
                 preparo.enfileirados.append(regra.id)
                 olhadas.append((regra, "enfileiradas", None))
             elif motivo == "observada":
@@ -426,7 +432,7 @@ class MotorDeRegras:
             elif motivo == "ja_julgado":
                 preparo.repetidos.append(regra.id)
                 olhadas.append((regra, "ja_julgadas", None))
-                self._continua(regra, evento.ts)
+                self._continua(regra, evento.ts, chave)
             elif motivo == "vazia_guardada":
                 # A cena é, na impressão, uma que a nuvem não conseguiu
                 # avaliar há pouco: não se paga para ouvir o mesmo. Como o
@@ -438,7 +444,7 @@ class MotorDeRegras:
             else:
                 preparo.repetidos.append(regra.id)
                 olhadas.append((regra, "repetidas", None))
-                self._continua(regra, evento.ts)
+                self._continua(regra, evento.ts, chave)
 
         self._contar(evento.ts, olhadas)
         return preparo
@@ -478,6 +484,12 @@ class MotorDeRegras:
         O motivo vem de dentro porque só aqui se sabe a diferença entre
         "a cena não mudou" e "a câmera parou de funcionar" — e confundir
         as duas faz o painel mostrar calmaria quando devia mostrar defeito.
+
+        A chave vem em dois casos: quando a olhada entrou na fila ("ok") —
+        é a do item — e quando a cena é repetição de uma que já é um item
+        ("repetido", "ja_julgado") — é a DAQUELE item, ou `None` se a cena
+        repetida nunca chegou a ser um. É por ela que se sabe o que está se
+        repetindo (`_continua`).
         """
         bbox = regra.zona.bbox(quadros[0].largura, quadros[0].altura)
         melhor = qualidade.melhor_quadro(
@@ -585,11 +597,15 @@ class MotorDeRegras:
             f, _ = recorte.borrar_rostos(f)
 
         chave_dedupe = f"{evento.ponto_id}:{regra.zona.id}:{regra.id}"
-        if not continuo and self._dedup.repetido(chave_dedupe, f.imagem, f.ts):
-            # A cena voltou a ser julgavel: tirar daqui faz o painel parar
-            # de acusar defeito quando a camera voltou.
-            self.sem_cena.pop(self._lugar(regra), None)
-            return None, "repetido"
+        if not continuo:
+            repete = self._dedup.repeticao_de(chave_dedupe, f.imagem, f.ts)
+            if repete is not None:
+                # A cena voltou a ser julgavel: tirar daqui faz o painel parar
+                # de acusar defeito quando a camera voltou.
+                self.sem_cena.pop(self._lugar(regra), None)
+                # De que item esta cena é repetição: é o que diz se o "fora"
+                # continua. A cena que nunca foi a julgamento não tem item.
+                return self._itens_das_cenas.get((chave_dedupe, repete)), "repetido"
 
         f = recorte.redimensionar(f, LADO_DA_CAMERA if direto else regra.lado_maior)
         ph = dedupe.phash(f.imagem)
@@ -606,7 +622,8 @@ class MotorDeRegras:
         # e isso acontece em `processar`.
         if not continuo and self.fila.veredito_de(chave) is not None:
             self.sem_cena.pop(self._lugar(regra), None)
-            return None, "ja_julgado"
+            self._anotar_cena(chave_dedupe, f.ts, chave)
+            return chave, "ja_julgado"
 
         # A resposta vazia guardada: a nuvem não conseguiu avaliar esta
         # mesma cena há pouco, mais de uma vez. Não se paga para ouvir de
@@ -663,12 +680,20 @@ class MotorDeRegras:
             # Chave repetida que ainda não concluiu: a imagem recém-escrita
             # não serve para nada e viraria lixo permanente no spool.
             destino.unlink(missing_ok=True)
+            if not continuo:
+                # A cena é a de um item que ainda espera resposta: quem a
+                # repetir depois saberá de qual item ela é.
+                self._anotar_cena(chave_dedupe, f.ts, chave)
+            # A resposta desse item ainda não veio (ou, em presença e
+            # contagem, é a MESMA olhada entrando de novo): não há "fora"
+            # conhecido para continuar.
             return None, "repetido"
         if not continuo:
             # Anotada para a volta: é pela chave do item que a resposta acha
             # a pergunta que ESTE motor fez.
             self._esquecer_o_que_venceu(f.ts)
             self._perguntas[chave] = (pergunta, f.ts)
+            self._anotar_cena(chave_dedupe, f.ts, chave)
         self.sem_cena.pop(self._lugar(regra), None)
         return chave, "ok"
 
@@ -831,16 +856,24 @@ class MotorDeRegras:
 
         return self._alerta(regra, item, veredito)
 
-    def _continua(self, regra: Regra, ts: datetime) -> None:
+    def _continua(self, regra: Regra, ts: datetime, repete: str | None) -> None:
         """A cena não mudou desde um fora do critério: é mais uma olhada em que ele continua.
 
         Sem isto, "avisar só se continuar" nunca avisaria justamente do
         que continua: a bancada suja parada é a MESMA imagem, e imagem
         repetida não é julgada de novo.
+
+        `repete` é o item (a chave) de que a cena desta olhada é repetição.
+        Só conta quando é o PRÓPRIO julgamento fora do critério que está
+        esperando: repetir uma cena que ninguém conseguiu avaliar não diz
+        que o fora continuou — e o aviso sairia de algo que ninguém viu.
+        Quando não se sabe o que a cena repete (`None`), não conta.
         """
         lugar = self._lugar(regra)
         espera = self._seguidas.get(lugar)
         if espera is None or regra.confirmar_em <= 1:
+            return
+        if repete != espera.item.chave:
             return
         if self._calado(regra, regra.zona.id, ts):
             return
@@ -870,6 +903,18 @@ class MotorDeRegras:
         )
 
     # ──────────────────────────── interno ──────────────────────────────
+
+    def _anotar_cena(self, lugar_da_cena: str, ts: datetime, chave: str) -> None:
+        """De que item é a cena desta olhada: quem a repetir sabe o que está repetindo.
+
+        Guardado pelo tempo da memória de cena repetida — depois dele
+        ninguém mais é dado como repetição desta.
+        """
+        self._itens_das_cenas = {
+            cena: item for cena, item in self._itens_das_cenas.items()
+            if ts - cena[1] <= self._dedup.memoria
+        }
+        self._itens_das_cenas[(lugar_da_cena, ts)] = chave
 
     def _vazia_guardada(self, pergunta: _Pergunta, ts: datetime) -> bool:
         """A cena desta olhada tem a resposta vazia guardada, e ainda valendo?

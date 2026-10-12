@@ -4885,8 +4885,70 @@ verdade.
   guarda): no piloto mudou muito, porque está sendo montado.
 - **Se a variante de duas vazias esconde algum "fora"** numa amostra maior: em 81, nenhum.
 
-Lido no código, ainda sem teste que reproduza: a cena que o motor dá como **repetida**
-(parecida com uma de até 30 s antes) conta como "continua fora" para o "avisar só se
-continuar", mesmo quando a cena repetida não é a que estava fora. A conferir antes de os
-critérios pagos voltarem a valer.
+Lido no código ao fazer esta fatia: a cena que o motor dá como **repetida** (parecida com
+uma de até 30 s antes) contava como "continua fora" para o "avisar só se continuar", mesmo
+quando a cena repetida não era a que estava fora. Reproduzido e corrigido no registro
+abaixo (ERR-110).
+
+## 12/10/2026 (tarde) · O aviso de "continua fora" saía de uma cena que ninguém avaliou (ERR-110)
+
+Defeito no coração do aviso, achado ao escrever a fatia 1.3 e corrigido em seguida. Só o
+agente muda, e só no repositório. **Na loja não havia como acontecer hoje:** os dois
+critérios ligados são de presença, que não passam pela memória de cena repetida.
+
+### O que acontecia
+
+Critério valendo, com "avisar só se continuar" em 3 olhadas. Reproduzido em teste, no
+passo da rotina (uma olhada a cada 30 s):
+
+| olhada | a cena | o que o motor fez | a espera |
+|---|---|---|---|
+| 0 s | bancada suja | pagou a análise: "fora do critério" | 1 de 3 |
+| 30 s | outra cena, que a nuvem não avalia | pagou a análise: "não deu para avaliar" | 1 de 3 (certo: não confirma nem desmente) |
+| 60 s | a mesma da anterior | "cena repetida": não paga | **2 de 3** (errado) |
+| 90 s | a mesma | pagou: "não deu para avaliar" | 2 de 3 |
+| 120 s | a mesma | "cena repetida" | **3 de 3 — sai o aviso** |
+
+O aviso de "continua fora" saía dois minutos depois de um único "fora", com a imagem do
+primeiro, sem ninguém ter visto o fora de novo. Acontecia com e sem a resposta vazia
+guardada, desde que o "avisar só se continuar" entrou.
+
+### A causa
+
+Toda olhada dada como "repetida" (ou "já julgada", a mesma cena no mesmo minuto) contava
+como mais uma olhada em que o fora continuava. A memória de cena repetida respondia só
+"é repetição de algo recente" — sem dizer **de quê**. E o que se repetia podia ser a cena
+que veio depois do fora.
+
+Os testes não viam porque andavam de 10 em 10 segundos com a mesma imagem: tudo era
+repetição da primeira olhada. No passo de verdade (rotina de 30 s, memória de 30 s) a cena
+parada alterna "vai a julgamento" e "repetida", e é aí que o caso aparece.
+
+### A correção
+
+- A memória de cena repetida passa a dizer **de qual cena** a de agora é repetição — a
+  mais recente das parecidas (`Deduplicador.repeticao_de`).
+- O motor lembra, pelo mesmo tempo, de que análise é cada cena que passou.
+- **A cena repetida só conta como "continua fora" quando repete a cena do próprio
+  julgamento fora do critério que está esperando.** Repetir uma cena que ninguém avaliou,
+  uma que nem foi a julgamento (a segurada pela resposta vazia guardada) ou uma cuja
+  resposta ainda não veio não conta — e também não zera a espera.
+- Em presença e contagem, a mesma olhada entrando duas vezes no mesmo segundo deixou de
+  contar como "mais uma".
+
+O que continua igual: a bancada suja parada avisa na terceira olhada com uma análise paga
+só; e a cena fora que volta depois de outra coisa no meio (alguém passou na frente) conta.
+
+### Como foi conferido
+
+17 testes novos (`agent/testes/test_continua_fora.py`), com a sequência da tabela acima, o
+espelho dela, a cena "já julgada" nos dois sentidos, a cena cuja resposta demorou, presença
+e dois quadros com a mesma imagem. 21 mutações, nenhuma viva — a primeira delas é o próprio
+defeito de volta. A suíte inteira do agente passa.
+
+### O que fica para depois
+
+A frase da tela de critérios sobre o "avisar só se continuar" não muda. O que muda para
+quem usa: um aviso de "continua" passa a significar que a mesma cena fora do critério foi
+vista de novo, ou que uma análise nova confirmou.
 
