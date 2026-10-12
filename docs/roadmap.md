@@ -4823,6 +4823,9 @@ mesma cena: segura 556 análises no lugar de 670 (R$ 7,27 no lugar de R$ 8,78, n
 medido) e não esconde nenhum dos 81. A forma simples fica a uma constante de distância
 (`VAZIAS_PARA_GUARDAR`), e a escolha é do dono.
 
+**Escolhida pelo dono em 12/10, à noite:** a recomendada — guardar depois de **duas**
+vazias seguidas. É como a fatia já estava no repositório.
+
 ### A fatia 1.2, em detalhe (plano de 12/10; aprovado pelo dono no mesmo dia: "aprovo as duas partes: contar primeiro, agir depois de uma semana de números")
 
 **O que ela é.** O estudo de cada critério já tem os gatilhos "mexeu", "parou", "entrou",
@@ -4910,19 +4913,21 @@ uma amostra das respostas daquele critério ter sido conferida por uma pessoa.
 1. ✅ **As duas autorizações do passo 0** — dadas em 12/10. As imagens que a nuvem julgou
    ficaram guardadas no computador da loja, em `C:\Farol\guardado\`.
 2. ✅ **O "pode" da troca do pacote na loja** — dado em 12/10 ("pode trocar o pacote, fora
-   do horário de movimento"); trocado às 16h43, com a loja fechada. A fatia 1.1 está lá;
-   falta medir o tempo até a resposta com a loja aberta. **A próxima troca** (para a fatia
-   1.3 valer na loja) pede outro "pode".
+   do horário de movimento"); trocado às 16h43, com a loja fechada. A fatia 1.1 está lá, e
+   foi medida com a loja aberta (acima). **A próxima troca** (as fatias 1.1b, 1.2a, 1.3 e
+   1.5, a correção do aviso e o ajuste de custo, de uma vez): o "pode" foi dado em 12/10, à
+   noite, e ela é feita depois do fechamento — às 3h de 13/10, ou antes das 19h. A semana de
+   números da leitura contínua conta a partir dela.
 3. **Os quatro critérios pagos** (gaveta, chapa, touca e uniforme, ingredientes) não estão na
    configuração que o motor tem hoje: dizer se saíram de propósito. Para voltarem bem: a
    cena de cada canal em que eles rodam (console → Canais → o canal → "A cena deste canal"
    → "Salvar a cena"); em cada critério, "Propor o estudo", ler e confirmar (console →
    Critérios); e a chave do pedido com contexto ligada (o item 11 da lista do A19; a linha
    é preparada antes).
-4. ✅ **A decisão da fatia 1.3** — "só a resposta vazia, por 2 horas" (12/10). **Falta
-   escolher a forma:** guardar depois de **duas** vazias seguidas para a mesma cena (como
-   entrou: segura 556 das 1.722 e não esconde nenhum "fora" medido) ou depois de **uma** (a
-   forma simples: segura 670 e esconderia 1 dos 81 "fora").
+4. ✅ **A decisão da fatia 1.3** — "só a resposta vazia, por 2 horas" (12/10). E a forma,
+   escolhida em 12/10 à noite: guardar depois de **duas** vazias seguidas para a mesma cena
+   (segura 556 das 1.722 e não esconde nenhum "fora" medido), e não depois de uma (a forma
+   simples seguraria 670 e esconderia 1 dos 81 "fora").
 5. ✅ **O plano da fatia 1.2** — aprovado em 12/10: "aprovo as duas partes: contar primeiro,
    agir depois de uma semana de números".
 6. **Referências para o passo 2:** uma foto padrão por canal e as fotos dos equipamentos no
