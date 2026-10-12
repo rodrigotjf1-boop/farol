@@ -151,6 +151,16 @@ def resumo_para_nuvem(linha: dict[str, Any]) -> dict[str, Any]:
         # acima: quantas foram e quantas deram fora do critério.
         "extras": linha["extras"],
         "extrasFora": linha["extras_fora"],
+        # O que a ATENÇÃO contou no quadro deste critério, lendo o fluxo
+        # menor duas vezes por segundo — não são olhadas, e nada aqui muda
+        # o que a loja faz. Quantas leituras, em quantas havia movimento,
+        # quantas foram clarão (a área inteira mudando de uma vez: não
+        # conta), e quantas vezes o quadro acordou e assentou.
+        "leituras": linha["leituras"],
+        "comMovimento": linha["com_movimento"],
+        "claroes": linha["claroes"],
+        "acordou": linha["acordou"],
+        "assentou": linha["assentou"],
         "ultimoResultado": linha["ultimo_resultado"],
         "ultimoMotivo": linha["ultimo_motivo"],
         # Por que NÃO deu para julgar, na última vez em que não deu.

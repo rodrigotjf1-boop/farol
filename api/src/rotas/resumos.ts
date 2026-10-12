@@ -60,6 +60,9 @@ const CONTADORES = [
   'comLatencia',
 ] as const;
 
+/** O que a atenção do agente conta no quadro. Opcionais no corpo. */
+const ATENCAO = ['leituras', 'comMovimento', 'claroes', 'acordou', 'assentou'] as const;
+
 export type ResumoEntrada = {
   regraId: string;
   zonaId: string;
@@ -96,6 +99,14 @@ export type ResumoEntrada = {
    *  Já estão dentro de `jaJulgadas`. Agente anterior à migration 042 não
    *  manda. */
   vaziasGuardadas?: number;
+  /** O que a atenção do agente contou no quadro deste critério, lendo o
+   *  fluxo menor duas vezes por segundo: não são olhadas, e nada aqui muda
+   *  o que a loja faz. Agente anterior à migration 043 não manda. */
+  leituras?: number;
+  comMovimento?: number;
+  claroes?: number;
+  acordou?: number;
+  assentou?: number;
 } & Record<(typeof CONTADORES)[number], number>;
 
 export function validarResumo(r: unknown, i: number): string | null {
@@ -221,6 +232,22 @@ export function validarResumo(r: unknown, i: number): string | null {
     return `${onde}.vaziasGuardadas: inteiro de 0 a jaJulgadas (${v.jaJulgadas as number})`;
   }
 
+  // O que a atenção contou no quadro (as leituras do fluxo menor, e os
+  // estados do quadro). Opcionais: agente antigo não manda, e não lia. A
+  // leitura é uma só: ou tinha movimento, ou foi clarão, ou nenhum dos
+  // dois — as duas partes juntas não passam do todo.
+  const daAtencao: Record<string, number> = {};
+  for (const campo of ATENCAO) {
+    const n = v[campo] ?? 0;
+    if (typeof n !== 'number' || !Number.isInteger(n) || n < 0 || n > TETO_DO_CONTADOR) {
+      return `${onde}.${campo}: inteiro de 0 a ${TETO_DO_CONTADOR}`;
+    }
+    daAtencao[campo] = n;
+  }
+  if (daAtencao.comMovimento! + daAtencao.claroes! > daAtencao.leituras!) {
+    return `${onde}.comMovimento + claroes: maior que as leituras (${daAtencao.leituras})`;
+  }
+
   if (v.ultimoResultado != null) {
     if (typeof v.ultimoResultado !== 'string' || !RESULTADOS.has(v.ultimoResultado)) {
       return `${onde}.ultimoResultado: um de ${[...RESULTADOS].join(', ')}`;
@@ -286,6 +313,11 @@ export async function gravarResumos(
     extras: r.extras ?? 0,
     extras_fora: r.extrasFora ?? 0,
     vazias_guardadas: r.vaziasGuardadas ?? 0,
+    leituras: r.leituras ?? 0,
+    com_movimento: r.comMovimento ?? 0,
+    claroes: r.claroes ?? 0,
+    acordou: r.acordou ?? 0,
+    assentou: r.assentou ?? 0,
     ultimo_resultado: r.ultimoResultado ?? null,
     ultimo_motivo: cortar(r.ultimoMotivo),
     ultimo_impedimento: cortar(r.ultimoImpedimento),
@@ -311,6 +343,7 @@ export async function gravarResumos(
         falhas, alertas, soma_confianca, com_confianca, soma_latencia_ms,
         com_latencia, custo_centavos, julgadas_loja, julgadas_nuvem,
         soma_medida, com_medida, max_medida, extras, extras_fora, vazias_guardadas,
+        leituras, com_movimento, claroes, acordou, assentou,
         ultimo_resultado, ultimo_motivo, ultimo_impedimento, ultima_em)
      select distinct on (e.regra_id, e.zona_id, e.hora)
             $1, $2, $3, e.regra_id, e.zona_id, e.hora,
@@ -319,6 +352,7 @@ export async function gravarResumos(
             e.falhas, e.alertas, e.soma_confianca, e.com_confianca, e.soma_latencia_ms,
             e.com_latencia, e.custo_centavos, e.julgadas_loja, e.julgadas_nuvem,
             e.soma_medida, e.com_medida, e.max_medida, e.extras, e.extras_fora, e.vazias_guardadas,
+            e.leituras, e.com_movimento, e.claroes, e.acordou, e.assentou,
             e.ultimo_resultado, e.ultimo_motivo, e.ultimo_impedimento, e.ultima_em
        from jsonb_to_recordset($4::jsonb) as e(
             i integer, regra_id uuid, zona_id uuid, hora timestamptz,
@@ -331,7 +365,9 @@ export async function gravarResumos(
             com_latencia integer, custo_centavos numeric,
             julgadas_loja integer, julgadas_nuvem integer,
             soma_medida numeric, com_medida integer, max_medida numeric,
-            extras integer, extras_fora integer, vazias_guardadas integer, ultimo_resultado text,
+            extras integer, extras_fora integer, vazias_guardadas integer,
+            leituras integer, com_movimento integer, claroes integer, acordou integer, assentou integer,
+            ultimo_resultado text,
             ultimo_motivo text, ultimo_impedimento text, ultima_em timestamptz)
        join regra r on r.id = e.regra_id and r.loja_id = $2
        join zona  z on z.id = e.zona_id
@@ -368,6 +404,11 @@ export async function gravarResumos(
         extras = excluded.extras,
         extras_fora = excluded.extras_fora,
         vazias_guardadas = excluded.vazias_guardadas,
+        leituras = excluded.leituras,
+        com_movimento = excluded.com_movimento,
+        claroes = excluded.claroes,
+        acordou = excluded.acordou,
+        assentou = excluded.assentou,
         ultimo_resultado = excluded.ultimo_resultado,
         ultimo_motivo = excluded.ultimo_motivo,
         ultimo_impedimento = excluded.ultimo_impedimento,

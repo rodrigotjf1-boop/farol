@@ -181,6 +181,13 @@ create index if not exists idx_alerta_envio on alerta (enviado, ts);
 -- guardada"). Fica contada à parte porque, para dizer em quantas olhadas o
 -- critério não pôde ser avaliado, ela conta junto com `nao_avaliaveis`.
 --
+-- `leituras`, `com_movimento`, `claroes`, `acordou` e `assentou` não são
+-- olhadas: são o que a ATENÇÃO contou no quadro do critério naquela hora,
+-- lendo o fluxo menor duas vezes por segundo (atencao.py). O quadro é um
+-- só, e a conta dele vai para a linha de cada critério que valia nele —
+-- dois critérios no mesmo quadro levam o mesmo número. Só contam: nada
+-- aqui muda o que a loja faz.
+--
 -- Os contadores são somados na hora em que a coisa acontece, e não
 -- recontados da tabela `analise`: ela é limpa, e um resumo que dependesse
 -- dela encolheria sozinho.
@@ -221,6 +228,11 @@ create table if not exists resumo_hora (
   max_medida         real,
   extras             integer not null default 0,
   extras_fora        integer not null default 0,
+  leituras           integer not null default 0,
+  com_movimento      integer not null default 0,
+  claroes            integer not null default 0,
+  acordou            integer not null default 0,
+  assentou           integer not null default 0,
   ultimo_resultado   text,
   ultimo_motivo      text,
   ultimo_impedimento text,
@@ -285,6 +297,12 @@ CONTADORES_DO_RESUMO = (
     "nao_avaliaveis",
     "falhas",
     "alertas",
+    # O que a atenção contou no quadro (ver o esquema): não são olhadas.
+    "leituras",
+    "com_movimento",
+    "claroes",
+    "acordou",
+    "assentou",
 )
 
 _SOMAS_DO_VEREDITO = (
@@ -367,6 +385,11 @@ _COLUNAS_NOVAS = (
     ("resumo_hora", "observadas", "integer not null default 0"),
     ("resumo_hora", "sem_gatilho", "integer not null default 0"),
     ("resumo_hora", "vazias_guardadas", "integer not null default 0"),
+    ("resumo_hora", "leituras", "integer not null default 0"),
+    ("resumo_hora", "com_movimento", "integer not null default 0"),
+    ("resumo_hora", "claroes", "integer not null default 0"),
+    ("resumo_hora", "acordou", "integer not null default 0"),
+    ("resumo_hora", "assentou", "integer not null default 0"),
 )
 
 

@@ -266,6 +266,11 @@ def linha_do_contrato() -> dict:
         "max_medida": 2.0,
         "extras": 2,
         "extras_fora": 1,
+        "leituras": 7180,
+        "com_movimento": 2460,
+        "claroes": 3,
+        "acordou": 41,
+        "assentou": 40,
         "ultimo_resultado": "nao_conforme",
         "ultimo_motivo": "há restos de alimento sobre a bancada",
         "ultimo_impedimento": "a câmera entregou a tela de sem sinal",
@@ -301,6 +306,10 @@ def test_o_exemplo_do_contrato_fecha_a_conta():
     assert c["extrasFora"] <= c["naoConformes"]
     # A vazia guardada não é um desfecho a mais: é parte das "já julgadas".
     assert 0 < c["vaziasGuardadas"] <= c["jaJulgadas"]
+    # A atenção lê duas vezes por segundo: no máximo 7.200 leituras numa hora. Movimento e clarão são
+    # leituras; e o quadro não assenta mais vezes do que acordou (mais uma, a que vinha da hora anterior).
+    assert 0 < c["comMovimento"] + c["claroes"] <= c["leituras"] <= 7200
+    assert 0 < c["assentou"] <= c["acordou"] + 1
 
 
 def test_nenhuma_chave_do_resumo_em_snake_case():

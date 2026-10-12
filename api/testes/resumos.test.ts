@@ -149,6 +149,55 @@ describe('contrato do resumo (validação)', () => {
     };
     assert.equal(validarResumo(so_guardadas, 0), null);
   });
+
+  it('o que a atenção conta no quadro: cinco inteiros, e movimento e clarão cabem nas leituras', () => {
+    // O contrato: 7.180 leituras numa hora, 2.460 com movimento, 3 clarões; o quadro acordou 41 vezes e assentou 40.
+    assert.deepEqual(
+      [CONTRATO.leituras, CONTRATO.comMovimento, CONTRATO.claroes, CONTRATO.acordou, CONTRATO.assentou],
+      [7180, 2460, 3, 41, 40],
+    );
+    for (const campo of ['leituras', 'comMovimento', 'claroes', 'acordou', 'assentou']) {
+      for (const ruim of [-1, 1.5, '5', 100_001]) {
+        assert.match(
+          String(validarResumo({ ...CONTRATO, [campo]: ruim }, 0)),
+          new RegExp(`resumos\\[0\\]\\.${campo}: inteiro de 0 a 100000`),
+          `${campo} = ${String(ruim)}`,
+        );
+      }
+    }
+    // A leitura é uma só: ou tinha movimento, ou foi clarão, ou nenhum dos dois.
+    assert.equal(validarResumo({ ...CONTRATO, leituras: 100, comMovimento: 97, claroes: 3 }, 0), null, 'no limite: pode');
+    assert.match(
+      String(validarResumo({ ...CONTRATO, leituras: 100, comMovimento: 98, claroes: 3 }, 0)),
+      /\.comMovimento \+ claroes: maior que as leituras \(100\)/,
+    );
+    assert.match(String(validarResumo({ ...CONTRATO, leituras: 0 }, 0)), /maior que as leituras \(0\)/);
+    // O quadro pode assentar sem ter acordado nesta hora (acordou na anterior) — e o contrário.
+    assert.equal(validarResumo({ ...CONTRATO, acordou: 0, assentou: 1 }, 0), null);
+    assert.equal(validarResumo({ ...CONTRATO, acordou: 5, assentou: 0 }, 0), null);
+  });
+
+  it('agente de antes da atenção não manda os cinco campos, e continua aceito', () => {
+    const { leituras: _a, comMovimento: _b, claroes: _c, acordou: _d, assentou: _e, ...antigo } = CONTRATO;
+    assert.equal(validarResumo(antigo, 0), null);
+    // Mandar o movimento sem dizer quantas leituras foram não fecha.
+    assert.match(String(validarResumo({ ...antigo, comMovimento: 1 }, 0)), /maior que as leituras \(0\)/);
+  });
+
+  it('a hora em que a atenção leu e nenhuma olhada foi feita é aceita', () => {
+    // O pior caso do caminho novo: só a atenção somou naquela linha.
+    const so_atencao = {
+      regraId: CONTRATO.regraId, zonaId: CONTRATO.zonaId, hora: CONTRATO.hora,
+      capturas: 0, semJuiz: 0, semQuadro: 0, semCena: 0, semCondicao: 0, semGatilho: 0, observadas: 0,
+      emSilencio: 0, repetidas: 0, jaJulgadas: 0, vaziasGuardadas: 0, enfileiradas: 0,
+      conformes: 0, naoConformes: 0, naoAvaliaveis: 0, falhas: 0, alertas: 0,
+      somaConfianca: 0, comConfianca: 0, somaLatenciaMs: 0, comLatencia: 0, custoCentavos: 0,
+      julgadasLoja: 0, julgadasNuvem: 0, somaMedida: 0, comMedida: 0, maxMedida: null, extras: 0, extrasFora: 0,
+      leituras: 20, comMovimento: 4, claroes: 0, acordou: 1, assentou: 0,
+      ultimoResultado: null, ultimoMotivo: null, ultimoImpedimento: null, ultimaEm: null,
+    };
+    assert.equal(validarResumo(so_atencao, 0), null);
+  });
 });
 
 // ───────────────── com banco ─────────────────
@@ -292,6 +341,7 @@ describe('resumo por hora (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
     assert.equal(l.julgadas_nuvem, 20);
     assert.deepEqual([Number(l.soma_medida), l.com_medida, Number(l.max_medida)], [4, 3, 2]);
     assert.deepEqual([l.extras, l.extras_fora], [2, 1]);
+    assert.deepEqual([l.leituras, l.com_movimento, l.claroes, l.acordou, l.assentou], [7180, 2460, 3, 41, 40]);
     assert.equal(l.ultimo_resultado, 'nao_conforme');
     assert.equal(l.ultimo_motivo, 'há restos de alimento sobre a bancada');
     assert.equal(l.ultimo_impedimento, 'a câmera entregou a tela de sem sinal');
@@ -347,6 +397,29 @@ describe('resumo por hora (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABA
     assert.equal(ruim.statusCode, 422, ruim.body);
     assert.match(ruim.body, /vaziasGuardadas/);
     assert.deepEqual(await gravadas('2026-10-07T04:00:00-03:00'), []);
+  });
+
+  it('o que a atenção contou também é SUBSTITUÍDO pelo acumulado, e agente antigo grava zero', async () => {
+    const hora = '2026-10-07T03:00:00-03:00';
+    const atencao = (l: Record<string, unknown>) => [l.leituras, l.com_movimento, l.claroes, l.acordou, l.assentou];
+    const r1 = await mandar([corpo({ hora, leituras: 120, comMovimento: 30, claroes: 1, acordou: 2, assentou: 1 })]);
+    assert.deepEqual(r1.json(), { aceitos: 1, recusados: [] }, r1.body);
+    await mandar([corpo({ hora, leituras: 5400, comMovimento: 1800, claroes: 4, acordou: 33, assentou: 32 })]);
+    let [l] = await gravadas(hora);
+    assert.deepEqual(atencao(l), [5400, 1800, 4, 33, 32], 'vale o último acumulado, campo a campo');
+
+    const { leituras: _a, comMovimento: _b, claroes: _c, acordou: _d, assentou: _e, ...antigo } =
+      corpo({ hora: '2026-10-07T02:00:00-03:00' });
+    const r = await mandar([antigo]);
+    assert.deepEqual(r.json(), { aceitos: 1, recusados: [] }, r.body);
+    [l] = await gravadas('2026-10-07T02:00:00-03:00');
+    assert.deepEqual(atencao(l), [0, 0, 0, 0, 0]);
+
+    // Movimento e clarão que não cabem nas leituras: o lote volta com o motivo, e nada é gravado.
+    const ruim = await mandar([corpo({ hora: '2026-10-07T01:00:00-03:00', leituras: 10, comMovimento: 9, claroes: 2 })]);
+    assert.equal(ruim.statusCode, 422, ruim.body);
+    assert.match(ruim.body, /comMovimento \+ claroes/);
+    assert.deepEqual(await gravadas('2026-10-07T01:00:00-03:00'), []);
   });
 
   it('DOIS agentes na mesma hora não se apagam', async () => {
