@@ -64,6 +64,10 @@ export type Linha = {
   emSilencio: number;
   repetidas: number;
   jaJulgadas: number;
+  /** As "já julgadas" seguradas pela resposta vazia guardada: a cena era
+   *  idêntica a uma que a nuvem não conseguiu avaliar há pouco, e não foi
+   *  paga de novo. Já estão dentro de `jaJulgadas`. */
+  vaziasGuardadas: number;
   enfileiradas: number;
   conformes: number;
   naoConformes: number;
@@ -128,6 +132,26 @@ export type MarcaDaLinha = 'sem_imagem' | 'sem_juiz' | 'falhando' | 'avalia_pouc
 const julgadas = (l: { conformes: number; naoConformes: number; naoAvaliaveis: number }) =>
   l.conformes + l.naoConformes + l.naoAvaliaveis;
 
+// "Avalia pouco" conta as VEZES em que o critério pediu resposta, e não só
+// as análises feitas. A olhada segurada pela resposta vazia guardada é uma
+// vez em que ele não pôde ser avaliado — só não foi paga de novo. Sem ela
+// na conta, o canal em que a nuvem nunca consegue avaliar passaria a ter
+// duas análises a cada duas horas, ficaria abaixo do mínimo, e o sinal que
+// mais importa demoraria horas para aparecer.
+type DoAvaliaPouco = { conformes: number; naoConformes: number; naoAvaliaveis: number; vaziasGuardadas: number };
+
+/** As vezes em que o critério pediu resposta: as julgadas e as seguradas pela vazia guardada. */
+const vezesQuePediuResposta = (l: DoAvaliaPouco): number => julgadas(l) + l.vaziasGuardadas;
+
+/** Em quantas delas não deu para avaliar. */
+const vezesSemAvaliar = (l: DoAvaliaPouco): number => l.naoAvaliaveis + l.vaziasGuardadas;
+
+/** O critério avalia pouco neste canal? Com vezes de menos, não se diz nada. */
+function avaliaPouco(l: DoAvaliaPouco): boolean {
+  const vezes = vezesQuePediuResposta(l);
+  return vezes >= MINIMO_DE_JULGADAS && vezesSemAvaliar(l) / vezes >= FRACAO_AVALIA_POUCO;
+}
+
 /** Algum agente está de pé? */
 export function agenteDePe(agentes: AgenteVisto[]): boolean {
   return agentes.some(
@@ -184,8 +208,7 @@ export function marcaDaLinha(l: Linha, semImagem: boolean): MarcaDaLinha {
   if (semImagem) return 'sem_imagem';
   if (l.capturas > 0 && l.semJuiz / l.capturas >= FRACAO_SEM_JUIZ) return 'sem_juiz';
   if (l.falhas >= MINIMO_DE_FALHAS && l.falhas > julgadas(l)) return 'falhando';
-  const j = julgadas(l);
-  if (j >= MINIMO_DE_JULGADAS && l.naoAvaliaveis / j >= FRACAO_AVALIA_POUCO) return 'avalia_pouco';
+  if (avaliaPouco(l)) return 'avalia_pouco';
   return null;
 }
 
@@ -288,8 +311,7 @@ export function montarSinais(entrada: {
     // uma câmera e não de outra, e a providência é naquela câmera.
     for (const l of lista) {
       if (parados.has(l.pontoId)) continue;
-      const j = julgadas(l);
-      if (j >= MINIMO_DE_JULGADAS && l.naoAvaliaveis / j >= FRACAO_AVALIA_POUCO) {
+      if (avaliaPouco(l)) {
         sinais.push({
           tipo: 'avalia_pouco',
           gravidade: 'atencao',
@@ -298,7 +320,7 @@ export function montarSinais(entrada: {
           pontoId: l.pontoId,
           pontoNome: l.pontoNome,
           canal: l.canal,
-          percentual: Math.round((l.naoAvaliaveis / j) * 100),
+          percentual: Math.round((vezesSemAvaliar(l) / vezesQuePediuResposta(l)) * 100),
         });
       }
     }

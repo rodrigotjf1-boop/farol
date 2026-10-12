@@ -404,4 +404,75 @@ describe('resultados da loja (Postgres real)', { skip: !URL_DO_BANCO && 'sem DAT
     const r = await app.inject({ method: 'GET', url: `/v1/lojas/${lojaId}/resultados`, headers: { cookie } });
     assert.equal(r.json().periodo, '24h');
   });
+
+  // Fica por último: cria um canal e um critério a mais, que mudariam as
+  // contas dos testes de cima.
+  it('a resposta vazia guardada chega ao sinal: câmera parada numa cena que a nuvem não avalia', async () => {
+    const setor = (await pool.query('select id from setor where loja_id = $1 limit 1', [lojaId])).rows[0].id as string;
+    const canal = await app.inject({
+      method: 'POST', url: `/v1/setores/${setor}/pontos`, headers: { cookie },
+      payload: { nome: 'Caixa', origem: 'dvr', canal: 3, host: '192.168.1.108' },
+    });
+    assert.equal(canal.statusCode, 201, canal.body);
+    const caixa = { pontoId: canal.json().id as string, zonaId: canal.json().zonas[0].id as string };
+    const outro = await app.inject({
+      method: 'POST', url: `/v1/setores/${setor}/pontos`, headers: { cookie },
+      payload: { nome: 'Balcão', origem: 'dvr', canal: 5, host: '192.168.1.108' },
+    });
+    assert.equal(outro.statusCode, 201, outro.body);
+    const balcao = { pontoId: outro.json().id as string, zonaId: outro.json().zonas[0].id as string };
+    const criado = await app.inject({
+      method: 'POST', url: `/v1/lojas/${lojaId}/regras`, headers: { cookie },
+      payload: {
+        nome: 'Uso de touca', tipo: 'estado', criterio: 'O colaborador usa touca.',
+        zonaIds: [caixa.zonaId, balcao.zonaId],
+      },
+    });
+    assert.equal(criado.statusCode, 201, criado.body);
+    const touca = criado.json().id as string;
+    const ligar = await app.inject({ method: 'PATCH', url: `/v1/regras/${touca}`, headers: { cookie }, payload: { ativa: true } });
+    assert.equal(ligar.statusCode, 200, ligar.body);
+
+    const sobe = await doAgente('/v1/resumos', {
+      resumos: [
+        // O Caixa: cento e vinte olhadas na hora — duas pagas, que voltaram
+        // vazias, e cento e dezoito seguradas pela resposta guardada.
+        {
+          ...zeros, regraId: touca, zonaId: caixa.zonaId, hora: horaCheia(0),
+          capturas: 120, enfileiradas: 2, naoAvaliaveis: 2, jaJulgadas: 118, vaziasGuardadas: 118,
+          somaConfianca: 0.6, comConfianca: 2, somaLatenciaMs: 4000, comLatencia: 2, custoCentavos: 2.6,
+          ultimoResultado: 'nao_avaliavel', ultimoMotivo: 'não dá para ver a cabeça', ultimaEm: new Date().toISOString(),
+        },
+        // O Balcão: a nuvem responde quase sempre. Muitas "já julgadas" (a
+        // cena repetida no mesmo minuto), e só dez delas são vazia guardada:
+        // 12 vezes sem avaliar em 72 — não é "avalia pouco".
+        {
+          ...zeros, regraId: touca, zonaId: balcao.zonaId, hora: horaCheia(0),
+          capturas: 162, enfileiradas: 62, conformes: 60, naoAvaliaveis: 2, jaJulgadas: 100, vaziasGuardadas: 10,
+          somaConfianca: 55, comConfianca: 62, somaLatenciaMs: 124_000, comLatencia: 62, custoCentavos: 80,
+          ultimoResultado: 'conforme', ultimaEm: new Date().toISOString(),
+        },
+      ],
+    });
+    assert.deepEqual(sobe.json(), { aceitos: 2, recusados: [] }, sobe.body);
+
+    const d = (await resultados()).json();
+
+    const daTouca = (d.sinais as Array<{ tipo: string; regraId?: string; pontoNome?: string; percentual?: number }>)
+      .filter((s) => s.tipo === 'avalia_pouco' && s.regraId === touca);
+    assert.equal(daTouca.length, 1, `um sinal, o do Caixa: ${JSON.stringify(d.sinais)}`);
+    assert.equal(daTouca[0]!.pontoNome, 'Caixa');
+    assert.equal(daTouca[0]!.percentual, 100);
+
+    type Linha = { regraId: string; pontoNome: string; analises: number; naoAvaliaveis: number; marca: string | null };
+    const linhasDaTouca = (d.linhas as Linha[]).filter((l) => l.regraId === touca);
+    const noCaixa = linhasDaTouca.find((l) => l.pontoNome === 'Caixa');
+    const noBalcao = linhasDaTouca.find((l) => l.pontoNome === 'Balcão');
+    assert.ok(noCaixa && noBalcao, JSON.stringify(linhasDaTouca));
+    assert.equal(noCaixa.marca, 'avalia_pouco');
+    assert.equal(noBalcao.marca, null);
+    // As guardadas não viram análise: a tela continua contando o que foi julgado.
+    assert.deepEqual([noCaixa.analises, noCaixa.naoAvaliaveis], [2, 2]);
+    assert.deepEqual([noBalcao.analises, noBalcao.naoAvaliaveis], [62, 2]);
+  });
 });

@@ -343,7 +343,8 @@ describe('o estado do critério (Postgres real)', { skip: !URL_DO_BANCO && 'sem 
     const linha = {
       ...RESUMO, regraId: id, zonaId, hora,
       capturas: 120, semJuiz: 0, semQuadro: 0, semCena: 0, semCondicao: 30, observadas: 90, emSilencio: 0, repetidas: 0,
-      jaJulgadas: 0, enfileiradas: 0, conformes: 0, naoConformes: 0, naoAvaliaveis: 0, falhas: 0, alertas: 0,
+      jaJulgadas: 0, vaziasGuardadas: 0,
+      enfileiradas: 0, conformes: 0, naoConformes: 0, naoAvaliaveis: 0, falhas: 0, alertas: 0,
       somaConfianca: 0, comConfianca: 0, somaLatenciaMs: 0, comLatencia: 0, custoCentavos: 0,
       julgadasLoja: 0, julgadasNuvem: 0, somaMedida: 0, comMedida: 0, maxMedida: null, extras: 0, extrasFora: 0,
       ultimoResultado: null, ultimoMotivo: null, ultimoImpedimento: null, ultimaEm: null,

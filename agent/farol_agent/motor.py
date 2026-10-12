@@ -25,6 +25,23 @@ alerta** é este arquivo.
    olhadas puladas). Nesses tipos toda olhada é julgada e conta; o
    silêncio segura só o aviso, na porta 3.
 
+   **A resposta vazia guardada.** A cena que a nuvem não conseguiu avaliar
+   costuma voltar igual meio minuto depois, e pagar de novo é ouvir o
+   mesmo "não deu para avaliar". Quando a cena desta olhada tem a
+   impressão IDÊNTICA à de uma que voltou vazia há menos de duas horas, a
+   olhada não é paga: é contada como "já julgada" (e, à parte, como "vazia
+   guardada"). Só a resposta vazia é guardada — um "dentro" ou um "fora"
+   nunca é repetido de memória, porque a impressão não vê detalhe pequeno
+   —, e só depois de a nuvem ter devolvido vazio DUAS vezes seguidas para
+   a mesma cena: perguntada duas vezes em seguida sobre a mesma
+   impressão, ela já respondeu "não deu para avaliar" e depois "fora do
+   critério" (a medida está em docs/decisoes.md, 12/10/2026, "A resposta
+   vazia guardada"). A resposta mais nova é a que vale: uma resposta de
+   verdade desfaz a guarda. A guarda vive na memória deste motor, que é
+   montado de novo a cada mudança de configuração — mexeu no quadro, na
+   resolução, na cena ou no modelo, e a próxima olhada pergunta outra
+   vez. Presença e contagem não passam por ela.
+
 3. **O veredito vira alerta?** Só `nao_conforme` **com confiança acima do
    mínimo da regra**, e **fora do silêncio** daquele critério naquele
    canal. Abaixo disso é registrado mas não toca a sineta: o que destrói a
@@ -70,7 +87,7 @@ from typing import Any, Callable, Iterable, Sequence
 import cv2
 
 from farol_agent.contexto import Cena
-from farol_agent.fila import Fila, ItemFila
+from farol_agent.fila import VALIDADE_PADRAO, Fila, ItemFila
 from farol_agent.fontes.base import FonteVideo
 from farol_agent import imagens
 from farol_agent.juizes.base import ErroDoJuiz, Juiz
@@ -84,6 +101,7 @@ from farol_agent.modelos import (
     Severidade,
     TipoRegra,
     Veredito,
+    Via,
     Zona,
 )
 from farol_agent.pipeline import dedupe, qualidade, recorte
@@ -111,6 +129,32 @@ LADO_DA_CAMERA = RESOLUCOES["r1080"]
 
 # O papel do quadro em que a imagem espera as mãos saírem.
 PAPEL_DE_BANCADA = "montagem"
+
+# ── A resposta vazia guardada ──
+# Por quanto tempo vale o "não deu para avaliar" de uma cena, para a cena de
+# impressão idêntica. Decisão do dono (12/10/2026): "só a resposta vazia,
+# por 2 horas". Zero desliga a guarda.
+GUARDA_DA_VAZIA_MIN = 120
+# Quantas respostas vazias SEGUIDAS a mesma cena precisa ter antes de a
+# guarda valer. Com uma só, a guarda teria segurado uma cena que, perguntada
+# de novo, a nuvem respondeu "fora do critério" (a conta, com os números,
+# está em docs/decisoes.md, 12/10/2026, "A resposta vazia guardada").
+VAZIAS_PARA_GUARDAR = 2
+# A pergunta que ficou sem resposta sai da memória depois da validade mais
+# longa de uma análise: passado isso a fila já a descartou.
+_ESPERA_MAIS_LONGA = max(VALIDADE_PADRAO.values())
+
+# O que faz de duas olhadas A MESMA pergunta: o critério e a redação dele, o
+# canal, o quadro e a impressão da imagem que sairia. O resto do que muda a
+# pergunta (o desenho do quadro, a resolução, a cena escrita, o modelo) é
+# configuração — e o motor é montado de novo quando ela muda.
+_Pergunta = tuple[str, int, str, str, int]
+
+# Em que contadores do resumo cada desfecho soma, quando não é só no dele.
+_CONTADORES_DO_DESFECHO = {
+    # A vazia guardada É uma "já julgada": conta nela, e à parte.
+    "vazias_guardadas": ("ja_julgadas", "vazias_guardadas"),
+}
 
 
 @dataclass(frozen=True)
@@ -184,6 +228,9 @@ class Preparo:
     observadas: list[str] = field(default_factory=list)
     em_silencio: list[str] = field(default_factory=list)
     repetidos: list[str] = field(default_factory=list)
+    # A cena era idêntica a uma que a nuvem não conseguiu avaliar há pouco:
+    # a olhada não foi paga de novo.
+    vazias_guardadas: list[str] = field(default_factory=list)
     sem_quadro: list[str] = field(default_factory=list)
     # Veio quadro, mas nao havia CENA nele (tela de sem-sinal, camera
     # tampada, fluxo parado). Separado de `repetidos` de proposito: um
@@ -210,9 +257,19 @@ class MotorDeRegras:
         quietude: Quietude | None = None,
         pessoas: Callable[[Any, str, datetime], list[float] | None] | None = None,
         duvida: float = 0.35,
+        guarda_da_vazia_min: int = GUARDA_DA_VAZIA_MIN,
+        vazias_para_guardar: int = VAZIAS_PARA_GUARDAR,
     ) -> None:
         self.fila = fila
         self.regras: list[Regra] = list(regras)
+        # A resposta vazia guardada: por quanto tempo vale, e depois de
+        # quantas vazias seguidas. O que este motor PERGUNTOU e ainda espera
+        # resposta (pela chave do item na fila), e as vazias que voltaram:
+        # por pergunta, quantas seguidas e o instante da cena da última.
+        self._guarda_da_vazia = timedelta(minutes=guarda_da_vazia_min)
+        self._vazias_para_guardar = vazias_para_guardar
+        self._perguntas: dict[str, tuple[_Pergunta, datetime]] = {}
+        self._vazias: dict[_Pergunta, tuple[int, datetime]] = {}
         # A loja pergunta com contexto? `None` = não: tudo como sempre.
         self._contexto = contexto
         # Quem lê os sinais do estudo de cada critério. Sem ele (modo de
@@ -370,6 +427,14 @@ class MotorDeRegras:
                 preparo.repetidos.append(regra.id)
                 olhadas.append((regra, "ja_julgadas", None))
                 self._continua(regra, evento.ts)
+            elif motivo == "vazia_guardada":
+                # A cena é, na impressão, uma que a nuvem não conseguiu
+                # avaliar há pouco: não se paga para ouvir o mesmo. Como o
+                # "não deu para avaliar" de verdade, ela não confirma nem
+                # desmente — a espera do "avisar só se continuar" nem anda,
+                # nem zera (por isso não passa por `_continua`).
+                preparo.vazias_guardadas.append(regra.id)
+                olhadas.append((regra, "vazias_guardadas", None))
             else:
                 preparo.repetidos.append(regra.id)
                 olhadas.append((regra, "repetidas", None))
@@ -390,7 +455,11 @@ class MotorDeRegras:
         try:
             self.fila.contar_lote(
                 [
-                    (ts, regra.id, regra.zona.id, {"capturas": 1, desfecho: 1}, porque)
+                    (
+                        ts, regra.id, regra.zona.id,
+                        {"capturas": 1, **{c: 1 for c in _CONTADORES_DO_DESFECHO.get(desfecho, (desfecho,))}},
+                        porque,
+                    )
                     for regra, desfecho, porque in olhadas
                 ]
             )
@@ -539,6 +608,18 @@ class MotorDeRegras:
             self.sem_cena.pop(self._lugar(regra), None)
             return None, "ja_julgado"
 
+        # A resposta vazia guardada: a nuvem não conseguiu avaliar esta
+        # mesma cena há pouco, mais de uma vez. Não se paga para ouvir de
+        # novo — e a imagem nem vai para o disco. (Presença e contagem
+        # nunca chegam a ter resposta guardada: a pergunta delas não é
+        # anotada, lá embaixo.)
+        pergunta: _Pergunta = (
+            regra.id, regra.criterio_versao, str(evento.ponto_id), regra.zona.id, ph
+        )
+        if self._vazia_guardada(pergunta, f.ts):
+            self.sem_cena.pop(self._lugar(regra), None)
+            return None, "vazia_guardada"
+
         # A ÁREA entra no nome: o mesmo critério pode valer em duas áreas do
         # mesmo canal, e as duas saem da mesma olhada, no mesmo segundo. Com
         # canal + critério só, o segundo recorte gravava por cima do primeiro
@@ -583,6 +664,11 @@ class MotorDeRegras:
             # não serve para nada e viraria lixo permanente no spool.
             destino.unlink(missing_ok=True)
             return None, "repetido"
+        if not continuo:
+            # Anotada para a volta: é pela chave do item que a resposta acha
+            # a pergunta que ESTE motor fez.
+            self._esquecer_o_que_venceu(f.ts)
+            self._perguntas[chave] = (pergunta, f.ts)
         self.sem_cena.pop(self._lugar(regra), None)
         return chave, "ok"
 
@@ -657,6 +743,7 @@ class MotorDeRegras:
                 continue
 
             self.fila.concluir(item.id, veredito, agora)
+            self._anotar_resposta(item, veredito)
 
             alerta = self._avaliar(regra, item, veredito)
             try:
@@ -783,6 +870,59 @@ class MotorDeRegras:
         )
 
     # ──────────────────────────── interno ──────────────────────────────
+
+    def _vazia_guardada(self, pergunta: _Pergunta, ts: datetime) -> bool:
+        """A cena desta olhada tem a resposta vazia guardada, e ainda valendo?
+
+        Vale da cena da última vazia PAGA até a guarda vencer: a olhada
+        segurada não renova o prazo.
+        """
+        guardada = self._vazias.get(pergunta)
+        if guardada is None:
+            return False
+        quantas, ultima = guardada
+        return quantas >= self._vazias_para_guardar and ts - ultima < self._guarda_da_vazia
+
+    def _anotar_resposta(self, item: ItemFila, veredito: Veredito) -> None:
+        """A resposta mais nova de uma pergunta é a que vale para a guarda.
+
+        Só conta a pergunta que ESTE motor fez. A olhada que já esperava na
+        fila quando a configuração mudou foi cortada e reduzida do jeito
+        antigo: a resposta dela não diz nada sobre a pergunta de agora.
+
+        Só a resposta vazia que veio DA NUVEM conta — é ela que se pagaria
+        de novo. Qualquer outra resposta para a mesma pergunta desfaz o que
+        estava guardado.
+        """
+        feita = self._perguntas.pop(item.chave, None)
+        if feita is None:
+            return
+        pergunta, quando = feita
+        if veredito.resultado is Resultado.NAO_AVALIAVEL and veredito.via is Via.NUVEM:
+            # Mais uma vazia seguida. A que já tinha vencido saiu da memória
+            # quando esta pergunta foi anotada (`_esquecer_o_que_venceu`):
+            # depois de vencer, a contagem recomeça da primeira.
+            quantas, _ = self._vazias.get(pergunta, (0, quando))
+            self._vazias[pergunta] = (quantas + 1, quando)
+        else:
+            self._vazias.pop(pergunta, None)
+
+    def _esquecer_o_que_venceu(self, agora: datetime) -> None:
+        """Tira da memória a vazia que já venceu e a pergunta que ficou sem resposta.
+
+        Roda a cada pergunta nova, que é quando a memória cresce: sem isto
+        ela só cresceria, num programa que fica semanas ligado. E é o que
+        faz a contagem das vazias seguidas recomeçar depois de a guarda
+        vencer: a vazia vencida não está mais lá para ser contada.
+        """
+        self._vazias = {
+            p: (quantas, t) for p, (quantas, t) in self._vazias.items()
+            if agora - t < self._guarda_da_vazia
+        }
+        self._perguntas = {
+            chave: (p, t) for chave, (p, t) in self._perguntas.items()
+            if agora - t < _ESPERA_MAIS_LONGA
+        }
 
     def _cena_de(self, regra: Regra, ponto_id: str) -> Cena | None:
         """A cena do canal, se a loja pergunta com contexto e este critério pode levar imagem para fora."""

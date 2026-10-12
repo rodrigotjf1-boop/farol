@@ -111,6 +111,10 @@ def resumo_para_nuvem(linha: dict[str, Any]) -> dict[str, Any]:
         "emSilencio": linha["em_silencio"],
         "repetidas": linha["repetidas"],
         "jaJulgadas": linha["ja_julgadas"],
+        # A parte de `jaJulgadas` em que a cena era idêntica a uma que a
+        # nuvem não conseguiu avaliar há pouco: não foi paga de novo. Não é
+        # um desfecho a mais — já está dentro de `jaJulgadas`.
+        "vaziasGuardadas": linha["vazias_guardadas"],
         "enfileiradas": linha["enfileiradas"],
         # O que saiu do julgamento do que foi enfileirado.
         "conformes": linha["conformes"],
