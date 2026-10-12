@@ -4952,3 +4952,73 @@ A frase da tela de critérios sobre o "avisar só se continuar" não muda. O que
 quem usa: um aviso de "continua" passa a significar que a mesma cena fora do critério foi
 vista de novo, ou que uma análise nova confirmou.
 
+## 12/10/2026 (noite) · A atenção: os estados de cada quadro, só contando (fatia 1.2a, migration 043)
+
+O dono aprovou a leitura contínua em duas partes: "contar primeiro, agir depois de uma
+semana de números". Esta é a primeira. **Nada muda no que a loja faz** — nem depois da
+troca do pacote: as olhadas continuam as de hoje. O que passa a existir é a contagem.
+
+### O que entra
+
+Uma linha de execução própria no agente, a **atenção**, lê o fluxo menor de cada canal duas
+vezes por segundo — o fluxo que já fica aberto; nenhum é aberto por causa dela — e mede
+quanto cada quadro mudou desde a leitura anterior, com a mesma conta do porteiro e da
+quietude. Para cada quadro que tem critério, de qualquer tipo, ela acompanha o estado:
+
+| de | para | quando |
+|---|---|---|
+| repouso | **acordou** → em atividade | duas leituras seguidas com movimento |
+| em atividade | **assentou** → repouso | cinco segundos medidos sem movimento, contados da última leitura que mexeu |
+
+- **O clarão não conta.** A leitura em que mais de 60% dos pontos mudam de uma vez (a luz
+  que acende, a câmera que troca para infravermelho) não é movimento nem calma. É contada à
+  parte.
+- **Não sei não é calma.** Sem fluxo menor, com o fluxo parado ou na primeira leitura
+  depois de um buraco, não há medida: em repouso isso quebra a sequência; em atividade, os
+  cinco segundos recomeçam da primeira leitura calma depois do buraco.
+
+Os três números (duas leituras, cinco segundos, 60%) são o ponto de partida do plano, e não
+medida de loja nenhuma: é para calibrá-los que a contagem existe.
+
+### Onde a conta mora
+
+No resumo da hora, na linha de cada critério do quadro que valia naquela hora, cinco
+números: `leituras`, `comMovimento`, `claroes`, `acordou`, `assentou` (migration 043;
+opcionais — agente antigo não manda, e ficam zero). A conta é do **quadro**: dois critérios
+no mesmo quadro levam o mesmo número. Ela fica na linha do critério porque é ali que estão
+as olhadas de hoje (`capturas`, `enfileiradas`): o que se quer comparar, critério por
+critério, é "quantas análises a rotina fez" com "quantas vezes o quadro acordou ou
+assentou". Fora do horário do critério não há linha.
+
+O servidor confere (inteiros de 0 a 100.000; movimento e clarão juntos não passam das
+leituras), grava e substitui pelo acumulado. **Nenhuma tela mostra isso ainda** — tela
+nova passa por protótipo. Os números se leem do resumo, e é com uma semana deles que se
+decide a segunda parte.
+
+### Como foi conferido
+
+- **Agente:** 36 testes novos (`agent/testes/test_atencao.py`): a máquina de estados com as
+  medidas dadas pelo teste, para os limites exatos; com a imagem de verdade (a mão que entra
+  e muda de lugar acorda; o que mexe fora do quadro não; a luz que muda a cena inteira é
+  clarão); a conta por hora; dois canais; e, pela auditoria, que a conta vai para a linha de
+  cada critério do quadro, que o critério fora do horário não leva, e que **nenhuma olhada
+  a mais e nenhuma análise** acontecem por causa dela. 61 mutações, nenhuma viva (a primeira
+  rodada deixou uma, num teste que não distinguia "sem com o que comparar" de "igual à
+  anterior": o teste foi apertado).
+- **Servidor:** a validação campo a campo, a gravação e a substituição pelo acumulado. 27
+  mutações, nenhuma viva.
+- **A migration 043**, aplicada duas vezes no banco local: cinco colunas, zero de fábrica,
+  nenhuma linha existente alterada.
+- A quietude (o quadro de bancada que espera as mãos saírem) não mudou de comportamento: a
+  conta de movimento dela passou a ser uma função dividida com a atenção, e os testes dela
+  passam como estavam.
+
+### O que não foi medido
+
+- **Nada na loja ainda:** a atenção só roda lá depois da troca do pacote, com o "pode".
+- **O custo de processador ao vivo.** Na gravação a conta levou perto de 2 ms por leitura e
+  por área; com dois quadros são perto de 8 ms por segundo. Ao vivo, com todos os canais,
+  mede-se pelo uso da máquina que o agente já manda.
+- **Se os três números servem** para quadro pequeno, câmera escura ou cena com reflexo: é
+  o que a semana de contagem vai dizer.
+

@@ -4728,7 +4728,7 @@ que ficou de fora"**. A ordem: a planilha, a porta para outro sistema, o "Mais" 
 
 ---
 
-## A20 · O vigia: atenção, reflexo e aprendizado (direção do dono em 12/10/2026; núcleo primeiro; passo 0 feito; a fatia 1.1 na loja desde 12/10, 16h43; a fatia 1.3 no repositório)
+## A20 · O vigia: atenção, reflexo e aprendizado (direção do dono em 12/10/2026; núcleo primeiro; passo 0 feito; a fatia 1.1 na loja desde 12/10, 16h43; as fatias 1.2a e 1.3 no repositório, à espera da troca do pacote)
 
 **A régua, dita pelo dono:** "a ideia de controle do Farol é como se um ser humano estivesse
 parado olhando fixo para aquele local e respondendo o mais rápido possível aos critérios".
@@ -4850,7 +4850,7 @@ acontecer no instante certo.
 
 | parte | o que entra | o que muda na loja |
 |---|---|---|
-| **1.2a · contar, sem agir** | o medidor contínuo e os estados; no resumo da hora, quantas vezes cada quadro acordou e assentou | nada: as olhadas continuam as de hoje. Passa a existir, ao vivo e em todos os canais, a medida que o passo 0 tirou da gravação |
+| **1.2a ✅ · contar, sem agir** (12/10, no repositório; migration 043) | o medidor contínuo e os estados; no resumo da hora, quantas vezes cada quadro acordou e assentou | nada: as olhadas continuam as de hoje. Passa a existir, ao vivo e em todo quadro que tem critério, a medida que o passo 0 tirou da gravação. **Começa a contar na loja com a próxima troca do pacote** |
 | **1.2b · agir** | os gatilhos do estudo passam a vir dos estados; chave interna por loja, desligada de fábrica (como a do pedido com contexto) | só com a chave ligada pelo dono, depois de a 1.2a mostrar os números de uma semana |
 
 **O que se espera** (medido na gravação de 11/10, no tampo): de 46 a 68 análises por hora
@@ -4864,6 +4864,22 @@ parte, com o passo dela: não muda o ritmo do laço que captura e sobe (V74).
 
 **O que precisa:** a 1.2a, só o agente e o resumo (com a regra do resumo conferida dos dois
 lados); a 1.2b, uma migration (a chave por loja) e a troca do pacote. Nenhuma tela.
+
+**A 1.2a, entregue em 12/10** ([decisoes.md](decisoes.md), "A atenção: os estados de cada
+quadro, só contando"). A atenção acompanha todo quadro que tem critério, de qualquer tipo
+— na loja de hoje, com os dois critérios de presença, já há o que contar. A conta vai para
+a linha do resumo de cada critério do quadro: `leituras`, `comMovimento`, `claroes`,
+`acordou`, `assentou` (migration 043). É ao lado das olhadas de hoje que ela se lê.
+
+**O que falta para a 1.2b:**
+
+1. A troca do pacote na loja (com o "pode"), para a contagem começar.
+2. Uma semana de números, lidos do resumo: por quadro e por hora, quantas vezes ele acordou
+   e assentou, contra as olhadas e as análises da rotina no mesmo período; quantos clarões; e
+   se os três números de fábrica (duas leituras, cinco segundos, 60%) servem em todos os
+   quadros.
+3. Com isso na mão, o plano da 1.2b: de que estado sai cada gatilho, o teto por minuto e a
+   conferência de tempos em tempos no repouso — para o dono aprovar antes do código.
 
 ### A proteção, o que o dono respondeu (12/10)
 

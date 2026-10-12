@@ -48,6 +48,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from farol_agent.atencao import Atencao
 from farol_agent.configuracao import ConfigDaLoja, PontoConfig
 from farol_agent.contexto import FALTA_A_CENA, cenas_da_loja
 from farol_agent.contrato import (
@@ -205,6 +206,7 @@ class Auditoria:
         construir_juiz=None,
         medidor="padrao",
         quietude: Quietude | None = None,
+        atencao: Atencao | None = None,
     ) -> None:
         self.cliente = cliente
         self.fila = Fila(caminho_fila)
@@ -218,6 +220,15 @@ class Auditoria:
         # últimas amostras de cada quadro. Injetável, para o teste dar o
         # relógio.
         self.quietude = quietude or Quietude()
+        # Quem acompanha o ESTADO de cada quadro que tem critério (repouso,
+        # acordou, em atividade, assentou), no mesmo fluxo menor. Por
+        # enquanto só conta: o que ela vê vai para o resumo da hora, e nada
+        # muda nas olhadas. Uma só para a vida do processo; injetável, para
+        # o teste dar o relógio.
+        self.atencao = atencao or Atencao()
+        # Os critérios de cada quadro acompanhado pela atenção: é para a
+        # linha deles que a contagem do quadro vai.
+        self._criterios_do_quadro: dict[tuple[str, str], list[Any]] = {}
         # Quantas olhadas de bancada já foram refeitas em cada canal desde
         # a última volta de rotina.
         self._refeitas: dict[str, int] = {}
@@ -535,6 +546,42 @@ class Auditoria:
         )
         return self.quietude
 
+    def _montar_atencao(self, regras) -> None:
+        """Os quadros que a atenção acompanha: todo quadro que tem critério, de qualquer tipo.
+
+        Por enquanto ela só conta (ver `_somar_atencao`): saber quantas
+        vezes cada quadro acorda e assenta é o que falta para decidir se os
+        gatilhos passam a sair dali. Por isso vale também para presença,
+        contagem e para o critério que só observa.
+        """
+        quadros: dict[str, dict[str, Any]] = {}
+        criterios: dict[tuple[str, str], list[Any]] = {}
+        for r in regras:
+            ponto_id = str(r.zona.ponto_id)
+            quadros.setdefault(ponto_id, {})[r.zona.id] = r.zona
+            criterios.setdefault((ponto_id, r.zona.id), []).append(r)
+        # Sempre, mesmo sem nenhum: é o que larga o quadro que deixou de ter critério.
+        self.atencao.montar({ponto_id: list(do_canal.values()) for ponto_id, do_canal in quadros.items()})
+        self._criterios_do_quadro = criterios
+
+    def _somar_atencao(self) -> None:
+        """Leva ao resumo da hora o que a atenção contou desde a última volta. Nunca derruba a auditoria.
+
+        A conta é do QUADRO, e vai para a linha de cada critério dele que
+        valia naquele instante — fora do horário do critério não há linha a
+        engordar. Dois critérios no mesmo quadro levam o mesmo número.
+        """
+        try:
+            itens = [
+                (quando, r.id, zona_id, somas, None)
+                for quando, ponto_id, zona_id, somas in self.atencao.colher()
+                for r in self._criterios_do_quadro.get((ponto_id, zona_id), ())
+                if r.vale_agora(quando)
+            ]
+            self.fila.contar_lote(itens)
+        except Exception:  # noqa: BLE001
+            _log.exception("não consegui somar a atenção no resumo da hora; a auditoria segue")
+
     def _os_sinais(self, regras, config: ConfigDaLoja):
         """Os sinais da loja, se algum critério tem estudo — e sempre os MESMOS.
 
@@ -641,6 +688,8 @@ class Auditoria:
         # O vigia olha mais vezes o que é JULGADO na loja: critério que só
         # observa não tem por que ganhar olhada extra.
         self._montar_vigia([r for r in regras if r.julga])
+        # A atenção acompanha todo quadro que tem critério, de qualquer tipo.
+        self._montar_atencao(regras)
 
         # Fontes só para pontos que têm regra: abrir câmera que ninguém
         # audita é fluxo do gravador gasto à toa.
@@ -1180,6 +1229,9 @@ class Auditoria:
         """Uma volta do laço: a olhada de rotina quando é hora dela; senão, o vigia (na vez dele) e a bancada."""
         do_relogio = agora is None
         agora = agora or datetime.now()
+        # O que a atenção contou desde a última volta entra no resumo da
+        # hora aqui, antes de ele subir. Só soma: não muda olhada nenhuma.
+        self._somar_atencao()
         if self._proxima_rotina is None or agora >= self._proxima_rotina:
             r = self.passo(agora)
             # Conta a partir do FIM da passada, como sempre foi: passada
@@ -1241,6 +1293,9 @@ class Auditoria:
         # A quietude mede em thread própria, de meio em meio segundo: sem
         # quadro de bancada para acompanhar, cada volta dela não faz nada.
         self.quietude.iniciar(lambda: self.fontes)
+        # A atenção lê no mesmo passo, na thread dela, todo quadro que tem
+        # critério. Não abre fluxo: usa o menor, que já está aberto.
+        self.atencao.iniciar(lambda: self.fontes)
         self._thread = threading.Thread(
             target=self._laco, name="farol-auditoria", daemon=True
         )
@@ -1261,6 +1316,7 @@ class Auditoria:
     def parar(self) -> None:
         self._parar.set()
         self.quietude.parar()
+        self.atencao.parar()
         if self._thread is not None:
             self._thread.join(timeout=5)
         if self.medidor is not None:

@@ -75,6 +75,29 @@ VELHO = timedelta(seconds=2)
 _LADO = (96, 54)
 
 
+def reduzir(quadro: Any, zona: Zona) -> np.ndarray:
+    """O quadro (a área `zona` da imagem do canal), em tons de cinza, no tamanho da medida.
+
+    O que é de fora do desenho é apagado antes: movimento na área ao lado
+    não é movimento desta. A cor fica de fora — a câmera troca de cor e de
+    infravermelho sem nada ter mexido.
+    """
+    recortado, dentro = recorte.recortar_area(quadro, zona)
+    imagem = recorte.apagar_fora(recortado, dentro).imagem
+    cinza = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY) if imagem.ndim == 3 else imagem
+    return cv2.resize(cinza, _LADO, interpolation=cv2.INTER_AREA).astype(np.int16)
+
+
+def fracao_que_mudou(antes: np.ndarray, agora: np.ndarray, salto: int = SALTO_DO_PONTO) -> float:
+    """Que parte dos pontos mudou de uma leitura para a outra, de 0 a 1.
+
+    Um ponto "mudou" quando o tom dele variou mais do que `salto`. É a
+    medida do porteiro; quem chama decide o que é "mexeu" (a quietude e a
+    atenção usam o mesmo limite, `PARTE_QUE_MUDOU`).
+    """
+    return float(np.mean(np.abs(agora - antes) > salto))
+
+
 @dataclass
 class _Quadro:
     zona: Zona
@@ -166,14 +189,11 @@ class Quietude:
                     q.amostras.append((agora, mexeu))
 
     def _medir(self, q: _Quadro, quadro: Any) -> bool | None:
-        recortado, dentro = recorte.recortar_area(quadro, q.zona)
-        imagem = recorte.apagar_fora(recortado, dentro).imagem
-        cinza = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY) if imagem.ndim == 3 else imagem
-        pequeno = cv2.resize(cinza, _LADO, interpolation=cv2.INTER_AREA).astype(np.int16)
+        pequeno = reduzir(quadro, q.zona)
         antes, q.anterior = q.anterior, pequeno
         if antes is None:
             return None
-        return bool(float(np.mean(np.abs(pequeno - antes) > self.salto)) >= self.parte)
+        return bool(fracao_que_mudou(antes, pequeno, self.salto) >= self.parte)
 
     def quieto(self, ponto_id: str, zona_id: str) -> bool | None:
         """O quadro está quieto há um segundo e meio? `None` = não sei.
