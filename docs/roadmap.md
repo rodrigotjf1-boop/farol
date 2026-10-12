@@ -4620,9 +4620,15 @@ que ficou de fora"**. A ordem: a planilha, a porta para outro sistema, o "Mais" 
   por planilha"): o leitor da planilha no modelo do Farol, conferir e importar (o que está
   certo entra; o produto com linha errada fica inteiro de fora, com o motivo), o registro do
   que ficou de fora, a planilha de volta e o modelo. Sem tela ainda.
-- **Planilha — a tela:** a próxima entrega (a loja sem fichas com os jeitos de tê-las, a
-  importação em três passos, a etiqueta da origem). É a tela que abre o arquivo do Excel.
-- **Porta para outro sistema** e **"Mais" no celular:** depois da tela da planilha.
+- **Planilha — a tela: entregue** ([decisoes.md](decisoes.md), "as fichas por planilha — a
+  tela"): a loja sem fichas mostra os jeitos de tê-las; importar em três passos (o modelo para
+  baixar, enviar .xlsx ou .csv, conferir o que entra e o que fica de fora); a tela Fichas diz
+  "da planilha", com "Importar de novo", "Baixar a planilha" e a lista do que ficou de fora.
+  O arquivo é aberto no navegador de quem importa. Falta medir um arquivo salvo pelo Excel de
+  verdade: é o primeiro que o dono importar.
+- **Porta para outro sistema:** a próxima entrega. Refaz a tela Conexões para as três origens
+  (traz os cartões "Outro sistema" e "Planilha" e o terceiro jeito na loja sem fichas).
+- **"Mais" no celular:** depois da porta.
 - **Telas antigas que dizem "nuvem" e "versão":** o dono pediu o protótipo do antes e depois.
 
 ### O que não foi medido

@@ -261,8 +261,8 @@ describe('fichas por planilha: as rotas', { skip: !URL_DO_BANCO && 'sem DATABASE
     const t = (await fichas(minha.gerente, minha.centro)).json();
     assert.deepEqual([t.situacao, t.fonte, t.totais, t.leitura, t.podeImportar], ['sem_conexao', 'planilha', { produtos: 2, comFicha: 1 }, null, true]);
     assert.deepEqual(t.produtos.map((p: { nome: string; ingredientes: number | null }) => [p.nome, p.ingredientes]), [['Batata frita', 2], ['Água sem gás', null]]);
-    assert.deepEqual(Object.keys(t.importacao).sort(), ['arquivo', 'deFora', 'em', 'por', 'problemas']);
-    assert.deepEqual([t.importacao.arquivo, t.importacao.por, t.importacao.deFora, t.importacao.problemas], ['fichas da loja.xlsx', 'Pessoa gerente', 1, 1], 'o nome do arquivo, sem a pasta');
+    assert.deepEqual(Object.keys(t.importacao).sort(), ['arquivo', 'deFora', 'em', 'por', 'problemas', 'quais']);
+    assert.deepEqual([t.importacao.arquivo, t.importacao.por, t.importacao.deFora, t.importacao.quais, t.importacao.problemas], ['fichas da loja.xlsx', 'Pessoa gerente', 1, ['X-Burger'], 1], 'o nome do arquivo, sem a pasta');
     assert.ok(Date.now() - Date.parse(t.importacao.em) < 15_000);
     const umProduto = await app.inject({ method: 'GET', url: `/v1/lojas/${minha.centro}/fichas/produtos/${t.produtos[0].id}`, headers: { cookie: minha.supervisao } });
     assert.deepEqual([umProduto.statusCode, umProduto.json().ficha.ingredientes.map((i: { nome: string }) => i.nome)], [200, ['Batata palito', 'Sal']]);
@@ -299,6 +299,16 @@ describe('fichas por planilha: as rotas', { skip: !URL_DO_BANCO && 'sem DATABASE
     assert.deepEqual(t.produtos.map((p: { nome: string }) => p.nome), ['Suco'], 'a batata e a água saíram: a base é trocada inteira');
     assert.ok(await versaoDe(minha.centro) > versao);
     assert.ok((await baseDe(minha.centro))!.atualizada_em.getTime() >= antes.atualizada_em.getTime());
+  });
+
+  it('o resumo da lista diz QUAIS ficaram de fora — os seis primeiros, na ordem da planilha — e a conta de todos', async () => {
+    const ruins = Array.from({ length: 8 }, (_, i) => linha(`Ruim ${i + 1}`, 'x', '', 'g'));
+    assert.equal((await gravar(minha.gerente, minha.centro, { fichas: [F, ...PEQUENA.fichas.slice(1), ...ruins] })).statusCode, 200);
+    const i = (await fichas(minha.supervisao, minha.centro)).json().importacao;
+    assert.deepEqual([i.deFora, i.problemas, i.quais], [8, 8, ['Ruim 1', 'Ruim 2', 'Ruim 3', 'Ruim 4', 'Ruim 5', 'Ruim 6']]);
+    // sem ninguém de fora, a lista de nomes vem vazia
+    await gravar(minha.gerente, minha.centro, PEQUENA);
+    assert.deepEqual((await fichas(minha.gerente, minha.centro)).json().importacao.quais, []);
   });
 
   it('nenhum produto certo: nada é importado, e as fichas de antes ficam', async () => {

@@ -21,6 +21,14 @@
     <symbol id="i-mais" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
     <symbol id="i-atualizar" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.6L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.6L20 16M20 20v-4h-4"/></symbol>
     <symbol id="i-menos" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-planilha" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9.5h16M4 14.5h16M10 4v16"/></symbol>
+    <symbol id="i-baixar" viewBox="0 0 24 24"><path d="M12 4v11M7.5 11 12 15.5 16.5 11M5 20h14"/></symbol>
+    <symbol id="i-enviar" viewBox="0 0 24 24"><path d="M12 16V5M7.5 9 12 4.5 16.5 9M5 20h14"/></symbol>
+    <symbol id="i-chave" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 7l2.5 2.5M13.5 9.5 15 11"/></symbol>
+    <symbol id="i-copiar" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
+    <symbol id="i-pontos" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/></symbol>
+    <symbol id="i-conta" viewBox="0 0 24 24"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M8.5 8h7M8.5 12h2M13 12h2.5M8.5 16h2M13 16h2.5"/></symbol>
+    <symbol id="i-sistema" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
   </defs>
 </svg>
 
@@ -30,14 +38,17 @@
       <svg viewBox="0 0 26 26" aria-hidden="true"><path d="M13 3 9.5 23h7L13 3Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13 7.5 24 4v7L13 7.5Z" fill="var(--facho)"/><path d="M13 7.5 2 4v7l11-3.5Z" fill="var(--facho)" opacity="0.45"/></svg>
       Monitor Farol
     </div>
-    <a class="ir" href="#inicio" data-ir="fora"><svg class="ic" aria-hidden="true"><use href="#i-inicio"/></svg>Início</a>
-    <a class="ir" href="#canais" data-ir="fora"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg>Canais</a>
-    <a class="ir" href="#criterios" data-ir="fora"><svg class="ic" aria-hidden="true"><use href="#i-lista"/></svg>Critérios</a>
-    <a class="ir" href="#fichas" data-ir="fichas"><svg class="ic" aria-hidden="true"><use href="#i-ficha"/></svg>Fichas</a>
-    <a class="ir" href="#analises" data-ir="fora"><svg class="ic" aria-hidden="true"><use href="#i-grafico"/></svg>Análises</a>
-    <a class="ir" href="#alertas" data-ir="fora"><svg class="ic" aria-hidden="true"><use href="#i-sino"/></svg>Alertas</a>
+    <!-- a ordem é a do console de hoje; no celular, "Fichas" sai da barra e entra no "Mais" -->
+    <a class="ir" href="#painel" data-ir="fora"><svg class="ic" aria-hidden="true"><use href="#i-inicio"/></svg><span>Painel</span></a>
+    <a class="ir" href="#analises" data-ir="fora"><svg class="ic" aria-hidden="true"><use href="#i-grafico"/></svg><span>Análises</span></a>
+    <a class="ir" href="#canais" data-ir="fora"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg><span>Canais</span></a>
+    <a class="ir" href="#criterios" data-ir="fora"><svg class="ic" aria-hidden="true"><use href="#i-lista"/></svg><span>Critérios</span></a>
+    <a class="ir so-coluna" href="#fichas" data-ir="fichas"><svg class="ic" aria-hidden="true"><use href="#i-ficha"/></svg><span>Fichas</span></a>
+    <a class="ir" href="#alertas" data-ir="fora"><svg class="ic" aria-hidden="true"><use href="#i-sino"/></svg><span>Alertas</span></a>
+    <a class="ir so-coluna" href="#orcamento" data-ir="fora" data-quem="configura"><svg class="ic" aria-hidden="true"><use href="#i-conta"/></svg><span>Orçamento</span></a>
+    <button class="ir so-barra" type="button" id="mais" aria-haspopup="dialog" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-pontos"/></svg><span>Mais</span></button>
     <div class="fim">
-      <a class="ir conta" href="#conexoes" data-ir="conexoes"><svg class="ic" aria-hidden="true"><use href="#i-tomada"/></svg>Conexões</a>
+      <a class="ir conta" href="#conexoes" data-ir="conexoes" data-quem="configura"><svg class="ic" aria-hidden="true"><use href="#i-tomada"/></svg><span>Conexões</span></a>
       <div class="loja-ctx">
         <span class="suave">loja</span>
         <b>Loja Centro</b>
@@ -50,8 +61,6 @@
     <header class="topo">
       <nav class="caminho" aria-label="Onde você está" id="caminho"></nav>
       <div class="dir">
-        <!-- no celular o rodapé do trilho some: a entrada de Conexões passa para cá -->
-        <button class="btn mini so-estreito ir-topo" type="button" data-ir="conexoes"><svg class="ic p" aria-hidden="true"><use href="#i-tomada"/></svg>Conexões</button>
         <button class="btn quadrado fantasma" type="button" id="tema" aria-label="Trocar o tema" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-lua"/></svg></button>
       </div>
     </header>
@@ -65,26 +74,31 @@
 <div class="proto">
   <div class="proto-painel" id="proto-painel" hidden>
     <h2>Controles do protótipo</h2>
-    <div class="campo"><span class="rotulo">Situação da conexão</span><div class="seg" id="proto-situacao" role="group" aria-label="Situação da conexão">
-      <button type="button" data-v="nao" aria-pressed="false">sem conexão</button>
-      <button type="button" data-v="voltou" aria-pressed="false">voltou do Regem</button>
-      <button type="button" data-v="conectado" aria-pressed="true">conectado</button>
-      <button type="button" data-v="semfichas" aria-pressed="false">Regem sem fichas</button>
-      <button type="button" data-v="problema" aria-pressed="false">a busca falhou</button>
-      <button type="button" data-v="revogado" aria-pressed="false">acesso tirado no Regem</button>
+    <div class="campo"><span class="rotulo">De onde vêm as fichas da loja</span><div class="seg" id="proto-situacao" role="group" aria-label="De onde vêm as fichas da loja">
+      <button type="button" data-v="nao" aria-pressed="false">de lugar nenhum</button>
+      <button type="button" data-v="planilha" aria-pressed="false">planilha</button>
+      <button type="button" data-v="planilha-parcial" aria-pressed="false">planilha · com produtos de fora</button>
+      <button type="button" data-v="sistema-novo" aria-pressed="false">outro sistema · criado</button>
+      <button type="button" data-v="sistema" aria-pressed="false">outro sistema · enviando</button>
+      <button type="button" data-v="voltou" aria-pressed="false">Regem · voltou de lá</button>
+      <button type="button" data-v="conectado" aria-pressed="true">Regem · conectado</button>
+      <button type="button" data-v="semfichas" aria-pressed="false">Regem · sem fichas</button>
+      <button type="button" data-v="problema" aria-pressed="false">Regem · a busca falhou</button>
+      <button type="button" data-v="revogado" aria-pressed="false">Regem · acesso tirado</button>
       <button type="button" data-v="carregando" aria-pressed="false">carregando</button>
       <button type="button" data-v="erro" aria-pressed="false">sem resposta</button>
     </div></div>
     <div class="campo"><span class="rotulo">Quem olha</span><div class="seg" id="proto-perfil" role="group" aria-label="Quem olha">
       <button type="button" data-v="diretoria" aria-pressed="true">diretoria</button>
       <button type="button" data-v="gerente" aria-pressed="false">gerente</button>
+      <button type="button" data-v="supervisao" aria-pressed="false">supervisão</button>
     </div></div>
     <div class="campo"><span class="rotulo">Tema</span><div class="seg" id="proto-tema" role="group" aria-label="Tema">
       <button type="button" data-v="" aria-pressed="true">do aparelho</button>
       <button type="button" data-v="dark" aria-pressed="false">escuro</button>
       <button type="button" data-v="light" aria-pressed="false">claro</button>
     </div></div>
-    <p class="nota">Os dados são de exemplo. “Conectar ao Regem” leva, de verdade, à página de autorização do Regem; aqui o protótipo simula a volta.</p>
+    <p class="nota">Os dados são de exemplo. Nada é enviado nem baixado de verdade: a planilha, o código de acesso e a ida ao Regem são simulados.</p>
   </div>
   <button class="btn mini" type="button" id="proto-abrir" aria-expanded="false" aria-controls="proto-painel"><svg class="ic p" aria-hidden="true"><use href="#i-ajustes"/></svg>Protótipo</button>
 </div>

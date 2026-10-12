@@ -1509,12 +1509,50 @@ export type FichasDaLoja = {
   podeConectar: boolean;
   /** Quem configura a loja pede a busca na hora; a supervisão só vê. Quem decide é a API. */
   podeBuscar: boolean;
+  /** Quem configura importa planilha — na loja que não está ligada ao Regem (uma origem por loja). */
+  podeImportar: boolean;
   /** De onde as fichas vieram. Nulo = a loja não tem fichas guardadas. */
-  fonte: 'regem' | null;
+  fonte: 'regem' | 'planilha' | null;
+  /** A última importação por planilha (só quando a origem é `planilha`). */
+  importacao: { arquivo: string; em: string; por: string; deFora: number; quais: string[]; problemas: number } | null;
   regemLojaNome: string | null;
   leitura: LeituraDasFichas | null;
   totais: { produtos: number; comFicha: number } | null;
   produtos: ProdutoNaLista[];
+};
+
+// ───────────────────────── as fichas por planilha ─────────────────────────
+
+/** Um problema da planilha: onde está e o que fazer. */
+export type ProblemaDaPlanilha = { aba: string; linha: number; texto: string; corrigir: string };
+/** Um produto que ficou de fora, com o motivo de cada linha. */
+export type ProdutoDeFora = { produto: string; problemas: ProblemaDaPlanilha[] };
+
+/** O que a conferência (ou a importação) diz da planilha. */
+export type RelatorioDaPlanilha = {
+  contas: { produtos: number; comFicha: number; ingredientes: number; variacoes: number; adicionais: number; combos: number };
+  /** Os produtos que entram sem ficha (não é problema). */
+  semFicha: string[];
+  deFora: ProdutoDeFora[];
+  /** Os problemas que não são de um produto. */
+  soltos: ProblemaDaPlanilha[];
+  /** Quantos problemas ao todo (a lista pode vir cortada). */
+  problemas: number;
+};
+
+export type ConferenciaDaPlanilha = RelatorioDaPlanilha & {
+  gravado: boolean;
+  resultado?: 'atualizada' | 'nada_mudou';
+  /** O que a loja tem hoje e seria trocado. Nulo = não tem nada. */
+  troca: { produtos: number; comFicha: number } | null;
+};
+
+/** O modelo, como o servidor o lê: as abas com os títulos e um exemplo. */
+export type ModeloDaPlanilha = {
+  abas: Record<'fichas' | 'variacoes' | 'adicionais' | 'combos', Array<Array<string | number>>>;
+  nomes: Record<'fichas' | 'variacoes' | 'adicionais' | 'combos', string>;
+  colunas: Record<'fichas' | 'variacoes' | 'adicionais' | 'combos', string[]>;
+  unidades: string[];
 };
 
 export const fichasApi = {
@@ -1525,4 +1563,21 @@ export const fichasApi = {
   /** Pede uma leitura na hora. `nada_mudou`: o que a loja tinha continua valendo. */
   buscar: (lojaId: string) =>
     pedir<{ resultado: 'atualizada' | 'nada_mudou'; produtos: number; comFicha: number }>(`/lojas/${lojaId}/fichas/buscar`, { method: 'POST' }),
+
+  /** O modelo da planilha (as abas, os títulos, as unidades e um exemplo). */
+  modelo: () => pedir<ModeloDaPlanilha>('/fichas/modelo'),
+
+  /** Confere a planilha sem gravar: o que entraria e o que ficaria de fora. */
+  conferir: (lojaId: string, arquivo: string, abas: unknown) =>
+    pedir<ConferenciaDaPlanilha>(`/lojas/${lojaId}/fichas/importar`, { method: 'POST', body: JSON.stringify({ arquivo, abas }) }),
+
+  /** Importa o que está certo: a base da loja é trocada inteira. */
+  importar: (lojaId: string, arquivo: string, abas: unknown) =>
+    pedir<ConferenciaDaPlanilha>(`/lojas/${lojaId}/fichas/importar`, { method: 'POST', body: JSON.stringify({ arquivo, abas, gravar: true }) }),
+
+  /** O registro da última importação, com a lista do que ficou de fora. */
+  importacao: (lojaId: string) => pedir<RelatorioDaPlanilha & { arquivo: string; em: string; por: string }>(`/lojas/${lojaId}/fichas/importacao`),
+
+  /** As fichas da loja de volta em planilha, no modelo. */
+  planilha: (lojaId: string) => pedir<Pick<ModeloDaPlanilha, 'abas' | 'nomes'>>(`/lojas/${lojaId}/fichas/planilha`),
 };
