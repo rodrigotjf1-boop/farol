@@ -5307,3 +5307,31 @@ entre as lojas; o peso, na internet da loja, da imagem na resolução da câmera
 modo local, com o modelo dentro dela, que continuaria precisando das instruções lá (não
 existe hoje).
 
+## 12/10/2026 (noite) · O borrão de rosto desligava calado em pasta com acento (ERR-111)
+
+Achado ao rodar a suíte do agente contra o pacote compilado, num espelho debaixo de
+`C:\Users\Usuário\…`: o detector de rosto não abria, com o arquivo do modelo no lugar certo.
+
+**O defeito.** O leitor de modelo do OpenCV abre o arquivo pela API ANSI do Windows, como o
+`imread` (ERR-001). Com acento em qualquer pasta do caminho ele não abre; o agente tratava
+isso como "não há detector nesta instalação", avisava uma vez no registro e seguia — com o
+borrão ligado no critério, a imagem ia adiante com o rosto. Na loja do piloto o caminho não
+tem acento (`C:\Farol\agent`), e o borrão sempre abriu; num computador instalado debaixo do
+nome de uma pessoa, não abriria.
+
+**Medido** (12/10, OpenCV 5.0.0, o mesmo arquivo, numa pasta com acento): pelo caminho,
+falha; pelos bytes lidos pelo Python, abre e detecta. O ONNX Runtime 1.31, que carrega o
+detector de presença e o vetor, abre pelo caminho com acento — não tinha o defeito.
+
+**A correção.** O agente lê o arquivo e entrega os bytes ao OpenCV (`pipeline/recorte.py`,
+`_abrir_yunet`), com os mesmos limiares. Se o OpenCV instalado não souber abrir pelos bytes,
+vale o caminho, como antes.
+
+Conferido: 6 testes novos em `agent/testes/test_borrao.py` — a pasta com acento; os bytes
+entregues; a reserva pelo caminho, em três casos; o arquivo que sumiu — e 15 mutações,
+nenhuma viva. A suíte do agente passa.
+
+**O que fica.** A correção chega à loja na troca de pacote seguinte à desta madrugada (o
+pacote `b9c99de` já estava lá quando o defeito foi achado). A loja do piloto não é afetada
+enquanto isso.
+

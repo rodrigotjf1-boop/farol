@@ -179,6 +179,8 @@ _avisou = False
 
 # YuNet: Apache 2.0, ~340 KB, do OpenCV Zoo. Baixar para `modelos/`.
 _MODELO_YUNET = "face_detection_yunet_2023mar.onnx"
+# O tamanho com que o detector nasce; cada detecção acerta o dela.
+_ENTRADA_YUNET = (320, 320)
 
 
 def _pastas_de_modelo() -> list[Path]:
@@ -187,6 +189,29 @@ def _pastas_de_modelo() -> list[Path]:
     pastas.append(Path(__file__).resolve().parent.parent / "modelos")
     pastas.append(Path.cwd() / "modelos")
     return pastas
+
+
+def _abrir_yunet(caminho: Path):
+    """Abre o YuNet pelos BYTES do arquivo, e não pelo caminho.
+
+    O leitor de modelo do OpenCV abre o arquivo pela API ANSI do Windows,
+    como o `imread` (ERR-001): com acento em QUALQUER pasta do caminho ele
+    não abre. Aqui a falha desligava o borrão de rosto em silêncio — só um
+    aviso no registro, e a imagem seguia com o rosto (ERR-111). Medido em
+    12/10/2026, no OpenCV 5.0: o mesmo arquivo abre pelos bytes e não abre
+    de dentro de `…\\Usuário\\…`. Quem lê o arquivo é o Python, que é
+    Unicode — a mesma volta de `farol_agent.imagens`.
+
+    O OpenCV que só sabe abrir pelo caminho continua atendido.
+    """
+    criar = getattr(getattr(cv2, "FaceDetectorYN", None), "create", None)
+    if criar is not None:
+        try:
+            dados = np.fromfile(str(caminho), dtype=np.uint8)
+            return criar("onnx", dados, np.empty(0, dtype=np.uint8), _ENTRADA_YUNET, 0.6, 0.3, 5000)
+        except (cv2.error, TypeError, OSError):
+            pass
+    return cv2.FaceDetectorYN_create(str(caminho), "", _ENTRADA_YUNET, 0.6, 0.3, 5000)
 
 
 def _obter_detector():
@@ -208,9 +233,7 @@ def _obter_detector():
             if caminho.is_file():
                 try:
                     with _opencv_sem_aviso():
-                        _detector = cv2.FaceDetectorYN_create(
-                            str(caminho), "", (320, 320), 0.6, 0.3, 5000
-                        )
+                        _detector = _abrir_yunet(caminho)
                     return _detector
                 except cv2.error:
                     pass

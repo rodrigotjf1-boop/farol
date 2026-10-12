@@ -222,6 +222,118 @@ def test_o_detector_de_rosto_viaja_no_pacote(monkeypatch):
     assert recorte._caixas_de_rosto(_quadro().imagem) is not None
 
 
+# ─────────── o modelo abre de qualquer pasta, com acento ou sem (ERR-111) ───────────
+# O PC de loja costuma ter acento no caminho (`C:\Users\João`), e o leitor de
+# modelo do OpenCV não abre arquivo em caminho assim. O borrão desligava calado:
+# um aviso no registro, e a imagem seguia com o rosto.
+
+
+def _modelo_de_fabrica():
+    return next(
+        p / recorte._MODELO_YUNET
+        for p in recorte._pastas_de_modelo()
+        if (p / recorte._MODELO_YUNET).is_file()
+    )
+
+
+def test_o_detector_de_rosto_abre_de_pasta_com_acento(monkeypatch, tmp_path):
+    import shutil
+
+    pasta = tmp_path / "configuração da loja" / "modelos"
+    pasta.mkdir(parents=True)
+    shutil.copyfile(_modelo_de_fabrica(), pasta / recorte._MODELO_YUNET)
+
+    # Só a pasta com acento: é dela que o modelo tem de abrir.
+    monkeypatch.setattr(recorte, "_pastas_de_modelo", lambda: [pasta])
+    monkeypatch.setattr(recorte, "_detector", None)
+
+    detector = recorte._obter_detector()
+
+    assert detector is not None, "com acento no caminho o borrão de rosto ficava desligado"
+    assert hasattr(detector, "setInputSize"), "tem de ser o detector do modelo, e não um substituto"
+    assert recorte._caixas_de_rosto(_quadro().imagem) is not None
+
+
+def _arquivo_de_mentira(tmp_path):
+    arquivo = tmp_path / "modelos" / recorte._MODELO_YUNET
+    arquivo.parent.mkdir()
+    arquivo.write_bytes(b"\x08\x01os-bytes-do-modelo")
+    return arquivo
+
+
+def test_o_modelo_de_rosto_e_entregue_ao_opencv_pelos_bytes(monkeypatch, tmp_path):
+    # Vale em qualquer sistema: quem lê o arquivo é o Python, e o OpenCV só
+    # recebe os bytes — do caminho ele não fica sabendo.
+    arquivo = _arquivo_de_mentira(tmp_path)
+    chamadas = []
+
+    class Fabrica:
+        @staticmethod
+        def create(*args):
+            chamadas.append(args)
+            return "aberto-pelos-bytes"
+
+    monkeypatch.setattr(cv2, "FaceDetectorYN", Fabrica, raising=False)
+    monkeypatch.setattr(
+        cv2, "FaceDetectorYN_create", lambda *a: pytest.fail("abriu pelo caminho"), raising=False
+    )
+
+    assert recorte._abrir_yunet(arquivo) == "aberto-pelos-bytes"
+
+    ((formato, modelo, configuracao, entrada, *limiares),) = chamadas
+    assert formato == "onnx"
+    assert modelo.dtype == np.uint8 and modelo.tobytes() == b"\x08\x01os-bytes-do-modelo"
+    assert configuracao.dtype == np.uint8 and configuracao.size == 0
+    assert tuple(entrada) == (320, 320)
+    assert limiares == [0.6, 0.3, 5000]
+
+
+@pytest.mark.parametrize(
+    "falha",
+    [cv2.error("não sei abrir pelos bytes"), TypeError("assinatura de antes"), None],
+    ids=["o-opencv-recusa-os-bytes", "a-assinatura-e-a-antiga", "nao-ha-como-abrir-pelos-bytes"],
+)
+def test_o_opencv_que_so_abre_pelo_caminho_continua_atendido(monkeypatch, tmp_path, falha):
+    arquivo = _arquivo_de_mentira(tmp_path)
+    pelo_caminho = []
+
+    class Fabrica:
+        @staticmethod
+        def create(*args):
+            raise falha
+
+    if falha is None:
+        monkeypatch.delattr(cv2, "FaceDetectorYN", raising=False)
+    else:
+        monkeypatch.setattr(cv2, "FaceDetectorYN", Fabrica, raising=False)
+    monkeypatch.setattr(
+        cv2, "FaceDetectorYN_create", lambda *a: pelo_caminho.append(a) or "aberto-pelo-caminho", raising=False
+    )
+
+    assert recorte._abrir_yunet(arquivo) == "aberto-pelo-caminho"
+    assert pelo_caminho == [(str(arquivo), "", (320, 320), 0.6, 0.3, 5000)]
+
+
+def test_o_arquivo_que_sumiu_nao_derruba_quem_procura_o_detector(monkeypatch, tmp_path):
+    # O arquivo some entre o "existe?" e a leitura: vale a regra de sempre —
+    # o OpenCV diz que não abriu, e quem procura segue para a pasta seguinte.
+    sumiu = tmp_path / "modelos" / recorte._MODELO_YUNET
+
+    class Fabrica:
+        @staticmethod
+        def create(*args):
+            pytest.fail("não há bytes para entregar")
+
+    def pelo_caminho(*a):
+        raise cv2.error("arquivo não encontrado")
+
+    monkeypatch.setattr(cv2, "FaceDetectorYN", Fabrica, raising=False)
+    monkeypatch.setattr(cv2, "FaceDetectorYN_create", pelo_caminho, raising=False)
+
+    with pytest.raises(cv2.error):
+        recorte._abrir_yunet(sumiu)
+
+
 # ─────────────── os dois caminhos por onde a imagem sai da loja ───────────────
 
 
