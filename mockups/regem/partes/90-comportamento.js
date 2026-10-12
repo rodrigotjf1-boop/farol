@@ -95,13 +95,20 @@
     ['Adicionais', 'o que o cliente pode pedir a mais ou tirar', 'Produto · Adicional · O que faz (acrescenta, tira ou só observação) · Ingrediente · Quantidade · Unidade'],
     ['Combos', 'produto feito de outros produtos', 'Combo · Produto que vem nele · Quantidade']
   ];
-  var PROBLEMAS = [
-    ['linha 6', 'X-Burger · Queijo prato: falta a quantidade.', 'Preencha a coluna Quantidade.'],
-    ['linha 11', 'X-Salada · Alface: a unidade “fls” não está na lista.', 'Use uma destas: ' + UNIDADES + '.'],
-    ['linha 19', 'Batata frita: o produto aparece em dois blocos de linhas, separados por outro produto.', 'Junte as linhas do produto, uma embaixo da outra, na ordem da montagem.']
+  // Decisão do dono (11/10/2026): "entra o que está certo e a tela lista o que ficou de fora".
+  // O grão é o PRODUTO: o que tem uma linha errada fica inteiro de fora — e o combo que o leva, junto.
+  var DE_FORA = [
+    { produto: 'X-Burger', problemas: [
+      ['Fichas', 4, 'falta a quantidade.', 'Preencha a coluna Quantidade.'],
+      ['Adicionais', 3, 'o produto não tem “Tomate” na ficha, para tirar.', 'Escreva o ingrediente igual ao da aba Fichas.']
+    ] },
+    { produto: 'X-Salada', problemas: [['Fichas', 11, 'a unidade “fls” não está na lista.', 'Use uma destas: ' + UNIDADES + '.']] },
+    { produto: 'Combo da casa', problemas: [['Combos', 2, 'o produto “X-Burger”, que vem neste combo, ficou de fora.', 'Corrija o produto “X-Burger” e envie de novo.']] }
   ];
+  function nomesDeFora() { return DE_FORA.map(function (d) { return d.produto; }); }
+  function quantosProblemas() { return DE_FORA.reduce(function (n, d) { return n + d.problemas.length; }, 0); }
 
-  var SITUACOES = ['nao', 'planilha', 'sistema-novo', 'sistema', 'voltou', 'conectado', 'semfichas', 'problema', 'revogado', 'carregando', 'erro'];
+  var SITUACOES = ['nao', 'planilha', 'planilha-parcial', 'sistema-novo', 'sistema', 'voltou', 'conectado', 'semfichas', 'problema', 'revogado', 'carregando', 'erro'];
   var DO_REGEM = ['voltou', 'conectado', 'semfichas', 'problema', 'revogado'];
   var est = { tela: 'fichas', situacao: 'conectado', perfil: 'diretoria', filtro: 'todos', busca: '', pares: {}, acessos: [], imp: null, novo: null };
   LOJAS_DO_REGEM.forEach(function (r) { est.pares[r.id] = r.sugestao; });
@@ -110,7 +117,7 @@
   // quem configura a loja: importa a planilha e pede a busca. A supervisão só vê.
   function configura() { return est.perfil !== 'supervisao'; }
   function origem() {
-    if (est.situacao === 'planilha') return 'planilha';
+    if (est.situacao === 'planilha' || est.situacao === 'planilha-parcial') return 'planilha';
     if (est.situacao === 'sistema' || est.situacao === 'sistema-novo') return 'sistema';
     if (DO_REGEM.indexOf(est.situacao) >= 0) return 'regem';
     return 'nenhuma';
@@ -118,8 +125,10 @@
   // ligada ao Regem (as duas lojas do exemplo): uma loja recebe as fichas de um lugar só
   function ligadaAoRegem() { return ['conectado', 'semfichas', 'problema', 'revogado'].indexOf(est.situacao) >= 0; }
   // com o acesso tirado no Regem as fichas são apagadas (a mesma regra do desconectar): a loja fica sem fichas
-  function temFichas() { return ['conectado', 'semfichas', 'problema', 'planilha', 'sistema'].indexOf(est.situacao) >= 0; }
+  function temFichas() { return ['conectado', 'semfichas', 'problema', 'planilha', 'planilha-parcial', 'sistema'].indexOf(est.situacao) >= 0; }
   function produtos() {
+    // a planilha que entrou em parte: só o que estava certo está na base
+    if (est.situacao === 'planilha-parcial') return PRODUTOS.filter(function (p) { return nomesDeFora().indexOf(p.nome) < 0; });
     if (est.situacao !== 'semfichas') return PRODUTOS;
     return PRODUTOS.map(function (p) { var c = {}; for (var k in p) c[k] = p[k]; c.ficha = null; return c; });
   }
@@ -139,6 +148,11 @@
   function avisoDaLeitura() {
     if (est.situacao === 'problema') {
       return '<div class="aviso fora" role="status">' + ic('alerta') + '<div><b>O Farol não conseguiu ler o Regem na busca de hoje, às 04:10.</b> As fichas abaixo são as de ontem. Ele tenta de novo sozinho' + comOBotao('; para tentar já, use “Buscar agora”.', '.') + '</div></div>';
+    }
+    if (est.situacao === 'planilha-parcial') {
+      // o que ficou de fora continua à mão depois de importar — só para quem importa
+      return '<div class="aviso facho" role="status">' + ic('info') + '<div><b>' + plural(DE_FORA.length, 'produto da planilha ficou', 'produtos da planilha ficaram') + ' de fora</b> na importação de hoje, às 14:02: ' + esc(nomesDeFora().join(', ')) + '.' +
+        (configura() ? ' <button class="btn mini" type="button" data-ver-de-fora id="ver-de-fora">Ver o que ficou de fora</button>' : ' Quem importa a planilha vê o motivo de cada um.') + '</div></div>';
     }
     if (est.situacao === 'semfichas') {
       return '<div class="aviso facho" role="status">' + ic('info') + '<div><b>O Regem desta loja ainda não tem fichas técnicas.</b> Sem ficha, o Farol sabe o que foi pedido, mas não como o produto é montado. As fichas se cadastram no Regem, em <b>Estoque › Fichas técnicas</b>' + comOBotao('; depois, use “Buscar agora” para trazê-las.', '; depois, elas chegam aqui na busca do dia seguinte.') + '</div></div>';
@@ -288,25 +302,48 @@
       s += '<p class="nota">O modelo já vem com as abas, os títulos das colunas e duas fichas de exemplo para apagar. Coluna que não é do modelo é ignorada. Preço e custo não são pedidos: o Farol não usa.</p>';
       pe = '<button class="btn" type="button" data-baixar="modelo" data-foco>' + ic('baixar', 'p') + 'Baixar o modelo</button><button class="btn cheio" type="button" data-imp-passo="2">Já tenho a planilha preenchida</button>';
     } else if (i.passo === 2) {
-      s += '<div class="soltar">' + ic('enviar', 'g') + '<p>Escolha a planilha preenchida. O Farol confere tudo antes de gravar: <b>nada entra pela metade</b>.</p><label class="sr" for="imp-arquivo">A planilha preenchida</label><input type="file" id="imp-arquivo" accept=".xlsx,.csv" data-foco><p class="nota">Aceita .xlsx e .csv, até 2 MB.</p></div>';
-      s += '<div class="so-proto"><span>só no protótipo</span><div class="linha-acoes"><button class="btn mini" type="button" data-imp-simular="certa">Simular uma planilha certa</button><button class="btn mini" type="button" data-imp-simular="problemas">Simular uma planilha com problemas</button></div></div>';
+      s += '<div class="soltar">' + ic('enviar', 'g') + '<p>Escolha a planilha preenchida. O Farol confere tudo antes de gravar, e mostra <b>o que entra e o que fica de fora</b>.</p><label class="sr" for="imp-arquivo">A planilha preenchida</label><input type="file" id="imp-arquivo" accept=".xlsx,.csv" data-foco><p class="nota">Aceita .xlsx e .csv, até 2 MB.</p></div>';
+      s += '<div class="so-proto"><span>só no protótipo</span><div class="linha-acoes"><button class="btn mini" type="button" data-imp-simular="certa">Simular uma planilha certa</button><button class="btn mini" type="button" data-imp-simular="problemas">Simular uma com problemas</button><button class="btn mini" type="button" data-imp-simular="nada">Simular uma toda errada</button></div></div>';
       pe = '<button class="btn" type="button" data-imp-passo="1">Voltar ao modelo</button>';
-    } else if (i.resultado === 'problemas') {
-      s += '<div class="aviso fora" role="alert">' + ic('alerta') + '<div><b>A planilha tem ' + plural(PROBLEMAS.length, 'problema', 'problemas') + ', e nada foi importado.</b> Corrija na planilha e envie de novo. As fichas que a loja tem continuam como estavam.</div></div>';
-      s += '<ul class="problemas" aria-label="O que corrigir">';
-      PROBLEMAS.forEach(function (p) { s += '<li><span class="onde">' + esc(p[0]) + '</span><span>' + esc(p[1]) + '<small>' + esc(p[2]) + '</small></span></li>'; });
-      s += '</ul>';
+    } else if (i.resultado === 'nada') {
+      s += '<div class="aviso fora" role="alert">' + ic('alerta') + '<div><b>Nenhum produto da planilha está certo, e nada foi importado.</b> Corrija o que a lista aponta e envie de novo. As fichas que a loja tem continuam como estavam.</div></div>';
+      s += listaDeFora();
       pe = '<button class="btn" type="button" data-imp-passo="1">Voltar ao modelo</button><button class="btn cheio" type="button" data-imp-passo="2" data-foco>Enviar a planilha corrigida</button>';
+    } else if (i.resultado === 'problemas') {
+      var entram = PRODUTOS.length - DE_FORA.length;
+      s += '<div class="aviso facho" role="status">' + ic('info') + '<div><b>' + plural(DE_FORA.length, 'produto fica', 'produtos ficam') + ' de fora; os outros ' + entram + ' entram.</b> O produto com uma linha errada fica inteiro de fora, para o Farol não conferir a montagem contra meia ficha. Nada foi gravado ainda.</div></div>';
+      s += '<div class="bloco"><h3>O que entra</h3><div class="contas"><span class="chip">' + entram + ' produtos</span><span class="chip ok">1 com ficha</span><span class="chip">2 ingredientes</span><span class="chip">4 variações</span><span class="chip">1 adicional</span></div></div>';
+      s += '<div class="bloco"><h3>O que fica de fora, e por quê</h3>' + listaDeFora() + '<p class="nota">Esta lista continua à mão depois de importar, na tela Fichas.</p></div>';
+      if (temFichas()) {
+        s += '<div class="aviso">' + ic('info') + '<div><b>Importar troca todas as fichas da Loja Centro</b> — as da planilha importada hoje, às 14:02, saem e estas entram no lugar.</div></div>';
+      }
+      pe = '<button class="btn" type="button" data-imp-passo="2">Enviar outra planilha</button><button class="btn cheio" type="button" data-imp-gravar="parcial" data-foco>Importar os ' + entram + ' que estão certos</button>';
     } else {
       s += '<div class="aviso" role="status">' + ic('certo') + '<div><b>A planilha está certa.</b> Nada foi gravado ainda: confira os números e importe.</div></div>';
       s += '<div class="contas"><span class="chip">7 produtos</span><span class="chip ok">3 com ficha</span><span class="chip">14 ingredientes</span><span class="chip">4 variações</span><span class="chip">8 adicionais</span><span class="chip">1 combo</span></div>';
       s += '<div class="aviso">' + ic('info') + '<div><b>3 produtos entram sem ficha</b>, porque não têm ingrediente na planilha: Milk-shake, Refrigerante lata e Água sem gás. Para o que não passa pela cozinha, não faz falta.</div></div>';
-      if (est.situacao === 'planilha') {
+      if (temFichas()) {
         s += '<div class="aviso facho">' + ic('info') + '<div><b>Importar troca todas as fichas da Loja Centro</b> — as da planilha importada hoje, às 14:02, saem e estas entram no lugar.</div></div>';
       }
-      pe = '<button class="btn" type="button" data-imp-passo="2">Enviar outra planilha</button><button class="btn cheio" type="button" data-imp-gravar data-foco>Importar</button>';
+      pe = '<button class="btn" type="button" data-imp-passo="2">Enviar outra planilha</button><button class="btn cheio" type="button" data-imp-gravar="tudo" data-foco>Importar</button>';
     }
     return s + '</div><div class="folha-pe">' + pe + '</div></aside>';
+  }
+  // o que ficou de fora, produto por produto, com a aba, a linha e o que fazer
+  function listaDeFora() {
+    var s = '<ul class="de-fora" aria-label="O que fica de fora">';
+    DE_FORA.forEach(function (d) {
+      s += '<li><b>' + esc(d.produto) + '</b><ul class="problemas">';
+      d.problemas.forEach(function (p) { s += '<li><span class="onde">' + esc(p[0]) + ', linha ' + p[1] + '</span><span>' + esc(p[2]) + '<small>' + esc(p[3]) + '</small></span></li>'; });
+      s += '</ul></li>';
+    });
+    return s + '</ul>';
+  }
+  // depois de importar: a mesma lista, para quem vai corrigir a planilha
+  function folhaDeFora() {
+    return '<aside class="folha estreita" role="dialog" aria-modal="true" aria-labelledby="fora-titulo"><div class="folha-cab"><div><h2 id="fora-titulo">O que ficou de fora</h2><p>fichas-da-loja.xlsx · importada hoje, 14:02, por Gil Prado</p></div><button class="btn quadrado fantasma" type="button" data-fechar aria-label="Fechar" data-foco>' + ic('x') + '</button></div><div class="folha-corpo">' +
+      '<p>' + plural(DE_FORA.length, 'produto', 'produtos') + ' e ' + plural(quantosProblemas(), 'linha para corrigir', 'linhas para corrigir') + '. Os outros produtos da planilha entraram.</p>' + listaDeFora() +
+      '</div><div class="folha-pe"><p class="nota">Corrija na planilha e importe de novo: a importação troca todas as fichas da loja.</p><button class="btn" type="button" data-fechar>Fechar</button></div></aside>';
   }
 
   /* ─────────── a tela Conexões (da conta) ─────────── */
@@ -410,7 +447,7 @@
     return s + '</div></section>';
   }
   function cartaoPlanilha() {
-    var s = '<section class="cartao" aria-labelledby="t-planilha"><header><h2 id="t-planilha">Planilha</h2>' + (est.situacao === 'planilha' ? '<span class="chip ok">Loja Centro · importada hoje, 14:02</span>' : '') + '</header><div class="miolo">';
+    var s = '<section class="cartao" aria-labelledby="t-planilha"><header><h2 id="t-planilha">Planilha</h2>' + (origem() === 'planilha' ? '<span class="chip ok">Loja Centro · importada hoje, 14:02</span>' : '') + '</header><div class="miolo">';
     s += '<p>Sem sistema, ou com as fichas no Excel? Dá para importar por planilha, loja por loja, na tela Fichas de cada uma. O modelo já vem com as colunas.</p>';
     s += '<div class="linha-acoes"><button class="btn" type="button" data-ir="fichas">' + ic('ficha', 'p') + 'Ir para Fichas da Loja Centro</button><button class="btn" type="button" data-baixar="modelo">' + ic('baixar', 'p') + 'Baixar o modelo</button></div>';
     return s + '</div></section>';
@@ -439,7 +476,7 @@
     var tem = false;
     est.acessos.forEach(function (a) { if (a.loja === id) tem = true; });
     if (tem) return 'sistema';
-    if (id === 'centro' && est.situacao === 'planilha') return 'planilha';
+    if (id === 'centro' && origem() === 'planilha') return 'planilha';
     return 'livre';
   }
   function folhaNovoAcesso() {
@@ -609,14 +646,16 @@
     if (t.closest('[data-importar]')) { est.imp = { passo: 1, resultado: null }; abrir(folhaImportar(), '#abrir-importar'); return; }
     if ((el = t.closest('[data-imp-passo]'))) { passoDaImportacao(Number(el.getAttribute('data-imp-passo'))); return; }
     if ((el = t.closest('[data-imp-simular]'))) { passoDaImportacao(3, el.getAttribute('data-imp-simular')); return; }
-    if (t.closest('[data-imp-gravar]')) {
+    if ((el = t.closest('[data-imp-gravar]'))) {
+      var parcial = el.getAttribute('data-imp-gravar') === 'parcial';
       limparSobre();
       voltarPara = null;
-      aplicarSituacao('planilha');
-      avisar('Fichas importadas: 7 produtos, 3 com ficha.');
+      aplicarSituacao(parcial ? 'planilha-parcial' : 'planilha');
+      avisar(parcial ? 'Fichas importadas: ' + (PRODUTOS.length - DE_FORA.length) + ' produtos entraram e ' + DE_FORA.length + ' ficaram de fora.' : 'Fichas importadas: 7 produtos, 3 com ficha.');
       tela.focus();
       return;
     }
+    if (t.closest('[data-ver-de-fora]')) { abrir(folhaDeFora(), '#ver-de-fora'); return; }
     // o Regem
     if (t.closest('[data-conectar]')) {
       avisar('No console, aqui você vai para o Regem e autoriza. O protótipo já simula a volta.', true);

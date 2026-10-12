@@ -70,7 +70,12 @@
 .so-proto > span { font: 500 12px/1.5 var(--f-dado); color: var(--facho-texto); text-transform: uppercase; letter-spacing: 0.04em; }
 .contas { display: flex; flex-wrap: wrap; gap: 8px; }
 .problemas { list-style: none; margin: 0; padding: 0; display: grid; border: 1px solid var(--fio); border-radius: 8px; overflow: hidden; }
-.problemas li { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 4px 12px; padding: 10px 12px; border-top: 1px solid var(--fio); font-size: 14px; }
+.problemas li { display: grid; grid-template-columns: 138px minmax(0, 1fr); gap: 4px 12px; padding: 10px 12px; border-top: 1px solid var(--fio); font-size: 14px; }
+/* o que ficou de fora, produto por produto */
+.de-fora { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.de-fora > li { display: grid; gap: 6px; min-width: 0; }
+.de-fora > li > b { font-weight: 600; overflow-wrap: anywhere; }
+.aviso .btn.mini { margin-top: 8px; display: flex; width: fit-content; }
 .problemas li:first-child { border-top: 0; }
 .problemas .onde { font: 500 12.5px/1.6 var(--f-dado); color: var(--fora); }
 .problemas small { display: block; color: var(--suave); font-size: 13px; }
