@@ -5120,3 +5120,55 @@ como estavam.
 O custo no computador da loja, ao vivo: aparece no uso da máquina que o agente já manda,
 comparando os dias de antes e de depois da troca do pacote.
 
+## 12/10/2026 (noite) · A fatia 1.1 medida na loja — e o que a medida pediu em seguida (fatia 1.1b)
+
+### A medida
+
+Com a loja aberta (19h08 a 19h18 de 12/10), o pacote trocado às 16h43 e os mesmos dois
+critérios de presença de antes. Um roteiro de leitura olhou a fila do agente de meio em
+meio segundo e anotou, com o relógio de parede, quando cada análise capturada passou a ter
+resposta. Só leitura, só números; o roteiro foi apagado da loja em seguida.
+
+| da imagem capturada até a resposta existir | antes (11/10, pacote anterior) | depois (12/10, 19h08–19h18) |
+|---|---|---|
+| critério do canal que a volta abre primeiro | mediana de 13 s; 9 em 10 em até 32 s | mediana de 2,9 s; 9 em 10 em até 3,6 s; a maior, 3,7 s (19 análises) |
+| critério do canal que a volta abre por último | mediana de 11 s; 9 em 10 em até 21 s | mediana de 1,3 s; 9 em 10 em até 1,6 s; a maior, 1,7 s (24 análises) |
+
+Em 92% das leituras a fila estava vazia; o item que mais esperou foi visto esperando 3,2 s
+depois da captura. Das 43 análises, 14 entraram e saíram entre duas leituras. O registro do
+agente desde a troca não tem aviso nem erro.
+
+Duas ressalvas da medida: os números de antes são do relógio do próprio motor, lidos da
+fila, e os de depois são do relógio de parede, com até 1,5 s a mais (a fila guarda a hora
+da captura sem a fração de segundo, e a leitura é de meio em meio segundo) — a diferença
+real é um pouco maior do que a tabela mostra. E o campo "julgado em" da fila deixou de
+servir para medir espera: depois da correção ele é o relógio da volta, adiantado até o
+quadro mais novo.
+
+### O que ela pediu
+
+O critério do primeiro canal leva 1,6 s a mais que o do último. É o tempo de abrir o
+segundo canal: a volta abre os canais um a um, e só julgava no fim. Com dois canais é
+pouco; com seis, a resposta do primeiro esperaria a abertura de cinco — perto de oito
+segundos, pela conta (cada canal leva de um a dois segundos para abrir).
+
+### O que entra (fatia 1.1b)
+
+**O que o detector julga na loja sai logo depois de cada canal**, antes de o seguinte ser
+aberto — na olhada de rotina e na olhada extra do vigia. O que vai à nuvem continua no fim
+da volta: uma chamada de segundos no meio da captura atrasaria os canais que faltam. O
+aviso que nasce no meio da captura é devolvido pela volta e sobe nela, como antes.
+
+Conferido: 8 testes novos (`agent/testes/test_julgar_por_canal.py`), com três canais e um
+diário da ordem em que as coisas acontecem — captura do canal, detector daquele canal,
+captura do seguinte —; a nuvem só depois da última captura; a falha no meio que não impede
+os outros canais; o aviso que não se perde. 10 mutações, nenhuma viva. A suíte do agente
+passa.
+
+### O que não foi medido
+
+O ganho da fatia 1.1b na loja: só com a troca do pacote. Com os dois canais de hoje a conta
+dá perto de 1,6 s a menos no critério do primeiro canal. E o tempo até o aviso **chegar a
+alguém** (o envio para o servidor e dali para a pessoa) continua sem medida de ponta a
+ponta: o que se mediu foi até a resposta existir na loja.
+
