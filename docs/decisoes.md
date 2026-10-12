@@ -5172,3 +5172,20 @@ dá perto de 1,6 s a menos no critério do primeiro canal. E o tempo até o avis
 alguém** (o envio para o servidor e dali para a pessoa) continua sem medida de ponta a
 ponta: o que se mediu foi até a resposta existir na loja.
 
+## 12/10/2026 (noite) · A forma da resposta guardada e a próxima troca do pacote: o que o dono respondeu
+
+Ao relatório da noite, com as duas decisões que faltavam:
+
+1. **A forma da resposta vazia guardada:** "a recomendada" — guardar só depois de **duas**
+   respostas vazias seguidas para a mesma cena. É como a fatia 1.3 já estava no repositório
+   (`VAZIAS_PARA_GUARDAR = 2`): nada a mudar no código.
+2. **A próxima troca do pacote do agente na loja:** "pode". Ela leva, de uma vez, as fatias
+   1.1b, 1.2a, 1.3 e 1.5, a correção do aviso de "continua fora" (ERR-110) e o ajuste de
+   custo da leitura contínua — o pacote da `main` em `b9c99de`. É feita fora do horário de
+   movimento: depois do fechamento das 3h de 13/10, ou antes da abertura das 19h.
+
+O que se confere depois da troca: o registro do agente sem aviso nem erro; a fila com as
+colunas novas do resumo; e, com a loja aberta, o tempo da imagem até a resposta de novo
+(esperado, pela conta: perto de 1,3 s nos dois critérios) e as primeiras contagens da
+atenção. A semana de números da leitura contínua conta a partir dessa troca.
+
