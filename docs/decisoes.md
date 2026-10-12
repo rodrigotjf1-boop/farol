@@ -4732,3 +4732,30 @@ O que ficou na loja: só a pasta `C:\Farol\guardado\`. Os roteiros desta mediç�
 de medição foram apagados de lá; os roteiros de leitura de sessões anteriores continuam, e
 saem no primeiro passo da proteção.
 
+## 12/10/2026 · O pacote compilado, ensaiado (o primeiro passo da proteção)
+
+O dono respondeu em 12/10 que o primeiro passo da proteção entra já, com os passos 1 e 2
+do núcleo. Antes de mexer no pacote que vai para a loja, um ensaio na máquina de
+desenvolvimento, numa cópia fora do repositório. **Nada mudou no repositório nem na loja.**
+
+| o quê | o resultado |
+|---|---|
+| compilar os 63 arquivos do agente num módulo de máquina (Nuitka, com o compilador da Microsoft, no Python 3.14) | 1 min 37 s; um arquivo só, de 4,1 MB |
+| a suíte do agente contra o módulo, num espelho do repositório **sem o texto do agente** | **1.302 de 1.306 passam** (contra o texto, 1.306 de 1.306) |
+| os 4 que falham | 3 leem o texto do próprio programa para conferir as opções da linha de comando — no módulo não há texto para ler; 1 espera o arquivo do detector de rosto dentro da pasta do pacote — o módulo não leva arquivo de dados, ele vai ao lado |
+| o que continua legível dentro do módulo | os textos fixos: o nome dos modelos, as mensagens e as instruções mandadas à nuvem (procurados e achados no arquivo) |
+
+O que isso diz:
+
+1. **O pacote compilado é viável com o que o agente usa hoje.** Nenhum dos quatro testes
+   que falham é de comportamento.
+2. **Ele esconde o "como", e não os textos.** A lógica vira código de máquina; o que está
+   escrito por extenso continua lá. As instruções só saem da loja quando a dúvida passar
+   pelo nosso servidor (passo 2) — ou com a versão paga do compilador, que embaralha os
+   textos (€ 250 por ano, pelo site do fabricante, lido em 12/10).
+
+O que falta para valer na loja: os três testes passarem a conferir as opções de outro
+jeito; o arquivo de dados ir junto; o roteiro de troca do pacote aceitar o módulo no lugar
+da pasta; a assinatura do arquivo, que pede um certificado de assinatura de código (compra
+do dono); e a prova na loja, com o "pode".
+
