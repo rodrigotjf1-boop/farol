@@ -22,9 +22,11 @@ import {
   Building2,
   Calculator,
   Cctv,
+  ChevronRight,
   ChevronsUpDown,
   ChartColumn,
   ClipboardList,
+  Ellipsis,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -55,8 +57,9 @@ import {
 } from './console';
 import { IrPara } from './ir-para';
 import { Palavra, Selo } from './marca';
+import { Botao } from './ui/botao';
 import { Alerta, Ossos, Ponto } from './ui/pecas';
-import { DivisorDeMenu, ITEM_DE_MENU, Menu, RotuloDeMenu } from './ui/sobreposto';
+import { DivisorDeMenu, Gaveta, ITEM_DE_MENU, Menu, RotuloDeMenu } from './ui/sobreposto';
 
 const UUID_DA_LOJA = /^\/lojas\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
 const SECOES = ['analises', 'canais', 'regras', 'fichas', 'alertas', 'orcamento'] as const;
@@ -71,11 +74,17 @@ type Item = {
   /**
    * Fica só na coluna (computador e tablet). A barra de baixo do celular
    * comporta seis itens: com o sétimo, em telas de 320 a 375 px, os rótulos
-   * "Alertas" e "Orçamento" se encostam (medido em 11/10/2026). No celular a
-   * tela abre pelo "Ir para…".
+   * "Alertas" e "Orçamento" se encostam (medido em 11/10/2026). No celular,
+   * o que não cabe na barra mora no "Mais", o último item dela.
    */
   soNaColuna?: boolean;
 };
+
+/** Um item do "Mais" da barra do celular: a tela, e uma linha dizendo o que ela é. */
+type ItemDoMais = { href: string; rotulo: string; icone: LucideIcon; sobre: string };
+
+/** O "Mais" da barra do celular, visto pela barra: está aberto? a tela de agora mora nele? */
+type BotaoMais = { aberto: boolean; aqui: boolean; aoAbrir: () => void };
 
 // ───────────────────────── o tema ─────────────────────────
 
@@ -116,12 +125,13 @@ function useTema() {
  * Os itens, com um realce que DESLIZA até o item atual. O movimento
  * mostra de onde se veio e para onde se foi — não é enfeite.
  */
-function Navegacao({ itens, atual, deitada }: { itens: Item[]; atual: string | null; deitada: boolean }) {
+function Navegacao({ itens, atual, deitada, mais }: { itens: Item[]; atual: string | null; deitada: boolean; mais?: BotaoMais }) {
   const caixa = useRef<HTMLElement>(null);
   const [realce, setRealce] = useState<CSSProperties>({ opacity: 0 });
 
   const medir = useCallback(() => {
-    const el = caixa.current?.querySelector<HTMLElement>('a[aria-current="page"]');
+    // O item atual — ou o "Mais", quando a tela de agora mora dentro dele.
+    const el = caixa.current?.querySelector<HTMLElement>('[aria-current="page"]');
     if (!el || el.offsetParent === null) {
       setRealce((r) => ({ ...r, opacity: 0 }));
       return;
@@ -133,7 +143,7 @@ function Navegacao({ itens, atual, deitada }: { itens: Item[]; atual: string | n
     );
   }, [deitada]);
 
-  useLayoutEffect(medir, [medir, atual, itens.length]);
+  useLayoutEffect(medir, [medir, atual, itens.length, mais?.aqui]);
 
   useEffect(() => {
     if (!caixa.current) return;
@@ -202,6 +212,25 @@ function Navegacao({ itens, atual, deitada }: { itens: Item[]; atual: string | n
           </Link>
         );
       })}
+      {deitada && mais && (
+        // O que não cabe na barra (Fichas, Orçamento, Conexões) mora aqui. É um botão, e não um endereço: abre a
+        // folha com os itens. Fica marcado quando a tela de agora é uma delas.
+        <button
+          type="button"
+          data-mais
+          aria-haspopup="dialog"
+          aria-expanded={mais.aberto}
+          aria-current={mais.aqui ? 'page' : undefined}
+          onClick={mais.aoAbrir}
+          className={
+            'relative flex min-h-[50px] flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] transition-colors ' +
+            (mais.aqui ? 'font-semibold text-farol-tinta' : 'font-medium text-farol-suave hover:text-farol-tinta')
+          }
+        >
+          <Ellipsis className={`h-[22px] w-[22px] shrink-0 ${mais.aqui ? 'text-farol-facho-icone' : ''}`} aria-hidden />
+          <span>Mais</span>
+        </button>
+      )}
     </nav>
   );
 }
@@ -276,7 +305,7 @@ function Conta({
 }: {
   eu: Eu;
   escuro: boolean;
-  /** Quem configura a conta vê as conexões dela. No celular, é por aqui que se chega lá. */
+  /** Quem configura a conta vê as conexões dela. No celular chega-se lá por aqui e pelo "Mais" da barra de baixo. */
   conexoes: boolean;
   trocarTema: () => void;
   sair: () => void;
@@ -356,6 +385,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [erro, setErro] = useState<string | null>(null);
   /** A paleta "Ir para…" está aberta. */
   const [paleta, setPaleta] = useState(false);
+  const [mais, setMais] = useState(false);
 
   // Ctrl K (ou ⌘ K) abre a paleta de qualquer tela — e fecha, se ela já está aberta. Com uma gaveta ou um
   // diálogo aberto o atalho não faz nada: a tela de baixo está inerte, e a paleta não se empilha por cima.
@@ -458,9 +488,22 @@ export function Shell({ children }: { children: React.ReactNode }) {
       ...(veResultados ? [{ href: `${base}/fichas`, rotulo: 'Fichas', icone: ClipboardList, soNaColuna: true }] : []),
       { href: `${base}/alertas`, rotulo: 'Alertas', icone: BellRing },
       // Orçamento é decisão de compra: só para quem configura.
-      ...(configura ? [{ href: `${base}/orcamento`, rotulo: 'Orçamento', icone: Calculator }] : []),
+      ...(configura ? [{ href: `${base}/orcamento`, rotulo: 'Orçamento', icone: Calculator, soNaColuna: true }] : []),
     ];
   }, [lojaId, sinais, configura, veResultados]);
+
+  // O "Mais" da barra do celular (protótipo aprovado em 11/10/2026): o que não cabe na barra. Fichas é de quem
+  // acompanha a loja; Orçamento e Conexões, de quem configura. Para quem não vê nenhuma delas, o "Mais" nem existe.
+  const doMais: ItemDoMais[] = useMemo(() => {
+    const daConta: ItemDoMais[] = configura ? [{ href: '/conexoes', rotulo: 'Conexões', icone: Plug, sobre: 'de onde vêm as fichas das lojas' }] : [];
+    if (!lojaId) return daConta;
+    const base = `/lojas/${lojaId}`;
+    return [
+      ...(veResultados ? [{ href: `${base}/fichas`, rotulo: 'Fichas', icone: ClipboardList, sobre: 'o que a loja vende e do que é feito' }] : []),
+      ...(configura ? [{ href: `${base}/orcamento`, rotulo: 'Orçamento', icone: Calculator, sobre: 'o que falta para a loja ficar coberta' }] : []),
+      ...daConta,
+    ];
+  }, [lojaId, configura, veResultados]);
 
   const atual = useMemo(() => {
     if (!lojaId) return caminho.startsWith('/lojas') ? '/lojas' : null;
@@ -469,6 +512,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
     for (const s of SECOES) if (caminho.startsWith(`${base}/${s}`)) return `${base}/${s}`;
     return caminho === base ? base : null;
   }, [caminho, lojaId, noCanal]);
+
+  // A tela de agora, quando ela é uma das que moram no "Mais" (Conexões é da conta: não está entre as seções).
+  const noMais = caminho === '/conexoes' ? '/conexoes' : doMais.some((i) => i.href === atual) ? atual : null;
+  // Chegou a outra tela: a folha do "Mais" não fica aberta por cima dela.
+  useEffect(() => setMais(false), [caminho]);
 
   const contexto: Console | null = useMemo(
     () =>
@@ -654,7 +702,44 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* ───────────── celular: a barra de baixo ───────────── */}
-      {eu && <Navegacao itens={itens.filter((i) => !i.soNaColuna)} atual={atual} deitada />}
+      {eu && (
+        <Navegacao
+          itens={itens.filter((i) => !i.soNaColuna)}
+          atual={atual}
+          deitada
+          mais={doMais.length > 0 ? { aberto: mais, aqui: noMais !== null, aoAbrir: () => setMais(true) } : undefined}
+        />
+      )}
+
+      {eu && mais && (
+        <Gaveta titulo="Mais" aoFechar={() => setMais(false)} rodape={<Botao onClick={() => setMais(false)}>Fechar</Botao>}>
+          <nav aria-label="Mais telas" className="flex flex-col gap-1" data-mais-itens>
+            {doMais.map((i) => {
+              const aqui = i.href === noMais;
+              const Icone = i.icone;
+              return (
+                <Link
+                  key={i.href}
+                  href={i.href}
+                  aria-current={aqui ? 'page' : undefined}
+                  onClick={() => setMais(false)}
+                  className={
+                    'grid grid-cols-[22px_minmax(0,1fr)_16px] items-center gap-3 rounded-[10px] px-2.5 py-3 no-underline transition-colors hover:bg-farol-painel-2 ' +
+                    (aqui ? 'bg-farol-painel-2' : '')
+                  }
+                >
+                  <Icone className={`h-[22px] w-[22px] ${aqui ? 'text-farol-facho-icone' : 'text-farol-suave'}`} aria-hidden />
+                  <span className="min-w-0">
+                    <span className="block font-semibold text-farol-tinta">{i.rotulo}</span>
+                    <small className="block text-[12.5px] text-farol-suave">{i.sobre}</small>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-farol-suave" aria-hidden />
+                </Link>
+              );
+            })}
+          </nav>
+        </Gaveta>
+      )}
 
       {eu && paleta && <IrPara lojaId={lojaId} lojas={lojas} veResultados={veResultados} configura={configura} aoFechar={() => setPaleta(false)} />}
     </div>

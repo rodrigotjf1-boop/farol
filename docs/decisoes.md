@@ -4361,3 +4361,48 @@ celular.
   as guarda é o roteiro de navegador.
 - O celular de verdade.
 
+## 12/10/2026 (madrugada) · O "Mais" na barra do celular
+
+O último pedaço do protótipo "fichas de qualquer origem" (aprovado em 11/10; o dono tinha
+respondido "o recomendado" à pergunta do item "Mais").
+
+**O problema que resolve:** a barra de baixo do celular comporta seis itens, e por isso a tela
+Fichas só abria, no celular, pelo "Ir para…" — e Conexões, pelo menu da conta. Quem não
+soubesse procurar não achava.
+
+**O que entrou:** a barra passa a ser Painel · Análises · Canais · Critérios · Alertas ·
+**Mais**. O "Mais" abre uma folha com o que não cabe na barra, cada tela com uma linha
+dizendo o que é: **Fichas** ("o que a loja vende e do que é feito"), **Orçamento** ("o que
+falta para a loja ficar coberta") e **Conexões** ("de onde vêm as fichas das lojas"). O
+Orçamento saiu da barra e foi para a folha, como no protótipo. No computador nada muda: a
+coluna continua com tudo.
+
+### Como ficou, e por quê
+
+- **Cada perfil vê na folha o que pode abrir.** Fichas é de quem acompanha a loja; Orçamento e
+  Conexões, de quem configura. A supervisão tem o "Mais" só com a Fichas; para a execução, que
+  não abre nenhuma das três, o botão nem existe. (Quem decide o acesso continua sendo a API.)
+- **O "Mais" fica marcado quando a tela de agora mora nele**, com o mesmo realce que desliza
+  entre os itens — e, dentro da folha, a tela atual também. Assim a barra continua dizendo
+  onde a pessoa está.
+- **A folha é a gaveta do console**, e não uma peça nova: no celular ela já sobe de baixo,
+  prende o foco, fecha no Esc e devolve o foco ao botão.
+- **Em Conexões (que é da conta, sem loja escolhida)** a barra fica com "Lojas" e o "Mais",
+  que traz só Conexões.
+- O menu da conta continua levando a Conexões: são dois caminhos para o mesmo lugar.
+
+### O que foi medido
+
+- **206 conferências num navegador de verdade:** a barra e a folha para a gerência, a
+  diretoria, a supervisão e a execução; abrir, fechar pelo "Fechar" e pelo Esc (o foco volta
+  para o botão); ir para Fichas, Orçamento e Conexões pela folha, com o "Mais" marcado e o
+  realce em cima dele; a volta para uma tela da barra; no computador, nenhum "Mais" e a coluna
+  com os sete itens; e, nas oito larguras de celular (320 a 640), cada rótulo dentro do
+  próprio item e a dois pontos ou mais do vizinho, com a barra e com a folha aberta, sem nada
+  rolando para o lado.
+- Os roteiros das fichas, da porta, de Conexões e da planilha seguem passando.
+
+### O que não foi medido
+
+- O celular de verdade (o polegar alcançando o "Mais", a folha com a barra do sistema).
+

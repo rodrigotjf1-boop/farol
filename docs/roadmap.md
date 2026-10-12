@@ -4641,7 +4641,10 @@ que ficou de fora"**. A ordem: a planilha, a porta para outro sistema, o "Mais" 
   sozinha.** Falta medir um sistema de verdade enviando. **A decidir com o dono:** a
   documentação está no console (`app.monitorfarol.com.br/integracao`); o protótipo a mostrava
   no site (`monitorfarol.com.br/integracao`), que não está neste repositório.
-- **"Mais" no celular:** a próxima entrega.
+- **"Mais" no celular: entregue** ([decisoes.md](decisoes.md), "o 'Mais' na barra do
+  celular"): a barra de baixo virou Painel · Análises · Canais · Critérios · Alertas · Mais, e
+  o "Mais" abre Fichas, Orçamento e Conexões (cada perfil vê o que pode abrir). Com isto o
+  protótipo "fichas de qualquer origem" está inteiro no console.
 - **Telas antigas que dizem "nuvem" e "versão":** o dono pediu o protótipo do antes e depois.
 
 ### O que não foi medido
