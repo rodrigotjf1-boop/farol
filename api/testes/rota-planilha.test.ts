@@ -270,7 +270,8 @@ describe('fichas por planilha: as rotas', { skip: !URL_DO_BANCO && 'sem DATABASE
     // o registro da importação, para quem vai corrigir
     const i = await importacao(minha.gerente, minha.centro);
     assert.equal(i.statusCode, 200);
-    assert.deepEqual(Object.keys(i.json()).sort(), ['arquivo', 'contas', 'deFora', 'em', 'por', 'problemas', 'semFicha', 'soltos']);
+    assert.deepEqual(Object.keys(i.json()).sort(), ['arquivo', 'contas', 'deFora', 'em', 'origem', 'por', 'problemas', 'semFicha', 'soltos']);
+    assert.equal(i.json().origem, 'planilha', 'a tela sabe como dizer onde está cada problema: aqui, a aba e a linha');
     assert.deepEqual(i.json().deFora, [{ produto: 'X-Burger', problemas: [{ aba: 'Fichas', linha: 5, texto: 'falta a quantidade.', corrigir: 'Preencha a coluna Quantidade.' }] }]);
     assert.deepEqual([i.json().por, i.json().semFicha, i.json().contas.produtos], ['Pessoa gerente', ['Água sem gás'], 2]);
 

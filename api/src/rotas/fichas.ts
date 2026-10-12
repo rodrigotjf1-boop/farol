@@ -39,6 +39,7 @@ import { LEITURA_MORTA_MIN, lerFichasDaLoja } from '../leitura.js';
 import { COLUNAS, lerPlanilha, linhasDaBase, MODELO, NOME_DA_ABA, UNIDADES, type Contas, type Leitura } from '../planilha-fichas.js';
 import { ehDiretoria, podeAcompanhar, podeConfigurar } from '../rbac.js';
 import type { ConfigDoRegem } from '../regem.js';
+import type { UltimoEnvio } from './acessos.js';
 import { leituraParaTela, type LeituraDaLinha } from './regem.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 
@@ -86,9 +87,15 @@ type Linha = LeituraDaLinha & {
   esperando: number;
   atualizada_em: Date | null;
   conteudo: unknown;
-  fonte: 'regem' | 'planilha' | null;
+  fonte: 'regem' | 'planilha' | 'sistema' | null;
   impressao: string | null;
-  importacao: Importacao | null;
+  /** O registro da última importação por planilha — ou do último envio de outro sistema (`rotas/acessos.ts`). */
+  importacao: Importacao | UltimoEnvio | null;
+  /** O acesso de outro sistema que VALE para esta loja (um, no máximo). */
+  acesso_id: string | null;
+  acesso_nome: string | null;
+  acesso_criado_em: Date | null;
+  acesso_recebido_em: Date | null;
 };
 
 export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoRegem): void {
@@ -118,10 +125,12 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
               (r.lendo_desde is not null and r.lendo_desde > now() - make_interval(mins => $3)) as lendo,
               f.produtos, f.com_ficha, f.atualizada_em, f.fonte, f.impressao, f.importacao,
               ${comConteudo ? 'f.conteudo' : 'null::jsonb as conteudo'},
+              a.id as acesso_id, a.nome as acesso_nome, a.criado_em as acesso_criado_em, a.recebido_em as acesso_recebido_em,
               (select count(*)::int from regem_loja e where e.tenant_id = l.tenant_id and e.loja_id is null) as esperando
          from loja l
          left join regem_loja r on r.loja_id = l.id
          left join fichas_da_loja f on f.loja_id = l.id
+         left join acesso_externo a on a.loja_id = l.id and a.revogado_em is null
         where l.id = $1 and l.tenant_id = $2`,
       [lojaId, s.tenantId, LEITURA_MORTA_MIN],
     );
@@ -151,13 +160,18 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
       podeConectar: ehDiretoria(s),
       /** Quem configura a loja pede a busca na hora; a supervisão só vê. */
       podeBuscar: podeConfigurar(s),
-      /** Quem configura importa planilha — na loja que não está ligada ao Regem (uma origem por loja). */
-      podeImportar: podeConfigurar(s) && l.conexao_id === null,
-      /** De onde as fichas vieram: `regem` ou `planilha`. Nulo = a loja não tem base. */
+      /** Quem configura importa planilha — na loja que não recebe as fichas de outro lugar (uma origem por loja). */
+      podeImportar: podeConfigurar(s) && l.conexao_id === null && l.acesso_id === null,
+      /** De onde as fichas vieram: `regem`, `planilha` ou `sistema`. Nulo = a loja não tem base. */
       fonte: base ? l.fonte : null,
-      /** A última importação por planilha: qual arquivo, quando, quem, e quantos produtos ficaram de fora. */
+      /** O sistema que tem acesso para enviar as fichas desta loja (pode ainda não ter enviado nada). Nulo = nenhum. */
+      sistema: l.acesso_id ? { nome: l.acesso_nome, criadoEm: l.acesso_criado_em, recebidoEm: l.acesso_recebido_em } : null,
+      /**
+       * A última importação por planilha — ou o último envio do sistema: qual arquivo (a planilha), quando, quem,
+       * e quantos produtos ficaram de fora.
+       */
       importacao:
-        base && l.fonte === 'planilha' && l.importacao
+        base && (l.fonte === 'planilha' || l.fonte === 'sistema') && l.importacao
           ? {
               arquivo: l.importacao.arquivo,
               em: l.importacao.em,
@@ -291,6 +305,12 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
         mensagem: 'esta loja recebe as fichas do Regem. Uma loja recebe de um lugar só: para importar planilha, desconecte a loja do Regem antes',
       });
     if (l.conexao_id !== null) return ocupada();
+    const doSistema = () =>
+      resposta.status(409).send({
+        erro: 'origem_ocupada',
+        mensagem: 'esta loja recebe as fichas de outro sistema. Uma loja recebe de um lugar só: para importar planilha, a diretoria revoga o acesso dele antes, em Conexões',
+      });
+    if (l.acesso_id !== null) return doSistema();
 
     const lida = lerPlanilha(corpo.abas);
     if (lida.impede !== null) return resposta.status(422).send({ erro: 'planilha_invalida', mensagem: lida.impede });
@@ -317,6 +337,7 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
       `insert into fichas_da_loja (loja_id, tenant_id, fonte, conteudo, impressao, produtos, com_ficha, atualizada_em, importacao)
        select $1, $2, 'planilha', $3::jsonb, $4, $5, $6, now(), $7::jsonb
         where not exists (select 1 from regem_loja where loja_id = $1)
+          and not exists (select 1 from acesso_externo where loja_id = $1 and revogado_em is null)
        on conflict (loja_id) do update
           set tenant_id = excluded.tenant_id, fonte = excluded.fonte, conteudo = excluded.conteudo, impressao = excluded.impressao,
               produtos = excluded.produtos, com_ficha = excluded.com_ficha, importacao = excluded.importacao,
@@ -344,11 +365,22 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
     if (!UUID.test(id)) return resposta.status(422).send({ erro: 'validacao', mensagem: 'id inválido' });
     const l = await daLoja(s, id, false);
     if (!l) return semLoja(resposta);
-    if (l.fonte !== 'planilha' || !l.importacao) {
-      return resposta.status(404).send({ erro: 'sem_importacao', mensagem: 'esta loja não tem fichas de planilha' });
+    if ((l.fonte !== 'planilha' && l.fonte !== 'sistema') || !l.importacao) {
+      return resposta.status(404).send({ erro: 'sem_importacao', mensagem: 'esta loja não tem fichas de planilha nem de outro sistema' });
     }
     const i = l.importacao;
-    return { arquivo: i.arquivo, em: i.em, por: i.por.nome, contas: i.contas, semFicha: i.semFicha, deFora: i.deFora, soltos: i.soltos, problemas: i.problemas };
+    return {
+      /** `planilha`: cada problema diz a aba e a linha. `sistema`: diz o caminho no que foi enviado (`onde`). */
+      origem: l.fonte,
+      arquivo: i.arquivo,
+      em: i.em,
+      por: i.por.nome,
+      contas: i.contas,
+      semFicha: i.semFicha,
+      deFora: i.deFora,
+      soltos: i.soltos,
+      problemas: i.problemas,
+    };
   });
 
   // As fichas da loja de volta em planilha, no modelo: para corrigir e

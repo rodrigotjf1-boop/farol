@@ -982,6 +982,10 @@ describe('regem: a conexão da conta', { skip: !URL_DO_BANCO && 'sem DATABASE_UR
       (await ligar(cookie, [{ id: idDe(t, c.nome), lojaId: extra }, { id: idDe(t, b.nome), lojaId: minha.barra }])).statusCode,
       200,
     );
+    // Ligar dispara a leitura das duas lojas em segundo plano. O assunto aqui é o que o banco leva junto ao apagar
+    // — e apagar a loja no meio da leitura dela é outra conversa (o banco desfaz um dos dois, e o teste falhava
+    // de vez em quando). Espera a leitura terminar.
+    await semLeituraEmCurso();
 
     await pool.query('delete from usuario where id = (select conectado_por from regem_loja where loja_id = $1)', [extra]);
     const semPessoa = await guardadas();

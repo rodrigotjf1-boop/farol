@@ -4626,8 +4626,20 @@ que ficou de fora"**. A ordem: a planilha, a porta para outro sistema, o "Mais" 
   "da planilha", com "Importar de novo", "Baixar a planilha" e a lista do que ficou de fora.
   O arquivo é aberto no navegador de quem importa. Falta medir um arquivo salvo pelo Excel de
   verdade: é o primeiro que o dono importar.
-- **Porta para outro sistema:** a próxima entrega. Refaz a tela Conexões para as três origens
-  (traz os cartões "Outro sistema" e "Planilha" e o terceiro jeito na loja sem fichas).
+- **Porta para outro sistema — o servidor: entregue** (migration 041; [decisoes.md](decisoes.md),
+  "a porta para outro sistema — o servidor"): o acesso de uma loja, criado e revogado pela
+  diretoria (o código aparece uma vez; o banco guarda só a impressão); a porta por onde o
+  sistema envia o cardápio e as fichas, com a mesma regra da planilha (entra o que está certo);
+  uma loja, uma origem, com trava para duas pessoas ao mesmo tempo. A documentação para quem
+  integra está em [integracao-fichas.md](integracao-fichas.md). **Sem tela ainda: a porta
+  existe, e ninguém consegue criar um acesso.**
+- **Porta para outro sistema — a tela:** a próxima entrega. Refaz a tela Conexões para as três
+  origens (os cartões "Outro sistema" e "Planilha", criar o acesso com o código que aparece
+  uma vez, revogar), põe o terceiro jeito na loja sem fichas, a etiqueta "do <sistema>" na
+  tela Fichas e a página pública da documentação. **A decidir com o dono:** o protótipo mostra
+  a documentação em `monitorfarol.com.br/integracao`, e o site não está neste repositório — a
+  página pode ir no console (`app.monitorfarol.com.br/integracao`, aberta, sem login) ou no
+  site.
 - **"Mais" no celular:** depois da porta.
 - **Telas antigas que dizem "nuvem" e "versão":** o dono pediu o protótipo do antes e depois.
 

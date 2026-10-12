@@ -136,6 +136,9 @@ function numero(v: unknown): number | null {
 
 const vazia = (v: unknown): boolean => texto(v) === '';
 
+/** A chave de um produto pelo nome, como o leitor a calcula: é por ela que dois nomes são "o mesmo". */
+export const chaveDoProduto = (nome: unknown): string => chave(texto(nome));
+
 /** O id de um produto (ou da ficha dele) da planilha: sai do NOME, para ser o mesmo a cada importação. */
 function idDe(tipo: 'produto' | 'ficha', chaveDoNome: string): string {
   const h = createHash('sha256').update(`farol:planilha:${tipo}:${chaveDoNome}`, 'utf8').digest('hex');
@@ -253,8 +256,15 @@ const NADA: Leitura = {
 };
 const impedida = (motivo: string): Leitura => ({ ...NADA, impede: motivo });
 
-/** Lê a planilha inteira. Nunca rejeita: o que não serve vira `impede` ou problema. */
-export function lerPlanilha(abas: unknown): Leitura {
+/**
+ * Lê a planilha inteira. Nunca rejeita: o que não serve vira `impede` ou problema.
+ *
+ * `outroComecaEm`: as linhas da aba Fichas em que começa OUTRO produto, mesmo
+ * que o nome seja o da linha de cima. Na planilha ninguém passa isto (linhas
+ * seguidas com o mesmo nome são o mesmo produto); o envio de outro sistema
+ * passa, porque lá cada produto é um objeto, e dois com o mesmo nome são dois.
+ */
+export function lerPlanilha(abas: unknown, outroComecaEm: ReadonlySet<number> = new Set()): Leitura {
   if (!abas || typeof abas !== 'object' || Array.isArray(abas)) return impedida('Não deu para ler a planilha. Baixe o modelo e preencha nele.');
   const a = abas as Record<QualAba, unknown>;
 
@@ -285,7 +295,7 @@ export function lerPlanilha(abas: unknown): Leitura {
       continue;
     }
     const k = chave(nome);
-    if (atual && atual.p.chave === k) {
+    if (atual && atual.p.chave === k && !outroComecaEm.has(l.n)) {
       atual.linhas.push(l);
       continue;
     }
@@ -297,6 +307,11 @@ export function lerPlanilha(abas: unknown): Leitura {
         texto: 'o produto aparece em dois blocos de linhas, separados por outro produto.',
         corrigir: 'Junte as linhas do produto, uma embaixo da outra, na ordem da montagem.',
       });
+      if (outroComecaEm.has(l.n)) {
+        // Outro objeto com o mesmo nome (o envio de outro sistema): as linhas dele não se somam às do primeiro.
+        atual = { p: jaVisto, linhas: [] };
+        continue;
+      }
       atual = blocos.find((b) => b.p === jaVisto)!;
       atual.linhas.push(l);
       continue;
