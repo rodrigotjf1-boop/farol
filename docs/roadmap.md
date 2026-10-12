@@ -4728,7 +4728,7 @@ que ficou de fora"**. A ordem: a planilha, a porta para outro sistema, o "Mais" 
 
 ---
 
-## A20 · O vigia: atenção, reflexo e aprendizado (direção do dono em 12/10/2026; núcleo primeiro; nada programado)
+## A20 · O vigia: atenção, reflexo e aprendizado (direção do dono em 12/10/2026; núcleo primeiro; passo 0 feito e fatia 1.1 no repositório em 12/10)
 
 **A régua, dita pelo dono:** "a ideia de controle do Farol é como se um ser humano estivesse
 parado olhando fixo para aquele local e respondendo o mais rápido possível aos critérios".
@@ -4754,7 +4754,7 @@ por baixo para o aviso sair rápido e com prova, e põe no fim o que é adiciona
 
 | passo | o que entra | a prova | depende de |
 |---|---|---|---|
-| **0 · Medir** | onde ficam os 18 s; a memória pelo vetor do recorte, sobre as 1.722 imagens que a nuvem julgou; reconhecer nos quadros da loja o que já foi apresentado (as fotos do inventário e a foto padrão); o tempo do vetor no computador da loja; o movimento por área na gravação, câmera por câmera | uma tabela por critério. Se a semelhança não separar o "fora" do "dentro", o plano muda aqui | duas autorizações do dono: usar as imagens que a loja guarda (somem a partir de 22/10) e começar |
+| **0 ✅ · Medir** (feito em 12/10) | onde ficam os 18 s; a memória pelo vetor, sobre as 1.722 imagens que a nuvem julgou; o tempo do vetor no computador da loja; o movimento por área na gravação, câmera por câmera. **Não deu para medir:** reconhecer o que já foi apresentado — a loja não tem foto padrão | as tabelas estão em [decisoes.md](decisoes.md), "O passo 0 do A20". A semelhança pela imagem inteira **não** separou o "fora" do "dentro": o plano mudou aqui (abaixo) | — (o dono autorizou em 12/10) |
 | **1 · Atenção e reflexo** | a imagem leve lida sempre e o movimento medido em toda área; os estados do quadro (repouso, acordou, em atividade, assentou), no lugar da rotina de 30 s; o juiz sem fila; a resposta guardada da cena idêntica; as condições ligadas nos critérios pagos | antes e depois: tempo até a resposta, olhadas, pagas, sem resposta, reais por dia; e os acontecimentos da gravação contra os que o motor pegou | o "pode" da troca do pacote; os critérios pagos de volta; as cenas e a chave do contexto |
 | **2 · O que se mostra e o que se conta** | apresentar objeto e estado por foto, com nome e contexto, a partir do inventário e da foto padrão; a ficha de conhecimento com contexto na base (as tabelas existem desde a migration 001, sem uso); o juiz de comparação montado, em sombra; a dúvida passando pelo nosso servidor, com a chave e as instruções fora da loja | o que foi apresentado é reconhecido nos quadros da loja? Em sombra, sem valer | protótipo aprovado; a decisão sobre a dúvida passar pelo servidor |
 | **3 · O caderno com a prova** | **é a onda 2 do A19**, com a base junto: "acertou / errou", exemplos separados só para prova, o acerto medido de cada critério; a resposta firme vira exemplo; a vazia vira aviso sobre o critério | o acerto de quem responde, por critério: critério em que ele não acerta não ensina | as três decisões da onda 2 (a imagem do exemplo na nuvem; a meta para "valendo"; quem marca) e a régua do que a nuvem ensina |
@@ -4763,6 +4763,56 @@ por baixo para o aviso sair rápido e com prova, e põe no fim o que é adiciona
 Depois deles seguem as ondas 3 a 5 do A19, como estavam. Nenhum passo liga aviso sem passar
 pelo banco de provas; toda tela nova passa por protótipo; toda troca no computador da loja
 espera o "pode".
+
+### O passo 0, feito (12/10) — o que ele mudou no plano
+
+Os números estão em [decisoes.md](decisoes.md): "O juiz esperava a volta seguinte" e "O
+passo 0 do A20: o que as medições disseram".
+
+1. **Os 18 s eram um defeito, e não o tempo do juiz** (ERR-108): a fila era drenada com a
+   hora do começo da volta, e o quadro recém-capturado esperava o despertar seguinte.
+   Corrigido no repositório (PR #114); é a fatia 1.1 abaixo.
+2. **A memória pela imagem inteira não serve para critério de detalhe.** Na touca acertou
+   menos do que "dizer sempre a maioria"; na gaveta, o vetor em pedaços levou de 71% para
+   87%. O passo 4 (a memória valendo) passa a pedir **o vetor do recorte certo** — a
+   pessoa, o objeto, a área — e os exemplos marcados pelo responsável. Para cena repetida,
+   o vetor não acrescenta nada à impressão da imagem que o motor já tem.
+3. **Ler sempre e analisar no acontecimento se mediu na gravação:** no tampo, de 43% a 62%
+   menos análises do que a rotina de 30 s, com 4 a 14 vezes mais "paradas" vistas — e o
+   clarão (85 vezes às 2h) pede filtro.
+4. **O computador da loja aguenta o vetor:** 78 ms na placa de vídeo, o mesmo de uma passada
+   do detector — por acontecimento, e não a cada leitura.
+5. **As condições do funil se ligam com um clique por critério:** o "Propor o estudo" que já
+   existe dá à touca "só com gente no lugar", que teria segurado 49% das análises pagas dela.
+
+### O passo 1, em fatias
+
+| fatia | o que entra | o antes e o depois | depende de |
+|---|---|---|---|
+| **1.1 ✅ · O juiz na mesma volta** (12/10, PR #114) | o relógio do julgamento alcança o quadro mais novo da fila | da imagem à resposta: de 11 a 18 s (mediana medida) para o fim da captura da própria volta. O número de verdade, só com o pacote trocado | o "pode" da troca do pacote |
+| **1.2 · A leitura contínua e os estados do quadro** | o motor mede o movimento em cada quadro duas vezes por segundo, na imagem leve que já fica aberta, com a conta de hoje e um filtro de clarão; cada quadro tem quatro estados (repouso, acordou, em atividade, assentou); a análise sai no acontecimento — ao acordar, para critério de pessoa e de acontecimento; ao assentar, para critério de estado —, com uma conferência de tempos em tempos no repouso e um teto por minuto. Nasce desligado, por loja, como a chave do contexto: a rotina de 30 s continua valendo até a medida na loja | medido na gravação (o tampo): 120 olhadas por hora na rotina; de 46 a 68 análises por hora saindo no "assentou" de 5 s, e de 22 a 34 com 10 s; a rotina vê 3 a 6 paradas por meia hora, a leitura contínua vê de 23 a 43 | o plano da fatia aprovado (é a maior mudança do motor desde a onda 1); o "pode" da troca do pacote |
+| **1.3 · A resposta guardada da cena idêntica** | hoje "já julgada" vale dentro do mesmo minuto, e a cena repetida, por 30 s; passa a valer por mais tempo para a cena de impressão idêntica | 39% das análises pagas eram cena idêntica a uma já julgada (medido) | **decisão do dono:** para quais respostas e por quanto tempo (abaixo) |
+| **1.4 · As condições ligadas** | sem código: "Propor o estudo" em cada critério pago, ler e confirmar | "há alguém aqui?" teria segurado 48% (chapa) e 49% (touca e uniforme) das pagas, sem perder resposta (medido) | o dono religar os critérios; a cena dos canais; a chave do contexto |
+| **1.5 · O limite por volta** | o que a loja julga sozinha deixa de contar no limite de dez análises por volta | com muitos critérios no mesmo instante, nada local espera a volta seguinte | — |
+| **1.6 · Medir na loja** | o antes e o depois, com os números do próprio motor: tempo até a resposta, olhadas, pagas, sem resposta, reais por dia | — | o pacote trocado e os critérios pagos rodando |
+
+**A decisão da fatia 1.3.** Guardar a resposta da cena idêntica economiza, e tem um risco:
+a impressão da imagem não vê detalhe pequeno (das 81 respostas "fora", uma tinha cena
+idêntica já julgada — e a resposta guardada era outra). Três jeitos:
+
+| jeito | o que guarda | ganha | perde |
+|---|---|---|---|
+| **A · só a resposta vazia** (recomendado para começar) | "não deu para avaliar", por 2 horas | corta o que foi 99% das repetições medidas (670 de 676), sem risco de esconder um "fora" | com a pergunta nova a nuvem responde mais, e o ganho encolhe |
+| **B · a vazia e o "dentro"** | as duas, o "dentro" por poucos minutos | segura também a cena parada que está em ordem | um detalhe que mudou sem mexer na impressão fica sem aviso até a guarda vencer |
+| **C · todas** | qualquer resposta | o maior corte | repete um "fora" sem olhar de novo; o risco de B, maior |
+
+### A proteção, o que o dono respondeu (12/10)
+
+"O primeiro passo já, com os passos 1 e 2 do núcleo; os outros antes da segunda loja"; "a
+dúvida passa pelo nosso servidor"; os recortes de objeto e de cena sobem, e critério de
+pessoa sobe só número; o que uma loja ensina vale para as outras "depois de visto em mais
+de uma loja e medido; entra no contrato de uso"; a nossa nuvem "só quando a conta fechar".
+A régua do que a nuvem ensina ficou sem resposta.
 
 ### Os adicionais — por último
 
@@ -4777,14 +4827,22 @@ espera o "pode".
 
 ### O que entra na lista do dono
 
-1. **Duas autorizações, para o passo 0 começar:** usar as imagens que a loja guarda (parte
-   mostra pessoas; ficam só na pasta temporária da sessão) e começar as medições.
-2. **Os quatro critérios pagos** (gaveta, chapa, touca e uniforme, ingredientes) não estão na
-   configuração que o motor tem hoje: dizer se saíram de propósito. Para voltarem bem, a
-   cena de cada canal em que eles rodam (o item 3 da lista do A19 pede a do "montagem 1") e a
-   chave do pedido com contexto ligada (o item 11; a linha é preparada antes).
-3. **Conferir o total no painel da nuvem:** o motor registrou R$ 22,44 em 07 e 08/10; o teto
+1. ✅ **As duas autorizações do passo 0** — dadas em 12/10. As imagens que a nuvem julgou
+   ficaram guardadas no computador da loja, em `C:\Farol\guardado\`.
+2. **O "pode" da troca do pacote na loja**, para a fatia 1.1 valer lá (a resposta sair na
+   mesma volta) e ser medida.
+3. **Os quatro critérios pagos** (gaveta, chapa, touca e uniforme, ingredientes) não estão na
+   configuração que o motor tem hoje: dizer se saíram de propósito. Para voltarem bem: a
+   cena de cada canal em que eles rodam (console → Canais → o canal → "A cena deste canal"
+   → "Salvar a cena"); em cada critério, "Propor o estudo", ler e confirmar (console →
+   Critérios); e a chave do pedido com contexto ligada (o item 11 da lista do A19; a linha
+   é preparada antes).
+4. **A decisão da fatia 1.3:** que resposta da cena idêntica se guarda, e por quanto tempo.
+5. **O plano da fatia 1.2** (a leitura contínua e os estados do quadro): aprovar antes do
+   código.
+6. **Referências para o passo 2:** uma foto padrão por canal e as fotos dos equipamentos no
+   inventário — sem elas não há como medir "reconhecer o que foi apresentado".
+7. **Conferir o total no painel da nuvem:** o motor registrou R$ 22,44 em 07 e 08/10; o teto
    de R$ 5,00 (item 7 da lista do A19) é o das rodadas de teste.
-4. **Podem esperar:** a régua do que a nuvem ensina e onde ficam os recortes (somam com as
-   três decisões da onda 2); a dúvida pelo servidor; o que uma loja ensina vale para as
-   outras; a ordem da proteção; a nossa nuvem.
+8. **Ficou sem resposta:** a régua do que a nuvem ensina (soma com as três decisões da onda
+   2). As outras escolhas foram respondidas em 12/10 e estão acima.

@@ -4556,3 +4556,179 @@ pergunta à fila falhar, vale a hora dada, como antes.
 - O limite de dez análises por volta (`LIMITE_POR_PASSADA`) continua: com muitos critérios
   no mesmo instante, o que passar de dez sai na volta seguinte. Fica para o passo 1.
 
+## 12/10/2026 · O passo 0 do A20: o que as medições disseram
+
+O dono autorizou o passo 0 na manhã de 12/10 ("pode trazer para a medição do passo 0 e
+pode guardar à parte no computador da loja"; "pode começar o passo 0"). Tudo aqui é
+medição: nada mudou na loja além de uma pasta nova, e o único código que mudou foi a
+correção do registro acima.
+
+### 1 · Onde ficavam os 18 s
+
+Achado e corrigido: o registro acima (ERR-108).
+
+### 2 · As imagens que a nuvem julgou, guardadas
+
+As 1.722 imagens julgadas pela nuvem em 07 e 08/10 foram copiadas, no computador da loja,
+para `C:\Farol\guardado\exemplos-da-nuvem-2026-10\` (93 MB), com o registro de cada
+resposta (`registros.csv`) e um `LEIA.txt`. A limpeza de 15 dias do agente não apaga essa
+pasta. Uma cópia veio para a medição e ficou só na pasta temporária da sessão.
+
+### 3 · A memória por vetor
+
+O modelo é o previsto no desenho (SigLIP 2 base, em ONNX; vetor de 768 números; o arquivo
+foi conferido pelo sha256 publicado). Três jeitos de tirar o vetor: **inteiro** (a imagem
+achatada para 224×224, como o agente tem escrito), **reduzido** (o mesmo, no modelo
+quantizado) e **em pedaços** (três quadrados — esquerda, meio, direita —, e a média deles).
+
+**A cena repetida.** Para cada análise paga, a cena mais parecida já julgada no mesmo
+critério (1.717 análises com alguma anterior):
+
+| jeito | semelhança de pelo menos | a memória teria respondido | com a mesma resposta da nuvem |
+|---|---|---|---|
+| inteiro | 0,99 | 638 (37%) | 638 (100%) |
+| inteiro | 0,98 | 887 (52%) | 883 (99,5%) |
+| inteiro | 0,95 | 1.420 (83%) | 1.328 (93,5%) |
+| em pedaços | 0,995 | 612 (36%) | 612 (100%) |
+| em pedaços | 0,99 | 870 (51%) | 868 (99,8%) |
+| a impressão da imagem, que o motor já tem (medida de 12/10) | idêntica | 676 (39%) | 675 |
+
+Para "não pagar de novo pela mesma cena", o vetor dá o mesmo que a impressão que já existe.
+E quase tudo o que ele repetiria é "não deu para avaliar": em 0,98, das 887, 873.
+
+**Separa o "fora" do "dentro"?** Só as análises que a nuvem avaliou; para cada uma, o
+vizinho mais parecido entre as outras avaliadas do mesmo critério, sem contar as cenas a
+menos de 10 minutos (são quase a mesma imagem):
+
+| critério | avaliadas (dentro · fora) | inteiro | reduzido | em pedaços | dizer sempre a maioria |
+|---|---|---|---|---|---|
+| gaveta do caixa | 31 (17 · 14) | 71% | 74% | **87%** | 55% |
+| touca e uniforme | 51 (13 · 38) | 55% | 67% | 71% | **75%** |
+| chapa | 30 (1 · 29) | — | — | — | não dá para medir: quase uma resposta só |
+| ingredientes | 127 (127 · 0) | — | — | — | não dá para medir: uma resposta só |
+
+**Pela régua do dono** (a memória guarda só o que a nuvem avaliou com confiança de 0,85 ou
+mais), com o vetor em pedaços, sobre as 204 respostas firmes que vieram depois da primeira:
+
+| semelhança de pelo menos | a memória teria respondido | com a resposta contrária |
+|---|---|---|
+| 0,98 | 20 (10%) | 2 |
+| 0,95 | 174 (85%) | 22 (12,6%) |
+| 0,93 | 200 (98%) | 25 (12,5%) |
+
+O que isso diz:
+
+1. **A memória pela imagem inteira não pode valer para critério de detalhe.** Na touca ela
+   acerta menos do que "dizer sempre a maioria", nos três jeitos. Onde ela responde muito
+   (0,95), responde o contrário em 1 de cada 8 — a meta do plano é 1 em 50.
+2. **O recorte muda o resultado.** Na gaveta, tirar o vetor em pedaços levou de 71% para
+   87%. É a mesma direção do pedido do dono: analisar a área certa, e não a imagem toda.
+   Para a touca, o recorte certo é a pessoa (a cabeça), e não o quadro.
+3. **O gabarito é fraco.** As "respostas certas" aqui são as da nuvem do jeito antigo, e ela
+   mesma respondeu diferente a cenas quase iguais. Sem os exemplos marcados pelo responsável
+   ("acertou / errou"), nenhuma dessas porcentagens é acerto de verdade. As amostras são
+   pequenas (31 e 51).
+4. **O plano muda aqui, como estava combinado:** a memória só passa a valer (passo 4)
+   depois do caderno com a prova (passo 3) e com o vetor do recorte certo — a medir de novo
+   quando houver exemplo marcado.
+
+Achados de passagem, no código que ainda não está ligado: `EmbedderSigLIP.embed` pega a
+**primeira** saída do modelo, que neste arquivo é a tabela de 196 pedaços (150.528
+números), e não o vetor de 768 (`pooler_output`); e o agente não tem o endereço nem o
+sha256 do modelo, como tem para o detector. Os dois se acertam ao montar o juiz de
+comparação (passo 2).
+
+O tempo do vetor **na máquina de desenvolvimento** (não na da loja): 138 ms com o modelo
+inteiro e 115 ms com o reduzido.
+
+### 4 · O que o "Propor o estudo" daria aos quatro critérios pagos
+
+A função de regras do servidor, chamada com o texto de cada critério e com os canais como
+estão na loja (sem cena escrita, sem papel nos quadros, sem foto padrão):
+
+| critério | o que ela propõe |
+|---|---|
+| touca e uniforme | só com gente no lugar; quando alguém entra; e a cada 5 minutos |
+| gaveta do caixa | com o lugar livre; quando quem mexeu sai da frente; e a cada 10 minutos |
+| chapa | o caminho geral (não achou palavra conhecida no texto): com o lugar livre; quando para; e a cada 10 minutos |
+| ingredientes da montagem | o caminho geral: o mesmo |
+
+Ou seja: as portas do funil que seguraram zero olhadas se ligam com um clique por critério
+("Propor o estudo", ler e confirmar). A da touca é a mesma "há alguém aqui?" que teria
+segurado 49% das análises pagas dela sem perder resposta.
+
+### 5 · O movimento por área, na gravação
+
+A gravação de domingo, 11/10, lida no computador da loja pelo caminho do agente: duas
+leituras por segundo, o quadro reduzido ao tamanho do fluxo menor (medido: 704×480) e a
+**mesma conta de movimento que o agente já usa** (a área reduzida a 96×54; ponto que saltou
+mais de 24; 1,2% dos pontos). Só números saíram; nenhuma imagem foi gravada. Cada trecho
+tem perto de 30 minutos.
+
+| canal · área · hora | com movimento | "assentou" com 3 s · 5 s · 10 s de calma | "parou" visto a cada 10 s | "parou" visto a cada 30 s | o maior trecho calmo |
+|---|---|---|---|---|---|
+| 4 · o tampo · 19h (abertura) | 11% | 26 · 23 · 11 | 11 | 6 | 8 min 36 s |
+| 4 · o tampo · 21h (pico) | 62% | 43 · 33 · 16 | 15 | 3 | 64 s |
+| 4 · o tampo · 2h (fim do serviço) | 62% | 41 · 29 · 16 | 9 | 3 | 75 s |
+| 13 · o quadro do colaborador · 21h | 49% | 48 · 26 · 14 | 12 | 3 | 82 s |
+| 6 · a chapa (imagem inteira) · 21h | 53% | 60 · 32 · 12 | 11 | 1 | 101 s |
+
+"Assentou" é a área ficar calma pelo tempo dito depois de ter mexido; "acordou" (duas
+leituras seguidas com movimento) deu os mesmos números, ou um a mais.
+
+O que isso diz:
+
+1. **A olhada de 30 s não serve de gatilho no pico.** Às 21h, de 58 olhadas no tampo, 50
+   acharam "algo mudou": quase sempre mudou. E ela viu 3 dos 33 a 43 momentos em que o
+   tampo parou.
+2. **Ler sempre e analisar no "assentou" dá menos análises, e nos instantes certos.** A
+   rotina faz 120 olhadas por hora. Com a análise saindo quando o tampo assenta por 5 s:
+   46 por hora na abertura, 68 no pico e 62 no fim do serviço (menos 43% a 62%). Com 10 s:
+   22, 33 e 34 por hora (menos 71% a 81%). E cada uma sai com as mãos fora da cena.
+3. **O repouso existe mesmo com a loja aberta:** o tampo ficou calmo em 89% do tempo na
+   abertura e em 38% no pico.
+4. **O clarão precisa de filtro.** Às 2h a área inteira mudou de uma vez 85 vezes em 28
+   minutos (às 19h, nenhuma; às 21h, uma). Sem filtro, cada uma acordaria o quadro.
+5. **A conta é barata:** perto de 2 ms por leitura e por área, já com a redução do quadro
+   principal, que o fluxo menor ao vivo dispensa.
+6. Comparar com a média dos quadros anteriores, como o Frigate faz, deu **menos**
+   acontecimentos e mais tempo "em atividade": para achar o instante em que a área parou, a
+   diferença entre leituras seguidas, que o agente já usa, serviu melhor.
+
+A medida de 09/10 (na chapa, 11 "parou" a cada 10 s contra 1 a cada 30 s, em meia hora) se
+repetiu igual nesta gravação.
+
+### 6 · O tempo do vetor no computador da loja
+
+Medido lá, com 40 das imagens guardadas, 60 vetores por jeito (o modelo foi baixado para
+uma pasta de medição e apagado em seguida):
+
+| jeito | por vetor (mediana) |
+|---|---|
+| modelo inteiro, na placa de vídeo | 78 ms |
+| modelo inteiro, no processador | 98 ms |
+| modelo reduzido, no processador | 75 ms |
+| modelo reduzido, na placa de vídeo | 365 ms |
+
+Preparar a imagem leva 1,2 ms. O vetor custa o mesmo que uma passada do detector (91 ms):
+a máquina da loja aguenta, desde que ele saia por acontecimento, e não a cada leitura. O
+modelo reduzido não é atalho: o vetor dele é outro (semelhança de 0,77 com o do modelo
+inteiro, no mesmo quadro) e na placa de vídeo ele é quatro vezes mais lento. A internet da
+loja baixou o modelo a 7 Mbit/s.
+
+### 7 · O que não foi medido
+
+- **Reconhecer o que foi apresentado** (a foto padrão e as fotos do inventário): a loja não
+  tem foto padrão guardada. Depende de o responsável cadastrar referências.
+- **O acerto de verdade** de qualquer juiz: falta o exemplo marcado pelo responsável.
+- **O vetor do recorte certo** (a pessoa, na touca; a gaveta, no caixa): a medir quando
+  houver exemplo marcado.
+- **O ganho na loja** da correção do relógio do julgamento e do repouso por movimento: só
+  com o pacote trocado.
+- **Movimento pequeno em quadro pequeno:** os dois quadros da loja são grandes (699×393 e
+  440×382 no fluxo menor). Quadro pequeno ainda não existe para medir.
+
+O que ficou na loja: só a pasta `C:\Farol\guardado\`. Os roteiros desta medição e a pasta
+de medição foram apagados de lá; os roteiros de leitura de sessões anteriores continuam, e
+saem no primeiro passo da proteção.
+
