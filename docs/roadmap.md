@@ -4728,7 +4728,7 @@ que ficou de fora"**. A ordem: a planilha, a porta para outro sistema, o "Mais" 
 
 ---
 
-## A20 · O vigia: atenção, reflexo e aprendizado (direção do dono em 12/10/2026; núcleo primeiro; passo 0 feito; a fatia 1.1 na loja desde 12/10, 16h43; as fatias 1.2a e 1.3 no repositório, à espera da troca do pacote)
+## A20 · O vigia: atenção, reflexo e aprendizado (direção do dono em 12/10/2026; núcleo primeiro; passo 0 feito; a fatia 1.1 na loja desde 12/10, 16h43, e medida; as fatias 1.1b, 1.2a, 1.3 e 1.5 no repositório, à espera da troca do pacote)
 
 **A régua, dita pelo dono:** "a ideia de controle do Farol é como se um ser humano estivesse
 parado olhando fixo para aquele local e respondendo o mais rápido possível aos critérios".
@@ -4789,7 +4789,8 @@ passo 0 do A20: o que as medições disseram".
 
 | fatia | o que entra | o antes e o depois | depende de |
 |---|---|---|---|
-| **1.1 ✅ · O juiz na mesma volta** (12/10, PR #114; **na loja desde 12/10, 16h43**) | o relógio do julgamento alcança o quadro mais novo da fila | da imagem à resposta: de 11 a 18 s (mediana medida) para o fim da captura da própria volta. O número de verdade se mede com a loja aberta | — |
+| **1.1 ✅ · O juiz na mesma volta** (12/10, PR #114; **na loja desde 12/10, 16h43**) | o relógio do julgamento alcança o quadro mais novo da fila | **medido na loja aberta (12/10, 19h08–19h18):** da imagem à resposta, de 11 a 13 s (medianas de 11/10) para 1,3 a 2,9 s; a maior, 3,7 s; nenhum aviso nem erro no registro | — |
+| **1.1b ✅ · Julgar canal a canal** (12/10, no repositório) | o que o detector julga na loja sai logo depois de cada canal, antes de o seguinte ser aberto; o que vai à nuvem continua no fim da volta | os 1,6 s que o critério do primeiro canal leva a mais que o do último eram a abertura do segundo canal; com seis canais seriam perto de oito segundos (conta) | a troca do pacote |
 | **1.2 · A leitura contínua e os estados do quadro** (aprovada em 12/10: "contar primeiro, agir depois de uma semana de números") | o motor mede o movimento em cada quadro duas vezes por segundo, na imagem leve que já fica aberta, com a conta de hoje e um filtro de clarão; cada quadro tem quatro estados (repouso, acordou, em atividade, assentou); a análise sai no acontecimento — ao acordar, para critério de pessoa e de acontecimento; ao assentar, para critério de estado —, com uma conferência de tempos em tempos no repouso e um teto por minuto. Nasce desligado, por loja, como a chave do contexto: a rotina de 30 s continua valendo até a medida na loja | medido na gravação (o tampo): 120 olhadas por hora na rotina; de 46 a 68 análises por hora saindo no "assentou" de 5 s, e de 22 a 34 com 10 s; a rotina vê 3 a 6 paradas por meia hora, a leitura contínua vê de 23 a 43 | o plano da fatia aprovado (é a maior mudança do motor desde a onda 1); o "pode" da troca do pacote |
 | **1.3 ✅ · A resposta vazia guardada** (12/10, no repositório; migration 042) | a cena de impressão idêntica a uma que a nuvem não conseguiu avaliar, duas vezes seguidas, não é paga de novo por 2 horas; no resumo da hora, quantas olhadas foram seguradas assim; e o sinal "não conseguiu avaliar" passa a contá-las | refeita a conta nas 1.722 análises pagas: segura 556 (32%) e não esconde nenhum "fora"; na forma simples seguraria 670 (39%) e esconderia 1 dos 81 (abaixo) | **o dono escolher a forma** (duas vazias, ou uma) e o "pode" da troca do pacote |
 | **1.4 · As condições ligadas** | sem código: "Propor o estudo" em cada critério pago, ler e confirmar | "há alguém aqui?" teria segurado 48% (chapa) e 49% (touca e uniforme) das pagas, sem perder resposta (medido) | o dono religar os critérios; a cena dos canais; a chave do contexto |

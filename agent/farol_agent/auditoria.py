@@ -287,6 +287,9 @@ class Auditoria:
         # Os critérios que o detector julga aqui mesmo, em décimos de
         # segundo: não disputam o limite da volta com o que vai à nuvem.
         self._julgados_pelo_detector: set[str] = set()
+        # Os avisos que saíram no meio da captura (o que é do detector é
+        # julgado logo depois de cada canal): a volta os devolve em `julgar`.
+        self._avisos_da_captura: list = []
         # Onde cada gravador escreve o relógio, por canal. Perguntado uma
         # vez por gravador; injetável para o teste não precisar de um.
         self._perguntar_relogios = _relogios_do_gravador
@@ -841,9 +844,36 @@ class Auditoria:
             # É com o instante DESTA olhada que o vigia compara depois.
             if self.vigia is not None:
                 self.vigia.anotar_olhada(ponto_id, fonte, agora)
+            # O que o detector julga aqui mesmo sai JÁ, antes de abrir o
+            # canal seguinte: cada canal leva de um a dois segundos para
+            # abrir, e a resposta do primeiro esperava por todos os outros.
+            if p.enfileirados:
+                self._julgar_o_da_loja(agora)
 
         self._contar_sem_juiz(agora)
         return total
+
+    def _julgar_o_da_loja(self, agora: datetime) -> None:
+        """Julga já o que o detector resolve na loja, no meio da captura — e só isso.
+
+        O que vai à nuvem continua esperando o fim da volta (`julgar`): uma
+        chamada de dois segundos no meio da captura atrasaria os canais que
+        faltam. Os avisos que saírem daqui ficam guardados, e a volta os
+        devolve junto com os dela.
+        """
+        if self.motor is None or self.juiz is None or not self._julgados_pelo_detector:
+            return
+        try:
+            self._avisos_da_captura += self.motor.processar(
+                self.juiz,
+                self._hora_de_julgar(agora),
+                limite=0,
+                da_loja=self._julgados_pelo_detector,
+                limite_da_loja=LIMITE_DA_LOJA_POR_PASSADA,
+            )
+        except Exception as e:  # noqa: BLE001
+            self.ultimo_erro = str(e)
+            _log.exception("julgamento falhou")
 
     def _contar_sem_juiz(self, agora: datetime) -> None:
         """Marca no resumo da hora os critérios que valem agora e não têm juiz.
@@ -867,11 +897,12 @@ class Auditoria:
             _log.exception("não consegui somar os critérios sem juiz no resumo")
 
     def julgar(self, agora: datetime | None = None) -> list:
-        """Drena a fila e devolve os alertas."""
+        """Drena a fila e devolve os alertas — com os que já saíram no meio da captura."""
+        ja, self._avisos_da_captura = self._avisos_da_captura, []
         if self.motor is None or self.juiz is None:
-            return []
+            return ja
         try:
-            return self.motor.processar(
+            return ja + self.motor.processar(
                 self.juiz,
                 self._hora_de_julgar(agora or datetime.now()),
                 limite=LIMITE_POR_PASSADA,
@@ -883,7 +914,7 @@ class Auditoria:
         except Exception as e:  # noqa: BLE001
             self.ultimo_erro = str(e)
             _log.exception("julgamento falhou")
-            return []
+            return ja
 
     def _hora_de_julgar(self, agora: datetime) -> datetime:
         """O relógio com que a fila é drenada: o da volta, adiantado até o quadro mais novo que espera.
@@ -1198,6 +1229,10 @@ class Auditoria:
                 continue
             total += len(p.enfileirados)
             self.vigia.anotar_olhada(ponto_id, fonte, agora)
+            # Como na rotina: a resposta deste canal não espera a olhada
+            # extra dos outros que mudaram junto.
+            if p.enfileirados:
+                self._julgar_o_da_loja(agora)
         alertas = self.julgar(agora)
         subidos = self.subir(agora)
         return {"enfileirados": total, "alertas": len(alertas), "subidos": subidos, "extras": len(canais)}
