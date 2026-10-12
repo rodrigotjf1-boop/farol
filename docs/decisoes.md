@@ -5065,3 +5065,58 @@ O tempo de uma volta com muitos critérios de verdade: a loja de hoje tem dois. 
 cem é conta, e não medida — o detector levou 91 ms por análise no computador do piloto, e
 cem por volta dariam perto de nove segundos numa máquina igual. Com a segunda loja, mede-se.
 
+## 12/10/2026 (noite) · O custo da leitura contínua, medido — e o desenho do quadro guardado
+
+A atenção lê cada quadro duas vezes por segundo, o dia inteiro. Antes de ela ir para a
+loja, o custo de uma leitura foi medido **na máquina de desenvolvimento** (não na da loja),
+com a imagem no tamanho do fluxo menor (704×480).
+
+### O que foi medido
+
+Por leitura de um quadro (recortar, apagar o que é de fora do desenho, cinza, reduzir e
+comparar):
+
+| o quadro | antes | depois |
+|---|---|---|
+| a imagem completa | 0,84 ms | 0,35 ms |
+| um quadro retangular, meia imagem | 0,19 ms | 0,15 ms |
+| um quadro desenhado por pontos, grande (80% × 80% da imagem) | 2,89 ms | 0,29 ms |
+| um quadro desenhado por pontos, pequeno (25% × 25%) | 0,23 ms | 0,06 ms |
+
+Uma volta de leitura inteira, com uma fonte de mentira que copia o quadro a cada vez (a de
+verdade não copia: é um teto):
+
+| a loja | antes | depois | a duas por segundo, depois |
+|---|---|---|---|
+| 2 canais, 2 quadros cada | 2,8 ms | 1,6 ms | 0,3% de um núcleo |
+| 6 canais, 2 quadros cada | 8,4 ms | 4,0 ms | 0,8% |
+| 6 canais, 3 quadros cada (um por pontos, grande) | 26 ms | 18 ms | 3,6% |
+| 16 canais, 3 quadros cada | 191 ms | 48 ms | 9,6% |
+
+### O que mudou
+
+O que pesava era o quadro desenhado por pontos: a cada leitura o desenho era refeito e o
+que ficava de fora era apagado na imagem em cores. Agora o desenho de cada quadro é feito
+uma vez (por desenho e por tamanho de imagem) e guardado, e o cinza vem antes do apagar.
+
+**O resultado é o mesmo, ponto a ponto** — a medida de movimento já foi calibrada com ele.
+Conferido contra a conta de antes em oito desenhos (a imagem completa, retângulo, triângulo,
+por pontos, pequeno, encostado e passando da borda, sem área), quatro tamanhos de imagem, em
+cores e em cinza; e a imagem que vem da fonte não é alterada. 44 testes novos
+(`agent/testes/test_reduzir.py`), 11 mutações, nenhuma viva. A quietude e a atenção passam
+como estavam.
+
+### O que isso diz
+
+1. **Na loja de hoje o custo é desprezível** (dois quadros: frações de 1% de um núcleo na
+   máquina de desenvolvimento; a da loja é mais lenta, e ainda assim sobra).
+2. **O que resta é a redução da imagem**, que cresce com o tamanho do quadro. Numa loja
+   com muitos canais, o próximo passo — só se a medida ao vivo pedir — é reduzir a imagem
+   do canal uma vez e recortar os quadros dela. Isso muda a conta em casas decimais, e por
+   isso não entrou agora: pede calibrar de novo.
+
+### O que não foi medido
+
+O custo no computador da loja, ao vivo: aparece no uso da máquina que o agente já manda,
+comparando os dias de antes e de depois da troca do pacote.
+
