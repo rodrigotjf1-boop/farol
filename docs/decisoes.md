@@ -4044,3 +4044,104 @@ A tela (protótipo aprovado): a loja sem fichas com os jeitos de tê-las, a impo
 passos, a etiqueta da origem — com o passo "Conferir" refeito para a resposta 2 do dono: o
 que entra, o que fica de fora, e o botão que importa o que está certo. Depois, a porta para
 outro sistema e o "Mais" na barra do celular.
+
+## 11/10/2026 (noite) · As fichas por planilha — a tela
+
+A segunda metade da planilha: a tela que abre o arquivo do Excel. Do protótipo aprovado
+(`mockups/farol-conexoes-e-fichas.html`), com o passo "Conferir" refeito para a resposta do
+dono — "entra o que está certo e a tela lista o que ficou de fora" — e mostrado no próprio
+protótipo antes de virar tela (situação "planilha · com produtos de fora").
+
+### O que entrou
+
+- **A loja sem fichas mostra os jeitos de tê-las** — conectar ao Regem ou importar planilha —
+  em vez de só mandar conectar ao Regem. Cada jeito tem o botão para quem pode e a frase para
+  quem não pode (conectar é da diretoria; importar é de quem configura a loja).
+- **Importar em três passos, numa gaveta:** o modelo (as sete colunas, o que é cada uma, as
+  três abas opcionais e o botão "Baixar o modelo"), enviar (.xlsx ou .csv, até 2 MB) e
+  conferir (o que entra, o que fica de fora e por quê, e o aviso de que importar troca as
+  fichas que a loja tem). Nada é gravado antes do botão do passo 3, e o botão diz o que faz:
+  "Importar", "Importar os N que estão certos" ou, sem nada certo, não existe.
+- **A tela Fichas diz a origem:** "da planilha · importada hoje, 21:33", com "Importar de
+  novo" e "Baixar a planilha" (as fichas da loja de volta no modelo, para corrigir).
+- **O que ficou de fora continua à mão** depois de importar: a tela diz quantos produtos
+  ficaram de fora e quais (os seis primeiros), e "Ver o que ficou de fora" abre a lista com a
+  aba, a linha, o motivo e o que fazer. A supervisão vê quantos e quais; o motivo é de quem
+  importa.
+- **`web/lib/planilha.ts`** — abre o arquivo no navegador e manda ao servidor só as células.
+  Lê .xlsx (o texto que o Excel guarda numa tabela à parte, o texto com formatação dentro da
+  célula, a linha em branco no meio — a linha do problema é a da planilha) e .csv (ponto e
+  vírgula, vírgula ou tabulação; UTF-8 ou a codificação antiga do Windows). Escreve o .xlsx
+  que a pessoa baixa. Dois tetos antes de qualquer trabalho: 2 MB o arquivo, 30 MB aberto.
+- **Uma dependência nova no console: `fflate` 0.8.3**, com a versão exata. É só o que abre e
+  fecha o arquivo compactado; não tem dependência própria. A alternativa pronta para ler
+  Excel tinha quatro dias de publicada e trazia outras atrás.
+
+### O que eu decidi no caminho, e por quê
+
+- **Os problemas saem na ordem em que se corrige:** uma aba de cada vez, na ordem do modelo,
+  e de cima para baixo dentro da aba. O servidor (#108) ordenava só pelo número da linha, e
+  "Adicionais, linha 2" saía antes de "Fichas, linha 6" do mesmo produto. Mudou no leitor, com
+  teste.
+- **A loja com fichas de planilha que é ligada ao Regem** não estava no protótipo, e a tela
+  dizia coisas erradas nesse intervalo ("corrija a planilha e importe de novo", que o servidor
+  recusa). Passou a dizer o que acontece: as fichas da planilha ficam até a busca no Regem dar
+  certo, e aí as de lá entram no lugar; os botões são os do Regem; e a tela troca sozinha
+  quando a busca termina. A frase é a que o protótipo usa para o mesmo caso no outro sistema.
+  O servidor já fazia assim (desconectar e "acesso tirado" só apagam as fichas que vieram do
+  Regem).
+- **O resumo da lista ganhou os nomes** (`quais`, os seis primeiros): o protótipo diz quais
+  produtos ficaram de fora, e a lista só trazia a conta.
+- **O botão "Ver o que ficou de fora" fica na linha de baixo do aviso**, e não ao lado da
+  frase: ao lado, o botão (mais alto) tirava a frase da linha do ícone.
+
+### Diferenças do protótipo, ditas
+
+- **O terceiro jeito ("receber de outro sistema") e os cartões "Outro sistema" e "Planilha"
+  da tela Conexões não entraram:** são da entrega seguinte, a porta para outro sistema, que
+  refaz a tela Conexões para as três origens. Até lá a loja sem fichas mostra dois jeitos, e
+  a frase de abertura não diz "escolha um dos três".
+- **O aviso de troca diz quantos produtos saem** ("Os 2 produtos que ela tem hoje saem"), e
+  não a data da importação anterior: é o que o servidor responde na conferência.
+- **Os produtos sem ficha** aparecem numa linha de ajuda embaixo das contas, e não numa caixa
+  de aviso: não é um problema, e três caixas seguidas disputavam a atenção.
+- **"Falta ligar esta loja ao Regem"** ficou como no protótipo: enquanto a conta tem loja do
+  Regem esperando para ser ligada, a loja sem ligação não oferece a planilha pela tela (o
+  servidor aceita). Quem resolve é a entrega seguinte, que trata as origens por loja.
+
+### O que foi medido
+
+- **Num navegador de verdade, com arquivos de verdade** (escritos pelo openpyxl, fora do
+  código do Farol) — 152 passos conferidos: a loja sem fichas para a diretoria, a gerência e a
+  supervisão; o modelo, e o arquivo baixado aberto por outro leitor (as quatro abas, os
+  títulos com acento, texto como texto e número como número, o título em negrito e preso no
+  alto); o que não é planilha (um arquivo compactado que não é Excel, o .xls antigo, o arquivo
+  vazio) e a planilha sem uma coluna obrigatória, cada um com o motivo na tela; a planilha com
+  problemas (dois entram, dois ficam de fora, com a linha da PLANILHA — há uma linha em branco
+  no meio — e sem as colunas de preço e custo que ela trazia aparecerem em lugar nenhum);
+  importar e abrir a lista do que ficou de fora; importar de novo a certa (a base trocada
+  inteira); baixar a planilha da loja, abri-la por outro leitor e importá-la de volta ("nada
+  mudou"); a toda errada; a de uma aba só, com o nome que o Excel dá; o texto com negrito num
+  pedaço da célula; os dois CSV; e a loja com planilha que é ligada ao Regem (a busca que
+  falha, a que demora, e a troca pelas fichas de lá sem recarregar a tela).
+- **565 medidas de largura** (8 estados, 16 larguras de 320 a 1920, e o tema escuro em duas):
+  nada passa da tela e nenhuma peça rola para o lado, com cada gaveta aberta. As fotos foram
+  olhadas; dois acertos saíram daí (o rótulo "Adicionais, linha 2" quebrava em duas linhas, e
+  o botão ao lado da frase do aviso).
+- O roteiro da tela Fichas pelo Regem (132 passos, 396 medidas) segue passando.
+- **Na API:** dois testes novos (a ordem dos problemas; os nomes no resumo da lista). A lista
+  de estragos de propósito foi de 91 para 98; os sete novos e o que mudou foram rodados, e os
+  oito foram pegos. A ordenação dos "soltos" era redundante (cada aba já é lida inteira, de
+  cima para baixo) e saiu do código. A suíte inteira: 1.184 testes, 1.183 passando — o que
+  falha no banco local é o do embedding, que pede uma extensão que ele não tem (passa no CI).
+
+### O que não foi medido
+
+- **O Excel de verdade, nas duas pontas.** Os arquivos de teste foram escritos por outra
+  biblioteca (openpyxl), que grava no mesmo formato — texto na tabela à parte, número como
+  número —, e foi ela que abriu o modelo e a planilha que a tela baixa. O Excel é mais
+  exigente que ela com o arquivo que abre. O primeiro teste de verdade é o do dono: baixar o
+  modelo, abrir no Excel, preencher, salvar e importar.
+- **O leitor do arquivo não tem teste no repositório:** o console não tem onde rodar teste (o
+  CI dele é a compilação). Quem o guarda hoje é o roteiro de navegador, que não roda no CI.
+- A planilha grande (centenas de produtos) e o celular de verdade.

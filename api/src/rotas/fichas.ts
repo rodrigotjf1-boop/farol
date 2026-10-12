@@ -45,6 +45,8 @@ import { sessaoDe, type Sessao } from './sessao.js';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** O maior corpo que a importação aceita: as células de uma planilha de loja cabem com folga. */
 const MAX_DA_PLANILHA = 8 * 1024 * 1024;
+/** Quantos nomes de produto que ficou de fora vão no resumo da lista. */
+const QUAIS_DE_FORA = 6;
 
 /** O registro da última importação por planilha, como fica guardado. */
 export type Importacao = {
@@ -156,7 +158,15 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
       /** A última importação por planilha: qual arquivo, quando, quem, e quantos produtos ficaram de fora. */
       importacao:
         base && l.fonte === 'planilha' && l.importacao
-          ? { arquivo: l.importacao.arquivo, em: l.importacao.em, por: l.importacao.por.nome, deFora: l.importacao.deFora.length, problemas: l.importacao.problemas }
+          ? {
+              arquivo: l.importacao.arquivo,
+              em: l.importacao.em,
+              por: l.importacao.por.nome,
+              deFora: l.importacao.deFora.length,
+              /** Os primeiros nomes, para a tela dizer quais — o motivo de cada um fica no registro da importação. */
+              quais: l.importacao.deFora.slice(0, QUAIS_DE_FORA).map((d) => d.produto),
+              problemas: l.importacao.problemas,
+            }
           : null,
       /** O nome da loja no Regem, para a tela dizer com qual loja de lá esta está ligada. */
       regemLojaNome: l.regem_loja_nome,

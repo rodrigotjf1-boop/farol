@@ -495,7 +495,9 @@ export function lerPlanilha(abas: unknown): Leitura {
     }),
   };
 
-  const porLinha = (x: Problema, y: Problema) => x.linha - y.linha;
+  // Na ordem em que a pessoa corrige: uma aba de cada vez (na ordem do modelo) e, dentro dela, de cima para baixo.
+  const ABAS_EM_ORDEM = (['fichas', 'variacoes', 'adicionais', 'combos'] as const).map((q): string => NOME_DA_ABA[q]);
+  const porLinha = (x: Problema, y: Problema) => ABAS_EM_ORDEM.indexOf(x.aba) - ABAS_EM_ORDEM.indexOf(y.aba) || x.linha - y.linha;
   const deForaTodos = ordem.filter((p) => p.problemas.length > 0).map((p) => ({ produto: p.nome, problemas: [...p.problemas].sort(porLinha) }));
   const total = soltos.length + deForaTodos.reduce((n, d) => n + d.problemas.length, 0);
 
@@ -521,7 +523,8 @@ export function lerPlanilha(abas: unknown): Leitura {
     },
     semFicha: base.produtos.filter((p) => p.ficha === null && p.tipo !== 'combo').map((p) => p.nome),
     deFora,
-    soltos: [...soltos].sort(porLinha).slice(0, Math.max(cabem, 0)),
+    // os soltos já estão na ordem de corrigir: cada aba é lida inteira, de cima para baixo, antes da seguinte
+    soltos: soltos.slice(0, Math.max(cabem, 0)),
     problemas: total,
   };
 }

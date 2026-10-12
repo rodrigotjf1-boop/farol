@@ -3,11 +3,18 @@
 // =====================================================================
 // Fichas — o que a loja vende e do que cada produto é feito
 // =====================================================================
-// A tela mostra a BASE DE FICHAS que o Farol guarda da loja. Hoje ela vem
-// do Regem, lida quando a loja é ligada, uma vez por dia e a pedido
-// ("Buscar agora").
+// A tela mostra a BASE DE FICHAS que o Farol guarda da loja. Ela vem de UM
+// de dois lugares (uma loja recebe as fichas de um lugar só):
 //
-// Não se edita por aqui: as fichas são do Regem. Preço, custo e cliente não
+//   • do Regem — lida quando a loja é ligada, uma vez por dia e a pedido
+//     ("Buscar agora");
+//   • de uma planilha, no modelo do Farol — importada por quem configura a
+//     loja (`componentes/fichas/importar-planilha.tsx`). Decisão do dono em
+//     11/10/2026: "entra o que está certo e a tela lista o que ficou de
+//     fora" — por isso a tela diz quantos produtos ficaram de fora e abre a
+//     lista.
+//
+// Não se edita por aqui: as fichas são da origem. Preço, custo e cliente não
 // aparecem porque o Farol nem recebe.
 //
 // Quem vê: a supervisão para cima e o suporte (decisão do dono em
@@ -20,19 +27,22 @@
 // usá-la. Frase de tela só vale com o serviço que a sustenta.
 // =====================================================================
 
-import { ChevronRight, ClipboardList, Info, Lock, Minus, Plug, Plus, RefreshCw, Store, TriangleAlert } from 'lucide-react';
+import { ChevronRight, ClipboardList, Download, FileSpreadsheet, Info, Lock, Minus, Plug, Plus, RefreshCw, Store, TriangleAlert, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { useConsole } from '@/componentes/console';
+import { GavetaDeFora } from '@/componentes/fichas/de-fora';
+import { ImportarPlanilha } from '@/componentes/fichas/importar-planilha';
 import { diaFaladoNaLoja, frase, numero, plural, quantidadeDaFicha } from '@/componentes/formatos';
 import { useAvisar } from '@/componentes/ui/avisos';
 import { Botao, classesDoBotao } from '@/componentes/ui/botao';
 import { AJUDA } from '@/componentes/ui/campo';
 import { Alerta, Cabecalho, CARTAO, Chip, Ossos, Segmentado, Vazio } from '@/componentes/ui/pecas';
 import { Gaveta } from '@/componentes/ui/sobreposto';
-import { ErroDaApi, fichasApi, type EfeitoDaOpcao, type FichasDaLoja, type ProdutoDaFicha, type ProdutoNaLista } from '@/lib/api';
+import { ErroDaApi, fichasApi, type ConferenciaDaPlanilha, type EfeitoDaOpcao, type FichasDaLoja, type ProdutoDaFicha, type ProdutoNaLista } from '@/lib/api';
+import { baixarArquivo, escreverXlsx } from '@/lib/planilha';
 
 type Filtro = 'todos' | 'com' | 'sem';
 
@@ -118,7 +128,23 @@ function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode
   );
 }
 
-function Folha({ lojaId, resumo, podeBuscar, aoFechar }: { lojaId: string; resumo: ProdutoNaLista; podeBuscar: boolean; aoFechar: () => void }) {
+function Folha({
+  lojaId,
+  resumo,
+  podeBuscar,
+  daPlanilha,
+  esperaORegem,
+  aoFechar,
+}: {
+  lojaId: string;
+  resumo: ProdutoNaLista;
+  podeBuscar: boolean;
+  /** As fichas da loja vieram de planilha: o que a gaveta diz sobre onde mudar é outro. */
+  daPlanilha: boolean;
+  /** A loja foi ligada ao Regem e a base ainda é a da planilha: ninguém manda importar de novo. */
+  esperaORegem: boolean;
+  aoFechar: () => void;
+}) {
   const [p, setP] = useState<ProdutoDaFicha | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -141,7 +167,11 @@ function Folha({ lojaId, resumo, podeBuscar, aoFechar }: { lojaId: string; resum
       rodape={
         <>
           <p className={`${AJUDA} min-w-0 flex-[1_1_220px]`}>
-            Para mudar, mude no Regem. O Farol busca as fichas uma vez por dia{podeBuscar ? '; para trazer já, use “Buscar agora”.' : '.'}
+            {esperaORegem
+              ? 'Esta ficha veio da planilha. Quando a busca no Regem der certo, as fichas de lá entram no lugar.'
+              : daPlanilha
+                ? 'Para mudar, corrija a planilha e importe de novo.'
+                : `Para mudar, mude no Regem. O Farol busca as fichas uma vez por dia${podeBuscar ? '; para trazer já, use “Buscar agora”.' : '.'}`}
           </p>
           <Botao onClick={aoFechar}>Fechar</Botao>
         </>
@@ -174,7 +204,7 @@ function Folha({ lojaId, resumo, podeBuscar, aoFechar }: { lojaId: string; resum
                   ))}
                 </ol>
               )}
-              <p className={AJUDA}>A embalagem que só entra no pedido para viagem fica fora desta lista.</p>
+              {!daPlanilha && <p className={AJUDA}>A embalagem que só entra no pedido para viagem fica fora desta lista.</p>}
             </Bloco>
           ) : p.tipo === 'combo' ? (
             <Bloco titulo="O que vem no combo">
@@ -192,12 +222,18 @@ function Folha({ lojaId, resumo, podeBuscar, aoFechar }: { lojaId: string; resum
             </Bloco>
           ) : (
             <Alerta icone={Info}>
-              <b className="font-semibold text-farol-tinta">Este produto não tem ficha no Regem.</b>{' '}
+              <b className="font-semibold text-farol-tinta">Este produto não tem ficha {daPlanilha ? 'na planilha' : 'no Regem'}.</b>{' '}
               {p.cozinha ? (
-                <>
-                  O Farol sabe que a loja o vende, mas não como é montado. A ficha se cadastra no Regem, em{' '}
-                  <b className="font-semibold text-farol-tinta">Estoque › Fichas técnicas</b>.
-                </>
+                esperaORegem ? (
+                  'O Farol sabe que a loja o vende, mas não como é montado.'
+                ) : daPlanilha ? (
+                  'O Farol sabe que a loja o vende, mas não como é montado. Para ele ter ficha, preencha os ingredientes na planilha e importe de novo.'
+                ) : (
+                  <>
+                    O Farol sabe que a loja o vende, mas não como é montado. A ficha se cadastra no Regem, em{' '}
+                    <b className="font-semibold text-farol-tinta">Estoque › Fichas técnicas</b>.
+                  </>
+                )
               ) : (
                 'Para o que não passa pela cozinha, não faz falta.'
               )}
@@ -260,6 +296,9 @@ export default function Fichas() {
   const [buscando, setBuscando] = useState(false);
   const [erroDaBusca, setErroDaBusca] = useState<string | null>(null);
   const [aberto, setAberto] = useState<ProdutoNaLista | null>(null);
+  const [importando, setImportando] = useState(false);
+  const [vendoDeFora, setVendoDeFora] = useState(false);
+  const [baixando, setBaixando] = useState(false);
   const perguntas = useRef(0);
 
   const fuso = loja?.timezone ?? 'America/Sao_Paulo';
@@ -290,7 +329,8 @@ export default function Fichas() {
   // A loja acabou de ser ligada: a primeira busca corre no servidor. A tela
   // pergunta de novo de tempos em tempos, até as fichas chegarem (ou a
   // busca falhar) — e para sozinha: quem quiser, usa o "Buscar agora".
-  const esperandoAPrimeira = d?.situacao === 'ligada' && d.fonte === null && !d.leitura?.falhou;
+  // (Vale também para a loja que tinha fichas de planilha: até a busca dar certo, a base ainda é a da planilha.)
+  const esperandoAPrimeira = d?.situacao === 'ligada' && d.fonte !== 'regem' && !d.leitura?.falhou;
   useEffect(() => {
     if (!esperandoAPrimeira) return;
     const t = setInterval(() => {
@@ -329,9 +369,47 @@ export default function Fichas() {
     });
   }, [d, busca, filtro]);
 
-  const temBase = d?.situacao === 'ligada' && d.fonte !== null;
-  // Quem decide é a API (a rota da busca recusa quem só vê); aqui só se escolhe entre o botão e a frase.
+  // A planilha foi importada: a tela recarrega e diz o que aconteceu.
+  async function importou(r: ConferenciaDaPlanilha) {
+    setImportando(false);
+    await carregar();
+    const entraram = r.contas.produtos;
+    const fora = r.deFora.length;
+    if (r.resultado === 'nada_mudou') avisar('A planilha traz as fichas que a loja já tinha: nada mudou.');
+    else if (r.problemas > 0) {
+      avisar(
+        fora > 0
+          ? `Fichas importadas: ${plural(entraram, 'produto entrou', 'produtos entraram')} e ${plural(fora, 'ficou de fora', 'ficaram de fora')}.`
+          : `Fichas importadas: ${plural(entraram, 'produto entrou', 'produtos entraram')}. Algumas linhas da planilha ficaram de fora.`,
+      );
+    } else avisar(`Fichas importadas: ${plural(entraram, 'produto', 'produtos')}, ${numero(r.contas.comFicha)} com ficha.`);
+  }
+
+  // As fichas da loja de volta em planilha, no modelo: para corrigir e importar de novo.
+  async function baixarPlanilha() {
+    setBaixando(true);
+    setErroDaBusca(null);
+    try {
+      const p = await fichasApi.planilha(id);
+      const abas = (['fichas', 'variacoes', 'adicionais', 'combos'] as const).map((q) => ({ nome: p.nomes[q], linhas: p.abas[q] }));
+      baixarArquivo(escreverXlsx(abas), 'fichas-da-loja.xlsx');
+    } catch (e) {
+      setErroDaBusca(frase(mensagemDe(e)));
+    } finally {
+      setBaixando(false);
+    }
+  }
+
+  // De onde a base veio. Da planilha, a lista aparece sem ligação nenhuma com o Regem.
+  const daPlanilha = d?.fonte === 'planilha';
+  // A loja tinha fichas de planilha e foi ligada ao Regem: elas ficam até a primeira busca dar certo, e aí as do
+  // Regem entram no lugar. Enquanto isso a tela não manda importar de novo — a loja já recebe de outro lugar, e o
+  // servidor recusa a importação. (Vale igual se o Regem tirou o acesso antes de a primeira busca dar certo.)
+  const esperaORegem = daPlanilha && (d?.situacao === 'ligada' || d?.situacao === 'acesso_tirado');
+  const temBase = daPlanilha || (d?.situacao === 'ligada' && d.fonte !== null);
+  // Quem decide é a API (as rotas recusam quem só vê); aqui só se escolhe entre o botão e a frase.
   const podeBuscar = d?.podeBuscar === true;
+  const podeImportar = d?.podeImportar === true;
   const n = d?.totais?.produtos ?? 0;
   const comFicha = d?.totais?.comFicha ?? 0;
 
@@ -347,7 +425,13 @@ export default function Fichas() {
         titulo={
           <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
             Fichas
-            {temBase && d?.leitura && (
+            {daPlanilha && d?.importacao && (
+              <span className="flex flex-wrap items-center gap-1.5 font-sans text-sm font-normal tracking-normal" data-leitura>
+                <Chip tom="vazado">da planilha</Chip>
+                <Chip tom="ok">importada {diaFaladoNaLoja(d.importacao.em, fuso)}</Chip>
+              </span>
+            )}
+            {!daPlanilha && temBase && d?.leitura && (
               <span className="flex flex-wrap items-center gap-1.5 font-sans text-sm font-normal tracking-normal" data-leitura>
                 <Chip tom="vazado">do Regem</Chip>
                 {d.leitura.falhou ? (
@@ -360,26 +444,39 @@ export default function Fichas() {
           </span>
         }
         acoes={
-          d?.situacao === 'ligada' &&
-          (podeBuscar || d.podeConectar) && (
-            <>
-              {podeBuscar && (
-                <Botao ocupado={buscando} onClick={buscarAgora}>
-                  {!buscando && <RefreshCw className="h-4 w-4" aria-hidden />}
-                  {buscando ? 'Buscando…' : 'Buscar agora'}
-                </Botao>
-              )}
-              {d.podeConectar && (
-                <Link href="/conexoes" className={classesDoBotao()}>
-                  <Plug className="h-4 w-4" aria-hidden />
-                  Conexões
-                </Link>
-              )}
-            </>
-          )
+          daPlanilha && !esperaORegem
+            ? podeImportar && (
+                <>
+                  <Botao onClick={() => setImportando(true)}>
+                    <Upload className="h-4 w-4" aria-hidden />
+                    Importar de novo
+                  </Botao>
+                  <Botao ocupado={baixando} onClick={baixarPlanilha}>
+                    {!baixando && <Download className="h-4 w-4" aria-hidden />}
+                    Baixar a planilha
+                  </Botao>
+                </>
+              )
+            : d?.situacao === 'ligada' &&
+              (podeBuscar || d.podeConectar) && (
+                <>
+                  {podeBuscar && (
+                    <Botao ocupado={buscando} onClick={buscarAgora}>
+                      {!buscando && <RefreshCw className="h-4 w-4" aria-hidden />}
+                      {buscando ? 'Buscando…' : 'Buscar agora'}
+                    </Botao>
+                  )}
+                  {d.podeConectar && (
+                    <Link href="/conexoes" className={classesDoBotao()}>
+                      <Plug className="h-4 w-4" aria-hidden />
+                      Conexões
+                    </Link>
+                  )}
+                </>
+              )
         }
       >
-        O que a loja vende e do que cada produto é feito, como está cadastrado no Regem.
+        O que a loja vende e do que cada produto é feito{!daPlanilha && d?.situacao === 'ligada' ? ', como está cadastrado no Regem' : ''}.
       </Cabecalho>
 
       {!d && !falha && <Ossos alturas={[44, 300]} />}
@@ -409,27 +506,54 @@ export default function Fichas() {
           </Vazio>
         ))}
 
-      {d && !falha && d.situacao === 'sem_conexao' && (
-        <Vazio
-          icone={ClipboardList}
-          titulo="Esta loja ainda não tem fichas"
-          acao={
-            d.podeConectar ? (
-              <Link href="/conexoes" className={classesDoBotao({ variante: 'primario' })}>
-                <Plug className="h-4 w-4" aria-hidden />
-                Conectar ao Regem
-              </Link>
-            ) : (
-              <span className={AJUDA}>Só a diretoria conecta o Regem.</span>
-            )
-          }
-        >
-          As fichas vêm do sistema onde a loja cadastra o cardápio. Com o Regem conectado, o Farol lê os produtos, as fichas
-          técnicas e os adicionais — e passa a saber como cada lanche deve ser montado.
-        </Vazio>
+      {d && !falha && d.situacao === 'sem_conexao' && !daPlanilha && (
+        // Os jeitos de a loja ter fichas — os que existem. O Regem é um deles, não o único.
+        <>
+          <div className="flex flex-col gap-1.5" data-sem-fichas>
+            <h2 className="font-display text-lg font-semibold">Esta loja ainda não tem fichas</h2>
+            <p className="max-w-[64ch] text-farol-suave">
+              Com as fichas, o Farol passa a saber como cada produto deve ser montado. Elas vêm de onde a loja já cadastra o cardápio. Uma loja recebe as fichas de um
+              lugar só.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2" data-jeitos>
+            <section className={`${CARTAO} flex flex-col gap-2 px-[18px] py-[18px]`} data-jeito="regem">
+              <Plug className="h-[22px] w-[22px] text-farol-marca" aria-hidden />
+              <p className="text-xs font-medium uppercase tracking-wide text-farol-suave">para quem usa o Regem</p>
+              <h3 className="font-display text-base font-semibold">Conectar ao Regem</h3>
+              <p className="flex-1 text-[13.5px] text-farol-suave">
+                Você autoriza no Regem, com a sua conta de lá, e as fichas chegam sozinhas — e se atualizam sozinhas.
+              </p>
+              {d.podeConectar ? (
+                <Link href="/conexoes" className={`${classesDoBotao({ variante: 'primario' })} mt-1 self-start`}>
+                  <Plug className="h-4 w-4" aria-hidden />
+                  Conectar ao Regem
+                </Link>
+              ) : (
+                <span className={`${AJUDA} mt-1`}>Só a diretoria conecta o Regem.</span>
+              )}
+            </section>
+            <section className={`${CARTAO} flex flex-col gap-2 px-[18px] py-[18px]`} data-jeito="planilha">
+              <FileSpreadsheet className="h-[22px] w-[22px] text-farol-marca" aria-hidden />
+              <p className="text-xs font-medium uppercase tracking-wide text-farol-suave">para quem tem as fichas no Excel</p>
+              <h3 className="font-display text-base font-semibold">Importar planilha</h3>
+              <p className="flex-1 text-[13.5px] text-farol-suave">
+                Baixe o modelo, preencha uma linha por ingrediente e envie. Para mudar depois, é importar de novo.
+              </p>
+              {podeImportar ? (
+                <Botao variante="primario" className="mt-1 self-start" onClick={() => setImportando(true)}>
+                  <Upload className="h-4 w-4" aria-hidden />
+                  Importar planilha
+                </Botao>
+              ) : (
+                <span className={`${AJUDA} mt-1`}>Quem importa é quem configura a loja.</span>
+              )}
+            </section>
+          </div>
+        </>
       )}
 
-      {d && !falha && d.situacao === 'falta_ligar' && (
+      {d && !falha && d.situacao === 'falta_ligar' && !daPlanilha && (
         <Vazio
           icone={Plug}
           titulo="Falta ligar esta loja ao Regem"
@@ -467,11 +591,54 @@ export default function Fichas() {
         </Vazio>
       )}
 
-      {d && !falha && d.situacao === 'ligada' && (
+      {d && !falha && (d.situacao === 'ligada' || daPlanilha) && (
         <>
           {erroDaBusca && (
             <Alerta tom="critico" icone={TriangleAlert} papel="alert">
               {erroDaBusca}
+            </Alerta>
+          )}
+
+          {esperaORegem &&
+            d.situacao === 'ligada' &&
+            (d.leitura?.falhou ? (
+              <Alerta tom="critico" icone={TriangleAlert} papel="status">
+                <span data-espera-o-regem="falhou">
+                  <b className="font-semibold">O Farol ainda não conseguiu ler o Regem desta loja.</b> As fichas abaixo são as da planilha: elas ficam até a busca
+                  no Regem dar certo. Ele tenta de novo sozinho{podeBuscar ? '; para tentar já, use “Buscar agora”.' : '.'}
+                </span>
+              </Alerta>
+            ) : (
+              <Alerta icone={Info} papel="status">
+                <span data-espera-o-regem="buscando">
+                  <b className="font-semibold text-farol-tinta">Esta loja foi ligada ao Regem.</b> As fichas da planilha ficam até a busca no Regem terminar; aí
+                  as do Regem entram no lugar.
+                </span>
+              </Alerta>
+            ))}
+
+          {daPlanilha && !esperaORegem && d.importacao && d.importacao.problemas > 0 && (
+            // O que ficou de fora continua à mão depois de importar — com o motivo, para quem importa.
+            <Alerta tom="atencao" icone={Info} papel="status">
+              <span data-ficaram-de-fora>
+                <b className="font-semibold">
+                  {d.importacao.deFora > 0
+                    ? plural(d.importacao.deFora, 'produto da planilha ficou de fora', 'produtos da planilha ficaram de fora')
+                    : plural(d.importacao.problemas, 'linha da planilha ficou de fora', 'linhas da planilha ficaram de fora')}
+                </b>{' '}
+                na importação de {diaFaladoNaLoja(d.importacao.em, fuso)}
+                {d.importacao.quais.length > 0 &&
+                  `: ${d.importacao.quais.join(', ')}${d.importacao.deFora > d.importacao.quais.length ? ` e mais ${numero(d.importacao.deFora - d.importacao.quais.length)}` : ''}`}
+                .{!podeImportar && ' Quem importa a planilha vê o motivo de cada um.'}
+              </span>
+              {podeImportar && (
+                // Em linha própria: ao lado da frase, o botão (mais alto) tira a frase da linha do ícone.
+                <div className="mt-2">
+                  <Botao mini onClick={() => setVendoDeFora(true)}>
+                    Ver o que ficou de fora
+                  </Botao>
+                </div>
+              )}
             </Alerta>
           )}
 
@@ -491,14 +658,14 @@ export default function Fichas() {
               </div>
             ))}
 
-          {temBase && d.leitura?.falhou && (
+          {temBase && !daPlanilha && d.leitura?.falhou && (
             <Alerta tom="critico" icone={TriangleAlert} papel="status">
               <b className="font-semibold">O Farol não conseguiu ler o Regem na última busca.</b> As fichas abaixo são as da busca de{' '}
               {diaFaladoNaLoja(d.leitura.lidaEm, fuso)}. Ele tenta de novo sozinho{podeBuscar ? '; para tentar já, use “Buscar agora”.' : '.'}
             </Alerta>
           )}
 
-          {temBase && n > 0 && comFicha === 0 && (
+          {temBase && !daPlanilha && n > 0 && comFicha === 0 && (
             <Alerta tom="atencao" icone={Info} papel="status">
               <b className="font-semibold">O Regem desta loja ainda não tem fichas técnicas.</b> Sem ficha, o Farol sabe o que a loja
               vende, mas não como cada produto é montado. As fichas se cadastram no Regem, em{' '}
@@ -507,7 +674,7 @@ export default function Fichas() {
             </Alerta>
           )}
 
-          {temBase && n === 0 && (
+          {temBase && !daPlanilha && n === 0 && (
             <Vazio icone={ClipboardList} titulo="O Regem desta loja ainda não tem produtos">
               Quando o cardápio for cadastrado no Regem, os produtos aparecem aqui na busca do dia seguinte
               {podeBuscar ? ' — ou na hora, com “Buscar agora”.' : '.'}
@@ -579,14 +746,20 @@ export default function Fichas() {
 
               <p className={`${AJUDA} flex items-start gap-1.5`}>
                 <Lock className="mt-px h-[13px] w-[13px] shrink-0" aria-hidden />
-                Aqui não se edita: as fichas são do Regem. O Farol não recebe preço, custo, nem quem é o cliente.
+                {esperaORegem
+                  ? 'Aqui não se edita: estas fichas vieram da planilha, e saem quando as do Regem chegarem.'
+                  : daPlanilha
+                    ? 'Aqui não se edita: para mudar, corrija a planilha e importe de novo. A importação troca todas as fichas da loja.'
+                    : 'Aqui não se edita: as fichas são do Regem. O Farol não recebe preço, custo, nem quem é o cliente.'}
               </p>
             </>
           )}
         </>
       )}
 
-      {aberto && <Folha lojaId={id} resumo={aberto} podeBuscar={podeBuscar} aoFechar={() => setAberto(null)} />}
+      {aberto && <Folha lojaId={id} resumo={aberto} podeBuscar={podeBuscar} daPlanilha={daPlanilha} esperaORegem={esperaORegem} aoFechar={() => setAberto(null)} />}
+      {importando && <ImportarPlanilha lojaId={id} lojaNome={nomeDaLoja} aoFechar={() => setImportando(false)} aoImportar={importou} />}
+      {vendoDeFora && <GavetaDeFora lojaId={id} fuso={fuso} aoFechar={() => setVendoDeFora(false)} />}
     </>
   );
 }

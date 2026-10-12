@@ -328,14 +328,33 @@ describe('planilha: as outras abas', () => {
     });
     assert.deepEqual([nomes(l), l.deFora, l.problemas], [['X-Burger'], [], 4]);
     assert.deepEqual(
-      l.soltos.map((p) => `${p.aba} ${p.linha}: ${p.texto}`).sort(),
+      l.soltos.map((p) => `${p.aba} ${p.linha}: ${p.texto}`),
       [
-        'Adicionais 2: o produto “Suco” não está na aba Fichas.',
-        'Combos 2: o produto “Combo” não está na aba Fichas.',
         'Variações 2: o produto “Suco” não está na aba Fichas.',
         'Variações 3: a linha está preenchida, mas a coluna “Produto” está em branco.',
+        'Adicionais 2: o produto “Suco” não está na aba Fichas.',
+        'Combos 2: o produto “Combo” não está na aba Fichas.',
       ],
+      'uma aba de cada vez, na ordem do modelo',
     );
+  });
+
+  it('os problemas de um produto saem na ordem em que se corrige: aba por aba (na ordem do modelo) e, na aba, de cima para baixo', () => {
+    // As linhas foram escolhidas ao contrário de propósito: a aba Fichas tem as linhas MAIORES, e o problema da
+    // linha 5 é achado antes do da linha 2. Só pela linha, a lista sairia Adicionais, Combos, Variações, Fichas.
+    const l = ler([linha('X-Burger', 'Pão', '', 'unidade'), ...BOM, linha('X-Burger', 'Queijo', 2, 'fatia')], {
+      variacoes: [V, ['X-Burger', 'Simples', 1], ['X-Burger', 'Duplo', 'dobro']],
+      adicionais: [A, ['X-Burger', '', 'acrescenta', 'Bacon', 20, 'g']],
+      combos: [C, ['X-Burger', 'Suco', 1]],
+    });
+    assert.deepEqual(nomes(l), ['Batata frita']);
+    assert.deepEqual(motivos(l, 'X-Burger'), [
+      'Fichas 2: falta a quantidade.',
+      'Fichas 5: o produto aparece em dois blocos de linhas, separados por outro produto.',
+      'Variações 3: “Quanto da ficha” está como “dobro”.',
+      'Adicionais 2: falta o nome do adicional.',
+      'Combos 2: o produto “Suco”, que vem no combo, não está na aba Fichas.',
+    ]);
   });
 });
 
