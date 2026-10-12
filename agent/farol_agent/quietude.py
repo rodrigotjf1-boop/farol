@@ -54,12 +54,13 @@ import threading
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from functools import lru_cache
 from typing import Any, Callable
 
 import cv2
 import numpy as np
 
-from farol_agent.modelos import Zona
+from farol_agent.modelos import Frame, Zona
 from farol_agent.pipeline import recorte
 from farol_agent.porteiro import PARTE_QUE_MUDOU, SALTO_DO_PONTO
 
@@ -75,16 +76,52 @@ VELHO = timedelta(seconds=2)
 _LADO = (96, 54)
 
 
+@lru_cache(maxsize=256)
+def _molde(
+    poligono: tuple[tuple[float, float], ...], largura: int, altura: int
+) -> tuple[int, int, int, int, np.ndarray | None]:
+    """Onde o quadro fica na imagem do canal e, dentro do retângulo, o que NÃO é dele.
+
+    Sai do mesmo recorte que o resto do agente usa (`recortar_area`), feito
+    uma vez por desenho e por tamanho de imagem: o desenho do quadro não
+    muda de uma leitura para a outra, e desenhá-lo duas vezes por segundo
+    era a maior parte do custo da medida.
+    """
+    zona = Zona(id="", nome="", poligono=[tuple(p) for p in poligono])
+    x1, y1, x2, y2 = zona.bbox(largura, altura, 0.0)
+    if x2 <= x1 or y2 <= y1:
+        # Desenho sem área: `recortar_area` devolve a imagem inteira.
+        return 0, 0, largura, altura, None
+    # Uma imagem em branco do tamanho da do canal, só para pedir o desenho.
+    em_branco = Frame(np.zeros((altura, largura), dtype=np.uint8), datetime.min, "")
+    _, dentro = recorte.recortar_area(em_branco, zona)
+    if dentro is None:
+        return x1, y1, x2, y2, None
+    fora = dentro == 0
+    fora.flags.writeable = False     # é de todos os que lerem este quadro: ninguém escreve nele
+    return x1, y1, x2, y2, fora
+
+
 def reduzir(quadro: Any, zona: Zona) -> np.ndarray:
     """O quadro (a área `zona` da imagem do canal), em tons de cinza, no tamanho da medida.
 
     O que é de fora do desenho é apagado antes: movimento na área ao lado
     não é movimento desta. A cor fica de fora — a câmera troca de cor e de
     infravermelho sem nada ter mexido.
+
+    O resultado é, ponto a ponto, o de recortar a área, apagar o que é de
+    fora (`recorte.apagar_fora`), passar para cinza e reduzir — nessa ordem.
+    Aqui o cinza vem antes do apagar, e o desenho do quadro é guardado: dá
+    no mesmo (o cinza liso de fora é o mesmo tom nos três canais) e custa
+    uma fração.
     """
-    recortado, dentro = recorte.recortar_area(quadro, zona)
-    imagem = recorte.apagar_fora(recortado, dentro).imagem
-    cinza = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY) if imagem.ndim == 3 else imagem
+    x1, y1, x2, y2, fora = _molde(tuple(tuple(p) for p in zona.poligono), quadro.largura, quadro.altura)
+    pedaco = quadro.imagem[y1:y2, x1:x2]
+    cinza = cv2.cvtColor(pedaco, cv2.COLOR_BGR2GRAY) if pedaco.ndim == 3 else pedaco
+    if fora is not None:
+        if cinza is pedaco:
+            cinza = pedaco.copy()      # a imagem é da fonte: não se escreve nela
+        cinza[fora] = recorte.COR_DE_FORA[0]
     return cv2.resize(cinza, _LADO, interpolation=cv2.INTER_AREA).astype(np.int16)
 
 
