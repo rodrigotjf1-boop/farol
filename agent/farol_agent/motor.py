@@ -700,9 +700,21 @@ class MotorDeRegras:
     # ─────────────────────────── despacho ──────────────────────────────
 
     def processar(
-        self, juiz: Juiz, agora: datetime, *, limite: int = 10
+        self,
+        juiz: Juiz,
+        agora: datetime,
+        *,
+        limite: int = 10,
+        da_loja: Iterable[str] = (),
+        limite_da_loja: int | None = None,
     ) -> list[Alerta]:
-        """Drena a fila: julga o que está pronto e devolve os alertas."""
+        """Drena a fila: julga o que está pronto e devolve os alertas.
+
+        `limite` é quantas análises saem nesta drenagem. `da_loja` são os
+        critérios que a loja julga sozinha, em décimos de segundo: com
+        `limite_da_loja`, eles têm o limite deles e saem na frente — não
+        disputam as vagas com o que vai à nuvem (ver `Fila.proximos`).
+        """
         alertas: list[Alerta] = []
 
         # O que continuou fora do critério sem novo julgamento (a cena não
@@ -728,7 +740,9 @@ class MotorDeRegras:
             )
             alertas.append(alerta)
 
-        for item in self.fila.proximos(agora, limite=limite):
+        for item in self.fila.proximos(
+            agora, limite=limite, da_loja=frozenset(da_loja), limite_da_loja=limite_da_loja
+        ):
             regra = self._regra(item.regra_id)
             if regra is None:
                 # Regra apagada ou desativada enquanto o item esperava.

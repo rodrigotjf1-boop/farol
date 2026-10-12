@@ -39,7 +39,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, Collection
 
 from farol_agent.modelos import Resultado, Veredito, Via
 
@@ -65,6 +65,15 @@ VALIDADE_PADRAO = {
 # internet oscilando, e martelar a cada segundo não ajuda e gasta bateria
 # do nobreak.
 BACKOFF_SEG = [5, 30, 120, 600, 1800]
+
+# Quem sai primeiro da fila: urgente, intermediária, leve — e, dentro da
+# prioridade, o mais velho. A mesma ordem, em SQL e em Python.
+_VEZ_DA_PRIORIDADE = {"urgente": 0, "intermediaria": 1}
+_ORDEM_DE_SAIDA = """order by case prioridade
+                               when 'urgente' then 0
+                               when 'intermediaria' then 1
+                               else 2 end,
+                             capturado_em, id"""
 
 
 @dataclass
@@ -516,7 +525,14 @@ class Fila:
             self._con.commit()
             return cur.rowcount > 0
 
-    def proximos(self, agora: datetime, limite: int = 10) -> list[ItemFila]:
+    def proximos(
+        self,
+        agora: datetime,
+        limite: int = 10,
+        *,
+        da_loja: Collection[str] = (),
+        limite_da_loja: int | None = None,
+    ) -> list[ItemFila]:
         """Itens prontos para enviar, urgente primeiro, mais velho primeiro.
 
         Marca como `enviando` na mesma transação da leitura: sem isso, dois
@@ -527,32 +543,62 @@ class Fila:
         estiver adiantado em relação ao do PC, o item espera essa diferença
         antes de sair. Não se perde nada: ele sai quando o PC alcança. Vale
         saber na hora de diagnosticar "por que o alerta demorou".
+
+        `da_loja` são os critérios que a loja julga sozinha, em décimos de
+        segundo (o detector). Com `limite_da_loja`, eles deixam de disputar
+        o `limite` com o que vai à nuvem: têm o deles, e saem na frente
+        dentro da mesma prioridade. Sem isso, doze critérios no mesmo
+        instante deixavam dois para a volta seguinte, fossem de onde fossem
+        — e a resposta que custa um décimo de segundo esperava na fila
+        atrás da que custa dois segundos. O limite próprio existe para a
+        fila acumulada (o programa que ficou parado) não segurar a volta.
         """
         agora_s = _agora_iso(agora)
+        separados = sorted(set(da_loja)) if limite_da_loja is not None else []
+        marcas = ",".join("?" * len(separados))
         with self._lock:
             self._con.execute(
                 """update analise set estado='descartado', erro='expirou antes do envio'
                     where estado in ('pendente','enviando') and expira_em < ?""",
                 (agora_s,),
             )
-            linhas = self._con.execute(
-                """select * from analise
-                    where estado='pendente' and proxima_em <= ?
-                    order by case prioridade
-                               when 'urgente' then 0
-                               when 'intermediaria' then 1
-                               else 2 end,
-                             capturado_em
-                    limit ?""",
-                (agora_s, limite),
-            ).fetchall()
+            if separados:
+                linhas = self._con.execute(
+                    f"""select * from analise
+                         where estado='pendente' and proxima_em <= ? and regra_id in ({marcas})
+                         {_ORDEM_DE_SAIDA} limit ?""",
+                    (agora_s, *separados, limite_da_loja),
+                ).fetchall()
+                linhas += self._con.execute(
+                    f"""select * from analise
+                         where estado='pendente' and proxima_em <= ? and regra_id not in ({marcas})
+                         {_ORDEM_DE_SAIDA} limit ?""",
+                    (agora_s, *separados, limite),
+                ).fetchall()
+            else:
+                linhas = self._con.execute(
+                    f"""select * from analise
+                         where estado='pendente' and proxima_em <= ?
+                         {_ORDEM_DE_SAIDA} limit ?""",
+                    (agora_s, limite),
+                ).fetchall()
             if linhas:
                 self._con.executemany(
                     "update analise set estado='enviando' where id=?",
                     [(l["id"],) for l in linhas],
                 )
             self._con.commit()
-        return [self._para_item(l) for l in linhas]
+        itens = [self._para_item(l) for l in linhas]
+        if separados:
+            # A ordem de sempre, no conjunto — e, dentro da mesma prioridade,
+            # o que a loja julga sozinha vai na frente.
+            da_casa = set(separados)
+            itens.sort(
+                key=lambda i: (
+                    _VEZ_DA_PRIORIDADE.get(i.prioridade, 2), i.regra_id not in da_casa, i.capturado_em, i.id,
+                )
+            )
+        return itens
 
     def mais_novo_pendente(self) -> datetime | None:
         """O instante do quadro mais novo que ainda espera julgamento — ou `None`.

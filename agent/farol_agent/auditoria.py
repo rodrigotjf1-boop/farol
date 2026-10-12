@@ -72,7 +72,15 @@ from farol_agent.uso import Medidor
 _log = logging.getLogger(__name__)
 
 INTERVALO_CAPTURA_PADRAO = 30.0
+# Quantas análises saem para julgamento a cada volta. É o que impede uma
+# volta de levar minutos quando a nuvem demora.
 LIMITE_POR_PASSADA = 10
+# O que o detector julga na própria loja não disputa essas vagas: responde
+# em décimos de segundo, e tem o limite dele. Cem por volta cobrem uma loja
+# com dezenas de critérios de presença e de contagem, e ainda impedem que
+# uma fila acumulada (o programa que ficou parado, a câmera que voltou)
+# segure a volta inteira.
+LIMITE_DA_LOJA_POR_PASSADA = 100
 # Até quanto o relógio do julgamento se adianta para alcançar o quadro mais
 # novo da fila (`_hora_de_julgar`). Uma volta com muitos canais leva dezenas
 # de segundos; dez minutos cobrem a volta mais lenta e ainda impedem que um
@@ -276,6 +284,9 @@ class Auditoria:
         # modelo que responde: o que `_com_juiz` apura para o motor.
         self._direto_a_nuvem: set[str] = set()
         self._modelo_com_contexto = ""
+        # Os critérios que o detector julga aqui mesmo, em décimos de
+        # segundo: não disputam o limite da volta com o que vai à nuvem.
+        self._julgados_pelo_detector: set[str] = set()
         # Onde cada gravador escreve o relógio, por canal. Perguntado uma
         # vez por gravador; injetável para o teste não precisar de um.
         self._perguntar_relogios = _relogios_do_gravador
@@ -734,6 +745,7 @@ class Auditoria:
         """
         self.sem_juiz = []
         self._direto_a_nuvem = set()
+        self._julgados_pelo_detector = set()
         self._modelo_com_contexto = ""
         if self.juiz is None:
             return list(config.regras)
@@ -751,6 +763,7 @@ class Auditoria:
         # uma vez por versão de configuração.
         cenas = cenas_da_loja(config) if config.pedido_com_contexto else None
         nuvem = getattr(seletor, "nuvem", None)
+        detector = getattr(seletor, "detector", None)
         self._modelo_com_contexto = str(getattr(nuvem, "modelo_com_contexto", "") or "")
 
         servidas, orfas = [], []
@@ -772,6 +785,10 @@ class Auditoria:
                 if str(r.zona.ponto_id) not in cenas:
                     orfas.append((r, FALTA_A_CENA))
                     continue
+            if detector is not None and juiz is detector:
+                # Só o detector: a comparação com a foto padrão e o modelo
+                # local podem levar segundos, ou passar a pergunta adiante.
+                self._julgados_pelo_detector.add(r.id)
             servidas.append(r)
         self.sem_juiz = orfas
 
@@ -858,6 +875,10 @@ class Auditoria:
                 self.juiz,
                 self._hora_de_julgar(agora or datetime.now()),
                 limite=LIMITE_POR_PASSADA,
+                # O que o detector julga aqui mesmo não disputa as vagas
+                # com o que vai à nuvem.
+                da_loja=self._julgados_pelo_detector,
+                limite_da_loja=LIMITE_DA_LOJA_POR_PASSADA,
             )
         except Exception as e:  # noqa: BLE001
             self.ultimo_erro = str(e)
