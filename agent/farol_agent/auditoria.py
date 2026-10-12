@@ -72,6 +72,12 @@ _log = logging.getLogger(__name__)
 
 INTERVALO_CAPTURA_PADRAO = 30.0
 LIMITE_POR_PASSADA = 10
+# Até quanto o relógio do julgamento se adianta para alcançar o quadro mais
+# novo da fila (`_hora_de_julgar`). Uma volta com muitos canais leva dezenas
+# de segundos; dez minutos cobrem a volta mais lenta e ainda impedem que um
+# quadro com a hora errada, muito à frente, arraste a fila inteira com ele —
+# a validade e a espera entre tentativas são contadas neste mesmo relógio.
+FOLGA_DO_JULGAMENTO_MIN = 10
 # Quantos eventos sobem por pedido. A API aceita 500; cem por vez drena uma
 # fila de fim de semana em poucos minutos sem mandar um corpo gigante por
 # uma internet que acabou de voltar.
@@ -800,12 +806,40 @@ class Auditoria:
             return []
         try:
             return self.motor.processar(
-                self.juiz, agora or datetime.now(), limite=LIMITE_POR_PASSADA
+                self.juiz,
+                self._hora_de_julgar(agora or datetime.now()),
+                limite=LIMITE_POR_PASSADA,
             )
         except Exception as e:  # noqa: BLE001
             self.ultimo_erro = str(e)
             _log.exception("julgamento falhou")
             return []
+
+    def _hora_de_julgar(self, agora: datetime) -> datetime:
+        """O relógio com que a fila é drenada: o da volta, adiantado até o quadro mais novo que espera.
+
+        Quem chama dá a hora em que a volta COMEÇOU. O quadro capturado
+        nela leva a hora em que foi lido, que é depois — abrir o fluxo
+        principal leva de um a três segundos por canal. Drenar com a hora
+        do começo deixava o quadro recém-capturado "ainda não pronto", e
+        ele só era julgado no despertar seguinte: medido na loja em
+        12/10/2026, de 11 a 18 s entre a imagem e a resposta (mediana),
+        com o juiz levando 0,09 s (ERR-108).
+
+        O adianto tem teto (`FOLGA_DO_JULGAMENTO_MIN`): quadro com a hora
+        muito à frente espera o relógio chegar, como sempre esperou.
+        """
+        try:
+            mais_novo = self.fila.mais_novo_pendente()
+            if mais_novo is None or mais_novo <= agora:
+                return agora
+            return min(mais_novo, agora + timedelta(minutes=FOLGA_DO_JULGAMENTO_MIN))
+        except Exception:  # noqa: BLE001
+            # Sem conseguir perguntar à fila (ou comparar as horas), vale a
+            # hora dada — o que ficar para trás sai na volta seguinte, como
+            # antes.
+            _log.exception("não consegui ler o quadro mais novo da fila")
+            return agora
 
     def subir(self, agora: datetime | None = None) -> int:
         """Manda para a nuvem o que ela ainda não recebeu.

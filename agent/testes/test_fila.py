@@ -87,6 +87,21 @@ def test_proximos_nao_devolve_o_mesmo_item_duas_vezes(fila):
     assert segundo == []
 
 
+def test_mais_novo_pendente_e_o_quadro_mais_recente_que_ainda_espera(fila):
+    """É com ele que o julgamento alcança o que a volta acabou de capturar."""
+    assert fila.mais_novo_pendente() is None, "fila vazia não tem quadro esperando"
+
+    _enfileirar(fila, chave="velho", ts=BASE)
+    _enfileirar(fila, chave="novo", ts=BASE + timedelta(seconds=7))
+
+    assert fila.mais_novo_pendente() == BASE + timedelta(seconds=7)
+
+    # Os dois saem para julgamento: nenhum ESPERA mais.
+    fila.proximos(BASE + timedelta(seconds=10), limite=10)
+
+    assert fila.mais_novo_pendente() is None, "o que já saiu para julgamento não espera"
+
+
 # ───────────────────────── retentativa ─────────────────────────────────
 
 

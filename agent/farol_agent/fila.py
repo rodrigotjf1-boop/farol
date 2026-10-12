@@ -521,6 +521,21 @@ class Fila:
             self._con.commit()
         return [self._para_item(l) for l in linhas]
 
+    def mais_novo_pendente(self) -> datetime | None:
+        """O instante do quadro mais novo que ainda espera julgamento — ou `None`.
+
+        É com ele que o julgamento alcança o que a volta acabou de capturar
+        (`Auditoria._hora_de_julgar`): o item nasce pronto no instante do
+        quadro, e esse instante é segundos DEPOIS do começo da volta.
+        """
+        with self._lock:
+            linha = self._con.execute(
+                "select max(capturado_em) as mais_novo from analise where estado='pendente'"
+            ).fetchone()
+        if linha is None or linha["mais_novo"] is None:
+            return None
+        return datetime.fromisoformat(linha["mais_novo"])
+
     def concluir(self, item_id: int, veredito: Veredito, agora: datetime) -> None:
         with self._lock:
             self._con.execute(
