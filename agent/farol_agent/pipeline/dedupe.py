@@ -59,6 +59,20 @@ class Deduplicador:
         `chave` deve identificar o par zona-regra: a mesma cena pode ser
         relevante para uma regra e irrelevante para outra.
         """
+        return self.repeticao_de(chave, imagem, ts) is not None
+
+    def repeticao_de(self, chave: str, imagem: np.ndarray, ts: datetime) -> datetime | None:
+        """O instante da cena de que esta é repetição — ou `None`, se ela é nova.
+
+        A cena nova passa a ser lembrada; a repetida, não (lembrá-la
+        renovaria a memória a cada olhada, e a cena parada nunca mais seria
+        vista de novo). Havendo mais de uma parecida na memória, vale a mais
+        recente: é dela que a cena de agora é continuação.
+
+        Quem chama precisa do instante para saber O QUE está se repetindo:
+        "a mesma cena de há pouco" não diz se aquela cena foi dada como fora
+        do critério ou se ninguém conseguiu avaliá-la.
+        """
         h = phash(imagem)
         historico = self._visto.setdefault(chave, [])
 
@@ -66,12 +80,12 @@ class Deduplicador:
         corte = ts - self.memoria
         historico[:] = [(t, v) for t, v in historico if t >= corte]
 
-        for _, anterior in historico:
+        for quando, anterior in reversed(historico):
             if distancia(h, anterior) <= self.limiar:
-                return True
+                return quando
 
         historico.append((ts, h))
-        return False
+        return None
 
     def limpar(self) -> None:
         self._visto.clear()

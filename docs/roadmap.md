@@ -4796,6 +4796,13 @@ passo 0 do A20: o que as medições disseram".
 | **1.5 · O limite por volta** | o que a loja julga sozinha deixa de contar no limite de dez análises por volta | com muitos critérios no mesmo instante, nada local espera a volta seguinte | — |
 | **1.6 · Medir na loja** | o antes e o depois, com os números do próprio motor: tempo até a resposta, olhadas, pagas, sem resposta, reais por dia | — | o pacote trocado e os critérios pagos rodando |
 
+**Um defeito do aviso, achado e corrigido no caminho (ERR-110, 12/10).** Com "avisar só se
+continuar", a cena dada como repetida contava como "continua fora" mesmo quando repetia
+uma cena que ninguém tinha conseguido avaliar: um único "fora" virava aviso dois minutos
+depois. Agora só conta a repetição da própria cena que foi dada como fora
+([decisoes.md](decisoes.md), "O aviso de 'continua fora' saía de uma cena que ninguém
+avaliou"). Vai para a loja na mesma troca de pacote da fatia 1.3.
+
 **A decisão da fatia 1.3.** Guardar a resposta da cena idêntica economiza, e tem um risco:
 a impressão da imagem não vê detalhe pequeno (das 81 respostas "fora", uma tinha cena
 idêntica já julgada — e a resposta guardada era outra). Três jeitos:
