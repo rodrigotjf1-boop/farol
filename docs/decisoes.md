@@ -4124,11 +4124,13 @@ protótipo antes de virar tela (situação "planilha · com produtos de fora").
   mudou"); a toda errada; a de uma aba só, com o nome que o Excel dá; o texto com negrito num
   pedaço da célula; os dois CSV; e a loja com planilha que é ligada ao Regem (a busca que
   falha, a que demora, e a troca pelas fichas de lá sem recarregar a tela).
-- **565 medidas de largura** (8 estados, 16 larguras de 320 a 1920, e o tema escuro em duas):
+- **144 medidas de largura** (8 estados, 16 larguras de 320 a 1920, e o tema escuro em duas;
+  565 conferências na rodada, contando os cliques que abrem cada estado):
   nada passa da tela e nenhuma peça rola para o lado, com cada gaveta aberta. As fotos foram
   olhadas; dois acertos saíram daí (o rótulo "Adicionais, linha 2" quebrava em duas linhas, e
   o botão ao lado da frase do aviso).
-- O roteiro da tela Fichas pelo Regem (132 passos, 396 medidas) segue passando.
+- O roteiro da tela Fichas pelo Regem (132 passos; 396 conferências na rodada de medida)
+  segue passando.
 - **Na API:** dois testes novos (a ordem dos problemas; os nomes no resumo da lista). A lista
   de estragos de propósito foi de 91 para 98; os sete novos e o que mudou foram rodados, e os
   oito foram pegos. A ordenação dos "soltos" era redundante (cada aba já é lida inteira, de
@@ -4261,3 +4263,101 @@ terceiro jeito na loja sem fichas; a etiqueta "do <sistema>" na tela Fichas, com
 que ficou de fora do envio; e a página da documentação. **Uma coisa para o dono decidir:** o
 protótipo mostra a documentação em `monitorfarol.com.br/integracao`, e o site não está neste
 repositório — a página pode ir no console (aberta, sem login) ou no site.
+
+## 11/10/2026 (noite) · A porta para outro sistema — a tela
+
+A segunda metade da porta: o que a diretoria vê e faz. Do protótipo aprovado
+(`mockups/farol-conexoes-e-fichas.html`). Com esta entrega a porta abre: a diretoria cria o
+acesso de uma loja, entrega o código e o endereço da documentação a quem cuida do sistema, e
+o sistema passa a enviar.
+
+### O que entrou
+
+- **A tela Conexões é das três origens.** Depois do Regem vêm o cartão **Outro sistema** (os
+  acessos da conta, com o que cada um já enviou; "Criar acesso" e "Revogar" para a diretoria;
+  quem configura vê, sem os botões) e o cartão **Planilha** (leva à tela Fichas das lojas que
+  podem importar, e baixa o modelo). A frase do alto deixou de falar só em "ler".
+- **Criar o acesso** (gaveta): o nome do sistema e a loja. As lojas que já recebem de outro
+  lugar aparecem travadas, com o motivo ("já recebe do Regem", "já tem um acesso"); a de
+  planilha pode, com o aviso de que as fichas dela ficam até o sistema enviar. Depois de
+  criar, **o código aparece uma vez**, com "Copiar" e o que entregar a quem cuida do sistema.
+- **Revogar** (diálogo): diz que o sistema para de enviar na hora e — só se ele já enviou —
+  que as fichas que ele mandou são apagadas.
+- **A tela Fichas:** o terceiro jeito na loja sem fichas ("Receber de outro sistema"); a loja
+  que **espera o primeiro envio** ("O <sistema> ainda não enviou as fichas"); a origem "do
+  <sistema> · recebido hoje, 23:01"; o aviso do que ficou de fora do envio, com a lista (o
+  caminho no que foi enviado e o motivo); e a loja de planilha que ganhou um acesso (as da
+  planilha ficam até o sistema enviar).
+- **A documentação, aberta:** `/integracao`, sem login, com o conteúdo de
+  [integracao-fichas.md](integracao-fichas.md). É o endereço que a tela manda entregar.
+
+### O código na tela
+
+Ele existe em um lugar só: na gaveta de quem acabou de criar. Não vai para o endereço, não é
+guardado pelo navegador e sai da tela quando a gaveta fecha (há conferência disso no roteiro).
+Aparece inteiro, quebrando a linha — num campo de uma linha só, o fim dele ficava escondido no
+celular.
+
+### O que eu decidi no caminho, e por quê
+
+- **Fechar sem copiar pede confirmação** (pelo "Concluir", pelo X e pelo Esc). Não está no
+  protótipo. Um toque fora da gaveta jogava fora um código que não aparece de novo, e o
+  conserto é revogar e criar outro.
+- **O aviso do que ficou de fora vale também para o envio do sistema.** O protótipo não o
+  mostra na origem "sistema" (é de antes da resposta do dono, "entra o que está certo"). A
+  regra é a mesma da planilha, e a tela é a mesma peça; o que muda é o lugar do problema — o
+  caminho no envio, em vez da aba e da linha — e quem corrige ("quem cuida do <sistema>").
+- **A documentação fica no console**, em `app.monitorfarol.com.br/integracao`, e não em
+  `monitorfarol.com.br/integracao`, que é o que o protótipo mostra: o site não está neste
+  repositório, e a tela não pode mandar entregar um endereço que não existe. A tela escreve o
+  endereço do próprio console. **Fica para o dono decidir** se a página vai também para o
+  site; se for, muda uma frase.
+- **A página da documentação não passou por protótipo.** É texto para quem programa, com as
+  peças que o console já tem; o conteúdo é o do arquivo da documentação. O dono revê.
+- **Na loja que recebe de outro sistema, o botão do alto é "Conexões"** (para a diretoria):
+  é lá que o acesso se vê e se revoga. Quem configura não tem botão — não há o que fazer no
+  Farol.
+
+### Diferenças do protótipo, ditas
+
+- O cartão "Planilha" mostra as lojas que têm fichas de planilha pelo nome, sem a data da
+  importação (a data está na tela Fichas da loja).
+- "Ir para Fichas" aparece para cada loja que pode importar, e não só para uma.
+- O "Mais" na barra do celular é a entrega seguinte.
+
+### O que foi medido
+
+- **Num navegador de verdade, com a porta de verdade** — 120 passos conferidos. O roteiro faz
+  o papel do outro sistema: pega o código que a tela mostra e envia as fichas pela porta. Os
+  três cartões de Conexões, para a diretoria e para a gerência; criar o acesso (o nome pedido;
+  as lojas com o motivo de cada uma; o código com a forma certa; "Concluir", o X e o Esc
+  perguntando antes de fechar sem copiar; "Copiar" copiando o código, uma vez); depois de
+  fechar, o código fora da tela, do endereço, do que o navegador guarda e da resposta do
+  servidor; a loja que espera o primeiro envio; o envio com um produto de fora (o preço que
+  ele mandava não ficou em lugar nenhum); a origem, o aviso e a lista do que ficou de fora; a
+  supervisão vendo sem o botão; a loja de planilha que ganha acesso; a conta sem loja livre;
+  revogar com e sem fichas, e o código revogado recusado na porta; os três jeitos de volta,
+  por perfil; e a documentação abrindo sem login, com o resto do console ainda pedindo login.
+- **168 medidas de largura** nas telas da porta (nove estados em 16 larguras, de 320 a 1920,
+  e no tema escuro em duas; a gaveta do código em quatro larguras): nada passa da tela e
+  nenhuma peça rola para o lado, com cada gaveta e o diálogo abertos. A rodada de medida soma
+  313 conferências, contando os cliques que abrem cada estado. As fotos foram olhadas; dois
+  acertos saíram daí (o código inteiro à vista no celular; o endereço da documentação sem
+  partir no meio). A foto da gaveta do código leva um código de mentira, posto antes do
+  retrato.
+- Os roteiros vizinhos seguem passando, já com o terceiro jeito e os cartões novos: Conexões
+  (134 passos), a planilha (152) e as fichas pelo Regem (132), e as rodadas de medida de cada
+  um (184, 565 e 396 conferências).
+- **Uma correção ao que escrevi na entrega da tela da planilha:** os "565" de lá são as
+  conferências da rodada de medida, e não medidas de largura. As medidas de largura daquela
+  tela são 144 (oito estados, nas mesmas 18 combinações). O resultado não muda — nenhuma
+  falhou —, mas o número estava com o nome errado, inclusive na descrição do PR #109.
+
+### O que não foi medido
+
+- **Um sistema de verdade enviando**, e a página da documentação lida por quem vai integrar.
+- **O servidor não mudou nesta entrega** (os testes e os estragos de propósito dele são os da
+  entrega anterior). As telas, como as outras do console, não têm teste no repositório: quem
+  as guarda é o roteiro de navegador.
+- O celular de verdade.
+

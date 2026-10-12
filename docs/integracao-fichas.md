@@ -1,5 +1,8 @@
 # Enviar as fichas ao Farol — para quem cuida do sistema da loja
 
+> A versão publicada deste documento é a página aberta do console, em `/integracao`
+> (`web/app/integracao/page.tsx`). Mudou a porta, mudam os dois.
+
 Este documento é para quem programa o sistema que a loja usa para o cardápio e as fichas
 técnicas (o PDV, o ERP, o sistema de estoque). Ele descreve a **porta** por onde esse sistema
 envia ao Monitor Farol o que a loja vende e do que cada produto é feito.

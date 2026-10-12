@@ -4631,16 +4631,17 @@ que ficou de fora"**. A ordem: a planilha, a porta para outro sistema, o "Mais" 
   diretoria (o código aparece uma vez; o banco guarda só a impressão); a porta por onde o
   sistema envia o cardápio e as fichas, com a mesma regra da planilha (entra o que está certo);
   uma loja, uma origem, com trava para duas pessoas ao mesmo tempo. A documentação para quem
-  integra está em [integracao-fichas.md](integracao-fichas.md). **Sem tela ainda: a porta
-  existe, e ninguém consegue criar um acesso.**
-- **Porta para outro sistema — a tela:** a próxima entrega. Refaz a tela Conexões para as três
-  origens (os cartões "Outro sistema" e "Planilha", criar o acesso com o código que aparece
-  uma vez, revogar), põe o terceiro jeito na loja sem fichas, a etiqueta "do <sistema>" na
-  tela Fichas e a página pública da documentação. **A decidir com o dono:** o protótipo mostra
-  a documentação em `monitorfarol.com.br/integracao`, e o site não está neste repositório — a
-  página pode ir no console (`app.monitorfarol.com.br/integracao`, aberta, sem login) ou no
-  site.
-- **"Mais" no celular:** depois da porta.
+  integra está em [integracao-fichas.md](integracao-fichas.md).
+- **Porta para outro sistema — a tela: entregue** ([decisoes.md](decisoes.md), "a porta para
+  outro sistema — a tela"): a tela Conexões passou a ser das três origens (os cartões "Outro
+  sistema" e "Planilha"); a diretoria cria o acesso, vê o código uma vez e revoga; a tela
+  Fichas ganhou o terceiro jeito, a loja que espera o primeiro envio, a origem "do <sistema>"
+  e a lista do que ficou de fora do envio; e a documentação abre sem login, em `/integracao`.
+  **Com isto a porta está aberta: uma operação que não usa o Regem consegue se conectar
+  sozinha.** Falta medir um sistema de verdade enviando. **A decidir com o dono:** a
+  documentação está no console (`app.monitorfarol.com.br/integracao`); o protótipo a mostrava
+  no site (`monitorfarol.com.br/integracao`), que não está neste repositório.
+- **"Mais" no celular:** a próxima entrega.
 - **Telas antigas que dizem "nuvem" e "versão":** o dono pediu o protótipo do antes e depois.
 
 ### O que não foi medido
