@@ -4806,6 +4806,49 @@ idêntica já julgada — e a resposta guardada era outra). Três jeitos:
 | **B · a vazia e o "dentro"** | as duas, o "dentro" por poucos minutos | segura também a cena parada que está em ordem | um detalhe que mudou sem mexer na impressão fica sem aviso até a guarda vencer |
 | **C · todas** | qualquer resposta | o maior corte | repete um "fora" sem olhar de novo; o risco de B, maior |
 
+### A fatia 1.2, em detalhe (plano de 12/10; espera o "pode" do dono)
+
+**O que ela é.** O estudo de cada critério já tem os gatilhos "mexeu", "parou", "entrou",
+"saiu" e "a cada N minutos". Hoje eles são conferidos **na olhada de 30 s**, comparando com
+a olhada anterior — e a gravação mostrou que, no pico, quase toda olhada acha "mexeu" e
+quase nenhuma acha "parou". A fatia faz os mesmos gatilhos serem lidos **na imagem leve,
+duas vezes por segundo**. Para quem configura nada muda de nome: o gatilho passa a
+acontecer no instante certo.
+
+**Como.**
+
+- Uma linha de execução própria (como a que já espera "as mãos saírem" na bancada) mede, a
+  cada meio segundo, o movimento em cada quadro que tem critério com estudo — a conta de
+  hoje (a área reduzida a 96×54; ponto que saltou mais de 24; 1,2% dos pontos), mais um
+  filtro de clarão: leitura em que mais de 60% dos pontos mudam de uma vez não conta.
+- Cada quadro tem quatro estados: **repouso** → **acordou** (duas leituras seguidas com
+  movimento) → **em atividade** → **assentou** (5 s sem movimento) → repouso.
+- "Mexeu" passa a ser o **acordou**; "parou", o **assentou**; "entrou" e "saiu" perguntam
+  ao detector só quando o quadro acorda ou assenta; "a cada N minutos" continua como é.
+- Só quando um gatilho abre é que o canal é olhado de verdade (o fluxo principal, 1,7 s) e
+  o critério é julgado. Teto de olhadas por minuto e por canal; o freio de processador do
+  vigia vale também aqui.
+- Critério sem estudo, presença e contagem continuam na rotina e no vigia, como hoje.
+
+**Em duas partes, a primeira em sombra.**
+
+| parte | o que entra | o que muda na loja |
+|---|---|---|
+| **1.2a · contar, sem agir** | o medidor contínuo e os estados; no resumo da hora, quantas vezes cada quadro acordou e assentou | nada: as olhadas continuam as de hoje. Passa a existir, ao vivo e em todos os canais, a medida que o passo 0 tirou da gravação |
+| **1.2b · agir** | os gatilhos do estudo passam a vir dos estados; chave interna por loja, desligada de fábrica (como a do pedido com contexto) | só com a chave ligada pelo dono, depois de a 1.2a mostrar os números de uma semana |
+
+**O que se espera** (medido na gravação de 11/10, no tampo): de 46 a 68 análises por hora
+no lugar de 120 olhadas, cada uma com as mãos fora da cena; de 23 a 33 paradas vistas por
+meia hora no lugar de 3 a 6.
+
+**Os riscos, e o que os segura.** Quadro pequeno pode não passar do 1,2% (os dois quadros
+da loja são grandes; mede-se na instalação). No pico o tampo assenta mais de uma vez por
+minuto: o teto por minuto e a resposta guardada da fatia 1.3. A linha de execução é à
+parte, com o passo dela: não muda o ritmo do laço que captura e sobe (V74).
+
+**O que precisa:** a 1.2a, só o agente e o resumo (com a regra do resumo conferida dos dois
+lados); a 1.2b, uma migration (a chave por loja) e a troca do pacote. Nenhuma tela.
+
 ### A proteção, o que o dono respondeu (12/10)
 
 "O primeiro passo já, com os passos 1 e 2 do núcleo; os outros antes da segunda loja"; "a
