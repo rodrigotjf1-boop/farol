@@ -10,6 +10,7 @@ import { instalarTratamentoDeErros } from './erros.js';
 import type { Subida } from './guarda.js';
 import { acharMigrations, conferirEsquema } from './preflight.js';
 import { configDoRegem, type ConfigDoRegem } from './regem.js';
+import { rotasDeAcessos } from './rotas/acessos.js';
 import { rotasDeAgentes } from './rotas/agentes.js';
 import { rotasDeAlertas } from './rotas/alertas.js';
 import { rotasDoConsole } from './rotas/console.js';
@@ -179,6 +180,7 @@ export function criarApp(
   const regem = opcoes.regem ?? configDoRegem(process.env, VERSAO);
   rotasDoRegem(app, pool, regem);
   rotasDeFichas(app, pool, regem);
+  rotasDeAcessos(app, pool);
   rotasDePadroes(app, pool);
   rotasDeInventario(app, pool);
   rotasDePlanta(app, pool);

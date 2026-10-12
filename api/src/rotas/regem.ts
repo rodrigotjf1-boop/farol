@@ -188,7 +188,15 @@ export function rotasDoRegem(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoR
     }
 
     const [lojas, linhas] = await Promise.all([
-      pool.query<{ id: string; nome: string }>('select id, nome from loja where tenant_id = $1 order by nome, id', [s.tenantId]),
+      // A loja que recebe as fichas de OUTRO sistema não é opção para ligar: uma loja recebe de um lugar só.
+      pool.query<{ id: string; nome: string }>(
+        `select l.id, l.nome
+           from loja l
+          where l.tenant_id = $1
+            and not exists (select 1 from acesso_externo a where a.loja_id = l.id and a.revogado_em is null)
+          order by l.nome, l.id`,
+        [s.tenantId],
+      ),
       // O acesso cifrado NÃO entra nesta consulta: o que a tela não mostra,
       // a rota nem busca.
       pool.query<Omit<Linha, 'acesso_cifrado'> & LeituraDaLinha>(
@@ -199,7 +207,8 @@ export function rotasDoRegem(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoR
                 f.produtos, f.com_ficha
            from regem_loja r
            left join loja l on l.id = r.loja_id
-           left join fichas_da_loja f on f.loja_id = r.loja_id
+           -- Só a base que veio DO REGEM: a loja que tinha fichas de planilha e acabou de ser ligada ainda não tem.
+           left join fichas_da_loja f on f.loja_id = r.loja_id and f.fonte = 'regem'
           where r.tenant_id = $1
           order by r.regem_empresa_nome, r.regem_loja_nome, r.id`,
         [s.tenantId, LEITURA_MORTA_MIN],
@@ -455,6 +464,31 @@ export function rotasDoRegem(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoR
       const cliente = await pool.connect();
       try {
         await cliente.query('begin');
+        // Uma loja recebe as fichas de um lugar só. A linha de cada loja fica travada até o fim (quem estiver
+        // criando um acesso de outro sistema para ela espera aqui, e vice-versa), e a que já tem acesso não é ligada.
+        // A trava é a que NÃO barra quem só aponta para a loja (`no key update`): gravar uma ficha ou um evento
+        // dela continua passando.
+        //
+        // DUAS instruções, de propósito: primeiro a trava, depois a conferência. Numa instrução só, quem ficou
+        // esperando a trava confere com o retrato de ANTES da espera — e não vê o acesso que a outra pessoa
+        // acabou de criar (o teste das duas pessoas ao mesmo tempo pegou isso).
+        await cliente.query('select id from loja where tenant_id = $1 and id = any($2::uuid[]) order by id for no key update', [s.tenantId, ligar.map((p) => p.lojaId)]);
+        const comAcesso = await cliente.query<{ nome: string; sistema: string }>(
+          `select l.nome, a.nome as sistema
+             from loja l
+             join acesso_externo a on a.loja_id = l.id and a.revogado_em is null
+            where l.tenant_id = $1 and l.id = any($2::uuid[])
+            order by l.nome, l.id`,
+          [s.tenantId, ligar.map((p) => p.lojaId)],
+        );
+        const ocupada = comAcesso.rows[0];
+        if (ocupada) {
+          await cliente.query('rollback');
+          return resposta.status(409).send({
+            erro: 'origem_ocupada',
+            mensagem: `a ${ocupada.nome} recebe as fichas de outro sistema (${ocupada.sistema}). Uma loja recebe de um lugar só: revogue o acesso dele antes de ligá-la ao Regem`,
+          });
+        }
         const r = await cliente.query(
           `update regem_loja r
               set loja_id = v.loja_id, ligado_em = now()

@@ -4145,3 +4145,119 @@ protótipo antes de virar tela (situação "planilha · com produtos de fora").
 - **O leitor do arquivo não tem teste no repositório:** o console não tem onde rodar teste (o
   CI dele é a compilação). Quem o guarda hoje é o roteiro de navegador, que não roda no CI.
 - A planilha grande (centenas de produtos) e o celular de verdade.
+
+## 11/10/2026 (noite) · A porta para outro sistema — o servidor (migration 041)
+
+Pedido do dono (11/10): o Farol é produto para distribuição, e a operação que não usa o Regem
+tem de conseguir mandar as fichas dela "com documentação que vamos liberar"; e "as integrações
+devem ser dinâmicas, feitas pelo usuário, e não nós colocando tokens direto na API". O
+protótipo "fichas de qualquer origem" (aprovado) mostra o fluxo: a diretoria cria o acesso em
+Conexões, o código aparece uma vez, e ela o entrega a quem cuida do sistema.
+
+Esta entrega é só o servidor. **Sem tela ainda: ninguém cria acesso, e a porta fica
+fechada** — toda chamada sem um código que exista é recusada.
+
+### O que entrou
+
+- **Migration 041:** a tabela `acesso_externo` (o acesso de UMA loja: o nome que a conta dá ao
+  sistema, a impressão do código, quem criou, quando recebeu por último, quem revogou) e a
+  origem `sistema` em `fichas_da_loja`. Uma loja tem no máximo um acesso valendo (índice no
+  banco). Nenhuma linha que existe muda.
+- **O console** (`rotas/acessos.ts`): `GET /v1/acessos` (quem configura vê os acessos da
+  conta e de onde cada loja recebe as fichas), `POST /v1/acessos` (só a diretoria: cria e
+  devolve o código, **uma vez**), `DELETE /v1/acessos/:id` (só a diretoria: revoga).
+- **A porta** (sem sessão; `Authorization: Bearer <código>`): `PUT /v1/integracao/fichas`
+  (o sistema envia o cardápio inteiro da loja) e `GET /v1/integracao/fichas` (o que o Farol
+  tem dele, para quem integra testar o código).
+- **`porta-fichas.ts`** — o terceiro adaptador da base. Confere a FORMA do envio e o desmonta
+  nas mesmas linhas da planilha; as REGRAS são as do leitor da planilha. O mesmo cardápio dá a
+  mesma base pelos dois caminhos (há teste), e a unidade que vale num vale no outro.
+- **A documentação da porta:** [integracao-fichas.md](integracao-fichas.md), escrita para
+  quem programa o sistema da loja. A página pública dela vem com a tela.
+
+### O código é segredo
+
+Começa por `farol_` e tem 256 bits sorteados. O banco guarda só a impressão (sha256): quem lê
+o banco não envia nada, e nem a distribuição vê o código de um acesso já criado. Ele não
+entra em registro do servidor, a lista não o traz, e a resposta que o entrega sai com
+"não guardar". A loja e a conta saem DO ACESSO: nada no corpo do envio escolhe a loja.
+
+Revogar vale na hora e apaga as fichas que o sistema mandou — numa instrução só. As de
+planilha (a loja que ganhou o acesso e o sistema ainda não enviou) ficam: não são dele. A
+linha do acesso fica, como registro de quem criou e quem revogou.
+
+### Uma loja recebe as fichas de um lugar só
+
+- A loja ligada ao Regem não ganha acesso; a loja com acesso não é ligada ao Regem (e nem
+  aparece como opção), nem importa planilha.
+- A loja com fichas de **planilha** pode ganhar acesso: as da planilha ficam até o sistema
+  enviar as dele, e aí as do sistema entram no lugar (é o que o protótipo diz).
+- **Criar o acesso e ligar ao Regem travam a linha da loja antes de conferir.** Duas pessoas
+  ao mesmo tempo, uma em cada ação, não deixam a loja com as duas origens. O teste das duas
+  chamadas juntas pegou um defeito meu antes de sair: a trava e a conferência estavam na mesma
+  instrução, e quem esperava a trava conferia com o retrato de antes da espera — as duas
+  passavam. Ficou em duas instruções (ERR-107 do registro de erros).
+
+### O que eu decidi no caminho, e por quê
+
+- **O envio é o mesmo modelo da planilha, com outra forma.** Lá o produto é um bloco de
+  linhas; aqui, um objeto com as listas dele (`ingredientes`, `variacoes`, `adicionais`,
+  `combo`). Uma regra só para os dois caminhos, e uma documentação que o dono já conhece.
+- **Entra o que está certo, como na planilha.** A decisão do dono para a planilha ("entra o
+  que está certo e a tela lista o que ficou de fora") vale aqui: o produto com problema fica
+  inteiro de fora, os outros entram, e a resposta diz quais e por quê, com o caminho no que
+  foi enviado (`produtos[1].ingredientes[1]`). A lista fica guardada para a tela Fichas.
+- **A forma errada recusa o envio inteiro** (422, com o caminho do campo). É erro de quem
+  programou o envio, e meia leitura esconderia o defeito.
+- **O nome é a identidade do produto**, como na planilha. Dois produtos com o mesmo nome
+  ficam os dois de fora — mesmo seguidos: aqui cada um é um objeto, e o leitor passou a saber
+  onde cada um começa, para não somar os ingredientes de um aos do outro.
+- **Nenhuma frase da porta fala em planilha, aba, linha ou coluna.** As cinco frases do
+  leitor que falavam são ditas com as palavras do envio, e há teste que varre todas.
+- **Os números da tela Conexões** para a loja ligada ao Regem passaram a contar só a base que
+  veio do Regem. Na loja que tinha planilha e acabou de ser ligada, mostravam os da planilha.
+- **A trava é a leve** (`for no key update`): a outra barra quem só aponta para a loja —
+  gravar uma ficha, um evento —, e um teste vizinho mostrou.
+
+### O que foi medido
+
+- **33 testes novos:** 14 do leitor do envio, sem banco (o mesmo cardápio dando a mesma base
+  pelos dois caminhos; cada defeito de conteúdo deixando o produto de fora, com o caminho; a
+  ordem dos problemas; o nome repetido, seguido ou não; 37 defeitos de forma, cada um com o
+  caminho do campo; os tetos, no limite e um acima; nenhuma frase falando em planilha), e 19
+  das rotas, com banco (quem pode; a loja do vizinho; o código que não fica em lugar nenhum;
+  a credencial da porta; o envio certo, o repetido, o com produto de fora, o sem nada certo, o
+  de forma errada e o grande demais; revogar, e revogar no meio do envio; a loja do Regem, a
+  loja com acesso e a loja de planilha, uma contra a outra; as duas pessoas ao mesmo tempo; a
+  planilha chegando junto com o acesso; os números da tela Conexões).
+- **109 estragos de propósito** no leitor do envio, nas rotas do acesso e da porta e nas
+  rotas das fichas e do Regem: os 109 pegos. Dois tinham sobrevivido: um era meu (o estrago
+  estava mal escrito e não estragava nada), e o outro pedia um teste — a loja que teve o
+  acesso revogado volta a aparecer como livre. Três trechos saíram do código por serem
+  redundantes, em vez de ganhar teste de enfeite.
+- A lista de estragos da planilha (98) teve oito conferidos de novo, por causa das linhas
+  mexidas: os oito pegos.
+- A migration aplicada duas vezes no banco local, com as regras provadas por linhas de
+  verdade (um acesso valendo por loja; o código não se repete; o nome cabe; os revogados
+  ficam; apagar a loja leva os acessos).
+- A suíte inteira: 1.217 testes, 1.216 passando (o que falha no banco local é o do embedding,
+  que pede uma extensão que ele não tem; passa no CI).
+- Um teste vizinho (apagar a loja logo depois de ligá-la ao Regem) passou a esperar a leitura
+  em segundo plano terminar: falhava de vez em quando, por apagar a loja no meio da leitura
+  dela.
+
+### O que não foi medido
+
+- **Um sistema de verdade enviando.** Não há nenhum ainda, e sem a tela ninguém cria acesso.
+- A borda deixando passar uma chamada de programa na porta (confere-se de fora, depois do
+  deploy).
+- O envio grande de verdade (milhares de produtos): os tetos foram testados, o tempo não.
+
+### O que vem
+
+A tela (protótipo aprovado): a tela Conexões refeita para as três origens, com o cartão
+"Outro sistema" (criar o acesso, o código que aparece uma vez, revogar) e o da planilha; o
+terceiro jeito na loja sem fichas; a etiqueta "do <sistema>" na tela Fichas, com a lista do
+que ficou de fora do envio; e a página da documentação. **Uma coisa para o dono decidir:** o
+protótipo mostra a documentação em `monitorfarol.com.br/integracao`, e o site não está neste
+repositório — a página pode ir no console (aberta, sem login) ou no site.
