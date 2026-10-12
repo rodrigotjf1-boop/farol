@@ -4406,3 +4406,98 @@ coluna continua com tudo.
 
 - O celular de verdade (o polegar alcançando o "Mais", a folha com a barra do sistema).
 
+## 12/10/2026 · O motor que aprende: a régua do dono, o que a loja mediu e a prioridade
+
+Nada foi programado nesta entrada: é direção, medida e plano. O plano está no
+[roadmap](roadmap.md), A20. O estudo inteiro, com as contas e as fontes de mercado, foi
+entregue ao dono como página local (não publicada, por descrever a lógica que ele mandou
+proteger).
+
+### O que o dono disse
+
+- **A régua:** "a ideia de controle do Farol é como se um ser humano estivesse parado
+  olhando fixo para aquele local e respondendo o mais rápido possível aos critérios".
+- **Aprender:** o motor aprende com as análises e "com o tempo" depende pouco da nuvem; o
+  nosso servidor vira "uma base de parâmetros" (objeto novo entra: "ao invés de 80 tipos de
+  objetos já teríamos 81"); com muitas lojas, "uma grande margem de aprendizado".
+- **De onde se aprende:** "não só aprender com a nuvem": foto local de objeto que não está
+  na lista "também é um aprendizado"; da nuvem, "só aprendemos quando a confiança é alta e
+  consegue avaliar, se não consegue não é aprendizado"; "o contexto é tão importante quanto
+  a imagem de referência".
+- **O ritmo:** "30 seg de intervalo… é muita coisa"; o movimento "só na área de corte" como
+  gatilho, "um funil".
+- **Proteger:** "não permitir cópia da lógica de funcionamento… em restaurantes que vão usar
+  nosso projeto".
+- **A regra de trabalho:** "sempre devemos considerar tecnologias e recursos como opção para
+  aumentar sucesso". E, sobre um veredito meu tirado só do piloto: "não podemos só pensar
+  como base no que temos de teste agora, estou pensando num modo geral".
+- **A prioridade:** "temos que focar no controle e preparo com alertas, que é a raiz da
+  lógica; o restante são adicionais quando a estrutura estiver pronta, estável e aprendendo".
+
+### O que a loja mediu
+
+Leitura do registro do agente no computador da loja, de 07/10 às 16h até a madrugada de
+12/10. Só leitura, só números; os roteiros de leitura foram apagados de lá.
+
+| o quê | o número |
+|---|---|
+| olhadas · análises | 21.783 · 17.217 |
+| decididas na loja pelo detector | 15.495 (90%), 91 ms cada, sem custo |
+| pagas à nuvem | 1.722 (10%), 2,2 s e 1,30 centavo cada: **R$ 22,44**, tudo em 07 e 08/10 |
+| pagas que voltaram "não deu para avaliar" | **1.483 (86%)**: gaveta 627 de 658, chapa 438 de 468, touca e uniforme 333 de 384, ingredientes 85 de 212 |
+| pela régua do dono (avaliou, com confiança de 0,85 ou mais) | **208 de 1.722**: 11 centavos por exemplo |
+| a confiança declarada | 196 das 239 avaliações na faixa de 0,85 a 0,90; 12 acima de 0,90; 541 "não deu para avaliar" com 0,85 ou mais |
+| da imagem até a resposta | mediana de **18 s** na loja (9 em 10 em até 37 s) e 37 s pela nuvem; mais até 30 s de espera pela olhada |
+| o que segurou as olhadas | o silêncio depois de um veredito (1.758) e a cena repetida (175); **as portas de contexto e de gatilho seguraram zero**: nenhum critério tinha condição ligada |
+| a mesma cena paga de novo | 676 de 1.717 (39%) com a impressão da imagem idêntica à de uma cena já julgada no mesmo critério, e a mesma resposta em 675; a regra da cena repetida lembra 30 s |
+| a impressão da imagem inteira e o "fora do critério" | das 81 respostas "fora", 14 tinham cena quase igual já julgada, e 2 batiam: não serve para decidir |
+| "há alguém aqui?" na mesma câmera (a da chapa) | sem ninguém na imagem: 224 de 468 pagas da chapa (48%) e 189 de 384 de touca e uniforme (49%), todas "não deu para avaliar"; nenhuma das 81 respostas de verdade dessa câmera aconteceu sem gente |
+| presença no setor inteiro × no posto | canal 1 (imagem inteira da montagem): alguém em 93% de 6.466 leituras; canal 13 (quadro do colaborador): 61% de 5.710 |
+| o material que existe | 17.225 imagens analisadas no computador da loja (893 MB), apagadas 15 dias depois: **as primeiras somem em 22/10** |
+
+Tudo rodou com a pergunta do jeito antigo (o recorte sozinho, no Haiku 4.5): o pedido com
+contexto está no motor desde 09/10, **desligado nesta loja**. Desde 09/10 o motor não foi à
+nuvem: a configuração que ele tem hoje (versão 131) traz dois critérios, os dois de presença
+(canais 1 e 13); os quatro pagos não estão nela. O valor de R$ 22,44 é a conta do próprio
+agente (o que foi e voltou × a tabela de preço, com o dólar a R$ 5,40); o teto de R$ 5,00
+citado no roadmap é o das rodadas de teste — outra conta.
+
+### O que se concluiu
+
+1. **O maior desperdício não é falta de aprendizado:** é pagar por pergunta que volta vazia
+   e pagar de novo pela mesma cena. Corta-se com o que já está construído.
+2. **A nuvem só ensina resposta firme, e mesmo ela precisa de conferência:** em 05/10 um
+   mouse foi lido como controle remoto com 85% e 95% de confiança. Avaliou, com confiança
+   alta, e com uma amostra conferida por gente.
+3. **São cinco fontes de aprendizado:** o que alguém mostra (foto local, com nome), o que
+   alguém conta (o contexto), o que o motor observa (o normal do lugar), o que a nuvem
+   responde com firmeza e o que o responsável corrige. Todo conhecimento é guardado com o
+   contexto dele e só responde dentro dele.
+4. **"O mais rápido possível" hoje é perto de meio minuto**, com o juiz levando 0,09 s. A
+   demora é espera: a próxima olhada e a fila entre a imagem e o juiz.
+5. **Módulos, sim; dois motores separados, não:** o detector acha pessoa e objeto na mesma
+   passada, e a leitura de cada câmera é uma só.
+6. **Entre câmeras, o que informa é o posto, e não o setor:** a presença na imagem inteira
+   da câmera aberta não filtra (93%); no nível do posto, sim (61%). E câmera de tampo não vê
+   gente (15% das olhadas, com o tampo mexendo em 82% — medida de 09/10), então "há alguém
+   neste posto" só pode vir de outra câmera.
+
+### O que ficou de fora, e por quê
+
+- **A presença da imagem inteira como filtro entre canais:** seguraria 11 de 171 análises.
+- **A trajetória com direção (de um setor para o outro) como gatilho:** pede acompanhar
+  pessoas o tempo todo e calibrar cada câmera contra a planta; a antecedência que ela dá, a
+  imagem leve em memória e a gravação já cobrem. Continua nas ondas 9 e 10, para os fins
+  delas.
+- **A nossa nuvem agora:** com o preço de hoje (0,14 centavo por análise no teste de 08/10),
+  uma máquina com placa de vídeo sempre ligada empata entre 48 e 140 lojas como a do piloto.
+
+### Três erros meus, corrigidos na mesma noite
+
+- Escrevi que o servidor não guarda imagem nenhuma. Guarda as fotos apresentadas (a foto
+  padrão e as do inventário) e o quadro de cada canal; não guarda as imagens das análises.
+- Tratei as respostas vazias da nuvem como novidade. Estavam registradas desde 08/10
+  (`agent/farol_agent/contexto.py`), e foi o dono quem apontou a causa.
+- Dei um veredito de produto ("descartar") a partir do estado do piloto. A regra de 10/10
+  — o piloto não vira regra do motor — vale também para os meus vereditos.
+
