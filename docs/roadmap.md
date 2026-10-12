@@ -524,6 +524,15 @@ de `juizes/nuvem.py`** — nem preço, nem nome de modelo, nem formato de erro.
 - Se a distribuição oferece uma conta própria como alternativa para quem não
   quer abrir conta de IA, e com que margem.
 
+**12/10/2026 — esta pendência muda de forma com o balcão** (A20, "O balcão, em
+fases"). Com a dúvida passando pelo nosso servidor, quem pergunta ao modelo é o
+servidor: a chave do lojista não pode ficar só no cofre do agente. Ou ela fica
+guardada cifrada no servidor (o console a recebe uma vez e nunca a mostra), ou
+viaja da loja a cada pedido, ou a conta passa a ser a da distribuição, com teto
+por loja. A escolha é do dono (item 9 da lista do A20); no piloto a conta é a
+dele, e nada trava. A regra "nada fora de `juizes/nuvem.py` presume Anthropic"
+passa a valer, no servidor, para o módulo que fala com a plataforma.
+
 ### P2 · A chave sai da variável de ambiente e vai para um cofre
 
 **Decisão do dono em 05/10/2026:** nos testes a chave fica direto na variável
@@ -4756,7 +4765,7 @@ por baixo para o aviso sair rápido e com prova, e põe no fim o que é adiciona
 |---|---|---|---|
 | **0 ✅ · Medir** (feito em 12/10) | onde ficam os 18 s; a memória pelo vetor, sobre as 1.722 imagens que a nuvem julgou; o tempo do vetor no computador da loja; o movimento por área na gravação, câmera por câmera. **Não deu para medir:** reconhecer o que já foi apresentado — a loja não tem foto padrão | as tabelas estão em [decisoes.md](decisoes.md), "O passo 0 do A20". A semelhança pela imagem inteira **não** separou o "fora" do "dentro": o plano mudou aqui (abaixo) | — (o dono autorizou em 12/10) |
 | **1 · Atenção e reflexo** | a imagem leve lida sempre e o movimento medido em toda área; os estados do quadro (repouso, acordou, em atividade, assentou), no lugar da rotina de 30 s; o juiz sem fila; a resposta guardada da cena idêntica; as condições ligadas nos critérios pagos | antes e depois: tempo até a resposta, olhadas, pagas, sem resposta, reais por dia; e os acontecimentos da gravação contra os que o motor pegou | o "pode" da troca do pacote; os critérios pagos de volta; as cenas e a chave do contexto |
-| **2 · O que se mostra e o que se conta** | apresentar objeto e estado por foto, com nome e contexto, a partir do inventário e da foto padrão; a ficha de conhecimento com contexto na base (as tabelas existem desde a migration 001, sem uso); o juiz de comparação montado, em sombra; a dúvida passando pelo nosso servidor, com a chave e as instruções fora da loja | o que foi apresentado é reconhecido nos quadros da loja? Em sombra, sem valer | protótipo aprovado; a decisão sobre a dúvida passar pelo servidor |
+| **2 · O que se mostra e o que se conta** | apresentar objeto e estado por foto, com nome e contexto, a partir do inventário e da foto padrão; a ficha de conhecimento com contexto na base (as tabelas existem desde a migration 001, sem uso); o juiz de comparação montado, em sombra; a dúvida passando pelo nosso servidor, com a chave e as instruções fora da loja (o balcão, em fases, abaixo) | o que foi apresentado é reconhecido nos quadros da loja? Em sombra, sem valer | protótipo aprovado; o plano do balcão aprovado (a decisão de passar pelo servidor foi dada em 12/10) |
 | **3 · O caderno com a prova** | **é a onda 2 do A19**, com a base junto: "acertou / errou", exemplos separados só para prova, o acerto medido de cada critério; a resposta firme vira exemplo; a vazia vira aviso sobre o critério | o acerto de quem responde, por critério: critério em que ele não acerta não ensina | as três decisões da onda 2 (a imagem do exemplo na nuvem; a meta para "valendo"; quem marca) e a régua do que a nuvem ensina |
 | **4 · A memória valendo** | o que respondia em sombra passa a valer, critério por critério | errar no máximo 1 em 50 e não perder "fora do critério" (meta, a medir) | o passo 3 medido |
 
@@ -4897,6 +4906,27 @@ mais, e com uma amostra conferida por gente antes de valer". É a regra do passo
 resposta da nuvem só vira exemplo se avaliou, com confiança de 0,85 ou mais, e depois de
 uma amostra das respostas daquele critério ter sido conferida por uma pessoa.
 
+### O balcão, em fases (plano de 12/10; à espera da aprovação do dono)
+
+"A dúvida passa pelo nosso servidor": a loja entrega a imagem, e é o servidor que monta a
+pergunta, com as instruções que só ele tem, e pergunta à plataforma, com a chave que só ele
+tem. O porquê, os três jeitos comparados e as medidas estão em [decisoes.md](decisoes.md),
+"O balcão: o plano para a dúvida passar pelo nosso servidor". **Nada foi programado.**
+
+| fase | o que entra | a prova | muda na loja? | depende de |
+|---|---|---|---|---|
+| **1 · O balcão no servidor** | a porta que recebe a dúvida; as instruções e a montagem do pedido com contexto do lado do servidor; o teto por loja e por dia e o registro do custo; a chave interna por loja, desligada, como a do pedido com contexto | o pedido montado pelo servidor igual, letra por letra, ao que o agente monta hoje, caso a caso (com mapa, sem mapa, com foto padrão, com equipamentos); testes com uma plataforma de mentira; nenhuma chamada paga | não | o plano aprovado |
+| **2 · O agente aprende o caminho** | o agente passa a saber entregar a dúvida ao servidor; com a chave interna desligada, pergunta como hoje; a chave de cada análise deixa de levar o nome do modelo e passa a levar a versão da pergunta, dada pelo servidor | os testes do agente; depois da troca, o registro sem aviso nem erro e as olhadas iguais às de antes | a troca do pacote | a fase 1 publicada; o "pode" da troca |
+| **3 · Valendo na loja do piloto** | o dono põe a chave no ambiente do serviço; a loja é ligada; os critérios pagos voltam já pelo balcão | quatro chamadas de conferência com imagens geradas por computador (perto de 10 centavos); depois, com a loja aberta: o tempo até a resposta, as falhas e o custo do dia, o do servidor contra o da plataforma. A volta: desligar a chave interna | a chave interna ligada | os critérios pagos de volta, com a cena dos canais escrita; a chave no servidor |
+| **4 · A loja sem chave e sem instruções** | o caminho antigo, as instruções e a chave saem do pacote e do computador da loja, junto com o pacote compilado; a análise das fotos do equipamento passa a ser feita pelo servidor, sem depender do agente ligado; a chave antiga é cancelada na plataforma | procurar as instruções no pacote e no computador da loja, e não achar; o inventário descrevendo um equipamento com o agente desligado | a troca do pacote | uma semana da fase 3 sem problema; o "pode" da troca |
+
+Nenhuma fase tem tela nova: o motivo "teto do dia" aparece onde a tela já mostra por que um
+critério não foi analisado, e o texto passa pelo dono antes. O balcão só fala o pedido com
+contexto; presença, contagem, o que é urgente e a comparação que deu "igual" continuam na
+loja. As fotos apresentadas (passo 2) e a memória (passo 4) entram depois, do lado do
+servidor — é ali que a nossa nuvem, quando a conta fechar, toma o lugar da plataforma sem a
+loja mudar.
+
 ### Os adicionais — por último
 
 | o quê | o que se concluiu em 12/10 |
@@ -4938,3 +4968,8 @@ uma amostra das respostas daquele critério ter sido conferida por uma pessoa.
    0,85 ou mais, e com uma amostra conferida por gente antes de valer". Soma com as três
    decisões da onda 2, que continuam abertas (a imagem do exemplo na nuvem; a meta para
    "valendo"; quem marca).
+9. **O plano do balcão** (12/10, acima): aprovar as quatro fases; o teto de gasto por loja e
+   por dia no piloto (recomendado: R$ 5,00); e quem paga a plataforma na distribuição — a
+   conta do Farol como padrão, com teto, e a do lojista como opção (recomendado), ou só a do
+   lojista. A terceira pode esperar: no piloto a conta é a do dono. Ela muda a forma da
+   pendência P1, que previa a chave do lojista no computador da loja.

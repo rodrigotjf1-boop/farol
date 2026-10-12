@@ -5189,3 +5189,121 @@ colunas novas do resumo; e, com a loja aberta, o tempo da imagem até a resposta
 (esperado, pela conta: perto de 1,3 s nos dois critérios) e as primeiras contagens da
 atenção. A semana de números da leitura contínua conta a partir dessa troca.
 
+## 12/10/2026 (noite) · O balcão: o plano para a dúvida passar pelo nosso servidor, e o que foi medido para ele
+
+O dono respondeu em 12/10 que "a dúvida passa pelo nosso servidor" e que o primeiro passo da
+proteção entra "já, com os passos 1 e 2 do núcleo". Este é o plano para isso — **à espera da
+aprovação dele; nada foi programado e nada mudou na loja**. As fases estão no
+[roadmap](roadmap.md), seção A20, "O balcão, em fases".
+
+### Como é hoje (lido no código)
+
+- **Na loja:** a chave da plataforma, no ambiente do processo do agente, lida em dois pontos
+  (`juizes/nuvem.py` e `descrever.py`); três textos de instruções — o pedido de sempre, o
+  pedido com contexto e a descrição de equipamento, 124 linhas ao todo; os nomes dos
+  modelos, a regra da reconsulta, os rótulos e a ordem das partes do pedido; a tabela de
+  preço e a conta do custo.
+- **No servidor:** nenhuma chave de plataforma e nenhuma chamada a modelo (as dependências
+  da API são `fastify` e `pg`); nenhum limite de pedidos e nenhum teto de gasto; o custo que
+  ele guarda é o que o agente informa (`evento`, `resumo_hora`). Tudo o que entra em TEXTO
+  no pedido com contexto sai do banco dele — o critério e a descrição do processo, a cena,
+  os quadros com número e papel, os equipamentos da área, a frase da planta. Da loja vêm só
+  as imagens: a que se audita, o mapa do canal e o recorte da foto padrão.
+
+### O que este plano desfaz, de propósito
+
+Em 08/10 ("A análise única das fotos do equipamento") ficou decidido não dar chave à API:
+"segredo novo em produção, e imagem de loja passando por mais um lugar". O balcão faz as
+duas coisas, porque a chave e as instruções no computador da loja são o que o dono mandou
+proteger. O que responde às duas razões: uma chave no lugar de uma por loja, no ambiente do
+serviço e nunca em registro, com limite de gasto também do lado da plataforma; e a imagem
+só em trânsito — nenhuma imagem em banco nem em registro nesta entrega.
+
+### Três jeitos, e o recomendado
+
+| jeito | o que resolve | o que não resolve |
+|---|---|---|
+| **A · o balcão dentro do nosso servidor** (recomendado) | a chave e as instruções saem da loja; teto por loja; instrução, modelo e plataforma mudam sem trocar pacote | o servidor entra no caminho de toda resposta paga |
+| B · um portão pronto na frente da plataforma (Cloudflare AI Gateway, LiteLLM) | a chave sai da loja; orçamento, limite e registro prontos | quem monta o pedido continua sendo a loja: as instruções ficam lá; a imagem passa por mais uma empresa |
+| C · tudo na loja, com o pacote compilado e cifrado | nenhum caminho novo | as instruções ficam legíveis no módulo compilado (ensaio de 12/10) e, cifradas no disco, aparecem na memória e no pedido que sai |
+
+O B pode entrar depois, **atrás** do balcão, se for preciso passar sozinho de uma plataforma
+para outra. Do C fica o pacote compilado, para o funil, que continua na loja. Fontes,
+conferidas em 12/10: a página das chaves guardadas do AI Gateway (o pedido inteiro continua
+vindo de quem chama), a das chaves virtuais do LiteLLM (pede um Postgres ao lado), a da
+configuração do Frigate (a chave no arquivo de quem instala) e a das áreas de trabalho da
+Anthropic (limite de gasto por mês numa área, menos na área padrão).
+
+### O desenho
+
+1. A loja decide que há dúvida, como hoje: o movimento, as condições do estudo, a cena
+   repetida, a resposta vazia guardada.
+2. Entrega ao servidor as imagens e os números de cadastro do critério, do canal e do
+   quadro, com a versão da configuração que tem. Sem texto de instrução, sem chave.
+3. O servidor confere o agente (`autenticarAgente`), que o critério é da loja e está na
+   mesma versão, e o teto do dia; monta o pedido com o que tem no banco e com as instruções,
+   que passam a existir só lá; pergunta; devolve o resultado, a confiança e o motivo; anota
+   o custo e o tempo.
+4. **Só o pedido com contexto é levado para o servidor.** O pedido de sempre (86% das
+   análises pagas sem resposta em 07 e 08/10) fica para trás com o caminho antigo.
+5. O que nunca saiu da loja continua lá: presença, contagem, o que é urgente e a comparação
+   que deu "igual".
+
+A prova da primeira fase é a igualdade: o pedido montado pelo servidor igual, letra por
+letra, ao que o agente monta hoje, caso a caso. É o que mantém valendo o que foi medido em
+08 e 09/10.
+
+### O que foi medido para o plano
+
+**O caminho** (12/10, 19h54, do computador da loja, com a loja aberta, dez vezes cada;
+pedido pequeno, sem credencial):
+
+| de onde para onde | ligação já aberta (menor · mediana · maior) | ligação nova, tudo |
+|---|---|---|
+| a loja → o nosso servidor | 24 · **30** · 41 ms | 121 · 139 · 166 ms |
+| a loja → a plataforma (só o caminho) | 131 · **137** · 150 ms | 203 · 226 · 232 ms |
+
+Não medido: o trecho do servidor até a plataforma. Se for igual ao da loja, o caminho cresce
+perto de 30 ms, numa análise que leva 1,7 s com o pedido novo.
+
+**O alcance do servidor, visto da loja** (o registro do agente, de 06 a 12/10; uma batida a
+cada 10 s; só contagens):
+
+| dia | batidas que falharam | maior trecho | o que foi |
+|---|---|---|---|
+| 06/10 (instalação) | 100 | 21 min | 89 sem resposta em 15 s, 7 de rede, 4 com o servidor em reinício (503) |
+| 07/10 | 168 | 7 min | 105 em reinício, com um trecho de 6 min seguidos; 53 sem resposta; 10 de rede |
+| 08/10 | 3 | menos de 1 min | rede e prazo |
+| 09/10 | 7 | 4 min | 6 sem resposta e um erro do servidor (500) |
+| 10/10 | 12 | 1 min | rede e prazo |
+| 11/10 | 0 | — | — |
+| 12/10 | 1 | menos de 1 min | prazo |
+
+De 08 a 12/10: 23 de umas 43 mil batidas, com 71 publicações na `main` e nenhuma batida
+pegando o servidor em reinício. Quando o motivo é prazo, o registro não separa "a internet
+da loja caiu" de "o servidor não respondeu". A dúvida que não chega espera na fila e é
+refeita em 30 s, depois em 2, 10 e 30 min (`BACKOFF_SEG`); presença e contagem não passam
+por ali.
+
+**O dinheiro** (dos testes de 08 e 09/10 e da fila de 07 e 08/10): a rotina custa de 0,10 a
+0,24 centavo; a reconsulta, de 4,6 a 5,5 centavos; foram 860 análises pagas por dia, com
+quatro critérios → de R$ 0,86 a R$ 2,06 por dia no pedido novo, sem a reconsulta, cuja
+frequência não foi medida.
+
+### O que fica para o dono decidir
+
+1. A aprovação do plano (as quatro fases).
+2. O teto de gasto por loja e por dia, no piloto (recomendado: R$ 5,00).
+3. **Quem paga a plataforma na distribuição.** A pendência P1 (05/10) previa a conta do
+   lojista, com a chave no computador da loja e nunca no console. Com o balcão a chave tem
+   de estar no servidor, ou viajar a cada pedido. Recomendado: a conta do Farol como padrão,
+   com teto por loja, e a do lojista como opção. Pode esperar: no piloto a conta é a do dono.
+
+### O que não se sabe
+
+O tempo do servidor até a plataforma; quantas vezes a reconsulta acontece com o pedido novo,
+e se ela paga o que custa; o limite de pedidos por minuto da conta, que passa a ser dividido
+entre as lojas; o peso, na internet da loja, da imagem na resolução da câmera; e a loja em
+modo local, com o modelo dentro dela, que continuaria precisando das instruções lá (não
+existe hoje).
+
