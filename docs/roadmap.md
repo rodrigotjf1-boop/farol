@@ -4725,3 +4725,66 @@ que ficou de fora"**. A ordem: a planilha, a porta para outro sistema, o "Mais" 
     das 21h45 era queijo em dobro pedido pelo cliente.
 13. **Formatar o PC da loja** (ele disse que é o ideal): só com roteiro — a máquina é
     também o servidor local do Regem da loja.
+
+---
+
+## A20 · O vigia: atenção, reflexo e aprendizado (direção do dono em 12/10/2026; núcleo primeiro; nada programado)
+
+**A régua, dita pelo dono:** "a ideia de controle do Farol é como se um ser humano estivesse
+parado olhando fixo para aquele local e respondendo o mais rápido possível aos critérios".
+O que ele disse, o que a loja mediu e o que ficou de fora estão em
+[decisoes.md](decisoes.md), "12/10/2026 · O motor que aprende".
+
+**A prioridade, dita por ele na mesma noite:** "temos que focar no controle e preparo com
+alertas, que é a raiz da lógica; o restante são adicionais quando a estrutura estiver pronta,
+estável e aprendendo". O A20 não troca a ordem do A19: diz o que as ondas 2 a 5 precisam ter
+por baixo para o aviso sair rápido e com prova, e põe no fim o que é adicional.
+
+### O que a medida de 07 a 12/10 muda
+
+| o que se contava como certo | o que foi medido | o que muda |
+|---|---|---|
+| a olhada a cada 30 s basta | da imagem à resposta: 18 s na loja e 37 s pela nuvem (medianas), com o juiz levando 0,09 s; mais até 30 s de espera pela olhada | ler sempre; o juiz sem fila |
+| o funil segura as olhadas | as portas de contexto e de gatilho seguraram **zero**: nenhum critério tinha condição ligada | ligar as condições; "há alguém aqui?" teria segurado 48% (chapa) e 49% (touca e uniforme) das pagas, sem perder resposta |
+| a cena repetida não é paga duas vezes | 39% das pagas eram cena idêntica a uma já julgada: a regra lembra 30 s | a resposta guardada por cena |
+| a nuvem ensina | 86% das pagas voltaram vazias; pela régua do dono sobram 208 de 1.722 | só resposta firme, conferida por amostra, vira exemplo |
+| o pedido com contexto já vale | está no motor, desligado nesta loja; nenhum canal tem a cena escrita | escrever as cenas e ligar a chave antes de os critérios pagos voltarem |
+
+### O núcleo, em cinco passos
+
+| passo | o que entra | a prova | depende de |
+|---|---|---|---|
+| **0 · Medir** | onde ficam os 18 s; a memória pelo vetor do recorte, sobre as 1.722 imagens que a nuvem julgou; reconhecer nos quadros da loja o que já foi apresentado (as fotos do inventário e a foto padrão); o tempo do vetor no computador da loja; o movimento por área na gravação, câmera por câmera | uma tabela por critério. Se a semelhança não separar o "fora" do "dentro", o plano muda aqui | duas autorizações do dono: usar as imagens que a loja guarda (somem a partir de 22/10) e começar |
+| **1 · Atenção e reflexo** | a imagem leve lida sempre e o movimento medido em toda área; os estados do quadro (repouso, acordou, em atividade, assentou), no lugar da rotina de 30 s; o juiz sem fila; a resposta guardada da cena idêntica; as condições ligadas nos critérios pagos | antes e depois: tempo até a resposta, olhadas, pagas, sem resposta, reais por dia; e os acontecimentos da gravação contra os que o motor pegou | o "pode" da troca do pacote; os critérios pagos de volta; as cenas e a chave do contexto |
+| **2 · O que se mostra e o que se conta** | apresentar objeto e estado por foto, com nome e contexto, a partir do inventário e da foto padrão; a ficha de conhecimento com contexto na base (as tabelas existem desde a migration 001, sem uso); o juiz de comparação montado, em sombra; a dúvida passando pelo nosso servidor, com a chave e as instruções fora da loja | o que foi apresentado é reconhecido nos quadros da loja? Em sombra, sem valer | protótipo aprovado; a decisão sobre a dúvida passar pelo servidor |
+| **3 · O caderno com a prova** | **é a onda 2 do A19**, com a base junto: "acertou / errou", exemplos separados só para prova, o acerto medido de cada critério; a resposta firme vira exemplo; a vazia vira aviso sobre o critério | o acerto de quem responde, por critério: critério em que ele não acerta não ensina | as três decisões da onda 2 (a imagem do exemplo na nuvem; a meta para "valendo"; quem marca) e a régua do que a nuvem ensina |
+| **4 · A memória valendo** | o que respondia em sombra passa a valer, critério por critério | errar no máximo 1 em 50 e não perder "fora do critério" (meta, a medir) | o passo 3 medido |
+
+Depois deles seguem as ondas 3 a 5 do A19, como estavam. Nenhum passo liga aviso sem passar
+pelo banco de provas; toda tela nova passa por protótipo; toda troca no computador da loja
+espera o "pode".
+
+### Os adicionais — por último
+
+| o quê | o que se concluiu em 12/10 |
+|---|---|
+| **A ligação entre canais** (um quadro do posto, na câmera aberta, avisa a câmera de detalhe) | entra na forma simples: mais uma opção de "onde" no estudo do critério, que hoje lê "daqui", do canal ou de outro quadro do mesmo canal. Vale para posto de uso eventual e para câmera de tampo, que não vê gente. A calibrar na gravação dos canais 1 e 4 |
+| **O acontecimento que anuncia** (o pão no toaster, no canal 1, antes da montagem no canal 4) | viável: alguém conta, e vira etapa do processo; o motor confirma contando o que vem antes do quê. É perfil da loja, e não regra do motor |
+| **O pedido do KDS como gatilho** | onde houver KDS integrado: diz que há trabalho e o que montar. O atraso é variável, então vale como janela, e não como contagem. Já estava na onda 5 |
+| **A planta em 3D por filmagem guiada** | já estudada em [estudo-planta-viva.md](estudo-planta-viva.md) (seções 2 e 4); o dono reforçou a filmagem única, só para produzir a planta. Fica nas ondas 9 e 10 |
+| **Modelos por pergunta e pacotes por loja; tipos novos no detector e a base geral entre lojas; a nossa nuvem** | as fases 5 a 7 do estudo. A nossa nuvem só quando a conta fechar |
+| **A proteção contra cópia** | anda ao lado: o pacote compilado, e a chave e as instruções fora da loja, com os passos 1 e 2; o pacote cifrado por loja, o contrato e o registro antes da segunda loja |
+
+### O que entra na lista do dono
+
+1. **Duas autorizações, para o passo 0 começar:** usar as imagens que a loja guarda (parte
+   mostra pessoas; ficam só na pasta temporária da sessão) e começar as medições.
+2. **Os quatro critérios pagos** (gaveta, chapa, touca e uniforme, ingredientes) não estão na
+   configuração que o motor tem hoje: dizer se saíram de propósito. Para voltarem bem, a
+   cena de cada canal em que eles rodam (o item 3 da lista do A19 pede a do "montagem 1") e a
+   chave do pedido com contexto ligada (o item 11; a linha é preparada antes).
+3. **Conferir o total no painel da nuvem:** o motor registrou R$ 22,44 em 07 e 08/10; o teto
+   de R$ 5,00 (item 7 da lista do A19) é o das rodadas de teste.
+4. **Podem esperar:** a régua do que a nuvem ensina e onde ficam os recortes (somam com as
+   três decisões da onda 2); a dúvida pelo servidor; o que uma loja ensina vale para as
+   outras; a ordem da proteção; a nossa nuvem.
