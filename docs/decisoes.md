@@ -5022,3 +5022,46 @@ decide a segunda parte.
 - **Se os três números servem** para quadro pequeno, câmera escura ou cena com reflexo: é
   o que a semana de contagem vai dizer.
 
+## 12/10/2026 (noite) · O limite por volta, e o que não disputa com ele (fatia 1.5)
+
+Só o agente muda, e só no repositório. Na loja de hoje nada mudaria: ela tem dois critérios,
+bem abaixo do limite.
+
+### O que acontecia
+
+A cada volta saem para julgamento no máximo dez análises — é o que impede uma volta de
+levar minutos quando a nuvem demora. Mas as dez vagas eram de todos: o que o detector julga
+na própria loja, em décimos de segundo, disputava com o que vai à nuvem e leva segundos.
+Numa loja com doze critérios olhados no mesmo instante, dois ficavam para a volta seguinte,
+fossem de onde fossem — e, pela conta, com mais critérios do que vagas a cada volta a fila
+cresce até as análises vencerem (não foi visto acontecer: a loja de teste nunca teve tantos).
+E a ordem era a do instante da imagem: a resposta de um décimo de segundo esperava atrás da
+de dois segundos.
+
+### O que entra
+
+- O que o **detector** julga na loja (presença e contagem) tem o limite dele — cem por
+  volta — e não gasta o da nuvem, que continua em dez.
+- Dentro da mesma prioridade, sai na frente. A urgência continua acima de tudo, e cada grupo
+  continua saindo do mais velho para o mais novo.
+- "Julgado na loja", aqui, é só o que o seletor entrega ao detector, apurado uma vez por
+  versão da configuração. A comparação com a foto padrão (que passa adiante o que não é
+  igual) e o modelo local (que pode levar segundos) continuam no limite de dez.
+- O limite de cem existe para a fila acumulada — o programa que ficou parado, a câmera que
+  voltou — não segurar a volta inteira.
+
+### Como foi conferido
+
+13 testes novos (`agent/testes/test_limite_por_volta.py`): na fila (os dois limites, a
+ordem, a urgência, o que ainda não está pronto, mais de um critério da loja — com as
+análises entrando na fila da mais nova para a mais velha, para a ordem de chegada discordar
+da de saída), no motor e pela auditoria, com doze critérios de presença e doze de estado
+num canal: os doze de presença saem na mesma volta, a nuvem fica com dez, e os dois que
+sobram saem na seguinte. 24 mutações, nenhuma viva. A suíte inteira do agente passa.
+
+### O que não foi medido
+
+O tempo de uma volta com muitos critérios de verdade: a loja de hoje tem dois. O limite de
+cem é conta, e não medida — o detector levou 91 ms por análise no computador do piloto, e
+cem por volta dariam perto de nove segundos numa máquina igual. Com a segunda loja, mede-se.
+
