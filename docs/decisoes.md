@@ -4501,3 +4501,58 @@ citado no roadmap é o das rodadas de teste — outra conta.
 - Dei um veredito de produto ("descartar") a partir do estado do piloto. A regra de 10/10
   — o piloto não vira regra do motor — vale também para os meus vereditos.
 
+## 12/10/2026 · O juiz esperava a volta seguinte: onde ficavam os 18 s (ERR-108)
+
+Primeira medição do passo 0 do A20, e a correção que saiu dela. Só o agente muda, e só no
+repositório: **na loja, o pacote continua o de 11/10 até a troca, com o "pode" do dono.**
+
+### O que foi medido
+
+Leitura da fila do agente na loja (só leitura, só números), de 07 a 12/10:
+
+| o quê | o número |
+|---|---|
+| da captura à resposta, com os dois critérios de hoje (detector) | mediana de 11 a 13 s; 9 em 10 em até 21 a 32 s; a menor, 5 s |
+| o mesmo, em 07 e 08/10 (nove critérios) | mediana de 32 a 38 s no detector e de 23 a 41 s na nuvem, conforme o critério |
+| como as esperas se repartem (detector, de 09/10 em diante) | 5 a 10 s: 11% · 10 a 15 s: 44% · 15 a 20 s: 21% · 20 a 25 s: 13% · 30 a 35 s: 12% |
+| o tempo do juiz | 0,09 s |
+
+As esperas caem em degraus de 10 em 10 segundos — o passo do vigia e o da rotina. Não era
+o juiz que demorava: era a resposta que esperava o despertar seguinte.
+
+### A causa
+
+A volta dá ao julgamento a hora em que ela **começou**. O quadro capturado nela leva a
+hora em que foi **lido**, que é segundos depois (abrir o fluxo principal leva de 1 a 3 s
+por canal). Na fila o item nasce pronto "no instante do quadro", e ela só entrega o que
+está pronto até a hora que recebe: o quadro recém-capturado ainda não estava. Saía na
+olhada extra do vigia (10 s depois, e só quando algo tinha mudado) ou na rotina seguinte
+(30 s depois).
+
+Os testes não viam: o dublê de câmera carimbava o quadro com a hora que recebia, e a fila
+guarda a hora em segundos — nos testes o quadro nascia pronto.
+
+### A correção
+
+O relógio do julgamento passa a ser o da volta, **adiantado até o quadro mais novo que
+espera na fila** (`Auditoria._hora_de_julgar`, `Fila.mais_novo_pendente`). O adianto tem
+teto de 10 minutos: a validade e a espera entre tentativas contam nesse mesmo relógio, e
+um quadro com a hora errada, muito à frente, não pode arrastar a fila inteira. Se a
+pergunta à fila falhar, vale a hora dada, como antes.
+
+### Como foi conferido
+
+- Cinco testes novos (quatro na auditoria, um na fila): o quadro lido 3 s depois do começo
+  da volta é julgado na mesma volta; o de uma hora à frente espera o relógio chegar; a
+  espera entre tentativas não é atropelada (conferida no segundo exato); a pergunta que
+  falha não para o julgamento; e "o mais novo que espera" não conta o que já saiu.
+- 11 mutações, nenhuma viva. A suíte inteira do agente passa.
+
+### O que não foi medido
+
+- **O ganho na loja.** A conta diz que a resposta passa a sair no fim da captura da
+  própria volta (poucos segundos, com dois canais), e não 10 a 30 s depois. O número de
+  verdade só existe depois da troca do pacote.
+- O limite de dez análises por volta (`LIMITE_POR_PASSADA`) continua: com muitos critérios
+  no mesmo instante, o que passar de dez sai na volta seguinte. Fica para o passo 1.
+

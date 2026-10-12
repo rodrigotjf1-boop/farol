@@ -18,6 +18,7 @@ import pytest
 
 from farol_agent.auditoria import Auditoria
 from farol_agent.configuracao import de_json
+from farol_agent.juizes.base import ErroDoJuiz
 from farol_agent.modelos import Frame, Resultado, Veredito, Via
 from farol_agent.nuvem import ErroDaNuvem
 
@@ -215,6 +216,109 @@ def test_o_ciclo_completo_enfileira_julga_e_sobe(tmp_path):
     assert r["alertas"] == 1
     assert r["subidos"] == 1
     assert nuvem.enviados[0]["caminho"] == "/v1/eventos"
+
+
+class FonteComAHoraDaLeitura(FonteBoa):
+    """Carimba o quadro com a hora em que ele foi LIDO, como a fonte de verdade.
+
+    A `FonteBoa` devolve o quadro na hora que recebeu (até meio segundo
+    depois), e a fila guarda a hora em segundos: nos testes o quadro nascia
+    pronto na mesma volta. Na loja, abrir o fluxo principal leva de um a
+    três segundos por canal — e o quadro nasce DEPOIS do começo da volta
+    (ERR-108).
+    """
+
+    def __init__(self, ponto_id="p1", semente=0, atraso=timedelta(seconds=3)):
+        super().__init__(ponto_id, semente)
+        self.atraso = atraso
+
+    def rajada(self, ts, quantidade=6, stream="main"):
+        return super().rajada(ts + self.atraso, quantidade, stream)
+
+
+class JuizForaDoAr:
+    nome = "fora-do-ar"
+
+    def __init__(self):
+        self.chamadas = 0
+
+    def julgar(self, imagem, criterio, *, contexto=None, referencias=None):
+        self.chamadas += 1
+        raise ErroDoJuiz("502 do gateway", recuperavel=True)
+
+
+def test_o_quadro_lido_segundos_depois_do_comeco_da_volta_e_julgado_NA_MESMA_volta(tmp_path):
+    """O defeito: a fila era drenada com a hora do COMEÇO da volta.
+
+    O quadro, lido três segundos depois, ainda "não estava pronto" — e só
+    era julgado no despertar seguinte. Medido na loja em 12/10/2026: de 11
+    a 18 s entre a imagem e a resposta, com o juiz levando 0,09 s.
+    """
+    nuvem = NuvemDeTeste()
+    juiz = JuizDeTeste()
+    a = montar(tmp_path, nuvem=nuvem, juiz=juiz, fonte=FonteComAHoraDaLeitura())
+
+    r = a.passo(datetime(2026, 10, 6, 12, 0, 0))
+
+    assert r["enfileirados"] == 1
+    assert juiz.chamadas == 1, "o quadro desta volta esperou a volta seguinte"
+    assert r["alertas"] == 1
+    assert r["subidos"] == 1
+
+
+def test_quadro_com_a_hora_muito_a_frente_espera_o_relogio_chegar(tmp_path):
+    """O adianto do relógio do julgamento tem teto.
+
+    A validade e a espera entre tentativas contam no mesmo relógio: um
+    quadro com a hora errada, uma hora à frente, não pode arrastar a fila
+    inteira com ele.
+    """
+    juiz = JuizDeTeste()
+    agora = datetime(2026, 10, 6, 12, 0, 0)
+    a = montar(tmp_path, juiz=juiz, fonte=FonteComAHoraDaLeitura(atraso=timedelta(hours=1)))
+
+    r = a.passo(agora)
+
+    assert r["enfileirados"] == 1
+    assert juiz.chamadas == 0, "o julgamento foi atrás de um quadro com a hora uma hora à frente"
+
+    a.julgar(agora + timedelta(hours=1, seconds=1))
+    assert juiz.chamadas == 1, "quando o relógio chega, o quadro sai"
+
+
+def test_adiantar_o_relogio_nao_atropela_a_espera_entre_tentativas(tmp_path):
+    juiz = JuizForaDoAr()
+    agora = datetime(2026, 10, 6, 12, 0, 0)
+    a = montar(tmp_path, juiz=juiz, fonte=FonteComAHoraDaLeitura())
+
+    a.passo(agora)
+    assert juiz.chamadas == 1
+
+    # A mesma hora, de novo: o item espera a vez dele — 30 s depois da
+    # falha, que foi julgada com o relógio no instante do quadro (+3 s).
+    a.julgar(agora)
+    assert juiz.chamadas == 1, "a nova tentativa saiu antes da espera"
+
+    a.julgar(agora + timedelta(seconds=32))
+    assert juiz.chamadas == 1, "faltava um segundo para a espera acabar"
+
+    a.julgar(agora + timedelta(seconds=33))
+    assert juiz.chamadas == 2, "passada a espera, a nova tentativa sai"
+
+
+def test_sem_conseguir_perguntar_a_fila_o_julgamento_segue_com_a_hora_dada(tmp_path):
+    juiz = JuizDeTeste()
+    a = montar(tmp_path, juiz=juiz)
+
+    def quebrar():
+        raise OSError("disco ocupado")
+
+    a.fila.mais_novo_pendente = quebrar
+
+    r = a.passo(datetime(2026, 10, 6, 12, 0, 0))
+
+    assert juiz.chamadas == 1, "uma pergunta que falhou não pode parar o julgamento"
+    assert r["alertas"] == 1
 
 
 def test_o_evento_leva_a_chave_da_FILA_e_a_versao_do_criterio(tmp_path):
