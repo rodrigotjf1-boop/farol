@@ -127,3 +127,24 @@ def regra(zona: Zona) -> Regra:
 @pytest.fixture
 def fonte() -> FonteSintetica:
     return FonteSintetica()
+
+
+def texto_do_programa(objeto) -> str:
+    """O texto de uma função do agente, para o teste que confere o PROGRAMA.
+
+    Quase todo teste confere comportamento. Um ou outro confere o que está
+    ESCRITO (toda opção que um comando lê foi declarada?), e para isso
+    precisa do texto. Contra o pacote compilado não há texto para ler: ali —
+    e só ali, com `FAROL_PACOTE_COMPILADO=1`, posto por quem roda a suíte
+    contra o módulo compilado — o teste é pulado. Em qualquer outro lugar,
+    não achar o texto é falha: teste que nunca roda passaria por verde.
+    """
+    import inspect
+    import os
+
+    try:
+        return inspect.getsource(objeto)
+    except (OSError, TypeError):
+        if os.environ.get("FAROL_PACOTE_COMPILADO") == "1":
+            pytest.skip("pacote compilado: o texto do programa não está aqui")
+        raise

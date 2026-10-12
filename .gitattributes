@@ -1,0 +1,3 @@
+# Roteiro de shell tem de chegar com fim de linha de Unix em qualquer máquina:
+# com o do Windows o `bash` lê um `\r` no fim de cada linha e não roda.
+*.sh text eol=lf
