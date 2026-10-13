@@ -63,7 +63,7 @@ if [ "$acao" = "compilar" ]; then
   cd "$obra/src" || exit 2
   echo "commit $commit · $(python --version) · arquivos .py: $(find farol_agent -name '*.py' | wc -l) · começou $(date +%H:%M:%S)"
   PYTHONPATH="$(cygpath -w "$obra/libs")" python -m nuitka --module farol_agent --include-package=farol_agent \
-    --output-dir="$(cygpath -w "$obra/out")" --assume-yes-for-downloads --msvc=latest --no-pyi-file --quiet 2>&1 | tail -15
+    --output-dir="$(cygpath -w "$obra/out")" --assume-yes-for-downloads --msvc=latest --quiet 2>&1 | tail -15
   echo "terminou $(date +%H:%M:%S)"
 
   modulo="$(ls "$obra/out"/farol_agent*.pyd 2>/dev/null | head -1)"
@@ -105,6 +105,6 @@ if [ "$acao" = "testar" ]; then
   # Diz aos poucos testes que conferem o TEXTO do programa que aqui não há
   # texto (testes/conftest.py, `texto_do_programa`): eles são pulados, com o
   # motivo. Todo o resto roda contra o módulo.
-  FAROL_PACOTE_COMPILADO=1 python -m pytest -q -p no:cacheprovider -rs 2>&1 | tail -12
+  FAROL_PACOTE_COMPILADO=1 python -m pytest -p no:cacheprovider -rs 2>&1 | tail -12
   exit "${PIPESTATUS[0]}"
 fi
