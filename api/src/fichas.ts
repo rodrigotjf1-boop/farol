@@ -10,7 +10,8 @@
 //
 //   • o preparo da casa (uma ficha dentro da outra) entra como UM
 //     ingrediente — a ficha do preparo não é desmontada dentro do lanche;
-//   • a linha que só entra no pedido para viagem (a embalagem) fica de fora;
+//   • a linha que é só embalagem — a do pedido para viagem e a do balcão —
+//     fica de fora;
 //   • não há preço, custo nem margem: a fonte nem manda.
 //
 // O documento é guardado inteiro, por loja, e trocado inteiro quando muda.
@@ -52,7 +53,7 @@ export type Ingrediente = {
 export type Ficha = {
   id: string;
   nome: string;
-  /** Na ordem em que foi cadastrada, sem a linha que só vale para viagem. */
+  /** Na ordem em que foi cadastrada, sem a linha que é só embalagem (de viagem ou do balcão). */
   ingredientes: Ingrediente[];
 };
 
