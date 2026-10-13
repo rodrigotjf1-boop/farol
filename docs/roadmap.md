@@ -533,6 +533,13 @@ por loja. A escolha é do dono (item 9 da lista do A20); no piloto a conta é a
 dele, e nada trava. A regra "nada fora de `juizes/nuvem.py` presume Anthropic"
 passa a valer, no servidor, para o módulo que fala com a plataforma.
 
+**13/10/2026 — decidido pelo dono:** "só a conta do lojista, com a chave dele
+guardada cifrada no nosso servidor". A chave é uma por loja, cifrada no banco
+e nunca devolvida; entra na fase 1 do balcão, posta pela distribuição enquanto
+a tela não existe. Desta pendência fica o cartão da tela: o passo a passo de
+cada plataforma, a prova de que a chave funciona antes de salvar, e o aviso
+quando ela expira ou fica sem crédito.
+
 ### P2 · A chave sai da variável de ambiente e vai para um cofre
 
 **Decisão do dono em 05/10/2026:** nos testes a chave fica direto na variável
@@ -4906,18 +4913,25 @@ mais, e com uma amostra conferida por gente antes de valer". É a regra do passo
 resposta da nuvem só vira exemplo se avaliou, com confiança de 0,85 ou mais, e depois de
 uma amostra das respostas daquele critério ter sido conferida por uma pessoa.
 
-### O balcão, em fases (plano de 12/10; à espera da aprovação do dono)
+### O balcão, em fases (plano de 12/10; aprovado pelo dono em 13/10)
 
 "A dúvida passa pelo nosso servidor": a loja entrega a imagem, e é o servidor que monta a
 pergunta, com as instruções que só ele tem, e pergunta à plataforma, com a chave que só ele
 tem. O porquê, os três jeitos comparados e as medidas estão em [decisoes.md](decisoes.md),
-"O balcão: o plano para a dúvida passar pelo nosso servidor". **Nada foi programado.**
+"O balcão: o plano para a dúvida passar pelo nosso servidor".
+
+**As respostas do dono (13/10):** "aprovo as quatro fases; cada troca na loja espera o meu
+pode"; o teto de gasto por loja e por dia, no piloto, **até R$ 40,00**; e, na distribuição,
+"só a conta do lojista, com a chave dele guardada cifrada no nosso servidor". Por isso a
+chave da plataforma é **uma por loja**, cifrada no banco, desde a fase 1 — a da loja do
+piloto é a do dono, e entra pelo mesmo caminho ([decisoes.md](decisoes.md), "O balcão
+aprovado").
 
 | fase | o que entra | a prova | muda na loja? | depende de |
 |---|---|---|---|---|
-| **1 · O balcão no servidor** | a porta que recebe a dúvida; as instruções e a montagem do pedido com contexto do lado do servidor; o teto por loja e por dia e o registro do custo; a chave interna por loja, desligada, como a do pedido com contexto | o pedido montado pelo servidor igual, letra por letra, ao que o agente monta hoje, caso a caso (com mapa, sem mapa, com foto padrão, com equipamentos); testes com uma plataforma de mentira; nenhuma chamada paga | não | o plano aprovado |
+| **1 · O balcão no servidor** | a porta que recebe a dúvida; as instruções e a montagem do pedido com contexto do lado do servidor; a chave da plataforma de cada loja, guardada cifrada e posta pela distribuição (comando que pergunta sem mostrar); o teto por loja e por dia (R$ 40,00 no piloto) e o registro do custo; a chave interna por loja, desligada, como a do pedido com contexto | o pedido montado pelo servidor igual, letra por letra, ao que o agente monta hoje, caso a caso (com mapa, sem mapa, com foto padrão, com equipamentos); testes com uma plataforma de mentira; nenhuma chamada paga | não | o plano aprovado |
 | **2 · O agente aprende o caminho** | o agente passa a saber entregar a dúvida ao servidor; com a chave interna desligada, pergunta como hoje; a chave de cada análise deixa de levar o nome do modelo e passa a levar a versão da pergunta, dada pelo servidor | os testes do agente; depois da troca, o registro sem aviso nem erro e as olhadas iguais às de antes | a troca do pacote | a fase 1 publicada; o "pode" da troca |
-| **3 · Valendo na loja do piloto** | o dono põe a chave no ambiente do serviço; a loja é ligada; os critérios pagos voltam já pelo balcão | quatro chamadas de conferência com imagens geradas por computador (perto de 10 centavos); depois, com a loja aberta: o tempo até a resposta, as falhas e o custo do dia, o do servidor contra o da plataforma. A volta: desligar a chave interna | a chave interna ligada | os critérios pagos de volta, com a cena dos canais escrita; a chave no servidor |
+| **3 · Valendo na loja do piloto** | o dono põe a chave da loja do piloto, pelo comando de dentro do serviço; a loja é ligada; os critérios pagos voltam já pelo balcão | quatro chamadas de conferência com imagens geradas por computador (perto de 10 centavos); depois, com a loja aberta: o tempo até a resposta, as falhas e o custo do dia, o do servidor contra o da plataforma. A volta: desligar a chave interna | a chave interna ligada | os critérios pagos de volta, com a cena dos canais escrita; a chave no servidor |
 | **4 · A loja sem chave e sem instruções** | o caminho antigo, as instruções e a chave saem do pacote e do computador da loja, junto com o pacote compilado; a análise das fotos do equipamento passa a ser feita pelo servidor, sem depender do agente ligado; a chave antiga é cancelada na plataforma | procurar as instruções no pacote e no computador da loja, e não achar; o inventário descrevendo um equipamento com o agente desligado | a troca do pacote | uma semana da fase 3 sem problema; o "pode" da troca |
 
 Nenhuma fase tem tela nova: o motivo "teto do dia" aparece onde a tela já mostra por que um
@@ -4946,8 +4960,9 @@ loja mudar.
    do horário de movimento"); trocado às 16h43, com a loja fechada. A fatia 1.1 está lá, e
    foi medida com a loja aberta (acima). **A próxima troca** (as fatias 1.1b, 1.2a, 1.3 e
    1.5, a correção do aviso e o ajuste de custo, de uma vez): o "pode" foi dado em 12/10, à
-   noite, e ela é feita depois do fechamento — às 3h de 13/10, ou antes das 19h. A semana de
-   números da leitura contínua conta a partir dela.
+   noite, e ela foi **feita em 13/10, às 3h08**, com a loja fechada — o agente subiu de
+   primeira, sem aviso nem erro. A semana de números da leitura contínua conta das 19h de
+   13/10. A troca seguinte (a correção do borrão de rosto, ERR-111) pede outro "pode".
 3. **Os quatro critérios pagos** (gaveta, chapa, touca e uniforme, ingredientes) não estão na
    configuração que o motor tem hoje: dizer se saíram de propósito. Para voltarem bem: a
    cena de cada canal em que eles rodam (console → Canais → o canal → "A cena deste canal"
@@ -4968,8 +4983,10 @@ loja mudar.
    0,85 ou mais, e com uma amostra conferida por gente antes de valer". Soma com as três
    decisões da onda 2, que continuam abertas (a imagem do exemplo na nuvem; a meta para
    "valendo"; quem marca).
-9. **O plano do balcão** (12/10, acima): aprovar as quatro fases; o teto de gasto por loja e
-   por dia no piloto (recomendado: R$ 5,00); e quem paga a plataforma na distribuição — a
-   conta do Farol como padrão, com teto, e a do lojista como opção (recomendado), ou só a do
-   lojista. A terceira pode esperar: no piloto a conta é a do dono. Ela muda a forma da
-   pendência P1, que previa a chave do lojista no computador da loja.
+9. ✅ **O plano do balcão** — respondido em 13/10: as quatro fases aprovadas ("cada troca na
+   loja espera o meu pode"); o teto do piloto, até R$ 40,00 por loja e por dia; e, na
+   distribuição, só a conta do lojista, com a chave dele guardada cifrada no nosso servidor.
+   A pendência P1 muda de forma: onde a chave mora está decidido; fica o cartão da tela.
+10. **Para a fase 3 do balcão:** pôr a chave da loja do piloto pelo comando de dentro do
+    serviço (o caminho, clique a clique, vem com a entrega da fase 1) — e os critérios pagos
+    de volta, com a cena dos canais escrita (item 3).
