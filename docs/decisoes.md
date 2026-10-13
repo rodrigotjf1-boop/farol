@@ -5801,3 +5801,91 @@ prova e continua sendo usada; o que muda é cerca de 1 segundo a mais na subida 
 sessão do processador levou 0,4 s na máquina de desenvolvimento, e são seis inferências de
 0,1 s cada).
 
+## 13/10/2026 (manhã) · O estudo das bibliotecas de imagem: o que foi medido e o que muda no Farol
+
+**O pedido do dono (13/10, ~5h):** "faça depois um estudo com todas bibliotecas famosas e de
+grande recurso no tratamento de imagens do python e se torne um especialista no uso de cada
+uma." Feito por medida, e não por leitura: 50 bibliotecas conferidas no índice oficial
+(versão, data, licença, se instala no Python 3.14) e 17 instaladas num ambiente à parte e
+exercitadas, uma família por vez. O que era da loja foi medido na loja, só leitura, com o
+que já está instalado lá; os roteiros foram apagados em seguida. O conhecimento ficou numa
+base permanente fora do repositório (guias, armadilhas reproduzidas e os roteiros para medir
+de novo); aqui fica o que toca o produto.
+
+**O agente usa as bibliotecas certas.** Ele é OpenCV e NumPy em 21 arquivos, mais o ONNX
+Runtime para o detector. Na mesma tarefa, as bibliotecas "de ciência" custam muito mais:
+
+| a mesma operação, em imagem de 1920×1080 | OpenCV | a outra |
+|---|---|---|
+| borrão gaussiano | 2,9 ms | SciPy 24,7 ms |
+| distância até a borda | 6,2 ms | SciPy 118,5 ms |
+| mediana 5×5 | 2,6 ms | SciPy 586 ms |
+| regiões com medidas | 3,6 ms | scikit-image 42,6 ms |
+
+Nenhuma troca é recomendada. O que existe a mais entra como camada, onde servir.
+
+**O que o estudo achou e já mudou:** a prova da placa (a entrada acima; ERR-112).
+
+**O que foi medido na loja** (computador do piloto, OpenCV 5.0 do agente, a gravação
+guardada do expediente de 12/10):
+
+| | |
+|---|---|
+| a gravação do gravador (`.dav`) | abre: 1920×1080, HEVC |
+| velocidade de leitura | 175 quadros por segundo — doze vezes o tempo real, por canal |
+| um pedaço de 5 minutos | lido inteiro em 22 s |
+| quadros por segundo | declara 15; entrega perto de 13 (3.851 quadros em 298,6 s) |
+| o relógio de cada quadro | **não anda sempre para a frente**: passo comum de 67 ms, com volta de 334 ms e saltos de até 2,3 s |
+| o detector, por passada | 106 ms no processador, 89 ms na placa de vídeo |
+| a placa responde igual ao processador? | sim, em 13 de 13 entradas |
+| reduzir com `INTER_LINEAR` (o do agente) ou `INTER_AREA` | a nota muda no máximo 0,03; as contagens não mudam |
+
+Daí três consequências:
+
+1. **A gravação guardada pode ser repassada pelas análises**, dentro da loja: as 4h30 de um
+   canal são lidas em 20 minutos (54 pedaços × 22 s). A hora de cada cena tem de sair do nome
+   do arquivo e da contagem dos quadros, nunca do relógio de dentro da gravação.
+2. **O modo de reduzir a imagem antes do detector fica como está.** A suspeita era boa — o
+   preparo publicado com o modelo usa um modo que tira a média ao reduzir, e o do agente não
+   tira (num xadrez de 1 ponto, reduzido 5 vezes, só o `INTER_AREA` devolve a média) —, e a
+   medida com quadros de verdade a derrubou.
+3. **Não é a placa de vídeo que viabiliza o detector:** ela rende 16% a mais que o
+   processador. O pacote que a usa (`onnxruntime-directml`) está parado na 1.24.4, de março,
+   com o pacote geral na 1.31; se um dia ele faltar, o processador dá conta — e o próprio
+   OpenCV 5 roda o mesmo modelo, com a mesma resposta, em 132 ms contra 117 (medido na
+   máquina de desenvolvimento).
+
+**O que fica anotado, sem mudar nada agora:**
+
+- *A conta da nitidez* (`Laplacian(CV_64F).var()`) custa 15,3 ms em 1920×1080; a mesma conta
+  por `meanStdDev(Laplacian(CV_16S))` dá o mesmo número em 2,1 ms. Entra quando aquele trecho
+  for mexido.
+- *"A câmera saiu do lugar"* se mede: o deslocamento em 7 ms (`cv2.phaseCorrelate`), o giro
+  em 12 ms (pontos de referência e ajuste com descarte de erro; mediu 1,48° de 1,5°). Medido
+  em cena de mentira e parada — falta provar com gente mexendo na frente.
+- *Comparar com foto de referência exige alinhar antes:* 2 pontos de deslocamento derrubam a
+  parecença (SSIM) de 1,00 para 0,69; desfeito o deslocamento, volta a 0,9993.
+- *A aceleração de vídeo pela placa piora* em placa integrada (de 2 a 4 vezes mais lento):
+  não ligar por padrão.
+- *Opção do OpenCV por variável de ambiente só vale se a variável existir quando o processo
+  nasce.* Posta de dentro do Python — mesmo antes de importar o OpenCV — não tem efeito no
+  Windows. Ler só os quadros-chave da gravação depende disso (ou do PyAV, que faz de dentro).
+- *Rastrear pessoas:* num vídeo público com 15 a 20 pessoas, o ByteTrack do pacote
+  `trackers` (licença Apache) criou 24 identidades; um rastreador mínimo, 74. Medida por
+  pessoa (tempo de permanência) depende do rastreador; ocupação de área, não.
+- *Só o movimento não mede presença:* concorda com o detector em 80% a 91% dos quadros num
+  vídeo em que todos andam, e quem para some. O desenho de hoje — o movimento acorda, o
+  detector decide — fica.
+- *Licença:* Ultralytics (YOLO), AlbumentationsX e BoxMOT são AGPL e continuam fora
+  (`docs/licencas.md`); o pacote pronto do PyAV traz peças de licença mais restrita, e por
+  isso serve a ferramenta nossa, não ao produto.
+
+**O que não foi feito:** a família de treino (PyTorch e as demais) não foi rodada — a
+instalação quebra em pasta funda no Windows; o que se sabe dela veio da documentação. Os
+exercícios de movimento e de rastreamento usaram um vídeo público, e não imagem de loja: os
+números valem para ele.
+
+**À espera do dono** (a página do estudo leva as três perguntas): o plano do repasse da
+gravação guardada pelas análises; "a câmera saiu do lugar" como proteção do núcleo; e medir,
+critério por critério, se o computador das próximas lojas precisa de placa de vídeo.
+
