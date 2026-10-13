@@ -4936,7 +4936,7 @@ loja mudar.
 | **O pedido do KDS como gatilho** | onde houver KDS integrado: diz que há trabalho e o que montar. O atraso é variável, então vale como janela, e não como contagem. Já estava na onda 5 |
 | **A planta em 3D por filmagem guiada** | já estudada em [estudo-planta-viva.md](estudo-planta-viva.md) (seções 2 e 4); o dono reforçou a filmagem única, só para produzir a planta. Fica nas ondas 9 e 10 |
 | **Modelos por pergunta e pacotes por loja; tipos novos no detector e a base geral entre lojas; a nossa nuvem** | as fases 5 a 7 do estudo. A nossa nuvem só quando a conta fechar |
-| **A proteção contra cópia** | anda ao lado: o pacote compilado, e a chave e as instruções fora da loja, com os passos 1 e 2; o pacote cifrado por loja, o contrato e o registro antes da segunda loja |
+| **A proteção contra cópia** | anda ao lado: o pacote compilado, e a chave e as instruções fora da loja, com os passos 1 e 2; o pacote cifrado por loja, o contrato e o registro antes da segunda loja. **Onde está (12/10):** o pacote compilado se monta por roteiro e a suíte do agente passa contra ele (1.479 de 1.480; o que falta é só o que confere o texto do programa); falta o roteiro de troca na loja aceitar o módulo, a assinatura e a prova na loja. A chave e as instruções fora da loja são o balcão, com o plano à espera do dono |
 
 ### O que entra na lista do dono
 

@@ -559,20 +559,26 @@ def test_cascata_desligada_nunca_consulta_o_modelo_forte(tmp_path, monkeypatch):
     assert chamados[0] != chamados[1]
 
 
-def test_a_flag_so_haiku_existe_e_nasce_desligada():
+def test_a_flag_so_haiku_existe_e_nasce_desligada(monkeypatch):
     # Nasce desligada porque a cascata é o comportamento que protege o
     # veredito; desligá-la é escolha de quem opera, não padrão silencioso.
-    import argparse
-
+    #
+    # Conferido pelo analisador de verdade, e não pelo texto do programa: o
+    # comando recebe `so_haiku` desligado quando ninguém pede, e ligado só
+    # quando a opção é escrita.
     from farol_agent import cli
 
-    p = argparse.ArgumentParser()
+    vistos = []
+    monkeypatch.setattr(cli, "cmd_analisar", lambda args: vistos.append(args) or 0)
+
     with pytest.raises(SystemExit):
         cli.main(["analisar", "--ajuda-inexistente"])
+    assert vistos == [], "com argumento que não existe o comando nem chega a rodar"
 
-    fonte = __import__("inspect").getsource(cli.main)
-    assert "--so-haiku" in fonte
-    assert "so_haiku=False" in fonte
+    pedido = ["analisar", "--host", "10.0.0.1", "--criterio", "a bancada está limpa?"]
+    assert cli.main(pedido) == 0
+    assert cli.main([*pedido, "--so-haiku"]) == 0
+    assert [a.so_haiku for a in vistos] == [False, True]
 
 
 # ───────── referências e ensaio: medir em vez de achar (05/10/2026) ─────────

@@ -5335,3 +5335,35 @@ nenhuma viva. A suíte do agente passa.
 pacote `b9c99de` já estava lá quando o defeito foi achado). A loja do piloto não é afetada
 enquanto isso.
 
+## 12/10/2026 (noite) · A suíte do agente passa contra o pacote compilado — e o roteiro que o monta
+
+O ensaio da manhã ("O pacote compilado, ensaiado") deixou quatro testes falhando contra o
+módulo compilado, nenhum de comportamento. O que cada um era, e o que foi feito:
+
+| o teste | por que falhava | o que mudou |
+|---|---|---|
+| `--so-haiku` nasce desligada; as opções do comando do gravador (dois testes) | conferiam lendo o TEXTO do programa, que o módulo não tem | conferem pelo analisador de verdade: o comando recebe o padrão quando a opção não é escrita, e o valor quando é |
+| toda opção que `cmd_analisar` lê foi declarada | confere o que está ESCRITO: precisa do texto | igual onde há texto; contra o pacote compilado é pulado, com o motivo — e só ali, com `FAROL_PACOTE_COMPILADO=1`. Fora dali, não achar o texto é falha (`testes/conftest.py`, `texto_do_programa`, com testes próprios) |
+| o detector de rosto viaja no pacote | o módulo não leva arquivo de dados dentro; e, no espelho, o caminho tinha acento | os dados vão ao lado do módulo, no caminho em que o programa os procura; o acento era o ERR-111, corrigido acima |
+
+**O roteiro** `agent/ferramentas/pacote_compilado.sh` — fica fora do pacote da loja — faz as
+duas coisas a partir de um commit: `compilar` monta o pacote (o módulo, os dados ao lado e
+o `pyproject.toml`) e `testar` roda a suíte contra ele, num espelho em que o texto do agente
+não está. Sai do git, e não da pasta de trabalho, para o pacote não levar arquivo solto da
+máquina de quem compila.
+
+**Medido em 12/10**, a partir do commit desta entrega (Python 3.14, Nuitka 4.3):
+
+| o quê | o resultado |
+|---|---|
+| compilar os 64 arquivos do agente | 1 min 22 s (3 min na primeira vez, que instala o compilador); um módulo de 4,2 MB, com o arquivo do detector de rosto ao lado |
+| a suíte contra o módulo, sem o texto do agente | **1.479 passam, 1 é pulado** (o que confere o texto), nenhum falha |
+| a suíte contra o texto | 1.480 de 1.480 |
+
+Conferido também: 21 mutações nos testes reescritos e no ajudante, nenhuma viva.
+
+**O que continua faltando para o pacote compilado valer na loja:** o roteiro de troca do
+pacote aceitar o módulo no lugar da pasta; a assinatura do arquivo, que pede um certificado
+de assinatura de código (compra do dono); e a prova na loja, com o "pode". E ele esconde o
+"como", não os textos: as instruções só saem da loja com o balcão (acima).
+
