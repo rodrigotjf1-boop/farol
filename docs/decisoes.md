@@ -5889,3 +5889,163 @@ números valem para ele.
 gravação guardada pelas análises; "a câmera saiu do lugar" como proteção do núcleo; e medir,
 critério por critério, se o computador das próximas lojas precisa de placa de vídeo.
 
+## 13/10/2026 (tarde) · As respostas do dono ao estudo, o plano do repasse e a placa de vídeo medida critério por critério
+
+**O que o dono respondeu (13/10, 13h28), palavra por palavra:**
+
+- "1 · Repassar a gravação guardada pelas análises: sim, apresente o plano agora, antes da
+  fase 2 do balcão."
+- "2 · A câmera saiu do lugar, como proteção do núcleo: sim, entra no roteiro do núcleo (com
+  protótipo da tela antes)."
+- "3 · Placa de vídeo no computador das próximas lojas: meça primeiro: quero os números
+  critério por critério antes de mudar a exigência."
+- "Outra coisa: ja produzi duas fichas de sanduiche, o que temos que atentar somente os
+  ingredientes, essa ficha leva em conta embalagens o que nao precisamos analisar, no momento
+  a camera da bancada fora nos ingredientes e insumos da ficha tecnica. cadastrei de dois
+  hamburguers ja da para fazer um teste e tentar procurar ou identificar ele nas imagens que
+  temos gravadas no servidor."
+
+**O que isso muda na ordem.** O plano do repasse passa à frente da fase 2 do balcão. A fase 2
+tinha sido começada pelo lado do servidor (a versão da pergunta, que o servidor anuncia ao
+agente, e o "sabe" novo que o agente declara); isso ficou num ramo local, sem ir ao ar e sem
+PR. A fase 1 do balcão, que está no ar, não muda. O plano foi entregue ao dono no mesmo dia,
+numa página local (não publicada), com quatro perguntas; **nada foi programado e nada mudou
+na loja.** O roteiro das fases está em [roadmap.md](roadmap.md), "O repasse, em fases".
+
+### O que foi medido para o plano
+
+Tudo só de leitura, em 13/10, entre 13h30 e 13h45: dois roteiros levados ao computador da
+loja e apagados em seguida, e consultas ao banco do Regem (só contagem e horário por produto;
+nenhum dado de cliente). Nenhuma chamada paga.
+
+**As fichas chegaram à loja.** A cópia que o agente guarda foi gravada às 06h20 de 13/10: 68
+produtos, 2 com ficha, e nenhuma embalagem (o Farol já deixa de fora a de viagem e a do
+balcão).
+
+| | Numero 01 | Numero 02 |
+|---|---|---|
+| Carne 56 g | 2 unidades | 2 unidades |
+| Fatia de queijo cheddar | 2 unidades | 2 unidades |
+| Pão gergelim de 1 corte | 1 unidade | 1 unidade |
+| Alface | 1 porção | — |
+| Molho especial billy jack | 1 porção | — |
+| Molho shoyo | — | 1 porção |
+
+O que separa um do outro é a alface e o molho: é isso que o teste tem de enxergar.
+
+**O Regem diz a hora do pedido.** Na janela guardada (12/10, das 19h30 às 23h59): "Numero 02"
+às 19:53:14 e às 19:55:15; "Numero 01" às 22:50:45. Há ainda 22 vendas de combos cujo nome
+sugere o mesmo lanche (6 "TRIOS 01", 5 "Trio 01 + Batata + Refri Lata", 3 "TRIO 02" e 8
+"Dois Mr 02 (Duplo Cheddar)…"), mas o combo não tem componente cadastrado no Regem: **não foi
+suposto** que levam o mesmo lanche — é pergunta ao dono.
+
+**A loja, como está configurada** (versão 133 da configuração): modo nuvem; o pedido com
+contexto desligado; o tipo de negócio vazio; nenhum canal com cena escrita nem foto padrão; e
+só dois critérios, os dois de presença (canal 1 e canal 13), valendo. O canal 4, da bancada,
+tem um quadro desenhado (1907×885 pontos) e nenhum critério.
+
+**A bancada na gravação** (canal 4, os 54 pedaços de 5 minutos da janela, sem buraco):
+
+| | |
+|---|---|
+| leitura com 2 fios | perto de 105 quadros por segundo: 36 a 43 s por pedaço de 5 minutos |
+| a bancada mexendo | de 30% a 66% do tempo (4 pedaços medidos, espalhados na noite) |
+| a bancada para depois de mexer | 7, 10, 8 e 7 vezes em 5 minutos: média de 8 — perto de 430 paradas nas 4h30 (conta sobre 4 pedaços) |
+| o detector, um quadro a cada 5 minutos | pessoa em 32 de 54; e nomes errados para o que está na bancada: "donut" em 7, "vaso sanitário" em 3, "bolo" em 2 |
+
+O detector de hoje não conhece comida: a lista dele não tem hambúrguer nem ingrediente. Para
+ingrediente é preciso outra camada.
+
+**Dois quadros olhados** (na pasta temporária da sessão; apagados da loja e da sessão em
+seguida; nenhuma imagem guardada): a câmera vê de cima; as cubas ficam no alto, as bisnagas à
+direita, o papel de montagem no meio; o lanche tem perto de 200 pontos de largura na imagem
+cheia; e, **fechado, o lanche esconde os ingredientes** — o teste tem de olhar durante a
+montagem, não o lanche pronto.
+
+### A placa de vídeo, critério por critério (a resposta 3)
+
+Lido do resumo da hora que o próprio agente guarda (cinco noites, de 08 a 12/10) e da medida
+da manhã na loja (entrada acima): a mesma passada do detector leva 106,1 ms no processador e
+88,8 ms na placa — 17 ms de diferença por olhada.
+
+| critério | olhadas por hora cheia (12/10) | o julgamento na placa (registrado) | no processador (conta: + 17 ms) | a placa poupa, por hora |
+|---|---|---|---|---|
+| presença no atendimento (canal 13) | perto de 165 | 88 a 90 ms | perto de 106 ms | 2,9 s |
+| presença na montagem (canal 1) | perto de 185 | 93 a 94 ms | perto de 111 ms | 3,2 s |
+| os dois, com a loja aberta | 320 a 370 | | | 5,6 a 6,4 s |
+
+Com a loja aberta, a máquina fica quase parada: processador a 1,7%, placa a 2,2%, memória a
+38% (média das oito horas cheias da noite de 12/10). Os outros tipos de critério, que a loja
+não usa hoje: estado e ação vão à nuvem, e a placa não entra; a comparação com a foto padrão
+leva 78 ms na placa e 98 ms no processador (medida de outra ocasião); a leitura contínua roda
+no processador.
+
+**O que isso diz:** para o que a loja faz hoje, a placa poupa perto de 6 segundos de
+processador por hora — não é ela que segura o Farol. **A exigência não muda agora** (é a
+ordem do dono: medir antes): se o teste dos hambúrgueres mostrar que o caminho é ensinar o
+detector ou pôr um modelo maior dentro da loja, a conta muda, e a decisão fica para depois
+dele.
+
+### O plano entregue
+
+**O repasse, três jeitos:** (A) dentro da loja, com as mesmas análises do agente, escrevendo
+o resultado à parte — o recomendado: a imagem não sai da loja e o que se mede é o que valeria
+ao vivo; (B) um roteiro solto para cada teste — mais rápido no primeiro, mas não é o que roda
+ao vivo, e o segundo teste começa do zero; (C) levar a gravação ao nosso servidor — a imagem
+sai da loja, e são perto de 0,85 GB por hora de cada câmera (118 pedaços de 5 minutos
+somaram 8,39 GB). Quem faz como o A: o Frigate, com o "Debug Replay", que repassa um trecho
+gravado pelo caminho de detecção da câmera.
+
+**O teste dos dois hambúrgueres, em camadas que se somam:** (1) a hora do pedido no Regem diz
+onde procurar; (2) pistas da própria imagem, sem custo — quando a bancada para, se apareceu
+verde em cima do pão, se a mão foi à bisnaga; (3) a pergunta paga a um modelo que sabe ver,
+com o recorte e as duas fichas ("é o 01, o 02, outro, ou não dá para ver?"); (4) depois,
+ensinar o detector com as imagens da loja. Quem faz parecido com a camada 3: a Intel publica
+um modelo de referência em que um modelo de linguagem e visão olha o prato e compara com o
+pedido.
+
+**O custo estimado** (conta sobre os preços medidos em 08 e 09/10, em pedido parecido: 0,10 a
+0,24 centavo por olhada; 4,6 a 5,5 centavos a segunda opinião do modelo forte):
+
+| | olhadas | só a rotina | com segunda opinião em 1 de cada 5 |
+|---|---|---|---|
+| a amostra (os três pedidos e dois trechos de trio) | perto de 60 | R$ 0,06 a 0,15 | até R$ 0,85 |
+| a noite inteira da bancada | perto de 430 | R$ 0,43 a 1,03 | até R$ 5,80 |
+
+Do teto de R$ 5,00 dado pelo dono para os testes pagos desta fase, R$ 4,60 já foram usados.
+
+### O que não se sabe — o teste responde
+
+- Se dá para distinguir a alface e a cor do molho, de cima, nesta câmera.
+- Quantas montagens há na noite: parada não é lanche — um lanche tem várias paradas, e há
+  parada sem lanche.
+- Se a mão cobre o lanche justamente nas paradas (num dos dois quadros olhados, cobria).
+- Quanto tempo passa, no pico, entre o pedido entrar no Regem e a montagem começar.
+- Como o teste se sai com os outros 17 hambúrgueres do cardápio na mesma bancada: ele tem de
+  saber dizer "é outro".
+- De quem é cada lanche quando há vários pedidos ao mesmo tempo.
+- Quanto processador o repasse gasta na loja com um fio só: os 38% a menos foram medidos na
+  máquina de desenvolvimento, com um vídeo público.
+
+### Quatro números corrigidos na página, no mesmo dia (ERR-113)
+
+A página foi entregue às 13h47. Ao conferir cada número dela contra o arquivo da medida,
+antes de gravar esta entrada, quatro estavam errados ou mal marcados:
+
+- *a economia da placa* dizia "perto de 5 segundos" por hora: a conta comparava o julgamento
+  inteiro registrado pelo agente (na placa) com só a passada do detector (no processador) —
+  coisas de tamanhos diferentes. Com a mesma medida dos dois lados, dá 5,6 a 6,4 s;
+- *as olhadas por hora de cada critério* diziam 150 e 165: o total da noite tinha sido
+  dividido por nove "horas com registro", e uma delas é a das 3h, com 7 olhadas. Por hora
+  cheia são 165 e 185 — e as duas linhas não somavam o total da tabela, que estava certo;
+- *"com um fio só gasta 38% menos processador"* levava a marca de medido na loja, e é do
+  estudo das bibliotecas, na máquina de desenvolvimento;
+- *"1 GB por hora de cada câmera"* era arredondamento de 0,85.
+
+A página foi corrigida e o dono avisado. A conclusão não muda em nenhum dos quatro.
+
+**À espera do dono** (a página do plano leva as quatro perguntas): o plano — a recomendação
+é aprovar R1 e R2 agora, e R3 e R4 depois do resultado; o teto de gasto do teste — a
+recomendação é R$ 1,00, só para a amostra; se os trios levam o mesmo lanche; e o que tem em
+cada cuba e em cada bisnaga.
+
