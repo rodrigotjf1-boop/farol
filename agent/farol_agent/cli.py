@@ -889,6 +889,10 @@ def cmd_detector(args: argparse.Namespace) -> int:
             motor = MotorOnnx(caminho)
             print(f"\n  pronto: {caminho}")
             print(f"  conferido pelo sha256 · roda em {motor.onde}")
+            if motor.placa_reprovada:
+                # Dito na instalação, que é quando tem alguém olhando a tela.
+                print(f"  a placa de vídeo desta máquina {motor.placa_reprovada}:")
+                print("  o detector roda no processador. Ele funciona; só não usa a placa.")
             print("  reinicie o agente para ele passar a usar o detector.\n")
             return 0
 

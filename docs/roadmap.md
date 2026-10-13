@@ -1117,7 +1117,7 @@ nuvem e não havia juiz na loja. Agora há.
 
 | peça | o quê |
 |---|---|
-| `JuizDetector` (agente) | RF-DETR Nano (Apache 2.0) pelo ONNX Runtime; usa a placa de vídeo por DirectML quando há |
+| `JuizDetector` (agente) | RF-DETR Nano (Apache 2.0) pelo ONNX Runtime; usa a placa de vídeo por DirectML quando há — e quando ela passa na prova da partida (13/10/2026: a placa que responde diferente do processador perde o detector para ele) |
 | modelo fixado | `sha256` conferido na carga — o agente só carrega o modelo que foi medido; baixa só em `farol-agent detector instalar`, nunca em serviço |
 | `regra.parametros` (mig. 013) | `{"objeto","minimo","maximo"}` — o que procurar e quantos |
 | contrato | `contratos/objetos-do-detector.json`, lido pelos testes do agente E da API (a lição do ERR-018) |
