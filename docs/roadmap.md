@@ -4947,12 +4947,44 @@ aprovado").
 chamada paga foi feita: só a loja ligada pergunta pelo balcão, e nenhuma está ligada. O que
 vem é a fase 2 (o agente aprende o caminho — muda o pacote da loja, e espera o "pode").
 
+**A fase 2 espera o repasse (ordem do dono, 13/10, 13h28):** "apresente o plano [do
+repasse] agora, antes da fase 2 do balcão". O que já tinha sido começado dela — só o lado
+do servidor: a versão da pergunta e o que o agente declara saber — está guardado num ramo
+local, sem ir ao ar. O desenho do lado do agente está escrito e volta quando o dono mandar.
+
 Nenhuma fase tem tela nova: o motivo "teto do dia" aparece onde a tela já mostra por que um
 critério não foi analisado, e o texto passa pelo dono antes. O balcão só fala o pedido com
 contexto; presença, contagem, o que é urgente e a comparação que deu "igual" continuam na
 loja. As fotos apresentadas (passo 2) e a memória (passo 4) entram depois, do lado do
 servidor — é ali que a nossa nuvem, quando a conta fechar, toma o lugar da plataforma sem a
 loja mudar.
+
+### O repasse, em fases (plano de 13/10; à espera da aprovação do dono)
+
+Repassar é fazer a gravação guardada passar pelas mesmas análises que olham a loja ao vivo,
+com o relógio da gravação, para ver em números o que elas teriam visto. O dono pediu o plano
+em 13/10 ("sim, apresente o plano agora, antes da fase 2 do balcão") e, junto, o primeiro
+teste: achar nas imagens gravadas os dois hambúrgueres de que ele fez a ficha, olhando só os
+ingredientes. O que foi medido para o plano e as perguntas a ele estão em
+[decisoes.md](decisoes.md), "O plano do repasse".
+
+| fase | o que entra | a prova | muda na loja? |
+|---|---|---|---|
+| **R1 · O leitor do expediente** | lê a gravação com a hora certa (o nome do arquivo e a contagem dos quadros — o relógio de dentro não serve), acha as paradas da bancada, recorta a área | a hora de cada quadro bate com o nome do arquivo; os números do levantamento se repetem | não: ferramenta nossa, que vai, roda e é apagada |
+| **R2 · O teste dos dois hambúrgueres** | em camadas: a hora do pedido no Regem diz onde procurar; pistas da própria imagem (verde no pão, a mão na bisnaga); a pergunta paga a um modelo, com as duas fichas; primeiro uma amostra, depois a noite | a tabela contra o que o Regem vendeu; o custo por acerto | não: as chamadas pagas saem da loja com a chave do dono, dentro do teto que ele der |
+| **R3 · O repasse fiel** | o motor inteiro do agente lendo da gravação: os critérios de verdade, como rodam ao vivo | as contagens de presença da noite repassada ficam perto das feitas ao vivo | não muda o agente em serviço |
+| **R4 · "A câmera saiu do lugar"** | medir o deslocamento na gravação, com gente passando na frente; o protótipo da tela para o dono aprovar; só então o programa | não acusa a câmera parada; acusa a imagem deslocada de propósito | só depois do protótipo aprovado e de uma troca de pacote com o "pode" |
+
+**"A câmera saiu do lugar" entra no núcleo** (resposta do dono, 13/10: "sim, entra no roteiro
+do núcleo (com protótipo da tela antes)"). Hoje, se alguém esbarra numa câmera, as áreas
+desenhadas passam a olhar para o lugar errado e nada avisa. A medida existe e é barata
+(7 ms o deslocamento, 12 ms o giro), mas só foi provada em cena de mentira e parada: a R4
+começa por prová-la na gravação.
+
+**A placa de vídeo não muda de exigência por enquanto** (resposta do dono, 13/10: "meça
+primeiro: quero os números critério por critério"). Medido no mesmo dia: os dois critérios
+da loja poupam, com a placa, perto de 6 segundos de processador por hora. A decisão fica para
+depois do teste dos hambúrgueres, que diz se a loja vai precisar de modelo maior.
 
 ### Os adicionais — por último
 
