@@ -10,10 +10,14 @@
 //   npm run provisionar -- agente   <lojaId> <nome>
 //   npm run provisionar -- usuario  <tenantId> <email> <nome>
 //   npm run provisionar -- contexto <lojaId> ligar|desligar [--mesmo-assim]
+//   npm run provisionar -- conta-ia <lojaId> <provedor>|tirar
+//   npm run provisionar -- balcao   <lojaId> [ligar|desligar]
+//   npm run provisionar -- teto     <lojaId> <reais por dia>
 //
 // **Nenhum segredo é digitado como argumento.** O token de distribuição
-// sai do ambiente do serviço; a senha do usuário vem de um prompt que não
-// ecoa. Argumento aparece no histórico do shell e na lista de processos.
+// sai do ambiente do serviço; a senha do usuário e a chave da conta de IA
+// vêm de um prompt que não ecoa. Argumento aparece no histórico do shell e
+// na lista de processos.
 //
 // Fala com a rota HTTP de verdade, não com o banco direto: um atalho que
 // fosse direto ao banco teria as próprias regras — validação, transação,
@@ -45,13 +49,15 @@ async function chamar(caminho, corpo, sensivel = {}, { metodo = 'POST', aceitar 
     );
   }
 
+  // Ler e apagar não levam corpo — e a API recusa "é JSON" sem nada dentro.
+  const semCorpo = metodo === 'GET' || metodo === 'DELETE';
   let r;
   try {
     r = await fetch(`${BASE}${caminho}`, {
       method: metodo,
-      headers: { 'content-type': 'application/json', 'x-farol-admin': ADMIN },
+      headers: { ...(semCorpo ? {} : { 'content-type': 'application/json' }), 'x-farol-admin': ADMIN },
       // O que é sensível entra só aqui, nunca no objeto que se registra.
-      body: JSON.stringify({ ...corpo, ...sensivel }),
+      ...(semCorpo ? {} : { body: JSON.stringify({ ...corpo, ...sensivel }) }),
     });
   } catch (e) {
     morrer(`não alcancei a API em ${BASE}: ${e.message}\n  O serviço está de pé?`);
@@ -79,10 +85,10 @@ async function chamar(caminho, corpo, sensivel = {}, { metodo = 'POST', aceitar 
  * processos; em variável de ambiente, vaza para todo processo filho. O
  * prompt mudo é o único caminho que não deixa rastro.
  */
-function perguntarSenha() {
+function perguntarSenha(oQue = 'senha do novo usuário') {
   return new Promise((resolver, rejeitar) => {
     const entrada = process.stdin;
-    process.stdout.write('  senha do novo usuário (não aparece ao digitar): ');
+    process.stdout.write(`  ${oQue} (não aparece ao digitar): `);
 
     if (!entrada.isTTY) {
       // Sem terminal (pipe, script): lê a linha inteira e segue.
@@ -209,6 +215,15 @@ if (comando === 'loja') {
     { metodo: 'PATCH', aceitar: [409] },
   );
 
+  if (r.recusado && r.erro === 'balcao_ligado') {
+    // A API não desligou: o balcão desta loja está ligado, e ele só fala o pedido com contexto.
+    console.error(`\n  NÃO DESLIGUEI. ${r.mensagem}`);
+    console.error('\n  A ordem da volta:');
+    console.error(`    npm run provisionar -- balcao ${lojaId} desligar`);
+    console.error(`    npm run provisionar -- contexto ${lojaId} desligar\n`);
+    process.exit(2);
+  }
+
   if (r.recusado) {
     // A API não ligou: há canal sem cena, e ligar tiraria análise dele.
     console.error('\n  NÃO LIGUEI. Estes canais têm critério que depende da cena, e a cena está em branco:\n');
@@ -234,6 +249,72 @@ if (comando === 'loja') {
     console.log('\n  O agente da loja puxa a configuração na próxima batida e pergunta como sempre perguntou.\n');
   }
   //
+} else if (comando === 'conta-ia') {
+  // A conta de IA DA LOJA: de que plataforma é, e a chave dela. O servidor
+  // guarda a chave cifrada e nunca a devolve — nem aqui. A chave é
+  // perguntada sem aparecer na tela: em argumento ela ficaria no histórico
+  // do terminal e na lista de processos.
+  const [lojaId, provedor, ...sobra] = resto;
+  if (!lojaId || !provedor || sobra.length > 0) {
+    morrer('uso: npm run provisionar -- conta-ia <lojaId> <provedor>   (ex.: anthropic)\n       npm run provisionar -- conta-ia <lojaId> tirar');
+  }
+
+  if (provedor === 'tirar') {
+    const r = await chamar(`/v1/distribuicao/lojas/${lojaId}/conta-ia`, {}, {}, { metodo: 'DELETE', aceitar: [404, 409] });
+    if (r.recusado) {
+      console.error(`\n  NÃO TIREI. ${r.mensagem}\n`);
+      process.exit(2);
+    }
+    console.log('\n  conta de IA tirada desta loja.\n');
+  } else {
+    const chave = await perguntarSenha(`chave da conta de IA da loja, na ${provedor}`);
+    if (!chave) morrer('chave vazia');
+    const r = await chamar(`/v1/distribuicao/lojas/${lojaId}/conta-ia`, { provedor }, { chave }, { metodo: 'PUT' });
+    console.log(`\n  conta de IA gravada: ${r.provedor}`);
+    console.log('  A chave ficou guardada cifrada. O servidor não a mostra de volta — nem aqui.');
+    console.log(`\n  próximo: npm run provisionar -- balcao ${lojaId} ligar\n`);
+  }
+  //
+} else if (comando === 'balcao') {
+  // A chave INTERNA do balcão, loja por loja. Ligada, a dúvida do agente é
+  // entregue ao servidor, que pergunta à plataforma com a conta de IA
+  // daquela loja. Sem ação, só mostra como está.
+  const [lojaId, acao, ...sobra] = resto;
+  if (!lojaId || (acao !== undefined && !['ligar', 'desligar'].includes(acao)) || sobra.length > 0) {
+    morrer('uso: npm run provisionar -- balcao <lojaId> [ligar|desligar]');
+  }
+
+  const r = acao
+    ? await chamar(`/v1/distribuicao/lojas/${lojaId}/balcao`, { ligado: acao === 'ligar' }, {}, { metodo: 'PATCH', aceitar: [409] })
+    : await chamar(`/v1/distribuicao/lojas/${lojaId}/balcao`, {}, {}, { metodo: 'GET' });
+
+  if (r.recusado) {
+    console.error(`\n  NÃO LIGUEI. ${r.mensagem}\n`);
+    if (r.erro === 'sem_conta_de_ia') console.error(`  Cadastre a conta: npm run provisionar -- conta-ia ${lojaId} anthropic\n`);
+    if (r.erro === 'sem_pedido_com_contexto') console.error(`  Ligue antes: npm run provisionar -- contexto ${lojaId} ligar\n`);
+    process.exit(2);
+  }
+
+  console.log(`\n  loja: ${r.nome}`);
+  console.log(`  balcão (a dúvida pelo servidor): ${r.ligado ? 'LIGADO' : 'desligado'}`);
+  console.log(`  teto de gasto por dia: R$ ${(r.tetoCentavosDia / 100).toFixed(2).replace('.', ',')}`);
+  console.log(`  conta de IA: ${r.contaDeIa ? r.contaDeIa.provedor : 'não cadastrada'}`);
+  console.log(`  pedido com contexto: ${r.pedidoComContexto ? 'ligado' : 'desligado'}`);
+  console.log(`  versão da configuração: ${r.configVersao}\n`);
+  //
+} else if (comando === 'teto') {
+  // Quanto a loja pode gastar POR DIA com a dúvida. O servidor corta antes
+  // de perguntar. Em reais: 40 ou 40,00.
+  const [lojaId, valor, ...sobra] = resto;
+  const lido = /^\d{1,5}([.,]\d{1,2})?$/.test(valor ?? '') ? Math.round(Number(valor.replace(',', '.')) * 100) : null;
+  if (!lojaId || lido === null || sobra.length > 0) {
+    morrer('uso: npm run provisionar -- teto <lojaId> <reais por dia>   (ex.: 40 ou 40,00)');
+  }
+
+  const r = await chamar(`/v1/distribuicao/lojas/${lojaId}/balcao`, { tetoCentavosDia: lido }, {}, { metodo: 'PATCH' });
+  console.log(`\n  loja: ${r.nome}`);
+  console.log(`  teto de gasto por dia: R$ ${(r.tetoCentavosDia / 100).toFixed(2).replace('.', ',')}\n`);
+  //
 } else {
   console.log(`
   uso:
@@ -241,9 +322,13 @@ if (comando === 'loja') {
     npm run provisionar -- agente   <lojaId> <nome>
     npm run provisionar -- usuario  <tenantId> <email> <nome>
     npm run provisionar -- contexto <lojaId> ligar|desligar [--mesmo-assim]
+    npm run provisionar -- conta-ia <lojaId> <provedor>|tirar
+    npm run provisionar -- balcao   <lojaId> [ligar|desligar]
+    npm run provisionar -- teto     <lojaId> <reais por dia>
 
   O nível do usuário sai de FAROL_NIVEL (padrão: presidente).
   O lojaId é o que aparece no endereço da tela da loja, no console.
+  A chave da conta de IA é perguntada sem aparecer na tela.
 `);
   process.exit(comando ? 1 : 0);
 }
