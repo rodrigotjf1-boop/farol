@@ -195,10 +195,13 @@ describe('o balcão: o cadastro (Postgres real)', { skip: !URL_DO_BANCO && 'sem 
   it('nasce desligado, com o teto de R$ 40,00 e sem conta de IA', async () => {
     const r = await ver();
     assert.equal(r.statusCode, 200, r.body);
-    assert.deepEqual(r.json(), {
+    const { hoje, ...doCadastro } = r.json();
+    assert.deepEqual(doCadastro, {
       id: lojaId, nome: 'Matriz', ligado: false, tetoCentavosDia: 4000, pedidoComContexto: false,
       configVersao: (await noBanco()).config_versao, contaDeIa: null,
     });
+    // E a conta do dia, que a porta da dúvida alimenta: nasce zerada.
+    assert.deepEqual(hoje, { dia: hoje.dia, duvidas: 0, respondidas: 0, falharam: 0, reconsultas: 0, custoCentavos: 0 });
     assert.equal(await contaNoBanco(), undefined);
   });
 

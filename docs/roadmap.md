@@ -4941,7 +4941,11 @@ aprovado").
 | **1a · o cadastro** | a conta de IA de cada loja, guardada cifrada; a chave interna, desligada; o teto, em R$ 40,00; os comandos da distribuição | ✅ 13/10 ([decisoes.md](decisoes.md), "O balcão, fase 1a") |
 | **1b · a montagem do pedido** | o pedido com contexto montado pelo servidor, igual, letra por letra, ao que o agente monta hoje — provado por um arquivo de casos que os dois lados leem, gerado pelo código do agente | ✅ 13/10 ([decisoes.md](decisoes.md), "O balcão, fase 1b") |
 | **1c · a chamada à plataforma** | o servidor sabe perguntar à plataforma com a conta da loja e ler a resposta como o agente lê: o veredito, o custo, a reconsulta ao modelo forte e o erro que vale (ou não) tentar de novo — provado pelo mesmo arquivo de casos, sem nenhuma chamada de verdade | ✅ 13/10 ([decisoes.md](decisoes.md), "O balcão, fase 1c") |
-| **1d · a porta** | a rota que recebe a dúvida do agente, o registro de cada pergunta e do custo dela, e o corte pelo teto do dia | a fazer |
+| **1d · a porta** | a rota que recebe a dúvida do agente (`POST /v1/agentes/duvidas`), o registro de cada pergunta e do custo dela (migration 045), o limite por minuto e o corte pelo teto do dia — sem guardar imagem nem pedido | ✅ 13/10 ([decisoes.md](decisoes.md), "O balcão, fase 1d") |
+
+**A fase 1 está completa (13/10):** o servidor está pronto, e nada mudou na loja. Nenhuma
+chamada paga foi feita: só a loja ligada pergunta pelo balcão, e nenhuma está ligada. O que
+vem é a fase 2 (o agente aprende o caminho — muda o pacote da loja, e espera o "pode").
 
 Nenhuma fase tem tela nova: o motivo "teto do dia" aparece onde a tela já mostra por que um
 critério não foi analisado, e o texto passa pelo dono antes. O balcão só fala o pedido com

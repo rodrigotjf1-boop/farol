@@ -36,7 +36,7 @@
 // =====================================================================
 
 import {
-  MODELO_DE_ROTINA, MODELO_FORTE, RECONSULTAR_ABAIXO_DE, SEM_ESCOLHA_FORCADA, corpoDaChamada,
+  CHAMADAS, MODELO_DE_ROTINA, MODELO_FORTE, RECONSULTAR_ABAIXO_DE, SEM_ESCOLHA_FORCADA, corpoDaChamada,
   type Bloco, type Escolha,
 } from './pedido.js';
 import { aparar } from './texto.js';
@@ -56,6 +56,12 @@ export const PRECOS: Readonly<Record<string, { entrada: number; saida: number; l
 export const ESCRITA_NO_CACHE = 1.25;
 /** O câmbio de quem não diz outro (`FAROL_DOLAR`). */
 export const DOLAR_DE_FABRICA = 5.4;
+
+/** O câmbio que o ambiente do serviço diz (`FAROL_DOLAR`, reais por dólar) — ou o de fábrica, se não diz um número que sirva. */
+export function dolarDoAmbiente(ambiente: { FAROL_DOLAR?: string | undefined }): number {
+  const dito = Number((ambiente.FAROL_DOLAR ?? '').replace(',', '.'));
+  return Number.isFinite(dito) && dito > 0 ? dito : DOLAR_DE_FABRICA;
+}
 
 // ─────────────────────── o que sai ───────────────────────
 
@@ -195,6 +201,25 @@ export function custoDaChamada(modelo: string, uso: unknown, dolar: number): num
       saida * preco.saida) /
     1_000_000;
   return emDolar * dolar * 100;
+}
+
+/**
+ * Quantos tokens de entrada um pedido pode ter, por cima: três imagens e
+ * todo o texto no teto. É ESTIMATIVA — serve para reservar do teto do dia o
+ * pior caso de uma dúvida, não para cobrar ninguém.
+ */
+export const ENTRADA_ESTIMADA = 8_000;
+
+/**
+ * Quanto uma dúvida segura do teto do dia enquanto não se sabe o custo
+ * dela, em centavos: o pior caso — a chamada de rotina E a reconsulta, as
+ * duas com a saída no teto. Quando a resposta chega, a reserva vira o custo
+ * de verdade.
+ */
+export function reservaDeUmaDuvida(dolar: number = DOLAR_DE_FABRICA): number {
+  const pior = (modelo: string, saida: number): number =>
+    custoDaChamada(modelo, { input_tokens: ENTRADA_ESTIMADA, output_tokens: saida }, dolar) ?? 0;
+  return pior(MODELO_DE_ROTINA, CHAMADAS.rotina.max_tokens) + pior(MODELO_FORTE, CHAMADAS.reconsulta.max_tokens);
 }
 
 const torta = (mensagem: string): ErroDaPlataforma => new ErroDaPlataforma(mensagem, { recuperavel: true, classe: 'resposta' });

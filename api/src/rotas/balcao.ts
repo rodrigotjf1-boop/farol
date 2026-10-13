@@ -32,6 +32,7 @@ import pg from 'pg';
 import { ErroDeAuth, exigirAdmin } from '../auth.js';
 import { lerChaveDaConta } from '../balcao/plataformas.js';
 import { cifrar, decifrar } from '../cifra.js';
+import { sqlDoDiaDaOperacao } from './especialista.js';
 import { acharCampoProibido } from './lojas.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -127,7 +128,32 @@ export function rotasDoBalcao(app: FastifyInstance, pool: pg.Pool, opcoes: { cof
     if (!UUID.test(id)) return naoAchei(resposta);
     const { rows } = await pool.query<Estado>(ESTADO, [id]);
     if (rows.length === 0) return naoAchei(resposta);
-    return apresentar(rows[0]!);
+
+    // O dia de hoje, na conta da loja: quantas dúvidas o servidor fez por ela e quanto custaram. O dia é
+    // o da operação — a madrugada pertence à noite anterior —, o mesmo por que o teto é somado.
+    const DIA = sqlDoDiaDaOperacao('now()', 'l.timezone');
+    const hoje = (
+      await pool.query<{ dia: string; duvidas: number; respondidas: number; falharam: number; reconsultas: number; custo: number }>(
+        `select ${DIA} as dia,
+                count(d.id)::int as duvidas,
+                count(d.id) filter (where d.estado = 'respondida')::int as respondidas,
+                count(d.id) filter (where d.estado = 'falhou')::int as falharam,
+                count(d.id) filter (where d.reconsultou)::int as reconsultas,
+                coalesce(sum(d.custo_centavos), 0)::float8 as custo
+           from loja l
+           left join duvida d on d.loja_id = l.id and d.dia = (${DIA})::date
+          where l.id = $1
+          group by l.id`,
+        [id],
+      )
+    ).rows[0]!;
+    return {
+      ...apresentar(rows[0]!),
+      hoje: {
+        dia: hoje.dia, duvidas: hoje.duvidas, respondidas: hoje.respondidas, falharam: hoje.falharam,
+        reconsultas: hoje.reconsultas, custoCentavos: hoje.custo,
+      },
+    };
   });
 
   // ───────────────────── a chave interna e o teto ─────────────────────

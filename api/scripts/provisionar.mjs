@@ -300,7 +300,15 @@ if (comando === 'loja') {
   console.log(`  teto de gasto por dia: R$ ${(r.tetoCentavosDia / 100).toFixed(2).replace('.', ',')}`);
   console.log(`  conta de IA: ${r.contaDeIa ? r.contaDeIa.provedor : 'não cadastrada'}`);
   console.log(`  pedido com contexto: ${r.pedidoComContexto ? 'ligado' : 'desligado'}`);
-  console.log(`  versão da configuração: ${r.configVersao}\n`);
+  console.log(`  versão da configuração: ${r.configVersao}`);
+  if (r.hoje) {
+    // O dia é o da operação da loja: a madrugada pertence à noite anterior.
+    const reais = (centavos) => `R$ ${(centavos / 100).toFixed(2).replace('.', ',')}`;
+    console.log(`\n  hoje (${r.hoje.dia}): ${r.hoje.duvidas} dúvida(s) — ${r.hoje.respondidas} respondida(s), ${r.hoje.falharam} sem resposta`);
+    console.log(`  reconsultas ao modelo forte: ${r.hoje.reconsultas}`);
+    console.log(`  gasto de hoje: ${reais(r.hoje.custoCentavos)} de ${reais(r.tetoCentavosDia)}`);
+  }
+  console.log('');
   //
 } else if (comando === 'teto') {
   // Quanto a loja pode gastar POR DIA com a dúvida. O servidor corta antes
