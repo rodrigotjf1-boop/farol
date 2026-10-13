@@ -258,6 +258,10 @@ export function rotasDeLojas(app: FastifyInstance, pool: pg.Pool): void {
   //
   // Só aceita `true` ou `false`: "sim", 1 e "true" são recusados. Uma chave
   // que muda o que sai da loja não é ligada por valor parecido com verdade.
+  //
+  // E não desliga com o balcão ligado (`duvida_pelo_servidor`, em
+  // `rotas/balcao.ts`): o balcão só fala o pedido com contexto. A ordem da
+  // volta é desligar o balcão, e depois esta chave.
 
   app.patch('/v1/distribuicao/lojas/:id', async (req, resposta) => {
     try {
@@ -315,29 +319,63 @@ export function rotasDeLojas(app: FastifyInstance, pool: pg.Pool): void {
       });
     }
 
-    // A versão sobe na mesma instrução, e só quando a chave mudou de lado:
-    // é por ela que o agente sabe que precisa puxar a configuração.
-    const { rows } = await pool.query(
-      `update loja
-          set config_versao = config_versao + (pedido_com_contexto is distinct from $2)::int,
-              atualizado_em = case when pedido_com_contexto is distinct from $2 then now() else atualizado_em end,
-              pedido_com_contexto = $2
-        where id = $1
-        returning id, nome, pedido_com_contexto, config_versao`,
-      [id, corpo.pedidoComContexto],
-    );
-    if (rows.length === 0) return naoAchei();
+    // Client dedicado: a trava da loja e a conferência só valem na MESMA conexão.
+    const cliente = await pool.connect();
+    let rows: { id: string; nome: string; pedido_com_contexto: boolean; config_versao: number }[];
+    try {
+      await cliente.query('begin');
+      // O balcão (a dúvida pelo servidor) só fala o pedido com contexto: com ele ligado, esta
+      // chave não desliga. A trava é a mesma de quem liga o balcão — numa instrução, e a
+      // conferência na seguinte: na mesma, quem esperou a trava conferiria com o retrato de
+      // antes da espera (o balcão sendo ligado ao mesmo tempo).
+      const trava = await cliente.query('select id from loja where id = $1 for no key update', [id]);
+      if (trava.rows.length === 0) {
+        await cliente.query('rollback');
+        return naoAchei();
+      }
+      if (!corpo.pedidoComContexto) {
+        const balcao = await cliente.query<{ duvida_pelo_servidor: boolean }>(
+          'select duvida_pelo_servidor from loja where id = $1',
+          [id],
+        );
+        if (balcao.rows[0]!.duvida_pelo_servidor) {
+          await cliente.query('rollback');
+          return resposta.status(409).send({
+            erro: 'balcao_ligado',
+            mensagem: 'o balcão desta loja está ligado, e ele só fala o pedido com contexto: desligue o balcão antes.',
+          });
+        }
+      }
+      // A versão sobe na mesma instrução, e só quando a chave mudou de lado:
+      // é por ela que o agente sabe que precisa puxar a configuração.
+      ({ rows } = await cliente.query(
+        `update loja
+            set config_versao = config_versao + (pedido_com_contexto is distinct from $2)::int,
+                atualizado_em = case when pedido_com_contexto is distinct from $2 then now() else atualizado_em end,
+                pedido_com_contexto = $2
+          where id = $1
+          returning id, nome, pedido_com_contexto, config_versao`,
+        [id, corpo.pedidoComContexto],
+      ));
+      await cliente.query('commit');
+    } catch (e) {
+      await cliente.query('rollback').catch(() => undefined);
+      throw e;
+    } finally {
+      cliente.release();
+    }
 
     // Muda o que sai da loja: fica no log.
     req.log.info(
       { loja: id, pedidoComContexto: corpo.pedidoComContexto, canaisSemCena: canaisSemCena.length },
       'chave do pedido com contexto',
     );
+    const loja = rows[0]!;
     return {
-      id: rows[0].id,
-      nome: rows[0].nome,
-      pedidoComContexto: rows[0].pedido_com_contexto,
-      configVersao: rows[0].config_versao,
+      id: loja.id,
+      nome: loja.nome,
+      pedidoComContexto: loja.pedido_com_contexto,
+      configVersao: loja.config_versao,
       // Os canais que, com a chave ligada, ficam com critério parado por
       // falta de cena. Vazio = todo canal que precisa de cena tem.
       canaisSemCena,

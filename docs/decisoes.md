@@ -5460,3 +5460,75 @@ Cuidados com o gravador: um pedido por vez; pedido recusado não se repete (a co
 do ao vivo); a cópia para sozinha antes de a loja abrir. O andamento e o que entrou, pedaço
 a pedaço, ficam na própria pasta (`registros.csv`).
 
+## 13/10/2026 (manhã) · O balcão, fase 1a: o cadastro — a conta de IA de cada loja, a chave interna e o teto
+
+A primeira fatia da fase 1 do balcão ([roadmap](roadmap.md), A20, "O balcão, em fases").
+**É só o cadastro: ninguém pergunta nada a plataforma nenhuma por causa dela**, e nada muda
+para quem está no ar — a chave interna nasce desligada e loja nenhuma tem conta.
+
+**O que cada loja passa a ter** (migration 044):
+
+| o quê | onde mora | como nasce |
+|---|---|---|
+| **a conta de IA** — de que plataforma é, e a chave dela | `conta_ia`, uma linha por loja. A chave é guardada cifrada (AES-256-GCM, com a chave que só o ambiente do serviço tem — a mesma que guarda o acesso de cada loja ao Regem), presa à empresa e à loja: o texto cifrado de uma loja, colado na linha de outra, não abre | nenhuma loja tem |
+| **a chave interna** (a dúvida pelo servidor) | `loja.duvida_pelo_servidor` | desligada |
+| **o teto de gasto por dia** | `loja.teto_duvida_centavos_dia`, em centavos, de R$ 0,00 a R$ 10.000,00 | R$ 40,00 — o que o dono fixou para o piloto |
+
+**As regras:**
+
+1. **A chave da conta entra e não sai.** Entra por uma rota só, é cifrada na hora, e nenhuma
+   rota a devolve — nem inteira, nem um pedaço, nem cifrada. Não vai para o registro nem para
+   mensagem de erro: a recusa nunca repete o que veio. Quem a lê de volta é uma função só,
+   para quem vai perguntar (a fatia 1c).
+2. **Ligar pede duas coisas, e a recusa diz qual falta:** o pedido com contexto ligado (o
+   balcão só fala esse pedido) e a conta de IA cadastrada. **E, ligado, nenhuma das duas
+   sai:** a conta não é tirada e o pedido com contexto não desliga — a ordem da volta é
+   desligar o balcão, e depois o que for. As três rotas param na mesma trava da loja; no
+   banco, a regra `loja_balcao_pede_contexto` é a segunda tranca, para o caminho que não
+   passa por elas.
+3. **Só `true` e `false` movem a chave interna**, e o teto é um inteiro de centavos. Campo
+   com o nome errado é recusado, e não tomado por "não mudei nada".
+4. **A versão da configuração sobe só quando a chave interna muda de lado** — é por ela que o
+   agente sabe que precisa puxar a configuração. O teto e a conta são só do servidor: não
+   sobem a versão, e nada deles desce para o agente. (O agente ainda não lê a chave interna:
+   isso é a fase 2.)
+5. **Tudo é da distribuição.** Não existe rota do console para nada disto: ele recusa os
+   três campos, até do presidente. A tela "conectar a conta de IA" continua sendo a
+   pendência P1, com protótipo antes.
+6. **Nada fora de `api/src/balcao/` presume uma plataforma** — nem o nome, nem a cara da
+   chave. Plataforma nova entra ali, e na lista da migration que guarda a conta.
+
+**Os comandos da distribuição**, de dentro do serviço. A chave é perguntada sem aparecer na
+tela; nunca vai em argumento, que fica no histórico do terminal e na lista de processos:
+
+```
+npm run provisionar -- conta-ia <lojaId> anthropic       (pergunta a chave)
+npm run provisionar -- conta-ia <lojaId> tirar
+npm run provisionar -- balcao   <lojaId>                 (mostra como está)
+npm run provisionar -- balcao   <lojaId> ligar|desligar
+npm run provisionar -- teto     <lojaId> 40,00
+```
+
+**Achado na entrega:** o comando `contexto … desligar` tratava toda recusa como "canais sem
+cena". Com a recusa nova (o balcão ligado), ele passou a dizer o motivo certo e a ordem da
+volta.
+
+**Como foi conferido.** O arquivo de testes do cadastro, contra Postgres de verdade: a chave
+que entra e não aparece em resposta, erro ou registro; as recusas, cada uma por um motivo
+só; as duas corridas (ligar × tirar a conta, ligar × desligar o contexto: soltas juntas, só
+uma passa, e a outra é recusada com o motivo); as esperas com a ordem fixa (outra conexão
+para no meio do que uma rota faz, e a rota chamada nesse instante espera e decide com o que
+ficou gravado); e os comandos rodando contra a API de verdade, com a chave entrando pela
+entrada padrão. O roteiro de mutação estraga cada regra de propósito, uma por vez, e os
+testes pegam todas. A migration foi aplicada duas vezes no banco local: nenhuma loja que já
+existia mudou de versão.
+
+**O que falta da fase 1:** a 1b — a montagem do pedido com contexto do lado do servidor,
+igual, letra por letra, ao que o agente monta hoje; e a 1c — a porta que recebe a dúvida, a
+chamada à plataforma, o registro do custo e o corte pelo teto. Nenhuma chamada paga antes
+da fase 3.
+
+**Em aberto, para antes da segunda loja:** R$ 40,00 é o teto que o dono deu para o piloto.
+Cada loja tem o seu, e a distribuição muda com o comando `teto`; com que valor uma loja
+NOVA nasce, na distribuição, é decisão dele.
+

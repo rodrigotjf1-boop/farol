@@ -13,6 +13,7 @@ import { configDoRegem, type ConfigDoRegem } from './regem.js';
 import { rotasDeAcessos } from './rotas/acessos.js';
 import { rotasDeAgentes } from './rotas/agentes.js';
 import { rotasDeAlertas } from './rotas/alertas.js';
+import { rotasDoBalcao } from './rotas/balcao.js';
 import { rotasDoConsole } from './rotas/console.js';
 import { rotasDeConfiguracao } from './rotas/configuracao.js';
 import { rotasDeDiagnostico } from './rotas/diagnostico.js';
@@ -45,6 +46,11 @@ export function criarApp(
     subida?: Subida;
     /** Como falar com o Regem. Ausente: o que o ambiente diz. O teste passa o dele. */
     regem?: ConfigDoRegem;
+    /**
+     * O balcão. `cofre` é a chave que cifra a conta de IA de cada loja; ausente, vale a do
+     * ambiente (a mesma que guarda o acesso de cada loja ao Regem). O teste passa a dele.
+     */
+    balcao?: { cofre: Buffer | null };
   } = {},
 ): FastifyInstance {
   const app = Fastify({
@@ -180,6 +186,7 @@ export function criarApp(
   const regem = opcoes.regem ?? configDoRegem(process.env, VERSAO);
   rotasDoRegem(app, pool, regem);
   rotasDeFichas(app, pool, regem);
+  rotasDoBalcao(app, pool, { cofre: opcoes.balcao ? opcoes.balcao.cofre : regem.chave });
   rotasDeAcessos(app, pool);
   rotasDePadroes(app, pool);
   rotasDeInventario(app, pool);

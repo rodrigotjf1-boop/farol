@@ -34,7 +34,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ORIGENS = ['dvr', 'ip'];
 const IMPORTANCIAS = ['critico', 'normal', 'baixo'];
 // Campos da loja que são lógica interna do Farol: só a distribuição muda.
-const SO_NA_DISTRIBUICAO = ['pedidoComContexto', 'modoJulgamento', 'resolucaoPadrao'];
+const SO_NA_DISTRIBUICAO = [
+  'pedidoComContexto', 'modoJulgamento', 'resolucaoPadrao',
+  // O balcão (a dúvida pelo servidor): a chave interna, o teto e a conta de IA.
+  'duvidaPeloServidor', 'tetoDuvidaCentavosDia', 'contaDeIa',
+];
 
 export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
   /** Toda rota começa por aqui: sem sessão, nada acontece. */
