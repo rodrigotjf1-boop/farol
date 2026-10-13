@@ -5595,3 +5595,56 @@ inteira da API e a do agente.
 **O que falta da fase 1:** a 1c — a porta que recebe a dúvida do agente, a chamada à
 plataforma com a conta da loja, o registro do custo e o corte pelo teto.
 
+## 13/10/2026 (manhã) · O balcão, fase 1c: o servidor sabe perguntar à plataforma e ler a resposta como o agente lê
+
+A terceira fatia da fase 1 — a que estava prevista como "a porta" foi partida em duas, e
+esta é a primeira metade. **Continua sem nenhuma chamada de verdade:** entra o módulo que
+leva o pedido à plataforma, com a conta da loja, e transforma a resposta em veredito
+(`api/src/balcao/plataforma.ts`). Não há rota, nem banco, nem teto: isso é a 1d.
+
+**A mesma prova, estendida.** O arquivo de contrato ganhou uma segunda parte, `respostas`:
+50 casos com o que a plataforma devolve, chamada a chamada — o corpo como ela manda, ou um
+erro —, e o que sai disso: o veredito, o custo e as chamadas feitas, ou o erro e se vale
+tentar de novo. Como na 1b, o "esperado" é gerado pelo código do agente, e o servidor tem
+de dar o mesmo.
+
+| o que os casos cobrem | exemplos |
+|---|---|
+| o veredito | os três resultados; a confiança cortada entre 0 e 1; a confiança que veio em texto, ou não veio; o motivo aparado, vazio ou ausente |
+| a reconsulta | confiança abaixo de 0,75 leva a MESMA pergunta ao modelo forte, e vale a resposta dele; "não deu para avaliar" nunca reconsulta; a reconsulta que falha (sobrecarga, sem permissão, resposta em texto, resultado inválido) não derruba a primeira resposta |
+| a ferramenta | texto antes da ferramenta; outra ferramenta antes da certa; resposta só em texto; resultado que não existe |
+| os erros | pedido recusado, chave recusada, sem permissão, modelo que não existe (não vale tentar de novo); limite, erro e sobrecarga (vale) |
+| o modelo que recusa a ferramenta forçada | é chamado de novo, no mesmo modelo, com a escolha livre e o teto de saída maior |
+| o custo | com escrita e com leitura de cache; contas nulas; resposta sem a conta dos tokens (sem custo — não se inventa zero) |
+
+**O custo sai igual até a última casa:** a conta é feita na mesma ordem que o agente faz, e
+o contrato compara o número inteiro, não um arredondamento. É dele que vai sair o teto do
+dia.
+
+**O que o servidor decide por conta própria** (e o agente não tem):
+
+- **De que lado está cada erro** — da conta da loja (chave recusada, sem permissão ou sem
+  crédito), do pedido, do limite da plataforma, da plataforma, ou da resposta —, para a
+  porta dizer a coisa certa a quem perguntou.
+- **Pedido grande demais (413) e pedido que a plataforma não entende (422) não valem
+  tentar de novo.** No agente eles são tentados cinco vezes antes de desistir; o mesmo
+  pedido não passa na segunda.
+- **A chamada vai uma vez, com 30 segundos de limite** — o mesmo do agente. Quem repete é a
+  fila do agente, que guarda em disco.
+- **A chave da conta vai no cabeçalho da chamada e em mais lugar nenhum:** não entra no
+  corpo, nem em mensagem de erro, nem em registro. O erro de rede não leva o endereço.
+
+**O que vale lembrar da medição:** uma reconsulta ao modelo forte custa perto de 5,6
+centavos, contra 0,1 centavo da chamada de rotina (com os números de exemplo do contrato).
+É a reconsulta, e não a rotina, que gasta o teto.
+
+**Como foi conferido.** Os 50 casos de resposta e os 31 de pedido, dos dois lados. O
+transporte de verdade, contra um servidor local: os cabeçalhos, o corpo, o tempo esgotado,
+a plataforma fora do ar, a resposta que não é JSON. Estragos de propósito em cópias do
+código: 246 no servidor (a montagem e a chamada) e 76 no agente — todos pegos. Um passou
+na primeira rodada do servidor (aceitar um bloco com o nome da ferramenta que não é chamada
+de ferramenta): faltava o caso no contrato, e entrou.
+
+**O que falta da fase 1:** a 1d — a porta que recebe a dúvida do agente, o registro de cada
+pergunta e do custo dela, e o corte pelo teto do dia.
+

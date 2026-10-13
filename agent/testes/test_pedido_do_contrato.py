@@ -133,7 +133,7 @@ def _o_juiz_de_nuvem(api: Any) -> nuvem.JuizNuvem:
     j.modelo_com_contexto = nuvem.MODELO_COM_CONTEXTO
     j.exige_cena = True          # a loja pergunta com contexto
     j.escalar_abaixo_de = nuvem.JuizNuvem.__init__.__kwdefaults__["escalar_abaixo_de"]
-    j.dolar = 5.40
+    j.dolar = DOLAR_DOS_CASOS
     return j
 
 
@@ -157,9 +157,13 @@ def _por_que_nao(e: ErroDoJuiz) -> str:
     raise AssertionError(f"recusa que o contrato não conhece: {texto}")
 
 
-def pedidos_do_caso(caso: dict[str, Any], pasta: Path, *, confianca: float = 0.9) -> dict[str, Any]:
+def pedidos_do_caso(caso: dict[str, Any], pasta: Path, *, confianca: float = 0.9, plataforma: Any = None) -> dict[str, Any]:
     """Roda o item do caso pelo caminho de verdade (a configuração → o seletor → o juiz de nuvem) e devolve o
-    que saiu para a plataforma: `{"pedidos": [...]}` — ou `{"semPedido": motivo}`."""
+    que saiu para a plataforma: `{"pedidos": [...], "veredito": ...}` — ou `{"semPedido": motivo}`.
+
+    `plataforma`: quem responde no lugar da plataforma (o caso de `respostas` traz o roteiro dele). Com ela, o erro
+    do juiz não é "não há pedido": é o que a plataforma devolveu, e volta como `{"erro": ..., "pedidos": [...]}`.
+    """
     item = caso["item"]
     config = de_json(caso["configuracao"])
     imagens = CONTRATO["imagens"]
@@ -169,7 +173,7 @@ def pedidos_do_caso(caso: dict[str, Any], pasta: Path, *, confianca: float = 0.9
         caminho.write_bytes(base64.standard_b64decode(imagens[qual]))
         return caminho
 
-    api = ApiComoMedida(lambda pedido: _responde(confianca))
+    api = plataforma if plataforma is not None else ApiComoMedida(lambda pedido: _responde(confianca))
     da_nuvem = _o_juiz_de_nuvem(api)
 
     # O mapa do canal: a loja o tem em disco (esquema ou fotografia), ou ainda não.
@@ -208,8 +212,10 @@ def pedidos_do_caso(caso: dict[str, Any], pasta: Path, *, confianca: float = 0.9
         ctx["fora_da_area"] = "apagado"
 
     try:
-        por_regra.julgar(arquivo("auditada.jpg", "auditada"), item["criterio"], contexto=ctx)
+        veredito = por_regra.julgar(arquivo("auditada.jpg", "auditada"), item["criterio"], contexto=ctx)
     except ErroDoJuiz as e:
+        if plataforma is not None:
+            return {"erro": {"recuperavel": e.recuperavel}, "pedidos": api.pedidos}
         assert api.pedidos == [], "recusou, e mesmo assim algo saiu"
         return {"semPedido": _por_que_nao(e)}
     if not api.pedidos:
@@ -217,7 +223,93 @@ def pedidos_do_caso(caso: dict[str, Any], pasta: Path, *, confianca: float = 0.9
         regra = next(r for r in config.regras if r.id == item["regraId"])
         assert regra.tipo in (TipoRegra.PRESENCA, TipoRegra.CONTAGEM), "só o detector responde sem perguntar"
         return {"semPedido": "nao_vai_a_plataforma"}
-    return {"pedidos": api.pedidos}
+    return {"pedidos": api.pedidos, "veredito": veredito}
+
+
+# ───────────────────────── a resposta da plataforma ─────────────────────────
+#
+# A outra metade do caminho: o que o agente FAZ com o que a plataforma devolve — lê a ferramenta, apara, faz a
+# conta do custo, reconsulta o modelo forte quando a resposta vem insegura, e separa o erro que vale tentar de novo
+# do que não vale. Cada caso de `respostas` traz o que a plataforma responde, chamada a chamada (o corpo, como ela
+# manda; ou um erro HTTP), e o `esperado`: o veredito e as chamadas feitas — ou o erro.
+
+DOLAR_DOS_CASOS = 5.40
+
+
+class _ErroDaApi(Exception):
+    """Um erro HTTP que a biblioteca da plataforma NÃO separa dos outros (429, 500, 529…)."""
+
+
+def _da_biblioteca(status: int, mensagem: str) -> Exception:
+    """O erro que a biblioteca levanta para cada status. Só quatro o agente trata como definitivos."""
+    if status == 400:
+        return Recusa(mensagem)                 # BadRequestError
+    erro: Exception = SemPermissao(mensagem) if status in (401, 403, 404) else _ErroDaApi(mensagem)
+    erro.status_code = status                   # type: ignore[attr-defined]
+    return erro
+
+
+def _como_a_biblioteca_entrega(corpo: dict[str, Any]) -> Any:
+    """O corpo JSON da resposta, virado no que a biblioteca entrega: atributos, e o `input` como dicionário."""
+    resposta = SimpleNamespace(
+        content=[SimpleNamespace(**bloco) for bloco in corpo.get("content") or []],
+        stop_reason=corpo.get("stop_reason"),
+    )
+    if corpo.get("usage") is not None:
+        resposta.usage = SimpleNamespace(**corpo["usage"])
+    return resposta
+
+
+class _PlataformaDoCaso:
+    """Responde o que o caso manda, chamada a chamada, e anota o que foi pedido."""
+
+    def __init__(self, respostas: list[dict[str, Any]]) -> None:
+        self.pedidos: list[dict[str, Any]] = []
+        self.messages = self
+        self.sobraram = list(respostas)
+
+    def create(self, **pedido: Any) -> Any:
+        self.pedidos.append(pedido)
+        assert self.sobraram, "o agente chamou a plataforma mais vezes do que o caso previa"
+        resposta = self.sobraram.pop(0)
+        if resposta["status"] != 200:
+            raise _da_biblioteca(resposta["status"], resposta["corpo"]["error"]["message"])
+        return _como_a_biblioteca_entrega(resposta["corpo"])
+
+
+def _esperado_da_resposta(caso: dict[str, Any], pasta: Path) -> dict[str, Any]:
+    nuvem._recusaram_a_escolha.clear()
+    plataforma = _PlataformaDoCaso(caso["daPlataforma"])
+    saida = pedidos_do_caso(CONTRATO["casos"][0], pasta, plataforma=plataforma)
+    assert plataforma.sobraram == [], "sobrou resposta que o agente não pediu"
+    primeiro = saida["pedidos"][0]
+    for pedido in saida["pedidos"]:
+        # Toda chamada do mesmo item leva a MESMA pergunta: só mudam o modelo, o teto de saída e a escolha.
+        assert pedido["system"] == primeiro["system"] and pedido["messages"] == primeiro["messages"] and pedido["tools"] == primeiro["tools"]
+    chamadas = [{k: p[k] for k in ("model", "max_tokens", "tool_choice")} for p in saida["pedidos"]]
+    if "erro" in saida:
+        return {"erro": saida["erro"], "chamadas": chamadas}
+    v = saida["veredito"]
+    return {
+        "veredito": {
+            "resultado": v.resultado.value, "confianca": v.confianca, "motivo": v.motivo, "modelo": v.modelo,
+            "tokensEntrada": v.tokens_entrada, "tokensSaida": v.tokens_saida, "custoCentavos": v.custo_centavos,
+        },
+        "chamadas": chamadas,
+    }
+
+
+def _precos() -> dict[str, Any]:
+    """O preço de cada modelo que o pedido com contexto chama, e o câmbio com que os casos fazem a conta."""
+    modelos = (nuvem.MODELO_COM_CONTEXTO, nuvem.MODELO_FORTE)
+    return {
+        "dolar": DOLAR_DOS_CASOS,
+        "escritaNoCache": nuvem.FATOR_CACHE_ESCRITA,
+        "porMilhaoEmDolar": {
+            m: {"entrada": nuvem.PRECO_USD_MTOK[m][0], "saida": nuvem.PRECO_USD_MTOK[m][1], "leituraDoCache": nuvem.fator_de_leitura(m)}
+            for m in modelos
+        },
+    }
 
 
 def _cabecalho(pasta: Path) -> dict[str, Any]:
@@ -291,6 +383,11 @@ def test_gravar_o_contrato(tmp_path):
         pasta = tmp_path / f"caso-{i}"
         pasta.mkdir()
         caso["esperado"] = _esperado(caso, pasta, cabecalho)
+    documento["precos"] = _precos()
+    for i, caso in enumerate(documento["respostas"]):
+        pasta = tmp_path / f"resposta-{i}"
+        pasta.mkdir()
+        caso["esperado"] = _esperado_da_resposta(caso, pasta)
     _escrever(documento)
 
 
@@ -335,3 +432,38 @@ def test_os_casos_cobrem_as_formas_do_pedido():
         assert tem(trecho), f"nenhum caso com: {trecho}"
     assert any(c["item"]["mapa"] is None and "conteudo" in c["esperado"] for c in casos)
     assert {c["configuracao"]["loja"].get("modoJulgamento") for c in casos} == {"nuvem", "hibrido", "local", None}
+
+
+# ───────────────────────── a resposta: gravar, ou conferir ─────────────────────────
+
+_RESPOSTAS = CONTRATO.get("respostas") or []
+
+
+def test_os_precos_do_contrato_sao_os_do_agente():
+    if GRAVAR:
+        pytest.skip("gravando")
+    assert CONTRATO["precos"] == _precos()
+
+
+@pytest.mark.parametrize("caso", _RESPOSTAS, ids=[c["nome"] for c in _RESPOSTAS])
+def test_o_agente_le_a_resposta_da_plataforma_como_o_contrato_diz(caso, tmp_path):
+    if GRAVAR:
+        pytest.skip("gravando")
+    assert caso["esperado"] is not None, "caso sem `esperado`: grave o contrato"
+    assert _esperado_da_resposta(caso, tmp_path) == caso["esperado"]
+
+
+def test_as_respostas_cobrem_o_que_o_agente_faz_com_elas():
+    """O arquivo não encolhe calado: cada comportamento tem pelo menos um caso."""
+    if GRAVAR:
+        pytest.skip("gravando")
+    assert len({c["nome"] for c in _RESPOSTAS}) == len(_RESPOSTAS) >= 20, "nome repetido, ou casos de menos"
+    com_veredito = [c["esperado"] for c in _RESPOSTAS if "veredito" in c["esperado"]]
+    com_erro = [c["esperado"] for c in _RESPOSTAS if "erro" in c["esperado"]]
+    assert {e["veredito"]["resultado"] for e in com_veredito} == {"conforme", "nao_conforme", "nao_avaliavel"}
+    assert {e["erro"]["recuperavel"] for e in com_erro} == {True, False}
+    assert any(len(e["chamadas"]) == 2 and e["veredito"]["modelo"] == nuvem.MODELO_FORTE for e in com_veredito), "a reconsulta que vale"
+    assert any(len(e["chamadas"]) == 2 and e["veredito"]["modelo"] == nuvem.MODELO_COM_CONTEXTO for e in com_veredito), "a reconsulta que falha e não derruba"
+    assert any(e["veredito"]["confianca"] is None for e in com_veredito) and any(e["veredito"]["motivo"] is None for e in com_veredito)
+    assert any(e["veredito"]["custoCentavos"] is None for e in com_veredito), "resposta sem a conta dos tokens"
+    assert any(len(e["chamadas"]) == 2 and e["chamadas"][0]["model"] == e["chamadas"][1]["model"] for e in com_veredito), "o modelo que recusa a escolha forçada"

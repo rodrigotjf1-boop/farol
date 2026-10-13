@@ -1,5 +1,5 @@
 {
-  "_": "O pedido COM CONTEXTO, do jeito que o agente monta: os casos (a configuração que desce para a loja — só os campos que o pedido lê, com os nomes de `GET /v1/agentes/configuracao` —, o item da análise e o conteúdo do pedido que sai, ou por que não há pedido). O `esperado` e o cabeçalho são GERADOS pelo código do agente (agent/testes/test_pedido_do_contrato.py, com FAROL_GRAVAR_CONTRATO=1): não se editam à mão. Os dois lados leem este arquivo: o agente prova que continua montando assim; o servidor (api/src/balcao/pedido.ts) prova que monta igual, letra por letra. Nada aqui é de loja de verdade.",
+  "_": "O pedido COM CONTEXTO, do jeito que o agente monta: os casos (a configuração que desce para a loja — só os campos que o pedido lê, com os nomes de `GET /v1/agentes/configuracao` —, o item da análise e o conteúdo do pedido que sai, ou por que não há pedido) e as `respostas` (o que a plataforma devolve, chamada a chamada, e o que o agente faz com isso: o veredito, o custo, a reconsulta — ou o erro, e se vale tentar de novo). O `esperado` e o cabeçalho são GERADOS pelo código do agente (agent/testes/test_pedido_do_contrato.py, com FAROL_GRAVAR_CONTRATO=1): não se editam à mão. Os dois lados leem este arquivo: o agente prova que continua montando assim; o servidor (api/src/balcao/pedido.ts) prova que monta igual, letra por letra. Nada aqui é de loja de verdade.",
   "instrucoes": {
     "sha256": "fc3f0c0ca080b4584aecd95a16e1918746eb93c386bbbe319d119de2714f1ad0",
     "letras": 2397,
@@ -4037,6 +4037,2799 @@
       },
       "esperado": {
         "semPedido": "criterio_fora_da_configuracao"
+      }
+    }
+  ],
+  "precos": {
+    "dolar": 5.4,
+    "escritaNoCache": 1.25,
+    "porMilhaoEmDolar": {
+      "claude-haiku-5-5": {
+        "entrada": 0.1,
+        "saida": 0.5,
+        "leituraDoCache": 0.1
+      },
+      "claude-sonnet-5-5": {
+        "entrada": 2.0,
+        "saida": 10.0,
+        "leituraDoCache": 0.05
+      }
+    }
+  },
+  "respostas": [
+    {
+      "nome": "conforme, com confiança alta",
+      "oQueProva": "Uma chamada só, ao modelo de rotina, com a ferramenta forçada.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": 0.93,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "conforme",
+          "confianca": 0.93,
+          "motivo": "a bancada está sem restos de alimento",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "não conforme, com confiança alta",
+      "oQueProva": "Confiança de 0,75 em diante não reconsulta.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_conforme",
+                  "confianca": 0.9,
+                  "motivo": "há restos de alimento no canto direito"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_conforme",
+          "confianca": 0.9,
+          "motivo": "há restos de alimento no canto direito",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "não deu para avaliar nunca reconsulta",
+      "oQueProva": "Se o modelo de rotina não conseguiu ver, o problema está na imagem: o forte não é chamado, por menor que seja a confiança.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "confianca": 0.2,
+                  "motivo": "a imagem está escura demais"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": 0.2,
+          "motivo": "a imagem está escura demais",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "confiança no limite exato não reconsulta",
+      "oQueProva": "Reconsulta só ABAIXO de 0,75.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": 0.75,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "conforme",
+          "confianca": 0.75,
+          "motivo": "a bancada está sem restos de alimento",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "confiança baixa reconsulta o modelo forte, e vale a resposta dele",
+      "oQueProva": "A mesma pergunta vai ao modelo forte, com a escolha livre e o teto de saída maior. O veredito, o modelo e os tokens são os dele; o custo é o das DUAS chamadas.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_conforme",
+                  "confianca": 0.5,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        },
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-sonnet-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_conforme",
+                  "confianca": 0.93,
+                  "motivo": "há restos de alimento no canto direito"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1600,
+              "output_tokens": 700,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 1400
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_conforme",
+          "confianca": 0.93,
+          "motivo": "há restos de alimento no canto direito",
+          "modelo": "claude-sonnet-5-5",
+          "tokensEntrada": 1600,
+          "tokensSaida": 700,
+          "custoCentavos": 5.6808000000000005
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          },
+          {
+            "model": "claude-sonnet-5-5",
+            "max_tokens": 2000,
+            "tool_choice": {
+              "type": "auto"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "o modelo forte muda o resultado",
+      "oQueProva": "Vale o que o modelo forte disse, mesmo quando contraria o de rotina.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_conforme",
+                  "confianca": 0.6,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        },
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-sonnet-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": 0.88,
+                  "motivo": "a bancada está limpa; o que parecia resto é reflexo"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1600,
+              "output_tokens": 700
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "conforme",
+          "confianca": 0.88,
+          "motivo": "a bancada está limpa; o que parecia resto é reflexo",
+          "modelo": "claude-sonnet-5-5",
+          "tokensEntrada": 1600,
+          "tokensSaida": 700,
+          "custoCentavos": 5.605200000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          },
+          {
+            "model": "claude-sonnet-5-5",
+            "max_tokens": 2000,
+            "tool_choice": {
+              "type": "auto"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "resposta sem confiança vale como zero, e reconsulta",
+      "oQueProva": "Confiança nula conta como zero para decidir a reconsulta.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": null,
+                  "motivo": "parece limpo"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        },
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-sonnet-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": 0.9,
+                  "motivo": "limpo"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1600,
+              "output_tokens": 700
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "conforme",
+          "confianca": 0.9,
+          "motivo": "limpo",
+          "modelo": "claude-sonnet-5-5",
+          "tokensEntrada": 1600,
+          "tokensSaida": 700,
+          "custoCentavos": 5.605200000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          },
+          {
+            "model": "claude-sonnet-5-5",
+            "max_tokens": 2000,
+            "tool_choice": {
+              "type": "auto"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "reconsulta que falha não derruba a resposta",
+      "oQueProva": "A reconsulta é reforço: se a plataforma estiver sobrecarregada na segunda chamada, fica a primeira resposta, com a confiança baixa que tem.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_conforme",
+                  "confianca": 0.5,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        },
+        {
+          "status": 529,
+          "corpo": {
+            "type": "error",
+            "error": {
+              "type": "overloaded_error",
+              "message": "Overloaded"
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_conforme",
+          "confianca": 0.5,
+          "motivo": "a bancada está sem restos de alimento",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          },
+          {
+            "model": "claude-sonnet-5-5",
+            "max_tokens": 2000,
+            "tool_choice": {
+              "type": "auto"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "reconsulta sem permissão não derruba a resposta",
+      "oQueProva": "Nem o erro que não vale tentar de novo derruba a primeira resposta.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": 0.4,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        },
+        {
+          "status": 403,
+          "corpo": {
+            "type": "error",
+            "error": {
+              "type": "permission_error",
+              "message": "Your API key does not have permission to use the specified resource."
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "conforme",
+          "confianca": 0.4,
+          "motivo": "a bancada está sem restos de alimento",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          },
+          {
+            "model": "claude-sonnet-5-5",
+            "max_tokens": 2000,
+            "tool_choice": {
+              "type": "auto"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "reconsulta respondida em texto não derruba a resposta",
+      "oQueProva": "Com a escolha livre o modelo forte pode responder sem a ferramenta: é erro DELE, e fica a primeira resposta.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": 0.4,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        },
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-sonnet-5-5",
+            "content": [
+              {
+                "type": "text",
+                "text": "Não consegui usar a ferramenta."
+              }
+            ],
+            "stop_reason": "end_turn",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 40
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "conforme",
+          "confianca": 0.4,
+          "motivo": "a bancada está sem restos de alimento",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          },
+          {
+            "model": "claude-sonnet-5-5",
+            "max_tokens": 2000,
+            "tool_choice": {
+              "type": "auto"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "reconsulta com resultado inválido não derruba a resposta",
+      "oQueProva": "Idem quando a ferramenta vem com um resultado que não existe.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": 0.4,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        },
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-sonnet-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "talvez",
+                  "confianca": 0.9,
+                  "motivo": "x"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1600,
+              "output_tokens": 700
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "conforme",
+          "confianca": 0.4,
+          "motivo": "a bancada está sem restos de alimento",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          },
+          {
+            "model": "claude-sonnet-5-5",
+            "max_tokens": 2000,
+            "tool_choice": {
+              "type": "auto"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "confiança acima de 1 vira 1",
+      "oQueProva": "A confiança é um número de 0 a 1; o que passa é cortado, e o que não é número fica sem confiança. (O resultado é “não deu para avaliar” para o caso não reconsultar.)",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "confianca": 1.7,
+                  "motivo": "visto"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": 1.0,
+          "motivo": "visto",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "confiança abaixo de 0 vira 0",
+      "oQueProva": "A confiança é um número de 0 a 1; o que passa é cortado, e o que não é número fica sem confiança. (O resultado é “não deu para avaliar” para o caso não reconsultar.)",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "confianca": -0.2,
+                  "motivo": "visto"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": 0.0,
+          "motivo": "visto",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "confiança inteira",
+      "oQueProva": "A confiança é um número de 0 a 1; o que passa é cortado, e o que não é número fica sem confiança. (O resultado é “não deu para avaliar” para o caso não reconsultar.)",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "confianca": 1,
+                  "motivo": "visto"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": 1.0,
+          "motivo": "visto",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "confiança escrita como texto",
+      "oQueProva": "A confiança é um número de 0 a 1; o que passa é cortado, e o que não é número fica sem confiança. (O resultado é “não deu para avaliar” para o caso não reconsultar.)",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "confianca": "0.8",
+                  "motivo": "visto"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": 0.8,
+          "motivo": "visto",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "confiança em texto com espaços",
+      "oQueProva": "A confiança é um número de 0 a 1; o que passa é cortado, e o que não é número fica sem confiança. (O resultado é “não deu para avaliar” para o caso não reconsultar.)",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "confianca": " 0.25 ",
+                  "motivo": "visto"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": 0.25,
+          "motivo": "visto",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "confiança que é sim",
+      "oQueProva": "A confiança é um número de 0 a 1; o que passa é cortado, e o que não é número fica sem confiança. (O resultado é “não deu para avaliar” para o caso não reconsultar.)",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "confianca": true,
+                  "motivo": "visto"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": 1.0,
+          "motivo": "visto",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "confiança que é não",
+      "oQueProva": "A confiança é um número de 0 a 1; o que passa é cortado, e o que não é número fica sem confiança. (O resultado é “não deu para avaliar” para o caso não reconsultar.)",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "confianca": false,
+                  "motivo": "visto"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": 0.0,
+          "motivo": "visto",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "confiança que não é número",
+      "oQueProva": "A confiança é um número de 0 a 1; o que passa é cortado, e o que não é número fica sem confiança. (O resultado é “não deu para avaliar” para o caso não reconsultar.)",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "confianca": "alta",
+                  "motivo": "visto"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": null,
+          "motivo": "visto",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "confiança em texto vazio",
+      "oQueProva": "A confiança é um número de 0 a 1; o que passa é cortado, e o que não é número fica sem confiança. (O resultado é “não deu para avaliar” para o caso não reconsultar.)",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "confianca": "",
+                  "motivo": "visto"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": null,
+          "motivo": "visto",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "confiança que é uma lista",
+      "oQueProva": "A confiança é um número de 0 a 1; o que passa é cortado, e o que não é número fica sem confiança. (O resultado é “não deu para avaliar” para o caso não reconsultar.)",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "confianca": [
+                    0.9
+                  ],
+                  "motivo": "visto"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": null,
+          "motivo": "visto",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "confiança que é um objeto",
+      "oQueProva": "A confiança é um número de 0 a 1; o que passa é cortado, e o que não é número fica sem confiança. (O resultado é “não deu para avaliar” para o caso não reconsultar.)",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "confianca": {
+                    "valor": 0.9
+                  },
+                  "motivo": "visto"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": null,
+          "motivo": "visto",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "resposta sem o campo da confiança",
+      "oQueProva": "Campo ausente: sem confiança.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "motivo": "visto"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": null,
+          "motivo": "visto",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "motivo com espaço nas pontas",
+      "oQueProva": "O motivo é aparado nas pontas (com os espaços do Python); o meio fica.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "confianca": 0.9,
+                  "motivo": "\u0085  visto de perto,\nno canto \u00a0\n"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": 0.9,
+          "motivo": "visto de perto,\nno canto",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "motivo vazio",
+      "oQueProva": "Motivo vazio, ou só de espaços, é motivo nenhum.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "confianca": 0.9,
+                  "motivo": "  \n "
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": 0.9,
+          "motivo": null,
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "motivo nulo",
+      "oQueProva": "Motivo nulo é motivo nenhum.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "confianca": 0.9,
+                  "motivo": null
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": 0.9,
+          "motivo": null,
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "resposta sem o campo do motivo",
+      "oQueProva": "Campo ausente: motivo nenhum.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_avaliavel",
+                  "confianca": 0.9
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_avaliavel",
+          "confianca": 0.9,
+          "motivo": null,
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "texto antes da ferramenta",
+      "oQueProva": "O modelo pode escrever antes de chamar a ferramenta: vale a ferramenta.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "text",
+                "text": "Vou analisar a imagem."
+              },
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": 0.9,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "conforme",
+          "confianca": 0.9,
+          "motivo": "a bancada está sem restos de alimento",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "outra ferramenta antes da certa",
+      "oQueProva": "Vale o primeiro bloco da ferramenta `responder`, e não o primeiro bloco de ferramenta.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_outra",
+                "name": "outra",
+                "input": {
+                  "resultado": "nao_conforme",
+                  "confianca": 0.1,
+                  "motivo": "da ferramenta errada"
+                }
+              },
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": 0.9,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "conforme",
+          "confianca": 0.9,
+          "motivo": "a bancada está sem restos de alimento",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "bloco com o nome da ferramenta que não é chamada de ferramenta",
+      "oQueProva": "Só vale o bloco que É uma chamada da ferramenta `responder`: um bloco de outro tipo com esse nome não é a resposta.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "text",
+                "text": "rascunho",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_conforme",
+                  "confianca": 0.1,
+                  "motivo": "do bloco errado"
+                }
+              },
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": 0.9,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "conforme",
+          "confianca": 0.9,
+          "motivo": "a bancada está sem restos de alimento",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "resposta só em texto",
+      "oQueProva": "Sem a ferramenta não há veredito: é erro, e vale tentar de novo.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "text",
+                "text": "Não consegui usar a ferramenta."
+              }
+            ],
+            "stop_reason": "end_turn",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 40
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "erro": {
+          "recuperavel": true
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "resposta com outra ferramenta",
+      "oQueProva": "Ferramenta com outro nome não é a resposta.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_outra",
+                "name": "outra",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": 0.9,
+                  "motivo": "x"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 40
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "erro": {
+          "recuperavel": true
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "resposta sem conteúdo",
+      "oQueProva": "Conteúdo vazio: é erro, e vale tentar de novo.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [],
+            "stop_reason": "max_tokens",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 300
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "erro": {
+          "recuperavel": true
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "resultado que não existe",
+      "oQueProva": "Resultado fora dos três: a saída cortada no meio da ferramenta dá nisto. É erro, e vale tentar de novo.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "talvez",
+                  "confianca": 0.9,
+                  "motivo": "x"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "erro": {
+          "recuperavel": true
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "resultado com outra caixa",
+      "oQueProva": "Só as três palavras, exatamente como são.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "Conforme",
+                  "confianca": 0.9,
+                  "motivo": "x"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "erro": {
+          "recuperavel": true
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "resposta sem o resultado",
+      "oQueProva": "Sem o campo do resultado: erro.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "confianca": 0.9,
+                  "motivo": "x"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "erro": {
+          "recuperavel": true
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "pedido recusado (400)",
+      "oQueProva": "Pedido que a plataforma recusa não muda sozinho: não vale tentar de novo.",
+      "daPlataforma": [
+        {
+          "status": 400,
+          "corpo": {
+            "type": "error",
+            "error": {
+              "type": "invalid_request_error",
+              "message": "messages.0.content.2.image.source.base64: invalid base64 data"
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "erro": {
+          "recuperavel": false
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "chave recusada (401)",
+      "oQueProva": "Chave inválida não passa na segunda tentativa.",
+      "daPlataforma": [
+        {
+          "status": 401,
+          "corpo": {
+            "type": "error",
+            "error": {
+              "type": "authentication_error",
+              "message": "invalid x-api-key"
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "erro": {
+          "recuperavel": false
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "sem permissão ou sem crédito (403)",
+      "oQueProva": "Sem permissão: não vale tentar de novo.",
+      "daPlataforma": [
+        {
+          "status": 403,
+          "corpo": {
+            "type": "error",
+            "error": {
+              "type": "permission_error",
+              "message": "Your credit balance is too low to access the API."
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "erro": {
+          "recuperavel": false
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "modelo que não existe (404)",
+      "oQueProva": "Modelo que a conta não tem: não vale tentar de novo.",
+      "daPlataforma": [
+        {
+          "status": 404,
+          "corpo": {
+            "type": "error",
+            "error": {
+              "type": "not_found_error",
+              "message": "model: claude-haiku-5-5"
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "erro": {
+          "recuperavel": false
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "limite de pedidos (429)",
+      "oQueProva": "Passa sozinho: vale tentar de novo.",
+      "daPlataforma": [
+        {
+          "status": 429,
+          "corpo": {
+            "type": "error",
+            "error": {
+              "type": "rate_limit_error",
+              "message": "This request would exceed your organization's rate limit."
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "erro": {
+          "recuperavel": true
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "erro da plataforma (500)",
+      "oQueProva": "Passa sozinho: vale tentar de novo.",
+      "daPlataforma": [
+        {
+          "status": 500,
+          "corpo": {
+            "type": "error",
+            "error": {
+              "type": "api_error",
+              "message": "Internal server error"
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "erro": {
+          "recuperavel": true
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "plataforma sobrecarregada (529)",
+      "oQueProva": "Passa sozinho: vale tentar de novo.",
+      "daPlataforma": [
+        {
+          "status": 529,
+          "corpo": {
+            "type": "error",
+            "error": {
+              "type": "overloaded_error",
+              "message": "Overloaded"
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "erro": {
+          "recuperavel": true
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "modelo que recusa a escolha forçada é chamado de novo com a escolha livre",
+      "oQueProva": "O 400 que fala de `tool_choice` não é pedido torto: é o modelo que não aceita a ferramenta forçada. Vai de novo, no MESMO modelo, com a escolha livre e o teto de saída maior.",
+      "daPlataforma": [
+        {
+          "status": 400,
+          "corpo": {
+            "type": "error",
+            "error": {
+              "type": "invalid_request_error",
+              "message": "tool_choice: type \"tool\" and \"any\" are not supported for this model."
+            }
+          }
+        },
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": 0.9,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "conforme",
+          "confianca": 0.9,
+          "motivo": "a bancada está sem restos de alimento",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1500,
+          "tokensSaida": 60,
+          "custoCentavos": 0.09720000000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          },
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 2000,
+            "tool_choice": {
+              "type": "auto"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "depois da recusa da escolha, a reconsulta continua valendo",
+      "oQueProva": "Três chamadas: a recusada, a de rotina com a escolha livre, e a reconsulta ao modelo forte.",
+      "daPlataforma": [
+        {
+          "status": 400,
+          "corpo": {
+            "type": "error",
+            "error": {
+              "type": "invalid_request_error",
+              "message": "tool_choice: type \"tool\" and \"any\" are not supported for this model."
+            }
+          }
+        },
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_conforme",
+                  "confianca": 0.5,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1500,
+              "output_tokens": 60
+            }
+          }
+        },
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-sonnet-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "nao_conforme",
+                  "confianca": 0.93,
+                  "motivo": "há restos de alimento no canto direito"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1600,
+              "output_tokens": 700
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "nao_conforme",
+          "confianca": 0.93,
+          "motivo": "há restos de alimento no canto direito",
+          "modelo": "claude-sonnet-5-5",
+          "tokensEntrada": 1600,
+          "tokensSaida": 700,
+          "custoCentavos": 5.605200000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          },
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 2000,
+            "tool_choice": {
+              "type": "auto"
+            }
+          },
+          {
+            "model": "claude-sonnet-5-5",
+            "max_tokens": 2000,
+            "tool_choice": {
+              "type": "auto"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "a escolha livre também recusada é erro",
+      "oQueProva": "Se o modelo recusar também com a escolha livre, é pedido recusado: não vale tentar de novo.",
+      "daPlataforma": [
+        {
+          "status": 400,
+          "corpo": {
+            "type": "error",
+            "error": {
+              "type": "invalid_request_error",
+              "message": "tool_choice: type \"tool\" and \"any\" are not supported for this model."
+            }
+          }
+        },
+        {
+          "status": 400,
+          "corpo": {
+            "type": "error",
+            "error": {
+              "type": "invalid_request_error",
+              "message": "tool_choice: not supported"
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "erro": {
+          "recuperavel": false
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          },
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 2000,
+            "tool_choice": {
+              "type": "auto"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "custo com escrita de cache",
+      "oQueProva": "O que entra no cache custa 1,25 vez a entrada.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": 0.9,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 400,
+              "output_tokens": 100,
+              "cache_creation_input_tokens": 1200,
+              "cache_read_input_tokens": 0
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "conforme",
+          "confianca": 0.9,
+          "motivo": "a bancada está sem restos de alimento",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 400,
+          "tokensSaida": 100,
+          "custoCentavos": 0.1296
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "custo com leitura de cache",
+      "oQueProva": "O que vem do cache custa um décimo da entrada no modelo de rotina.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": 0.9,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 400,
+              "output_tokens": 100,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 1200
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "conforme",
+          "confianca": 0.9,
+          "motivo": "a bancada está sem restos de alimento",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 400,
+          "tokensSaida": 100,
+          "custoCentavos": 0.055080000000000004
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "contas de cache nulas valem zero",
+      "oQueProva": "A plataforma pode mandar nulo nas contas de cache.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": 0.9,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+              "input_tokens": 1234,
+              "output_tokens": 56,
+              "cache_creation_input_tokens": null,
+              "cache_read_input_tokens": null
+            }
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "conforme",
+          "confianca": 0.9,
+          "motivo": "a bancada está sem restos de alimento",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": 1234,
+          "tokensSaida": 56,
+          "custoCentavos": 0.08175600000000001
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nome": "resposta sem a conta dos tokens",
+      "oQueProva": "Sem a conta, não há custo nem tokens — e não se inventa zero.",
+      "daPlataforma": [
+        {
+          "status": 200,
+          "corpo": {
+            "id": "msg_de_exemplo",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "toolu_de_exemplo",
+                "name": "responder",
+                "input": {
+                  "resultado": "conforme",
+                  "confianca": 0.9,
+                  "motivo": "a bancada está sem restos de alimento"
+                }
+              }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": null
+          }
+        }
+      ],
+      "esperado": {
+        "veredito": {
+          "resultado": "conforme",
+          "confianca": 0.9,
+          "motivo": "a bancada está sem restos de alimento",
+          "modelo": "claude-haiku-5-5",
+          "tokensEntrada": null,
+          "tokensSaida": null,
+          "custoCentavos": null
+        },
+        "chamadas": [
+          {
+            "model": "claude-haiku-5-5",
+            "max_tokens": 300,
+            "tool_choice": {
+              "type": "tool",
+              "name": "responder"
+            }
+          }
+        ]
       }
     }
   ]

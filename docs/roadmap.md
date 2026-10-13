@@ -4934,13 +4934,14 @@ aprovado").
 | **3 · Valendo na loja do piloto** | o dono põe a chave da loja do piloto, pelo comando de dentro do serviço; a loja é ligada; os critérios pagos voltam já pelo balcão | quatro chamadas de conferência com imagens geradas por computador (perto de 10 centavos); depois, com a loja aberta: o tempo até a resposta, as falhas e o custo do dia, o do servidor contra o da plataforma. A volta: desligar a chave interna | a chave interna ligada | os critérios pagos de volta, com a cena dos canais escrita; a chave no servidor |
 | **4 · A loja sem chave e sem instruções** | o caminho antigo, as instruções e a chave saem do pacote e do computador da loja, junto com o pacote compilado; a análise das fotos do equipamento passa a ser feita pelo servidor, sem depender do agente ligado; a chave antiga é cancelada na plataforma | procurar as instruções no pacote e no computador da loja, e não achar; o inventário descrevendo um equipamento com o agente desligado | a troca do pacote | uma semana da fase 3 sem problema; o "pode" da troca |
 
-**Onde está a fase 1** (ela entra em três fatias, e nenhuma muda nada na loja):
+**Onde está a fase 1** (ela entra em fatias, e nenhuma muda nada na loja):
 
 | fatia | o que é | situação |
 |---|---|---|
 | **1a · o cadastro** | a conta de IA de cada loja, guardada cifrada; a chave interna, desligada; o teto, em R$ 40,00; os comandos da distribuição | ✅ 13/10 ([decisoes.md](decisoes.md), "O balcão, fase 1a") |
 | **1b · a montagem do pedido** | o pedido com contexto montado pelo servidor, igual, letra por letra, ao que o agente monta hoje — provado por um arquivo de casos que os dois lados leem, gerado pelo código do agente | ✅ 13/10 ([decisoes.md](decisoes.md), "O balcão, fase 1b") |
-| **1c · a porta** | a rota que recebe a dúvida do agente, a chamada à plataforma, o registro do custo e o corte pelo teto | a fazer |
+| **1c · a chamada à plataforma** | o servidor sabe perguntar à plataforma com a conta da loja e ler a resposta como o agente lê: o veredito, o custo, a reconsulta ao modelo forte e o erro que vale (ou não) tentar de novo — provado pelo mesmo arquivo de casos, sem nenhuma chamada de verdade | ✅ 13/10 ([decisoes.md](decisoes.md), "O balcão, fase 1c") |
+| **1d · a porta** | a rota que recebe a dúvida do agente, o registro de cada pergunta e do custo dela, e o corte pelo teto do dia | a fazer |
 
 Nenhuma fase tem tela nova: o motivo "teto do dia" aparece onde a tela já mostra por que um
 critério não foi analisado, e o texto passa pelo dono antes. O balcão só fala o pedido com

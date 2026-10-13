@@ -344,27 +344,44 @@ export function conteudoDoPedido(configuracao: ConfiguracaoDaLoja, item: ItemDaD
 
 // ─────────────────────── a chamada ───────────────────────
 
+/** O modelo de rotina do pedido com contexto, e o forte, da reconsulta. */
+export const MODELO_DE_ROTINA = 'claude-haiku-5-5';
+export const MODELO_FORTE = 'claude-sonnet-5-5';
+
+/** A reconsulta é a MESMA pergunta ao modelo forte, quando a primeira resposta vem com confiança abaixo disto. */
+export const RECONSULTAR_ABAIXO_DE = 0.75;
+
 /**
- * As duas chamadas que um pedido pode virar. A de rotina vai com a
- * ferramenta forçada. A reconsulta é a MESMA pergunta ao modelo forte,
- * quando a primeira resposta vem com confiança abaixo de `abaixoDe` — e ele
- * recusa a escolha forçada: vai com a escolha livre e um teto de saída
- * maior, porque escreve antes de chamar a ferramenta.
+ * Como o modelo chega à ferramenta. Forçada, a resposta é só a ferramenta.
+ * Livre, o modelo escreve antes de chamá-la, e isso conta na saída: o teto
+ * é maior, senão a resposta sairia cortada antes da ferramenta.
  */
+const ESCOLHAS = {
+  forcada: { max_tokens: 300, tool_choice: { type: 'tool', name: 'responder' } },
+  livre: { max_tokens: 2000, tool_choice: { type: 'auto' } },
+} as const;
+export type Escolha = keyof typeof ESCOLHAS;
+
+/** Os modelos que RECUSAM a escolha forçada da ferramenta: vão sempre com a livre. */
+export const SEM_ESCOLHA_FORCADA: readonly string[] = [MODELO_FORTE];
+
+/** As duas chamadas que um pedido pode virar: a de rotina e a reconsulta. */
 export const CHAMADAS = {
-  rotina: { model: 'claude-haiku-5-5', max_tokens: 300, tool_choice: { type: 'tool', name: 'responder' } },
-  reconsulta: { model: 'claude-sonnet-5-5', max_tokens: 2000, tool_choice: { type: 'auto' }, abaixoDe: 0.75 },
+  rotina: { model: MODELO_DE_ROTINA, ...ESCOLHAS.forcada },
+  reconsulta: { model: MODELO_FORTE, ...ESCOLHAS.livre, abaixoDe: RECONSULTAR_ABAIXO_DE },
 } as const;
 
-/** O corpo da chamada à plataforma: as instruções (em cache), a ferramenta e o conteúdo. */
-export function pedidoParaAPlataforma(conteudo: Bloco[], qual: keyof typeof CHAMADAS = 'rotina') {
-  const { model, max_tokens, tool_choice } = CHAMADAS[qual];
+/** O corpo de UMA chamada à plataforma: o modelo, a escolha, as instruções (em cache), a ferramenta e o conteúdo. */
+export function corpoDaChamada(conteudo: Bloco[], modelo: string, escolha: Escolha) {
   return {
-    model,
-    max_tokens,
-    tool_choice,
+    model: modelo,
+    ...ESCOLHAS[escolha],
     system: [{ type: 'text' as const, text: INSTRUCOES_COM_CONTEXTO, cache_control: FIM_DO_FIXO }],
     tools: [FERRAMENTA],
     messages: [{ role: 'user' as const, content: conteudo }],
   };
 }
+
+/** O corpo da chamada de rotina, ou o da reconsulta. */
+export const pedidoParaAPlataforma = (conteudo: Bloco[], qual: keyof typeof CHAMADAS = 'rotina') =>
+  qual === 'rotina' ? corpoDaChamada(conteudo, MODELO_DE_ROTINA, 'forcada') : corpoDaChamada(conteudo, MODELO_FORTE, 'livre');
