@@ -4939,7 +4939,7 @@ aprovado").
 | fatia | o que é | situação |
 |---|---|---|
 | **1a · o cadastro** | a conta de IA de cada loja, guardada cifrada; a chave interna, desligada; o teto, em R$ 40,00; os comandos da distribuição | ✅ 13/10 ([decisoes.md](decisoes.md), "O balcão, fase 1a") |
-| **1b · a montagem do pedido** | o pedido com contexto montado pelo servidor, igual, letra por letra, ao que o agente monta hoje | a fazer |
+| **1b · a montagem do pedido** | o pedido com contexto montado pelo servidor, igual, letra por letra, ao que o agente monta hoje — provado por um arquivo de casos que os dois lados leem, gerado pelo código do agente | ✅ 13/10 ([decisoes.md](decisoes.md), "O balcão, fase 1b") |
 | **1c · a porta** | a rota que recebe a dúvida do agente, a chamada à plataforma, o registro do custo e o corte pelo teto | a fazer |
 
 Nenhuma fase tem tela nova: o motivo "teto do dia" aparece onde a tela já mostra por que um
