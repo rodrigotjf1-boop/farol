@@ -5532,3 +5532,66 @@ da fase 3.
 Cada loja tem o seu, e a distribuição muda com o comando `teto`; com que valor uma loja
 NOVA nasce, na distribuição, é decisão dele.
 
+## 13/10/2026 (manhã) · O balcão, fase 1b: o servidor monta o pedido igual ao do agente, letra por letra
+
+A segunda fatia da fase 1. **Ainda ninguém pergunta nada a plataforma nenhuma:** o que
+entrou é a MONTAGEM do pedido com contexto do lado do servidor (`api/src/balcao/pedido.ts`),
+sem banco, sem rede e sem rota — e a prova de que ela dá o mesmo pedido que o agente monta
+hoje. O agente não mudou: ganhou só um teste.
+
+**A prova é um arquivo que os dois lados leem** (`contratos/pedido-com-contexto.json`):
+31 casos, cada um com a configuração como ela desce para a loja, o item da análise e o
+conteúdo do pedido que sai — ou por que não há pedido. O "esperado" de cada caso não foi
+escrito à mão: é **gerado pelo código do agente**. O teste do agente confere que ele
+continua montando assim; o do servidor exige o mesmo conteúdo, com as chaves na mesma
+ordem. Mudou o texto de um lado, o teste do outro quebra.
+
+| o que os casos cobrem | exemplos |
+|---|---|
+| as formas do pedido | critério de quadro (com o mapa em esquema e em fotografia) e critério geral (a imagem completa, sem mapa); com e sem foto padrão; a comparação que não deu "igual" |
+| o que vai na pergunta | o "como deve ser" numa linha só; o aviso de que o cinza em volta foi apagado; os equipamentos da área (só os quatro primeiros que têm nome e descrição) |
+| os textos da configuração | cada um com o seu teto (negócio 80, nomes 60, cena 2000, lugar 400, descrição 500 letras) e o corte dito com reticências; negócio, setor e câmera que faltam; quadro com papel desconhecido, sem nome, com número torto |
+| de quem é o quê | dois canais na mesma loja; o mesmo critério em duas áreas do canal |
+| o que NÃO vira pedido | canal sem a cena escrita; quadro sem o mapa; critério que saiu da configuração; presença, contagem, critério urgente e loja em modo local (nada disso vai para fora) |
+
+**Três coisas que o porte tinha de acertar, e que um porte "no olho" erraria:**
+
+1. **O que é espaço em branco.** O agente é Python, e o Python conta como espaço 29
+   caracteres — entre eles U+0085 e U+001C a U+001F, que o JavaScript não conta; e não
+   conta U+FEFF, que o JavaScript conta. O servidor usa a lista do Python (ela está no
+   contrato, calculada pelo próprio Python, e os dois lados conferem).
+2. **O tamanho de um texto.** O Python conta letras; o JavaScript conta unidades de 16
+   bits, e um emoji vale duas. O teto e o corte, no servidor, contam letra.
+3. **Papel de quadro com nome de coisa do JavaScript** (`constructor`, `toString`): no
+   servidor ganharia um rótulo absurdo. Tem caso no contrato, e não ganha.
+
+**O plano dizia "da loja só saem imagens". Saem também três fatos sobre elas**, que só a
+loja sabe porque vêm dos pixels ou do que ela tem em disco, e que mudam o texto do pedido:
+se o cinza em volta da área foi apagado; se o mapa do canal é o esquema ou a fotografia; e
+que foto padrão a loja escolheu para ir junto. Vão como três campos pequenos, com a dúvida
+(a fatia 1c). Não são lógica: são fatos sobre as imagens. Todo o resto do texto — a cena, os
+quadros, o lugar, os equipamentos, o "como deve ser" — o servidor tira do que ele mesmo
+guarda.
+
+**O servidor recusa o que a loja já não manda** (segunda tranca) e confere mais do que o
+agente: o critério tem de ser daquela área daquele canal; a foto padrão tem de ser daquele
+canal, e só vai quando o critério pede; comparação sem a foto não pergunta.
+
+**As instruções** (o texto fixo de como julgar) passam a morar também no servidor
+(`api/src/balcao/instrucoes.ts`), geradas a partir das do agente — não redigitadas. Nenhuma
+rota as devolve. O contrato não guarda o texto delas: guarda o resumo (sha256), e cada lado
+confere o seu.
+
+**Como foi conferido.** Os 31 casos, dos dois lados. Estragos de propósito, um por vez, em
+cópias do código: 142 no montador do servidor e 53 no do agente — todos pegos pelos testes.
+Na primeira rodada passaram sete (quatro no servidor, três no agente), e cada um teve a sua
+resposta: dois eram conferência repetida no servidor (o código ficou mais simples); três
+eram casos que faltavam no contrato (entraram: os papéis de quadro, a cena vazia, o nome
+do setor acima do teto); e dois eram estragos que não mudavam nada (um mal escrito, e um
+num trecho que só serve ao pedido antigo). No agente, o papel desconhecido vira "sem papel"
+em dois lugares: tirar um só não muda o pedido, e isso ficou anotado no roteiro. A suíte
+inteira da API e a do agente.
+
+**O que falta da fase 1:** a 1c — a porta que recebe a dúvida do agente, a chamada à
+plataforma com a conta da loja, o registro do custo e o corte pelo teto.
+
