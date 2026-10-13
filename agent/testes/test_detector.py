@@ -13,6 +13,10 @@ O que estes testes protegem é a consequência: **casaco não vira alerta**.
 
 from __future__ import annotations
 
+import logging
+import sys
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
@@ -23,11 +27,15 @@ from farol_agent.juizes.detector import (
     DUVIDA,
     MODELO_SHA256,
     OBJETOS,
+    REGUA_DA_PLACA,
     JuizDetector,
     MotorOnnx,
     Procura,
+    cenas_de_prova,
     decidir,
+    distancia_entre_respostas,
     interpretar_saida,
+    provar_a_placa,
 )
 from farol_agent.juizes.seletor import JuizPorRegra, SeletorDeJuiz
 from farol_agent.modelos import Resultado, TipoRegra, Via
@@ -286,6 +294,275 @@ def test_arquivo_que_NAO_e_o_modelo_medido_nao_carrega(tmp_path):
     with pytest.raises(ErroDoJuiz, match="não é o modelo medido"):
         MotorOnnx(falso)
     assert len(MODELO_SHA256) == 64
+
+
+# ─────────────── a placa de vídeo só fica se passar na prova ───────────────
+#
+# Medido em 13/10/2026 (ERR-112): numa Intel UHD com driver de 2022, a sessão
+# abre na placa sem erro e sem aviso, e o modelo responde LIXO — "ninguém" num
+# vídeo com 3 a 7 pessoas por quadro, maior nota 0,04. Na RX 560 da loja do
+# piloto, a placa responde igual ao processador. O agente confiava na placa
+# sempre que a sessão abria.
+
+
+class _Sessao:
+    """Uma sessão de mentira: sabe onde roda e conta quantas vezes rodou."""
+
+    def __init__(self, provedores, responder):
+        self._provedores, self._responder, self.rodadas = list(provedores), responder, 0
+
+    def get_providers(self):
+        return list(self._provedores)
+
+    def get_inputs(self):
+        return [SimpleNamespace(name="pixel_values")]
+
+    def get_outputs(self):
+        return [SimpleNamespace(name="pred_boxes"), SimpleNamespace(name="logits")]
+
+    def run(self, nomes, entradas):
+        self.rodadas += 1
+        assert nomes == ["logits"], nomes
+        return [self._responder(entradas["pixel_values"])]
+
+
+def _certa(tensor):
+    """A resposta "de verdade" do modelo de mentira: 300 candidatos x 91
+    classes, com números que dependem da entrada — cenas diferentes,
+    respostas diferentes; a mesma cena, a mesma resposta."""
+    semente = int(float(np.abs(tensor).sum()) * 1000) % (2**32)
+    return np.random.default_rng(semente).normal(-4.0, 1.5, (1, 300, 91)).astype(np.float32)
+
+
+def _lixo(tensor):
+    """O caso medido: todo candidato com a mesma nota baixa (0,04), qualquer
+    que seja a imagem."""
+    return np.full((1, 300, 91), -3.16, np.float32)
+
+
+def _que_levanta(tensor):
+    raise RuntimeError("DmlFusedNode_0_0: status diferente de zero")
+
+
+def _com_nan(tensor):
+    resposta = _certa(tensor)
+    resposta[0, 5, 9] = np.nan
+    return resposta
+
+
+def _de_outro_tamanho(tensor):
+    return np.zeros((1, 300, 4), np.float32)
+
+
+class _Ort:
+    """O `onnxruntime` de mentira. `da_placa` é o que a placa de vídeo responde."""
+
+    def __init__(
+        self, *, provedores=("DmlExecutionProvider", "CPUExecutionProvider"), da_placa=_certa,
+        a_placa_abre=True, o_processador_abre=True,
+    ):
+        self._provedores, self._da_placa = provedores, da_placa
+        self._a_placa_abre, self._o_processador_abre = a_placa_abre, o_processador_abre
+        self.abertas: list[_Sessao] = []
+
+    def get_available_providers(self):
+        return list(self._provedores)
+
+    def InferenceSession(self, caminho, providers=None, **_):  # noqa: N802 — o nome é o da biblioteca
+        if providers[0] == "DmlExecutionProvider":
+            if not self._a_placa_abre:
+                raise RuntimeError("a placa não abriu")
+            sessao = _Sessao(["DmlExecutionProvider", "CPUExecutionProvider"], self._da_placa)
+        else:
+            if not self._o_processador_abre:
+                raise RuntimeError("sem memória para a segunda sessão")
+            sessao = _Sessao(["CPUExecutionProvider"], _certa)
+        self.abertas.append(sessao)
+        return sessao
+
+    def de(self, provedor):
+        return [s for s in self.abertas if s.get_providers()[0] == provedor]
+
+
+def _motor(monkeypatch, tmp_path, ort):
+    monkeypatch.setitem(sys.modules, "onnxruntime", ort)
+    arquivo = tmp_path / "rfdetr-nano.onnx"
+    arquivo.write_bytes(b"modelo de mentira")
+    return MotorOnnx(arquivo, conferir_sha256=False)
+
+
+_QUADRO = np.full((480, 704, 3), 77, np.uint8)
+# O que o modelo de mentira responde para esse quadro, depois do preparo do agente.
+_DO_QUADRO = interpretar_saida(_certa(np.full((1, 3, 384, 384), 77, np.float32) / 255.0), "person")
+
+
+def test_a_placa_que_responde_igual_ao_processador_fica(monkeypatch, tmp_path, caplog):
+    # Igual a menos do arredondamento e da ORDEM das linhas: o modelo escolhe os
+    # trezentos candidatos lá dentro, e a placa pode devolvê-los em outra ordem.
+    ort = _Ort(da_placa=lambda t: np.roll(_certa(t), 7, axis=1) + np.float32(1e-4))
+    with caplog.at_level(logging.WARNING):
+        motor = _motor(monkeypatch, tmp_path, ort)
+
+    assert motor.onde == "DmlExecutionProvider"
+    assert motor.placa_reprovada is None
+    assert caplog.records == []
+    (placa,), (processador,) = ort.de("DmlExecutionProvider"), ort.de("CPUExecutionProvider")
+    assert (placa.rodadas, processador.rodadas) == (3, 3), "a prova são as três cenas, nas duas"
+    motor.pontuar(_QUADRO, "person")
+    assert (placa.rodadas, processador.rodadas) == (4, 3), "aprovada, é a placa que roda o detector"
+
+
+def test_a_placa_que_responde_LIXO_perde_o_detector_para_o_processador(monkeypatch, tmp_path, caplog):
+    ort = _Ort(da_placa=_lixo)
+    with caplog.at_level(logging.WARNING):
+        motor = _motor(monkeypatch, tmp_path, ort)
+
+    assert motor.onde == "CPUExecutionProvider"
+    assert "respondeu diferente do processador" in motor.placa_reprovada
+    avisos = [r.getMessage() for r in caplog.records]
+    assert len(avisos) == 1 and "placa de vídeo" in avisos[0] and "vai rodar no processador" in avisos[0]
+    assert motor.placa_reprovada in avisos[0]
+
+    (placa,), (processador,) = ort.de("DmlExecutionProvider"), ort.de("CPUExecutionProvider")
+    notas = motor.pontuar(_QUADRO, "person")
+    assert (placa.rodadas, processador.rodadas) == (3, 4), "reprovada, a placa não roda mais nada"
+    assert notas == _DO_QUADRO and len(notas) > 0, "e a resposta é a do processador"
+
+
+@pytest.mark.parametrize(
+    "da_placa, trecho",
+    [
+        (_que_levanta, "não conseguiu rodar a prova (RuntimeError)"),
+        (_de_outro_tamanho, "não conseguiu rodar a prova (ValueError)"),
+        (_com_nan, "respondeu diferente do processador (diferença nan"),
+    ],
+)
+def test_a_placa_que_nao_roda_a_prova_ou_responde_NaN_tambem_perde(monkeypatch, tmp_path, da_placa, trecho):
+    motor = _motor(monkeypatch, tmp_path, _Ort(da_placa=da_placa))
+
+    assert motor.onde == "CPUExecutionProvider"
+    assert trecho in motor.placa_reprovada
+    assert motor.pontuar(_QUADRO, "person") == _DO_QUADRO
+
+
+@pytest.mark.parametrize("qual", [0, 1, 2])
+def test_basta_UMA_cena_errada_para_reprovar(monkeypatch, tmp_path, qual):
+    vez = iter(range(3))
+
+    def so_erra_numa(tensor):
+        return _lixo(tensor) if next(vez) == qual else _certa(tensor)
+
+    motor = _motor(monkeypatch, tmp_path, _Ort(da_placa=so_erra_numa))
+
+    assert motor.onde == "CPUExecutionProvider", f"errou só na cena {qual + 1} e ficou"
+
+
+@pytest.mark.parametrize("fator, fica", [(0.9, True), (1.1, False)])
+def test_a_regua_e_a_medida(monkeypatch, tmp_path, fator, fica):
+    """Placa certa: 0,00001. Placa com lixo: de 1,25 a 2,18. A régua fica no
+    meio, longe das duas — e é com ela que a placa é julgada."""
+    assert REGUA_DA_PLACA == 0.05
+    desvio = np.float32(REGUA_DA_PLACA * fator)
+
+    motor = _motor(monkeypatch, tmp_path, _Ort(da_placa=lambda t: _certa(t) + desvio))
+
+    assert (motor.onde == "DmlExecutionProvider") is fica
+    assert (motor.placa_reprovada is None) is fica
+
+
+def test_sem_placa_nao_tem_prova_nem_segunda_sessao(monkeypatch, tmp_path, caplog):
+    ort = _Ort(provedores=("CPUExecutionProvider",))
+    with caplog.at_level(logging.WARNING):
+        motor = _motor(monkeypatch, tmp_path, ort)
+
+    assert motor.onde == "CPUExecutionProvider" and motor.placa_reprovada is None
+    assert len(ort.abertas) == 1 and ort.abertas[0].rodadas == 0
+    assert caplog.records == []
+
+
+def test_a_placa_que_nem_abre_cai_no_processador_como_sempre(monkeypatch, tmp_path, caplog):
+    ort = _Ort(a_placa_abre=False)
+    with caplog.at_level(logging.WARNING):
+        motor = _motor(monkeypatch, tmp_path, ort)
+
+    assert motor.onde == "CPUExecutionProvider"
+    # Não abriu é outra história, e já era tratada: não é "reprovada na prova".
+    assert motor.placa_reprovada is None
+    assert len(ort.abertas) == 1 and ort.abertas[0].rodadas == 0
+    assert ["não abriu na placa de vídeo" in r.getMessage() for r in caplog.records] == [True]
+
+
+def test_sem_o_processador_para_comparar_a_placa_fica_e_o_registro_diz(monkeypatch, tmp_path, caplog):
+    ort = _Ort(da_placa=_lixo, o_processador_abre=False)
+    with caplog.at_level(logging.WARNING):
+        motor = _motor(monkeypatch, tmp_path, ort)
+
+    assert motor.onde == "DmlExecutionProvider" and motor.placa_reprovada is None
+    assert ["sem a prova" in r.getMessage() for r in caplog.records] == [True]
+
+
+def test_as_cenas_de_prova_sao_tres_sempre_as_mesmas_no_formato_do_modelo():
+    primeira, segunda = cenas_de_prova(), cenas_de_prova()
+
+    assert len(primeira) == 3
+    for a, b in zip(primeira, segunda):
+        assert a.shape == (1, 3, 384, 384) and a.dtype == np.float32
+        assert 0.0 <= float(a.min()) and float(a.max()) <= 1.0
+        assert np.array_equal(a, b)
+    ruido, blocos, liso = primeira
+    assert float(liso.std()) == 0.0 and float(ruido.std()) > 0.1 and float(blocos.std()) > 0.1
+    assert not np.array_equal(ruido, blocos)
+
+
+def test_a_distancia_nao_liga_para_a_ordem_das_linhas_e_acusa_o_lixo():
+    certa = _certa(cenas_de_prova()[0])
+
+    assert distancia_entre_respostas(np.roll(certa, 11, axis=1), certa) == 0.0
+    assert distancia_entre_respostas(certa + np.float32(0.25), certa) == pytest.approx(0.25, abs=1e-4)
+    assert distancia_entre_respostas(_lixo(None), certa) > 1.0
+    # É a MÉDIA, e não o pior número: um candidato fora, entre 27.300, não reprova ninguém.
+    com_um_fora = certa.copy()
+    com_um_fora[0, 0, 0] += 10.0
+    assert distancia_entre_respostas(com_um_fora, certa) < 0.001
+    assert np.isnan(distancia_entre_respostas(_com_nan(cenas_de_prova()[0]), certa))
+    with pytest.raises(ValueError):
+        distancia_entre_respostas(certa[:, :10], certa)
+    with pytest.raises(ValueError):
+        distancia_entre_respostas(np.zeros(0), np.zeros(0))
+
+
+def test_a_prova_devolve_a_MAIOR_distancia_e_o_NaN_nao_some():
+    processador = _Sessao(["CPUExecutionProvider"], _certa)
+    desvios = iter([0.01, 0.30, 0.02])
+    placa = _Sessao(["DmlExecutionProvider"], lambda t: _certa(t) + np.float32(next(desvios)))
+    assert provar_a_placa(placa, processador) == pytest.approx(0.30, abs=1e-4)
+
+    # NaN só na SEGUNDA cena, e as outras certas: num `max` ingênuo ele sumiria
+    # (o `max` só fica com o NaN quando ele é o primeiro da lista).
+    vez = iter([False, True, False])
+    placa = _Sessao(["DmlExecutionProvider"], lambda t: _com_nan(t) if next(vez) else _certa(t))
+    assert np.isnan(provar_a_placa(placa, processador))
+
+
+@pytest.mark.parametrize("da_placa, reprovada", [(_lixo, True), (_certa, False)])
+def test_cli_instalar_diz_quando_a_placa_foi_reprovada(monkeypatch, tmp_path, capsys, da_placa, reprovada):
+    # Dito na instalação, que é quando tem alguém olhando a tela.
+    from farol_agent.cli import main
+    from farol_agent.juizes import detector
+
+    arquivo = tmp_path / "rfdetr-nano.onnx"
+    arquivo.write_bytes(b"modelo de mentira")
+    monkeypatch.setattr(detector, "instalar_modelo", lambda pasta: arquivo)
+    monkeypatch.setattr(detector, "MODELO_SHA256", detector.sha256_de(arquivo))
+    monkeypatch.setitem(sys.modules, "onnxruntime", _Ort(da_placa=da_placa))
+
+    assert main(["detector", "instalar", "--pasta", str(tmp_path)]) == 0
+
+    saida = capsys.readouterr().out
+    assert ("roda em CPUExecutionProvider" in saida) is reprovada
+    assert ("roda em DmlExecutionProvider" in saida) is not reprovada
+    assert ("a placa de vídeo desta máquina respondeu diferente do processador" in saida) is reprovada
+    assert ("o detector roda no processador" in saida) is reprovada
 
 
 # ─────────────────── quem julga presença e contagem ───────────────────

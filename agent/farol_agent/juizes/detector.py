@@ -342,8 +342,86 @@ def interpretar_saida(logits: np.ndarray, classe: str) -> list[float]:
     return [float(p) for p in prob if p >= _PISO]
 
 
+# ───────────────────────────── a prova da placa ─────────────────────────────
+
+# A sessão ABRIR na placa de vídeo não prova que a placa responde certo.
+# Medido em 13/10/2026, com este mesmo modelo e o onnxruntime-directml 1.24.4:
+#
+#   - numa RX 560 (a loja do piloto), a placa respondeu igual ao processador:
+#     a distância abaixo ficou em 0,00001 nas três cenas de prova;
+#   - numa Intel UHD com driver de 2022, a sessão abriu sem erro e sem aviso,
+#     e a placa respondeu LIXO: distância de 1,25 a 2,18 — e, num vídeo com 3
+#     a 7 pessoas por quadro, "ninguém" em todos os quadros (maior nota 0,04).
+#
+# Para o detector, "não vi" é veredito. Numa máquina assim, toda regra de
+# presença diria "posto vazio" para sempre, com confiança alta (a forma do
+# ERR-024, só que na máquina, e não no código). Por isso a placa só fica se
+# passar na prova; a que não passa perde o detector para o processador.
+REGUA_DA_PLACA = 0.05
+
+
+def cenas_de_prova() -> list[np.ndarray]:
+    """Três entradas DE MENTIRA, sempre as mesmas, já no formato do modelo:
+    ruído ampliado, blocos coloridos e cinza liso.
+
+    São as cenas com que a régua foi medida. Nenhuma imagem de câmera entra
+    na prova, e nada é baixado nem lido do disco.
+    """
+    import cv2
+
+    rng = np.random.default_rng(20261013)
+    ruido = cv2.resize(
+        rng.integers(0, 255, (48, 48, 3), dtype=np.uint8), (_LADO, _LADO),
+        interpolation=cv2.INTER_CUBIC,
+    )
+    blocos = np.full((_LADO, _LADO, 3), 90, np.uint8)
+    for _ in range(30):
+        x0, y0 = int(rng.integers(0, _LADO - 40)), int(rng.integers(0, _LADO - 40))
+        largura, altura = int(rng.integers(20, 160)), int(rng.integers(20, 160))
+        cor = tuple(int(c) for c in rng.integers(0, 255, 3))
+        cv2.rectangle(
+            blocos, (x0, y0), (min(x0 + largura, _LADO - 1), min(y0 + altura, _LADO - 1)), cor, -1
+        )
+    liso = np.full((_LADO, _LADO, 3), 128, np.uint8)
+    return [np.transpose(c.astype(np.float32) / 255.0, (2, 0, 1))[None] for c in (ruido, blocos, liso)]
+
+
+def distancia_entre_respostas(a: Any, b: Any) -> float:
+    """A média da diferença entre os números crus de duas respostas, cada
+    uma ORDENADA.
+
+    Ordenadas porque o modelo escolhe os trezentos candidatos dentro dele:
+    uma diferença de arredondamento troca a ordem das linhas sem mudar o que
+    foi visto, e comparar linha com linha acusaria uma placa que está certa.
+    Resposta com número que não é número (NaN) devolve NaN — que quem chama
+    tem de ler como reprovação.
+    """
+    x = np.sort(np.asarray(a, dtype=np.float64).ravel())
+    y = np.sort(np.asarray(b, dtype=np.float64).ravel())
+    if x.size == 0 or x.shape != y.shape:
+        raise ValueError(f"respostas de tamanhos diferentes: {x.size} e {y.size}")
+    return float(np.abs(x - y).mean())
+
+
+def provar_a_placa(da_placa: Any, do_processador: Any) -> float:
+    """Roda as cenas de prova nas duas sessões e devolve a MAIOR distância
+    entre as respostas (NaN, se alguma for NaN). Levanta o que a placa
+    levantar ao rodar."""
+    entrada = do_processador.get_inputs()[0].name
+    distancias = []
+    for cena in cenas_de_prova():
+        (certa,) = do_processador.run(["logits"], {entrada: cena})
+        (dela,) = da_placa.run(["logits"], {entrada: cena})
+        distancias.append(distancia_entre_respostas(dela, certa))
+    # NaN não é maior nem menor que nada: num `max`, ele some conforme a ordem.
+    if any(d != d for d in distancias):
+        return float("nan")
+    return max(distancias)
+
+
 class MotorOnnx:
-    """RF-DETR Nano pelo ONNX Runtime. Usa a placa de vídeo quando há."""
+    """RF-DETR Nano pelo ONNX Runtime. Usa a placa de vídeo quando há — e
+    quando ela passa na prova (`provar_a_placa`)."""
 
     nome = MODELO_NOME
 
@@ -380,6 +458,11 @@ class MotorOnnx:
             self._sessao = ort.InferenceSession(
                 str(self.caminho), providers=["CPUExecutionProvider"]
             )
+        # A sessão abrir na placa não prova que ela responde certo: a placa
+        # só fica se passar na prova. Por que a placa foi recusada, quando foi.
+        self.placa_reprovada: str | None = None
+        if self._sessao.get_providers()[0] != "CPUExecutionProvider":
+            self._conferir_a_placa(ort)
         # A placa de vídeo (DirectML) não aceita duas inferências ao mesmo
         # tempo na mesma sessão. Quem usa o detector são duas linhas de
         # execução — a auditoria e o quadro de preview —, então a chamada
@@ -390,6 +473,42 @@ class MotorOnnx:
         saidas = [o.name for o in self._sessao.get_outputs()]
         if "logits" not in saidas:
             raise ErroDoJuiz(f"o modelo não tem a saída 'logits' (tem {saidas})", recuperavel=False)
+
+    def _conferir_a_placa(self, ort: Any) -> None:
+        """A prova da placa, na partida: as mesmas cenas nas duas sessões. A
+        placa que responde diferente do processador — ou que nem roda a
+        prova — perde o detector para ele, e o registro diz por quê."""
+        try:
+            do_processador = ort.InferenceSession(
+                str(self.caminho), providers=["CPUExecutionProvider"]
+            )
+        except Exception as e:  # noqa: BLE001
+            # Sem a resposta do processador não há com o que comparar. Fica a
+            # placa, como sempre foi, e o registro diz que ela não foi provada.
+            _log.warning(
+                "não deu para provar a placa de vídeo (%s): o detector segue nela, sem a prova", e
+            )
+            return
+        try:
+            distancia = provar_a_placa(self._sessao, do_processador)
+            # `<=` com NaN é falso: resposta com NaN é reprovação.
+            motivo = (
+                None
+                if distancia <= REGUA_DA_PLACA
+                else f"respondeu diferente do processador (diferença {distancia:.2f}; "
+                f"o aceito é até {REGUA_DA_PLACA})"
+            )
+        except Exception as e:  # noqa: BLE001
+            motivo = f"não conseguiu rodar a prova ({type(e).__name__})"
+        if motivo is None:
+            return
+        _log.warning(
+            "a placa de vídeo abriu o detector mas %s: o detector vai rodar no processador. "
+            "É da placa ou do driver dela, não do modelo — no processador a resposta é a certa.",
+            motivo,
+        )
+        self._sessao = do_processador
+        self.placa_reprovada = motivo
 
     def pontuar(self, imagem_bgr: np.ndarray, classe: str) -> list[float]:
         import cv2

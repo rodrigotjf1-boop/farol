@@ -5736,3 +5736,68 @@ chave interna desligada, ele pergunta como hoje) —, que muda o pacote da loja 
 "pode" da troca; e, para a fase 3, o dono põe a chave da loja do piloto pelo comando de
 dentro do serviço.
 
+## 13/10/2026 (manhã) · A prova da placa: o detector só fica na placa de vídeo se ela responder igual ao processador
+
+**O que foi achado.** No estudo das bibliotecas de imagem (pedido do dono), rodei o modelo
+do detector — o mesmo arquivo, conferido pelo sha256 — fora da loja, num computador com
+placa integrada da Intel (UHD, driver de 12/2022) e a mesma roda `onnxruntime-directml`
+1.24.4 da loja. A sessão abre na placa sem erro e sem aviso, e **a placa responde lixo**:
+
+| | processador | placa de vídeo |
+|---|---|---|
+| pessoas com certeza em 8 quadros de um vídeo público (pedestres) | 3, 5, 7, 6, 3, 4, 6, 7 | **0 em todos** |
+| a maior nota de qualquer candidato | 0,89 a 0,92 | 0,04, sempre, qualquer que seja a imagem |
+
+Com a classe do próprio agente (`MotorOnnx.pontuar`), o mesmo resultado. O agente tratava
+"a sessão abriu na placa" como "a placa responde certo". Num computador assim, toda regra
+de presença diria "posto vazio" para sempre, com confiança alta — e nada no registro
+diria que há algo errado (ERR-112).
+
+**A loja do piloto não tem o defeito.** Medido lá no mesmo dia, só leitura: em 13 entradas
+(uma cena de mentira e 6 quadros do fluxo principal da gravação guardada, inteiros e
+recortados — as imagens só na memória do roteiro), a RX 560 respondeu **igual** ao
+processador (diferença de 0,000 nas vinte maiores notas). De quebra: uma inferência custa
+106 ms no processador da loja e 89 ms na placa.
+
+**A decisão: a placa só fica se passar na prova, na partida.** Três cenas de mentira,
+sempre as mesmas (ruído ampliado, blocos coloridos, cinza liso), rodam na placa e no
+processador; mede-se a média da diferença entre os números crus de cada resposta,
+**ordenados** — o modelo escolhe os trezentos candidatos lá dentro, e uma diferença de
+arredondamento troca a ordem das linhas sem mudar o que foi visto.
+
+| | a diferença, nas três cenas |
+|---|---|
+| a placa que acerta (RX 560, a loja) | 0,00001 · 0,00001 · 0,00000 |
+| a placa que erra (Intel UHD) | 1,25 · 2,18 · 1,84 |
+| **a régua** | **0,05** — cinco mil vezes acima de quem acerta, vinte e cinco vezes abaixo de quem erra |
+
+Acima da régua em **qualquer** cena, resposta com número que não é número, ou placa que nem
+roda a prova: o detector passa para o processador, o registro diz por quê e o
+`farol-agent detector instalar` mostra na tela (é quando tem alguém olhando). Custa uma
+sessão a mais no processador e seis inferências, uma vez, ao subir. Sem placa não há prova
+nem segunda sessão.
+
+**O que NÃO foi feito, e por quê:**
+
+- *Descobrir por que esta placa erra.* Com a entrada de tamanho fixo o DirectML dá erro ao
+  rodar; sem otimizar o grafo o provedor nem inicia. Não importa para a decisão: driver é
+  coisa da máquina do cliente, e o agente não pode depender de ele estar em dia.
+- *Deixar de usar a placa.* Na loja ela acerta e é 16% mais rápida que o processador.
+- *Provar com imagem de câmera.* A prova não pode depender de ter alguém na frente da
+  câmera na hora em que o agente sobe; as cenas de mentira separam quem acerta de quem erra
+  por cinco ordens de grandeza.
+
+**O piloto não é a regra do motor.** A placa da loja do piloto funcionar não dizia nada
+sobre a da próxima loja. O que depende de driver se prova em cada máquina, a cada partida.
+
+**Conferido:** 18 testes novos em `agent/testes/test_detector.py`; 32 estragos de propósito,
+um por vez, em cópia — todos pegos; a suíte inteira do agente (1.583 passam, 1 pulado). E
+a prova de ponta a ponta, na máquina do defeito: com a correção o agente avisa no registro
+("respondeu diferente do processador (diferença 2.18; o aceito é até 0.05)"), abre o
+detector no processador e vê 3, 5, 7, 6, 3, 4, 6 e 7 pessoas.
+
+**Na loja:** chega na próxima troca de pacote (que pede o "pode"). Lá a placa passa na
+prova e continua sendo usada; o que muda é cerca de 1 segundo a mais na subida (abrir a
+sessão do processador levou 0,4 s na máquina de desenvolvimento, e são seis inferências de
+0,1 s cada).
+
