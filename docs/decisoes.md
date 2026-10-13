@@ -5396,3 +5396,67 @@ No mesmo dia o Regem também passou a converter quilo e grama, litro e ml sem ca
 unidade informada na ficha pode vir como "grama", "ml" ou "porção"). No Farol a unidade do
 ingrediente é texto livre e só é mostrada: conferido, sem ajuste.
 
+## 13/10/2026 (madrugada) · O pacote `b9c99de` na loja
+
+Trocado em 13/10, às 3h08, com a loja fechada (o turno de segunda termina às 3h), com o
+"pode" que o dono deu na noite anterior. Leva de uma vez as fatias 1.1b, 1.2a, 1.3 e 1.5, a
+correção do aviso de "continua fora" (ERR-110) e o ajuste de custo da leitura contínua.
+
+Conferido: a loja estava fechada e a troca ainda não tinha sido feita; o arquivo na loja era
+idêntico ao daqui; o agente subiu de primeira, com a configuração de sempre e o detector na
+placa de vídeo; nenhum aviso nem erro no registro, na subida e três minutos depois; as
+marcas de cada fatia nos arquivos e as seis colunas novas no resumo da hora; o pacote
+anterior (`9831ae0`) guardado para a volta.
+
+As contagens da leitura contínua nascem em zero com a loja fechada, de propósito: só somam
+em critério que vale na hora. A semana de números conta das 19h de 13/10. O "pode" valeu
+para esta troca; a seguinte, que leva a correção do borrão de rosto (ERR-111), pede outro.
+
+## 13/10/2026 (madrugada) · O balcão aprovado: as três respostas do dono, e o que elas mudam no desenho
+
+À página do plano ("O balcão: o plano para a dúvida passar pelo nosso servidor"):
+
+1. **O plano:** "aprovo as quatro fases; cada troca na loja espera o meu pode".
+2. **O teto de gasto por loja, por dia, no piloto:** "até 40,00 por dia". (O recomendado
+   era R$ 5,00; o teto é do dono, e ele muda sem trocar pacote.)
+3. **Quem paga a plataforma, na distribuição:** "só a conta do lojista, com a chave dele
+   guardada cifrada no nosso servidor".
+
+O que a terceira resposta muda, **desde a fase 1**: a chave da plataforma não é uma do
+serviço — é **uma por loja**, da conta de quem é dono da loja, guardada cifrada no banco
+(do jeito que o acesso de cada loja ao Regem já é: `api/src/cifra.ts`, presa à loja), e
+nunca devolvida por rota nenhuma. O piloto entra pelo mesmo caminho: a chave da loja do
+piloto é a do dono. Enquanto a tela "conectar a conta de IA" não existe (é a pendência P1,
+com protótipo antes), quem põe a chave é a distribuição, de dentro do serviço, por um
+comando que pergunta sem mostrar o que se digita — nunca como argumento. A pendência P1
+fica assim: a decisão de onde a chave mora está tomada (no servidor, cifrada); continua
+aberto o cartão da tela, com o passo a passo de cada plataforma.
+
+Com isso a regra "nada fora de um módulo presume a plataforma" vale também para a chave:
+cada loja tem a plataforma dela e a chave dela, e o balcão pergunta com as duas.
+
+## 13/10/2026 (madrugada) · O expediente de pico, guardado à parte na loja — e o que o gravador guarda
+
+Pedido do dono: "deixe uma cópia das imagens do expediente de hoje a partir das 19:30 até as
+23:59 do dia 12 que teremos muito material para testes e padrões de uso."
+
+**O que foi medido antes de copiar** (13/10, por volta das 5h, do computador da loja):
+
+| o quê | o resultado |
+|---|---|
+| até quando o gravador guarda | às 4h58 ele tinha a gravação das 12h de 12/10 e não tinha a das 11h: **perto de 17 horas**. O começo da janela pedida sumiria por volta das 12h30 de 13/10 |
+| a velocidade com que ele entrega a gravação | um pedido sozinho: 0,89 MB/s, 3,1 vezes o tempo real; **dois juntos somam o mesmo** (0,47 + 0,39 MB/s) — o limite é o cabo, em 10 Mbit/s |
+| o fluxo gravado | só o principal, perto de 2,2 Mbit/s por canal (1 GB por hora); o fluxo menor não é gravado |
+| o relógio do gravador | 21 s adiantado em relação ao computador |
+
+**O que se guarda:** os seis canais configurados no Farol (montagem 1, visão geral da
+montagem, chapa e os três de atendimento), em pedaços de cinco minutos, em
+`C:\Farol\guardado\expediente-2026-10-12\` — a pasta que o dono autorizou para guardar
+material à parte. **As imagens não saem da loja.** Os outros canais do gravador não foram
+copiados: não cabem no tempo. O canal da montagem vai primeiro, inteiro; os outros cinco
+vão intercalados, do mais antigo para o mais novo, que é a ordem em que o gravador apaga.
+
+Cuidados com o gravador: um pedido por vez; pedido recusado não se repete (a conta é a mesma
+do ao vivo); a cópia para sozinha antes de a loja abrir. O andamento e o que entrou, pedaço
+a pedaço, ficam na própria pasta (`registros.csv`).
+
