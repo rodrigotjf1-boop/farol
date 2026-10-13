@@ -78,6 +78,42 @@ describe('fichas: a resposta de verdade do Regem vira a base do Farol', () => {
     assert.deepEqual(Object.keys(blend), ['nome', 'quantidade', 'unidade', 'preparo', 'insumoId', 'fichaId']);
   });
 
+  it('a embalagem do balcão fica de fora, como a de viagem — com a chave da mesma embalagem ligada ou desligada', () => {
+    // O Regem manda `so_balcao` em cada linha e `mesma_embalagem` no topo desde 12/10/2026;
+    // a amostra é de antes. A chave só diz qual embalagem vale em cada venda: aqui nenhuma entra.
+    const deAntes = impressaoDaBase(base());
+    for (const mesma of [false, true]) {
+      const c = copia();
+      c.fichas.mesma_embalagem = mesma;
+      const fx = c.fichas.fichas.find((f: Obj) => f.nome === 'X-Burger');
+      for (const i of fx.ingredientes) i.so_balcao = false;
+      fx.ingredientes.push({ ...fx.ingredientes[0], ordem: 99, nome: 'Bandeja do balcão', so_delivery: false, so_balcao: true });
+      const b = baseDoRegem(c.catalogo, c.fichas);
+      assert.deepEqual(
+        produto(b, 'X-Burger').ficha!.ingredientes.map((i) => i.nome),
+        ['Pão brioche', 'Blend da casa', 'Queijo prato', 'Cebola roxa', 'Sal'],
+        `mesma_embalagem = ${mesma}: nem a bandeja do balcão nem a caixa de viagem`,
+      );
+      assert.equal(impressaoDaBase(b), deAntes, `mesma_embalagem = ${mesma}: campo novo e linha de embalagem não mudam a base`);
+    }
+  });
+
+  it('linha de embalagem é só a que vem marcada com `true`', () => {
+    const temQueijo = (c: ReturnType<typeof copia>) =>
+      produto(baseDoRegem(c.catalogo, c.fichas), 'X-Burger').ficha!.ingredientes.some((i) => i.nome === 'Queijo prato');
+    const marcar = (campo: 'so_balcao' | 'so_delivery', valor: unknown) => {
+      const c = copia();
+      c.fichas.fichas.find((f: Obj) => f.nome === 'X-Burger').ingredientes.find((i: Obj) => i.nome === 'Queijo prato')[campo] = valor;
+      return c;
+    };
+    for (const campo of ['so_balcao', 'so_delivery'] as const) {
+      for (const valor of [false, null, undefined, 'true', 1, 'sim']) {
+        assert.ok(temQueijo(marcar(campo, valor)), `${campo} = ${String(valor)} não tira a linha`);
+      }
+      assert.ok(!temQueijo(marcar(campo, true)), `${campo} = true tira a linha`);
+    }
+  });
+
   it('as variações dizem quanto da ficha usam, da menor para a maior — e não levam o id que muda a cada salvamento', () => {
     const xb = produto(base(), 'X-Burger');
     assert.deepEqual(xb.variacoes, [
@@ -275,6 +311,7 @@ describe('fichas: a impressão da base', () => {
       ['a quantidade de um ingrediente', (c) => void (c.fichas.fichas.find((f: Obj) => f.nome === 'X-Burger').ingredientes[2].quantidade = 3)],
       ['a ordem dos ingredientes', (c) => void (c.fichas.fichas.find((f: Obj) => f.nome === 'X-Burger').ingredientes[0].ordem = 9)],
       ['um ingrediente deixa de ser só de viagem', (c) => void (c.fichas.fichas.find((f: Obj) => f.nome === 'X-Burger').ingredientes[4].so_delivery = false)],
+      ['um ingrediente passa a ser só do balcão', (c) => void (c.fichas.fichas.find((f: Obj) => f.nome === 'X-Burger').ingredientes[3].so_balcao = true)],
       ['o fator de uma variação', (c) => void (c.catalogo.produtos.find((p: Obj) => p.nome === 'X-Burger').variacoes[0].fator_ficha = 3)],
       ['o nome de um produto', (c) => void (c.catalogo.produtos.find((p: Obj) => p.nome === 'Só da matriz').nome = 'Só da matriz 2')],
       ['um produto que volta a ser vendido', (c) => void (c.catalogo.produtos.find((p: Obj) => p.nome === 'X-Parado').ativo = true)],

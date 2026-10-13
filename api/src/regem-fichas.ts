@@ -10,7 +10,11 @@
 //
 //   • o produto, a variação e a opção inativos — não são vendidos;
 //   • a ficha inativa — a loja a desligou;
-//   • a linha da ficha que só vale para viagem (a embalagem);
+//   • a linha da ficha que é só EMBALAGEM: a de viagem (`so_delivery`) e a do
+//     balcão (`so_balcao`, que o Regem manda desde 12/10/2026). Não é do que
+//     o lanche é feito. A chave `mesma_embalagem`, da empresa, só diz qual
+//     das duas vale em cada venda — aqui as duas ficam de fora, com ela
+//     ligada ou desligada;
 //   • os ids que o Regem troca a cada salvamento (variação, grupo, opção do
 //     produto): guardá-los faria a base "mudar" sem nada ter mudado, e o
 //     agente baixaria a cópia de novo à toa.
@@ -41,6 +45,8 @@ const lista = (v: unknown, max: number): Obj[] => {
 const texto = (v: unknown, max = 200): string | null => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
 const numero = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const ativo = (o: Obj): boolean => o.ativo !== false;
+/** A linha que só entra numa das vendas — a embalagem de viagem ou a do balcão. Só o `true` conta. */
+const soEmbalagem = (i: Obj): boolean => i.so_delivery === true || i.so_balcao === true;
 const ordem = (o: Obj): number => numero(o.ordem) ?? 0;
 
 /** Sem acento e sem caixa: a ordem dos produtos não depende da máquina. */
@@ -105,7 +111,7 @@ export function baseDoRegem(catalogo: unknown, fichas: unknown): Base {
   for (const x of fichasDeLa) {
     if (!ativo(x)) continue;
     const ingredientes = lista(x.ingredientes ?? [], MAX_INGREDIENTES)
-      .filter((i) => i.so_delivery !== true)
+      .filter((i) => !soEmbalagem(i))
       .sort((a, b) => ordem(a) - ordem(b))
       .map((i) => {
         const nome = texto(i.nome);

@@ -5367,3 +5367,32 @@ pacote aceitar o módulo no lugar da pasta; a assinatura do arquivo, que pede um
 de assinatura de código (compra do dono); e a prova na loja, com o "pode". E ele esconde o
 "como", não os textos: as instruções só saem da loja com o balcão (acima).
 
+## 12/10/2026 (noite) · As fichas do Regem ganharam a embalagem do balcão: no Farol ela fica de fora, como a de viagem
+
+O Regem passou a mandar, na leitura das fichas, `so_balcao` em cada linha — a linha só entra
+na venda feita na loja: a embalagem do balcão — e `mesma_embalagem` no topo — a empresa usa
+a mesma embalagem nas duas vendas. O contrato é o de lá (`docs/integracao-farol.md`, §5,
+desde 12/10/2026). É só acréscimo, e o leitor do Farol não confere lista fechada de chaves:
+nada quebrava.
+
+**O que ficaria errado sem ajuste.** A linha que é só embalagem não entra na base de fichas
+do Farol — não é do que o lanche é feito (decisão do dono, no cabeçalho de `api/src/fichas.ts`).
+O leitor só conhecia a de viagem (`so_delivery`): a do balcão entraria como ingrediente do
+lanche assim que a loja marcasse uma. Na produção, hoje, nenhuma linha está marcada
+(informado pela sessão do Regem em 12/10).
+
+**O que entrou.** `api/src/regem-fichas.ts` tira a linha marcada com `so_delivery` **ou**
+com `so_balcao`. A chave `mesma_embalagem` só diz qual das duas embalagens vale em cada
+venda: para o Farol as duas ficam de fora, com ela ligada ou desligada. Linha de embalagem é
+só a que vem marcada com `true`.
+
+Conferido: 2 testes novos e 1 caso a mais em `api/testes/fichas.test.ts` — a bandeja do
+balcão e a caixa de viagem fora da ficha, com a chave dos dois lados; a base não muda com os
+campos novos; só o `true` conta —, e 9 mutações, nenhuma viva. A amostra guardada em
+`contratos/regem-catalogo-e-fichas.json` é uma resposta de verdade de antes dos campos
+novos, e fica como está até a próxima captura.
+
+No mesmo dia o Regem também passou a converter quilo e grama, litro e ml sem cadastro (a
+unidade informada na ficha pode vir como "grama", "ml" ou "porção"). No Farol a unidade do
+ingrediente é texto livre e só é mostrada: conferido, sem ajuste.
+
