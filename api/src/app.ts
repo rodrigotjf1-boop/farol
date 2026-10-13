@@ -7,6 +7,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
 import { instalarTratamentoDeErros } from './erros.js';
+import { dolarDoAmbiente, transporteHttp, type Transporte } from './balcao/plataforma.js';
 import type { Subida } from './guarda.js';
 import { acharMigrations, conferirEsquema } from './preflight.js';
 import { configDoRegem, type ConfigDoRegem } from './regem.js';
@@ -17,6 +18,7 @@ import { rotasDoBalcao } from './rotas/balcao.js';
 import { rotasDoConsole } from './rotas/console.js';
 import { rotasDeConfiguracao } from './rotas/configuracao.js';
 import { rotasDeDiagnostico } from './rotas/diagnostico.js';
+import { rotasDeDuvidas } from './rotas/duvidas.js';
 import { rotasDeInventario } from './rotas/inventario.js';
 import { rotasDePlanta } from './rotas/planta.js';
 import { rotasDoEspecialista } from './rotas/especialista.js';
@@ -48,9 +50,11 @@ export function criarApp(
     regem?: ConfigDoRegem;
     /**
      * O balcão. `cofre` é a chave que cifra a conta de IA de cada loja; ausente, vale a do
-     * ambiente (a mesma que guarda o acesso de cada loja ao Regem). O teste passa a dele.
+     * ambiente (a mesma que guarda o acesso de cada loja ao Regem). `enviar` é quem leva a
+     * pergunta à plataforma (ausente: a chamada HTTP de verdade) e `dolar`, o câmbio da conta
+     * do custo (ausente: `FAROL_DOLAR`). O teste passa os dele.
      */
-    balcao?: { cofre: Buffer | null };
+    balcao?: { cofre: Buffer | null; enviar?: Transporte; dolar?: number };
   } = {},
 ): FastifyInstance {
   const app = Fastify({
@@ -186,7 +190,13 @@ export function criarApp(
   const regem = opcoes.regem ?? configDoRegem(process.env, VERSAO);
   rotasDoRegem(app, pool, regem);
   rotasDeFichas(app, pool, regem);
-  rotasDoBalcao(app, pool, { cofre: opcoes.balcao ? opcoes.balcao.cofre : regem.chave });
+  const cofreDoBalcao = opcoes.balcao ? opcoes.balcao.cofre : regem.chave;
+  rotasDoBalcao(app, pool, { cofre: cofreDoBalcao });
+  rotasDeDuvidas(app, pool, {
+    cofre: cofreDoBalcao,
+    enviar: opcoes.balcao?.enviar ?? transporteHttp(),
+    dolar: opcoes.balcao?.dolar ?? dolarDoAmbiente(process.env),
+  });
   rotasDeAcessos(app, pool);
   rotasDePadroes(app, pool);
   rotasDeInventario(app, pool);

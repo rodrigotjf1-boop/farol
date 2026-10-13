@@ -5648,3 +5648,91 @@ de ferramenta): faltava o caso no contrato, e entrou.
 **O que falta da fase 1:** a 1d — a porta que recebe a dúvida do agente, o registro de cada
 pergunta e do custo dela, e o corte pelo teto do dia.
 
+## 13/10/2026 (manhã) · O balcão, fase 1d: a porta — a dúvida entra, o teto corta antes, o custo fica registrado
+
+A última fatia da fase 1: **o servidor está pronto**. Entra a rota que recebe a dúvida do
+agente (`POST /v1/agentes/duvidas`), o registro de cada pergunta (migration 045) e o corte
+pelo teto do dia. **Continua sem nenhuma chamada paga:** só a loja LIGADA pergunta por
+aqui, nenhuma loja está ligada, e o agente que está na loja nem conhece este caminho (isso
+é a fase 2, com a troca do pacote e o "pode").
+
+**O caminho de uma dúvida, na ordem:**
+
+| passo | o que acontece | se não passa |
+|---|---|---|
+| 1 · quem pergunta | o agente, pelo token dele; a loja sai dali, nunca do corpo | 401 |
+| 2 · o corpo | as imagens e de que critério, canal e área é a dúvida; campo que não é o esperado é recusado | 422 |
+| 3 · a loja está ligada? | é a primeira coisa que a loja desligada ouve | 409: o agente pergunta como sempre |
+| 4 · a dúvida é repetida? | a que já foi respondida recebe a resposta guardada | — (não é paga de novo) |
+| 5 · a configuração e o critério | a versão tem de ser a que a loja tem em mãos; o critério, o que ela conferiu | 409: puxa a configuração; ou descarta a dúvida |
+| 6 · o pedido | montado aqui, com o texto do critério que o SERVIDOR guarda | 422: o que nunca vai para fora |
+| 7 · a reserva | sob a trava da loja: o limite por minuto e o teto do dia | 429 |
+| 8 · a pergunta | à plataforma, com a conta da loja, sem conexão com o banco na mão | 502, com o lado do erro |
+| 9 · o registro | o veredito e o custo — ou de que lado foi o erro | — |
+
+O formato do corpo, da resposta e de cada recusa — com o que o agente faz em cada uma — é
+`contratos/duvida-do-agente.json`. O lado do agente entra na fase 2 e lê o mesmo arquivo.
+
+**O teto não é passado nem por uma pergunta.** Antes de perguntar, soma-se o que a loja já
+gastou no dia (o custo de verdade das respondidas) e o que está reservado para as perguntas
+em voo; se isso mais a reserva da dúvida nova passa do teto, ela não é feita. A reserva é o
+pior caso de uma dúvida — a chamada de rotina e a reconsulta, as duas com a saída no teto —,
+perto de 20 centavos; quando a resposta chega, a reserva vira o custo de verdade (um décimo
+de centavo, na rotina). A que falha solta a reserva. Duas dúvidas ao mesmo tempo param na
+mesma trava da loja, uma de cada vez: a trava dura poucas instruções, nunca a chamada.
+
+**Os números da porta, e de onde vêm:**
+
+| o quê | quanto | por quê |
+|---|---|---|
+| o dia do teto | o dia da OPERAÇÃO da loja: vira às 6h, no fuso dela | a madrugada pertence à noite anterior, como no resto do Farol; uma loja que fecha às 3h tem um teto por noite |
+| a reserva de uma dúvida | o pior caso, calculado dos preços e do câmbio (perto de 20 centavos) | para o teto não ser passado por quem está em voo |
+| a entrada no pior caso | 8.000 tokens — ESTIMATIVA: três imagens e todo o texto no teto | a medir na fase 3, com a conta de tokens de verdade |
+| o limite por minuto | 30 dúvidas por loja | não é teto de gasto: é a válvula contra o agente que disparou (ele pergunta no máximo dez por volta do laço) |
+| a dúvida perdida | 2 minutos | o servidor caiu no meio: passado isso, a mesma dúvida pode ser tentada de novo |
+
+**O que NÃO é guardado, de propósito:** nenhuma imagem e nenhum texto de pedido. O servidor
+recebe as imagens, repassa à plataforma e esquece. Fica uma linha por pergunta: de quem, de
+que critério, o veredito (o resultado, a confiança e o motivo — a mesma frase que o agente
+já manda quando o critério vira aviso), o modelo, os tokens e o custo. No registro do
+serviço vão o resultado e o custo; do erro, o lado dele e o que a plataforma disse — nunca
+a imagem, o pedido ou a chave. À loja o erro chega com uma frase nossa, e não com a da
+plataforma.
+
+**A conta do dia, para a distribuição:** `npm run provisionar -- balcao <lojaId>` passa a
+mostrar quantas dúvidas a loja fez hoje, quantas ficaram sem resposta, quantas foram
+reconsultadas e quanto custaram, ao lado do teto.
+
+**O que fica sabido, e não resolvido:**
+
+1. Resposta que a plataforma dá e não dá para ler (sem a ferramenta) é cobrada por ela e
+   não entra na conta do servidor: a dúvida fica como "sem resposta", sem custo.
+2. Se o servidor cair depois de a plataforma responder e antes de gravar, a tentativa
+   seguinte paga de novo. É raro, e a alternativa (gravar antes de saber a resposta) não
+   existe.
+3. Cada dúvida monta de novo a configuração da loja (sete consultas). A medir na fase 3; se
+   pesar, guarda-se por versão.
+4. A página de saúde não diz que versão do código está no ar: em entrega sem migration, não
+   dá para ver por ela que o serviço reiniciou (confere-se pela entrega do gancho).
+5. A dúvida que ficou pelo caminho (o serviço reiniciou com ela em voo) continua segurando a
+   reserva dela — o pior caso, perto de 20 centavos — até o dia virar, a não ser que o
+   agente a tente de novo: não dá para saber se a plataforma cobrou, e o teto fica do lado
+   seguro. Cada entrega no meio do expediente pode prender a reserva das que estavam em
+   voo. A medir na fase 3; se pesar, a perdida passa a contar menos depois de um tempo.
+6. O corpo é lido antes de o token ser conferido, como nas outras rotas do agente: quem não
+   tem token consegue fazer o serviço ler até 12 MB (nas outras, até 32). Conferir o token
+   antes de ler o corpo é melhoria para todas as rotas, e não só para esta.
+
+**Como foi conferido.** Os testes da porta, contra Postgres de verdade e com um roteiro no
+lugar da plataforma: o pedido que sai é igual, letra por letra, ao que a loja montaria com a
+configuração que tem em mãos; as corridas (duas dúvidas no limite do teto; a loja desligada
+no meio; a mesma dúvida respondida enquanto a outra esperava) com outra conexão segurando a
+loja; a chamada HTTP de verdade contra um servidor local. Estragos de propósito, um por vez,
+em cópias do código — os números estão no PR. A migration, aplicada duas vezes no banco
+local: nenhuma loja que já existia mudou de versão.
+
+**A fase 1 acaba aqui.** O que vem: a fase 2 — o agente aprende a entregar a dúvida (com a
+chave interna desligada, ele pergunta como hoje) —, que muda o pacote da loja e espera o
+"pode" da troca; e, para a fase 3, o dono põe a chave da loja do piloto pelo comando de
+dentro do serviço.
+

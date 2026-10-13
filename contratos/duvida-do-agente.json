@@ -1,0 +1,58 @@
+{
+  "_": "A dúvida que o agente entrega ao servidor (POST /v1/agentes/duvidas, com o token do agente) e o que volta. A loja manda as IMAGENS, de que critério, canal e área a dúvida é, e três fatos que só ela sabe (o cinza em volta foi apagado? o mapa é esquema ou fotografia? que foto padrão ela escolheu?). O texto da pergunta — a cena, o critério, as instruções — é do servidor. As imagens deste arquivo são bytes inventados.",
+  "pedido": {
+    "chave": "0123456789abcdef0123456789abcdef",
+    "configVersao": 7,
+    "regraId": "11111111-1111-4111-8111-111111111111",
+    "criterioVersao": 1,
+    "pontoId": "22222222-2222-4222-8222-222222222222",
+    "zonaId": "33333333-3333-4333-8333-333333333333",
+    "foraDaArea": false,
+    "imagem": { "tipo": "image/jpeg", "dados": "QVVESVRBREE=" },
+    "mapa": { "tipo": "esquema", "imagem": { "tipo": "image/jpeg", "dados": "TUFQQQ==" } },
+    "fotoPadrao": null
+  },
+  "camposDoPedido": {
+    "chave": "a chave da dúvida na fila do agente (32 letras de 0 a 9 e de a a f): a mesma dúvida não é paga duas vezes",
+    "configVersao": "a versão da configuração que a loja tem em mãos; se não é a do servidor, a dúvida volta para ser feita de novo",
+    "criterioVersao": "a versão do critério quando a loja olhou; se o critério mudou depois, a dúvida não vale mais",
+    "foraDaArea": "a loja apagou (em cinza) o que fica fora da área marcada",
+    "imagem": "a imagem a auditar: o tipo (image/jpeg, image/png ou image/webp) e os bytes em base64",
+    "mapa": "o mapa do canal, quando o critério é de um quadro: se é o desenho dos quadros (esquema) ou a câmera inteira (foto), e a imagem. Nulo quando o critério é da imagem completa",
+    "fotoPadrao": "a foto padrão que a loja escolheu para ir junto: o id dela na configuração e o recorte. Nulo quando não vai foto"
+  },
+  "resposta": {
+    "resultado": "conforme",
+    "confianca": 0.93,
+    "motivo": "a bancada está sem restos de alimento",
+    "modelo": "claude-haiku-5-5",
+    "tokensEntrada": 1500,
+    "tokensSaida": 60,
+    "custoCentavos": 0.09720000000000001,
+    "latenciaMs": 1840,
+    "reconsultou": false,
+    "repetida": false
+  },
+  "camposDaResposta": {
+    "resultado": "conforme, nao_conforme ou nao_avaliavel",
+    "confianca": "de 0 a 1, ou nulo",
+    "motivo": "a frase do modelo, ou nulo",
+    "modelo": "o modelo que deu ESTA resposta",
+    "custoCentavos": "em centavos de real; depois de uma reconsulta, o das duas chamadas; nulo quando a plataforma não mandou a conta",
+    "latenciaMs": "quanto o servidor levou para ter a resposta da plataforma",
+    "reconsultou": "a resposta é do modelo forte",
+    "repetida": "esta dúvida já tinha sido respondida: veio o que estava guardado, e não foi paga de novo"
+  },
+  "recusas": {
+    "balcao_desligado": { "status": 409, "oAgente": "pergunta por conta própria, como sempre perguntou" },
+    "configuracao_mudou": { "status": 409, "traz": ["configVersao"], "oAgente": "puxa a configuração e faz a dúvida de novo" },
+    "criterio_mudou": { "status": 409, "traz": ["criterioVersao"], "oAgente": "descarta a dúvida: o critério mudou depois da olhada" },
+    "em_andamento": { "status": 409, "oAgente": "a mesma dúvida está sendo perguntada agora: tenta de novo mais tarde" },
+    "validacao": { "status": 422, "oAgente": "o corpo está torto: não adianta repetir" },
+    "sem_pedido": { "status": 422, "traz": ["motivo"], "motivos": ["criterio_fora_da_configuracao", "nao_vai_a_plataforma", "falta_a_cena", "falta_o_mapa", "foto_padrao_fora_da_configuracao"], "oAgente": "esta dúvida não vira pergunta: não adianta repetir" },
+    "limite_por_minuto": { "status": 429, "oAgente": "espera um minuto e tenta de novo" },
+    "teto_do_dia": { "status": 429, "oAgente": "o critério fica sem resposta até o dia virar: não adianta repetir hoje" },
+    "sem_veredito": { "status": 502, "traz": ["classe", "recuperavel"], "classes": ["conta", "pedido", "limite", "plataforma", "resposta"], "oAgente": "tenta de novo só se `recuperavel` for verdadeiro" },
+    "sem_conta_de_ia": { "status": 503, "oAgente": "tenta de novo mais tarde: é do servidor" }
+  }
+}
