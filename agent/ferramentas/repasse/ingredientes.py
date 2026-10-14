@@ -355,6 +355,70 @@ def na_frente(parecidas: list[tuple[dict, float]]) -> tuple[dict | None, float]:
     return (parecidas[0][0], folga) if folga > 0 else (None, 0.0)
 
 
+def _e_pao(nome: str) -> bool:
+    k = _chave(nome)
+    return k.startswith("pão") or k.startswith("pao")
+
+
+def com_pao(lanches: list[dict]) -> list[dict]:
+    """Só as fichas que levam pão. O dono, 14/10/2026: na bancada, cada lanche é um pão aberto — "os tampos ficam
+    sempre próximos, o tampo de baixo leva carne e o de cima molhos e alguns ingredientes". Porção (anéis, nuggets)
+    não se monta no pão e não concorre."""
+    return [l for l in lanches if any(_e_pao(i["nome"]) for i in l["ingredientes"])]
+
+
+def pelo_mais_raro(
+    vistos: list[str], lanches: list[dict], parecidos: dict[str, frozenset[str]] | None = None,
+) -> tuple[list[dict], list[str], list[str]]:
+    """O jeito do dono (14/10/2026): o ingrediente que menos fichas têm decide — "se tem uma mussarela empanada,
+    somente 1 ficha tem ela, então já filtra as fichas, só conferir os outros ingredientes"; "o Numero 08, se tem
+    anel de cebola no tampo, já exclui todas as fichas, só vai restar conferir o ovo, a maionese, as fatias de bacon".
+
+    Os vistos vão do mais raro ao mais comum, e cada um estreita as candidatas enquanto sobrar alguma. O que não cabe
+    nas que sobraram NÃO tira nenhuma: fica FORA DA FICHA, a conferir — pode ser leitura errada (o disco lido como 120
+    quando a ficha leva o blend, rodadas 9 e 10) ou um adicional do cliente: o dono, 14/10/2026, "ainda não estamos
+    validando adicionais e extras; o que não bate pode ser uma alteração à parte". Contagem de peças não entra: é
+    evidência, não filtro.
+
+    Um raro fora da ficha não decide sozinho contra os outros: o filtro tenta começar por cada visto, do mais raro ao
+    mais comum, e fica com o começo que deixa MENOS fora — o que explica mais do que se viu. Medido na rodada 11b
+    (14/10/2026): a base do Mussarela lida com o blend, a maionese e um "barbecue" que a ficha não leva (o dono não o
+    citou: leitura ou adicional); começando pelo barbecue (só o Numero 15 tem), o blend e a maionese ficariam fora;
+    começando pelo blend, só o barbecue fica. No empate, vale o começo mais raro — o jeito do dono.
+
+    Devolve as candidatas (pelo nome), os vistos que estreitaram e os que ficaram a conferir."""
+    parecidos = parecidos or {}
+    fichas = [{_chave(i["nome"]) for i in l["ingredientes"]} for l in lanches]
+
+    def quais(k: str) -> set[int]:
+        return {n for n, f in enumerate(fichas) if parecidos.get(k, {k}) & f}
+
+    unicos: dict[str, str] = {}
+    for v in vistos:
+        if str(v).strip():
+            unicos.setdefault(_chave(v), str(v).strip())
+    onde = {k: quais(k) for k in unicos}
+    alvo = sorted(unicos.items(), key=lambda t: (len(onde[t[0]]), t[0]))
+
+    def filtrar(ordem: list[tuple[str, str]]) -> tuple[set[int] | None, list[str], list[str]]:
+        candidatas: set[int] | None = None
+        decidiram: list[str] = []
+        conferir: list[str] = []
+        for k, nome in ordem:
+            q = onde[k]
+            if not q or (candidatas is not None and not candidatas & q):
+                conferir.append(nome)
+                continue
+            if candidatas is None or candidatas & q != candidatas:
+                decidiram.append(nome)
+            candidatas = q if candidatas is None else candidatas & q
+        return candidatas, decidiram, conferir
+
+    tentativas = [filtrar([alvo[n]] + alvo[:n] + alvo[n + 1:]) for n in range(len(alvo))] or [(None, [], [])]
+    candidatas, decidiram, conferir = min(tentativas, key=lambda t: len(t[2]))
+    return sorted((lanches[n] for n in candidatas or ()), key=lambda l: l["nome"].lower()), decidiram, conferir
+
+
 def _nome_com_iguais(l: dict) -> str:
     mesmo = l.get("mesmo_lanche") or []
     return l["nome"] + (f" (= {', '.join(mesmo)})" if mesmo else "")

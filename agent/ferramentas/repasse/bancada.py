@@ -16,17 +16,34 @@ Então, em cada montagem (as paradas seguidas da bancada, em pedaços de no máx
 - no fim, cada item vai às fichas: as que batem (todos os vistos, nenhuma peça a mais), as mais parecidas com "N de M
   ingredientes da ficha vistos" e, no item fechado, a ficha de contagem exata.
 
+Rodada 11 (14/10/2026), os padrões que o dono apontou depois das rodadas 10 e 10b:
+
+- "os tampos ficam sempre próximos: o tampo de baixo leva carne e o de cima molhos e alguns ingredientes" — a
+  pergunta diz que as metades vizinhas são UM item (na 10, a base e o tampo do mesmo Mussarela viraram dois);
+- "se tem uma mussarela empanada, somente 1 ficha tem ela, então já filtra as fichas, só conferir os outros" — cada
+  item também sai PELO MAIS RARO: o visto que menos fichas têm decide, os outros se conferem, e o que não cabe fica
+  FORA DA FICHA sem tirá-la (`ingredientes.pelo_mais_raro`) — leitura errada ou adicional: "ainda não estamos
+  validando adicionais e extras" (o dono); só concorrem as fichas que levam pão;
+- "retira o borrão de rosto para não atrapalhar" — `--sem-borrao` (ERR-056: de cima, as mãos sempre aparecem e o
+  borrão caía na comida). Só com a opção dita, e a rodada avisa que foi sem;
+- "já temos fichas técnicas e fotos dos principais ingredientes [...] são fichas e montagens fechadas" — a MAIS
+  PRÓXIMA sai sempre que há candidata, e `--referencias <pasta>` manda, antes de cada quadro, as fotos da loja (o
+  nome do arquivo é a legenda), no formato da foto de referência do agente: rotuladas, em cache, e a bancada por
+  último.
+
 O resto é das rodadas anteriores: o arquivo da loja (descrições e parecidos), o borrão como o agente faz na bancada
-quieta, o custo do agente, o teto duro, a resposta cortada como erro.
+quieta (quando não se pede sem), o custo do agente, o teto duro, a resposta cortada como erro.
 
     cd /d C:\\Farol\\agent && .venv\\Scripts\\python.exe -X utf8 <este arquivo>
         <pasta do repasse do canal> --fichas <fichas.json> --janela 19:50-20:01 --teto-centavos 100
         [--da-loja <arquivo>] [--juntar-s 300] [--max-s 1200] [--intervalo-s 20] [--quadros 40] [--rodada nome]
+        [--sem-borrao] [--referencias <pasta de fotos>]
 """
 
 from __future__ import annotations
 
 import argparse
+import base64
 import csv
 import json
 import os
@@ -46,6 +63,7 @@ except ImportError:  # na loja, os arquivos soltos na mesma pasta
     import com_pedidos as rp  # type: ignore[no-redef]
     import ingredientes as ri  # type: ignore[no-redef]
 
+import cv2
 import numpy as np
 
 from farol_agent.juizes.nuvem import (
@@ -65,6 +83,10 @@ ingredientes; à direita, bisnagas de molho; a montagem acontece sobre papel ou 
 A rotina da bancada: o colaborador abre os pães que vai montar — um par, base e tampo, para cada lanche —, põe os
 ingredientes sobre cada base e, ao terminar, põe o tampo por cima. É no fechamento que o pão aparece melhor.
 
+As duas metades de um pão ficam SEMPRE próximas: a BASE leva a carne (e o que vai sobre ela) e o TAMPO, ao lado,
+leva os molhos e alguns ingredientes. Base e tampo vizinhos são UM item só — o que está no tampo entra no item da
+base ao lado, nunca num item novo. O pão de dois cortes tem ainda a fatia do meio: é do mesmo item.
+
 Você recebe UMA imagem da bancada e a TABELA dos lanches desta montagem como estava até a imagem anterior. Devolva a
 tabela DEPOIS desta imagem:
 - `itens`: um item para cada lanche, numerados da esquerda para a direita como na tabela; lanche novo (mais um par de
@@ -74,8 +96,8 @@ tabela DEPOIS desta imagem:
     estiver na lista, "outro: <o que é>"; molho que você vê e não sabe qual é, "outro: molho <cor>" — e `quantos`:
     quantas peças ele tem no total (discos de carne, fatias, fitas, anéis). A camada coberta por outra continua
     contando. 0 quando não der para contar. O pão não entra aqui.
-  - `pao`: o nome do pão da lista assim que der para ver qual é — pela base aberta ou, melhor, pelo tampo no
-    fechamento; senão, "".
+  - `pao`: o nome do pão da lista assim que der para ver qual é — melhor pelo tampo visto POR FORA no fechamento (o
+    miolo tostado é parecido em todos os pães); senão, "".
   - `fechado`: true quando o tampo já está por cima.
   O lanche que fechou e saiu da bancada fica na tabela como está: não precisa repeti-lo. Pão aberto num lugar onde
   antes havia um lanche que saiu é lanche novo.
@@ -125,6 +147,53 @@ FERRAMENTA: dict[str, Any] = {
 # A tabela inteira volta a cada quadro: cinco lanches com oito ingredientes cada passam fácil dos 1.000 da rodada
 # anterior. O teto é desta ferramenta (V114), e a resposta cortada nele é erro.
 TETO_DE_SAIDA = 1500
+
+# As fotos de referência: no lado maior até LADO_DA_REFERENCIA (um disco, um tampo — não precisa de mais), e no
+# máximo MAX_REFERENCIAS — cada uma vai em toda pergunta (em cache, mas vai).
+LADO_DA_REFERENCIA = 320
+MAX_REFERENCIAS = 20
+
+
+def ler_referencias(pasta: Path, lado: int = LADO_DA_REFERENCIA) -> list[tuple[str, str]]:
+    """As fotos de referência da loja, uma por arquivo .jpg/.jpeg/.png da pasta, na ordem do nome; o nome do arquivo
+    é a legenda ("Blend 150gr — assado.jpg"). O Python lê os bytes e o OpenCV recebe os bytes (V109: a pasta pode ter
+    acento). Arquivo que não abre é erro — referência errada calada ensinaria errado."""
+    saida: list[tuple[str, str]] = []
+    for arq in sorted(pasta.iterdir(), key=lambda p: p.name.lower()):
+        if arq.suffix.lower() not in {".jpg", ".jpeg", ".png"}:
+            continue
+        img = cv2.imdecode(np.frombuffer(arq.read_bytes(), np.uint8), cv2.IMREAD_COLOR)
+        if img is None:
+            raise ValueError(f"a referência {arq.name} não é uma imagem")
+        h, w = img.shape[:2]
+        escala = min(1.0, lado / max(h, w))
+        if escala < 1.0:
+            img = cv2.resize(img, (max(1, round(w * escala)), max(1, round(h * escala))), interpolation=cv2.INTER_AREA)
+        ok, jpg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        if not ok:
+            raise ValueError(f"não consegui codificar a referência {arq.name}")
+        saida.append((arq.stem.strip(), base64.standard_b64encode(jpg.tobytes()).decode("ascii")))
+    if len(saida) > MAX_REFERENCIAS:
+        raise ValueError(f"{len(saida)} referências: no máximo {MAX_REFERENCIAS} (cada uma vai em toda pergunta)")
+    return saida
+
+
+def blocos_de_referencia(refs: list[tuple[str, str]] | None) -> list[dict]:
+    """As referências antes do quadro, como o agente faz com a foto de referência (`juizes.nuvem`): rotuladas, o fim
+    marcado com `cache_control` (o bloco é igual em toda pergunta) e a bancada por último — para o modelo não julgar a
+    referência no lugar da cena."""
+    if not refs:
+        return []
+    blocos: list[dict] = [{"type": "text", "text": (
+        f"REFERÊNCIA — {len(refs)} fotos desta loja, tiradas por esta mesma câmera, dos ingredientes e pães como eles "
+        "aparecem na montagem; cada uma tem o nome antes. Use-as para reconhecer o que vê. NÃO são a bancada a analisar."
+    )}]
+    for legenda, b64 in refs:
+        blocos.append({"type": "text", "text": f"Referência: {legenda}"})
+        blocos.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}})
+    blocos.append({"type": "text", "text": "FIM DAS REFERÊNCIAS.", "cache_control": {"type": "ephemeral"}})
+    blocos.append({"type": "text", "text": "AGORA A BANCADA:"})
+    return blocos
 
 
 @dataclass
@@ -272,6 +341,29 @@ class Avaliado:
     # é), e o que bate com uma ficha a menos de UM ingrediente vira pergunta, com o quadro: "qual é o que faltou?".
     fora_do_padrao: bool = False
     falta: tuple[dict, list[str]] | None = None
+    # O jeito do dono (rodada 11): o visto mais raro decide, os outros se conferem; o que não cabe fica fora da ficha —
+    # leitura errada ou adicional, que ainda não se valida. E, como as fichas e as montagens são fechadas ("anomalia é
+    # o lanche personalizado"), a MAIS PRÓXIMA sai sempre que houver candidata: a que tem mais da ficha visto; no
+    # empate, a da conta das parecidas.
+    pelo_raro: list[dict] = field(default_factory=list)
+    decidiram: list[str] = field(default_factory=list)
+    a_conferir: list[str] = field(default_factory=list)
+    proxima: dict | None = None
+    confere: tuple[int, int] | None = None
+    falta_conferir: list[str] = field(default_factory=list)
+
+    def texto_pelo_raro(self) -> str:
+        if not self.pelo_raro:
+            return ""
+        nomes = "; ".join(ri._nome_com_iguais(l) for l in self.pelo_raro[:4])
+        mais = f" e mais {len(self.pelo_raro) - 4}" if len(self.pelo_raro) > 4 else ""
+        return (
+            f" · pelo mais raro: {nomes}{mais} (decidiu: {', '.join(self.decidiram)})"
+            + (f" — mais próxima: {ri._nome_com_iguais(self.proxima)}, confere {self.confere[0]} de {self.confere[1]}"
+               if self.proxima is not None and self.confere else "")
+            + (f"; falta ver: {', '.join(self.falta_conferir)}" if self.falta_conferir else "")
+            + (f"; fora da ficha (leitura ou adicional): {', '.join(self.a_conferir)}" if self.a_conferir else "")
+        )
 
     def texto(self) -> str:
         nomes = "; ".join(ri._nome_com_iguais(l) for l, _ in self.batem[:4])
@@ -286,6 +378,7 @@ class Avaliado:
             + (" · FORA DO PADRÃO: nenhuma ficha explica (guardar; se repetir, perguntar)" if self.fora_do_padrao else "")
             + (f" · falta 1 de {ri._nome_com_iguais(self.falta[0])}: {self.falta[1][0]} (perguntar no quadro "
                f"{self.item.ultimo_quadro or '?'})" if self.falta else "")
+            + self.texto_pelo_raro()
         )
 
 
@@ -309,7 +402,21 @@ def avaliar(
         sem = faltando(vistos, melhor, parecidos)
         if len(sem) == 1:
             falta = (melhor, sem)
-    return Avaliado(item, vistos, fora, batem, parecidas, frente, folga, exatas, fora_do_padrao, falta)
+    a = Avaliado(item, vistos, fora, batem, parecidas, frente, folga, exatas, fora_do_padrao, falta)
+    a.pelo_raro, a.decidiram, a.a_conferir = ri.pelo_mais_raro(vistos, ri.com_pao(lanches), parecidos)
+    if a.pelo_raro:
+        # O "N de M" e o que falta ver são da mais próxima. Os que ficaram a conferir não estão em candidata nenhuma,
+        # então não mexem na conta.
+        posicao = {id(l): n for n, (l, _) in enumerate(ordem)}
+
+        def chave(l: dict) -> tuple[float, int]:
+            n, m = cobertura(vistos, l, parecidos)
+            return (-n / m if m else 0.0, posicao.get(id(l), len(posicao)))
+
+        a.proxima = min(a.pelo_raro, key=chave)
+        a.confere = cobertura(vistos, a.proxima, parecidos)
+        a.falta_conferir = faltando(vistos, a.proxima, parecidos)
+    return a
 
 
 @dataclass
@@ -346,6 +453,8 @@ def repassar(
     dolar: float = 5.40,
     da_loja: dict | None = None,
     saida: Path | None = None,
+    com_borrao: bool = True,
+    referencias: list[tuple[str, str]] | None = None,
     dizer=print,
 ) -> dict:
     if PRECO_USD_MTOK.get(modelo) is None:
@@ -376,7 +485,8 @@ def repassar(
                 fim = True
                 break
             try:
-                b64, borrou = rp.preparar_da_bancada((pasta / "recortes" / p["recorte"]).read_bytes(), pessoas)
+                b64, borrou = rp.preparar_da_bancada(
+                    (pasta / "recortes" / p["recorte"]).read_bytes(), pessoas, com_borrao=com_borrao)
             except (OSError, ValueError) as e:
                 m.erros.append(f"recorte: {e}")
                 continue
@@ -396,7 +506,7 @@ def repassar(
                     model=modelo,
                     system=[{"type": "text", "text": instrucoes, "cache_control": {"type": "ephemeral"}}],
                     tools=[FERRAMENTA],
-                    messages=[{"role": "user", "content": [
+                    messages=[{"role": "user", "content": blocos_de_referencia(referencias) + [
                         {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
                         {"type": "text", "text": texto},
                     ]}],
@@ -469,6 +579,9 @@ def repassar(
         "contagemExataUma": sum(1 for a in todos if len(a.exatas) == 1),
         "foraDoPadrao": sum(1 for a in todos if a.fora_do_padrao),
         "faltaUm": sum(1 for a in todos if a.falta is not None),
+        "peloMaisRaroUma": sum(1 for a in todos if len(a.pelo_raro) == 1),
+        "comProxima": sum(1 for a in todos if a.proxima is not None),
+        "comBorrao": com_borrao,
         "borradas": sum(m.borradas for m in feitas),
         "feitas": feitas,
     }
@@ -489,6 +602,10 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--modelo", default=MODELO_COM_CONTEXTO)
     a.add_argument("--da-loja", type=Path, default=None)
     a.add_argument("--rodada", default=datetime.now().strftime("%Y-%m-%d_%H-%M"))
+    a.add_argument("--sem-borrao", action="store_true",
+                   help="sem o borrão de rosto (decisão do dono para o teste da bancada, 14/10/2026; ERR-056)")
+    a.add_argument("--referencias", type=Path, default=None,
+                   help="pasta com as fotos de referência da loja; o nome do arquivo é a legenda")
     args = a.parse_args(argv)
     chave = os.environ.get("ANTHROPIC_API_KEY") or ""
     if not chave:
@@ -496,8 +613,15 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     fichas = json.loads(args.fichas.read_text(encoding="utf-8"))
     da_loja = json.loads(args.da_loja.read_text(encoding="utf-8")) if args.da_loja else {}
-    pessoas = rp.pessoas_pelo_detector_do_agente()
-    print(f"detector de pessoas do agente: {'pronto' if pessoas else 'NÃO há — todo recorte vai borrado'}", flush=True)
+    referencias = ler_referencias(args.referencias) if args.referencias else []
+    if referencias:
+        print(f"referências: {len(referencias)} — {'; '.join(l for l, _ in referencias)}", flush=True)
+    if args.sem_borrao:
+        pessoas = None
+        print("borrão de rosto: DESLIGADO nesta rodada (--sem-borrao, decisão do dono de 14/10/2026)", flush=True)
+    else:
+        pessoas = rp.pessoas_pelo_detector_do_agente()
+        print(f"detector de pessoas do agente: {'pronto' if pessoas else 'NÃO há — todo recorte vai borrado'}", flush=True)
     import anthropic
 
     cliente = anthropic.Anthropic(api_key=chave, timeout=60.0, max_retries=2)
@@ -505,15 +629,18 @@ def main(argv: list[str] | None = None) -> int:
         args.pasta, fichas, [r2.janela(j) for j in args.janela], cliente,
         teto_centavos=args.teto_centavos, pessoas=pessoas, juntar_s=args.juntar_s, max_s=args.max_s,
         intervalo_s=args.intervalo_s, quadros=args.quadros, modelo=args.modelo, dolar=float(os.environ.get("FAROL_DOLAR", "5.40")), da_loja=da_loja,
-        saida=args.pasta / "respostas" / f"{args.rodada}.csv", dizer=lambda s: print(s, flush=True),
+        saida=args.pasta / "respostas" / f"{args.rodada}.csv", com_borrao=not args.sem_borrao,
+        referencias=referencias, dizer=lambda s: print(s, flush=True),
     )
     print(
         f"FIM: {r['montagens']} montagens · {r['perguntas']} perguntas · {r['erros']} erro(s) · gasto "
         f"{r['gastoCentavos']:.3f} centavos · {r['itens']} itens na tabela — com pão definido {r['comPao']}, fechados "
         f"{r['fechados']}, batem com UMA ficha {r['batemUma']}, com várias {r['batemVarias']}, com nenhuma "
         f"{r['nenhumaBate']}, uma na frente {r['naFrente']}, contagem exata de uma só {r['contagemExataUma']}, fora do "
-        f"padrão {r['foraDoPadrao']}, faltando um {r['faltaUm']} · recortes borrados {r['borradas']} · por quê parou: "
-        f"{r['motivoDoFim']}",
+        f"padrão {r['foraDoPadrao']}, faltando um {r['faltaUm']}, pelo mais raro uma só {r['peloMaisRaroUma']}, com a "
+        f"mais próxima {r['comProxima']} · "
+        + (f"recortes borrados {r['borradas']}" if r["comBorrao"] else "SEM borrão")
+        + f" · por quê parou: {r['motivoDoFim']}",
         flush=True,
     )
     print(f"cenas: {r['cenas']}", flush=True)

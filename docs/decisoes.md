@@ -6649,3 +6649,90 @@ diferentes, cada um levando só os seus; o resultado de outro transporte recusad
 de verdade. A reivindicação que dá certo fica toda num arquivo: ela pega envios de todas as lojas, e os arquivos de
 teste rodam ao mesmo tempo (V93). As mutações numa cópia, até zero vivas.
 
+
+## 14/10/2026 (tarde) · R2, rodadas 10 a 11b: a calibração na pergunta, o jeito do dono (o mais raro decide, a mais próxima sai sempre), sem borrão e com fotos de referência
+
+### O que o dono pediu
+
+- Depois da calibração do canal 4 (escala, discos crus e assados, os quatro pães crus e tostados, os molhos — o
+  arquivo de parâmetros fica na loja): "com o que temos já consegue um teste com a gravação que temos no servidor para
+  verificar se alguma ficha bate?".
+- Depois das rodadas 10 e 10b: "retira o borrão de rosto para não atrapalhar. Importante verificar padrões: os tampos
+  ficam sempre próximos, o tampo de baixo leva carne e o de cima molhos e alguns ingredientes. Se tem uma mussarela
+  empanada, somente 1 ficha tem ela, então já filtra as fichas, só conferir os outros ingredientes. O Numero 08, por
+  exemplo, se tem anel de cebola no tampo, já exclui todas as fichas, só vai restar conferir o ovo, a maionese, as
+  fatias de bacon. Com os tipos de pães e blends passados já tinha que dar para definir fichas técnicas."
+- "Já temos fichas técnicas e fotos dos principais ingredientes [...] são fichas e montagens fechadas; anomalias vão
+  ser à parte, em um lanche de um colaborador que possa ser montado personalizado. Porém nas vendas são padrões de
+  ingredientes e até mesmo a ordem que cada um segue."
+- "Atenção aos testes: ainda não estamos validando adicionais e extras; ao pegar um exemplo que não bate, fora do
+  padrão de uma ficha, pode ser que seja uma alteração à parte — use outros quadros para teste se for o caso."
+
+### O que entra
+
+- **O arquivo da loja calibrado** (dado da loja, fora do repositório): o topo por fora de cada pão (liso só o
+  brioche; o de 1 corte o mais claro; o mesclado o mais avermelhado), a fatia do meio do pão de dois cortes, os discos
+  ASSADOS (o 120 é o maior; o blend, menor, escuro e irregular), a maionese creme, o barbecue quase preto e o "Molho
+  especial billy jack" — que está em 15 fichas e não tinha descrição — no grupo "molho laranja".
+- **A pergunta da bancada** diz que base e tampo vizinhos são UM item (a base leva a carne; o tampo, os molhos e
+  alguns ingredientes) e que o pão se diz pelo tampo visto POR FORA (o miolo tostado é parecido em todos).
+- **`ingredientes.com_pao`:** só concorrem as fichas que levam pão — a porção de anéis não se monta no pão.
+- **`ingredientes.pelo_mais_raro`:** o visto que menos fichas têm decide e os outros se conferem; o que não cabe fica
+  FORA DA FICHA sem tirá-la — leitura errada ou adicional, que ainda não se valida. O filtro tenta começar por cada
+  visto e fica com o começo que deixa menos fora (no empate, o mais raro): um raro fora da ficha não decide sozinho
+  contra dois que concordam. A contagem de peças não filtra: é evidência.
+- **`bancada.py`:** a MAIS PRÓXIMA sai sempre que há candidata (a que tem mais da ficha visto; no empate, a da conta das
+  parecidas), com "confere N de M", o que falta ver e o que ficou fora da ficha; `--sem-borrao` (só com a opção dita, e
+  a rodada avisa: "borrão de rosto: DESLIGADO"; ERR-056 — de cima, as mãos sempre aparecem e o borrão caía na comida;
+  o agente da loja continua com o borrão até a correção do ERR-056); `--referencias <pasta>` manda antes de cada quadro
+  as fotos da loja (o nome do arquivo é a legenda), no formato da foto de referência do agente: rotuladas, o fim em
+  cache, a bancada por último. As 13 fotos desta rodada são recortes dos quadros da calibração de 14/10 (discos
+  assados, os quatro topos por fora, a fatia do meio, um miolo tostado, os molhos no tampo) — ficam na loja só durante
+  a rodada.
+
+### As rodadas (as mesmas três janelas da 9b; o gabarito é a montagem das 19h57, o Mussarela Burg)
+
+| rodada | o que mudou | perguntas | gasto | na montagem das 19h57 |
+|---|---|---|---|---|
+| 9b | (a referência) | 30 | 5,928 centavos | o Mussarela não aparece |
+| 10 | descrições calibradas | 30 | 5,684 | o tampo (geleia + cebola crispy) bate SÓ com o Mussarela; um segundo item, Carne 120 + maionese (pela descrição do dono, a base: o blend com maionese, lido como Carne 120) → Numero 08 |
+| 10b | a 10 repetida | 30 | 6,058 | o Mussarela não aparece; um "barbecue" → Numero 15 |
+| 11 | o jeito do dono, sem borrão | 30 | 5,416 | o tampo → Mussarela; um item "Carne 120 + ketchup" (provavelmente a base) → mais próxima Mussarela (o ketchup no grupo da geleia), a Carne 120 fora da ficha |
+| 11b | a 11 + as 13 fotos de referência | 30 | 5,355 | um item com o BLEND e a MAIONESE — a base, pela descrição do dono —, lidos certos pela primeira vez, mais um "barbecue"; o tampo → Mussarela |
+
+R2: R$ 1,80 de US$ 5,00. As fotos não encareceram a rodada (5,355 × 5,416 centavos): o bloco delas vai em cache.
+
+Na 11b, o filtro ainda começava pelo mais raro: o "barbecue" (só o Numero 15 tem) decidiu a base, e o blend e a
+maionese ficaram fora — a conta das parecidas, ao lado, punha o Mussarela na frente. Daí o filtro que começa por cada
+visto. **A conferência sem custo**, com as fichas da loja (`conferir_mais_raro.py`, só a conta, na loja), dos itens
+que o modelo leu nas rodadas 10 a 11b:
+
+- 11b, a base (blend, maionese, barbecue) → Mussarela, o barbecue fora da ficha;
+- 11b, o tampo (Carne 120, geleia, crispy) → Mussarela; e base e tampo juntos → Mussarela, **confere 4 de 6** — falta
+  o disco de mussarela empanada (o dono: ainda não tinha chegado nos quadros) e o pão;
+- 11, o item Carne 120 + ketchup → Mussarela; 10, o tampo → Mussarela;
+- 10, o item Carne 120 + maionese → Numero 08, e 10b (só o barbecue) → Numero 15: nessas leituras não havia o que a
+  conta corrigisse.
+
+O "barbecue" não é da ficha do Mussarela e o dono não o citou: pode ser leitura errada ou um adicional — e adicional
+ainda não se valida. Fica como "fora da ficha (leitura ou adicional)", nunca como erro.
+
+### O que não foi medido, e o que vem
+
+- **Um gabarito só, e uma rodada de cada:** o modelo muda de uma vez para outra (a 10 e a 10b). Para medir acerto,
+  mais gabaritos de montagens PADRÃO (sem adicional, como o dono pediu): ele diz a hora e o lanche de montagens do
+  próximo expediente, ou rotula os quadros de outras montagens de 12/10.
+- **O pão nunca foi nomeado** (nenhum item com pão nas rodadas 10 a 11b). O topo por fora aparece no fechamento: olhar
+  mais de um quadro por pergunta e, depois, a medida local com os parâmetros da calibração.
+- **Base e tampo ainda viram dois itens**, mesmo com a frase na pergunta (11 e 11b). Juntar pela posição é o próximo.
+- **A ordem da montagem** ("até mesmo a ordem que cada um segue"): a tabela pode guardar em que quadro cada
+  ingrediente entrou e comparar com a ordem da ficha — depois de saber se a ordem cadastrada no Regem é a da montagem.
+- O borrão sai só no teste; no agente da loja, a correção do ERR-056 é do A19 e a troca de pacote pede o "pode".
+
+### Como foi provado
+
+Os testes das ferramentas (`test_repasse_bancada.py`, `test_repasse_ingredientes.py`, `test_repasse_com_pedidos.py`):
+a porção fora da disputa, o mais raro com o disco lido errado, o raro fora da ficha que não decide sozinho, a mais
+próxima com várias candidatas e no empate, o molho de cor pelo grupo, o "sem borrão" que não chama o detector nem borra,
+as referências lidas da pasta (com acento no nome, maiúscula na extensão, arquivo quebrado, o máximo) e mandadas antes
+do quadro com o cache. As mutações numa cópia, até zero vivas; a suíte inteira do agente.

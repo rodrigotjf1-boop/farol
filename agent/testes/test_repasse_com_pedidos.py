@@ -133,6 +133,18 @@ def test_logo_abaixo_da_duvida_ainda_e_ninguem(monkeypatch):
     assert borrou is False
 
 
+@pytest.mark.parametrize("pessoas", [lambda img: [0.1, DUVIDA], None, lambda img: None, lambda img: 1 / 0])
+def test_sem_borrao_pedido_nada_e_borrado_e_o_detector_nem_e_chamado(monkeypatch, pessoas):
+    """O dono, 14/10/2026, para o teste da bancada: "retira o borrão de rosto para não atrapalhar" (ERR-056)."""
+    monkeypatch.setattr(recorte, "borrar_rostos", lambda f: (f.copia_com(np.zeros_like(f.imagem)), True))
+    chamado = []
+    b64, borrou = rp.preparar_da_bancada(
+        bytes_de_teste(), (lambda img: (chamado.append(1), pessoas(img))[1]) if pessoas else None, com_borrao=False)
+    img = cv2.imdecode(np.frombuffer(base64.standard_b64decode(b64), np.uint8), cv2.IMREAD_COLOR)
+    assert (borrou, chamado) == (False, [])
+    assert img.mean() > 100, "foi a imagem como estava"
+
+
 # ───────────────────────────── a pergunta ─────────────────────────────
 
 
