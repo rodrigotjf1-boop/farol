@@ -6298,3 +6298,67 @@ trecho de código redundante, que saiu). A suíte inteira do agente: 1.676.
 - Se a quietude acha na gravação o mesmo que ao vivo: ao vivo ela lê o fluxo menor; aqui, o
   principal reduzido (a medida de 09/10 deu a mesma resposta nos dois, em dez minutos).
 
+## 14/10/2026 (madrugada) · R2, a primeira amostra: o modelo vê os ingredientes, mas uma foto só não diz qual lanche
+
+### O que entra
+
+`agent/ferramentas/repasse/hamburgueres.py` — também fora do pacote do agente. Lê o que a R1
+deixou (as paradas e os recortes), escolhe as paradas das janelas pedidas e pergunta, a cada
+uma, com as fichas da loja: o que está na bancada? É um dos lanches da lista? Qual? **O que é do
+agente vem dele, importado:** o modelo de rotina (`claude-haiku-5-5`, o mesmo que pergunta com
+contexto ao vivo), a chamada pela ferramenta forçada, a leitura da resposta, a conta do custo e
+o borrão de rosto. **O teto é duro:** antes de cada pergunta, se o gasto mais o custo da anterior
+passar dele, para; modelo sem preço na tabela não roda; chave recusada para tudo. O que o modelo
+escreve fica no arquivo da loja e não é impresso.
+
+**As fichas iguais viram um lanche só.** O dono montou as fichas dos trios na mesma madrugada, e
+elas responderam à pergunta 3 do plano: o **TRIO 01 leva o mesmo lanche do Numero 01**, e o
+**TRIO 02 o do Numero 02** — os mesmos ingredientes, nas mesmas quantidades. A lista que vai ao
+modelo junta os produtos de ficha igual ("Numero 01 — o mesmo lanche vai em: TRIO 01"): ele vê o
+sanduíche, e não teria como escolher entre dois nomes para ele.
+
+### A primeira amostra (14/10, 3h36, na loja, com a chave da loja)
+
+Três janelas, perto dos pedidos do Regem: 19h50–20h01 (dois Numero 02, um TRIO 01 e dois TRIO
+02), 22h50–22h59 (um Numero 01) e 23h23–23h32 (dois TRIOS 01 e um TRIO 02). As 64 paradas da
+bancada nessas janelas foram perguntadas, com teto de R$ 1,00.
+
+| | |
+|---|---|
+| perguntas | 64, nenhum erro |
+| custo | **R$ 0,105** no total — de 0,155 a 0,337 centavo por pergunta |
+| o que o modelo viu | bancada sem lanche 30 · não dá para ver 23 · lanche em montagem 9 · lanche fechado 2 |
+| qual lanche | "não sei" 62 · "Numero 06" 2 (23h30m56 e 23h31m38; nenhum pedido conhecido dele ali) |
+| borradas | 16 — o borrão de rosto achou "rosto" em 16 dos 64 recortes |
+
+**Dois recortes olhados** (na pasta da sessão, sem descrever pessoas; apagados dali em seguida —
+na loja eles continuam na pasta guardada do repasse): quando o lanche está aberto, **os
+ingredientes aparecem bem** (alface e molho branco nítidos, dois lanches montados em embalagem
+de delivery); num outro momento, o lanche estava no canto do quadro e o resto era papel vazio.
+
+**O que isso diz:**
+
+1. **"A bancada parou" não é "há um lanche na bancada":** 30 das 64 paradas não tinham lanche.
+2. **Uma foto só mostra uma parte da montagem.** O que se vê num instante — alface, molho — é
+   comum à maioria dos lanches: dos 19 hambúrgueres, 7 levam alface e molho especial. O que
+   separa um do outro (o pão, quantas carnes) aparece em outro instante. Daí os 62 "não sei": o
+   modelo não inventou.
+3. **O borrão de rosto atrapalha na bancada:** de cima, a regra do próprio agente para a bancada
+   é não borrar (o borrão apagava o pão — 12 de 40 momentos, 08/10). O quadro da loja está como
+   "livre", e não como "montagem", e por isso a R2 borrou.
+
+### A próxima rodada (dentro do teto que sobra: R$ 0,895)
+
+- **A pergunta com os pedidos:** os candidatos são os lanches pedidos no Regem nos minutos
+  anteriores — "é o lanche de algum destes pedidos? de qual?" —, e não a lista inteira. É a
+  conferência do pedido pela ficha, o uso que o produto quer; o modelo de referência da Intel
+  faz assim (a estação compara o prato com o pedido).
+- **Uma sequência, e não uma foto:** quatro a seis quadros da mesma montagem, de um minuto, numa
+  pergunta só — o pão, a carne e o recheio aparecem em instantes diferentes.
+- **Sem o borrão na bancada**, como o agente.
+
+### O que não foi medido
+
+Se a sequência com os pedidos acerta; quanto custa (pela conta, perto de 0,6 centavo por
+pergunta com quatro imagens); e de que lanche eram as paradas "em montagem".
+
