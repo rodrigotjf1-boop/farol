@@ -36,6 +36,7 @@ import { rotasDeResultados } from './rotas/resultados.js';
 import { rotasDeResumos } from './rotas/resumos.js';
 import { rotasDeUso } from './rotas/uso.js';
 import { rotasDeSessao } from './rotas/sessao.js';
+import { rotasDeTransportes } from './rotas/transportes.js';
 
 export const VERSAO = process.env.APP_VERSION ?? '0.1.0';
 
@@ -185,6 +186,7 @@ export function criarApp(
   rotasDeOrcamento(app, pool);
   rotasDeLojas(app, pool);
   rotasDeAgentes(app, pool);
+  rotasDeTransportes(app, pool);
   rotasDeConfiguracao(app, pool);
   rotasDePreview(app, pool);
   const regem = opcoes.regem ?? configDoRegem(process.env, VERSAO);

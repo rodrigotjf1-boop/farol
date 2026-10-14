@@ -127,3 +127,49 @@ export function exigirAdmin(cabecalho: string | undefined): void {
 export function gerarToken(): string {
   return randomBytes(32).toString('base64url');
 }
+
+// ───────────────────── quem ENTREGA os alertas ─────────────────────
+// Pedido da sessão do Hub DMS, aprovado pelo dono em 14/10/2026 (migration
+// 046): as rotas do transporte aceitavam a credencial geral da
+// distribuição — quem entregasse os alertas carregaria a chave que emite
+// agente e cadastra loja, de todas as lojas. Agora cada transporte (o n8n,
+// o Regem) tem o token dele, que só reivindica e devolve envios dos tipos
+// que lhe cabem, e a chave geral não vale ali.
+//
+// Continua de pé o motivo de o transporte ser da distribuição e não do
+// agente (ERR-016): o aviso de "o agente caiu" não pode passar pelo agente.
+
+/** O começo do token do transporte: quem o acha num log ou numa variável sabe o que ele é — e o que ele NÃO abre. */
+export const PREFIXO_TRANSPORTE = 'fart_';
+
+export function gerarTokenDeTransporte(): string {
+  return `${PREFIXO_TRANSPORTE}${gerarToken()}`;
+}
+
+export type TransporteAutenticado = { transporteId: string; nome: string; tipos: string[] };
+
+export async function autenticarTransporte(
+  pool: pg.Pool,
+  cabecalho: string | undefined,
+): Promise<TransporteAutenticado> {
+  const token = extrairToken(cabecalho);
+  // Mensagem idêntica para formato errado, token inexistente, errado ou
+  // revogado: dizer qual deles confirmaria ao atacante o que existe.
+  const recusa = () => new ErroDeAuth(401, 'credencial_invalida', 'token inválido');
+  if (!token.startsWith(PREFIXO_TRANSPORTE)) throw recusa();
+  const hash = hashDoToken(token);
+
+  const { rows } = await pool.query(
+    `select id, nome, tipos, token_hash
+       from transporte
+      where token_hash = $1 and revogado_em is null`,
+    [hash],
+  );
+  const t = rows[0];
+  if (!t || !hashesIguais(t.token_hash, hash)) throw recusa();
+
+  // O último uso, sem segurar a resposta: é telemetria, não parte do contrato.
+  void pool.query('update transporte set usado_em = now() where id = $1', [t.id]).catch(() => {});
+
+  return { transporteId: t.id, nome: t.nome, tipos: t.tipos };
+}

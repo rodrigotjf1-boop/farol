@@ -6603,3 +6603,49 @@ não troca o nome guardado.
 
 Se algum item acertou: segue sem gabarito.
 
+## 14/10/2026 (manhã) · Quem entrega os alertas tem credencial própria — a chave geral sai das rotas de envio (migration 046, ERR-118)
+
+### O pedido
+
+A sessão do Hub DMS, pela decisão D10 do dono (abrir já as correções das brechas dos produtos), achou que as rotas do
+transporte — `POST /v1/envios/reivindicar` e `POST /v1/envios/:id/resultado` — aceitavam a **credencial geral da
+distribuição** (`x-farol-admin`), a mesma que emite agente, cadastra loja e liga o balcão. Quem entregasse os alertas
+(o n8n, o Regem) carregaria a chave mestra de todas as lojas. O pedido está em
+`docs/pedido-hub-dms-credencial-do-transporte.md`.
+
+O plano foi apresentado e o dono respondeu "Pode" (14/10, 11h25), com o print da aba "Chegou?": todos os avisos "na
+fila", 0 tentativas — **nada consumia essas rotas**. Então não houve transição: a chave geral saiu delas já.
+
+### Três caminhos, e o escolhido
+
+- **A · token por transporte, guardado só em resumo** (escolhido): o padrão do token do agente; um por transporte,
+  com os tipos de destino que ele entrega; revoga-se um sem derrubar o outro; cada envio anota quem o levou.
+- **B · uma segunda variável de ambiente:** sem migration, mas um token só para todos, revogar exige mexer no
+  servidor, e não há registro de quem entregou.
+- **C · pedido assinado (HMAC):** protege contra repetição de pedido, mas pesa no n8n. Fica como camada para depois.
+
+### O que entra
+
+- **Migration 046:** a tabela `transporte` (nome, tipos, resumo do token, criado, último uso, revogado; o nome não
+  repete entre os que valem) e `envio.transporte_id`.
+- **`autenticarTransporte`** (`auth.ts`): `Authorization: Bearer fart_…`; o que não tem o prefixo nem chega ao banco;
+  inexistente, errado e revogado dão a mesma recusa; o último uso é anotado sem segurar a resposta.
+- **As rotas de envio:** só o token do transporte. A reivindicação respeita os tipos dele (o pedido vale dentro deles);
+  o resultado só vale do envio que ele mesmo reivindicou — o de outro é 404; id torto também é 404, e não erro do
+  banco.
+- **A distribuição emite, lista e revoga** (`rotas/transportes.ts`, só com a chave geral) e pela linha de comando:
+  `npm run provisionar -- transporte <nome> <tipos>`, `transportes`, `transporte-revogar <id>`. O token aparece uma
+  vez. O contrato para quem montar o transporte: `docs/transporte-dos-alertas.md`.
+- **Fica fora:** a chave geral continua nas outras rotas de distribuição (agentes, lojas, balcão, usuários,
+  transportes). Se o Hub quiser tratá-las, é outro pedido.
+
+### Como foi provado
+
+Os testes da API contra Postgres (`testes/transportes.test.ts` e `testes/rotas-alertas.test.ts`): a emissão (o token
+com o prefixo, o banco só com o resumo), as recusas (nome, tipos, token no corpo, nome repetido; revogado, o nome fica
+livre), a lista sem token nem resumo; o token do transporte recusado em todas as rotas de distribuição; a chave geral,
+o token do agente, o token revogado e o sem prefixo recusados nas rotas de envio; os dois transportes de tipos
+diferentes, cada um levando só os seus; o resultado de outro transporte recusado; os comandos de provisionar pela API
+de verdade. A reivindicação que dá certo fica toda num arquivo: ela pega envios de todas as lojas, e os arquivos de
+teste rodam ao mesmo tempo (V93). As mutações numa cópia, até zero vivas.
+

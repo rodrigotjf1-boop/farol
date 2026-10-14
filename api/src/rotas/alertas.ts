@@ -24,10 +24,18 @@
 // caiu" não pode ser entregue pelo agente** — ele está caído. O mesmo vale
 // para queda de internet na loja, que é quando mais se precisa avisar.
 //
-// Então o transporte é infraestrutura do lado da distribuição, com
-// credencial de distribuição, e puxa de TODAS as lojas: um n8n serve a
-// rede inteira. Isso também segue a divisão do produto — telemetria e
-// painel de distribuição nunca são do usuário.
+// Então o transporte é infraestrutura do lado da distribuição e puxa de
+// TODAS as lojas: um n8n serve a rede inteira. Isso também segue a divisão
+// do produto — telemetria e painel de distribuição nunca são do usuário.
+//
+// ## A credencial é do TRANSPORTE, não a chave geral (migration 046)
+//
+// Até 14/10/2026 estas rotas aceitavam a credencial geral da distribuição
+// (`x-farol-admin`), a que emite agente e cadastra loja: quem entregasse os
+// alertas carregaria a chave mestra (pedido da sessão do Hub DMS, aprovado
+// pelo dono). Agora cada transporte tem o token dele (`Bearer fart_…`, ver
+// `auth.ts`), que só reivindica envios dos tipos que lhe cabem e só devolve
+// o resultado do que ele mesmo reivindicou. A chave geral não vale aqui.
 //
 // ## `reivindicar` usa `skip locked`
 //
@@ -44,7 +52,7 @@ import type pg from 'pg';
 import { exigirConfigurar } from '../rbac.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 import { acharCampoProibido } from './lojas.js';
-import { exigirAdmin, ErroDeAuth } from '../auth.js';
+import { autenticarTransporte, ErroDeAuth, type TransporteAutenticado } from '../auth.js';
 
 const TIPOS = ['whatsapp', 'email', 'kds', 'webhook'];
 const SEVERIDADES = ['info', 'atencao', 'critico', 'emergencia'];
@@ -376,10 +384,11 @@ export function rotasDeAlertas(app: FastifyInstance, pool: pg.Pool): void {
   // ──────────────── o transporte: puxa, entrega, responde ────────────────
 
   app.post('/v1/envios/reivindicar', async (req, resposta) => {
-    // Credencial de DISTRIBUIÇÃO: ver a nota no topo. O agente não pode
-    // ser o transporte do aviso de que ele mesmo caiu.
+    // A credencial do TRANSPORTE: ver a nota no topo. Nem o agente (que não
+    // pode entregar o aviso de que ele mesmo caiu) nem a chave geral.
+    let t: TransporteAutenticado;
     try {
-      exigirAdmin(req.headers['x-farol-admin'] as string | undefined);
+      t = await autenticarTransporte(pool, req.headers.authorization);
     } catch (e) {
       if (e instanceof ErroDeAuth) {
         req.log.warn({ motivo: e.motivo }, 'transporte recusado');
@@ -390,9 +399,12 @@ export function rotasDeAlertas(app: FastifyInstance, pool: pg.Pool): void {
 
     const c = (req.body ?? {}) as { limite?: number; tipos?: unknown };
     const limite = Math.min(Math.max(Number(c.limite ?? 20) || 20, 1), MAX_REIVINDICAR);
-    const tipos = Array.isArray(c.tipos)
-      ? c.tipos.filter((t): t is string => typeof t === 'string' && TIPOS.includes(t))
+    // Os tipos pedidos valem DENTRO dos que cabem a este transporte; sem
+    // pedido, todos os dele. Pedir só tipo alheio é não levar nada.
+    const pedidos = Array.isArray(c.tipos)
+      ? c.tipos.filter((x): x is string => typeof x === 'string' && TIPOS.includes(x))
       : null;
+    const tipos = pedidos ? t.tipos.filter((x) => pedidos.includes(x)) : t.tipos;
 
     // `skip locked` é o que permite dois trabalhadores do n8n rodarem
     // juntos sem mandar a mesma mensagem duas vezes — e sem um esperar o
@@ -408,7 +420,7 @@ export function rotasDeAlertas(app: FastifyInstance, pool: pg.Pool): void {
            join destino d on d.id = e.destino_id
           where e.estado in ('pendente','falhou')
             and e.tentativas < 5
-            and ($1::text[] is null or d.tipo = any($1))
+            and d.tipo = any($1::text[])
           order by (e.motivo = 'agente_caiu') desc, e.criado_em
           limit $2
           for update of e skip locked
@@ -416,30 +428,36 @@ export function rotasDeAlertas(app: FastifyInstance, pool: pg.Pool): void {
        update envio e
           set estado = 'enviado',
               tentativas = e.tentativas + 1,
-              despachado_em = now()
+              despachado_em = now(),
+              transporte_id = $3
          from alvo
         where e.id = alvo.id
       returning e.id, e.motivo, e.payload, e.tentativas, e.loja_id, e.evento_id,
                 (select d.tipo from destino d where d.id = e.destino_id) as destino_tipo,
                 (select d.endereco from destino d where d.id = e.destino_id) as destino_endereco,
                 (select d.segredo_ref from destino d where d.id = e.destino_id) as segredo_ref`,
-      [tipos, limite],
+      [tipos, limite, t.transporteId],
     );
+    if (rows.length > 0) req.log.info({ transporte: t.nome, levados: rows.length }, 'transporte reivindicou');
 
     return { envios: rows };
   });
 
   app.post('/v1/envios/:id/resultado', async (req, resposta) => {
+    let t: TransporteAutenticado;
     try {
-      exigirAdmin(req.headers['x-farol-admin'] as string | undefined);
+      t = await autenticarTransporte(pool, req.headers.authorization);
     } catch (e) {
       if (e instanceof ErroDeAuth) {
+        req.log.warn({ motivo: e.motivo }, 'transporte recusado');
         return resposta.status(e.status).send({ erro: e.motivo, mensagem: e.message });
       }
       throw e;
     }
 
     const { id } = req.params as { id: string };
+    // Id que não é uuid é envio que não existe: 404, e não um erro do banco.
+    if (!UUID.test(id)) return resposta.status(404).send({ erro: 'nao_encontrado' });
     const c = (req.body ?? {}) as { entregue?: unknown; erro?: unknown };
 
     if (typeof c.entregue !== 'boolean') {
@@ -456,10 +474,11 @@ export function rotasDeAlertas(app: FastifyInstance, pool: pg.Pool): void {
           set estado = case when $2::boolean then 'entregue' else 'falhou' end,
               confirmado_em = case when $2::boolean then now() else confirmado_em end,
               erro = case when $2::boolean then null else $3 end
-        where id = $1
+        where id = $1 and transporte_id = $4
       returning id, estado, tentativas`,
-      [id, c.entregue, c.erro ? String(c.erro).slice(0, 500) : null],
+      [id, c.entregue, c.erro ? String(c.erro).slice(0, 500) : null, t.transporteId],
     );
+    // O envio de OUTRO transporte (ou que ninguém reivindicou) é, para este, um envio que não existe.
     if (rows.length === 0) return resposta.status(404).send({ erro: 'nao_encontrado' });
     return { envio: rows[0] };
   });

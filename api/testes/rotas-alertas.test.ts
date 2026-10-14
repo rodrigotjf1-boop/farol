@@ -60,6 +60,12 @@ describe('alertas (Postgres real)', { skip: !URL && 'sem DATABASE_URL' }, () => 
   let cookie = '';
   let cookieExecucao = '';
   let tokenAgente = '';
+  // Quem entrega (migration 046): um transporte que leva os quatro tipos e um que leva só o KDS.
+  let transporte = '';
+  let transporteId = '';
+  let soKds = '';
+  let soKdsId = '';
+  const comTransporte = () => ({ authorization: `Bearer ${transporte}` });
 
   before(async () => {
     adminAntes = process.env.FAROL_ADMIN_TOKEN;
@@ -127,6 +133,17 @@ describe('alertas (Postgres real)', { skip: !URL && 'sem DATABASE_URL' }, () => 
       payload: { fingerprint: `fp-${marca}`, versao: '0.1.0-teste' },
     });
     assert.equal(ativacao.statusCode, 200, ativacao.body);
+
+    const emitir = async (nome: string, tipos: string[]) => {
+      const r = await app.inject({
+        method: 'POST', url: '/v1/distribuicao/transportes',
+        headers: { 'x-farol-admin': ADMIN }, payload: { nome: `${marca}-${nome}`, tipos },
+      });
+      assert.equal(r.statusCode, 201, r.body);
+      return r.json() as { id: string; token: string };
+    };
+    ({ token: transporte, id: transporteId } = await emitir('todos', ['whatsapp', 'email', 'kds', 'webhook']));
+    ({ token: soKds, id: soKdsId } = await emitir('kds', ['kds']));
   });
 
   after(async () => {
@@ -134,6 +151,8 @@ describe('alertas (Postgres real)', { skip: !URL && 'sem DATABASE_URL' }, () => 
     else process.env.FAROL_ADMIN_TOKEN = adminAntes;
     await app?.close();
     await pool?.query('delete from tenant where nome like $1', [`${marca}%`]);
+    // Depois da conta: os envios dela (que apontam para estes transportes) já foram junto.
+    await pool?.query('delete from transporte where nome like $1', [`${marca}%`]);
     await pool?.end();
   });
 
@@ -315,7 +334,7 @@ describe('alertas (Postgres real)', { skip: !URL && 'sem DATABASE_URL' }, () => 
     const puxar = () =>
       app.inject({
         method: 'POST', url: '/v1/envios/reivindicar',
-        headers: { 'x-farol-admin': ADMIN },
+        headers: comTransporte(),
         payload: { limite: 50 },
       });
 
@@ -334,7 +353,7 @@ describe('alertas (Postgres real)', { skip: !URL && 'sem DATABASE_URL' }, () => 
   it('o envio reivindicado leva o endereço, e o segredo só por REFERÊNCIA', async () => {
     const r = await app.inject({
       method: 'POST', url: '/v1/envios/reivindicar',
-      headers: { 'x-farol-admin': ADMIN },
+      headers: comTransporte(),
       payload: { limite: 1, tipos: ['whatsapp'] },
     });
     for (const e of r.json().envios) {
@@ -353,14 +372,14 @@ describe('alertas (Postgres real)', { skip: !URL && 'sem DATABASE_URL' }, () => 
 
     const semCampo = await app.inject({
       method: 'POST', url: `/v1/envios/${id}/resultado`,
-      headers: { 'x-farol-admin': ADMIN },
+      headers: comTransporte(),
       payload: {},
     });
     assert.equal(semCampo.statusCode, 422, 'o transporte tem que DIZER o resultado');
 
     const ok = await app.inject({
       method: 'POST', url: `/v1/envios/${id}/resultado`,
-      headers: { 'x-farol-admin': ADMIN },
+      headers: comTransporte(),
       payload: { entregue: true },
     });
     assert.equal(ok.json().envio.estado, 'entregue');
@@ -388,7 +407,7 @@ describe('alertas (Postgres real)', { skip: !URL && 'sem DATABASE_URL' }, () => 
 
     const r = await app.inject({
       method: 'POST', url: `/v1/envios/${rows[0].id}/resultado`,
-      headers: { 'x-farol-admin': ADMIN },
+      headers: comTransporte(),
       payload: { entregue: false, erro: 'template nao aprovado pela Meta' },
     });
     assert.equal(r.json().envio.estado, 'falhou');
@@ -402,7 +421,7 @@ describe('alertas (Postgres real)', { skip: !URL && 'sem DATABASE_URL' }, () => 
   it('envio que não existe dá 404', async () => {
     const r = await app.inject({
       method: 'POST', url: `/v1/envios/${randomUUID()}/resultado`,
-      headers: { 'x-farol-admin': ADMIN },
+      headers: comTransporte(),
       payload: { entregue: true },
     });
     assert.equal(r.statusCode, 404);
@@ -437,9 +456,110 @@ describe('alertas (Postgres real)', { skip: !URL && 'sem DATABASE_URL' }, () => 
 
     const r = await app.inject({
       method: 'POST', url: '/v1/envios/reivindicar',
-      headers: { 'x-farol-admin': ADMIN },
+      headers: comTransporte(),
       payload: { limite: 1 },
     });
     assert.equal(r.json().envios[0]?.motivo, 'agente_caiu');
+  });
+
+  // ───────── quem entrega: a credencial própria do transporte (migration 046) ─────────
+
+  async function envioNovo(destinoId: string, rotulo: string): Promise<string> {
+    const { rows } = await pool.query(
+      `insert into envio (tenant_id, loja_id, destino_id, motivo, chave)
+       select l.tenant_id, l.id, $2, 'busca_concluida', $3 from loja l where l.id = $1
+       returning id`,
+      [lojaId, destinoId, `${marca}-${rotulo}-${randomUUID()}`],
+    );
+    return rows[0].id;
+  }
+
+  async function destinoDoTipo(tipo: string): Promise<string> {
+    const lista = (await app.inject({ method: 'GET', url: `/v1/lojas/${lojaId}/destinos`, headers: { cookie } })).json();
+    const achado = lista.destinos.find((d: { tipo: string }) => d.tipo === tipo);
+    if (achado) return achado.id;
+    const r = await criarDestino({ tipo, nome: `Destino ${tipo}`, endereco: tipo === 'kds' ? randomUUID() : '+5521977776666' });
+    assert.equal(r.statusCode, 201, r.body);
+    return r.json().destino.id;
+  }
+
+  it('a chave geral não vale mais nas rotas de envio', async () => {
+    // Pedido da sessão do Hub DMS, aprovado pelo dono em 14/10/2026: quem entregasse os alertas carregaria a chave
+    // que emite agente e cadastra loja, de todas as lojas.
+    for (const url of ['/v1/envios/reivindicar', `/v1/envios/${randomUUID()}/resultado`]) {
+      const r = await app.inject({ method: 'POST', url, headers: { 'x-farol-admin': ADMIN }, payload: { limite: 5, entregue: true } });
+      assert.equal(r.statusCode, 401, `${url}: ${r.body}`);
+    }
+  });
+
+  it('o envio anota quem o reivindicou, e o uso do transporte fica registrado', async () => {
+    const id = await envioNovo(await destinoDoTipo('whatsapp'), 'quem');
+    const r = await app.inject({ method: 'POST', url: '/v1/envios/reivindicar', headers: comTransporte(), payload: { limite: 100 } });
+    assert.ok(r.json().envios.some((e: { id: string }) => e.id === id), 'o envio novo foi levado');
+    const { rows } = await pool.query('select transporte_id from envio where id = $1', [id]);
+    assert.equal(rows[0]?.transporte_id, transporteId);
+    // O último uso é anotado sem segurar a resposta: espera-se um pouco por ele.
+    let usado = null;
+    for (let i = 0; i < 20 && !usado; i += 1) {
+      usado = (await pool.query('select usado_em from transporte where id = $1', [transporteId])).rows[0].usado_em;
+      if (!usado) await new Promise((r) => setTimeout(r, 100));
+    }
+    assert.ok(usado, 'o último uso do transporte');
+  });
+
+  it('cada transporte leva só os tipos dele', async () => {
+    const kds = await envioNovo(await destinoDoTipo('kds'), 'kds');
+    const zap = await envioNovo(await destinoDoTipo('whatsapp'), 'zap');
+
+    const alheio = await app.inject({
+      method: 'POST', url: '/v1/envios/reivindicar', headers: { authorization: `Bearer ${soKds}` }, payload: { tipos: ['whatsapp'] },
+    });
+    assert.deepEqual(alheio.json().envios, [], 'pedir tipo alheio é não levar nada');
+
+    const doKds = await app.inject({
+      method: 'POST', url: '/v1/envios/reivindicar', headers: { authorization: `Bearer ${soKds}` }, payload: { limite: 100 },
+    });
+    const levados = doKds.json().envios as { id: string; destino_tipo: string }[];
+    assert.ok(levados.length >= 1 && levados.every((e) => e.destino_tipo === 'kds'), JSON.stringify(levados));
+    assert.ok(levados.some((e) => e.id === kds) && !levados.some((e) => e.id === zap));
+
+    const zapPeloTodos = await app.inject({
+      method: 'POST', url: '/v1/envios/reivindicar', headers: comTransporte(), payload: { limite: 100, tipos: ['whatsapp'] },
+    });
+    assert.ok(zapPeloTodos.json().envios.some((e: { id: string }) => e.id === zap), 'o outro transporte levou o WhatsApp');
+  });
+
+  it('o resultado só vale de quem reivindicou', async () => {
+    const id = await envioNovo(await destinoDoTipo('kds'), 'resultado');
+    const levou = await app.inject({
+      method: 'POST', url: '/v1/envios/reivindicar', headers: { authorization: `Bearer ${soKds}` }, payload: { limite: 100 },
+    });
+    assert.ok(levou.json().envios.some((e: { id: string }) => e.id === id));
+
+    const deOutro = await app.inject({
+      method: 'POST', url: `/v1/envios/${id}/resultado`, headers: comTransporte(), payload: { entregue: true },
+    });
+    assert.equal(deOutro.statusCode, 404, 'para o outro transporte, este envio não existe');
+    const doDono = await app.inject({
+      method: 'POST', url: `/v1/envios/${id}/resultado`, headers: { authorization: `Bearer ${soKds}` }, payload: { entregue: true },
+    });
+    assert.equal(doDono.json().envio.estado, 'entregue', doDono.body);
+    const torto = await app.inject({
+      method: 'POST', url: '/v1/envios/nao-e-uuid/resultado', headers: { authorization: `Bearer ${soKds}` }, payload: { entregue: true },
+    });
+    assert.equal(torto.statusCode, 404, 'id torto é envio que não existe, não erro do banco');
+  });
+
+  it('revogar um transporte não derruba o outro', async () => {
+    const rev = await app.inject({
+      method: 'POST', url: `/v1/distribuicao/transportes/${soKdsId}/revogar`, headers: { 'x-farol-admin': ADMIN },
+    });
+    assert.equal(rev.statusCode, 200, rev.body);
+    const revogado = await app.inject({
+      method: 'POST', url: '/v1/envios/reivindicar', headers: { authorization: `Bearer ${soKds}` }, payload: { limite: 1 },
+    });
+    assert.equal(revogado.statusCode, 401);
+    const outro = await app.inject({ method: 'POST', url: '/v1/envios/reivindicar', headers: comTransporte(), payload: { limite: 1 } });
+    assert.equal(outro.statusCode, 200, outro.body);
   });
 });
