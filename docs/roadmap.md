@@ -4959,7 +4959,7 @@ loja. As fotos apresentadas (passo 2) e a memória (passo 4) entram depois, do l
 servidor — é ali que a nossa nuvem, quando a conta fechar, toma o lugar da plataforma sem a
 loja mudar.
 
-### O repasse, em fases (plano de 13/10; à espera da aprovação do dono)
+### O repasse, em fases (plano de 13/10; aprovado pelo dono em 14/10)
 
 Repassar é fazer a gravação guardada passar pelas mesmas análises que olham a loja ao vivo,
 com o relógio da gravação, para ver em números o que elas teriam visto. O dono pediu o plano
@@ -4970,7 +4970,7 @@ ingredientes. O que foi medido para o plano e as perguntas a ele estão em
 
 | fase | o que entra | a prova | muda na loja? |
 |---|---|---|---|
-| **R1 · O leitor do expediente** | lê a gravação com a hora certa (o nome do arquivo e a contagem dos quadros — o relógio de dentro não serve), acha as paradas da bancada, recorta a área | a hora de cada quadro bate com o nome do arquivo; os números do levantamento se repetem | não: ferramenta nossa, que vai, roda e é apagada |
+| **R1 · O leitor do expediente** | lê a gravação com a hora certa (o nome do arquivo e o relógio de dentro, consertado — corrigido em 14/10, ERR-115: a contagem dos quadros errava até 29,6 s), acha as paradas da bancada com a quietude do agente, recorta o quadro | a contagem e o relógio de dentro, comparados pedaço a pedaço; a emenda entre pedaços medida | não: ferramenta nossa, que vai, roda e é apagada — ✅ 14/10 |
 | **R2 · O teste dos dois hambúrgueres** | em camadas: a hora do pedido no Regem diz onde procurar; pistas da própria imagem (verde no pão, a mão na bisnaga); a pergunta paga a um modelo, com as duas fichas; primeiro uma amostra, depois a noite | a tabela contra o que o Regem vendeu; o custo por acerto | não: as chamadas pagas saem da loja com a chave do dono, dentro do teto que ele der |
 | **R3 · O repasse fiel** | o motor inteiro do agente lendo da gravação: os critérios de verdade, como rodam ao vivo | as contagens de presença da noite repassada ficam perto das feitas ao vivo | não muda o agente em serviço |
 | **R4 · "A câmera saiu do lugar"** | medir o deslocamento na gravação, com gente passando na frente; o protótipo da tela para o dono aprovar; só então o programa | não acusa a câmera parada; acusa a imagem deslocada de propósito | só depois do protótipo aprovado e de uma troca de pacote com o "pode" |
