@@ -6170,3 +6170,53 @@ falhavam sem a correção —, 31 mutações, nenhuma viva, e a suíte inteira d
 **Na loja ainda não está:** vai na próxima troca de pacote, junto com o ERR-111 e o ERR-112,
 e a troca pede o "pode" do dono.
 
+## 14/10/2026 (madrugada) · O pacote `89ef553` na loja, o modo de testes e o que o dono contou do atendimento
+
+**O que o dono respondeu ao relatório da noite, palavra por palavra:**
+
+- Sobre o atendimento: "o canal 13 no quadro marcado onde so amostra o atendendo e o caixa de
+  atendimento, em dias com demanda menos o caixa sai e ajuda a liberar pedidos e fazer
+  sorvetes entao a movimentação vai ser menor, na segunda feira foi atipico porque foi
+  feriado dia das crianças a demanda foi como um final de semana, entao sempre tem atendendo
+  no setor, so sai para pegar pedidos ou bebidas porem a maior parte fica com movimento,
+  sexta sabado e domingo sao de maior movimento e um colaborador no atendimento mais fixo,
+  so dias de semana com demanda menor ele ajuda com outras tarefas e sai do setor."
+- Sobre o repasse: "a ideia de usarmos as alterações para analisar as imagens separadas e
+  porque teve alta demanda e muito material para avaliar o agente, porem nao podemos mudar a
+  logica do algoritimo da analise na montagem ao vivo.."
+- Sobre a troca: "pode fazer a troca do pacote nao precisa ficar fora do expediente, estamos
+  em modo testes ainda. nao estamos em modo produção ainda ate alinharmos e os testes forem
+  eficazes".
+
+**O que isso fixa:**
+
+1. **O posto vazio da noite de 13/10 é real.** Em dia de semana com menos movimento, quem
+   fica no caixa sai para liberar pedidos e fazer sorvete; o 12/10 foi feriado, com movimento
+   de fim de semana. A detecção e a leitura contínua acertaram. Isso é **perfil desta loja**
+   (o dia da semana muda o que é normal no atendimento), e não regra do motor: é o que o
+   especialista do padrão da loja já compara por dia da operação.
+2. **O repasse é um caminho à parte.** A gravação guardada serve para avaliar o agente com
+   material de muito movimento; o que roda ao vivo na montagem não muda por causa dele. É o
+   jeito A do plano (as mesmas análises, lendo da gravação, com o resultado escrito
+   separado). As quatro perguntas do plano continuam em aberto.
+3. **Modo de testes:** enquanto o dono disser que o piloto é teste, a troca de pacote na loja
+   pode ser feita com a loja aberta. O "pode" de cada troca continua.
+
+### A troca
+
+Às 2h23 de 14/10, com a loja aberta, para o pacote da `main` em `89ef553` — leva o ERR-111
+(o borrão de rosto pelos bytes), o ERR-112 (a prova da placa) e o ERR-114 (a conexão que cai
+no meio). Pacote montado com `git archive`, a impressão sha256 conferida dos dois lados.
+Subiu de primeira: configuração v141, 2 critérios, **o detector na placa de vídeo — a placa
+passou na prova**, nenhum aviso nem erro no registro, a fila capturando 20 s depois. A
+conferência das marcas dos três defeitos e das fatias de antes deu "tudo certo"; o pacote
+anterior (`b9c99de`) ficou guardado ao lado para a volta.
+
+### As fichas, na mesma madrugada
+
+O dono atualizou as fichas da categoria de hambúrgueres e começou a dos trios. A cópia que o
+agente guarda foi trocada às 2h23: das 19 da categoria BURGUER, as 19 têm ficha; dos 19
+trios, nenhuma ainda. As fichas do 01 e do 02 mudaram em relação às do plano do repasse: o
+01 leva agora pão de dois cortes, e o 02 leva cebola ao molho shoyo (um preparo) no lugar do
+molho shoyo. O pão diferente se vê de cima mesmo com o lanche fechado.
+
