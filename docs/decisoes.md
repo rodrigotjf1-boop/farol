@@ -6527,3 +6527,79 @@ A R2 até aqui: **142,6 centavos — R$ 1,43**, perto de US$ 0,26 (conta do agen
 
 Se algum lanche acertou: segue sem gabarito.
 
+## 14/10/2026 (manhã) · R2, rodada 9: a bancada com memória — a tabela de itens do dono — e o ciclo de aprendizado
+
+### O que o dono propôs (14/10, 10h14 e 10h35)
+
+- **A tabela de itens:** "o frame detecta que o colaborador coloque 5 pares de tampos de pães, então logicamente está
+  produzindo 5 hambúrgueres e serão 5 fichas, já teria uma tabela com 5 colunas item 1, item 2 [...] depois iria
+  adicionando ingredientes em cada item conforme detectar nos frames [...] e ao final vai filtrando as fichas".
+- **A rotina como pista:** "ao montar os ingredientes o colaborador coloca um tampo sobre o outro, o que permite ver
+  mais detalhes do pão ao fim da montagem [...] perceber um padrão e rotina".
+- **O raro diz o lanche:** o Numero 08 é o único com 3 anéis de cebola, bacon e ovo — "ou ao menos detectar [...]
+  10 ingredientes detectados de 11 (pão não definido)".
+- **O ciclo de aprendizado:** a montagem fora do padrão das fichas vira alerta e fica guardada; se repetir, pede-se
+  ao usuário uma definição. E a que identifica "5 de 6 ingredientes" separa o quadro e pergunta qual é o que não foi
+  identificado. "Isso conta como treinamento e base de conhecimento."
+- **O KDS do Farol:** o comparativo com o KDS fica para quando houver a integração; e, para quem usa só o Farol,
+  "teremos nosso próprio KDS com a descrição do que está sendo detectado e produzido".
+
+O ciclo de aprendizado e o KDS do Farol são telas e alertas novos: entram no roteiro, com protótipo antes (regra do
+dono). Na R2, eles aparecem só como marcação no resultado de cada item.
+
+### O que entra (`agent/ferramentas/repasse/bancada.py`)
+
+- **A montagem com memória:** os quadros vão um a um, em ordem, e cada pergunta leva a tabela como está (item 1,
+  item 2... com o que cada um tem e quantas peças, o pão e se fechou). O modelo devolve a tabela depois daquele
+  quadro; a memória é daqui: o nome que entrou não sai, a contagem não diminui, o pão do fechamento fica e o item
+  fechado não reabre.
+- **No fim, cada item vai às fichas:** as que batem, as mais parecidas com "N de M ingredientes da ficha vistos" e,
+  no item fechado, a ficha de contagem exata (duas carnes: Numero 01, e não o 11).
+- **O ciclo de aprendizado, como marcação:** item fechado que nenhuma ficha explica é "fora do padrão"; item fechado
+  que bate com uma ficha a menos de um ingrediente vira "falta 1 de <ficha>: <ingrediente>", com o quadro em que o
+  item foi visto por último — o que se mostraria na pergunta.
+- **A montagem longa:** a primeira versão recomeçava a tabela a cada pausa de 2 minutos e perdia os pães abertos
+  antes de chegar o recheio. Agora a tabela vale enquanto a pausa for de até 5 minutos, e quem limita o custo é o
+  intervalo entre os quadros (um a cada 20 s).
+
+### As rodadas (as mesmas janelas)
+
+| rodada | o que mudou | perguntas | itens | com pão | fechados | o que se viu | custo |
+|---|---|---|---|---|---|---|---|
+| 9 | a tabela, recomeçando a cada 2 min | 48 | 21 | 0 | 4 | 1 fora do padrão; 3 de contagem exata (todos Numero 10) | 8,138 centavos |
+| 9b | a tabela contínua, um quadro a cada 20 s | 30 | 15 | 0 | 0 | 10 itens às 22h50 (5 só com o pão aberto) | 5,928 centavos |
+
+A R2 até aqui: **156,7 centavos — R$ 1,57**, perto de US$ 0,29.
+
+### O que isso diz
+
+1. **A tabela conta os lanches:** o modelo abriu 6 itens às 22h50 e 4 às 23h23 — os pares de pão que o dono
+   descreveu.
+2. **O "fora do padrão" achou o que a escala vai resolver:** na montagem das 19h57 às 20h00, um lanche fechado com
+   carne de 120 g e geleia de pimenta — nenhuma
+   ficha tem as duas; a mais parecida é o Mussarela Burg, que leva o blend de 150 g. É o tamanho da carne lido errado.
+3. **Um quadro por vez vê pouco:** cada item da 9b ficou com uma ou duas coisas (alface; uma carne e uma fatia) —
+   menos que a rodada 8, que olhava 8 quadros juntos e viu pão, carne e duas fatias na montagem das 19h50. De cima, um
+   quadro só mostra a camada de cima.
+4. **O pão nunca foi nomeado, e nenhum item da 9b fechou:** o pão continua esperando a referência da própria câmera.
+5. **Ninguém perguntaria nada ainda:** sem item fechado completo, não houve "falta 1" — a pergunta do ciclo de
+   aprendizado depende do fechamento ser visto.
+
+### O nome do pão no Regem, de novo (14/10, 10h26, só leitura)
+
+O dono viu na ficha do Regem o nome novo e entendeu que tinha atualizado: a LISTA de escolha mostra o nome atual do
+insumo, mas o campo "Insumo" logo abaixo (cinza) guarda o antigo — é ele que vai para o Farol. Conferido no banco: as
+9 fichas com esse pão seguem "Pão gold mix Prime", inclusive a Mussarela Burg salva às 10h13. Salvar a ficha de novo
+não troca o nome guardado.
+
+### O que vem
+
+- **A tabela olhando uma sequência curta** (3 a 4 quadros por pergunta, em vez de um): junta o que a rodada 8 via com
+  a memória da 9.
+- **A referência da câmera para o pão e a escala para a carne** (a calibração do dono, mais tarde).
+- **O ciclo de aprendizado e o KDS do Farol:** protótipo antes, quando a identificação estiver de pé.
+
+### O que não foi medido
+
+Se algum item acertou: segue sem gabarito.
+
