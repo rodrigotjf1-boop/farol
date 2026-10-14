@@ -1289,14 +1289,20 @@ class Auditoria:
         # hora aqui, antes de ele subir. Só soma: não muda olhada nenhuma.
         self._somar_atencao()
         if self._proxima_rotina is None or agora >= self._proxima_rotina:
-            r = self.passo(agora)
-            # Conta a partir do FIM da passada, como sempre foi: passada
-            # demorada (nuvem lenta) não encavala na seguinte. Com a hora
-            # dada por quem chama (teste), o fim é a própria hora dada.
-            fim = datetime.now() if do_relogio else agora
-            self._proxima_rotina = fim + timedelta(seconds=self.intervalo_captura)
-            self._proximo_vigia = fim + timedelta(seconds=self.intervalo_rapido)
-            return r
+            try:
+                return self.passo(agora)
+            finally:
+                # Conta a partir do FIM da passada, como sempre foi: passada
+                # demorada (nuvem lenta) não encavala na seguinte. Com a hora
+                # dada por quem chama (teste), o fim é a própria hora dada.
+                #
+                # E vale para a passada que ESTOUROU: marcando só depois de
+                # dar certo, a rotina seguinte ficava "para já" — a espera do
+                # laço dava zero e ele abria as câmeras de novo, na hora,
+                # enquanto o defeito durasse (ERR-114).
+                fim = datetime.now() if do_relogio else agora
+                self._proxima_rotina = fim + timedelta(seconds=self.intervalo_captura)
+                self._proximo_vigia = fim + timedelta(seconds=self.intervalo_rapido)
         # O vigia tem o passo dele. Com uma olhada de bancada esperando, o
         # laço acorda de segundo em segundo — e chamar o vigia a cada vez
         # seria rodar o detector dele dez vezes mais.

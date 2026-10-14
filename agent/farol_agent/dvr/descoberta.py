@@ -13,6 +13,7 @@ está em 192.168.1.108" antes de alguém digitar qualquer senha.
 
 from __future__ import annotations
 
+import http.client
 import ipaddress
 import socket
 import urllib.error
@@ -100,7 +101,10 @@ def _realm(host: str, porta: int, tempo_limite: float) -> str | None:
                     return parte.split("realm=", 1)[1].strip().strip('"')
             return cabecalho or "401 sem realm"
         return f"HTTP {e.code}"
-    except (urllib.error.URLError, OSError):
+    except (urllib.error.URLError, OSError, http.client.HTTPException):
+        # Atrás de uma porta aberta há de tudo: o que responde lixo, ou
+        # corta a resposta, não é gravador — e não pode derrubar a procura
+        # (ERR-114).
         return None
     return "responde sem exigir senha"
 

@@ -22,6 +22,7 @@ num lugar onde ninguém vai rodar `pip install`.
 
 from __future__ import annotations
 
+import http.client
 import json
 import logging
 import re
@@ -36,6 +37,11 @@ from typing import Any, Iterator
 _log = logging.getLogger(__name__)
 
 TEMPO_LIMITE = 10.0
+
+# O que sobe cru quando a conexão abre e cai ao LER a resposta. Vem sempre
+# DEPOIS dos ramos de `URLError` e de tempo esgotado, que também são
+# `OSError` e têm frase própria.
+_CAIU_NO_MEIO = (http.client.HTTPException, OSError)
 
 
 class ErroDoGravador(Exception):
@@ -137,10 +143,30 @@ class ClienteDahua:
             ) from e
         except (TimeoutError, socket.timeout) as e:
             raise ErroDoGravador(f"{self.base} não respondeu em {tempo_limite}s") from e
+        except _CAIU_NO_MEIO as e:
+            raise self._caiu_no_meio(e) from e
+
+    def _caiu_no_meio(self, e: BaseException) -> ErroDoGravador:
+        """A conexão abriu e caiu ao LER a resposta.
+
+        O `urllib` só embrulha em `URLError` o que acontece ao enviar o
+        pedido; a resposta cortada, a conexão fechada sem resposta e a rede
+        que solta sobem cruas. Quem chama só conhece `ErroDoGravador` — é
+        por ele que quem ouve os eventos sabe religar (ERR-114).
+        """
+        return ErroDoGravador(
+            f"a conexão com {self.base} caiu no meio da resposta ({type(e).__name__})",
+            dica="rede instável entre o computador e o gravador (cabo, switch), ou o gravador reiniciando",
+        )
 
     def _texto(self, caminho: str) -> str:
         with self._abrir(caminho) as r:
-            return r.read().decode("utf-8", "replace")
+            try:
+                return r.read().decode("utf-8", "replace")
+            except (TimeoutError, socket.timeout) as e:
+                raise ErroDoGravador(f"{self.base} parou de responder no meio da resposta") from e
+            except _CAIU_NO_MEIO as e:
+                raise self._caiu_no_meio(e) from e
 
     @staticmethod
     def _pares(texto: str) -> dict[str, str]:
@@ -356,6 +382,10 @@ class ClienteDahua:
                         f"a transmissão parou por mais de {tempo_limite}s sem nem heartbeat",
                         dica="keepalive não está chegando: o caminho caiu",
                     ) from e
+                except _CAIU_NO_MEIO as e:
+                    # Sem isto a conexão solta matava quem ouve: o erro subia
+                    # cru, e `eventos` só religa no erro do gravador.
+                    raise self._caiu_no_meio(e) from e
 
                 if not linha:
                     return   # o gravador fechou
