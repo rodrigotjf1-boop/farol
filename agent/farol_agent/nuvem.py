@@ -17,6 +17,7 @@ presencialmente.
 
 from __future__ import annotations
 
+import http.client
 import json
 import logging
 import urllib.error
@@ -26,6 +27,14 @@ from typing import Any
 _log = logging.getLogger(__name__)
 
 TIMEOUT_PADRAO = 15.0
+
+# O que sobe CRU quando a conexão abre e cai no meio: a nuvem fecha sem
+# responder (reinício, borda), a resposta vem cortada, a rede solta. O
+# `urllib` só embrulha em `URLError` o que acontece ao ENVIAR o pedido; o
+# que acontece ao LER a resposta passa direto. Quem lê resposta pela rede
+# traduz os dois — e põe este ramo DEPOIS dos de `URLError` e de
+# `TimeoutError`, que também são `OSError` e têm frase própria (ERR-114).
+CAIU_NO_MEIO = (http.client.HTTPException, OSError)
 
 # O agente se IDENTIFICA. Não é cortesia: `urllib` anuncia
 # `Python-urllib/3.x` por padrão, e a Cloudflare bloqueia essa assinatura
@@ -205,6 +214,16 @@ class ClienteNuvem:
             raise ErroDaNuvem(f"não cheguei na nuvem: {e.reason}") from None
         except TimeoutError:
             raise ErroDaNuvem(f"a nuvem não respondeu em {self.timeout:g}s") from None
+        except CAIU_NO_MEIO as e:
+            # Medido na loja em 13/10/2026: duas vezes num dia a nuvem
+            # fechou a conexão sem responder, e isto chegava a quem chama
+            # como erro inesperado. Passa, como a rede caída. A frase leva
+            # só o NOME do erro: com número que muda (quantos bytes
+            # faltaram) ela viraria uma linha de registro a cada volta
+            # (ERR-014).
+            raise ErroDaNuvem(
+                f"a conexão com a nuvem caiu no meio da resposta ({type(e).__name__})"
+            ) from None
         return bruto
 
     @staticmethod

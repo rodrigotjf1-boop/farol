@@ -16,6 +16,7 @@ atender e não atender.
 from __future__ import annotations
 
 import base64
+import http.client
 import json
 import time
 import urllib.error
@@ -143,6 +144,14 @@ class JuizLocal:
         except TimeoutError as e:
             raise ErroDoJuiz(f"servidor local não respondeu em {self.timeout}s",
                              recuperavel=True) from e
+        except (http.client.HTTPException, OSError) as e:
+            # A conexão abriu e caiu ao LER a resposta: isso o `urllib` não
+            # embrulha, e subia cru — como erro inesperado, com pilha
+            # (ERR-114). Depois dos ramos de cima, que também são `OSError`.
+            raise ErroDoJuiz(
+                f"a conexão com o servidor local caiu no meio da resposta ({type(e).__name__})",
+                recuperavel=True,
+            ) from e
 
 
 # ─────────────────────────── utilidades ────────────────────────────────

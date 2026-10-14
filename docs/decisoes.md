@@ -6049,3 +6049,124 @@ A página foi corrigida e o dono avisado. A conclusão não muda em nenhum dos q
 recomendação é R$ 1,00, só para a amostra; se os trios levam o mesmo lanche; e o que tem em
 cada cuba e em cada bisnaga.
 
+## 14/10/2026 (madrugada) · A primeira noite do pacote novo, medida; a cópia do expediente, fechada; e a conexão que cai no meio da resposta (ERR-114)
+
+Três coisas da noite de 13/10. As medidas são só de leitura, no computador da loja, com
+roteiros levados, rodados e apagados em seguida; nenhuma troca de pacote nem de
+configuração, nenhuma chamada paga.
+
+**Os lembretes das 19h12 e das 19h27 não dispararam:** o computador de desenvolvimento
+entrou em suspensão das 16h37 às 21h25 (registro de energia do Windows). As medidas foram
+feitas às 21h35, com a loja aberta, e o computador ficou acordado durante elas por um pedido
+ao Windows que acaba com o processo. Daqui em diante, trabalho com hora marcada leva esse
+pedido.
+
+### O pacote `b9c99de` com a loja aberta
+
+No ar desde as 3h08 de 13/10 (fatias 1.1b, 1.2a, 1.3, 1.5 e ERR-110).
+
+**Da imagem capturada até a resposta existir** — 9 minutos (21h35 a 21h44), 42 análises,
+relógio de parede, leitura de meio em meio segundo:
+
+| | antes (12/10, 19h08–19h18) | depois (13/10, 21h35–21h44) |
+|---|---|---|
+| critério do canal que a volta abre primeiro (atendimento) | mediana 2,9 s; 9 em 10 em até 3,6 s | mediana 1,3 s; 9 em 10 em até 1,5 s; a maior, 3,1 s (17 análises) |
+| critério do canal que a volta abre por último (montagem) | mediana 1,3 s; 9 em 10 em até 1,6 s | mediana 1,1 s; 9 em 10 em até 1,7 s; a maior, 3,1 s (25 análises) |
+
+A fatia 1.1b fez o que a conta dizia: os dois critérios perto de 1,3 s. Em 98% das leituras
+a fila estava vazia (19 de 1.076 com algo esperando); o que mais esperou foi visto esperando
+2,6 s depois da captura.
+
+**O processador** — o uso que o agente mede e guarda por hora:
+
+| | antes (12/10, 19h–3h, pacote `9831ae0`) | depois (13/10, 19h–21h, pacote `b9c99de`) |
+|---|---|---|
+| a máquina | 2% (a maior hora: 6%) | 2% (a maior hora: 8%, às 19h) |
+| a parte do agente | 1,3% a 1,4% | 1,3% |
+| a placa de vídeo | 2% | 2% |
+| a memória | 38% a 39% | 39% |
+
+Numa janela de 20 s às 21h34: máquina 2%, os dois processos do agente 1,2%, memória 6,3 de
+15,9 GB. **A leitura contínua — perto de 7.000 leituras por hora em cada quadro, duas por
+segundo — não aparece no uso da máquina.**
+
+**A atenção, as primeiras contagens** (a semana de números conta das 19h de 13/10):
+
+| quadro | hora | olhadas da rotina | leituras | com movimento | acordou | assentou | clarões |
+|---|---|---|---|---|---|---|---|
+| atendimento (canal 13) | 19h | 114 | 6.977 | 9% | 15 | 16 | 0 |
+| | 20h | 112 | 7.056 | 9% | 16 | 16 | 0 |
+| | 21h (até 21h35) | 71 | 4.093 | 20% | 22 | 21 | 0 |
+| montagem (canal 1, a imagem completa) | 19h | 177 | 6.997 | 46% | 69 | 68 | 0 |
+| | 20h | 171 | 7.056 | 73% | 38 | 38 | 0 |
+| | 21h (até 21h35) | 89 | 4.093 | 72% | 24 | 24 | 0 |
+
+"Acordou" e "assentou" andam juntos, e nenhum clarão. É uma noite: a conclusão — se a
+olhada pode seguir o quadro que assentou em vez do relógio — é da semana inteira (fatia
+1.2b).
+
+**Os vereditos da noite, até 21h44:** atendimento, 316 olhadas — 69 conformes, 241 fora do
+critério (76%), 5 sem avaliação, 11 avisos; montagem, 465 — 376, 78 (17%), 8 e 9 avisos. No
+atendimento, a parte fora do critério foi de 14% a 26% nas noites de 09 a 12/10 (54% em
+08/10). **O caminho do detector não mudou entre os dois pacotes** (conferido no repositório:
+`pipeline/recorte.py` e `juizes/` iguais; presença não passa pela memória de cena repetida),
+e a leitura contínua concorda com ele: naquele quadro, movimento em só 9% das leituras. A
+diferença está na cena: o posto ficou sem ninguém, ou a câmera e o quadro deixaram de
+coincidir — o que só o dono, que conhece a noite da loja, ou uma medida de deslocamento da
+câmera (R4) respondem.
+
+**O registro do agente desde a última montagem (6h20):** nenhuma chamada paga; 19 subidas; 3
+capturas que falharam entre 19h22 e 19h23 ("o gravador não respondeu na rede" — o cabo da
+loja segue em 10 Mbps); de 21h02 a 21h05 a nuvem ficou fora de alcance para a loja
+(conexões cortadas e uma batida sem resposta em 15 s); e **dois "erro inesperado no laço"**,
+às 14h02 e às 21h04 — o ERR-114, abaixo.
+
+### A cópia do expediente de 12/10, fechada
+
+A cópia rodou na loja das 5h06 às 18h23 de 13/10, sozinha depois das 16h37, e terminou o
+plano sem falha. Fechada na mesma noite: nenhum processo dela, os roteiros apagados, o `LEIA.txt`
+da pasta reescrito com o que de fato ficou, e `C:\Farol\` só com os quatro roteiros de
+sempre.
+
+| canal | pedaços inteiros de 5 min (de 54) | o trecho |
+|---|---|---|
+| 1, 4, 6 e 13 | 54 cada | 19h30 a 00h00, sem buraco |
+| 2 | 33 | 21h00–21h20, 21h30–21h55 e 22h00–00h00 |
+| 15 | 29 | 21h00–21h15, 21h30–21h55, 22h00–22h55, 23h00–23h25 e 23h30–23h55 |
+
+Mais uma amostra de 20 s de cada pedaço de 5 minutos dos canais 1, 2, 6, 13 e 15 (270).
+Ao todo, 20,0 GB em 548 arquivos; o disco da loja ficou com 41,8 GB livres de 222,9.
+
+O que a cópia mediu do gravador:
+
+- **ele guarda perto de 18 horas e meia** — o pedaço mais velho que ainda veio tinha 18,60 h;
+  o mais novo que já não veio, 18,37 h. Isso corrige o "perto de 17 horas" da madrugada de
+  13/10;
+- um pedaço de 5 minutos levou 149 s (mediana; de 73 a 276 s) pelo cabo de 10 Mbps — 0,81 GB
+  por hora de câmera;
+- quando chegou a vez dos canais 2 e 15 (15h28), o gravador já tinha apagado até as 21h. A
+  cópia andou junto da borda do apagamento, no mesmo ritmo, e perdeu um pedaço cada vez que
+  a borda a alcançou.
+
+### A conexão que cai no meio da resposta (ERR-114)
+
+As duas pilhas da noite terminam em `http.client.RemoteDisconnected` — o servidor fechou a
+conexão sem responder —, saídas da batida do coração. O `urllib` só embrulha em `URLError` o
+que acontece ao ENVIAR o pedido; o que acontece ao LER a resposta sobe cru, e o cliente da
+nuvem só traduzia o primeiro. Na batida, o estrago foi uma pilha no registro. No caminho que
+sobe os avisos seria pior: a passada da auditoria estourava antes de marcar a seguinte, e o
+laço ficava sem espera — uma olhada atrás da outra, enquanto a nuvem continuasse fechando a
+porta.
+
+**A correção**, só no agente: o que cai ao ler a resposta vira o erro de rede de sempre
+("seguindo com a configuração local"), com frase sem número que muda; e a passada marca a
+seguinte mesmo quando estoura. O mesmo buraco estava em mais quatro lugares que leem
+resposta pela rede e foi fechado junto: o juiz local, o cliente do gravador (a transmissão
+de eventos que solta deixava de religar), o texto que o gravador devolve e a procura do
+gravador na rede.
+
+**Como foi conferido:** 55 testes novos (`agent/testes/test_conexao_que_cai.py`) — 42
+falhavam sem a correção —, 31 mutações, nenhuma viva, e a suíte inteira do agente (1.638).
+**Na loja ainda não está:** vai na próxima troca de pacote, junto com o ERR-111 e o ERR-112,
+e a troca pede o "pode" do dono.
+
