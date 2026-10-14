@@ -5845,6 +5845,11 @@ Daí três consequências:
 1. **A gravação guardada pode ser repassada pelas análises**, dentro da loja: as 4h30 de um
    canal são lidas em 20 minutos (54 pedaços × 22 s). A hora de cada cena tem de sair do nome
    do arquivo e da contagem dos quadros, nunca do relógio de dentro da gravação.
+   **Corrigido em 14/10 (ERR-115): é o contrário.** Medido em dois pedaços seguidos da
+   bancada, a taxa de quadros muda dentro do pedaço e a contagem chegou a errar 29,6 s; o
+   relógio de dentro não recuou e terminou em 300,2 s. A hora sai do nome do arquivo e do
+   relógio de dentro, consertado; a contagem fica como conferência (ver "O leitor do
+   expediente", 14/10).
 2. **O modo de reduzir a imagem antes do detector fica como está.** A suspeita era boa — o
    preparo publicado com o modelo usa um modo que tira a média ao reduzir, e o do agente não
    tira (num xadrez de 1 ponto, reduzido 5 vezes, só o `INTER_AREA` devolve a média) —, e a
@@ -6219,4 +6224,77 @@ agente guarda foi trocada às 2h23: das 19 da categoria BURGUER, as 19 têm fich
 trios, nenhuma ainda. As fichas do 01 e do 02 mudaram em relação às do plano do repasse: o
 01 leva agora pão de dois cortes, e o 02 leva cebola ao molho shoyo (um preparo) no lugar do
 molho shoyo. O pão diferente se vê de cima mesmo com o lanche fechado.
+
+## 14/10/2026 (madrugada) · O repasse aprovado; R1, o leitor do expediente — a noite da bancada lida na loja
+
+**O dono, às 2h40:** "planos aprovados e pode prosseguir enquanto monto as outras fichas". A
+leitura que eu fiz, e que vai a ele no relatório: aprovadas as quatro fases do plano, nas
+recomendações da página — R1 e R2 agora, com teto de R$ 1,00 para a amostra paga da R2; R3 e
+R4 depois do resultado. Dos trios, a resposta vem das fichas que ele está montando; das cubas
+e bisnagas, a amostra começa sem.
+
+### O que entra
+
+`agent/ferramentas/repasse/leitor.py` — uma ferramenta nossa, **fora do pacote do agente**
+(o pacote leva só `farol_agent`): vai à loja, roda com o Python do agente sobre a gravação
+guardada e sai de lá. Para cada pedaço de 5 minutos de um canal:
+
+- dá a cada quadro a hora — o nome do arquivo mais o **relógio de dentro da gravação,
+  consertado** (o recuo é ignorado; a origem é o primeiro quadro); a contagem dos quadros fica
+  como conferência e como reserva, quando o de dentro não anda ou termina longe dos 300 s;
+- reduz o quadro ao tamanho do fluxo menor e o passa, de meio em meio segundo do relógio da
+  gravação, pela **quietude do agente — importada, não copiada**: a mesma que, ao vivo, diz
+  quando o quadro de bancada parou de mexer;
+- cada vez que o quadro para depois de mexer, anota a parada (a hora do gravador e a da loja,
+  quanto mexeu antes) e guarda o recorte do quadro no tamanho da câmera, com o de fora
+  apagado como o agente apaga — **na loja**, na pasta guardada;
+- escreve `paradas.csv` e `resumo.json` numa pasta própria. Não fala com o gravador, não mexe
+  na configuração, não muda o agente — a ordem do dono para o repasse.
+
+**Corrigido no caminho (ERR-115):** o plano dizia que a hora sairia da contagem e que o
+relógio de dentro não servia. O ensaio em dois pedaços mostrou o contrário (a contagem errava
+até 29,6 s) e a regra foi trocada antes de qualquer número sair. A "prova" da emenda entre
+pedaços que eu tinha posto saía da própria fórmula; a de agora é medida.
+
+### A noite da bancada, lida na loja (canal 4, 12/10, 19h30 a 00h00)
+
+Às 2h55 de 14/10, com 4 fios de leitura: 54 de 54 pedaços em 23 minutos.
+
+| | |
+|---|---|
+| paradas da bancada | **743** — mediana de 14 por pedaço de 5 minutos (de 5 a 20) |
+| a bancada mexendo | em 78% das amostras |
+| quanto mexeu antes de parar | mediana de 4,5 s; 9 em 10 até 52 s |
+| quadros por segundo (contagem em 300 s) | de 11,9 a 15,0 — mediana 13,9 |
+| hora pelo relógio de dentro | 46 pedaços; ele termina em 300,0 s (mediana), de 270 a 301,5 |
+| hora pela contagem (relógio de dentro parado) | 8 pedaços: os que começam às 19h30, 20h00, 20h30, 21h00, 21h30, 22h00, 22h30 e 23h30 |
+| onde os dois valem, a contagem difere do de dentro | mediana de 7,8 s; até 33,2 s |
+| emendas entre pedaços | mediana de −0,07 s; 6 acima de 2 s, todas na entrada de um pedaço da hora cheia ou da meia hora (até +29,8 s, às 20h00) |
+
+**O que isso diz do gravador** (leitura minha, com o padrão medido, sem a prova pela imagem):
+ele grava em arquivos de meia hora. O pedaço pedido logo antes da virada vem curto (o de 19h55
+termina em 270 s; os de 20h25, 20h55, 21h25 e 22h25, entre 291 e 294 s), e o que começa na
+virada vem sem relógio de dentro. Nos 46 pedaços com relógio, a hora de uma parada vale até o
+segundo; nos 8 da virada, pode errar dezenas de segundos. A prova independente — o relógio que
+o gravador escreve na própria imagem — fica para quando um minuto fizer diferença.
+
+**As paradas perto dos três pedidos de hambúrguer** (hora da loja): das 19h53 às 20h00, 8
+(19h53m16 a 19h59m57); das 22h50 às 22h58, 23. São as candidatas da amostra da R2.
+
+### Como foi conferido
+
+38 testes novos (`agent/testes/test_repasse_leitor.py`), com vídeos sintéticos gravados com o
+nome dos pedaços da cópia: a hora pelo relógio de dentro quando a taxa muda no meio do pedaço,
+o relógio parado, o estragado, o que recua e o que salta; as paradas da quietude do agente; o
+que mexe fora do quadro não conta; o buraco entre pedaços zera a memória; o recorte no tamanho
+da câmera com o de fora apagado; a janela de horas que passa da meia-noite; a linha de comando.
+40 mutações, nenhuma viva (a primeira rodada deixou três: dois testes frouxos, apertados, e um
+trecho de código redundante, que saiu). A suíte inteira do agente: 1.676.
+
+### O que não foi medido
+
+- Se as paradas são montagens: um lanche tem várias paradas, e há parada sem lanche. É a R2.
+- A hora nos 8 pedaços da virada, contra o relógio escrito na imagem.
+- Se a quietude acha na gravação o mesmo que ao vivo: ao vivo ela lê o fluxo menor; aqui, o
+  principal reduzido (a medida de 09/10 deu a mesma resposta nos dois, em dez minutos).
 
