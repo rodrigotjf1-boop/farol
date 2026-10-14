@@ -6362,3 +6362,95 @@ de delivery); num outro momento, o lanche estava no canto do quadro e o resto er
 Se a sequência com os pedidos acerta; quanto custa (pela conta, perto de 0,6 centavo por
 pergunta com quatro imagens); e de que lanche eram as paradas "em montagem".
 
+## 14/10/2026 (madrugada) · R2, rodadas 2 a 6: os ingredientes de cada lanche — e o que separa uma ficha da outra (ERR-116)
+
+### O que o dono contou
+
+- **A câmera do canal 4 filma só a bancada 1.** No pico e no fim de semana ela monta só os
+  pedidos do balcão; em dia de semana, balcão e delivery. O Regem só tem os de delivery (pela
+  integração). Na noite de 12/10 (feriado, com movimento de fim de semana), os pedidos do Regem
+  **não são o gabarito do canal 4**.
+- **Trio e sanduíche são a mesma ficha na bancada:** a batata e a bebida saem de outro setor. O
+  canal 4 confere a ficha do sanduíche e os adicionais — e, quando chegarmos lá, as observações
+  ("sem alface", "sem ovo").
+- O que ele pediu agora: "só verificar a identificação dos ingredientes e pesquisar nas fichas
+  se batem"; e que, "com análises seguidas, a identificação dos ingredientes seja mais fácil".
+  Ofereceu uma régua ou uma folha A4 no tampo, como escala, se for útil.
+- **O teto da amostra paga passou a US$ 5,00** do saldo da conta (era R$ 1,00).
+
+### O que entra
+
+- `agent/ferramentas/repasse/com_pedidos.py` (rodada 2): junta as paradas seguidas numa
+  sequência (até 40 s entre elas; até 5 quadros espalhados), borra como o agente borra a
+  bancada (sem borrão quando a bancada está quieta e o detector de pessoas do agente não acha
+  ninguém a 0,35 ou mais) e pergunta com os pedidos do Regem dos minutos anteriores.
+- `agent/ferramentas/repasse/ingredientes.py` (rodadas 3 a 6): **o modelo não escolhe o
+  lanche** — diz os ingredientes que vê, com os nomes das fichas da loja; quais fichas batem
+  (as que têm todos os vistos) é conta daqui, sem custo. Desde a quarta, **uma lista para cada
+  lanche** (esquerda, meio, direita): na terceira, os lanches montados ao mesmo tempo viravam uma
+  lista só, que não batia com nada (a sequência das 23h30, que na quarta rodada veio com três
+  lanches).
+- **ERR-116:** a ferramenta usava o teto de saída da pergunta do agente (300). Na quarta rodada,
+  2 das 15 respostas pararam nele — as listas estavam inteiras e só a frase final se perdeu,
+  então os números valem; mas a ferramenta as contava como respostas inteiras. Agora o teto é
+  dela (1.000) e a resposta cortada é erro, não dado. Na sexta rodada, a maior resposta teve
+  326.
+
+### As rodadas (na loja, nas mesmas 15 sequências das três janelas; 45 recortes)
+
+| rodada | o que mudou | lanches com ingrediente | batem com UMA ficha | com várias | com nenhuma | custo |
+|---|---|---|---|---|---|---|
+| 2 | os pedidos como candidatos | — | "não sei" nas 15 | | | 5,617 centavos |
+| 3 | só os ingredientes (Haiku 5.5) | 6 sequências | 0 | 3 | 3 | 4,642 centavos |
+| 4 | uma lista por lanche | 24 lanches | 0 | 19 | 5 | 4,846 centavos |
+| 5 | o mesmo, no Sonnet 5.5 | 25 de 26 | 0 | 20 | 5 | 98,156 centavos |
+| 6 | Haiku, com a cópia nova das fichas | 20 lanches | 0 | 13 | 7 | 4,832 centavos |
+
+A R2 inteira, com a primeira amostra (10,529): **128,6 centavos — R$ 1,29**, perto de
+US$ 0,24 (conta do agente, com o dólar a 5,40). Na rodada 2, o detector do agente não foi
+achado (a variável apontava para outra pasta) e os 45 recortes foram borrados; da 3 em diante,
+7 dos 45.
+
+**A cópia das fichas mudou no meio:** as correções que o dono fez nesta madrugada chegaram ao
+computador da loja às 04h15, durante a rodada 5. As rodadas 4 e 5 conferiram contra a cópia
+anterior; a 6, contra a nova.
+
+### O que isso diz
+
+1. **Em nenhum dos 70 lanches das rodadas 4 a 6 os ingredientes vistos apontaram uma ficha
+   só.**
+2. **Os dois modelos discordam do pão nas mesmas imagens:** onde o Haiku diz "Pão de dois
+   cortes", o Sonnet diz "Pão Brioche" (19h50, 22h50, 23h23). Nenhum escolheu "Pão gold mix
+   Prime", que na cópia nova é o pão de 9 dos 19 lanches. O nome comercial não diz ao modelo
+   como o pão é; sem gabarito, não se sabe qual dos dois acertou.
+3. **O que separa uma ficha da outra é o pão, a carne (56 g, 120 g, 150 g ou frango) e quantas
+   carnes** — Numero 01 leva 2 carnes de 56 g, Numero 11 leva 4; Numero 03 leva 1 de 120 g,
+   Numero 05 leva 2. Pela cópia nova: se esses três fossem vistos certos, os 19 lanches cairiam
+   em 10 grupos; 5 seriam um lanche só, e nos outros 5 as coberturas separam (cebola crispy,
+   bacon, tomate, molho cheddar…). É justamente o que os modelos confundem ou não contam.
+4. **O modelo maior custou 20 vezes mais** (98,2 contra 4,8 centavos nas mesmas sequências) e
+   viu um pouco mais — a carne em mais duas sequências; anotou "item empanado" e "molho
+   vermelho" —, mas também não chegou a uma ficha.
+5. **Conta sem custo, fora da ferramenta (exploração):** dando mais peso ao ingrediente raro (o
+   que está em poucas fichas diz mais que o pão), o lanche da esquerda das 19h59 aponta "Mussarela
+   Burg" nas três rodadas: cebola crispy, blend de 150 g e maionese — e o "item empanado" e o
+   "molho vermelho" do Sonnet seriam, na ficha, o disco de mussarela empanada e a geleia de
+   pimenta. **Não está conferido:** não há gabarito.
+
+### O que não foi medido
+
+Se algum pão, carne ou lanche acertou — falta o gabarito. E se a resposta muda de uma rodada para
+a outra só por acaso: entre as rodadas 4 e 6, a lista de nomes também mudou.
+
+### O que vem — o dono decide
+
+- **O gabarito:** (a) a lista de vendas do sistema do balcão de 12/10, com item e hora — naquela
+  noite, a bancada 1 montou só o balcão; (b) uma calibração: cada pão e cada carne no tampo, um
+  de cada vez, com a hora anotada; (c) o dono marcar alguns recortes.
+- **A referência da própria câmera** (o que a calibração dá: "assim é o Pão gold mix Prime aqui")
+  e **a contagem de carnes e fatias** de cada lanche ao longo da montagem — é o "análises
+  seguidas" do dono.
+- **A escala:** um marcador impresso fixo no tampo dá a medida em centímetros e mostra na hora se
+  a câmera saiu do lugar (a R4). Para a carne, só ajuda se os discos de 56, 120 e 150 g tiverem
+  diâmetros diferentes: de cima, a câmera vê o diâmetro, não a altura.
+
