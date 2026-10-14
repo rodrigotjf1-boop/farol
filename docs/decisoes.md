@@ -6454,3 +6454,76 @@ a outra só por acaso: entre as rodadas 4 e 6, a lista de nomes também mudou.
   a câmera saiu do lugar (a R4). Para a carne, só ajuda se os discos de 56, 120 e 150 g tiverem
   diâmetros diferentes: de cima, a câmera vê o diâmetro, não a altura.
 
+## 14/10/2026 (madrugada) · R2, rodadas 7 e 8: o que a loja descreve, as peças contadas e a montagem inteira (ERR-117)
+
+### O que o dono contou
+
+- "o nome do pão é um nome comercial, é um pão de brioche com gergelim mesclado"; "os discos são
+  de tamanhos diferentes: o de 120 é bem maior que o de 56, e o blend 150gr é mais deformado, não
+  é simétrico o círculo" — **a escala vai servir para a carne**.
+- "a medida em ml não é necessária, o importante é detectar a presença do molho e ser similar".
+- O balcão ainda está em outro sistema; o importante agora é identificar os ingredientes para
+  comparar com as fichas. O marcador vai ser impresso mais tarde e medido.
+- Ele trocou no Regem o nome do insumo do pão — e a ficha do Farol não mudou (abaixo).
+
+### O que entra (`ingredientes.py`)
+
+- **O arquivo da loja** (`--da-loja`): como cada ingrediente aparece de cima, ao lado do nome na
+  pergunta, e os grupos de parecidos. É dado da loja, não regra daqui.
+- **As peças contadas:** o modelo diz quantas peças vê (disco, fatia, fita); a ficha com menos
+  peças do que se contou não bate. A unidade da ficha diz o que é peça (unidade, fita); molho,
+  porção, grama e ml não se contam.
+- **O parecido:** visto um membro do grupo, a ficha com outro bate ("molho vermelho": ketchup e
+  geleia de pimenta). O modelo que não sabe qual molho é escreve "outro: molho <cor>", e isso vale
+  como o grupo daquela cor.
+- **A conta das parecidas:** o ingrediente raro pesa mais que o comum; "uma ficha na frente" só
+  quando ela fica sozinha e com ponto a favor. Ordena; não diz que acertou.
+- **ERR-117:** na rodada 7 o modelo copiou a linha inteira da lista ("Carne 56gr — o disco de
+  carne pequeno") como nome, e a ferramenta pôs o ingrediente fora da lista; a rodada foi
+  repetida (7b) com a leitura que tira o que vem depois do travessão. E a descrição do pão de
+  dois cortes, que falava em "três partes", fez o modelo contar 3 pães: a pergunta passou a dizer
+  que o pão conta 1.
+
+### As rodadas (as mesmas três janelas)
+
+| rodada | o que mudou | lanches vistos | com UMA ficha | com várias | com nenhuma | com contagem | custo |
+|---|---|---|---|---|---|---|---|
+| 7 | descrição, contagem e parecidos (Haiku) — a leitura errada do ERR-117 | 9 | 0 | 6 | 0 | 6 | 4,889 centavos |
+| 7b | a mesma, com a leitura certa | 15 | 0 | 12 | 3 | 8 | 4,933 centavos |
+| 8 | a montagem inteira: até 2 min entre paradas, 8 quadros | 9 | 0 | 7 | 2 | 7 | 4,193 centavos |
+
+A R2 até aqui: **142,6 centavos — R$ 1,43**, perto de US$ 0,26 (conta do agente, dólar a 5,40).
+
+### O que isso diz
+
+1. **A descrição das carnes ajudou:** na 7b, o Haiku chamou de "Carne 120gr" a montagem das
+   19h52, onde antes só o Sonnet tinha visto a carne de 120; e viu a de 120 em mais duas.
+2. **O pão continua sem resposta:** com a descrição, o Haiku segue dizendo "Pão de dois cortes";
+   em nenhuma rodada um modelo escolheu o pão de brioche com gergelim mesclado.
+3. **A montagem inteira junta o que as partes não juntavam:** a das 19h50 (5 min, 8 quadros) deu
+   pão de dois cortes, carne de 56 g e 2 fatias de cheddar — só o Numero 01 ou o Numero 11. O que
+   separa os dois é quantas carnes (2 ou 4); o modelo contou 1.
+4. **Nenhuma ficha ficou sozinha na frente** em nenhuma rodada: os candidatos empatam porque
+   diferem na quantidade (01 × 11) ou no pão.
+5. **O molho:** às 23h30, alface com um molho branco aparece em seis das sete rodadas que viram
+   lanche ("outro: maionese branca" ou "Maionese vigor 1kg"; na sexta, "MAionese Verde"). O
+   "Molho especial billy jack" está em 7 dos 19 lanches, e não sabemos como ele é: se for branco,
+   aquelas montagens são do grupo 01, 03, 05, 06, 07, 10 e 11.
+
+### A troca de nome que não chegou ao Farol (medido no banco do Regem, só leitura)
+
+- **O aviso funcionou:** a mudança foi anotada no Regem às 04h46m50 e entregue ao Farol às
+  04h47m05, com a resposta 204.
+- **Mas o retrato das fichas do Regem manda o nome GUARDADO em cada linha da ficha**
+  (`ficha_ingrediente.insumo_nome`), e não o nome atual do insumo. Trocar o nome no estoque não
+  muda as linhas: 17 seguem "Pão gold mix Prime", e o Farol lê "nada mudou". Há mais três casos,
+  mais antigos: "Emabalagem batata vermelha" (3 linhas), "Caixa hamburguer aurora 56gr" no lugar
+  de Carne 56gr (1) e "Bombona molho shoyo" no lugar de Molho Shoyo (1).
+- É do lado do Regem, e a decisão é do dono: (a) a troca de nome no estoque leva o nome às linhas
+  das fichas, com uma correção única das que já divergem; (b) o retrato das fichas passa a mandar
+  o nome atual do insumo; ou os dois. Até lá, o arquivo da loja da R2 leva o pão com os dois nomes.
+
+### O que não foi medido
+
+Se algum lanche acertou: segue sem gabarito.
+
