@@ -13,6 +13,9 @@
 //   npm run provisionar -- conta-ia <lojaId> <provedor>|tirar
 //   npm run provisionar -- balcao   <lojaId> [ligar|desligar]
 //   npm run provisionar -- teto     <lojaId> <reais por dia>
+//   npm run provisionar -- transporte <nome> <tipos separados por vírgula>
+//   npm run provisionar -- transportes
+//   npm run provisionar -- transporte-revogar <transporteId>
 //
 // **Nenhum segredo é digitado como argumento.** O token de distribuição
 // sai do ambiente do serviço; a senha do usuário e a chave da conta de IA
@@ -323,6 +326,45 @@ if (comando === 'loja') {
   console.log(`\n  loja: ${r.nome}`);
   console.log(`  teto de gasto por dia: R$ ${(r.tetoCentavosDia / 100).toFixed(2).replace('.', ',')}\n`);
   //
+} else if (comando === 'transporte') {
+  // Quem ENTREGA os alertas (o n8n, o Regem) tem token próprio, que só reivindica e devolve envios dos tipos dados —
+  // a chave geral não vale nas rotas de envio (migration 046).
+  const [nome, tiposTexto, ...sobra] = resto;
+  if (!nome || !tiposTexto || sobra.length > 0) {
+    morrer('uso: npm run provisionar -- transporte <nome> <tipos separados por vírgula>\n  ex.: transporte n8n whatsapp,email');
+  }
+  const tipos = tiposTexto.split(',').map((x) => x.trim()).filter(Boolean);
+
+  const r = await chamar('/v1/distribuicao/transportes', { nome, tipos });
+  console.log(`\n  transporte criado: ${r.nome}  (entrega: ${r.tipos.join(', ')})`);
+  console.log(`  transporteId: ${r.id}\n`);
+  console.log('  ┌─────────────────────────────────────────────────────────────');
+  console.log('  │ TOKEN — aparece UMA vez. Copie agora.');
+  console.log('  │');
+  console.log(`  │   ${r.token}`);
+  console.log('  │');
+  console.log('  │ Vai no transporte (n8n, Regem), no cabeçalho');
+  console.log('  │   Authorization: Bearer <token>');
+  console.log('  │ O banco guarda só o resumo: ninguém o recupera depois.');
+  console.log('  └─────────────────────────────────────────────────────────────\n');
+  //
+} else if (comando === 'transportes') {
+  const r = await chamar('/v1/distribuicao/transportes', {}, {}, { metodo: 'GET' });
+  if (r.transportes.length === 0) console.log('\n  nenhum transporte emitido\n');
+  for (const t of r.transportes) {
+    const situacao = t.revogado_em ? `revogado em ${t.revogado_em}` : t.usado_em ? `usado em ${t.usado_em}` : 'nunca usado';
+    console.log(`  ${t.id}  ${t.nome}  (${t.tipos.join(', ')})  · ${situacao}`);
+  }
+  //
+} else if (comando === 'transporte-revogar') {
+  const [id, ...sobra] = resto;
+  if (!id || sobra.length > 0) {
+    morrer('uso: npm run provisionar -- transporte-revogar <transporteId>   (o id sai de: transportes)');
+  }
+  const r = await chamar(`/v1/distribuicao/transportes/${id}/revogar`, {});
+  console.log(`\n  revogado: ${r.transporte.nome}  em ${r.transporte.revogado_em}`);
+  console.log('  Os outros transportes seguem valendo.\n');
+  //
 } else {
   console.log(`
   uso:
@@ -333,6 +375,9 @@ if (comando === 'loja') {
     npm run provisionar -- conta-ia <lojaId> <provedor>|tirar
     npm run provisionar -- balcao   <lojaId> [ligar|desligar]
     npm run provisionar -- teto     <lojaId> <reais por dia>
+    npm run provisionar -- transporte <nome> <tipos separados por vírgula>
+    npm run provisionar -- transportes
+    npm run provisionar -- transporte-revogar <transporteId>
 
   O nível do usuário sai de FAROL_NIVEL (padrão: presidente).
   O lojaId é o que aparece no endereço da tela da loja, no console.

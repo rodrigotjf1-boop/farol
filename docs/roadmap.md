@@ -998,7 +998,7 @@ nenhum. Quem opera muda isso sem deploy.
 |---|---|
 | `npm run migrar` na nuvem (mig. 011) | do dono, console do `farol-api` |
 | cadastrar o primeiro destino em **Loja → Alertas** | do dono |
-| o lado do n8n/Regem puxando `POST /v1/envios/reivindicar` | a fazer, depois da semana de operação |
+| o lado do n8n/Regem puxando `POST /v1/envios/reivindicar` | a fazer, depois da semana de operação — **desde 14/10/2026 com credencial própria** (migration 046, `docs/transporte-dos-alertas.md`): `npm run provisionar -- transporte <nome> <tipos>`; a chave geral não vale mais nessas rotas |
 
 ---
 
