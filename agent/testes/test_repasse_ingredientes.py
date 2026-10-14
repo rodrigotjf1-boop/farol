@@ -323,3 +323,69 @@ def test_a_resposta_no_formato_antigo_ainda_e_lida(tmp_path):
 
     [l] = r["montagens"][0].lanches
     assert (l.vistos, l.quantos, r["comContagem"]) == (["Alface", "Carne 56gr"], {}, 0)
+
+
+# ── o jeito do dono (rodada 11): o mais raro decide, os outros se conferem ──
+
+NUMERO_08 = ficha("Numero 08", ("Carne 120gr", 1, "unidade"), ("Ovo", 1, "unidade"),
+                  ("Anel de cebola empanada", 3, "unidade"), ("Bacon", 2, "fita"), ("Maionese vigor 1kg", 1, "porção"),
+                  ("Pão gold mix Prime", 1, "unidade"))
+ANEIS = ficha("10 ANEIS DE CEBOLA", ("Anel de cebola empanada", 10, "unidade"))
+
+
+def test_so_concorrem_as_fichas_que_levam_pao():
+    """O dono, 14/10/2026: na bancada, cada lanche é um pão aberto. A porção de anéis não se monta no pão."""
+    torrada = ficha("Porção", ("Ovo", 1, "unidade"), ("Torrada de pão", 1, "unidade"))
+    forma = ficha("Misto", ("PAO de forma", 2, "unidade"))
+    assert [l["nome"] for l in ri.com_pao([NUMERO_01, ANEIS, NUMERO_08, torrada, forma])] == [
+        "Numero 01", "Numero 08", "Misto"], "o pão é o ingrediente que COMEÇA com pão, sem diferença de maiúscula"
+    assert ri.com_pao([]) == []
+
+
+def test_o_mais_raro_decide_e_o_que_nao_cabe_fica_a_conferir_sem_tirar_a_ficha():
+    """O Mussarela das 19h57 na rodada 10: a geleia e a cebola crispy no tampo, e o blend lido como Carne 120 — que só
+    o Numero 08 tem. Pela conta antiga, nenhuma ficha batia; pelo jeito do dono, o Mussarela fica, e o disco vai a
+    conferir."""
+    ls = QUATRO + [NUMERO_08]
+    assert ri.fichas_que_batem(["Geleia de pimenta", "Cebola crispy", "Carne 120gr"], ls) == []
+    candidatas, decidiram, conferir = ri.pelo_mais_raro(["Carne 120gr", "Geleia de pimenta", "Cebola crispy"], ls)
+    assert [l["nome"] for l in candidatas] == ["Mussarela Burg"]
+    assert (decidiram, conferir) == (["Cebola crispy"], ["Carne 120gr"]), \
+        "começar pelo disco deixaria a geleia e a cebola a conferir; pela cebola, só o disco — e a geleia confirma"
+
+
+def test_um_raro_fora_da_ficha_nao_decide_contra_os_outros():
+    """A rodada 11b (14/10/2026): a base do Mussarela lida com o blend certo e um "barbecue" que a ficha não leva —
+    leitura errada ou adicional do cliente (o dono: adicionais e extras ainda não se validam). Pelo barbecue (só o
+    Numero 15 tem), dois ficariam fora; pela geleia, só o barbecue fica."""
+    numero_15 = ficha("Numero 15", ("Barbecue", 1, "porção"), ("Carne 120gr", 1, "unidade"), ("Pao Brioche", 1, "unidade"))
+    bacon_burg = ficha("Bacon Burg", ("Blend 150gr", 1, "unidade"), ("Bacon", 2, "fita"), ("Pao Brioche", 1, "unidade"))
+    candidatas, decidiram, conferir = ri.pelo_mais_raro(
+        ["Barbecue", "Blend 150gr", "Geleia de pimenta"], [numero_15, bacon_burg, MUSSARELA])
+    assert ([l["nome"] for l in candidatas], decidiram, conferir) == (["Mussarela Burg"], ["Geleia de pimenta"], ["Barbecue"])
+
+
+def test_o_numero_08_pelo_anel_de_cebola_e_a_porcao_nao_concorre():
+    ls = QUATRO + [NUMERO_08, ANEIS]
+    assert [l["nome"] for l in ri.pelo_mais_raro(["Anel de cebola empanada"], ls)[0]] == ["10 ANEIS DE CEBOLA", "Numero 08"]
+    candidatas, decidiram, conferir = ri.pelo_mais_raro(["Anel de cebola empanada", "Ovo"], ri.com_pao(ls))
+    assert ([l["nome"] for l in candidatas], decidiram, conferir) == (["Numero 08"], ["Anel de cebola empanada"], [])
+
+
+def test_o_comum_so_estreita_quando_tira_alguma_e_cada_estreitada_fica_anotada():
+    # a alface (2 fichas) vai antes da carne (3); a carne não tira nenhuma das duas: confirma, não decide
+    candidatas, decidiram, conferir = ri.pelo_mais_raro(["Carne 56gr", "Alface"], QUATRO)
+    assert ([l["nome"] for l in candidatas], decidiram, conferir) == (["Numero 01", "Numero 11"], ["Alface"], [])
+    # o pão (2 fichas) e depois a carne, que tira o Mussarela: os dois decidiram
+    candidatas, decidiram, conferir = ri.pelo_mais_raro(["Carne 56gr", "Pao Brioche"], QUATRO)
+    assert ([l["nome"] for l in candidatas], decidiram, conferir) == (["Numero 04"], ["Pao Brioche", "Carne 56gr"], [])
+
+
+def test_o_parecido_vale_e_o_que_nenhuma_ficha_tem_fica_a_conferir():
+    parecidos, _ = ri.grupos_de_parecidos(VERMELHOS)
+    assert [l["nome"] for l in ri.pelo_mais_raro(["molho vermelho"], QUATRO, parecidos)[0]] == ["Mussarela Burg", "Numero 04"]
+    assert [l["nome"] for l in ri.pelo_mais_raro(["molho vermelho"], QUATRO)[0]] == [], "sem o grupo, é nome solto"
+    assert ri.pelo_mais_raro(["Ovo", "ovo ", " "], QUATRO) == ([], [], ["Ovo"]), "um de cada, e o vazio não conta"
+    assert ri.pelo_mais_raro([], QUATRO) == ([], [], [])
+    candidatas, decidiram, conferir = ri.pelo_mais_raro(["Ovo", "Ketchup"], QUATRO)
+    assert ([l["nome"] for l in candidatas], decidiram, conferir) == (["Numero 04"], ["Ketchup"], ["Ovo"])

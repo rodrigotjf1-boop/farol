@@ -5,9 +5,12 @@ Nenhuma chamada de verdade: o cliente é o dublê da primeira rodada.
 
 from __future__ import annotations
 
+import base64
 import csv
 from types import SimpleNamespace
 
+import cv2
+import numpy as np
 import pytest
 
 from ferramentas.repasse import bancada as rb
@@ -162,7 +165,9 @@ def test_o_numero_08_sai_pelos_raros_mesmo_sem_o_pao():
     assert "→ batem 1: Numero 08 · parecidas: Numero 08 6 de 7;" in a.texto()
     assert "pão: não definido · fechado" in a.texto()
     assert (a.falta[0]["nome"], a.falta[1], a.fora_do_padrao) == ("Numero 08", ["Pão gold mix Prime"], False)
-    assert a.texto().endswith(" · falta 1 de Numero 08: Pão gold mix Prime (perguntar no quadro ?)")
+    assert a.texto().endswith(
+        " · falta 1 de Numero 08: Pão gold mix Prime (perguntar no quadro ?) · pelo mais raro: Numero 08 (decidiu: Anel"
+        " de cebola empanada) — mais próxima: Numero 08, confere 6 de 7; falta ver: Pão gold mix Prime")
 
 
 def test_o_ciclo_de_aprendizado_fora_do_padrao_e_falta_um():
@@ -255,7 +260,84 @@ def test_item_vazio_nao_aponta_nada():
     ls = lanches()
     a = rb.avaliar(rb.Item(1), ri.vocabulario(ls), ls, ri.pesos_por_raridade(ls), {}, {})
     assert (a.vistos, a.batem, a.parecidas, a.frente) == ([], [], [], None)
+    assert (a.pelo_raro, a.proxima, a.confere) == ([], None, None)
     assert a.texto() == "item 1: só o pão aberto · pão: não definido → batem 0"
+
+
+# ── o jeito do dono (rodada 11): o mais raro decide e a mais próxima sai sempre ──
+
+MUSSARELA = (("Pao Brioche com gergelim mesclado", 1, "unidade"), ("Blend 150gr", 1, "unidade"),
+             ("Maionese vigor 1kg", 1, "porção"), ("Disco mussarela empanada", 1, "unidade"),
+             ("Geleia de pimenta zafran", 1, "porção"), ("Cebola crispy", 30, "grama"))
+COM_PORCAO = {"base": {"produtos": [
+    produto("Numero 01", *N01), produto("Numero 11", *N11), produto("Numero 08", *N08),
+    produto("Mussarela Burg", *MUSSARELA),
+    produto("10 ANEIS DE CEBOLA", ("Anel de cebola empanada", 10, "unidade"), categoria="PORCOES"),
+]}}
+
+
+def avaliar_em(fichas, nomes, quantos=None, pao="", fechado=True, grupos=None):
+    ls = r2.agrupar_iguais(r2.produtos_com_ficha(fichas))
+    parecidos, nomes_dos_grupos = ri.grupos_de_parecidos(grupos)
+    i = rb.Item(1)
+    i.juntar(nomes, quantos or {}, pao, fechado)
+    return rb.avaliar(i, ri.vocabulario(ls), ls, ri.pesos_por_raridade(ls, parecidos), parecidos, nomes_dos_grupos)
+
+
+def test_o_molho_de_cor_vale_pelo_grupo_tambem_no_mais_raro():
+    a = avaliar_em(COM_PORCAO, ["outro: molho branco"], grupos={"molho branco": ["Maionese vigor 1kg"]})
+    assert [l["nome"] for l in a.pelo_raro] == ["Mussarela Burg", "Numero 08"] and a.a_conferir == []
+    assert [l["nome"] for l in avaliar_em(COM_PORCAO, ["outro: molho branco"]).pelo_raro] == []
+
+
+def test_o_mussarela_das_19h57_fica_e_o_disco_lido_como_120_vai_a_conferir():
+    """A rodada 10 (14/10/2026): no tampo, a geleia e a cebola crispy; e o blend lido como Carne 120, que só o Numero
+    08 tem. A conta antiga diz "nenhuma bate"; a do dono acha o Mussarela e manda o disco a conferir."""
+    a = avaliar_em(COM_PORCAO, ["Carne 120gr", "Geleia de pimenta zafran", "Cebola crispy"], {"carne 120gr": 1})
+    assert (a.batem, a.fora_do_padrao) == ([], True)
+    assert [l["nome"] for l in a.pelo_raro] == ["Mussarela Burg"] and a.proxima["nome"] == "Mussarela Burg"
+    assert (a.decidiram, a.a_conferir, a.confere) == (["Cebola crispy"], ["Carne 120gr"], (2, 6))
+    assert a.falta_conferir == ["Pao Brioche com gergelim mesclado", "Blend 150gr", "Maionese vigor 1kg",
+                                "Disco mussarela empanada"]
+    assert a.texto().endswith(
+        " · pelo mais raro: Mussarela Burg (decidiu: Cebola crispy) — mais próxima: Mussarela Burg, confere 2 de 6; "
+        "falta ver: Pao Brioche com gergelim mesclado, Blend 150gr, Maionese vigor 1kg, Disco mussarela empanada; "
+        "fora da ficha (leitura ou adicional): Carne 120gr")
+
+
+def test_o_anel_de_cebola_leva_ao_08_e_a_porcao_de_aneis_nao_concorre():
+    so_o_anel = avaliar_em(COM_PORCAO, ["Anel de cebola empanada"], fechado=False)
+    assert [l["nome"] for l in so_o_anel.pelo_raro] == ["Numero 08"], "a porção de anéis não leva pão"
+    a = avaliar_em(COM_PORCAO, ["Anel de cebola empanada", "Ovo"], fechado=False)
+    assert [l["nome"] for l in a.pelo_raro] == ["Numero 08"], "a porção não leva pão"
+    assert (a.confere, a.a_conferir) == ((2, 7), [])
+    assert a.falta_conferir == ["Pão gold mix Prime", "Carne 120gr", "Fatia de queijo cheddar", "Maionese vigor 1kg",
+                                "Bacon"]
+    assert "fora da ficha" not in a.texto()
+
+
+def test_com_varias_candidatas_a_mais_proxima_e_a_que_tem_mais_da_ficha_visto():
+    # carne 56 e alface: o 01 e o 11 têm as duas, de 4 ingredientes cada — empate; desempata a conta das parecidas
+    a = avaliar_em(COM_PORCAO, ["Carne 56gr", "Alface"], {"carne 56gr": 4})
+    assert [l["nome"] for l in a.pelo_raro] == ["Numero 01", "Numero 11"]
+    assert a.proxima["nome"] == "Numero 11", "quatro carnes: a conta das parecidas põe o 11 na frente"
+    assert " · pelo mais raro: Numero 01; Numero 11 (decidiu: Alface) — mais próxima: Numero 11, confere 2 de 4" in a.texto()
+    # a que tem mais da ficha visto ganha, mesmo atrás na ordem do nome e empatada na conta das parecidas
+    fichas = {"base": {"produtos": [
+        produto("Alfa", ("Pao Brioche", 1, "unidade"), ("Alface", 1, "porção"), ("Tomate", 1, "porção"),
+                ("Picles", 1, "porção"), ("Ovo", 1, "unidade")),
+        produto("Beta", ("Pao Brioche", 1, "unidade"), ("Alface", 1, "porção")),
+    ]}}
+    b = avaliar_em(fichas, ["Alface"], pao="Pao Brioche")
+    assert [l["nome"] for l in b.pelo_raro] == ["Alfa", "Beta"]
+    assert (b.proxima["nome"], b.confere, b.falta_conferir) == ("Beta", (2, 2), [])
+
+
+def test_mais_de_quatro_candidatas_diz_quantas_sobraram():
+    fichas = {"base": {"produtos": [produto(f"X{n}", ("Pao Brioche", 1, "unidade"), ("Alface", 1, "porção"),
+                                            (f"Molho {n}", 1, "porção")) for n in range(6)]}}
+    a = avaliar_em(fichas, ["Alface"])
+    assert " · pelo mais raro: X0; X1; X2; X3 e mais 2 (decidiu: Alface) — mais próxima: X0, confere 1 de 3" in a.texto()
 
 
 # ── a rodada inteira ──
@@ -380,9 +462,74 @@ def test_o_resultado_e_gravado_na_loja_um_item_por_linha(tmp_path):
     r, _ = rodar(pasta, cliente, saida=pasta / "respostas" / "r9.csv")
 
     assert (r["batemUma"], r["batemVarias"]) == (1, 0)
+    assert (r["peloMaisRaroUma"], r["comProxima"], r["comBorrao"]) == (1, 1, True)
     with (pasta / "respostas" / "r9.csv").open(encoding="utf-8") as f:
         linhas = list(csv.DictReader(f))
     assert [(l["de"][11:], l["item"]) for l in linhas] == [("19:50:00", "1"), ("19:50:00", "2"), ("19:58:00", "")]
     assert linhas[0]["quadros"] == "r000.jpg|r001.jpg" and linhas[0]["perguntas"] == "2"
     assert linhas[0]["resultado"].startswith("item 1: Ovo; Bacon · pão: não definido → batem 1: Numero 08")
     assert linhas[2]["resultado"] == "nenhum lanche na tabela"
+
+
+# ── sem o borrão e com as fotos de referência (rodada 11) ──
+
+
+def test_sem_borrao_nenhum_recorte_e_borrado_nem_com_gente_a_vista(tmp_path, monkeypatch):
+    """O dono, 14/10/2026: "retira o borrão de rosto para não atrapalhar" (ERR-056). Só com o pedido dito."""
+    from farol_agent.pipeline import recorte
+
+    chamadas = []
+    monkeypatch.setattr(recorte, "borrar_rostos", lambda f: (chamadas.append(1), (f, True))[1])
+    alguem = lambda img: [0.99]  # noqa: E731
+    pasta = montar_pasta(tmp_path, ["19:50:00", "19:51:00"])
+    linhas = []
+    r = rb.repassar(pasta, FICHAS, [r2.janela("19:50-20:01")], Cliente(respostas=[tabela(item(1))] * 2),
+                    teto_centavos=100, pessoas=alguem, com_borrao=False, dizer=linhas.append)
+    assert (r["borradas"], r["comBorrao"], chamadas) == (0, False, [])
+    assert "borradas" not in linhas[0]
+
+    r = rb.repassar(pasta, FICHAS, [r2.janela("19:50-20:01")], Cliente(respostas=[tabela(item(1))] * 2),
+                    teto_centavos=100, pessoas=alguem, dizer=linhas.append)
+    assert (r["borradas"], r["comBorrao"], len(chamadas)) == (2, True, 2), "sem o pedido, a regra do agente vale"
+
+
+def jpg(caminho, largura, altura, cor):
+    caminho.write_bytes(cv2.imencode(".jpg", np.full((altura, largura, 3), cor, np.uint8))[1].tobytes())
+
+
+def test_as_referencias_sao_lidas_da_pasta_pelo_nome_e_reduzidas(tmp_path, monkeypatch):
+    pasta = tmp_path / "fotos de referência da loja"
+    pasta.mkdir()
+    jpg(pasta / "Blend 150gr — assado.jpg", 1000, 600, 60)
+    jpg(pasta / "alface.JPEG", 100, 80, 200)
+    (pasta / "leia-me.txt").write_text("não é foto", encoding="utf-8")
+    refs = rb.ler_referencias(pasta)
+    assert [l for l, _ in refs] == ["alface", "Blend 150gr — assado"], "na ordem do nome, sem diferença de maiúscula"
+    grande = cv2.imdecode(np.frombuffer(base64.standard_b64decode(refs[1][1]), np.uint8), cv2.IMREAD_COLOR)
+    pequena = cv2.imdecode(np.frombuffer(base64.standard_b64decode(refs[0][1]), np.uint8), cv2.IMREAD_COLOR)
+    assert (grande.shape[1], grande.shape[0], pequena.shape[1]) == (rb.LADO_DA_REFERENCIA, 192, 100)
+
+    monkeypatch.setattr(rb, "MAX_REFERENCIAS", 1)
+    with pytest.raises(ValueError, match="no máximo 1"):
+        rb.ler_referencias(pasta)
+    (pasta / "quebrada.png").write_bytes(b"isto nao e imagem")
+    with pytest.raises(ValueError, match="quebrada.png não é uma imagem"):
+        rb.ler_referencias(pasta)
+
+
+def test_as_referencias_vao_antes_do_quadro_rotuladas_e_em_cache(tmp_path):
+    pasta = montar_pasta(tmp_path, ["19:50:00", "19:51:00"])
+    refs = [("Blend 150gr — assado", "AAAA"), ("Pao Brioche — topo por fora", "BBBB")]
+    cliente = Cliente(respostas=[tabela(item(1))] * 2)
+
+    rodar(pasta, cliente, referencias=refs)
+
+    for pedido in cliente.pedidos:
+        conteudo = pedido["messages"][0]["content"]
+        assert [b["type"] for b in conteudo] == ["text", "text", "image", "text", "image", "text", "text", "image", "text"]
+        assert conteudo[0]["text"].startswith("REFERÊNCIA — 2 fotos desta loja")
+        assert (conteudo[1]["text"], conteudo[2]["source"]["data"]) == ("Referência: Blend 150gr — assado", "AAAA")
+        assert (conteudo[3]["text"], conteudo[4]["source"]["data"]) == ("Referência: Pao Brioche — topo por fora", "BBBB")
+        assert conteudo[5] == {"type": "text", "text": "FIM DAS REFERÊNCIAS.", "cache_control": {"type": "ephemeral"}}
+        assert conteudo[6]["text"] == "AGORA A BANCADA:" and conteudo[8]["text"].startswith("A tabela até")
+    assert rb.blocos_de_referencia([]) == [] and rb.blocos_de_referencia(None) == []

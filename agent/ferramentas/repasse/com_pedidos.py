@@ -181,20 +181,26 @@ def espalhar(seq: list, n: int) -> list:
     return [seq[round(i * (len(seq) - 1) / (n - 1))] for i in range(n)]
 
 
-def preparar_da_bancada(dados: bytes, pessoas: Callable[[np.ndarray], list[float] | None] | None) -> tuple[str, bool]:
+def preparar_da_bancada(
+    dados: bytes, pessoas: Callable[[np.ndarray], list[float] | None] | None, *, com_borrao: bool = True,
+) -> tuple[str, bool]:
     """O recorte como vai ao modelo, com a regra do agente para a bancada quieta: sem o borrão quando o detector de
     pessoas não vê ninguém, nem um "talvez"; com ele, se vê alguém ou se não há detector (o que não se sabe conta
-    como "pode haver alguém")."""
+    como "pode haver alguém").
+
+    `com_borrao=False` é a decisão do dono para o teste da bancada (14/10/2026: "retira o borrão de rosto para não
+    atrapalhar"): de cima, as mãos sempre aparecem e o borrão caía na comida (ERR-056). Só por pedido explícito de
+    quem chama — a regra de fábrica continua a do agente."""
     img = cv2.imdecode(np.frombuffer(dados, np.uint8), cv2.IMREAD_COLOR)
     if img is None:
         raise ValueError("o recorte não é uma imagem")
     pontos = None
-    if pessoas is not None:
+    if com_borrao and pessoas is not None:
         try:
             pontos = pessoas(img)
         except Exception:  # noqa: BLE001 — sem a resposta do detector, vale "pode haver alguém"
             pontos = None
-    borrar = pontos is None or any(p >= DUVIDA for p in pontos)
+    borrar = com_borrao and (pontos is None or any(p >= DUVIDA for p in pontos))
     if borrar:
         img = recorte.borrar_rostos(Frame(img, datetime.min, "repasse"))[0].imagem
     h, w = img.shape[:2]
