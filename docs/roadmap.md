@@ -5134,6 +5134,53 @@ que o agente vai usar na T3, e as leituras que a rodada 12 já fez na loja (14/1
 ela, numa carga feita uma vez. Assim a tela de conferência e o aprendizado na nuvem ficam prontos e provados com
 lanches de verdade, enquanto o pacote espera o "pode".
 
+### A fila da cozinha e a bancada: o que a medida de 15/10 mostra (proposta, espera o dono)
+
+Com a fila da cozinha no ar (fatia 5 do "Regem no Farol", #157), medi duas coisas, só por leitura: uma pergunta à
+rota nova feita do computador da loja, e contagens no banco do Regem. Nada de cliente, observação ou valor.
+
+**1. Os lanches que o dono identificou em 14/10 (uma quarta-feira), contra os pedidos que passaram pelo Regem:**
+
+| na bancada (relógio do gravador) | o lanche | o pedido na fila do Regem |
+|---|---|---|
+| 19:32:27 | Número 16 | nenhum: o primeiro pedido da noite no Regem é das 20:42 |
+| 19:40:31 | Mussarela | nenhum |
+| 21:51:42 | X Bacon | nenhum antes (o Trio X-Bacon é das 22:29) |
+| 22:00:45 | Número 16 | nenhum |
+| 22:07:00 e 22:07:06 | Número 15 | **22:04:06, delivery, 3 × Número 15**: montados 3 minutos depois |
+| 22:13:16 | Número 01 | nenhum |
+
+Às 22:07, a fila tinha 7 sanduíches diferentes desde o começo da noite (nada avança de etapa) e 4 nos 35 minutos
+anteriores (Número 02, Número 11, Trio 10 e Número 15). A leitura considera hoje as 31 fichas. Bate com o que o
+dono contou em 14/10: em dia de semana, a bancada 1 monta o balcão e o delivery, e só o delivery passa pelo Regem.
+**Medido, amostra pequena:** 7 lanches de uma noite; 2 tinham pedido no Regem, e os 2 casaram com ele.
+
+**2. Como a fila de verdade chega:**
+
+- os 41 pedidos das últimas 24 horas estavam todos em "recebido": a loja não avança as etapas no Regem. Casar
+  lanche e pedido não pode depender da etapa; o pedido vai sendo "gasto" à medida que os lanches dele aparecem (dois
+  Número 15 vistos, sobra um);
+- **a escolha só existe em texto.** Em 30 dias, 2.347 pedidos, 2.224 itens com escolha em texto ("Molho cheddar no
+  sanduíche", "Bacon") e **nenhuma escolha estruturada**. Os adicionais dos canais não têm o código PDV ligado às
+  opções do Regem: é o mesmo motivo que faz o Regem avisar que o adicional "não baixou estoque". Com o código ligado,
+  o "sem cebola" chega com o id do ingrediente (e o estoque baixa). Até lá, o Farol tem de ler o texto;
+- trio e sanduíche são a mesma ficha na bancada (o dono, 14/10): o "Trio 10" casa com a ficha do Número 10 pelo combo
+  que a base de fichas já guarda.
+
+**A proposta (nada disto está feito):**
+
+| passo | o que entra | onde | pede |
+|---|---|---|---|
+| **F1** | a nuvem guarda a fila que lê, por 7 dias: os pedidos e os itens, **sem a observação** (pode ter texto do cliente); é o que deixa casar a leitura que chega horas depois (a gravação de treino) | servidor | migration |
+| **F2** | o palpite da conferência (T4) usa a fila: primeiro os produtos pedidos mais perto do lanche e ainda não gastos, depois as fichas todas; o pedido é gasto quando o lanche é conferido | servidor | — |
+| **F3** | a leitura do texto das escolhas na nuvem ("sem X", "+ X", "X no sanduíche"), contra os ingredientes da ficha do produto | servidor | — |
+| **F4** | na loja: o agente pergunta a fila no ritmo que a nuvem diz e a usa na leitura ao vivo | agente | pacote novo, com o "pode" |
+
+**Para o dono decidir:** (1) guardar a fila na nuvem por 7 dias, sem a observação; (2) até quanto tempo depois do
+pedido um lanche ainda pode ser dele (medido: 3 minutos, num caso só; proponho 45 minutos, e o pedido mais perto
+primeiro); (3) ligar, no cadastro do Regem, o código PDV dos adicionais dos canais às opções — resolve o estoque e a
+fila juntos.
+
 ## A22 · O computador da loja dorme e acorda sozinho (pedido do dono, 15/10/2026; protótipo esperando a aprovação)
 
 ### O pedido
