@@ -6787,3 +6787,43 @@ base e na com base, e os valores tortos recusados sem gravar. **O kit de testes 
 verdade** (`testes/dms/kit-conformidade.mts`, cópia do Hub) e falha só em vencida e suspensa. Sem banco
 (`testes/erros.test.ts`): 404, 400, 413, 415, 500 e o 4xx sem tradução em problem+json na porta, e o contrato de
 sempre fora dela (também em `/v1/integracaox/…`). As mutações uma a uma, arquivo restaurado a cada uma, até zero vivas.
+
+## 15/10/2026 · O treinamento da bancada e as fotos por ingrediente: protótipo e decisões aprovados (sem código)
+
+### O pedido
+
+O dono pediu, na madrugada de 15/10, as fotos por ingrediente nas fichas ("já providencie a opção de agregar imagens
+nas fichas em cada ingrediente") e o modo treinamento ("com as fichas na mão, e imagens gravadas separadas, se roda
+análises locais e traz o resultado para o usuário corrigir ou confirmar acertos aprimorando e aprendendo cada caso.
+dando sugestões de nomes para mudar na ficha se for o caso"). Perguntou também se a base de conhecimento na nuvem já
+existia: não existe em uso — as tabelas da migration 001 estão vazias (o levantamento está no A21 do roadmap).
+
+### O que entra
+
+- **O protótipo**, nas partes do protótipo do lado do Regem (`mockups/regem/partes/`, montado em
+  `mockups/farol-conexoes-e-fichas.html`): na tela Fichas, o botão das fotos em cada ingrediente e a gaveta do
+  ingrediente (fotos, envio, limite, "não se vê de cima", exemplos da bancada, fotos de ingrediente que saiu das
+  fichas); a tela Treinamento (os números, o acerto por gravação com a meta, as abas Lanches, Ingredientes, Sugestões
+  para as fichas e Gravações; a gaveta do lanche; a nova gravação de treino). Desenhos no lugar dos quadros da câmera:
+  nenhuma imagem de loja. Os controles do protótipo mostram cada situação e cada perfil.
+- **O plano** no roadmap (A21): o desenho, as decisões e as fatias T0 a T6.
+
+### As decisões (o dono: "aprovado", 15/10)
+
+1. A gravação inteira fica só no computador da loja; os quadros das etapas sobem reduzidos e saem 30 dias depois da
+   conferência; o recorte conferido vira exemplo da base.
+2. A meta: o lanche certo em 9 de cada 10, com pelo menos 30 conferidos, antes das outras estações.
+3. Conferem diretoria, gerência e supervisão; gravação, sugestões, tirar foto e "não se vê de cima" ficam com quem
+   configura a loja.
+4. Até 6 fotos por ingrediente.
+
+### Como foi conferido
+
+Num Chrome sem janela: 19 cenários (telas, gavetas e diálogos) em 16 larguras, de 320 a 1920 px — nada passa da borda
+interna da área de conteúdo nem de cada gaveta, nada rola nem corta para o lado, sem erro de script e sem botão sem
+nome. Os fluxos em 1280 e 375 px: conferir com "Está tudo certo", corrigir (outro lanche, outra etapa, o que faltou),
+o atalho das etapas, o nome novo virando sugestão, responder a uma sugestão, as abas pelo teclado, a gravação com erro
+e certa, a foto e o arquivo que não é foto, tirar foto, "não se vê de cima", e da ficha às fotos e de volta. A medida
+achou dois defeitos, corrigidos antes de mostrar: o ladrilho "Enviar foto" passava 5 px da borda da gaveta em 320 px
+(proporção quadrada numa caixa com texto) e a etiqueta azul saía com o dobro da altura (no estilo de base, `.dado` é a
+cor da etiqueta e também o bloco dos números grandes).
