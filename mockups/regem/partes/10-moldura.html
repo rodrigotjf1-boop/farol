@@ -85,6 +85,11 @@
       <button type="button" data-v="planilha-parcial" aria-pressed="false">planilha · com produtos de fora</button>
       <button type="button" data-v="sistema-novo" aria-pressed="false">outro sistema · criado</button>
       <button type="button" data-v="sistema" aria-pressed="false">outro sistema · enviando</button>
+      <button type="button" data-v="sistema-vence" aria-pressed="false">outro sistema · vence em 12 dias</button>
+      <button type="button" data-v="sistema-vencido" aria-pressed="false">outro sistema · venceu</button>
+      <button type="button" data-v="sistema-suspenso" aria-pressed="false">outro sistema · suspenso (90 dias sem envio)</button>
+      <button type="button" data-v="sistema-renovado" aria-pressed="false">outro sistema · renovado hoje</button>
+      <button type="button" data-v="sistema-teto" aria-pressed="false">outro sistema · conta no teto (10 acessos)</button>
       <button type="button" data-v="voltou" aria-pressed="false">Regem · voltou de lá</button>
       <button type="button" data-v="conectado" aria-pressed="true">Regem · conectado</button>
       <button type="button" data-v="semfichas" aria-pressed="false">Regem · sem fichas</button>
@@ -102,6 +107,7 @@
     </div></div>
     <div class="campo"><span class="rotulo">Quem olha</span><div class="seg" id="proto-perfil" role="group" aria-label="Quem olha">
       <button type="button" data-v="diretoria" aria-pressed="true">diretoria</button>
+      <button type="button" data-v="diretoria-outra" aria-pressed="false">diretoria · outra pessoa</button>
       <button type="button" data-v="gerente" aria-pressed="false">gerente</button>
       <button type="button" data-v="supervisao" aria-pressed="false">supervisão</button>
     </div></div>
@@ -110,7 +116,7 @@
       <button type="button" data-v="dark" aria-pressed="false">escuro</button>
       <button type="button" data-v="light" aria-pressed="false">claro</button>
     </div></div>
-    <p class="nota">Os dados são de exemplo. Nada é enviado nem baixado de verdade: a planilha, o código de acesso, a ida ao Regem, as fotos e as gravações são simulados. Os quadros da bancada são desenhos, no lugar das imagens da câmera.</p>
+    <p class="nota">Os dados são de exemplo. Nada é enviado nem baixado de verdade: a planilha, o código de acesso, a ida ao Regem, as fotos e as gravações são simulados. Os quadros da bancada são desenhos, no lugar das imagens da câmera. No exemplo, hoje é 15/10/2026. “Diretoria · outra pessoa” mostra o aviso que os outros da diretoria recebem quando alguém cria ou renova um acesso (escolha “outro sistema · criado” ou “renovado hoje”).</p>
   </div>
   <button class="btn mini" type="button" id="proto-abrir" aria-expanded="false" aria-controls="proto-painel"><svg class="ic p" aria-hidden="true"><use href="#i-ajustes"/></svg>Protótipo</button>
 </div>

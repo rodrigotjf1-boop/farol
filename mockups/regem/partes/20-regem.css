@@ -95,13 +95,23 @@
 .entregar li::before { content: counter(e); display: grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; border: 1px solid var(--fio-2); font: 500 12px/1 var(--f-dado); color: var(--suave); }
 .entregar .mono { color: var(--dado); overflow-wrap: anywhere; }
 .erro-do-campo { color: var(--fora); font-size: 13px; }
+/* a parte 2 da porta: o termo de uso (o texto a um toque, e o aceite) */
+.termo details { border: 1px solid var(--fio-2); border-radius: 8px; background: var(--bg-2); }
+.termo summary { cursor: pointer; padding: 10px 14px; font-size: 14px; font-weight: 500; list-style-position: inside; }
+.termo summary:focus-visible { outline: 2px solid var(--facho); outline-offset: 2px; border-radius: 8px; }
+.termo-itens { margin: 0; padding: 0 14px 12px 34px; display: grid; gap: 8px; font-size: 13.5px; color: var(--suave); }
+.marcar { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; align-items: start; font-size: 14px; cursor: pointer; }
+.marcar input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--facho); }
+.marcar input:focus-visible { outline: 2px solid var(--facho); outline-offset: 2px; }
+.marcar input[aria-invalid="true"] { outline: 2px solid var(--fora); outline-offset: 2px; }
+.aviso [data-entendi] { margin-top: 8px; display: flex; width: fit-content; }
 
 /* a lista de produtos: linha em grade no largo, cartão empilhado no estreito — sem tabela, sem rolar para o lado */
 .barra { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
 .barra .entrada { flex: 1 1 220px; max-width: 360px; }
 .barra .seg { margin-left: auto; }
 .lista { display: grid; border: 1px solid var(--fio); border-radius: var(--raio); background: var(--painel); overflow: hidden; }
-.lista-cab, .linha { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.2fr) minmax(0, 1.6fr) 28px; align-items: center; gap: 10px 14px; padding: 11px 16px; }
+.lista-cab, .linha { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(max-content, 1.2fr) minmax(0, 1.6fr) 28px; align-items: center; gap: 10px 14px; padding: 11px 16px; }
 .lista-cab { font: 500 12px/1.4 var(--f-dado); color: var(--suave); border-bottom: 1px solid var(--fio); background: var(--painel-2); text-transform: uppercase; letter-spacing: 0.04em; }
 .linha { appearance: none; width: 100%; border: 0; border-top: 1px solid var(--fio); background: none; color: inherit; text-align: left; cursor: pointer; font: inherit; }
 .linha:first-of-type { border-top: 0; }
