@@ -1863,8 +1863,8 @@ export type AvisoDeAcesso = { acao: 'criou' | 'renovou' | 'reativou' | 'revogou'
 export type AcessosDaConta = {
   /** Só a diretoria cria, renova, reativa e revoga. Quem decide é a API; isto só escolhe entre o botão e a frase. */
   podeCriar: boolean;
-  /** No máximo 10 acessos valendo por conta: no teto, a tela troca o botão pelo aviso. */
-  teto: { maximo: number; ativos: number };
+  /** `maximo: null` = sem teto (o Farol, desde 15/10/2026: um acesso por loja). Com número, no teto a tela troca o botão pelo aviso. */
+  teto: { maximo: number | null; ativos: number };
   /** O termo de uso que quem cria aceita: o texto e a versão vêm da API. */
   termo: { versao: string; de: string; itens: string[] };
   avisos: AvisoDeAcesso[];

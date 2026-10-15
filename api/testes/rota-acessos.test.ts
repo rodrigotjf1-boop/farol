@@ -810,7 +810,7 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     const lista = await listar(minha.dono);
     assert.deepEqual([lista.statusCode, lista.json().acessos.length], [200, 0], 'a sessão continua, e nada foi criado');
     assert.deepEqual(lista.json().termo, JSON.parse(JSON.stringify(TERMO_DO_ACESSO)), 'o termo vem da API, com a versão');
-    assert.deepEqual(lista.json().teto, { maximo: 10, ativos: 0 });
+    assert.deepEqual(lista.json().teto, { maximo: null, ativos: 0 });
 
     const r = await criar(minha.dono, { nome: 'PDV', lojaId: minha.centro });
     assert.equal(r.statusCode, 201, r.body);
@@ -843,47 +843,44 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     }
   });
 
-  it('o teto: a conta tem no máximo 10 acessos valendo — duas pessoas ao mesmo tempo não passam juntas dele; revogado libera a vaga', async () => {
-    const primeira = await criarLoja('Loja T1', { tenant: { nome: `${marca}-teto` } });
+  it('sem teto por conta (decisão do dono, 15/10/2026): uma rede com 11 lojas liga as 11 — o limite é um acesso por loja, e duas pessoas ao mesmo tempo na mesma loja não passam juntas', async () => {
+    const primeira = await criarLoja('Loja T1', { tenant: { nome: `${marca}-sem-teto` } });
     const lojas = [primeira.lojaId];
     for (let n = 2; n <= 11; n += 1) lojas.push((await criarLoja(`Loja T${n}`, { tenantId: primeira.tenantId })).lojaId);
-    const dono = await criarUsuario(primeira.tenantId, 'dono-teto', 'presidente');
-    const ids: string[] = [];
-    for (const l of lojas.slice(0, 9)) ids.push((await acessoDe(l, 'PDV', dono)).id);
+    const dono = await criarUsuario(primeira.tenantId, 'dono-sem-teto', 'presidente');
+    // passa do número do Padrão (10): no Farol não há teto por conta
+    for (const l of lojas.slice(0, 10)) await acessoDe(l, 'PDV', dono);
+    assert.deepEqual((await listar(dono)).json().teto, { maximo: null, ativos: 10 });
 
-    // as duas últimas vagas pedidas ao mesmo tempo: outra conexão segura a linha da conta, e as duas param nela
+    // a 11ª loja pedida duas vezes ao mesmo tempo: outra conexão segura a linha da loja, e os dois pedidos param nela
     const segura = await pool.connect();
     const travados = async (quantos: number) => {
       const limite = Date.now() + 10_000;
       for (;;) {
-        const { rows } = await pool.query("select count(*)::int as n from pg_stat_activity where wait_event_type = 'Lock' and query like 'select 1 from tenant where id = $1 for no key update%'");
+        const { rows } = await pool.query(
+          "select count(*)::int as n from pg_stat_activity where wait_event_type = 'Lock' and query like 'select nome from loja where id = $1 and tenant_id = $2 for no key update%'",
+        );
         if (rows[0].n >= quantos) return;
-        assert.ok(Date.now() < limite, `a criação não parou na trava da conta (${quantos})`);
+        assert.ok(Date.now() < limite, `a criação não parou na trava da loja (${quantos})`);
         await new Promise((ok) => setTimeout(ok, 25));
       }
     };
     try {
       await segura.query('begin');
-      await segura.query('select 1 from tenant where id = $1 for no key update', [primeira.tenantId]);
-      const a = criar(dono, { nome: 'PDV', lojaId: lojas[9] });
+      await segura.query('select id from loja where id = $1 for no key update', [lojas[10]]);
+      const a = criar(dono, { nome: 'PDV', lojaId: lojas[10] });
       await travados(1);
-      const b = criar(dono, { nome: 'PDV', lojaId: lojas[10] });
+      const b = criar(dono, { nome: 'Outro PDV', lojaId: lojas[10] });
       await travados(2);
       await segura.query('commit');
       const [ra, rb] = await Promise.all([a, b]);
       assert.deepEqual([ra.statusCode, rb.statusCode].sort(), [201, 409], ra.body + rb.body);
-      const recusada = [ra, rb].find((x) => x.statusCode === 409)!;
-      assert.deepEqual(recusada.json(), { erro: 'teto_de_acessos', mensagem: 'a conta chegou a 10 acessos, o máximo. Para criar outro, revogue um que não se usa mais' });
+      assert.equal([ra, rb].find((x) => x.statusCode === 409)!.json().erro, 'ja_tem_acesso');
     } finally {
       await segura.query('rollback').catch(() => {});
       segura.release();
     }
-    assert.deepEqual((await listar(dono)).json().teto, { maximo: 10, ativos: 10 });
-    const livre = (await pool.query('select l.id from loja l where l.tenant_id = $1 and not exists (select 1 from acesso_externo a where a.loja_id = l.id and a.revogado_em is null)', [primeira.tenantId])).rows.map((x) => x.id as string);
-    assert.equal(livre.length, 1, 'uma loja ficou sem acesso');
-    assert.equal((await criar(dono, { nome: 'PDV', lojaId: livre[0] })).statusCode, 409, 'no teto, nada entra');
-    assert.equal((await revogar(dono, ids[0]!)).statusCode, 200);
-    assert.equal((await criar(dono, { nome: 'PDV', lojaId: livre[0] })).statusCode, 201, 'revogado libera a vaga');
+    assert.deepEqual((await listar(dono)).json().teto, { maximo: null, ativos: 11 });
   });
 
   it('renovar: sai um código novo, que vale 12 meses; o de antes vale mais 7 dias e depois para; renovar de novo para o mais velho; o vencido renovado não deixa código antigo', async () => {

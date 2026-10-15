@@ -7852,3 +7852,28 @@ O estudo é calculado das fichas de qualquer loja; nada é escrito para o piloto
 - **Só os produtos montados na bancada.** Hoje a batata, os nuggets e o combo kids também contam; falta ligar o setor da
   bancada ao setor do produto.
 - **As variações** (o "Duplo" que usa 2× a ficha).
+
+## 15/10/2026 · Sem teto de acessos por conta: uma rede com mais de 10 lojas liga todas (sem migration)
+
+### Por quê
+
+O Padrão DMS (§2.4) põe no máximo 10 acessos valendo por conta, e a parte 2 da porta seguiu isso. No Farol, o acesso
+vale para **uma loja**, e cada loja tem no máximo um: uma rede com 11 lojas ficava com uma de fora. A sessão do Hub
+recomendou tirar o teto só no Farol, e o **dono aprovou em 15/10/2026**. O limite que sobra é o natural: um acesso por
+loja, garantido pela trava da loja na criação (V105) e pelo índice único `acesso_externo_loja_uk`.
+
+### O que muda
+
+- **A criação** (`POST /v1/acessos`) não conta mais os acessos da conta: saem a recusa `teto_de_acessos` e a trava da
+  linha da conta, que só servia a essa contagem. Ficam a trava da loja e a recusa `ja_tem_acesso`.
+- **A leitura** (`GET /v1/acessos`) diz `teto: { maximo: null, ativos }`: `null` é "sem teto".
+- **A tela** só mostra o estado "o máximo" quando a API manda um número. Para qualquer conta de hoje, nada muda à vista.
+- O Padrão ganha a exceção do Farol (repositório do hub, §2.4).
+
+### Como foi provado
+
+- `api/testes/rota-acessos.test.ts`: uma rede com 11 lojas liga as 11, e a leitura diz `{ maximo: null, ativos: 11 }`;
+  a 11ª loja pedida duas vezes ao mesmo tempo, com os dois pedidos presos na trava da loja: um passa, o outro recebe
+  `ja_tem_acesso`.
+- Mutação, com controle antes e depois: a leitura voltar a dizer 10, a criação voltar a recusar a 11ª, a criação sem
+  conferir se a loja já tem acesso, e a criação sem travar a loja. O teste pega as quatro.

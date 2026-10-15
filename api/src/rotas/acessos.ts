@@ -313,8 +313,12 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
     return {
       /** Só a diretoria cria, renova, reativa e revoga: a tela mostra o botão ou a frase. */
       podeCriar: ehDiretoria(s),
-      /** A conta tem no máximo 10 acessos valendo (Padrão DMS §2.4). No teto, a tela troca o botão pelo aviso. */
-      teto: { maximo: POLITICA_CHAVE_PROPRIA.maximoAtivasPorEmpresaEProduto, ativos: acessos.rows.length },
+      /**
+       * Sem teto por conta (decisão do dono, 15/10/2026, exceção ao Padrão DMS §2.4): o acesso vale para uma loja e cada loja
+       * tem no máximo um, então uma rede com mais de 10 lojas liga todas. `maximo: null` = sem teto; com número, a tela
+       * troca o botão pelo aviso quando chega nele.
+       */
+      teto: { maximo: null, ativos: acessos.rows.length },
       /** O termo de uso que quem cria aceita (o texto e a versão vêm daqui, não da tela). */
       termo: TERMO_DO_ACESSO,
       /** O que os outros da diretoria fizeram nos acessos e esta pessoa ainda não viu (só para a diretoria). */
@@ -381,9 +385,7 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
     const cliente = await pool.connect();
     try {
       await cliente.query('begin');
-      // A linha da CONTA fica travada antes: duas pessoas criando ao mesmo tempo, em lojas diferentes, não passam juntas do
-      // teto de acessos. A conferência vem na instrução seguinte (V105).
-      await cliente.query('select 1 from tenant where id = $1 for no key update', [s.tenantId]);
+      // Sem teto por conta: o limite é um acesso por loja, garantido pela trava da loja abaixo (V105).
       // A linha da loja fica travada até o fim: quem estiver ligando esta loja ao Regem espera aqui (e vice-versa).
       // A trava é a que NÃO barra quem só aponta para a loja (`no key update`): gravar um evento dela continua passando.
       const loja = await cliente.query<{ nome: string }>('select nome from loja where id = $1 and tenant_id = $2 for no key update', [lojaId, s.tenantId]);
@@ -391,11 +393,10 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
         await cliente.query('rollback');
         return resposta.status(404).send({ erro: 'loja_nao_encontrada', mensagem: 'não existe essa loja' });
       }
-      const [doRegem, jaTem, base, valendo] = [
+      const [doRegem, jaTem, base] = [
         await cliente.query('select 1 from regem_loja where loja_id = $1', [lojaId]),
         await cliente.query<{ nome: string }>('select nome from acesso_externo where loja_id = $1 and revogado_em is null', [lojaId]),
         await cliente.query<{ fonte: string }>('select fonte from fichas_da_loja where loja_id = $1', [lojaId]),
-        await cliente.query<{ n: number }>('select count(*)::int as n from acesso_externo where tenant_id = $1 and revogado_em is null', [s.tenantId]),
       ];
       if (doRegem.rows.length > 0) {
         await cliente.query('rollback');
@@ -409,13 +410,6 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
         return resposta.status(409).send({
           erro: 'ja_tem_acesso',
           mensagem: `esta loja já tem um acesso (${jaTem.rows[0]!.nome}). O acesso vale para uma loja: para trocar de sistema, revogue o que existe e crie outro`,
-        });
-      }
-      if (valendo.rows[0]!.n >= POLITICA_CHAVE_PROPRIA.maximoAtivasPorEmpresaEProduto) {
-        await cliente.query('rollback');
-        return resposta.status(409).send({
-          erro: 'teto_de_acessos',
-          mensagem: `a conta chegou a ${POLITICA_CHAVE_PROPRIA.maximoAtivasPorEmpresaEProduto} acessos, o máximo. Para criar outro, revogue um que não se usa mais`,
         });
       }
       const criado = await cliente.query<{ id: string; criado_em: Date; vence_em: Date }>(

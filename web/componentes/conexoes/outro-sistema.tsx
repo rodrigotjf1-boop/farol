@@ -741,7 +741,7 @@ export function OutroSistema({ a, aoMudar }: { a: AcessosDaConta; aoMudar: () =>
   const [revogando, setRevogando] = useState(false);
   const [erroAoRevogar, setErroAoRevogar] = useState<string | null>(null);
   const n = a.acessos.length;
-  const noTeto = a.teto.ativos >= a.teto.maximo;
+  const noTeto = a.teto.maximo !== null && a.teto.ativos >= a.teto.maximo;
 
   async function revogar() {
     if (!alvo) return;
