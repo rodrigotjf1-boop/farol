@@ -141,8 +141,47 @@ def test_a_busca_pede_na_hora_do_gravador_e_guarda_cada_pedaco(tmp_path):
     assert b.completa and b.ok == b.total == 4 and b.fracao == 1.0
     assert g.pedidos[0] == (4, datetime(2026, 10, 15, 19, 30, 24), datetime(2026, 10, 15, 19, 31, 4))
     assert g.pedidos[-1][2] == LA + timedelta(minutes=2), "termina no fim da gravação, na hora do gravador"
-    assert sorted(p.name for p in tmp_path.glob("*.dav")) == [f"{de:%Y%m%dT%H%M%S}.dav" for _, de, _ in g.pedidos]
+    videos = tmp_path / "canal-04"
+    assert sorted(p.name for p in videos.glob("*.dav")) == [f"{de:%Y-%m-%d_%H-%M-%S}.dav" for _, de, _ in g.pedidos]
     assert andou == [0.25, 0.5, 0.75, 1.0]
+
+
+def test_os_pedacos_ficam_como_o_leitor_do_repasse_le_e_o_manifesto_diz_onde_cada_um_termina(tmp_path):
+    from ferramentas.repasse import leitor
+
+    g = GravadorDeMentira(sem=(datetime(2026, 10, 15, 19, 31, 4),))
+    buscar(g, tmp_path)
+    assert all(leitor._NOME_DO_PEDACO.match(p.name) for p in (tmp_path / "canal-04").glob("*.dav"))
+    baixados = tt.pedacos_baixados(tmp_path, 4)
+    assert [(de, ate) for _, de, ate in baixados] == [
+        (datetime(2026, 10, 15, 19, 30, 24), datetime(2026, 10, 15, 19, 31, 4)),
+        (datetime(2026, 10, 15, 19, 31, 44), datetime(2026, 10, 15, 19, 32, 24)),
+        (datetime(2026, 10, 15, 19, 32, 24), datetime(2026, 10, 15, 19, 32, 25)),
+    ], "o pedaço sem gravação não entra; o último é curto"
+    baixados[0][0].unlink()
+    assert len(tt.pedacos_baixados(tmp_path, 4)) == 2, "o que sumiu do disco não entra"
+    assert tt.pedacos_baixados(tmp_path / "nao-existe", 4) == []
+
+
+def test_o_arquivo_pela_metade_de_uma_queda_nao_entra_na_leitura(tmp_path):
+    # O agente caiu no meio do pedido (falta de luz): o arquivo ficou, mas o manifesto nunca disse que ele veio inteiro.
+    cortado = datetime(2026, 10, 15, 19, 31, 4)
+    g = GravadorDeMentira(falhas={cortado: 1})
+    assert buscar(g, tmp_path).parou == tt.GRAVADOR
+    (tmp_path / "canal-04" / f"{cortado:%Y-%m-%d_%H-%M-%S}.dav").write_bytes(b"meio arquivo")
+    assert [de for _, de, _ in tt.pedacos_baixados(tmp_path, 4)] == [datetime(2026, 10, 15, 19, 30, 24)]
+    assert buscar(g, tmp_path).completa, "na volta seguinte o pedaço é pedido de novo, por cima do meio arquivo"
+    assert len(tt.pedacos_baixados(tmp_path, 4)) == 4
+
+
+def test_os_pedacos_saem_em_ordem_mesmo_com_o_manifesto_fora_de_ordem(tmp_path):
+    buscar(GravadorDeMentira(), tmp_path)
+    arquivo = tmp_path / tt.MANIFESTO
+    dados = json.loads(arquivo.read_text(encoding="utf-8"))
+    dados["pedacos"] = dict(reversed(list(dados["pedacos"].items())))
+    arquivo.write_text(json.dumps(dados), encoding="utf-8")
+    inicios = [de for _, de, _ in tt.pedacos_baixados(tmp_path, 4)]
+    assert inicios == sorted(inicios) and len(inicios) == 4
 
 
 def test_a_busca_retoma_de_onde_parou_mesmo_depois_de_reiniciar(tmp_path):
@@ -159,11 +198,11 @@ def test_a_busca_retoma_de_onde_parou_mesmo_depois_de_reiniciar(tmp_path):
 
 def test_o_pedaco_que_sumiu_do_disco_e_pedido_de_novo(tmp_path):
     buscar(GravadorDeMentira(), tmp_path)
-    primeiro = sorted(tmp_path.glob("*.dav"))[0]
+    primeiro = sorted((tmp_path / "canal-04").glob("*.dav"))[0]
     primeiro.unlink()
     g = GravadorDeMentira()
     assert buscar(g, tmp_path).ok == 4
-    assert [f"{de:%Y%m%dT%H%M%S}.dav" for _, de, _ in g.pedidos] == [primeiro.name]
+    assert [f"{de:%Y-%m-%d_%H-%M-%S}.dav" for _, de, _ in g.pedidos] == [primeiro.name]
 
 
 def test_so_o_que_assentou_e_pedido(tmp_path):
