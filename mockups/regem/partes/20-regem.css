@@ -197,6 +197,13 @@
 .il-gema { fill: var(--il-queijo); }
 .il-batata { fill: none; stroke: var(--il-queijo); stroke-width: 5; stroke-linecap: round; }
 .il-mao { fill: var(--il-piso); opacity: 0.94; }
+/* a conferência nova: o gergelim, o cheddar cremoso, a cebola ao shoyo e o papel laminado */
+:root { --il-cheddar: #f2a42c; --il-shoyo: #5b3720; --il-papel: #cfd5dc; --il-papel-2: #9aa3ae; --il-gergelim: #f5ecd6; }
+.il-gergelim { fill: none; stroke: var(--il-gergelim); stroke-width: 2.4; stroke-linecap: round; }
+.il-cheddar { fill: var(--il-cheddar); }
+.il-shoyo { fill: none; stroke: var(--il-shoyo); stroke-width: 3.4; stroke-linecap: round; }
+.il-papel { fill: var(--il-papel); }
+.il-papel-dobra { fill: none; stroke: var(--il-papel-2); stroke-width: 1.6; stroke-linejoin: round; }
 /* o que mudou na etapa vem contornado no tom do facho */
 svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 2px var(--facho)); }
 .quadro { position: relative; aspect-ratio: 1; max-width: 100%; border-radius: 8px; overflow: hidden; background: var(--bg-2); }
@@ -279,6 +286,33 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
 .comparo .falta > .ic { color: var(--facho-texto); }
 .comparo .fora-da-ficha > .ic { color: var(--dado); }
 .comparo .nao-se-ve > .ic { color: var(--fraco); }
+
+/* a conferência nova: o palpite com o porquê, as perguntas que separam as fichas e um cartão por foto */
+.palpite-v2 { display: grid; gap: 6px; padding: 10px 12px; border-left: 3px solid var(--dado); border-radius: 0 8px 8px 0; background: var(--bg-2); }
+.palpite-v2 > p:first-child { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.palpite-v2 b { font-weight: 600; }
+.palpite-v2 small { color: var(--suave); font-size: 12.5px; font-weight: 400; }
+.palpite-v2.sem { border-left-color: var(--fio-2); }
+.perguntas { display: grid; padding: 2px 12px 10px; border: 1px solid var(--fio); border-radius: 8px; }
+.perguntas .rotulo { padding: 8px 0 4px; font-size: 13px; font-weight: 500; color: var(--suave); }
+.pergunta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 8px 0; border-top: 1px solid var(--fio); }
+.pergunta > span { font-weight: 500; min-width: 0; }
+.sobram { padding-top: 8px; border-top: 1px solid var(--fio); font-size: 13.5px; color: var(--suave); }
+.sobram b { color: var(--tinta); font-weight: 600; }
+.sobram small { font-size: 12.5px; font-weight: 400; }
+.etapa.foto-v2 { grid-template-columns: 140px minmax(0, 1fr); }
+.chips-v2 button { display: inline-flex; align-items: center; gap: 6px; }
+/* o ponto: o que o Farol acha que pode ser (o leitor de tela ouve o mesmo pelo texto escondido no botão) */
+.chips-v2 button.do-farol::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--dado); }
+.chips-v2 button.do-farol[aria-pressed="true"]::before { background: var(--facho-texto); }
+/* a foto que não dá para analisar: apagada, e não ensina */
+.foto-v2.ruim { border-style: dashed; }
+.foto-v2.ruim .ver-foto .quadro { opacity: 0.55; filter: grayscale(1); }
+.bloco > .linha-acoes > .nota { flex: 1 1 220px; }
+@media (max-width: 420px) {
+  .etapa.foto-v2 { grid-template-columns: minmax(0, 1fr); }
+  .etapa.foto-v2 .ver-foto { max-width: 160px; }
+}
 
 /* as fotos de um ingrediente */
 .foto-chip { appearance: none; display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border: 1px solid var(--fio-2); border-radius: 999px; background: none; color: var(--suave); font: 500 12px/1.6 var(--f-dado); white-space: nowrap; cursor: pointer; }
