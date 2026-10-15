@@ -21,6 +21,11 @@
 // 11/10/2026). "Buscar agora" é de quem configura a loja: para a supervisão
 // o botão não aparece, e as frases não mandam usar o que ela não tem.
 //
+// As FOTOS DE REFERÊNCIA de cada ingrediente (A21, fatia T2; protótipo aprovado em 15/10/2026): o botão em cada
+// ingrediente da ficha — e no adicional que acrescenta um — abre a gaveta do ingrediente
+// (`componentes/fichas/gaveta-do-ingrediente.tsx`). A lista dos ingredientes vem à parte; se não vier, as fichas
+// continuam e os botões só não aparecem.
+//
 // Do protótipo aprovado em 11/10/2026 (`mockups/farol-conexoes-e-fichas.html`).
 // Duas frases de lá ficaram de fora por enquanto: as que dizem que o Farol
 // "confere pela câmera" pela ficha — isso chega quando um critério passar a
@@ -34,6 +39,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { useConsole } from '@/componentes/console';
 import { GavetaDeFora } from '@/componentes/fichas/de-fora';
+import { BotaoDasFotos, chaveDoIngrediente, GavetaDoIngrediente, type AlvoDaGaveta } from '@/componentes/fichas/gaveta-do-ingrediente';
 import { ImportarPlanilha } from '@/componentes/fichas/importar-planilha';
 import { diaFaladoNaLoja, frase, numero, plural, quantidadeDaFicha } from '@/componentes/formatos';
 import { useAvisar } from '@/componentes/ui/avisos';
@@ -41,7 +47,18 @@ import { Botao, classesDoBotao } from '@/componentes/ui/botao';
 import { AJUDA } from '@/componentes/ui/campo';
 import { Alerta, Cabecalho, CARTAO, Chip, Ossos, Segmentado, Vazio } from '@/componentes/ui/pecas';
 import { Gaveta } from '@/componentes/ui/sobreposto';
-import { ErroDaApi, fichasApi, type ConferenciaDaPlanilha, type EfeitoDaOpcao, type FichasDaLoja, type ProdutoDaFicha, type ProdutoNaLista } from '@/lib/api';
+import {
+  ErroDaApi,
+  fichasApi,
+  ingredientesApi,
+  type ConferenciaDaPlanilha,
+  type EfeitoDaOpcao,
+  type FichasDaLoja,
+  type IngredienteDaLoja,
+  type IngredientesDaLoja,
+  type ProdutoDaFicha,
+  type ProdutoNaLista,
+} from '@/lib/api';
 import { baixarArquivo, escreverXlsx } from '@/lib/planilha';
 
 type Filtro = 'todos' | 'com' | 'sem';
@@ -131,12 +148,28 @@ function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode
 /** De onde as fichas da loja vieram. */
 type Origem = { de: 'regem' } | { de: 'planilha' } | { de: 'sistema'; nome: string };
 
+/** O botão das fotos de um ingrediente — só quando a lista de ingredientes já veio. */
+function FotosDoIngrediente({
+  nome,
+  fotosDe,
+  aoAbrir,
+}: {
+  nome: string;
+  fotosDe: (nome: string) => IngredienteDaLoja | undefined;
+  aoAbrir: (nome: string) => void;
+}) {
+  const ingrediente = fotosDe(nome);
+  return ingrediente ? <BotaoDasFotos ingrediente={ingrediente} aoAbrir={() => aoAbrir(ingrediente.nome)} /> : null;
+}
+
 function Folha({
   lojaId,
   resumo,
   podeBuscar,
   origem,
   espera,
+  fotosDe,
+  aoAbrirIngrediente,
   aoFechar,
 }: {
   lojaId: string;
@@ -149,6 +182,9 @@ function Folha({
    * um sistema): ninguém manda importar de novo. `regem`, ou o nome do sistema. Nulo = não é o caso.
    */
   espera: string | null;
+  /** O ingrediente da loja com aquele nome (as fotos dele). Indefinido = ainda carregando, ou a lista não veio. */
+  fotosDe: (nome: string) => IngredienteDaLoja | undefined;
+  aoAbrirIngrediente: (nome: string) => void;
   aoFechar: () => void;
 }) {
   const daPlanilha = origem.de === 'planilha';
@@ -212,9 +248,13 @@ function Folha({
                         {i.preparo && <small className="block text-xs text-farol-suave">preparo da casa — entra como um ingrediente só</small>}
                       </span>
                       <span className="shrink-0 font-mono text-[13px] tabular-nums">{quantidadeDaFicha(i.quantidade, i.unidade)}</span>
+                      <FotosDoIngrediente nome={i.nome} fotosDe={fotosDe} aoAbrir={aoAbrirIngrediente} />
                     </li>
                   ))}
                 </ol>
+              )}
+              {p.ficha.ingredientes.some((i) => fotosDe(i.nome)) && (
+                <p className={AJUDA}>Em cada ingrediente, as fotos de referência dele: valem para todos os produtos que o usam.</p>
               )}
               {origem.de === 'regem' && <p className={AJUDA}>A embalagem que só entra no pedido para viagem fica fora desta lista.</p>}
             </Bloco>
@@ -279,10 +319,14 @@ function Folha({
                       // O id fixo falta em parte das opções; o grupo e a posição não se repetem.
                       <li key={`${ng}-${no}`} className="flex items-start gap-2">
                         <Icone className="mt-0.5 h-[15px] w-[15px] shrink-0 text-farol-suave" aria-hidden />
-                        <span className="min-w-0">
+                        <span className="min-w-0 flex-1">
                           <span className="block break-words text-[13.5px]">{o.nome}</span>
                           <small className="block break-words text-xs text-farol-suave">{efeitoFalado(o.efeito)}</small>
                         </span>
+                        {/* o adicional que acrescenta um ingrediente leva às fotos dele */}
+                        {g.tipo === 'adicionar' && (o.efeito.tipo === 'insumo' || o.efeito.tipo === 'preparo') && o.efeito.nome && (
+                          <FotosDoIngrediente nome={o.efeito.nome} fotosDe={fotosDe} aoAbrir={aoAbrirIngrediente} />
+                        )}
                       </li>
                     );
                   }),
@@ -315,6 +359,11 @@ export default function Fichas() {
   const [importando, setImportando] = useState(false);
   const [vendoDeFora, setVendoDeFora] = useState(false);
   const [baixando, setBaixando] = useState(false);
+  // As fotos de referência por ingrediente (A21). A lista vem à parte: se não vier, as fichas continuam e os
+  // botões das fotos só não aparecem.
+  const [ingredientes, setIngredientes] = useState<IngredientesDaLoja | null>(null);
+  /** A gaveta de um ingrediente (pelo nome) ou de um órfão (pelo item); `voltar`: veio da gaveta deste produto. */
+  const [ingredienteAberto, setIngredienteAberto] = useState<{ nome?: string; orfao?: string; voltar: ProdutoNaLista | null } | null>(null);
   const perguntas = useRef(0);
 
   const fuso = loja?.timezone ?? 'America/Sao_Paulo';
@@ -341,6 +390,32 @@ export default function Fichas() {
     perguntas.current = 0;
     void carregar();
   }, [carregar]);
+
+  const carregarIngredientes = useCallback(async () => {
+    try {
+      setIngredientes(await ingredientesApi.listar(id));
+    } catch {
+      // A tela das fichas não depende disto: sem a lista, os botões das fotos não aparecem.
+      setIngredientes(null);
+    }
+  }, [id]);
+  // de novo quando as fichas mudam (importação, busca): os ingredientes vêm delas
+  const impressaoDasFichas = d ? `${d.fonte}|${d.totais?.produtos ?? 0}|${d.totais?.comFicha ?? 0}|${d.leitura?.lidaEm ?? ''}|${d.importacao?.em ?? ''}` : '';
+  useEffect(() => {
+    if (impressaoDasFichas) void carregarIngredientes();
+  }, [impressaoDasFichas, carregarIngredientes]);
+
+  const porChave = useMemo(() => new Map((ingredientes?.ingredientes ?? []).map((i) => [chaveDoIngrediente(i.nome), i])), [ingredientes]);
+  const fotosDe = useCallback((nome: string) => porChave.get(chaveDoIngrediente(nome)), [porChave]);
+  const alvoAberto: AlvoDaGaveta | null = (() => {
+    if (!ingredienteAberto || !ingredientes) return null;
+    if (ingredienteAberto.orfao) {
+      const o = ingredientes.orfaos.find((x) => x.itemId === ingredienteAberto.orfao);
+      return o ? { tipo: 'orfao', orfao: o } : null;
+    }
+    const i = ingredienteAberto.nome ? fotosDe(ingredienteAberto.nome) : undefined;
+    return i ? { tipo: 'ingrediente', ingrediente: i } : null;
+  })();
 
   // A loja acabou de ser ligada: a primeira busca corre no servidor. A tela
   // pergunta de novo de tempos em tempos, até as fichas chegarem (ou a
@@ -772,6 +847,32 @@ export default function Fichas() {
             </Alerta>
           )}
 
+          {ingredientes && ingredientes.orfaos.length > 0 && (
+            <Alerta tom="atencao" icone={Info} papel="status">
+              <span data-orfaos>
+                <b className="font-semibold">
+                  {ingredientes.orfaos.length === 1
+                    ? '1 ingrediente que saiu das fichas ainda tem fotos'
+                    : `${numero(ingredientes.orfaos.length)} ingredientes que saíram das fichas ainda têm fotos`}
+                  :
+                </b>{' '}
+                {ingredientes.orfaos.map((o) => o.nome).join(', ')}.{' '}
+                {ingredientes.podeConfigurar
+                  ? ingredientes.orfaos.length === 1
+                    ? 'Se só mudou de nome, junte as fotos ao nome novo.'
+                    : 'Se só mudaram de nome, junte as fotos aos nomes novos.'
+                  : 'Quem configura a loja diz de qual ingrediente elas são.'}{' '}
+                <button
+                  type="button"
+                  className="font-semibold text-farol-tinta underline underline-offset-2"
+                  onClick={() => setIngredienteAberto({ orfao: ingredientes.orfaos[0]!.itemId, voltar: null })}
+                >
+                  Ver {ingredientes.orfaos.length === 1 ? 'as fotos' : `as de ${ingredientes.orfaos[0]!.nome}`}
+                </button>
+              </span>
+            </Alerta>
+          )}
+
           {temBase && d.fonte === 'regem' && n > 0 && comFicha === 0 && (
             <Alerta tom="atencao" icone={Info} papel="status">
               <b className="font-semibold">O Regem desta loja ainda não tem fichas técnicas.</b> Sem ficha, o Farol sabe o que a loja
@@ -875,7 +976,37 @@ export default function Fichas() {
           podeBuscar={podeBuscar}
           origem={origem}
           espera={esperaORegem ? 'regem' : esperaOSistema && sistema ? sistema.nome : null}
+          fotosDe={fotosDe}
+          aoAbrirIngrediente={(nome) => {
+            // a gaveta do produto dá lugar à do ingrediente, que tem o botão de voltar a ela
+            setIngredienteAberto({ nome, voltar: aberto });
+            setAberto(null);
+          }}
           aoFechar={() => setAberto(null)}
+        />
+      )}
+      {ingredienteAberto && ingredientes && alvoAberto && (
+        <GavetaDoIngrediente
+          lojaId={id}
+          fuso={fuso}
+          alvo={alvoAberto}
+          limiteDeFotos={ingredientes.limiteDeFotos}
+          podeConfigurar={ingredientes.podeConfigurar}
+          nomesNasFichas={ingredientes.ingredientes.map((i) => i.nome)}
+          voltarPara={
+            ingredienteAberto.voltar
+              ? {
+                  nome: ingredienteAberto.voltar.nome,
+                  aoVoltar: () => {
+                    const produto = ingredienteAberto.voltar;
+                    setIngredienteAberto(null);
+                    setAberto(produto);
+                  },
+                }
+              : null
+          }
+          aoMudar={carregarIngredientes}
+          aoFechar={() => setIngredienteAberto(null)}
         />
       )}
       {importando && <ImportarPlanilha lojaId={id} lojaNome={nomeDaLoja} aoFechar={() => setImportando(false)} aoImportar={importou} />}

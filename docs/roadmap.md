@@ -5109,7 +5109,7 @@ fotos. Para o exemplo de critério da onda 2, as três de 10/10 continuam como e
 |---|---|---|---|---|
 | **T0** | este plano e o protótipo no repositório | — | — | — |
 | **T1** ✅ | a base de conhecimento passa a valer na nuvem: o ingrediente da loja como item, a foto como quadro; listar os ingredientes das fichas com fotos e números, enviar, tirar, juntar as órfãs, "não se vê de cima" (15/10; o registro de decisões diz como foi provado) | 047 | — | — |
-| **T2** | as fotos na tela Fichas: o botão em cada ingrediente e a gaveta do ingrediente | — | sim | — |
+| **T2** ✅ | as fotos na tela Fichas: o botão em cada ingrediente e a gaveta do ingrediente (15/10) | — | sim | — |
 | **T3** | a gravação de treino: o cadastro; o agente busca no gravador ou grava no horário, lê na loja (as ferramentas da rodada 12 viram módulo, com testes) e sobe a leitura e os quadros reduzidos | sim | — | pacote novo, com o "pode" |
 | **T4** | a conferência: a tela Treinamento, as respostas guardadas, os números e o prazo de 30 dias | se precisar | sim | — |
 | **T5** | o aprendizado: a etapa conferida vira exemplo; fotos e exemplos descem para a loja (lista com sha256, como a foto padrão); a leitura compara com eles e relê o que falta | — | — | pacote novo, com o "pode" |

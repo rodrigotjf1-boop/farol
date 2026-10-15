@@ -6880,3 +6880,49 @@ descartava o resto. A rota recusa (409) e diz quantas tirar antes: juntar nunca 
   confere o nome guardado.
 - A primeira rodada de mutação deu "30 de 30" sem ter rodado teste nenhum: o comando não achava o roteiro. O controle,
   posto depois, pegou isso.
+
+## 15/10/2026 · A21, fatia T2: as fotos de cada ingrediente na tela Fichas (sem migration)
+
+### O que entra
+
+- **Na gaveta do produto**, cada ingrediente da ficha ganha o botão das fotos, com o número delas, "sem foto" ou "não se
+  vê". O adicional que acrescenta um ingrediente (um insumo ou um preparo da casa) também tem. A bebida que um adicional
+  põe junto, não.
+- **A gaveta do ingrediente** (`web/componentes/fichas/gaveta-do-ingrediente.tsx`) mostra:
+  - as fotos, com a data no relógio da loja;
+  - "Enviar foto": a foto é reduzida no aparelho, como no inventário, e guardada na hora;
+  - tirar foto, com confirmação;
+  - "Não se vê de cima";
+  - como fotografar;
+  - e "Voltar ao X-Burger", quando a gaveta foi aberta a partir de um produto.
+- **O órfão**: a tela Fichas avisa quando um ingrediente que saiu das fichas ainda tem fotos. A gaveta dele diz de qual
+  ingrediente elas são (juntar) ou as apaga, com confirmação.
+- **Por perfil**: a supervisão vê e manda foto. Tirar, "não se vê", juntar e apagar aparecem só para quem configura
+  (é a API que decide).
+
+### O que mudou do protótipo
+
+- A frase do "não se vê de cima" não promete o que ainda não existe. O protótipo dizia "o Farol para de esperar vê-lo";
+  a tela diz que é a marca que o treinamento vai usar.
+- Os exemplos da bancada e o reconhecimento só aparecem quando existirem (fatias T4 e T5).
+- A legenda de cada foto (o "jeito": "na chapa, antes de ir para o pão") ficou para depois. A API já a guarda; a tela
+  mostra a data.
+
+### Como foi provado
+
+- **No console local**, ligado a uma API local com o banco de teste, num Chrome sem janela:
+  - **gerência**:
+    - abriu o X-Burger: cinco botões na ficha, os dois adicionais certos, e nenhum na bebida;
+    - abriu o Blend da casa e enviou duas fotos 1600×1200, que o próprio console reduziu e que voltaram e abriram;
+    - tirou uma (pelo diálogo);
+    - marcou e desmarcou "não se vê";
+    - voltou ao X-Burger, que já dizia "1".
+  - **o órfão**: foto na cebola; a cebola renomeada na ficha; o aviso apareceu; as fotos foram juntadas ao nome novo e
+    o aviso sumiu.
+  - **supervisão**: sem "tirar" nem "não se vê", com "Enviar foto".
+- **Larguras**: com cada gaveta e o diálogo abertos, 6 estados em 16 larguras (320 a 1920 px). Nada sai da tela nem
+  rola para o lado, sem erro de script.
+- **Medição**: a primeira rodada acusou duas falsas falhas.
+  - A animação de entrada da gaveta recomeça ao cruzar o corte do celular. A medida passou a esperar por ela.
+  - O diálogo de confirmação fica sobre a tela inteira. Ele passou a ser medido contra a própria caixa.
+- **Build**: `next build` passou.
