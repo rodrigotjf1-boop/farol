@@ -1720,6 +1720,30 @@ export type GravacaoDeTreino = {
 /** As regras da gravação nova — as mesmas que a API confere. */
 export type RegrasDaGravacao = { minimoMin: number; maximoMin: number; gravadorGuardaH: number; programarAteDias: number };
 
+/** Uma sugestão para as fichas (fatia T6), tirada SÓ do que foi conferido, com a resposta de quem configura. */
+export type SugestaoParaAFicha = {
+  chave: string;
+  tipo: 'nome-fora' | 'falta-na-ficha' | 'ficha-diferente' | 'duas-coisas';
+  /** O nome do tipo, na etiqueta. */
+  rotulo: string;
+  produto: string | null;
+  ingrediente: string;
+  titulo: string;
+  /** O que a bancada mostrou. */
+  viu: string;
+  /** A sugestão. */
+  propoe: string;
+  /** Onde mudar, sem o sistema ("na ficha do X-Burger"). */
+  onde: string;
+  /** O que cada resposta quer dizer, nos botões. */
+  sim: string;
+  nao: string;
+  /** Nulo = ainda não respondida. */
+  decisao: 'sim' | 'nao' | null;
+  decididoEm: string | null;
+  decididoPor: string | null;
+};
+
 export type TreinoDaLoja = {
   podeConfigurar: boolean;
   /** A meta aprovada: o lanche certo em `acerto` (0,9) dos conferidos, com pelo menos `minimo` (30). */
@@ -1730,6 +1754,10 @@ export type TreinoDaLoja = {
   canais: Array<{ id: string; nome: string; numero: number | null }>;
   /** Falso: o computador da loja ainda não sabe gravar o treino (o pacote dele é anterior à fatia T3). */
   lojaSabeGravar: boolean;
+  /** As sugestões para as fichas: as abertas e as já respondidas. */
+  sugestoes: SugestaoParaAFicha[];
+  /** De onde as fichas vêm: a tela diz onde mudar. Nulo = sem fichas. */
+  fichasDe: 'regem' | 'planilha' | 'sistema' | null;
   gravacoes: GravacaoDeTreino[];
   lanches: LancheNaFila[];
   /** Sobre TODOS os conferidos (a lista traz os mais novos). */
@@ -1785,6 +1813,13 @@ export const treinoApi = {
 
   /** Os quadros da gravação conferida saem da nuvem agora; o que foi aprendido fica. */
   apagarImagens: (id: string) => pedir<{ apagada: true; quadros: number }>(`/treino/gravacoes/${id}/apagar-imagens`, { method: 'POST' }),
+
+  /** A resposta de quem configura a uma sugestão: "vou mudar a ficha" (sim) ou "fica como está" (não). */
+  responderSugestao: (lojaId: string, chave: string, decisao: 'sim' | 'nao') =>
+    pedir<{ chave: string; decisao: 'sim' | 'nao' }>(`/lojas/${lojaId}/treino/sugestoes`, {
+      method: 'POST',
+      body: JSON.stringify({ chave, decisao }),
+    }),
 };
 
 // ───────────────────────── o acesso de outro sistema ─────────────────────────

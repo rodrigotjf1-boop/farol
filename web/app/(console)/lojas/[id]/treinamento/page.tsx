@@ -26,8 +26,8 @@
 // computador da loja — enquanto o pacote dele não sabe (`lojaSabeGravar`),
 // a tela diz que a gravação espera na fila.
 //
-// O que o protótipo tem e ainda não tem serviço fica de fora, para a tela
-// não prometer: a aba "Sugestões para as fichas" (fatia T6).
+// As SUGESTÕES PARA AS FICHAS (fatia T6): tiradas só do que foi conferido;
+// quem configura responde (`componentes/treino/painel-das-sugestoes.tsx`).
 // =====================================================================
 
 import { ChevronRight, ClipboardList, Clock, GraduationCap, ImageOff, Info, Lock, Plus, Store, TriangleAlert } from 'lucide-react';
@@ -40,6 +40,7 @@ import { chaveDoIngrediente, GavetaDoIngrediente, type AlvoDaGaveta } from '@/co
 import { frase, numero, plural } from '@/componentes/formatos';
 import { GavetaDaGravacao } from '@/componentes/treino/gaveta-da-gravacao';
 import { GavetaDoLanche, quandoDaGravacao } from '@/componentes/treino/gaveta-do-lanche';
+import { PainelDasSugestoes } from '@/componentes/treino/painel-das-sugestoes';
 import { useAvisar } from '@/componentes/ui/avisos';
 import { Botao, classesDoBotao } from '@/componentes/ui/botao';
 import { AJUDA } from '@/componentes/ui/campo';
@@ -57,13 +58,14 @@ import {
   type TreinoDaLoja,
 } from '@/lib/api';
 
-type Aba = 'lanches' | 'ingredientes' | 'gravacoes';
+type Aba = 'lanches' | 'ingredientes' | 'sugestoes' | 'gravacoes';
 type FiltroDosLanches = 'conferir' | 'conferidos' | 'pulados';
 type FiltroDosIngredientes = 'todos' | 'semex' | 'semfoto';
 
 const ABAS: ReadonlyArray<{ id: Aba; rotulo: string }> = [
   { id: 'lanches', rotulo: 'Lanches' },
   { id: 'ingredientes', rotulo: 'Ingredientes' },
+  { id: 'sugestoes', rotulo: 'Sugestões para as fichas' },
   { id: 'gravacoes', rotulo: 'Gravações' },
 ];
 
@@ -276,7 +278,13 @@ export default function Treinamento() {
   const canais = [...new Set((d?.gravacoes ?? []).flatMap((g) => (g.canal ? [g.canal.numero !== null ? `${g.canal.nome} · canal ${g.canal.numero}` : g.canal.nome] : [])))];
   // Sem ingrediente nenhum nas fichas (e sem órfão): a loja não tem fichas — o treinamento não tem com o que comparar
   const semFichas = ingredientes !== null && ingredientes.ingredientes.length === 0 && ingredientes.orfaos.length === 0;
-  const conta = { conferir: listas.conferir.length, ingredientes: daBancada.length, gravacoes: d?.gravacoes.length ?? 0 };
+  const conta = {
+    conferir: listas.conferir.length,
+    ingredientes: daBancada.length,
+    // a aba conta as que esperam resposta
+    sugestoes: (d?.sugestoes ?? []).filter((s) => s.decisao === null).length,
+    gravacoes: d?.gravacoes.length ?? 0,
+  };
   // a gravação nova: quem configura, com fichas e com uma câmera do gravador (a API decide; a tela só não oferece)
   const podeGravar = !!d && d.podeConfigurar && !semFichas && d.canais.length > 0;
   const botaoNova = (
@@ -448,6 +456,21 @@ export default function Treinamento() {
                 aoAbrir={(nome) => setIngredienteAberto({ nome })}
                 aoAbrirOrfao={(itemId) => setIngredienteAberto({ orfao: itemId })}
                 lojaId={id}
+              />
+            </div>
+          )}
+
+          {aba === 'sugestoes' && (
+            <div role="tabpanel" id="painel-sugestoes" aria-labelledby="aba-sugestoes" className="flex animate-sobe flex-col gap-3">
+              <PainelDasSugestoes
+                lojaId={id}
+                fuso={fuso}
+                sugestoes={d.sugestoes}
+                fichasDe={d.fichasDe}
+                podeConfigurar={d.podeConfigurar}
+                aoResponder={async () => {
+                  await carregar();
+                }}
               />
             </div>
           )}
