@@ -20,11 +20,13 @@
 //     padrão; a variação é legítima (o dono, 15/10/2026);
 //   • salvar: cada etapa respondida com nome das fichas, e com quadro, vira
 //     exemplo na base de conhecimento (quem decide é a API). A etapa sem
-//     resposta não ensina.
+//     resposta não ensina;
+//   • a miniatura da etapa abre o quadro inteiro, maior, por cima da gaveta
+//     (`quadro-da-etapa.tsx`; pedido do dono e protótipo aprovado em 15/10).
 // =====================================================================
 
-import { Check, ChevronRight, ImageOff, Info, Lock, Minus, Plus, TriangleAlert } from 'lucide-react';
-import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
+import { Check, ChevronRight, ImageOff, Info, Lock, Minus, Plus, TriangleAlert, ZoomIn } from 'lucide-react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { diaFaladoNaLoja, frase, horaNaLoja, plural, quantidadeDaFicha } from '@/componentes/formatos';
 import { Botao } from '@/componentes/ui/botao';
@@ -41,6 +43,8 @@ import {
   type ProdutoDaFicha,
   type RespostaDaEtapa,
 } from '@/lib/api';
+
+import { QuadroDaEtapa, type EtapaNoQuadro } from './quadro-da-etapa';
 
 const chave = (s: string) => s.trim().toLowerCase();
 const mensagemDe = (e: unknown, padrao: string) => frase(e instanceof ErroDaApi ? e.message : padrao);
@@ -108,6 +112,9 @@ export function GavetaDoLanche({
   const [faltas, setFaltas] = useState<ConferenciaDoLanche['faltas']>({});
   const [aMais, setAMais] = useState<ConferenciaDoLanche['aMais']>({});
   const [ficha, setFicha] = useState<ProdutoDaFicha | null>(null);
+  // a etapa aberta no quadro maior; e, ao fechar, a etapa cuja miniatura recebe o foco
+  const [quadro, setQuadro] = useState<number | null>(null);
+  const voltarPara = useRef<number | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -116,6 +123,7 @@ export function GavetaDoLanche({
     setErro(null);
     setOcupado(null);
     setNovos({});
+    setQuadro(null);
     treinoApi
       .lanche(lancheId)
       .then((r) => {
@@ -205,6 +213,36 @@ export function GavetaDoLanche({
     const fora = [...vistos.entries()].filter(([k]) => !naFicha.has(k)).map(([k, v]) => ({ nome: v.nome, adicional: adicionais.has(k) }));
     return { linhas, fora };
   }, [d, ficha, etapas, novos, naoSeVe]);
+
+  // as etapas como o quadro maior as mostra: os mesmos textos da linha da etapa, e a resposta já dada
+  const etapasNoQuadro = useMemo<EtapaNoQuadro[]>(
+    () =>
+      (d?.etapas ?? []).map((e, i) => {
+        const r = etapas[i] ?? null;
+        const nome = r?.v === 'outro' ? (r.nome === NOVO ? (novos[i] ?? '') : (r.nome ?? '')).trim() : '';
+        return {
+          quadroId: e.quadroId,
+          hora: horaComSegundos(e.hora, fuso),
+          lado: LADO_FALADO[e.lado] + (e.inicio ? ' · já estava' : ''),
+          leu: e.leu ?? 'não deu para ver',
+          vezes: e.vezes,
+          podeSer: e.candidatos.length > 1 ? e.candidatos : [],
+          disse: r?.v === 'certo' ? 'certo' : r?.v === 'nada' ? 'não era ingrediente' : r?.v === 'outro' ? (nome ? `era ${nome}` : 'era outro') : null,
+        };
+      }),
+    [d, etapas, novos, fuso],
+  );
+
+  // Fechado o quadro maior, o foco volta para a etapa que estava à vista nele (não a que o abriu): é ao lado da
+  // miniatura dela que se responde.
+  useEffect(() => {
+    if (quadro !== null || voltarPara.current === null || !d) return;
+    const linha = document.querySelector<HTMLElement>(`[data-lanche="${d.id}"] [data-etapa="${voltarPara.current}"]`);
+    voltarPara.current = null;
+    const alvo = linha?.querySelector<HTMLElement>('[data-miniatura-da-etapa]') ?? linha?.querySelector<HTMLElement>('button');
+    linha?.scrollIntoView({ block: 'nearest' });
+    alvo?.focus({ preventScroll: true });
+  }, [quadro, d]);
 
   const responder = (i: number, r: RespostaDaEtapa) =>
     setEtapas((atual) => {
@@ -400,9 +438,21 @@ export function GavetaDoLanche({
                   aoResponder={(r) => responder(i, r)}
                   aoEscolherNome={(nome) => setEtapas((atual) => atual.map((x, j) => (j === i ? (nome === NAO_SEI ? null : { v: 'outro', nome }) : x)))}
                   aoEscreverNovo={(texto) => setNovos((atual) => ({ ...atual, [i]: texto }))}
+                  aoAbrirQuadro={() => setQuadro(i)}
                 />
               ))}
             </ol>
+            {quadro !== null && etapasNoQuadro[quadro] && (
+              <QuadroDaEtapa
+                etapas={etapasNoQuadro}
+                indice={quadro}
+                aoIr={setQuadro}
+                aoFechar={() => {
+                  voltarPara.current = quadro;
+                  setQuadro(null);
+                }}
+              />
+            )}
           </section>
 
           {/* ───────────── a conta da ficha ───────────── */}
@@ -562,6 +612,7 @@ function Etapa({
   aoResponder,
   aoEscolherNome,
   aoEscreverNovo,
+  aoAbrirQuadro,
 }: {
   e: EtapaDoLanche;
   r: RespostaDaEtapa;
@@ -573,6 +624,8 @@ function Etapa({
   aoResponder: (r: RespostaDaEtapa) => void;
   aoEscolherNome: (nome: string) => void;
   aoEscreverNovo: (texto: string) => void;
+  /** A miniatura abre o quadro inteiro, maior. */
+  aoAbrirQuadro: () => void;
 }) {
   const id = useId();
   const grupo = e.candidatos.length > 1;
@@ -590,16 +643,32 @@ function Etapa({
       }`}
       data-etapa={marca}
     >
-      <div className="aspect-square max-w-full overflow-hidden rounded-lg bg-farol-realce">
-        {e.quadroId ? (
-          // eslint-disable-next-line @next/next/no-img-element -- o quadro vem da API, por id, e o navegador o guarda
-          <img src={treinoApi.urlDoQuadro(e.quadroId)} alt={`O quadro da etapa das ${hora} (${LADO_FALADO[e.lado]})`} className="h-full w-full object-cover" loading="lazy" />
-        ) : (
+      {e.quadroId ? (
+        // A miniatura mostra o meio do recorte (`object-cover`); tocar nela abre o quadro inteiro, maior.
+        <button
+          type="button"
+          onClick={aoAbrirQuadro}
+          aria-label={`Ver maior o quadro da etapa das ${hora} (${LADO_FALADO[e.lado]})`}
+          data-miniatura-da-etapa={marca}
+          className="group relative block aspect-square max-w-full cursor-zoom-in overflow-hidden rounded-lg bg-farol-realce"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- o quadro vem da API, por id, e o navegador o guarda */}
+          <img src={treinoApi.urlDoQuadro(e.quadroId)} alt="" className="h-full w-full object-cover" loading="lazy" />
+          {/* A lupa no canto diz que o quadro abre maior sem depender do mouse em cima (no celular não há). */}
+          <span
+            className="absolute bottom-1 right-1 grid h-[22px] w-[22px] place-items-center rounded-md bg-farol-palco/80 text-farol-palco-tinta transition-transform group-hover:scale-110"
+            aria-hidden
+          >
+            <ZoomIn className="h-3.5 w-3.5" />
+          </span>
+        </button>
+      ) : (
+        <div className="aspect-square max-w-full overflow-hidden rounded-lg bg-farol-realce">
           <span className="grid h-full w-full place-items-center text-farol-suave" title="Esta etapa não tem quadro">
             <ImageOff className="h-5 w-5" aria-hidden />
           </span>
-        )}
-      </div>
+        </div>
+      )}
       <div className="flex min-w-0 flex-col gap-1.5">
         <p className="font-mono text-[11.5px] text-farol-suave">
           {hora} · {LADO_FALADO[e.lado]}
