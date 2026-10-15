@@ -6827,3 +6827,56 @@ e certa, a foto e o arquivo que não é foto, tirar foto, "não se vê de cima",
 achou dois defeitos, corrigidos antes de mostrar: o ladrilho "Enviar foto" passava 5 px da borda da gaveta em 320 px
 (proporção quadrada numa caixa com texto) e a etiqueta azul saía com o dobro da altura (no estilo de base, `.dado` é a
 cor da etiqueta e também o bloco dos números grandes).
+
+## 15/10/2026 · A21, fatia T1: a base de conhecimento passa a valer — o ingrediente da loja e as fotos dele (migration 047)
+
+### O pedido
+
+A primeira fatia de código do A21 (o plano está no roadmap): as fotos de referência por ingrediente, do lado da nuvem.
+A tela vem na T2; o agente baixa as fotos na T5.
+
+### O que entra
+
+- **A migration 047** dá uso às tabelas da 001, que estavam vazias. O ingrediente é um item da loja
+  (`base_conhecimento`, tipo `item`), um por nome, sem olhar maiúscula nem espaço nas pontas (índice único). O
+  `visivel = false` é o "não se vê de cima". A foto é um quadro (`base_frame`, origem `foto`): imagem no banco, tipo,
+  largura, altura, `sha256`, legenda e quem mandou. A origem `bancada` fica reservada ao exemplo que a conferência vai
+  criar. O `url` deixa de ser obrigatório. Nenhuma linha que já existia muda: as tabelas estavam vazias.
+- **Os ingredientes saem das fichas** (`api/src/ingredientes.ts`). Entram os da ficha e o que um adicional acrescenta
+  (um insumo, ou um preparo da casa). Não entram a bebida que o adicional põe junto, a observação, nem o que o grupo de
+  "tirar" retira — nem quando a fonte manda um efeito de insumo por engano.
+- **As rotas** (`api/src/rotas/ingredientes.ts`):
+  - `GET /v1/lojas/:id/ingredientes` traz os ingredientes com as fotos (sem os bytes), os exemplos, o "não se vê"
+    e os órfãos;
+  - `POST /v1/lojas/:id/ingredientes/fotos` recebe a foto (JPEG de até 1,5 MB, como no inventário), com o
+    ingrediente travado na transação: até 6, mesmo com envios ao mesmo tempo. O nome que fica é o da ficha, não o
+    que veio;
+  - `GET /v1/base/fotos/:id/imagem` e `DELETE /v1/base/fotos/:id`. O exemplo da bancada não se tira por aqui;
+  - `PUT /v1/lojas/:id/ingredientes/visivel` aceita só `true` ou `false`;
+  - `POST /v1/base/itens/:id/juntar` e `DELETE /v1/base/itens/:id`: só para o órfão, o ingrediente que saiu das
+    fichas e ainda tem foto.
+- **Quem pode** (decisão do dono, 15/10): ver e mandar foto, quem acompanha a loja (supervisão para cima); tirar,
+  "não se vê", juntar e apagar, quem configura (gerência para cima). Outra conta não acha nada (404).
+
+### O que mudou do protótipo
+
+O protótipo, ao juntar as fotos de um órfão a um ingrediente que já tem fotos, guardava "as 6 primeiras" e
+descartava o resto. A rota recusa (409) e diz quantas tirar antes: juntar nunca descarta foto que alguém mandou.
+
+### Como foi provado
+
+- **Testes da API com Postgres de verdade** (`api/testes/ingredientes.test.ts`, 12 testes; 6 sem banco):
+  - a lista e quem vê;
+  - a foto: JPEG, tamanho, legenda, o nome da ficha guardado, os bytes iguais na volta, outra conta;
+  - o máximo com cinco envios ao mesmo tempo (passam dois);
+  - tirar foto;
+  - "não se vê" com valores tortos;
+  - o órfão: ao renomear na ficha, juntar recusado por passar do máximo, juntar com outra caixa, apagar; e o item sem
+    foto, que não vira órfão.
+- **A suíte inteira da API** contra um banco de teste local montado com as 47 migrations: passaram todas, menos a já
+  conhecida do banco local sem pgvector ("embedding de dimensão errada"). A 047 roda duas vezes sem erro.
+- **Mutação: 30 trocas no código novo, 30 mortas**, cada uma por teste que de fato rodou e falhou, com um controle sem
+  troca que passa antes e depois. A última viva — gravar o nome como veio, e não o da ficha — morreu com o teste que
+  confere o nome guardado.
+- A primeira rodada de mutação deu "30 de 30" sem ter rodado teste nenhum: o comando não achava o roteiro. O controle,
+  posto depois, pegou isso.
