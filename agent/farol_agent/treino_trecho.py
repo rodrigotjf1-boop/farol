@@ -10,7 +10,10 @@ e é a leitura da bancada (T3c) que o lê depois. As regras:
    gravador, no cliente).
 2. **A hora é a do gravador.** A gravação vem da nuvem como instante; vira a
    hora do computador e, com a diferença que o cliente mede, a do gravador.
-   O nome de cada pedaço é a hora do gravador em que ele começa.
+   O pedaço fica em `canal-NN/AAAA-MM-DD_HH-MM-SS.dav` — a hora do gravador
+   em que ele começa —, como a cópia guardada da loja e como o leitor do
+   repasse (`ferramentas/repasse/leitor.py`) lê; o manifesto diz onde cada
+   um termina (os pedaços daqui não têm 5 minutos).
 3. **Só o que assentou.** O pedaço só é pedido quando o perfil do gravador
    diz que a gravação dele já assentou; antes disso, a busca para e volta
    depois.
@@ -119,7 +122,32 @@ def pedacos(de: datetime, ate: datetime, bloco_s: int | None, desvio_s: int = 0)
 
 
 def _nome(de: datetime) -> str:
-    return f"{de:%Y%m%dT%H%M%S}.dav"
+    """O nome do pedaço: a hora do gravador em que ele começa, como na cópia guardada da loja."""
+    return f"{de:%Y-%m-%d_%H-%M-%S}.dav"
+
+
+def pasta_dos_videos(pasta: Path, canal: int) -> Path:
+    """Onde os pedaços de um canal ficam, dentro da pasta da gravação (como na cópia guardada: `canal-04`)."""
+    return Path(pasta) / f"canal-{canal:02d}"
+
+
+def pedacos_baixados(pasta: Path, canal: int) -> list[tuple[Path, datetime, datetime]]:
+    """Os pedaços que vieram inteiros, em ordem: o arquivo, onde começa e onde termina (hora do gravador).
+
+    É o que a leitura da bancada (T3c) lê. Pedaço anotado que sumiu do disco não entra.
+    """
+    saida = []
+    for nome, a in _ler_manifesto(Path(pasta) / MANIFESTO).items():
+        if a.get("situacao") != OK:
+            continue
+        try:
+            de, ate = datetime.fromisoformat(a["de"]), datetime.fromisoformat(a["ate"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        arquivo = pasta_dos_videos(pasta, canal) / nome
+        if arquivo.is_file():
+            saida.append((arquivo, de, ate))
+    return sorted(saida, key=lambda p: p[1])
 
 
 def _ler_manifesto(arquivo: Path) -> dict[str, dict[str, Any]]:
@@ -166,7 +194,8 @@ def buscar_trecho(
     pasta = Path(pasta)
     if not canal or canal < 1:
         return Busca(total=0, ok=0, sem_gravacao=0, falhos=0, parou=SEM_CANAL, detalhe="a gravação não diz de que canal é")
-    pasta.mkdir(parents=True, exist_ok=True)
+    videos = pasta_dos_videos(pasta, canal)
+    videos.mkdir(parents=True, exist_ok=True)
     arquivo_do_manifesto = pasta / MANIFESTO
     anotados = _ler_manifesto(arquivo_do_manifesto)
 
@@ -190,8 +219,9 @@ def buscar_trecho(
     for de, ate in lista:
         nome = _nome(de)
         anotado = anotados.get(nome, {})
-        if anotado.get("situacao") in (OK, SEM_GRAVACAO, FALHOU) and (anotado.get("situacao") != OK or (pasta / nome).is_file()):
+        if anotado.get("situacao") in (OK, SEM_GRAVACAO, FALHOU) and (anotado.get("situacao") != OK or (videos / nome).is_file()):
             continue
+        onde = {"de": de.isoformat(), "ate": ate.isoformat()}
         if not pode_buscar():
             return contar(FORA_DA_HORA)
         if not cliente.ja_gravado(ate, agora() + diferenca):
@@ -200,9 +230,9 @@ def buscar_trecho(
             return contar(DISCO, "pouco espaço livre no disco do computador da loja")
         tentativas = int(anotado.get("tentativas") or 0)
         try:
-            trecho = cliente.baixar(canal, de, ate, pasta / nome)
+            trecho = cliente.baixar(canal, de, ate, videos / nome)
         except SemGravacao:
-            anotados[nome] = {"situacao": SEM_GRAVACAO}
+            anotados[nome] = {"situacao": SEM_GRAVACAO, **onde}
         except PedidoRecusado:
             return contar(SENHA_RECUSADA, "o gravador recusou a senha do agente")
         except GravadorOcupado:
@@ -210,13 +240,13 @@ def buscar_trecho(
         except ErroDoGravador as e:
             tentativas += 1
             if tentativas < TENTATIVAS_POR_PEDACO:
-                anotados[nome] = {"situacao": None, "tentativas": tentativas}
+                anotados[nome] = {"situacao": None, "tentativas": tentativas, **onde}
                 _gravar_manifesto(arquivo_do_manifesto, anotados)
                 return contar(GRAVADOR, str(e))
             _log.warning("treino: o pedaço %s falhou %d vezes; fica de fora (%s)", nome, tentativas, e)
-            anotados[nome] = {"situacao": FALHOU, "tentativas": tentativas}
+            anotados[nome] = {"situacao": FALHOU, "tentativas": tentativas, **onde}
         else:
-            anotados[nome] = {"situacao": OK, "tamanho": trecho.tamanho}
+            anotados[nome] = {"situacao": OK, "tamanho": trecho.tamanho, **onde}
         _gravar_manifesto(arquivo_do_manifesto, anotados)
         if ao_andar is not None:
             ao_andar(contar())

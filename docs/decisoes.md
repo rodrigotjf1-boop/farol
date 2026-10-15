@@ -7497,3 +7497,12 @@ Quem chama recebe como a busca ficou (os pedaços que vieram, sem gravação e f
 
 O gravador da loja entregando um trecho de 30 minutos assim, pedaço a pedaço: a conta de 480 MB e 28 minutos é feita
 com a medida de um bloco (10/10). A primeira busca de verdade é a prova — e ela pede a troca do pacote.
+
+### Depois, no mesmo dia: os pedaços com o nome que o leitor do repasse lê
+
+Ao começar a T3c, ficou à vista que o leitor do expediente (R1, `ferramentas/repasse/leitor.py`, testado no CI) lê
+`canal-NN/AAAA-MM-DD_HH-MM-SS.dav` — o nome da cópia guardada da loja —, e não o nome que a T3b dava. Como a T3b
+dorme, mudou sem custo: os pedaços ficam na pasta do canal com esse nome, e o manifesto anota onde cada um começa e
+termina (os pedaços daqui têm até 40 s, não 5 minutos). `pedacos_baixados` entrega à leitura só os que vieram
+inteiros, em ordem: o arquivo pela metade que fica de uma queda (o manifesto nunca disse que ele veio) não entra, e é
+pedido de novo por cima. Testes 25; mutação 25 de 25.
