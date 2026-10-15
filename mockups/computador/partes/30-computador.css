@@ -1,0 +1,63 @@
+/* ─────────── o computador da loja: o que é só desta tela ─────────── */
+
+/* o estado do computador no pé da coluna: um endereço para a tela dele */
+.trilho a.ir.agente-da-loja { display: grid; grid-template-columns: 10px minmax(0, 1fr); align-items: center; gap: 2px 10px; padding: 10px; border-color: var(--fio); }
+.agente-da-loja .ponto { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); grid-row: span 2; }
+.agente-da-loja .ponto.dorme { background: var(--dado); }
+.agente-da-loja .ponto.fora { background: var(--fora); }
+.agente-da-loja b { color: var(--tinta); font-weight: 600; font-size: 13.5px; }
+.agente-da-loja small { color: var(--suave); font-size: 12px; grid-column: 2; }
+
+/* a semana em barras de 24 horas: o computador (acordado ou dormindo) e, por cima, a loja aberta */
+.semana { display: grid; gap: 10px; }
+.semana-cab, .dia-linha { display: grid; grid-template-columns: 42px minmax(0, 1fr) minmax(0, 210px); gap: 6px 14px; align-items: center; }
+.semana-cab { font: 500 11.5px/1 var(--f-dado); color: var(--suave); }
+.semana-cab .horas { position: relative; height: 12px; }
+.semana-cab .horas span { position: absolute; transform: translateX(-50%); }
+.semana-cab .horas span:first-child { transform: none; }
+.semana-cab .horas span:last-child { transform: translateX(-100%); }
+.dia-linha > b { font-weight: 600; font-size: 13.5px; }
+.dia-linha .texto { font-size: 13px; color: var(--suave); min-width: 0; }
+.dia-linha .texto strong { color: var(--tinta); font-weight: 600; font-variant-numeric: tabular-nums; }
+.dia-linha .texto .conflito { color: var(--fora); display: block; }
+.barra-dia { position: relative; height: 26px; border-radius: 6px; background: var(--ok-fundo); overflow: hidden; box-shadow: inset 0 0 0 1px var(--fio); }
+.barra-dia i { position: absolute; top: 0; bottom: 0; display: block; }
+.barra-dia .dorme { top: 8px; background: repeating-linear-gradient(135deg, var(--fio-2) 0 4px, transparent 4px 8px); background-color: var(--painel-2); }
+.barra-dia .aberta { height: 6px; background: var(--facho); }
+.barra-dia .choque { top: 8px; background: repeating-linear-gradient(135deg, var(--fora) 0 4px, transparent 4px 8px); background-color: var(--fora-fundo); }
+.barra-dia .agora { top: -2px; bottom: -2px; width: 2px; background: var(--tinta); }
+.legenda { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--suave); }
+.legenda span { display: inline-flex; align-items: center; gap: 6px; }
+.legenda i { display: inline-block; width: 18px; height: 10px; border-radius: 3px; box-shadow: inset 0 0 0 1px var(--fio); }
+.legenda .l-acordado { background: var(--ok-fundo); }
+.legenda .l-dorme { background: repeating-linear-gradient(135deg, var(--fio-2) 0 4px, var(--painel-2) 4px 8px); }
+.legenda .l-aberta { background: var(--facho); height: 5px; }
+.legenda .l-choque { background: repeating-linear-gradient(135deg, var(--fora) 0 4px, var(--fora-fundo) 4px 8px); }
+
+/* o que aconteceu: a última semana, do mais novo para o mais velho */
+.eventos { display: grid; gap: 0; }
+.evento { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 4px 10px; align-items: start; padding: 9px 0; border-top: 1px solid var(--fio); font-size: 13.5px; }
+.evento:first-child { border-top: 0; padding-top: 0; }
+.evento .ic { margin-top: 1px; color: var(--suave); }
+.evento.bom .ic { color: var(--ok); }
+.evento.ruim .ic { color: var(--fora); }
+.evento small { color: var(--suave); font: 500 12px/1.5 var(--f-dado); white-space: nowrap; }
+
+/* a gaveta: um dia por linha, a hora de dormir e a de acordar */
+.horas-da-semana { display: grid; gap: 8px; }
+.horas-cab, .horas-dia { display: grid; grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: center; }
+.horas-cab { font-size: 12.5px; font-weight: 500; color: var(--suave); }
+.horas-dia > b { font-weight: 600; }
+.horas-dia .entrada { font-family: var(--f-dado); }
+.horas-dia.choque .entrada { border-color: var(--fora); }
+.erro-do-dia { grid-column: 2 / -1; color: var(--fora); font-size: 12.5px; }
+
+@media (max-width: 640px) {
+  .semana-cab { grid-template-columns: 42px minmax(0, 1fr); }
+  .semana-cab > span:last-child { display: none; }
+  .dia-linha { grid-template-columns: 42px minmax(0, 1fr); }
+  .dia-linha .texto { grid-column: 1 / -1; }
+}
+@media (max-width: 380px) {
+  .horas-cab, .horas-dia { grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
+}

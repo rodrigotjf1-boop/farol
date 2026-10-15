@@ -5124,3 +5124,32 @@ primeiro à `main`, e a outra fica com a seguinte. (Ficou assim: a 047 com a T1,
 que o agente vai usar na T3, e as leituras que a rodada 12 já fez na loja (14/10, com o gabarito do dono) entram por
 ela, numa carga feita uma vez. Assim a tela de conferência e o aprendizado na nuvem ficam prontos e provados com
 lanches de verdade, enquanto o pacote espera o "pode".
+
+## A22 · O computador da loja dorme e acorda sozinho (pedido do dono, 15/10/2026; protótipo esperando a aprovação)
+
+### O pedido
+
+> "e vamos fazer uma forma do servidor ser programado para desligar e ligar preenchendo em um horário. a desligada e a
+> ligada. se possível" (o dono, 15/10/2026, ~00h30)
+
+### O que já se sabe (medido só por leitura no computador da loja, 15/10)
+
+- Ele aceita a espera (S3), hibernar, a suspensão híbrida e a inicialização rápida.
+- "Permitir despertadores" está ativado na tomada, e não há nenhum despertador ativo.
+- O caminho: **"desligar" = entrar em espera** no horário; **"ligar" = uma tarefa agendada que o acorda** no horário.
+  Não precisa de BIOS nem de alguém na loja.
+- O mesmo computador é o servidor local do Regem: o horário fica fora do expediente.
+
+### As fatias
+
+| fatia | o que entra | migration | tela | na loja |
+|---|---|---|---|---|
+| **P0** | o protótipo (`mockups/farol-computador-da-loja.html`): a tela Computador da loja, a gaveta do horário, o teste de 3 minutos e as situações | — | — | — |
+| **P1** | o teste de verdade numa madrugada: dormir, acordar 5 minutos depois, conferir o agente e o Regem de pé e apagar os agendamentos | — | — | com o "pode" do dono |
+| **P2** | a API e a tela: o horário guardado por loja; o "agente sem sinal" vira "dormindo" no horário, e o aviso não sai | sim | sim | — |
+| **P3** | o agente aplica o horário (a espera e a tarefa de acordar) e conta o que aconteceu (dormiu, acordou e em quanto tempo) | — | — | pacote novo, com o "pode" |
+
+**As decisões que o protótipo pede ao dono:**
+- salvar com o computador dormindo com a loja aberta: o protótipo NÃO deixa;
+- a folga de 30 minutos da sugestão;
+- o teste de 3 minutos na tela, só para quem configura.
