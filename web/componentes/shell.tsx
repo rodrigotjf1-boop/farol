@@ -27,6 +27,7 @@ import {
   ChartColumn,
   ClipboardList,
   Ellipsis,
+  GraduationCap,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -62,7 +63,7 @@ import { Alerta, Ossos, Ponto } from './ui/pecas';
 import { DivisorDeMenu, Gaveta, ITEM_DE_MENU, Menu, RotuloDeMenu } from './ui/sobreposto';
 
 const UUID_DA_LOJA = /^\/lojas\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
-const SECOES = ['analises', 'canais', 'regras', 'fichas', 'alertas', 'orcamento'] as const;
+const SECOES = ['analises', 'canais', 'regras', 'fichas', 'treinamento', 'alertas', 'orcamento'] as const;
 /** De quanto em quanto tempo a moldura pergunta como vai o agente. */
 const BATIDA_MS = 30_000;
 
@@ -486,6 +487,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
       // As fichas são de quem acompanha a loja — supervisão para cima e o suporte, o mesmo grupo
       // que vê os resultados (a API responde 403 aos outros).
       ...(veResultados ? [{ href: `${base}/fichas`, rotulo: 'Fichas', icone: ClipboardList, soNaColuna: true }] : []),
+      // O treinamento da bancada (A21): conferem a diretoria, a gerência e a supervisão — o mesmo grupo das fichas.
+      ...(veResultados ? [{ href: `${base}/treinamento`, rotulo: 'Treinamento', icone: GraduationCap, soNaColuna: true }] : []),
       { href: `${base}/alertas`, rotulo: 'Alertas', icone: BellRing },
       // Orçamento é decisão de compra: só para quem configura.
       ...(configura ? [{ href: `${base}/orcamento`, rotulo: 'Orçamento', icone: Calculator, soNaColuna: true }] : []),
@@ -500,6 +503,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     const base = `/lojas/${lojaId}`;
     return [
       ...(veResultados ? [{ href: `${base}/fichas`, rotulo: 'Fichas', icone: ClipboardList, sobre: 'o que a loja vende e do que é feito' }] : []),
+      ...(veResultados ? [{ href: `${base}/treinamento`, rotulo: 'Treinamento', icone: GraduationCap, sobre: 'a bancada aprende com o que você confere' }] : []),
       ...(configura ? [{ href: `${base}/orcamento`, rotulo: 'Orçamento', icone: Calculator, sobre: 'o que falta para a loja ficar coberta' }] : []),
       ...daConta,
     ];

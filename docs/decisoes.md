@@ -7081,3 +7081,72 @@ leituras de 14/10 entram por ela numa carga.
 ### O número
 
 A 048 foi da porta (#150), que chegou antes à `main`. Esta fica com a 049.
+
+## 15/10/2026 · A21, fatia T4 (a tela): Treinamento no console — a fila, a conferência e o que a bancada já sabe (sem migration)
+
+### O que entra
+
+- **A tela Treinamento** (`web/app/(console)/lojas/[id]/treinamento/page.tsx`). Ela fica no menu depois de Fichas,
+  para o mesmo grupo (supervisão para cima e o suporte). No celular, mora no "Mais". Também aparece no "Ir para".
+  - **Os números**: os lanches conferidos; o lanche certo antes da conferência ("2 de 4"); os ingredientes da bancada
+    com exemplo.
+  - **A barra de acerto de cada gravação**, com o traço da meta nos 90%. A frase diz quanto falta para a meta valer
+    (30 conferidos).
+  - **Lanches**: para conferir, conferidos e pulados. A fila começa pela dúvida, como a API ordena. Cada linha tem as
+    miniaturas do tampo e da base, o palpite e o motivo.
+  - **Ingredientes**: os dos produtos conferidos na bancada e o que a conferência ensinou. Cada um mostra as fotos, os
+    exemplos e o estado: "reconhece", "aprendendo", "sem exemplo" ou "não se vê de cima". O ingrediente abre a gaveta
+    da T2. O aviso do órfão também está aqui.
+  - **Gravações**: a situação de cada uma e o "Conferir".
+- **A gaveta de conferência** (`web/componentes/treino/gaveta-do-lanche.tsx`):
+  - "Qual lanche era?": nada vem marcado;
+  - as etapas, com o quadro;
+  - "Marcar as outras N como certas";
+  - a conta da ficha do lanche escolhido, com o que falta e o que veio a mais;
+  - "Pular", "Está tudo certo" e "Salvar e ir para o próximo". O próximo é o da mesma lista.
+- **Quem pode**: a execução não vê a tela nem o item do menu (a API responde 403). Só quem configura marca "não se vê
+  de cima" e tira foto (como na T2).
+
+### O que mudou do protótipo
+
+- **Ficou de fora o que ainda não tem serviço**: "Nova gravação de treino" (T3) e a aba "Sugestões para as fichas"
+  (T6). A frase do topo diz que o caso conferido "vira exemplo na base da bancada". O protótipo dizia "para a próxima
+  leitura", e isso só vale com a T5.
+- **A leitura de verdade não tem um nível de certeza; tem os nomes possíveis.** Por isso:
+  - em vez de "certeza alta / média / baixa", a etapa mostra "pode ser: A ou B" (o grupo que a cor não separa), ou
+    "= nome da ficha" quando a palavra da leitura é outra;
+  - no grupo, há um botão para cada nome e não há "Certo" (a API recusa "certo" num grupo);
+  - os motivos da fila viraram "uma etapa ficou sem leitura" e "a leitura ficou entre dois nomes".
+- **"Não sei o que era"** limpa a resposta da etapa (a etapa sem resposta não ensina), em vez de guardar um "não sei".
+- **O lanche conferido abre de novo**, com a resposta de antes e "Salvar de novo" (a API troca os exemplos). No
+  protótipo, a linha do conferido não abria.
+- **O nome escrito à mão** (fora das fichas) fica guardado na resposta. A sugestão para as fichas vem com a T6.
+
+### Como foi provado
+
+- **No console local**, ligado a uma API local com o banco de teste, num Chrome sem janela. A conta de teste tinha:
+  - as fichas do contrato e mais um X-Bacon e um X-Salada;
+  - o canal da bancada;
+  - 11 lanches com quadros DESENHADOS (nenhuma imagem da loja), mandados pela rota do agente;
+  - 4 conferidos.
+- **Gerência**:
+  - a fila de 7 começa pelo lanche sem leitura numa etapa, depois a dúvida;
+  - os números ("4", "2 de 4") e a barra;
+  - o lanche sem leitura: "Eu sei o que era" sem nome não deixa salvar, e o pé diz por quê; com o tomate escolhido, a
+    conta mostra "1 de 2";
+  - "Salvar e ir para o próximo" abriu a dúvida, "1 de 6 para conferir";
+  - na dúvida: um botão por nome e nenhum "Certo"; "Não sei o que era" limpa;
+  - "Pular" abriu o próximo, e o filtro passou a dizer "Pulados 1" e "Conferidos 5";
+  - o conferido reabriu com o tomate e o produto de antes;
+  - as abas Ingredientes (o sal "não se vê de cima", o tomate com exemplo) e Gravações;
+  - o "Mais" do celular.
+- **Supervisão**: conferiu com "Está tudo certo" (5 exemplos novos), e a gaveta do ingrediente aparece sem o "não se
+  vê".
+- **Execução**: "Seu perfil não vê o treinamento da loja", sem o item no menu.
+- **Larguras**: 10 estados (cada gaveta aberta) em 16 larguras, de 320 a 1920 px. Nada sai da tela nem rola para o
+  lado, sem erro de script, em três rodadas, cada uma numa conta nova.
+- **Correções feitas antes do PR**, achadas nas capturas:
+  - no celular, a barra de acerto punha o número antes da data (a posição na grade);
+  - a etapa marcada "Certo" mostrava a leitura riscada, como se estivesse errada;
+  - os três números e as quatro escolhas de "Qual lanche era?" ocupavam a tela do celular, empilhados.
+- **Build**: `next build` passou.

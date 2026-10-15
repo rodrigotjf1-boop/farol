@@ -26,6 +26,7 @@ import {
   Cctv,
   ChartColumn,
   ClipboardList,
+  GraduationCap,
   LayoutDashboard,
   ListChecks,
   Map as Mapa,
@@ -72,7 +73,7 @@ export function telasDaLoja(lojaId: string, pode: { veResultados: boolean; confi
     tela('Inventário', `${base}/canais/inventario`, Boxes),
     tela('Critérios', `${base}/regras`, ListChecks),
     // Quem vê os resultados vê as fichas (supervisão para cima e o suporte).
-    ...(pode.veResultados ? [tela('Fichas', `${base}/fichas`, ClipboardList)] : []),
+    ...(pode.veResultados ? [tela('Fichas', `${base}/fichas`, ClipboardList), tela('Treinamento', `${base}/treinamento`, GraduationCap)] : []),
     tela('Alertas', `${base}/alertas`, BellRing),
     ...(pode.configura ? [tela('Orçamento', `${base}/orcamento`, Calculator)] : []),
   ];

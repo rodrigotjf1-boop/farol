@@ -1662,6 +1662,109 @@ export const ingredientesApi = {
   apagar: (itemId: string) => pedir<{ excluido: true; nome: string; quadros: number }>(`/base/itens/${itemId}`, { method: 'DELETE' }),
 };
 
+// ───────────────── o treinamento da bancada (A21, fatia T4) ─────────────────
+
+export type LadoDaEtapa = 'pao' | 'tampo' | 'base' | 'outro';
+export type MotivoNaFila = 'coberto' | 'duvida' | 'diferenca' | 'certo';
+
+export type EtapaDoLanche = {
+  hora: string;
+  lado: LadoDaEtapa;
+  /** O que a metade já tinha quando apareceu. */
+  inicio: boolean;
+  /** O que a leitura da loja disse ("molho laranja"). Nulo = não deu para ver. */
+  leu: string | null;
+  /** Os nomes das fichas que a leitura acha possíveis: um = específico; vários = um grupo; nenhum = não sei. */
+  candidatos: string[];
+  vezes: number;
+  quadro: number | null;
+  quadroId: string | null;
+};
+
+export type PalpiteDaFicha = { produtoId: string; produto: string; batem: number; total: number; fora: number };
+
+export type LancheNaFila = {
+  id: string;
+  gravacaoId: string;
+  abertoEm: string | null;
+  fechouEm: string | null;
+  situacao: 'conferir' | 'conferido' | 'pulado';
+  motivo: MotivoNaFila;
+  palpite: PalpiteDaFicha | null;
+  produto: string | null;
+  acertou: boolean | null;
+  conferidoEm: string | null;
+  conferidoPor: string | null;
+  miniaturas: { tampo: string | null; base: string | null };
+  etapas: number;
+};
+
+export type GravacaoDeTreino = {
+  id: string;
+  chave: string;
+  inicio: string;
+  fim: string;
+  origem: 'gravador' | 'programada' | 'carga';
+  situacao: 'programada' | 'fila' | 'lendo' | 'pronta' | 'apagada' | 'cancelada' | 'falhou';
+  progresso: number | null;
+  apagadaEm: string | null;
+  canal: { nome: string; numero: number | null } | null;
+  lanches: number;
+  conferidos: number;
+  pulados: number;
+  acertou: number;
+};
+
+export type TreinoDaLoja = {
+  podeConfigurar: boolean;
+  /** A meta aprovada: o lanche certo em `acerto` (0,9) dos conferidos, com pelo menos `minimo` (30). */
+  meta: { acerto: number; minimo: number };
+  diasDosQuadros: number;
+  gravacoes: GravacaoDeTreino[];
+  lanches: LancheNaFila[];
+  /** Sobre TODOS os conferidos (a lista traz os mais novos). */
+  contas: { conferidos: number; acertou: number };
+  /** Por ingrediente, nos conferidos: em quantos estava, e em quantos a leitura o reconheceu antes da conferência. */
+  aprendizado: Record<string, { presente: number; reconheceu: number }>;
+};
+
+/** Nulo = sem resposta (a etapa não ensina). `nome`: o que era, no "outro"; a API devolve nulo nos demais. */
+export type RespostaDaEtapa = { v: 'certo' | 'outro' | 'nada'; nome?: string | null } | null;
+export type ConferenciaDoLanche = {
+  produto: string | null;
+  etapas: RespostaDaEtapa[];
+  faltas: Record<string, 'cliente' | 'faltou' | 'naoviu'>;
+  aMais: Record<string, 'adicional' | 'amais'>;
+};
+
+export type LancheParaConferir = Omit<LancheNaFila, 'etapas'> & {
+  gravacao: { id: string; inicio: string; fim: string; origem: GravacaoDeTreino['origem'] };
+  etapas: EtapaDoLanche[];
+  palpites: PalpiteDaFicha[];
+  resposta: ConferenciaDoLanche | null;
+  produtos: Array<{ id: string; nome: string }>;
+  ingredientes: string[];
+  /** As chaves (nome sem maiúscula) do que "não se vê de cima". */
+  naoSeVe: string[];
+};
+
+export const treinoApi = {
+  daLoja: (lojaId: string) => pedir<TreinoDaLoja>(`/lojas/${lojaId}/treino`),
+
+  lanche: (id: string) => pedir<LancheParaConferir>(`/treino/lanches/${id}`),
+
+  /** O quadro de uma etapa. O id nunca muda de imagem: o navegador guarda. */
+  urlDoQuadro: (quadroId: string) => `/api/treino/quadros/${quadroId}/imagem`,
+
+  conferir: (id: string, conferencia: ConferenciaDoLanche) =>
+    pedir<{ conferido: true; produto: string | null; palpite: string | null; acertou: boolean; exemplos: number }>(`/treino/lanches/${id}/conferencia`, {
+      method: 'POST',
+      body: JSON.stringify(conferencia),
+    }),
+
+  pular: (id: string) => pedir<{ pulado: true }>(`/treino/lanches/${id}/pular`, { method: 'POST' }),
+};
+
 // ───────────────────────── o acesso de outro sistema ─────────────────────────
 
 /** De onde uma loja recebe as fichas: só a livre e a de planilha podem ganhar um acesso. */

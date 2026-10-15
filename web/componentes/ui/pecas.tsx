@@ -20,17 +20,20 @@ export function Chip({
   tom = 'neutro',
   icone: Icone,
   title,
+  quebra = false,
   children,
 }: {
   tom?: Tom;
   icone?: LucideIcon;
   title?: string;
+  /** O texto pode quebrar a linha (um nome de produto, que não tem tamanho certo); o padrão é numa linha só. */
+  quebra?: boolean;
   children: ReactNode;
 }) {
   return (
     <span
       title={title}
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${TOM[tom]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${quebra ? 'max-w-full break-words' : 'whitespace-nowrap'} ${TOM[tom]}`}
     >
       {Icone && <Icone className="h-[13px] w-[13px] shrink-0" aria-hidden />}
       {children}
