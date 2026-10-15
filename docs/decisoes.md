@@ -7772,3 +7772,83 @@ isso uma vez.
 - **As decisões do dono:**
   - a hora de buscar e ler;
   - se o computador da loja dorme de madrugada (A22). Dormindo, ele não busca nem lê.
+
+## 15/10/2026 · A21: o estudo das fichas — o palpite pesa pela raridade, e a família (sem migration, sem tela)
+
+### Por quê
+
+O dono, conferindo os lanches com o quadro maior: "é bom ter um agente de análise lógica de estudo das fichas":
+- "o cheddar cremoso é usado somente no Número 16 (e no Trio 16, praticamente a mesma ficha); ao detectar, já temos uns
+  95% de chance de ser o 16";
+- "anel de cebola, 95% o Número 08 ou o Trio 08, o único com anel";
+- "todos os cardápios vão ter os ingredientes raros, que vão em 1 ou poucos itens (2 no máximo), os intermediários e os
+  muito usados".
+
+O palpite de antes dava a todo ingrediente o mesmo peso (`batem/total − 0,2 × estranhos`), então o pão valia tanto
+quanto o cheddar cremoso.
+
+**Medido nas fichas reais da loja-piloto** (a cópia do agente, só leitura):
+- 45 produtos de cozinha, que formam 20 famílias, e 31 ingredientes;
+- 21 ingredientes raros, 8 intermediários e 2 comuns;
+- 15 das 20 famílias têm um ingrediente raro.
+
+Os exemplos do dono se confirmaram: cheddar cremoso só no 16, ovo só no 08, anel no 08.
+
+### O que entra (`api/src/estudo-das-fichas.ts`)
+
+O estudo é calculado das fichas de qualquer loja; nada é escrito para o piloto.
+- **Família:** produtos de cozinha com a mesma ficha vista de cima são um lanche só para a bancada. "Mesma ficha" quer
+  dizer os mesmos ingredientes, nas mesmas quantidades de contar; o que "não se vê de cima" não conta. A mesma carne em
+  duas linhas soma.
+- **Peso:** `log((famílias + 1) / famílias que usam o ingrediente)`. As faixas servem para explicar, não para contar:
+  - raro: 1 ou 2 famílias;
+  - comum: 40% delas ou mais;
+  - intermediário: o resto.
+- **Nota de cada família**, somando as evidências da leitura:
+  - o ingrediente da ficha que a leitura viu soma o peso; num grupo "pode ser A ou B", o peso se divide;
+  - o que a leitura viu e a ficha não tem tira o peso. O adicional do produto continua não tirando nada (a regra do
+    protótipo aprovado);
+  - o que a ficha tem e não foi visto tira um terço do peso (o cliente pode ter mandado tirar);
+  - a quantidade de contar que bate soma um quarto; a que não bate tira um quarto. O que vai por peso não se conta;
+  - a leitura sem nome nas fichas tira um pouco de todas, e não muda a ordem.
+- **As opções de "Qual lanche era?"** são de famílias diferentes. O irmão (o trio) segue em "Outro produto", e a
+  resposta da API traz `familia` e `raros` (o porquê) para a conferência nova.
+- **O acerto conta a família:** escolher o "Trio 16" quando o palpite foi o "Número 16" não é erro. Vale para as
+  conferências daqui em diante; as de antes ficam como foram contadas.
+- **Os números da tela não mudam:** "confere X de Y" e "fora da ficha" seguem a mesma conta.
+
+### Como foi provado
+
+- **Testes com um cardápio INVENTADO** (`api/testes/estudo-das-fichas.test.ts`), com o caso do dono: pão, carne, queijo
+  e alface batem inteiros com um lanche, mas o cheddar cremoso só existe em outro. A conta de antes dava o primeiro; o
+  estudo dá o certo. Também cobrem:
+  - o cliente que tirou um ingrediente;
+  - o lanche mais um adicional;
+  - a quantidade que desempata;
+  - o grupo que divide o peso;
+  - o que vai por peso, que não se conta;
+  - as famílias, as faixas e o acerto.
+- **Na rota** (`treino.test.ts`): a loja com o lanche e o trio dele. O trio não é a segunda opção, e conferir como trio
+  é acerto.
+- **Mutação: 29 trocas, 29 mortas**, com controle antes e depois. Duas sobreviveram na primeira rodada e ganharam teste:
+  a quantidade que separa as famílias, e o que faltou que pesa.
+- **Simulação no cardápio real da loja**, com leituras sorteadas: cada ingrediente visto ou não, o nome certo ou trocado
+  por outro do cardápio, às vezes um a mais. São 19 lanches, 400 leituras cada, acerto por família:
+
+  | Leitura | Antes | Com o estudo |
+  |---|---|---|
+  | Vê 90%, nome certo 90%, a mais 10% | 75,2% | 87,2% |
+  | Vê 75%, nome certo 75%, a mais 30% | 54,9% | 62,1% |
+  | Vê 60%, nome certo 60%, a mais 50% | 34,7% | 38,8% |
+
+  O ganho cai quando a leitura erra muito: o raro lido errado engana mais, porque pesa muito. A simulação troca o nome
+  por qualquer ingrediente; a leitura de verdade confunde parecidos, e as conferências vão medir isso.
+
+### Depois
+
+- **As perguntas que separam as fichas**, na conferência nova (protótipo antes).
+- **Os pesos medidos.** Com as conferências, sai quanto a leitura erra cada ingrediente. Com os pedidos do KDS e da
+  fila do Regem, sai quantas vezes tiram a cebola, quantas pedem o cheddar como adicional e quanto cada lanche vende.
+- **Só os produtos montados na bancada.** Hoje a batata, os nuggets e o combo kids também contam; falta ligar o setor da
+  bancada ao setor do produto.
+- **As variações** (o "Duplo" que usa 2× a ficha).

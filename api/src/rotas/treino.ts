@@ -39,9 +39,11 @@ import type pg from 'pg';
 
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import { lerBase, type Base } from '../fichas.js';
-import { chaveDoIngrediente, ingredientesDaBase } from '../ingredientes.js';
+import { ingredientesDaBase } from '../ingredientes.js';
 import { podeAcompanhar, podeConfigurar } from '../rbac.js';
+import { estudarFichas } from '../estudo-das-fichas.js';
 import {
+  acertouOPalpite,
   aprendizado,
   DIAS_DOS_QUADROS,
   exemplosDaConferencia,
@@ -51,6 +53,7 @@ import {
   motivoDoLanche,
   MOTIVOS,
   palpitesDoLanche,
+  umPorFamilia,
   type Conferencia,
   type EtapaLida,
 } from '../treino.js';
@@ -420,7 +423,9 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
       ...paraTela(l, loja.base, loja.invisiveis),
       gravacao: { id: l.gravacao_id, inicio: l.gravacao_inicio, fim: l.gravacao_fim, origem: l.gravacao_origem },
       etapas: etapas.map((e) => ({ ...e, quadroId: e.quadro !== null ? (quadroDe.get(e.quadro) ?? null) : null })),
-      palpites: palpitesDoLanche(etapas, loja.base, loja.invisiveis).slice(0, 3),
+      // um por família: as opções de "Qual lanche era?" são lanches que a bancada separa (o "Trio 16" do "Número 16"
+      // fica em "Outro produto")
+      palpites: umPorFamilia(palpitesDoLanche(etapas, loja.base, loja.invisiveis)).slice(0, 3),
       resposta: l.resposta,
       /** Para "Outro produto": os produtos da loja que têm ficha. */
       produtos: (loja.base?.produtos ?? []).filter((p) => p.ficha && p.cozinha).map((p) => ({ id: p.id, nome: p.nome })),
@@ -484,8 +489,10 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
         await cliente.query('rollback');
         return invalido(resposta, conferencia.problema);
       }
-      const palpite = palpitesDoLanche(etapas, loja.base, loja.invisiveis)[0]?.produto ?? null;
-      const acertou = conferencia.produto !== null && palpite !== null && chaveDoIngrediente(conferencia.produto) === chaveDoIngrediente(palpite);
+      const estudo = estudarFichas(loja.base, loja.invisiveis);
+      const palpite = palpitesDoLanche(etapas, loja.base, loja.invisiveis, estudo)[0]?.produto ?? null;
+      // o produto escolhido, ou outro da mesma família: a bancada não separa o "Trio 16" do "Número 16"
+      const acertou = acertouOPalpite(estudo, conferencia.produto, palpite);
       await cliente.query(
         `update treino_lanche
             set situacao = 'conferido', resposta = $2, produto = $3, palpite = $4, acertou = $5, conferido_por = $6, conferido_em = now()
