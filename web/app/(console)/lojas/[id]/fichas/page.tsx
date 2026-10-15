@@ -32,7 +32,7 @@
 // usá-la. Frase de tela só vale com o serviço que a sustenta.
 // =====================================================================
 
-import { ChevronRight, ClipboardList, Download, FileSpreadsheet, Info, KeyRound, Lock, Minus, Plug, Plus, RefreshCw, Server, Store, TriangleAlert, Upload } from 'lucide-react';
+import { ChevronRight, ClipboardList, Clock, Download, FileSpreadsheet, Info, KeyRound, Lock, Minus, Plug, Plus, RefreshCw, Server, Store, TriangleAlert, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -41,7 +41,7 @@ import { useConsole } from '@/componentes/console';
 import { GavetaDeFora } from '@/componentes/fichas/de-fora';
 import { BotaoDasFotos, chaveDoIngrediente, GavetaDoIngrediente, type AlvoDaGaveta } from '@/componentes/fichas/gaveta-do-ingrediente';
 import { ImportarPlanilha } from '@/componentes/fichas/importar-planilha';
-import { diaFaladoNaLoja, frase, numero, plural, quantidadeDaFicha } from '@/componentes/formatos';
+import { dataNaLoja, diaFaladoNaLoja, frase, numero, plural, quantidadeDaFicha } from '@/componentes/formatos';
 import { useAvisar } from '@/componentes/ui/avisos';
 import { Botao, classesDoBotao } from '@/componentes/ui/botao';
 import { AJUDA } from '@/componentes/ui/campo';
@@ -97,6 +97,62 @@ function efeitoFalado(e: EfeitoDaOpcao): string {
     default:
       return 'o Regem não diz o que muda na montagem';
   }
+}
+
+// ───────────────────────── o acesso do outro sistema: vence, venceu, suspenso ─────────────────────────
+
+const diasAte = (iso: string): number => Math.max(0, Math.ceil((Date.parse(iso) - Date.now()) / 86_400_000));
+
+/**
+ * O acesso do outro sistema perto de vencer, vencido ou suspenso. Vencido e suspenso NÃO apagam as fichas: as do último
+ * envio continuam valendo, e a tela diz isso. Quem resolve é a diretoria, em Conexões.
+ */
+function AvisoDoAcesso({ sistema, fuso, podeResolver }: { sistema: NonNullable<FichasDaLoja['sistema']>; fuso: string; podeResolver: boolean }) {
+  const resolver = (rotulo: string) =>
+    podeResolver ? (
+      <div className="mt-2">
+        <Link href="/conexoes" className={classesDoBotao({ mini: true })}>
+          <Plug className="h-[15px] w-[15px]" aria-hidden />
+          {rotulo}
+        </Link>
+      </div>
+    ) : (
+      ' Quem resolve é a diretoria, em Conexões.'
+    );
+  if (sistema.situacao === 'vence') {
+    return (
+      <Alerta tom="atencao" icone={Clock} papel="status">
+        <span data-acesso-do-sistema="vence">
+          <b className="font-semibold">
+            O acesso do {sistema.nome} vence em {plural(diasAte(sistema.venceEm), 'dia', 'dias')}, em {dataNaLoja(sistema.venceEm, fuso)}.
+          </b>{' '}
+          Depois disso, ele não consegue mais enviar, e as fichas param de se atualizar.
+        </span>
+        {resolver('Renovar em Conexões')}
+      </Alerta>
+    );
+  }
+  if (sistema.situacao === 'vencido') {
+    return (
+      <Alerta tom="critico" icone={TriangleAlert} papel="status">
+        <span data-acesso-do-sistema="vencido">
+          <b className="font-semibold">O acesso do {sistema.nome} venceu em {dataNaLoja(sistema.venceEm, fuso)}.</b>{' '}
+          {sistema.recebidoEm ? `As fichas abaixo são as do último envio, de ${dataNaLoja(sistema.recebidoEm, fuso)}, e continuam valendo para a conferência; o que mudou no sistema depois disso não chegou.` : 'Ele não chegou a enviar as fichas.'}
+        </span>
+        {resolver('Renovar em Conexões')}
+      </Alerta>
+    );
+  }
+  return (
+    <Alerta tom="critico" icone={TriangleAlert} papel="status">
+      <span data-acesso-do-sistema="suspenso">
+        <b className="font-semibold">O acesso do {sistema.nome} está suspenso:</b> ficou 90 dias sem uso
+        {sistema.ultimoUsoEm ? ` (o último foi em ${dataNaLoja(sistema.ultimoUsoEm, fuso)})` : ''}.{' '}
+        {sistema.recebidoEm ? 'As fichas abaixo são as do último envio, e continuam valendo para a conferência.' : ''}
+      </span>
+      {resolver('Reativar em Conexões')}
+    </Alerta>
+  );
 }
 
 // ───────────────────────── a linha da lista ─────────────────────────
@@ -534,7 +590,14 @@ export default function Fichas() {
             {doSistema && sistema && (
               <span className="flex flex-wrap items-center gap-1.5 font-sans text-sm font-normal tracking-normal" data-leitura>
                 <Chip tom="vazado">do {sistema.nome}</Chip>
-                <Chip tom="ok">recebido {diaFaladoNaLoja(sistema.recebidoEm, fuso)}</Chip>
+                {sistema.situacao === 'vencido' ? (
+                  <Chip tom="critico">o acesso venceu em {dataNaLoja(sistema.venceEm, fuso)}</Chip>
+                ) : sistema.situacao === 'suspenso' ? (
+                  <Chip tom="critico">o acesso está suspenso</Chip>
+                ) : (
+                  <Chip tom="ok">recebido {diaFaladoNaLoja(sistema.recebidoEm, fuso)}</Chip>
+                )}
+                {sistema.situacao === 'vence' && <Chip tom="atencao">o acesso vence em {plural(diasAte(sistema.venceEm), 'dia', 'dias')}</Chip>}
               </span>
             )}
             {!daPlanilha && !doSistema && temBase && d?.leitura && (
@@ -747,6 +810,8 @@ export default function Fichas() {
               {erroDaBusca}
             </Alerta>
           )}
+
+          {sistema && sistema.situacao !== 'valendo' && <AvisoDoAcesso sistema={sistema} fuso={fuso} podeResolver={d.podeConectar} />}
 
           {esperaOSistema && sistema && (
             <Alerta icone={Info} papel="status">

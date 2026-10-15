@@ -48,17 +48,27 @@
 // `Retry-After`); código novo no formato `dms_ap_farol_…` com dígitos de
 // conferência (o `farol_…` de antes continua valendo); e
 // `?somente_validar=true` no envio, que confere sem gravar.
+//
+// PARTE 2 (protótipo aprovado pelo dono em 15/10/2026, migration 048): o
+// código vale 12 meses; renovar troca o código, e o de antes vale mais 7
+// dias; 90 dias sem uso, fica suspenso, e reativar é um clique; quem cria
+// confirma a senha e aceita o termo (`termo-do-acesso.ts`); a conta tem no
+// máximo 10 acessos valendo; os outros da diretoria veem um aviso do que
+// alguém fez. Vencido e suspenso não apagam as fichas: só revogar apaga.
+// Na porta, os campos seguem o Padrão em snake_case (`com_ficha`).
 // =====================================================================
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type pg from 'pg';
 
 import { hashDoToken } from '../auth.js';
-import { JanelaFixa, cabecalhoWwwAuthenticate, gerarChave, lerChave } from '../dms/integracao-dms.js';
+import { JanelaFixa, POLITICA_CHAVE_PROPRIA, cabecalhoWwwAuthenticate, gerarChave, lerChave, situacaoChave } from '../dms/integracao-dms.js';
 import { impressaoDaBase } from '../fichas.js';
 import { lerEnvio, type Envio } from '../porta-fichas.js';
 import { responderNaPorta } from '../porta-problema.js';
 import { ehDiretoria, exigirDiretoria, podeConfigurar } from '../rbac.js';
+import { conferirSenha } from '../senha.js';
+import { TERMO_DO_ACESSO } from '../termo-do-acesso.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -103,7 +113,62 @@ export type UltimoEnvio = {
   problemas: number;
 };
 
-type AcessoQueEnvia = { id: string; tenant_id: string; loja_id: string; nome: string; loja_nome: string };
+/**
+ * Senhas ERRADAS na confirmação (criar e renovar), por pessoa, a cada 15 minutos. Só o erro conta: quem confirma certo
+ * nunca é barrado; quem tem uma sessão roubada e tenta adivinhar a senha para no 11º palpite, até a janela passar.
+ */
+export const ERROS_DE_SENHA_POR_15_MIN = 10;
+const JANELA_DOS_ERROS_MS = 15 * 60_000;
+
+/** Os erros de senha de cada pessoa na janela de agora. Vale por processo, como os limites da porta. */
+function contadorDeErros(agora: () => number = Date.now) {
+  const erros = new Map<string, { inicio: number; n: number }>();
+  const daJanela = (id: string) => {
+    const e = erros.get(id);
+    return e && agora() - e.inicio < JANELA_DOS_ERROS_MS ? e : null;
+  };
+  return {
+    /** Segundos até poder tentar de novo; nulo = pode tentar agora. */
+    bloqueado(id: string): number | null {
+      const e = daJanela(id);
+      return e && e.n >= ERROS_DE_SENHA_POR_15_MIN ? Math.max(1, Math.ceil((e.inicio + JANELA_DOS_ERROS_MS - agora()) / 1000)) : null;
+    },
+    anotar(id: string): void {
+      const e = daJanela(id);
+      if (e) e.n += 1;
+      else erros.set(id, { inicio: agora(), n: 1 });
+      if (erros.size > 10_000) for (const [k, v] of erros) if (agora() - v.inicio >= JANELA_DOS_ERROS_MS) erros.delete(k);
+    },
+  };
+}
+
+/** Em que pé está um acesso que vale: a tela diz isso em cada linha, e a porta recusa o vencido e o suspenso. */
+export type SituacaoDoAcesso = 'valendo' | 'vence' | 'vencido' | 'suspenso';
+
+/** O que decide a situação: vem das colunas do acesso (`acesso_externo`). */
+export type DatasDoAcesso = { criado_em: Date; renovado_em: Date | null; vence_em: Date; ultimo_uso_em: Date | null; reativado_em: Date | null };
+
+/**
+ * A situação pelas regras do Padrão DMS (§2.4, `situacaoChave` do pacote comum): vencido primeiro; depois suspenso (90
+ * dias desde o último uso, a reativação ou o código de agora — o da renovação ou o da criação); e "vence" nos 15 dias
+ * antes de vencer.
+ */
+export function situacaoDoAcesso(a: DatasDoAcesso, agora: Date = new Date()): SituacaoDoAcesso {
+  const { situacao, avisarVencimento } = situacaoChave(
+    { criadaEm: a.renovado_em ?? a.criado_em, venceEm: a.vence_em, revogadaEm: null, ultimoUsoEm: a.ultimo_uso_em, reativadaEm: a.reativado_em },
+    agora,
+  );
+  if (situacao === 'vencida') return 'vencido';
+  if (situacao === 'suspensa') return 'suspenso';
+  return avisarVencimento ? 'vence' : 'valendo';
+}
+
+/** A data no relógio da loja, como a frase diz ("27/10/2026"). O fuso da loja nunca é nulo (o banco garante). */
+function dataNaLoja(d: Date, fuso: string): string {
+  return new Intl.DateTimeFormat('pt-BR', { timeZone: fuso, day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
+}
+
+type AcessoQueEnvia = { id: string; tenant_id: string; loja_id: string; nome: string; loja_nome: string; vence_do_codigo: Date };
 
 /** O nome do sistema, como a conta o escreveu: sem espaço sobrando e sem caractere de controle. Nulo = não serve. */
 function nomeDoSistema(v: unknown): string | null {
@@ -130,6 +195,8 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
     validacao: { doAcesso: validacoes, daConta: null, porAcesso: `${LIMITE_DE_VALIDACOES_POR_HORA} conferências por hora`, porConta: '' },
   } as const;
 
+  const errosDeSenha = contadorDeErros();
+
   async function quem(req: FastifyRequest, resposta: FastifyReply): Promise<Sessao | null> {
     const s = await sessaoDe(pool, req);
     if (!s) {
@@ -137,6 +204,33 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
       return null;
     }
     return s;
+  }
+
+  /**
+   * Quem cria ou renova confirma a própria senha: é a pessoa, e não alguém com o console dela aberto. A senha errada é
+   * 403, não 401 — a sessão continua valendo, e o console não manda ninguém para a tela de entrar.
+   */
+  async function senhaConfere(req: FastifyRequest, resposta: FastifyReply, s: Sessao, senha: unknown): Promise<boolean> {
+    if (typeof senha !== 'string' || senha.length === 0) {
+      resposta.status(422).send({ erro: 'validacao', mensagem: 'digite a sua senha para confirmar' });
+      return false;
+    }
+    const espera = errosDeSenha.bloqueado(s.usuarioId);
+    if (espera !== null) {
+      resposta
+        .status(429)
+        .header('retry-after', String(espera))
+        .send({ erro: 'devagar', mensagem: `senha errada vezes demais. Tente de novo em ${espera} s` });
+      return false;
+    }
+    const { rows } = await pool.query<{ senha_hash: string }>('select senha_hash from usuario where id = $1', [s.usuarioId]);
+    if (!rows[0] || !(await conferirSenha(senha, rows[0].senha_hash))) {
+      errosDeSenha.anotar(s.usuarioId);
+      req.log.warn({ usuario: s.usuarioId }, 'porta: a senha não conferiu');
+      resposta.status(403).send({ erro: 'senha_nao_confere', mensagem: 'a senha não confere. Tente de novo' });
+      return false;
+    }
+    return true;
   }
 
   // ───────────────────────── o console: os acessos da conta ─────────────────────────
@@ -148,13 +242,29 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
       return resposta.status(403).send({ erro: 'sem_permissao', mensagem: 'seu perfil não vê as conexões da conta' });
     }
 
-    const [acessos, lojas] = await Promise.all([
+    type LinhaDaLista = DatasDoAcesso & {
+      id: string;
+      nome: string;
+      loja_id: string;
+      loja_nome: string;
+      fuso: string | null;
+      recebido_em: Date | null;
+      anterior_vale_ate: Date | null;
+      criado_por_nome: string | null;
+      produtos: number | null;
+      com_ficha: number | null;
+    };
+    type Aviso = { acao: 'criou' | 'renovou' | 'reativou' | 'revogou'; em: Date; por: string; sistema: string; loja: string; anterior_vale_ate: Date | null };
+    const [acessos, lojas, avisos] = await Promise.all([
       // A impressão do código NÃO entra nesta consulta: o que a tela não mostra, a rota nem busca.
-      pool.query<{ id: string; nome: string; loja_id: string; loja_nome: string; fuso: string | null; criado_em: Date; recebido_em: Date | null; produtos: number | null; com_ficha: number | null }>(
+      pool.query<LinhaDaLista>(
         `select a.id, a.nome, a.loja_id, l.nome as loja_nome, l.timezone as fuso, a.criado_em, a.recebido_em,
-                f.produtos, f.com_ficha
+                a.vence_em, a.ultimo_uso_em, a.renovado_em, a.reativado_em,
+                case when a.anterior_vale_ate > now() then a.anterior_vale_ate end as anterior_vale_ate,
+                u.nome as criado_por_nome, f.produtos, f.com_ficha
            from acesso_externo a
            join loja l on l.id = a.loja_id
+           left join usuario u on u.id = a.criado_por
            left join fichas_da_loja f on f.loja_id = a.loja_id and f.fonte = 'sistema'
           where a.tenant_id = $1 and a.revogado_em is null
           order by l.nome, a.id`,
@@ -170,11 +280,45 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
           order by l.nome, l.id`,
         [s.tenantId],
       ),
+      // O que os OUTROS da diretoria fizeram nos acessos nos últimos 7 dias e que esta pessoa ainda não viu. Sai das
+      // colunas de cada acesso (quem e quando criou, renovou, reativou, revogou): não há tabela de eventos à parte.
+      ehDiretoria(s)
+        ? pool.query<Aviso>(
+            `select e.acao, e.em, u.nome as por, e.sistema, e.loja, e.anterior_vale_ate
+               from (
+                 select 'criou' as acao, a.criado_em as em, a.criado_por as por_id, a.nome as sistema, l.nome as loja, null::timestamptz as anterior_vale_ate
+                   from acesso_externo a join loja l on l.id = a.loja_id where a.tenant_id = $1
+                 union all
+                 select 'renovou', a.renovado_em, a.renovado_por, a.nome, l.nome, a.anterior_vale_ate
+                   from acesso_externo a join loja l on l.id = a.loja_id where a.tenant_id = $1 and a.renovado_em is not null
+                 union all
+                 select 'reativou', a.reativado_em, a.reativado_por, a.nome, l.nome, null
+                   from acesso_externo a join loja l on l.id = a.loja_id where a.tenant_id = $1 and a.reativado_em is not null
+                 union all
+                 select 'revogou', a.revogado_em, a.revogado_por, a.nome, l.nome, null
+                   from acesso_externo a join loja l on l.id = a.loja_id where a.tenant_id = $1 and a.revogado_em is not null
+               ) e
+               join usuario u on u.id = e.por_id
+               join usuario eu on eu.id = $2
+              where e.por_id <> $2
+                and e.em > greatest(coalesce(eu.acessos_vistos_em, '-infinity'::timestamptz), now() - interval '7 days')
+              order by e.em desc
+              limit 10`,
+            [s.tenantId, s.usuarioId],
+          )
+        : Promise.resolve({ rows: [] as Aviso[] }),
     ]);
 
+    const agora = new Date();
     return {
-      /** Só a diretoria cria e revoga: a tela mostra o botão ou a frase. */
+      /** Só a diretoria cria, renova, reativa e revoga: a tela mostra o botão ou a frase. */
       podeCriar: ehDiretoria(s),
+      /** A conta tem no máximo 10 acessos valendo (Padrão DMS §2.4). No teto, a tela troca o botão pelo aviso. */
+      teto: { maximo: POLITICA_CHAVE_PROPRIA.maximoAtivasPorEmpresaEProduto, ativos: acessos.rows.length },
+      /** O termo de uso que quem cria aceita (o texto e a versão vêm daqui, não da tela). */
+      termo: TERMO_DO_ACESSO,
+      /** O que os outros da diretoria fizeram nos acessos e esta pessoa ainda não viu (só para a diretoria). */
+      avisos: avisos.rows.map((v) => ({ acao: v.acao, em: v.em, por: v.por, sistema: v.sistema, loja: v.loja, anteriorValeAte: v.anterior_vale_ate })),
       acessos: acessos.rows.map((a) => ({
         id: a.id,
         nome: a.nome,
@@ -183,11 +327,22 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
         /** O relógio da loja: é nele que a tela diz "hoje, 14:02". */
         fuso: a.fuso,
         criadoEm: a.criado_em,
+        /** Quem criou (o nome de agora; nulo se a pessoa foi apagada). */
+        criadoPor: a.criado_por_nome,
         /** O último envio que o Farol aceitou. Nulo = o sistema ainda não enviou nada. */
         recebidoEm: a.recebido_em,
         /** O que a base da loja tem DESTE sistema. Nulo = ainda não há (a loja pode ter fichas de planilha). */
         produtos: a.produtos,
         comFicha: a.com_ficha,
+        /** `valendo`, `vence` (nos 15 dias antes de vencer), `vencido` ou `suspenso` (90 dias sem uso). */
+        situacao: situacaoDoAcesso(a, agora),
+        /** Até quando o código de agora vale. */
+        venceEm: a.vence_em,
+        /** A última chamada aceita na porta (anotada no máximo uma vez por hora). */
+        ultimoUsoEm: a.ultimo_uso_em,
+        renovadoEm: a.renovado_em,
+        /** Renovado há pouco: até quando o código de antes ainda vale. Nulo = não há código antigo valendo. */
+        anteriorValeAte: a.anterior_vale_ate,
       })),
       /** As lojas da conta e de onde cada uma recebe as fichas: só a livre e a de planilha podem ganhar acesso. */
       lojas: lojas.rows.map((l) => ({
@@ -205,7 +360,7 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
     if (!s) return;
     if (!exigirDiretoria(s, resposta)) return;
 
-    const corpo = (req.body ?? {}) as { nome?: unknown; lojaId?: unknown };
+    const corpo = (req.body ?? {}) as { nome?: unknown; lojaId?: unknown; termoVersao?: unknown; senha?: unknown };
     const nome = nomeDoSistema(corpo.nome);
     if (nome === null) {
       return resposta.status(422).send({ erro: 'validacao', mensagem: `diga o nome do sistema, com até ${MAX_DO_NOME} letras` });
@@ -214,12 +369,21 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
       return resposta.status(422).send({ erro: 'validacao', mensagem: 'escolha a loja que vai receber' });
     }
     const lojaId = corpo.lojaId.toLowerCase();
+    // O termo é o de AGORA: quem aceitou uma versão antiga (a tela aberta antes da mudança) lê a nova antes.
+    if (corpo.termoVersao !== TERMO_DO_ACESSO.versao) {
+      return resposta.status(422).send({ erro: 'termo', mensagem: 'para criar o acesso, aceite o termo de uso do acesso, na versão de agora' });
+    }
+    // A senha por último: as conferências baratas não gastam tentativa de senha.
+    if (!(await senhaConfere(req, resposta, s, corpo.senha))) return;
 
     const codigo = gerarChave('ap', 'farol').chave;
     // Client dedicado: a trava da loja e as conferências só valem na MESMA conexão.
     const cliente = await pool.connect();
     try {
       await cliente.query('begin');
+      // A linha da CONTA fica travada antes: duas pessoas criando ao mesmo tempo, em lojas diferentes, não passam juntas do
+      // teto de acessos. A conferência vem na instrução seguinte (V105).
+      await cliente.query('select 1 from tenant where id = $1 for no key update', [s.tenantId]);
       // A linha da loja fica travada até o fim: quem estiver ligando esta loja ao Regem espera aqui (e vice-versa).
       // A trava é a que NÃO barra quem só aponta para a loja (`no key update`): gravar um evento dela continua passando.
       const loja = await cliente.query<{ nome: string }>('select nome from loja where id = $1 and tenant_id = $2 for no key update', [lojaId, s.tenantId]);
@@ -227,10 +391,11 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
         await cliente.query('rollback');
         return resposta.status(404).send({ erro: 'loja_nao_encontrada', mensagem: 'não existe essa loja' });
       }
-      const [doRegem, jaTem, base] = [
+      const [doRegem, jaTem, base, valendo] = [
         await cliente.query('select 1 from regem_loja where loja_id = $1', [lojaId]),
         await cliente.query<{ nome: string }>('select nome from acesso_externo where loja_id = $1 and revogado_em is null', [lojaId]),
         await cliente.query<{ fonte: string }>('select fonte from fichas_da_loja where loja_id = $1', [lojaId]),
+        await cliente.query<{ n: number }>('select count(*)::int as n from acesso_externo where tenant_id = $1 and revogado_em is null', [s.tenantId]),
       ];
       if (doRegem.rows.length > 0) {
         await cliente.query('rollback');
@@ -246,11 +411,18 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
           mensagem: `esta loja já tem um acesso (${jaTem.rows[0]!.nome}). O acesso vale para uma loja: para trocar de sistema, revogue o que existe e crie outro`,
         });
       }
-      const criado = await cliente.query<{ id: string; criado_em: Date }>(
-        `insert into acesso_externo (tenant_id, loja_id, nome, token_hash, criado_por)
-         values ($1, $2, $3, $4, $5)
-         returning id, criado_em`,
-        [s.tenantId, lojaId, nome, hashDoToken(codigo), s.usuarioId],
+      if (valendo.rows[0]!.n >= POLITICA_CHAVE_PROPRIA.maximoAtivasPorEmpresaEProduto) {
+        await cliente.query('rollback');
+        return resposta.status(409).send({
+          erro: 'teto_de_acessos',
+          mensagem: `a conta chegou a ${POLITICA_CHAVE_PROPRIA.maximoAtivasPorEmpresaEProduto} acessos, o máximo. Para criar outro, revogue um que não se usa mais`,
+        });
+      }
+      const criado = await cliente.query<{ id: string; criado_em: Date; vence_em: Date }>(
+        `insert into acesso_externo (tenant_id, loja_id, nome, token_hash, criado_por, vence_em, termo_versao, termo_aceito_em)
+         values ($1, $2, $3, $4, $5, now() + make_interval(months => $6), $7, now())
+         returning id, criado_em, vence_em`,
+        [s.tenantId, lojaId, nome, hashDoToken(codigo), s.usuarioId, POLITICA_CHAVE_PROPRIA.validadeMeses, TERMO_DO_ACESSO.versao],
       );
       await cliente.query('commit');
 
@@ -265,6 +437,8 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
           lojaId,
           lojaNome: loja.rows[0]!.nome,
           criadoEm: criado.rows[0]!.criado_em,
+          /** Até quando o código vale (12 meses). */
+          venceEm: criado.rows[0]!.vence_em,
           /** O código de acesso. Aparece AQUI, uma vez: o Farol não o guarda, e não o mostra de novo. */
           codigo,
           /** A loja tem fichas de planilha: elas ficam até o sistema enviar as dele. */
@@ -309,6 +483,88 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
     return { revogado: true, /** As fichas que o sistema tinha mandado foram apagadas. */ fichasApagadas: rows[0]!.apagadas > 0 };
   });
 
+  // ───────────────────────── o console: renovar ─────────────────────────
+
+  // Sai um código novo, que vale 12 meses. O de antes vale mais 7 dias — o tempo de trocar no sistema —, a não ser que já
+  // tenha vencido. Renovar de novo dentro desses 7 dias troca o "de antes" pelo de agora: o mais velho para na hora.
+  app.post('/v1/acessos/:id/renovar', async (req, resposta) => {
+    const s = await quem(req, resposta);
+    if (!s) return;
+    if (!exigirDiretoria(s, resposta)) return;
+    const { id } = req.params as { id: string };
+    if (!UUID.test(id)) return resposta.status(422).send({ erro: 'validacao', mensagem: 'id inválido' });
+    if (!(await senhaConfere(req, resposta, s, ((req.body ?? {}) as { senha?: unknown }).senha))) return;
+
+    const codigo = gerarChave('ap', 'farol').chave;
+    // Uma instrução só: no `set`, `a.vence_em` e `a.token_hash` são os de ANTES da troca.
+    const { rows } = await pool.query<{ id: string; nome: string; loja_nome: string; vence_em: Date; anterior_vale_ate: Date | null }>(
+      `update acesso_externo a
+          set token_hash_anterior = case when a.vence_em > now() then a.token_hash end,
+              anterior_vale_ate = case when a.vence_em > now() then now() + make_interval(days => $5) end,
+              token_hash = $4,
+              vence_em = now() + make_interval(months => $6),
+              renovado_em = now(),
+              renovado_por = $3
+         from loja l
+        where a.id = $1 and a.tenant_id = $2 and a.revogado_em is null and l.id = a.loja_id
+        returning a.id, a.nome, l.nome as loja_nome, a.vence_em, a.anterior_vale_ate`,
+      [id.toLowerCase(), s.tenantId, s.usuarioId, hashDoToken(codigo), POLITICA_CHAVE_PROPRIA.sobreposicaoNaTrocaDias, POLITICA_CHAVE_PROPRIA.validadeMeses],
+    );
+    if (rows.length === 0) return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'não existe esse acesso' });
+    const r = rows[0]!;
+
+    // Sem o código: ele não entra em registro nenhum.
+    req.log.info({ acesso: r.id, usuario: s.usuarioId, comAnterior: r.anterior_vale_ate !== null }, 'porta: acesso renovado');
+    return resposta.header('cache-control', 'no-store').send({
+      id: r.id,
+      nome: r.nome,
+      lojaNome: r.loja_nome,
+      /** O código novo. Aparece AQUI, uma vez. */
+      codigo,
+      venceEm: r.vence_em,
+      /** Até quando o código de antes ainda vale. Nulo = ele já tinha vencido, e não vale mais. */
+      anteriorValeAte: r.anterior_vale_ate,
+    });
+  });
+
+  // ───────────────────────── o console: reativar ─────────────────────────
+
+  // O suspenso volta a valer com o MESMO código: reativar conta como uso, e a contagem dos 90 dias recomeça. O vencido não
+  // se reativa: o que ele precisa é de um código novo (renovar).
+  app.post('/v1/acessos/:id/reativar', async (req, resposta) => {
+    const s = await quem(req, resposta);
+    if (!s) return;
+    if (!exigirDiretoria(s, resposta)) return;
+    const { id } = req.params as { id: string };
+    if (!UUID.test(id)) return resposta.status(422).send({ erro: 'validacao', mensagem: 'id inválido' });
+
+    const { rows } = await pool.query<{ reativado: boolean }>(
+      `with alvo as (
+         select id, vence_em > now() as vale from acesso_externo where id = $1 and tenant_id = $2 and revogado_em is null
+       ), feito as (
+         update acesso_externo a set reativado_em = now(), reativado_por = $3 from alvo where a.id = alvo.id and alvo.vale returning a.id
+       )
+       select exists (select 1 from feito) as reativado from alvo`,
+      [id.toLowerCase(), s.tenantId, s.usuarioId],
+    );
+    if (rows.length === 0) return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'não existe esse acesso' });
+    if (!rows[0]!.reativado) {
+      return resposta.status(409).send({ erro: 'acesso_vencido', mensagem: 'este acesso venceu. Para ele voltar a valer, renove: sai um código novo' });
+    }
+    req.log.info({ acesso: id, usuario: s.usuarioId }, 'porta: acesso reativado');
+    return { reativado: true };
+  });
+
+  // ───────────────────────── o console: os avisos já vistos ─────────────────────────
+
+  // "Entendi" no aviso do que os outros da diretoria fizeram: o que veio até agora some para esta pessoa.
+  app.post('/v1/acessos/avisos/vistos', async (req, resposta) => {
+    const s = await quem(req, resposta);
+    if (!s) return;
+    await pool.query('update usuario set acessos_vistos_em = now() where id = $1', [s.usuarioId]);
+    return { visto: true };
+  });
+
   // ───────────────────────── a porta: quem está enviando ─────────────────────────
 
   /** O código que não vale: 401, sempre o mesmo corpo. */
@@ -333,17 +589,36 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
     // conferência do formato novo pegam) recebe a mesma resposta do que nunca existiu.
     const lido = lerChave(codigo);
     if (!CODIGO_ANTIGO.test(codigo) && !(lido?.tipo === 'ap' && lido.produto === 'farol')) return recusarCodigo(req, resposta);
-    const { rows } = await pool.query<AcessoQueEnvia & { revogado_em: Date | null }>(
-      `select a.id, a.tenant_id, a.loja_id, a.nome, a.revogado_em, l.nome as loja_nome
+    // O código de agora, ou o de antes da renovação enquanto ainda vale (os 7 dias de trocar no sistema).
+    const { rows } = await pool.query<
+      DatasDoAcesso & { id: string; tenant_id: string; loja_id: string; nome: string; loja_nome: string; fuso: string; revogado_em: Date | null; pelo_anterior: boolean; anterior_vale_ate: Date | null }
+    >(
+      `select a.id, a.tenant_id, a.loja_id, a.nome, a.revogado_em, l.nome as loja_nome, l.timezone as fuso,
+              a.criado_em, a.renovado_em, a.vence_em, a.ultimo_uso_em, a.reativado_em,
+              a.token_hash <> $1 as pelo_anterior, a.anterior_vale_ate
          from acesso_externo a
          join loja l on l.id = a.loja_id
-        where a.token_hash = $1`,
+        where a.token_hash = $1 or (a.token_hash_anterior = $1 and a.anterior_vale_ate > now())`,
       [hashDoToken(codigo)],
     );
     const a = rows[0];
     // O revogado responde IGUAL ao que nunca existiu (Padrão DMS §7): quem tem um código revogado não fica sabendo
-    // que ele existiu. A frase diz o que fazer nos dois casos.
+    // que ele existiu. A frase diz o que fazer nos dois casos. O código de antes, passados os 7 dias, também.
     if (!a || a.revogado_em !== null) return recusarCodigo(req, resposta);
+
+    // Vencido e suspenso têm resposta própria (Padrão DMS §2.4): quem integra precisa saber o que pedir à diretoria. A
+    // chamada recusada NÃO conta como uso — senão o sistema que insiste se reativaria sozinho.
+    const situacao = situacaoDoAcesso(a);
+    if (situacao === 'vencido') {
+      responderNaPorta(req, resposta, 401, 'chave-vencida', 'acesso_vencido', `este acesso venceu em ${dataNaLoja(a.vence_em, a.fuso)}. Peça a quem cuida da conta no Farol para renová-lo: sai um código novo`, {
+        wwwAuthenticate: cabecalhoWwwAuthenticate({ erro: 'invalid_token' }),
+      });
+      return null;
+    }
+    if (situacao === 'suspenso') {
+      responderNaPorta(req, resposta, 403, 'chave-suspensa', 'acesso_suspenso', 'este acesso está suspenso: ficou 90 dias sem uso. Peça a quem cuida da conta no Farol para reativá-lo — o código continua o mesmo');
+      return null;
+    }
 
     // O limite conta só a chamada de acesso válido, por acesso e pela conta inteira. A cota da conta só conta o que
     // passou na do acesso: um sistema preso num laço de 429 não gasta a cota das outras lojas da conta.
@@ -357,7 +632,17 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
       });
       return null;
     }
-    return { id: a.id, tenant_id: a.tenant_id, loja_id: a.loja_id, nome: a.nome, loja_nome: a.loja_nome };
+    // O uso, para a suspensão dos 90 dias: no máximo uma escrita por hora, para a porta não virar uma escrita por chamada.
+    await pool.query(`update acesso_externo set ultimo_uso_em = now() where id = $1 and (ultimo_uso_em is null or ultimo_uso_em < now() - interval '1 hour')`, [a.id]);
+    return {
+      id: a.id,
+      tenant_id: a.tenant_id,
+      loja_id: a.loja_id,
+      nome: a.nome,
+      loja_nome: a.loja_nome,
+      /** Até quando vale O CÓDIGO USADO: o de antes da renovação para nos 7 dias; o de agora, em 12 meses. */
+      vence_do_codigo: a.pelo_anterior && a.anterior_vale_ate ? a.anterior_vale_ate : a.vence_em,
+    };
   }
 
   // ───────────────────────── a porta: o envio ─────────────────────────
@@ -376,7 +661,8 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
     const envio = lerEnvio(req.body);
     if (envio.impede !== null) return responderNaPorta(req, resposta, 422, 'regra-invalida', 'envio_invalido', envio.impede);
 
-    const relatorio = { produtos: envio.contas.produtos, comFicha: envio.contas.comFicha, semFicha: envio.semFicha, deFora: envio.deFora, soltos: envio.soltos, problemas: envio.problemas };
+    // Na porta, os nomes seguem o Padrão DMS (snake_case). O registro guardado junto da base continua o do console.
+    const relatorio = { produtos: envio.contas.produtos, com_ficha: envio.contas.comFicha, sem_ficha: envio.semFicha, de_fora: envio.deFora, soltos: envio.soltos, problemas: envio.problemas };
     if (envio.contas.produtos === 0) {
       return responderNaPorta(
         req,
@@ -447,9 +733,11 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
       /** A loja para a qual este código envia. */
       loja: acesso.loja_nome,
       /** O último envio aceito. Nulo = ainda não houve. */
-      recebidoEm: rows[0]?.recebido_em ?? null,
+      recebido_em: rows[0]?.recebido_em ?? null,
       produtos: rows[0]?.produtos ?? null,
-      comFicha: rows[0]?.com_ficha ?? null,
+      com_ficha: rows[0]?.com_ficha ?? null,
+      /** Até quando o código usado nesta chamada vale. Quem integra confere isto, e avisa antes de vencer. */
+      vence_em: acesso.vence_do_codigo,
     });
   });
 }

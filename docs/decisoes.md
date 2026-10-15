@@ -6926,3 +6926,74 @@ descartava o resto. A rota recusa (409) e diz quantas tirar antes: juntar nunca 
   - A animação de entrada da gaveta recomeça ao cruzar o corte do celular. A medida passou a esperar por ela.
   - O diálogo de confirmação fica sobre a tela inteira. Ele passou a ser medido contra a própria caixa.
 - **Build**: `next build` passou.
+
+## 15/10/2026 · A porta para outro sistema no Padrão DMS, parte 2: validade, renovar, suspenso e reativar, senha e termo, teto e avisos (migration 048)
+
+### O pedido
+
+A parte 2 do pedido da sessão do Hub DMS (`docs/pedido-hub-dms-porta-no-padrao.md`), com as regras do acesso próprio
+do Padrão DMS (§2.4, aprovadas pelo dono em 14/10). O protótipo foi preparado pela sessão do Hub, publicado como página
+("Acesso próprio do Farol") e no `mockups/farol-conexoes-e-fichas.html`, e **aprovado pelo dono em 15/10/2026**
+("aprovado"). Junto, a troca dos nomes dos campos da porta para snake_case — que o dono aprovou na mesma conversa.
+
+### O que entra
+
+- **Migration 048** (`acesso_externo`): `vence_em` (12 meses; os que já existiam passam a vencer 12 meses depois de
+  criados), `ultimo_uso_em` (os de antes: o último envio, ou a criação), `token_hash_anterior` e `anterior_vale_ate`
+  (o código de antes da renovação), `renovado_*`, `reativado_*`, `termo_versao` e `termo_aceito_em`; e
+  `usuario.acessos_vistos_em`.
+- **Validade:** o código vale 12 meses; nos 15 dias antes, a lista e a tela Fichas avisam ("vence em N dias").
+  **Vencido**, a porta responde `401 chave-vencida` (`erro: acesso_vencido`), com a data no relógio da loja.
+- **Renovar** (`POST /v1/acessos/:id/renovar`, com a senha): sai um código novo, e o de antes vale mais 7 dias — o
+  tempo de trocar no sistema —, a não ser que já tivesse vencido. Uma instrução só. Renovar de novo dentro dos 7 dias
+  para o mais velho na hora.
+- **Suspenso:** 90 dias sem uso (qualquer chamada aceita na porta, anotada no máximo uma vez por hora), a porta
+  responde `403 chave-suspensa` (`erro: acesso_suspenso`). A chamada recusada não conta como uso. A reativação e a
+  renovação recomeçam a contagem. **Reativar** (`POST /v1/acessos/:id/reativar`) é um clique, com o mesmo código; o
+  vencido não se reativa (409: precisa de código novo).
+- **Vencido e suspenso NÃO apagam as fichas** — só revogar apaga. A tela Fichas diz que as do último envio continuam
+  valendo.
+- **Criar** pede o aceite do **termo de uso** na versão de agora (`termo-do-acesso.ts`, versão 1; o texto vem da API,
+  e a versão aceita fica guardada) e a **senha** de quem cria. Senha errada é 403 (a sessão continua); **só a errada
+  conta**: na 11ª errada em 15 minutos, a confirmação para (429) até a janela passar.
+- **Teto:** no máximo 10 acessos valendo por conta (Padrão §2.4). A criação trava a linha da conta antes de contar
+  (V105): duas pessoas ao mesmo tempo não passam juntas do teto. No teto, o botão vira o aviso.
+- **Avisos para a diretoria:** quem é da diretoria vê, no topo de Conexões, o que OUTRA pessoa fez nos acessos nos
+  últimos 7 dias (criou, renovou, reativou, revogou), até dizer "Entendi". O Farol não manda e-mail: o aviso é no
+  console. Sai das colunas de cada acesso — não há tabela de eventos.
+- **A porta em snake_case** (Padrão DMS): `com_ficha`, `sem_ficha`, `de_fora`, `recebido_em`; e a consulta diz até
+  quando o código usado vale (`vence_em`). Os campos do console seguem como eram.
+- **A tela:** Conexões (a linha do acesso com a situação e o "criado por", Renovar, Reativar, a gaveta de renovar, o
+  termo e a senha na de criar, o teto e o aviso) e Fichas (o aviso de vence, venceu e suspenso); a documentação
+  (`docs/integracao-fichas.md` e `/integracao`).
+
+### O que a tela tem de diferente do protótipo aprovado
+
+- A linha do suspenso diz "90 dias sem **uso**" (no protótipo, "sem envio"): a regra do Padrão é uso, e uma consulta
+  (GET) também conta.
+- O aviso para a diretoria traz também "reativou" e "revogou" (o protótipo mostrava "criou" e "renovou").
+- Renovado depois de vencer, a linha diz "esperando o primeiro envio com ele" até o sistema enviar com o código novo —
+  o estado "renovado-vencido" do protótipo, decidido pelas datas.
+- O selo do renovado diz "renovado hoje, 05:18" (no protótipo, "código novo desde hoje, 10:05"): o texto longo passava
+  8 px da coluna em 768 px. O protótipo foi trocado junto.
+
+### O que fica para o dono
+
+- **Rede com mais de 10 lojas:** o teto de 10 do Padrão vale aqui também, e o Farol é um acesso por loja. Se uma rede
+  maior quiser ligar todas, a recomendação da sessão do Hub é tirar o teto de 10 só no Farol (o limite de chamadas já
+  é por conta). É uma constante.
+
+### Como foi provado
+
+Os testes da API contra Postgres (`testes/rota-acessos.test.ts`, 33 testes): criar com o termo e a senha; só a senha
+errada conta (a certa e o termo errado, não); o teto com duas criações ao mesmo tempo, presas na trava da conta; renovar
+(os 7 dias do código antigo, renovar duas vezes, renovar o vencido, o revogado não se renova nem se reativa); vencido e
+suspenso na porta, nas duas pontas de cada prazo (14 e 16 dias; 89 e 91), sem a chamada recusada contar como uso; o uso
+anotado uma vez por hora; os avisos (quem fez, a gerência e a outra conta não veem; "Entendi"; os 7 dias). **O kit do
+Padrão passa inteiro** (zero falhas, com o vencido e o suspenso). As mutações uma a uma (44, cada uma com os testes da
+regra que ela mexe), até zero vivas. A migration aplicada duas vezes no banco local (sem efeito na segunda). A suíte
+inteira da API: 1439 de 1440 (a que falha é a do embedding de dimensão errada, que pede o pgvector, ausente no banco
+local; no CI ela roda). **As telas de verdade** (o console construído, contra a API local num banco descartável, com
+login): cada estado em Conexões e Fichas, as gavetas de criar e de renovar (com os erros), o reativar, o aviso e o teto,
+nas 16 larguras de 320 a 1920 px, sem nada passar da borda nem erro de JavaScript — o roteiro achou o selo do renovado
+passando da coluna em 768 px, corrigido antes do PR.

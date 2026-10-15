@@ -1244,9 +1244,9 @@
     if (e === 'vence') return '<span class="chip facho">vence em 12 dias</span><span class="suave mono">recebido hoje, 14:02 · vale até 27/10</span>';
     if (e === 'vencido') return '<span class="chip fora">venceu em 03/10</span><span class="suave mono">não recebe nada desde então · último envio em 02/10</span>';
     if (e === 'suspenso') return '<span class="chip fora">suspenso</span><span class="suave mono">90 dias sem envio · o último foi em 14/07</span>';
-    if (e === 'renovado') return '<span class="chip ok">código novo desde hoje, 10:05</span><span class="suave mono">o antigo vale até 22/10 · o novo, até 15/10/2027</span>';
+    if (e === 'renovado') return '<span class="chip ok">renovado hoje, 10:05</span><span class="suave mono">o antigo vale até 22/10 · o novo, até 15/10/2027</span>';
     // renovado depois de vencer: não há código antigo valendo, e o sistema ainda não enviou com o novo
-    if (e === 'renovado-vencido') return '<span class="chip ok">código novo desde hoje, 10:05</span><span class="suave mono">esperando o primeiro envio com ele · vale até 15/10/2027</span>';
+    if (e === 'renovado-vencido') return '<span class="chip ok">renovado hoje, 10:05</span><span class="suave mono">esperando o primeiro envio com ele · vale até 15/10/2027</span>';
     return '<span class="chip ok">recebido hoje, 14:02</span><span class="suave mono">7 produtos · 3 com ficha · vale até 02/03/2027</span>';
   }
   function linhaDoAcesso(a, i) {

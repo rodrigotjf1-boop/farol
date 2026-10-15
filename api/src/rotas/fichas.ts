@@ -39,7 +39,7 @@ import { LEITURA_MORTA_MIN, lerFichasDaLoja } from '../leitura.js';
 import { COLUNAS, lerPlanilha, linhasDaBase, MODELO, NOME_DA_ABA, UNIDADES, type Contas, type Leitura } from '../planilha-fichas.js';
 import { ehDiretoria, podeAcompanhar, podeConfigurar } from '../rbac.js';
 import type { ConfigDoRegem } from '../regem.js';
-import type { UltimoEnvio } from './acessos.js';
+import { situacaoDoAcesso, type UltimoEnvio } from './acessos.js';
 import { leituraParaTela, type LeituraDaLinha } from './regem.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 
@@ -96,6 +96,10 @@ type Linha = LeituraDaLinha & {
   acesso_nome: string | null;
   acesso_criado_em: Date | null;
   acesso_recebido_em: Date | null;
+  acesso_vence_em: Date | null;
+  acesso_ultimo_uso_em: Date | null;
+  acesso_renovado_em: Date | null;
+  acesso_reativado_em: Date | null;
 };
 
 export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoRegem): void {
@@ -126,6 +130,7 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
               f.produtos, f.com_ficha, f.atualizada_em, f.fonte, f.impressao, f.importacao,
               ${comConteudo ? 'f.conteudo' : 'null::jsonb as conteudo'},
               a.id as acesso_id, a.nome as acesso_nome, a.criado_em as acesso_criado_em, a.recebido_em as acesso_recebido_em,
+              a.vence_em as acesso_vence_em, a.ultimo_uso_em as acesso_ultimo_uso_em, a.renovado_em as acesso_renovado_em, a.reativado_em as acesso_reativado_em,
               (select count(*)::int from regem_loja e where e.tenant_id = l.tenant_id and e.loja_id is null) as esperando
          from loja l
          left join regem_loja r on r.loja_id = l.id
@@ -165,7 +170,25 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
       /** De onde as fichas vieram: `regem`, `planilha` ou `sistema`. Nulo = a loja não tem base. */
       fonte: base ? l.fonte : null,
       /** O sistema que tem acesso para enviar as fichas desta loja (pode ainda não ter enviado nada). Nulo = nenhum. */
-      sistema: l.acesso_id ? { nome: l.acesso_nome, criadoEm: l.acesso_criado_em, recebidoEm: l.acesso_recebido_em } : null,
+      sistema:
+        l.acesso_id && l.acesso_criado_em && l.acesso_vence_em
+          ? {
+              nome: l.acesso_nome,
+              criadoEm: l.acesso_criado_em,
+              recebidoEm: l.acesso_recebido_em,
+              /** `valendo`, `vence` (15 dias antes), `vencido` ou `suspenso`: vencido e suspenso não apagam as fichas. */
+              situacao: situacaoDoAcesso({
+                criado_em: l.acesso_criado_em,
+                renovado_em: l.acesso_renovado_em,
+                vence_em: l.acesso_vence_em,
+                ultimo_uso_em: l.acesso_ultimo_uso_em,
+                reativado_em: l.acesso_reativado_em,
+              }),
+              venceEm: l.acesso_vence_em,
+              /** A última chamada aceita na porta: o suspenso diz desde quando ninguém usa o código. */
+              ultimoUsoEm: l.acesso_ultimo_uso_em,
+            }
+          : null,
       /**
        * A última importação por planilha — ou o último envio do sistema: qual arquivo (a planilha), quando, quem,
        * e quantos produtos ficaram de fora.

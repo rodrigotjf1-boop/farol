@@ -55,6 +55,16 @@ export function quandoNaLoja(iso: string | null, fuso: string, agora: string): s
 }
 
 /**
+ * Uma data no relógio da loja, como se escreve num prazo: "27/10" no ano de agora, "15/10/2027" em outro ano.
+ * Para validade e vencimento, em que a hora não importa.
+ */
+export function dataNaLoja(iso: string, fuso: string, agora: Date = new Date()): string {
+  const f = (d: Date) => new Intl.DateTimeFormat('pt-BR', { timeZone: fuso, day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
+  const d = f(new Date(iso));
+  return d.slice(6) === f(agora).slice(6) ? d.slice(0, 5) : d;
+}
+
+/**
  * "hoje, 04:10", "ontem, 04:10" ou "09/10, 04:10" — no relógio DA LOJA.
  * Para o que acontece uma vez por dia (a busca das fichas): o que importa é
  * de que dia é, dito como se fala.

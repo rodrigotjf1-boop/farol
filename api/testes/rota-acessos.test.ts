@@ -27,6 +27,7 @@ import pg from 'pg';
 import { criarApp } from '../src/app.js';
 import { gerarChave } from '../src/dms/integracao-dms.js';
 import { LIMITE_DE_CONSULTAS_POR_MINUTO } from '../src/rotas/acessos.js';
+import { TERMO_DO_ACESSO } from '../src/termo-do-acesso.js';
 import { rodarKit } from './dms/kit-conformidade.mts';
 import { semLeituraEmCurso } from '../src/leitura.js';
 import { COLUNAS } from '../src/planilha-fichas.js';
@@ -144,7 +145,8 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
   // ───────────────────────── os atalhos ─────────────────────────
 
   const listar = (cookie: string) => app.inject({ method: 'GET', url: '/v1/acessos', headers: { cookie } });
-  const criar = (cookie: string, corpo: unknown) => app.inject({ method: 'POST', url: '/v1/acessos', headers: { cookie }, payload: corpo as object });
+  const criar = (cookie: string, corpo: unknown, a: FastifyInstance = app) =>
+    a.inject({ method: 'POST', url: '/v1/acessos', headers: { cookie }, payload: (corpo && typeof corpo === 'object' ? { senha: SENHA, termoVersao: TERMO_DO_ACESSO.versao, ...corpo } : corpo) as object });
   const revogar = (cookie: string, id: string) => app.inject({ method: 'DELETE', url: `/v1/acessos/${id}`, headers: { cookie } });
   const enviar = (codigo: string | null, corpo: unknown, a: FastifyInstance = app) =>
     a.inject({ method: 'PUT', url: '/v1/integracao/fichas', headers: codigo === null ? {} : { authorization: `Bearer ${codigo}` }, payload: corpo as object });
@@ -215,7 +217,7 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     const r = await criar(minha.dono, { nome: '  PDV   da  Casa ', lojaId: minha.centro.toUpperCase() });
     assert.equal(r.statusCode, 201, r.body);
     const c = r.json();
-    assert.deepEqual(Object.keys(c).sort(), ['codigo', 'criadoEm', 'id', 'lojaId', 'lojaNome', 'nome', 'temPlanilha']);
+    assert.deepEqual(Object.keys(c).sort(), ['codigo', 'criadoEm', 'id', 'lojaId', 'lojaNome', 'nome', 'temPlanilha', 'venceEm']);
     assert.deepEqual([c.nome, c.lojaId, c.lojaNome, c.temPlanilha], ['PDV da Casa', minha.centro, 'Loja Centro', false], 'o nome sem espaço sobrando');
     assert.match(c.codigo, /^dms_ap_farol_[A-Za-z0-9_-]{43}_[A-Za-z0-9_-]{6}$/, 'o código novo segue o Padrão DMS, com dígitos de conferência');
     assert.equal(r.headers['cache-control'], 'no-store');
@@ -229,8 +231,8 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
 
     // na lista: sem código e sem impressão
     const lista = (await listar(minha.gerente)).json();
-    assert.deepEqual(Object.keys(lista).sort(), ['acessos', 'lojas', 'podeCriar']);
-    assert.deepEqual(Object.keys(lista.acessos[0]).sort(), ['comFicha', 'criadoEm', 'fuso', 'id', 'lojaId', 'lojaNome', 'nome', 'produtos', 'recebidoEm']);
+    assert.deepEqual(Object.keys(lista).sort(), ['acessos', 'avisos', 'lojas', 'podeCriar', 'termo', 'teto']);
+    assert.deepEqual(Object.keys(lista.acessos[0]).sort(), ['anteriorValeAte', 'comFicha', 'criadoEm', 'criadoPor', 'fuso', 'id', 'lojaId', 'lojaNome', 'nome', 'produtos', 'recebidoEm', 'renovadoEm', 'situacao', 'ultimoUsoEm', 'venceEm']);
     assert.deepEqual([lista.acessos[0].nome, lista.acessos[0].lojaNome, lista.acessos[0].recebidoEm, lista.acessos[0].produtos], ['PDV da Casa', 'Loja Centro', null, null]);
     assert.ok(!JSON.stringify(lista).includes(c.codigo.slice(6)) && !JSON.stringify(lista).includes(linha.token_hash));
     assert.deepEqual(lista.lojas, [{ id: minha.barra, nome: 'Loja Barra', origem: 'livre' }, { id: minha.centro, nome: 'Loja Centro', origem: 'sistema' }]);
@@ -342,7 +344,7 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
 
     // na loja sem base: não cria
     const primeiro = await validar(PEQUENO);
-    assert.deepEqual([primeiro.statusCode, primeiro.json()], [200, { resultado: 'so_validado', gravado: false, produtos: 2, comFicha: 1, semFicha: ['Água sem gás'], deFora: [], soltos: [], problemas: 0 }]);
+    assert.deepEqual([primeiro.statusCode, primeiro.json()], [200, { resultado: 'so_validado', gravado: false, produtos: 2, com_ficha: 1, sem_ficha: ['Água sem gás'], de_fora: [], soltos: [], problemas: 0 }]);
     assert.deepEqual([await baseDe(minha.centro), await recebido()], [null, null]);
 
     // na loja com base: não troca
@@ -352,7 +354,7 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     const [versao, quando] = [await versaoDe(minha.centro), await recebido()];
     const r = await validar(COM_PROBLEMA);
     const fora = [{ produto: 'X-Burger', problemas: [{ onde: 'produtos[1].ingredientes[1]', texto: 'falta a quantidade.' }] }];
-    assert.deepEqual([r.statusCode, r.json()], [200, { resultado: 'so_validado', gravado: false, produtos: 2, comFicha: 1, semFicha: ['Água sem gás'], deFora: fora, soltos: [], problemas: 1 }]);
+    assert.deepEqual([r.statusCode, r.json()], [200, { resultado: 'so_validado', gravado: false, produtos: 2, com_ficha: 1, sem_ficha: ['Água sem gás'], de_fora: fora, soltos: [], problemas: 1 }]);
     const depois = (await baseDe(minha.centro))!;
     assert.deepEqual([depois.impressao, depois.atualizada_em.getTime(), depois.importacao, await versaoDe(minha.centro), (await recebido())!.getTime()], [antes.impressao, antes.atualizada_em.getTime(), antes.importacao, versao, quando!.getTime()]);
 
@@ -439,11 +441,19 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     }
   });
 
-  it('o kit de testes do Padrão DMS passa na porta — menos a validade e a suspensão do código, que são a parte 2', async () => {
+  it('o kit de testes do Padrão DMS passa INTEIRO na porta — com a validade e a suspensão do código', async () => {
     const valida = await acessoDe(minha.centro);
     const revogada = await acessoDe(minha.barra, 'PDV antigo');
     assert.equal((await revogar(minha.dono, revogada.id)).statusCode, 200);
     const doVizinho = await acessoDe(vizinha.loja, 'PDV do Vizinho', vizinha.dono);
+    // o vencido e o suspenso: numa conta à parte, com as datas trocadas no banco
+    const outra = await criarLoja('Loja K1', { tenant: { nome: `${marca}-kit` } });
+    const k2 = (await criarLoja('Loja K2', { tenantId: outra.tenantId })).lojaId;
+    const donoDaOutra = await criarUsuario(outra.tenantId, 'dono-kit', 'presidente');
+    const vencida = await acessoDe(outra.lojaId, 'PDV vencido', donoDaOutra);
+    const suspensa = await acessoDe(k2, 'PDV parado', donoDaOutra);
+    await pool.query("update acesso_externo set vence_em = now() - interval '1 day' where id = $1", [vencida.id]);
+    await pool.query("update acesso_externo set criado_em = now() - interval '100 days', ultimo_uso_em = now() - interval '100 days' where id = $1", [suspensa.id]);
     const outro = criarApp(pool, { logger: false, regem: cfg });
     const base = await outro.listen({ port: 0, host: '127.0.0.1' });
     try {
@@ -457,10 +467,10 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
           copiaDoPacote: fileURLToPath(new URL('../src/dms/integracao-dms.ts', import.meta.url)),
           credenciais: { valida: 'X', outraEmpresa: 'X', revogada: 'X' },
         },
-        { valida: valida.codigo, outraEmpresa: doVizinho.codigo, revogada: revogada.codigo },
+        { valida: valida.codigo, outraEmpresa: doVizinho.codigo, revogada: revogada.codigo, vencida: vencida.codigo, suspensa: suspensa.codigo },
       );
       const falhas = resultados.filter((r) => !r.ok).map((r) => r.nome);
-      assert.deepEqual(falhas, ['vencida', 'suspensa'], resultados.map((r) => `${r.ok ? (r.pulado ? '·' : '✓') : '✗'} ${r.nome}: ${r.detalhe}`).join('\n'));
+      assert.deepEqual(falhas, [], resultados.map((r) => `${r.ok ? (r.pulado ? '·' : '✓') : '✗'} ${r.nome}: ${r.detalhe}`).join('\n'));
       assert.deepEqual(resultados.filter((r) => r.pulado).map((r) => r.nome).sort(), ['cursor-de-outra-empresa', 'cursor-invalido', 'escrita-sem-idempotencia', 'idempotencia-outro-corpo', 'mesma-empresa-ve', 'outra-empresa-nao-ve', 'sem-permissao'], 'só pula o que a porta não tem');
     } finally {
       await outro.close();
@@ -473,12 +483,14 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     const { id, codigo } = await acessoDe(minha.centro);
     const versao = await versaoDe(minha.centro);
     const antes = (await oQueTem(codigo)).json();
-    assert.deepEqual(antes, { sistema: 'PDV da Casa', loja: 'Loja Centro', recebidoEm: null, produtos: null, comFicha: null });
+    assert.deepEqual({ ...antes, vence_em: undefined }, { sistema: 'PDV da Casa', loja: 'Loja Centro', recebido_em: null, produtos: null, com_ficha: null, vence_em: undefined });
+    const linhaDoAcesso = (await pool.query('select vence_em from acesso_externo where id = $1', [id])).rows[0];
+    assert.equal(Date.parse(antes.vence_em), linhaDoAcesso.vence_em.getTime(), 'a consulta diz até quando o código vale');
 
     // o corpo tenta escolher outra loja e outra conta: não escolhe
     const r = await enviar(codigo, { ...PEQUENO, lojaId: vizinha.loja, loja_id: vizinha.loja, tenantId: vizinha.tenantId, loja: vizinha.loja });
     assert.equal(r.statusCode, 200, r.body);
-    assert.deepEqual(r.json(), { resultado: 'atualizada', produtos: 2, comFicha: 1, semFicha: ['Água sem gás'], deFora: [], soltos: [], problemas: 0 });
+    assert.deepEqual(r.json(), { resultado: 'atualizada', produtos: 2, com_ficha: 1, sem_ficha: ['Água sem gás'], de_fora: [], soltos: [], problemas: 0 });
     assert.equal(await baseDe(vizinha.loja), null, 'nada foi para a loja do vizinho');
     assert.equal(await baseDe(minha.barra), null, 'nem para a outra loja da conta');
 
@@ -489,15 +501,16 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
 
     const t = (await fichas(minha.supervisao, minha.centro)).json();
     assert.deepEqual([t.situacao, t.fonte, t.totais, t.podeImportar, t.leitura], ['sem_conexao', 'sistema', { produtos: 2, comFicha: 1 }, false, null]);
-    assert.deepEqual(Object.keys(t.sistema).sort(), ['criadoEm', 'nome', 'recebidoEm']);
+    assert.deepEqual(Object.keys(t.sistema).sort(), ['criadoEm', 'nome', 'recebidoEm', 'situacao', 'ultimoUsoEm', 'venceEm']);
+    assert.equal(t.sistema.situacao, 'valendo');
     assert.equal(t.sistema.nome, 'PDV da Casa');
     assert.ok(Date.now() - Date.parse(t.sistema.recebidoEm) < 15_000);
     assert.deepEqual(t.produtos.map((p: { nome: string; ingredientes: number | null }) => [p.nome, p.ingredientes]), [['Batata frita', 2], ['Água sem gás', null]]);
     assert.equal((await fichas(minha.gerente, minha.centro)).json().podeImportar, false, 'quem configura também não importa planilha nesta loja');
 
     const depois = (await oQueTem(codigo)).json();
-    assert.deepEqual([depois.produtos, depois.comFicha], [2, 1]);
-    assert.ok(Date.now() - Date.parse(depois.recebidoEm) < 15_000);
+    assert.deepEqual([depois.produtos, depois.com_ficha], [2, 1]);
+    assert.ok(Date.now() - Date.parse(depois.recebido_em) < 15_000);
     const naLista = (await listar(minha.dono)).json().acessos[0];
     assert.deepEqual([naLista.produtos, naLista.comFicha, naLista.recebidoEm !== null], [2, 1, true]);
     assert.ok(registro.some((l) => l.includes('porta: fichas recebidas')));
@@ -516,7 +529,7 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     const depois = (await baseDe(minha.centro))!;
     assert.deepEqual([depois.impressao, depois.atualizada_em.getTime()], [antes.impressao, antes.atualizada_em.getTime()]);
     assert.equal(await versaoDe(minha.centro), versao);
-    assert.ok(Date.now() - Date.parse((await oQueTem(codigo)).json().recebidoEm) < 15_000, 'o último envio aceito é o de agora');
+    assert.ok(Date.now() - Date.parse((await oQueTem(codigo)).json().recebido_em) < 15_000, 'o último envio aceito é o de agora');
 
     // mudou um ingrediente: aí muda
     const outro = await enviar(codigo, { produtos: [{ nome: 'Batata frita', ingredientes: [ing('Batata palito', 250), ing('Sal', 1, 'pitada')] }, PEQUENO.produtos[1]] });
@@ -531,7 +544,7 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     const r = await enviar(codigo, COM_PROBLEMA);
     assert.equal(r.statusCode, 200, r.body);
     const fora = [{ produto: 'X-Burger', problemas: [{ onde: 'produtos[1].ingredientes[1]', texto: 'falta a quantidade.' }] }];
-    assert.deepEqual(r.json(), { resultado: 'atualizada', produtos: 2, comFicha: 1, semFicha: ['Água sem gás'], deFora: fora, soltos: [], problemas: 1 });
+    assert.deepEqual(r.json(), { resultado: 'atualizada', produtos: 2, com_ficha: 1, sem_ficha: ['Água sem gás'], de_fora: fora, soltos: [], problemas: 1 });
 
     const t = (await fichas(minha.supervisao, minha.centro)).json();
     assert.deepEqual(t.produtos.map((p: { nome: string }) => p.nome), ['Batata frita', 'Água sem gás']);
@@ -551,7 +564,7 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     const versao = await versaoDe(minha.centro);
 
     const nada = await enviar(codigo, { produtos: [{ nome: 'A', ingredientes: [ing('x', '', 'g')] }, { nome: 'B', ingredientes: [ing('y', 1, 'pct')] }] });
-    assert.deepEqual([nada.statusCode, nada.json().erro, nada.json().produtos, nada.json().problemas, nada.json().deFora.map((d: { produto: string }) => d.produto)], [422, 'nada_a_receber', 0, 2, ['A', 'B']]);
+    assert.deepEqual([nada.statusCode, nada.json().erro, nada.json().produtos, nada.json().problemas, nada.json().de_fora.map((d: { produto: string }) => d.produto)], [422, 'nada_a_receber', 0, 2, ['A', 'B']]);
     assert.match(nada.json().mensagem, /nenhum produto do envio está certo, e nada foi recebido/);
 
     const formas: Array<[unknown, string]> = [
@@ -618,7 +631,7 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     const { id, codigo, temPlanilha } = await acessoDe(minha.centro);
     assert.equal(temPlanilha, true, 'quem cria fica sabendo que a loja tem fichas de planilha');
     assert.equal((await listar(minha.dono)).json().acessos[0].produtos, null, 'os números do acesso são só do que ELE mandou');
-    assert.deepEqual([(await oQueTem(codigo)).json().produtos, (await oQueTem(codigo)).json().comFicha], [null, null], 'e é o que a porta responde a ele');
+    assert.deepEqual([(await oQueTem(codigo)).json().produtos, (await oQueTem(codigo)).json().com_ficha], [null, null], 'e é o que a porta responde a ele');
 
     const r = await revogar(minha.dono, id);
     assert.deepEqual(r.json(), { revogado: true, fichasApagadas: false });
@@ -770,5 +783,276 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     assert.equal((await app.inject({ method: 'POST', url: `/v1/lojas/${minha.centro}/fichas/buscar`, headers: { cookie: minha.gerente } })).statusCode, 200);
     const d = (await app.inject({ method: 'GET', url: '/v1/regem', headers: { cookie: minha.dono } })).json();
     assert.ok(d.ligadas[0].produtos > 0, 'depois da leitura boa, os números são os do Regem');
+  });
+
+  // ───────────────────────── a parte 2: validade, renovar, suspenso, termo, senha, teto e avisos ─────────────────────────
+
+  const renovar = (cookie: string, id: string, senha: unknown = SENHA, a: FastifyInstance = app) =>
+    a.inject({ method: 'POST', url: `/v1/acessos/${id}/renovar`, headers: { cookie }, payload: { senha } as object });
+  const reativar = (cookie: string, id: string) => app.inject({ method: 'POST', url: `/v1/acessos/${id}/reativar`, headers: { cookie } });
+  const linhaDe = async (id: string) => (await pool.query('select * from acesso_externo where id = $1', [id])).rows[0];
+  const hash = (codigo: string) => createHash('sha256').update(codigo, 'utf8').digest('hex');
+  const naLista = async (id: string, cookie = minha.dono) => (await listar(cookie)).json().acessos.find((a: { id: string }) => a.id === id);
+  /** A resposta da porta a um código que nunca existiu, sem o rastreio — o que o revogado e o antigo vencido têm de imitar. */
+  const doQueNuncaExistiu = async () => semRastreio((await oQueTem(gerarChave('ap', 'farol').chave)).json());
+
+  it('criar pede o termo de agora e a senha de quem cria; a senha errada não derruba a sessão; o acesso nasce valendo 12 meses, com o termo guardado', async () => {
+    for (const senha of [undefined, '', 7]) {
+      const semSenha = await criar(minha.dono, { nome: 'PDV', lojaId: minha.centro, senha });
+      assert.deepEqual([semSenha.statusCode, semSenha.json()], [422, { erro: 'validacao', mensagem: 'digite a sua senha para confirmar' }], String(senha));
+    }
+    for (const termoVersao of ['0', undefined, 1, '2']) {
+      const r = await criar(minha.dono, { nome: 'PDV', lojaId: minha.centro, termoVersao });
+      assert.deepEqual([r.statusCode, r.json().erro], [422, 'termo'], String(termoVersao));
+    }
+    const errada = await criar(minha.dono, { nome: 'PDV', lojaId: minha.centro, senha: 'outra senha qualquer' });
+    assert.deepEqual([errada.statusCode, errada.json()], [403, { erro: 'senha_nao_confere', mensagem: 'a senha não confere. Tente de novo' }]);
+    const lista = await listar(minha.dono);
+    assert.deepEqual([lista.statusCode, lista.json().acessos.length], [200, 0], 'a sessão continua, e nada foi criado');
+    assert.deepEqual(lista.json().termo, JSON.parse(JSON.stringify(TERMO_DO_ACESSO)), 'o termo vem da API, com a versão');
+    assert.deepEqual(lista.json().teto, { maximo: 10, ativos: 0 });
+
+    const r = await criar(minha.dono, { nome: 'PDV', lojaId: minha.centro });
+    assert.equal(r.statusCode, 201, r.body);
+    const linha = (await pool.query(`select termo_versao, termo_aceito_em, vence_em = criado_em + interval '12 months' as doze_meses, vence_em from acesso_externo where id = $1`, [r.json().id])).rows[0];
+    assert.deepEqual([linha.termo_versao, linha.termo_aceito_em !== null, linha.doze_meses], [TERMO_DO_ACESSO.versao, true, true]);
+    assert.equal(Date.parse(r.json().venceEm), linha.vence_em.getTime(), 'a resposta diz até quando vale');
+    assert.deepEqual([(await naLista(r.json().id)).situacao, (await listar(minha.dono)).json().teto.ativos], ['valendo', 1]);
+  });
+
+  it('só a senha errada conta: na 11ª errada a confirmação para (429 com Retry-After) — até a certa espera; a certa e o termo errado não gastam tentativa', async () => {
+    const outro = criarApp(pool, { logger: false, regem: cfg });
+    await outro.ready();
+    try {
+      // a senha certa, quinze vezes: passa da senha e para no "não existe" — não conta
+      for (let n = 1; n <= 15; n += 1) assert.equal((await renovar(minha.dono, randomUUID(), SENHA, outro)).statusCode, 404, `certa ${n}`);
+      // o termo errado para antes da senha — não conta, mesmo com a senha errada
+      for (let n = 1; n <= 5; n += 1) assert.equal((await criar(minha.dono, { nome: 'PDV', lojaId: minha.centro, termoVersao: '0', senha: 'errada' }, outro)).statusCode, 422, `termo ${n}`);
+      for (let n = 1; n <= 10; n += 1) assert.equal((await renovar(minha.dono, randomUUID(), 'errada', outro)).statusCode, 403, `errada ${n}`);
+      for (const senha of ['errada', SENHA]) {
+        const r = await renovar(minha.dono, randomUUID(), senha, outro);
+        const espera = Number(r.headers['retry-after']);
+        assert.deepEqual([r.statusCode, r.json().erro], [429, 'devagar'], senha);
+        assert.ok(espera > 870 && espera <= 900, `Retry-After ${String(r.headers['retry-after'])}`);
+        assert.match(r.json().mensagem, new RegExp(`em ${espera} s$`));
+      }
+      // a outra pessoa não sentiu nada
+      assert.equal((await renovar(vizinha.dono, randomUUID(), SENHA, outro)).statusCode, 404);
+    } finally {
+      await outro.close();
+    }
+  });
+
+  it('o teto: a conta tem no máximo 10 acessos valendo — duas pessoas ao mesmo tempo não passam juntas dele; revogado libera a vaga', async () => {
+    const primeira = await criarLoja('Loja T1', { tenant: { nome: `${marca}-teto` } });
+    const lojas = [primeira.lojaId];
+    for (let n = 2; n <= 11; n += 1) lojas.push((await criarLoja(`Loja T${n}`, { tenantId: primeira.tenantId })).lojaId);
+    const dono = await criarUsuario(primeira.tenantId, 'dono-teto', 'presidente');
+    const ids: string[] = [];
+    for (const l of lojas.slice(0, 9)) ids.push((await acessoDe(l, 'PDV', dono)).id);
+
+    // as duas últimas vagas pedidas ao mesmo tempo: outra conexão segura a linha da conta, e as duas param nela
+    const segura = await pool.connect();
+    const travados = async (quantos: number) => {
+      const limite = Date.now() + 10_000;
+      for (;;) {
+        const { rows } = await pool.query("select count(*)::int as n from pg_stat_activity where wait_event_type = 'Lock' and query like 'select 1 from tenant where id = $1 for no key update%'");
+        if (rows[0].n >= quantos) return;
+        assert.ok(Date.now() < limite, `a criação não parou na trava da conta (${quantos})`);
+        await new Promise((ok) => setTimeout(ok, 25));
+      }
+    };
+    try {
+      await segura.query('begin');
+      await segura.query('select 1 from tenant where id = $1 for no key update', [primeira.tenantId]);
+      const a = criar(dono, { nome: 'PDV', lojaId: lojas[9] });
+      await travados(1);
+      const b = criar(dono, { nome: 'PDV', lojaId: lojas[10] });
+      await travados(2);
+      await segura.query('commit');
+      const [ra, rb] = await Promise.all([a, b]);
+      assert.deepEqual([ra.statusCode, rb.statusCode].sort(), [201, 409], ra.body + rb.body);
+      const recusada = [ra, rb].find((x) => x.statusCode === 409)!;
+      assert.deepEqual(recusada.json(), { erro: 'teto_de_acessos', mensagem: 'a conta chegou a 10 acessos, o máximo. Para criar outro, revogue um que não se usa mais' });
+    } finally {
+      await segura.query('rollback').catch(() => {});
+      segura.release();
+    }
+    assert.deepEqual((await listar(dono)).json().teto, { maximo: 10, ativos: 10 });
+    const livre = (await pool.query('select l.id from loja l where l.tenant_id = $1 and not exists (select 1 from acesso_externo a where a.loja_id = l.id and a.revogado_em is null)', [primeira.tenantId])).rows.map((x) => x.id as string);
+    assert.equal(livre.length, 1, 'uma loja ficou sem acesso');
+    assert.equal((await criar(dono, { nome: 'PDV', lojaId: livre[0] })).statusCode, 409, 'no teto, nada entra');
+    assert.equal((await revogar(dono, ids[0]!)).statusCode, 200);
+    assert.equal((await criar(dono, { nome: 'PDV', lojaId: livre[0] })).statusCode, 201, 'revogado libera a vaga');
+  });
+
+  it('renovar: sai um código novo, que vale 12 meses; o de antes vale mais 7 dias e depois para; renovar de novo para o mais velho; o vencido renovado não deixa código antigo', async () => {
+    const { id, codigo: a } = await acessoDe(minha.centro);
+    assert.equal((await enviar(a, PEQUENO)).statusCode, 200);
+
+    // quem pode e o que falta
+    assert.deepEqual([(await renovar(minha.dono, id, null)).statusCode, (await renovar(minha.dono, id, 'errada')).statusCode], [422, 403]);
+    assert.deepEqual([(await renovar(minha.gerente, id)).statusCode, (await renovar(minha.gerente, id)).json().erro], [403, 'so_diretoria']);
+    assert.deepEqual([(await renovar(vizinha.dono, id)).statusCode, (await renovar(minha.dono, randomUUID())).statusCode, (await renovar(minha.dono, 'x')).statusCode], [404, 404, 422]);
+    assert.equal((await linhaDe(id)).token_hash, hash(a), 'nada disso trocou o código');
+
+    const r = await renovar(minha.dono, id);
+    assert.equal(r.statusCode, 200, r.body);
+    const b = r.json().codigo as string;
+    assert.deepEqual(Object.keys(r.json()).sort(), ['anteriorValeAte', 'codigo', 'id', 'lojaNome', 'nome', 'venceEm']);
+    assert.match(b, /^dms_ap_farol_[A-Za-z0-9_-]{43}_[A-Za-z0-9_-]{6}$/);
+    assert.notEqual(b, a);
+    assert.equal(r.headers['cache-control'], 'no-store');
+    const depois = (await pool.query(
+      `select token_hash, token_hash_anterior, renovado_por, renovado_em is not null as renovado,
+              anterior_vale_ate between now() + interval '7 days' - interval '1 minute' and now() + interval '7 days' as sete_dias,
+              vence_em between now() + interval '12 months' - interval '1 minute' and now() + interval '12 months' as doze_meses,
+              anterior_vale_ate, vence_em
+         from acesso_externo where id = $1`,
+      [id],
+    )).rows[0];
+    assert.deepEqual([depois.token_hash, depois.token_hash_anterior, depois.renovado, depois.sete_dias, depois.doze_meses, depois.renovado_por !== null], [hash(b), hash(a), true, true, true, true]);
+    assert.equal(Date.parse(r.json().anteriorValeAte), depois.anterior_vale_ate.getTime());
+    assert.ok(!registro.join('\n').includes(b.slice(14)), 'o código novo foi para o registro');
+
+    // os dois valem; cada um diz até quando vale ELE
+    const pelaAntiga = await oQueTem(a);
+    const pelaNova = await oQueTem(b);
+    assert.deepEqual([pelaAntiga.statusCode, Date.parse(pelaAntiga.json().vence_em)], [200, depois.anterior_vale_ate.getTime()]);
+    assert.deepEqual([pelaNova.statusCode, Date.parse(pelaNova.json().vence_em)], [200, depois.vence_em.getTime()]);
+    assert.equal((await enviar(b, PEQUENO)).json().resultado, 'nada_mudou', 'as fichas continuam, e o código novo envia');
+    const l = await naLista(id);
+    assert.deepEqual([l.situacao, l.anteriorValeAte !== null, l.renovadoEm !== null], ['valendo', true, true]);
+
+    // passados os 7 dias, o de antes responde como o que nunca existiu
+    await pool.query("update acesso_externo set anterior_vale_ate = now() - interval '1 second' where id = $1", [id]);
+    assert.deepEqual([(await oQueTem(a)).statusCode, semRastreio((await oQueTem(a)).json())], [401, await doQueNuncaExistiu()]);
+    assert.equal((await naLista(id)).anteriorValeAte, null);
+
+    // renovar de novo dentro dos 7 dias: o de agora vira o "de antes", e o mais velho para na hora
+    const c = (await renovar(minha.dono, id)).json().codigo as string;
+    const d = (await renovar(minha.dono, id)).json().codigo as string;
+    assert.deepEqual([(await oQueTem(b)).statusCode, (await oQueTem(c)).statusCode, (await oQueTem(d)).statusCode], [401, 200, 200]);
+
+    // o vencido renovado: não sobra código antigo
+    await pool.query("update acesso_externo set vence_em = now() - interval '1 day' where id = $1", [id]);
+    assert.equal((await oQueTem(d)).json().erro, 'acesso_vencido');
+    const e = await renovar(minha.dono, id);
+    assert.deepEqual([e.statusCode, e.json().anteriorValeAte], [200, null]);
+    assert.deepEqual([(await oQueTem(d)).statusCode, (await oQueTem(d)).json().erro, (await oQueTem(e.json().codigo)).statusCode], [401, 'credencial_invalida', 200]);
+    assert.ok(await baseDe(minha.centro), 'renovar nunca apaga as fichas');
+
+    // o revogado não se renova nem se reativa: é como se não existisse
+    assert.equal((await revogar(minha.dono, id)).statusCode, 200);
+    assert.deepEqual([(await renovar(minha.dono, id)).statusCode, (await reativar(minha.dono, id)).statusCode], [404, 404]);
+    assert.equal((await linhaDe(id)).reativado_em, null);
+  });
+
+  it('vencido: a porta responde chave-vencida (401), com a data no relógio da loja; a lista e a tela Fichas dizem "vencido"; as fichas ficam; não se reativa', async () => {
+    const { id, codigo } = await acessoDe(minha.centro);
+    assert.equal((await enviar(codigo, PEQUENO)).statusCode, 200);
+    // 14 dias antes de vencer já é "vence"; 16, ainda não — e a porta segue aceitando
+    await pool.query("update acesso_externo set vence_em = now() + interval '14 days' where id = $1", [id]);
+    assert.deepEqual([(await naLista(id)).situacao, (await oQueTem(codigo)).statusCode], ['vence', 200]);
+    await pool.query("update acesso_externo set vence_em = now() + interval '16 days' where id = $1", [id]);
+    assert.equal((await naLista(id)).situacao, 'valendo');
+
+    await pool.query("update acesso_externo set vence_em = '2026-10-03T12:00:00Z', ultimo_uso_em = now() - interval '2 hours' where id = $1", [id]);
+    const antes = await linhaDe(id);
+    for (const r of [await oQueTem(codigo), await enviar(codigo, PEQUENO)]) {
+      const j = r.json();
+      assert.deepEqual([r.statusCode, r.headers['content-type'], j.type, j.erro, r.headers['www-authenticate']], [401, 'application/problem+json; charset=utf-8', `${BASE_ERROS}chave-vencida`, 'acesso_vencido', 'Bearer error="invalid_token"']);
+      assert.equal(j.mensagem, 'este acesso venceu em 03/10/2026. Peça a quem cuida da conta no Farol para renová-lo: sai um código novo');
+    }
+    const depois = await linhaDe(id);
+    assert.deepEqual([depois.recebido_em.getTime(), depois.ultimo_uso_em.getTime()], [antes.recebido_em.getTime(), antes.ultimo_uso_em.getTime()], 'a chamada recusada não conta como uso nem como envio');
+    assert.ok(await baseDe(minha.centro), 'o vencido não apaga as fichas');
+    assert.equal((await naLista(id)).situacao, 'vencido');
+    const t = (await fichas(minha.gerente, minha.centro)).json();
+    assert.deepEqual([t.fonte, t.sistema.situacao, Date.parse(t.sistema.venceEm)], ['sistema', 'vencido', Date.parse('2026-10-03T12:00:00Z')]);
+    const r = await reativar(minha.dono, id);
+    assert.deepEqual([r.statusCode, r.json().erro], [409, 'acesso_vencido']);
+    assert.equal((await linhaDe(id)).reativado_em, null);
+  });
+
+  it('suspenso: 90 dias sem uso e a porta responde chave-suspensa (403) — a chamada recusada não conta como uso; reativar é um clique, com o mesmo código', async () => {
+    const { id, codigo } = await acessoDe(minha.centro);
+    assert.equal((await enviar(codigo, PEQUENO)).statusCode, 200);
+    const datas = (sql: string) => pool.query(`update acesso_externo set ${sql} where id = $1`, [id]);
+
+    await datas("criado_em = now() - interval '200 days', ultimo_uso_em = now() - interval '89 days'");
+    assert.equal((await naLista(id)).situacao, 'valendo', '89 dias: ainda vale');
+    await datas("ultimo_uso_em = now() - interval '91 days'");
+    assert.equal((await naLista(id)).situacao, 'suspenso');
+    // a reativação e a renovação recomeçam a contagem
+    await datas("reativado_em = now() - interval '10 days'");
+    assert.equal((await naLista(id)).situacao, 'valendo', 'reativado há 10 dias');
+    await datas("reativado_em = null, renovado_em = now() - interval '10 days'");
+    assert.equal((await naLista(id)).situacao, 'valendo', 'renovado há 10 dias');
+    await datas('renovado_em = null');
+
+    for (const r of [await oQueTem(codigo), await enviar(codigo, PEQUENO)]) {
+      const j = r.json();
+      assert.deepEqual([r.statusCode, j.type, j.erro], [403, `${BASE_ERROS}chave-suspensa`, 'acesso_suspenso']);
+      assert.match(j.mensagem, /suspenso: ficou 90 dias sem uso.*o código continua o mesmo$/);
+    }
+    const linha = (await pool.query("select ultimo_uso_em < now() - interval '90 days' as parado from acesso_externo where id = $1", [id])).rows[0];
+    assert.equal(linha.parado, true, 'insistir não reativa sozinho');
+    assert.ok(await baseDe(minha.centro), 'o suspenso não apaga as fichas');
+    const t = (await fichas(minha.supervisao, minha.centro)).json();
+    assert.deepEqual([t.sistema.situacao, t.sistema.ultimoUsoEm !== null], ['suspenso', true]);
+
+    // reativar: só a diretoria, só da conta, um clique
+    assert.deepEqual([(await reativar(minha.gerente, id)).statusCode, (await reativar(vizinha.dono, id)).statusCode, (await reativar(minha.dono, randomUUID())).statusCode, (await reativar(minha.dono, 'x')).statusCode], [403, 404, 404, 422]);
+    const r = await reativar(minha.dono, id);
+    assert.deepEqual([r.statusCode, r.json()], [200, { reativado: true }]);
+    const reativado = await linhaDe(id);
+    assert.ok(reativado.reativado_em && reativado.reativado_por, 'quem reativou e quando ficam registrados');
+    assert.deepEqual([(await oQueTem(codigo)).statusCode, (await naLista(id)).situacao], [200, 'valendo'], 'o mesmo código volta a entrar');
+    assert.ok(registro.some((l) => l.includes('porta: acesso reativado')));
+  });
+
+  it('o uso se anota na porta no máximo uma vez por hora', async () => {
+    const { id, codigo } = await acessoDe(minha.centro);
+    assert.equal((await linhaDe(id)).ultimo_uso_em, null, 'o acesso novo ainda não foi usado');
+    await oQueTem(codigo);
+    const primeiro = (await linhaDe(id)).ultimo_uso_em;
+    assert.ok(primeiro && Date.now() - primeiro.getTime() < 15_000, 'a primeira chamada anota');
+    await pool.query("update acesso_externo set ultimo_uso_em = now() - interval '30 minutes' where id = $1", [id]);
+    const meiaHora = (await linhaDe(id)).ultimo_uso_em.getTime();
+    await enviar(codigo, PEQUENO);
+    assert.equal((await linhaDe(id)).ultimo_uso_em.getTime(), meiaHora, 'há meia hora: não escreve de novo');
+    await pool.query("update acesso_externo set ultimo_uso_em = now() - interval '61 minutes' where id = $1", [id]);
+    await oQueTem(codigo);
+    assert.ok(Date.now() - (await linhaDe(id)).ultimo_uso_em.getTime() < 15_000, 'passada a hora: anota');
+  });
+
+  it('os outros da diretoria veem o que alguém fez nos acessos nos últimos 7 dias, até "Entendi"; quem fez, a gerência e outra conta não veem', async () => {
+    const dono2 = await criarUsuario(minha.tenantId, 'dono2', 'presidente');
+    const avisos = async (cookie: string) => (await listar(cookie)).json().avisos as Array<{ acao: string; por: string; sistema: string; loja: string; anteriorValeAte: string | null }>;
+    const vistos = (cookie: string) => app.inject({ method: 'POST', url: '/v1/acessos/avisos/vistos', headers: { cookie } });
+    await vistos(dono2);
+
+    const { id } = await acessoDe(minha.centro);
+    let v = await avisos(dono2);
+    assert.deepEqual(v.map((x) => [x.acao, x.por, x.sistema, x.loja, x.anteriorValeAte]), [['criou', 'Pessoa dono', 'PDV da Casa', 'Loja Centro', null]]);
+    assert.deepEqual([await avisos(minha.dono), await avisos(minha.gerente), await avisos(vizinha.dono)], [[], [], []], 'quem fez, a gerência e a outra conta não veem');
+
+    assert.equal((await renovar(minha.dono, id)).statusCode, 200);
+    v = await avisos(dono2);
+    assert.deepEqual(v.map((x) => x.acao), ['renovou', 'criou'], 'o mais novo primeiro');
+    assert.ok(v[0]!.anteriorValeAte, 'a renovação diz até quando o código antigo vale');
+
+    assert.deepEqual((await vistos(dono2)).json(), { visto: true });
+    assert.deepEqual(await avisos(dono2), [], '"Entendi" tira o que veio até agora');
+    assert.equal((await reativar(minha.dono, id)).statusCode, 200);
+    assert.equal((await revogar(minha.dono, id)).statusCode, 200);
+    assert.deepEqual((await avisos(dono2)).map((x) => x.acao), ['revogou', 'reativou']);
+
+    // o que tem mais de 7 dias não aparece, mesmo para quem nunca disse "Entendi"
+    await pool.query('update usuario set acessos_vistos_em = null where email like $1', [`dono2-${marca}%`]);
+    await pool.query("update acesso_externo set criado_em = now() - interval '8 days', renovado_em = now() - interval '8 days', reativado_em = now() - interval '8 days', revogado_em = now() - interval '8 days' where id = $1", [id]);
+    assert.deepEqual(await avisos(dono2), []);
+    assert.equal((await app.inject({ method: 'POST', url: '/v1/acessos/avisos/vistos' })).statusCode, 401);
   });
 });

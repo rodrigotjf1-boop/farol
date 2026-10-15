@@ -21,7 +21,13 @@ valendo até serem revogados).
 - Os 6 últimos caracteres conferem o resto: um código copiado pela metade, ou com uma letra
   trocada, é recusado na hora.
 - Ele aparece **uma vez**, na hora em que é criado. O Farol não o guarda: se for perdido, a
-  diretoria revoga o acesso e cria outro.
+  diretoria renova o acesso, e sai um código novo.
+- O código **vale 12 meses**. Antes de vencer, a diretoria renova: sai um código novo, e o de
+  antes continua valendo por **mais 7 dias**, para dar tempo de trocar no seu sistema. A consulta
+  (`GET`) diz até quando o código usado vale (`vence_em`): confira de vez em quando.
+- **90 dias sem nenhuma chamada**, o acesso fica **suspenso**. A diretoria reativa com um clique,
+  e o código continua o mesmo. Vencido ou suspenso, as fichas que o seu sistema já enviou ficam no
+  Farol; só não se atualizam.
 - Trate o código como uma senha: guarde-o na configuração do seu sistema, fora do código-fonte,
   e não o escreva em registro (log).
 - Quando a diretoria **revoga** o acesso, o código para de valer na hora, e as fichas que o
@@ -154,9 +160,9 @@ do preparo não é desmontada dentro do produto.
 {
   "resultado": "atualizada",
   "produtos": 4,
-  "comFicha": 2,
-  "semFicha": ["Refrigerante lata"],
-  "deFora": [],
+  "com_ficha": 2,
+  "sem_ficha": ["Refrigerante lata"],
+  "de_fora": [],
   "soltos": [],
   "problemas": 0
 }
@@ -164,9 +170,9 @@ do preparo não é desmontada dentro do produto.
 
 - `resultado`: `atualizada` quando as fichas da loja mudaram; `nada_mudou` quando o envio traz
   o que a loja já tinha. Enviar de novo a mesma coisa não custa nada, e não muda nada.
-- `produtos` e `comFicha`: quantos produtos entraram, e quantos deles com ficha.
-- `semFicha`: os produtos que entraram sem ingredientes. Não é erro.
-- `deFora`: os produtos que **não entraram**, com o motivo de cada um.
+- `produtos` e `com_ficha`: quantos produtos entraram, e quantos deles com ficha.
+- `sem_ficha`: os produtos que entraram sem ingredientes. Não é erro.
+- `de_fora`: os produtos que **não entraram**, com o motivo de cada um.
 
 ### Entra o que está certo
 
@@ -181,9 +187,9 @@ enviado:
 {
   "resultado": "atualizada",
   "produtos": 3,
-  "comFicha": 1,
-  "semFicha": ["Refrigerante lata"],
-  "deFora": [
+  "com_ficha": 1,
+  "sem_ficha": ["Refrigerante lata"],
+  "de_fora": [
     {
       "produto": "X-Burger",
       "problemas": [
@@ -205,7 +211,7 @@ enviado:
 
 Quem cuida da loja vê a mesma lista no console, na tela **Fichas**.
 
-**Confira `deFora` a cada envio.** Um produto que ficou de fora não tem ficha no Farol até o
+**Confira `de_fora` a cada envio.** Um produto que ficou de fora não tem ficha no Farol até o
 envio seguinte trazê-lo certo.
 
 ### O que recusa o envio inteiro
@@ -216,10 +222,12 @@ envio seguinte trazê-lo certo.
 | `400` | `parametro_invalido` | `somente_validar` com um valor que não é `true` nem `false`. |
 | `401` | `sem_credencial` | Faltou o cabeçalho `Authorization: Bearer <código>`. |
 | `401` | `credencial_invalida` | O código não vale: não existe, foi copiado errado ou foi revogado. A resposta é a mesma nos três casos, de propósito. |
+| `401` | `acesso_vencido` | O código venceu (vale 12 meses). Peça à diretoria para renovar: sai um código novo. O `type` é `chave-vencida`. |
+| `403` | `acesso_suspenso` | O acesso ficou 90 dias sem uso e está suspenso. Peça à diretoria para reativar: o código continua o mesmo. O `type` é `chave-suspensa`. |
 | `413` | `corpo_grande` | O envio passa de 8 MB. |
 | `415` | `tipo_invalido` | O `Content-Type` não é `application/json`. |
 | `422` | `envio_invalido` | A **forma** do envio não serve. A `mensagem` diz o caminho do campo. |
-| `422` | `nada_a_receber` | Nenhum produto do envio está certo. A resposta traz `deFora`, como acima. |
+| `422` | `nada_a_receber` | Nenhum produto do envio está certo. A resposta traz `de_fora`, como acima. |
 | `429` | `limite_de_chamadas` | Chamadas demais em pouco tempo (ver **Limites**). O cabeçalho `Retry-After` diz em quantos segundos tentar de novo. |
 | `500` | `erro_interno` | Algo quebrou do nosso lado. Informe o `request_id` a quem cuida da conta no Farol. |
 
@@ -264,9 +272,9 @@ ficam como estavam. Serve para montar a integração sem mexer na loja.
   "resultado": "so_validado",
   "gravado": false,
   "produtos": 3,
-  "comFicha": 1,
-  "semFicha": ["Refrigerante lata"],
-  "deFora": [ … como no envio … ],
+  "com_ficha": 1,
+  "sem_ficha": ["Refrigerante lata"],
+  "de_fora": [ … como no envio … ],
   "soltos": [],
   "problemas": 3
 }
@@ -285,13 +293,16 @@ Farol tem do seu sistema:
 {
   "sistema": "PDV da Casa",
   "loja": "Loja Centro",
-  "recebidoEm": "2026-10-11T17:02:11.000Z",
+  "recebido_em": "2026-10-11T17:02:11.000Z",
   "produtos": 4,
-  "comFicha": 2
+  "com_ficha": 2,
+  "vence_em": "2027-10-11T17:02:11.000Z"
 }
 ```
 
-`recebidoEm`, `produtos` e `comFicha` vêm vazios (`null`) enquanto o sistema não enviou nada.
+`recebido_em`, `produtos` e `com_ficha` vêm vazios (`null`) enquanto o sistema não enviou nada.
+`vence_em` é até quando o código usado nesta chamada vale: o código de antes de uma renovação
+para 7 dias depois dela; o novo, em 12 meses.
 
 ## Limites
 

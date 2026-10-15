@@ -68,9 +68,9 @@ const EXEMPLO = `{
 const RECEBIDO = `{
   "resultado": "atualizada",
   "produtos": 4,
-  "comFicha": 2,
-  "semFicha": ["Refrigerante lata"],
-  "deFora": [],
+  "com_ficha": 2,
+  "sem_ficha": ["Refrigerante lata"],
+  "de_fora": [],
   "soltos": [],
   "problemas": 0
 }`;
@@ -78,9 +78,9 @@ const RECEBIDO = `{
 const COM_DE_FORA = `{
   "resultado": "atualizada",
   "produtos": 2,
-  "comFicha": 1,
-  "semFicha": ["Refrigerante lata"],
-  "deFora": [
+  "com_ficha": 1,
+  "sem_ficha": ["Refrigerante lata"],
+  "de_fora": [
     {
       "produto": "X-Burger",
       "problemas": [
@@ -113,9 +113,9 @@ const SO_VALIDADO = `{
   "resultado": "so_validado",
   "gravado": false,
   "produtos": 3,
-  "comFicha": 1,
-  "semFicha": ["Refrigerante lata"],
-  "deFora": [ … como no envio … ],
+  "com_ficha": 1,
+  "sem_ficha": ["Refrigerante lata"],
+  "de_fora": [ … como no envio … ],
   "soltos": [],
   "problemas": 3
 }`;
@@ -123,9 +123,10 @@ const SO_VALIDADO = `{
 const O_QUE_TEM = `{
   "sistema": "PDV da Casa",
   "loja": "Loja Centro",
-  "recebidoEm": "2026-10-11T17:02:11.000Z",
+  "recebido_em": "2026-10-11T17:02:11.000Z",
   "produtos": 4,
-  "comFicha": 2
+  "com_ficha": 2,
+  "vence_em": "2027-10-11T17:02:11.000Z"
 }`;
 
 type Campo = [campo: string, preencher: string, oQueE: React.ReactNode];
@@ -164,10 +165,12 @@ const RECUSAS: Array<[string, string, string]> = [
   ['400', 'parametro_invalido', 'somente_validar com um valor que não é true nem false.'],
   ['401', 'sem_credencial', 'Faltou o cabeçalho Authorization: Bearer <código>.'],
   ['401', 'credencial_invalida', 'O código não vale: não existe, foi copiado errado ou foi revogado. A resposta é a mesma nos três casos, de propósito.'],
+  ['401', 'acesso_vencido', 'O código venceu (vale 12 meses). Peça à diretoria para renovar: sai um código novo. O type é chave-vencida.'],
+  ['403', 'acesso_suspenso', 'O acesso ficou 90 dias sem uso e está suspenso. Peça à diretoria para reativar: o código continua o mesmo. O type é chave-suspensa.'],
   ['413', 'corpo_grande', 'O envio passa de 8 MB.'],
   ['415', 'tipo_invalido', 'O Content-Type não é application/json.'],
   ['422', 'envio_invalido', 'A forma do envio não serve. A mensagem diz o caminho do campo.'],
-  ['422', 'nada_a_receber', 'Nenhum produto do envio está certo. A resposta traz deFora.'],
+  ['422', 'nada_a_receber', 'Nenhum produto do envio está certo. A resposta traz de_fora.'],
   ['429', 'limite_de_chamadas', 'Chamadas demais em pouco tempo (ver Limites). O cabeçalho Retry-After diz em quantos segundos tentar de novo.'],
   ['500', 'erro_interno', 'Algo quebrou do nosso lado. Informe o request_id a quem cuida da conta no Farol.'],
 ];
@@ -259,7 +262,15 @@ export default function Integracao() {
           <ul className="flex max-w-[72ch] list-disc flex-col gap-1.5 pl-5 text-farol-suave">
             <li>O código vale para {forte('uma loja')}. Para outra loja, é outro código.</li>
             <li>Os 6 últimos caracteres conferem o resto: um código copiado pela metade, ou com uma letra trocada, é recusado na hora.</li>
-            <li>Ele aparece {forte('uma vez')}, na hora em que é criado. O Farol não o guarda: se for perdido, a diretoria revoga o acesso e cria outro.</li>
+            <li>Ele aparece {forte('uma vez')}, na hora em que é criado. O Farol não o guarda: se for perdido, a diretoria renova o acesso, e sai um código novo.</li>
+            <li>
+              O código {forte('vale 12 meses')}. Antes de vencer, a diretoria renova: sai um código novo, e o de antes continua valendo por {forte('mais 7 dias')}, para dar
+              tempo de trocar no seu sistema. A consulta (GET) diz até quando o código usado vale (<Cod>vence_em</Cod>): confira de vez em quando.
+            </li>
+            <li>
+              {forte('90 dias sem nenhuma chamada')}, o acesso fica {forte('suspenso')}. A diretoria reativa com um clique, e o código continua o mesmo. Vencido ou suspenso,
+              as fichas que o seu sistema já enviou ficam no Farol; só não se atualizam.
+            </li>
             <li>Trate o código como uma senha: guarde-o na configuração do seu sistema, fora do código-fonte, e não o escreva em registro (log).</li>
             <li>Quando a diretoria {forte('revoga')} o acesso, o código para de valer na hora, e as fichas que o seu sistema enviou são apagadas do Farol.</li>
           </ul>
@@ -324,13 +335,13 @@ export default function Integracao() {
               de novo a mesma coisa não muda nada.
             </li>
             <li>
-              <Cod>produtos</Cod> e <Cod>comFicha</Cod>: quantos produtos entraram, e quantos deles com ficha.
+              <Cod>produtos</Cod> e <Cod>com_ficha</Cod>: quantos produtos entraram, e quantos deles com ficha.
             </li>
             <li>
-              <Cod>semFicha</Cod>: os produtos que entraram sem ingredientes. Não é erro.
+              <Cod>sem_ficha</Cod>: os produtos que entraram sem ingredientes. Não é erro.
             </li>
             <li>
-              <Cod>deFora</Cod>: os produtos que {forte('não entraram')}, com o motivo de cada um.
+              <Cod>de_fora</Cod>: os produtos que {forte('não entraram')}, com o motivo de cada um.
             </li>
           </ul>
 
@@ -342,7 +353,7 @@ export default function Integracao() {
           <p className={P}>A resposta continua sendo 200, e diz o que ficou de fora e onde está o problema, no que foi enviado:</p>
           <Bloco rotulo="A resposta de um envio com produtos de fora">{COM_DE_FORA}</Bloco>
           <p className={P}>
-            Quem cuida da loja vê a mesma lista no console, na tela {forte('Fichas')}. {forte('Confira deFora a cada envio:')} um produto que ficou de fora não tem
+            Quem cuida da loja vê a mesma lista no console, na tela {forte('Fichas')}. {forte('Confira de_fora a cada envio:')} um produto que ficou de fora não tem
             ficha no Farol até o envio seguinte trazê-lo certo.
           </p>
 
@@ -415,7 +426,8 @@ export default function Integracao() {
           <p className={P}>No mesmo endereço, com o mesmo cabeçalho. Serve para testar o código antes do primeiro envio e para ver o que o Farol tem do seu sistema:</p>
           <Bloco rotulo="A resposta do GET">{O_QUE_TEM}</Bloco>
           <p className={P}>
-            <Cod>recebidoEm</Cod>, <Cod>produtos</Cod> e <Cod>comFicha</Cod> vêm vazios (<Cod>null</Cod>) enquanto o sistema não enviou nada.
+            <Cod>recebido_em</Cod>, <Cod>produtos</Cod> e <Cod>com_ficha</Cod> vêm vazios (<Cod>null</Cod>) enquanto o sistema não enviou nada.{' '}
+            <Cod>vence_em</Cod> é até quando o código usado nesta chamada vale: o código de antes de uma renovação para 7 dias depois dela; o novo, em 12 meses.
           </p>
         </Secao>
 

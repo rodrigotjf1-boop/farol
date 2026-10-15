@@ -1514,7 +1514,15 @@ export type FichasDaLoja = {
   /** De onde as fichas vieram. Nulo = a loja não tem fichas guardadas. */
   fonte: 'regem' | 'planilha' | 'sistema' | null;
   /** O sistema que tem acesso para enviar as fichas desta loja (pode ainda não ter enviado nada). Nulo = nenhum. */
-  sistema: { nome: string; criadoEm: string; recebidoEm: string | null } | null;
+  sistema: {
+    nome: string;
+    criadoEm: string;
+    recebidoEm: string | null;
+    /** Vencido e suspenso não apagam as fichas: a tela avisa, e as do último envio continuam valendo. */
+    situacao: SituacaoDoAcesso;
+    venceEm: string;
+    ultimoUsoEm: string | null;
+  } | null;
   /**
    * A última importação por planilha — ou o último envio do outro sistema (aí `arquivo` vem vazio e `por` é o
    * nome do sistema). Só quando a origem é `planilha` ou `sistema`.
@@ -1674,22 +1682,57 @@ export type AcessoDeOutroSistema = {
   /** O que a loja tem DESTE sistema. Nulo = ainda nada. */
   produtos: number | null;
   comFicha: number | null;
+  /** Quem criou (o nome de agora; nulo se a pessoa foi apagada). */
+  criadoPor: string | null;
+  /** `vence` = nos 15 dias antes de vencer; `suspenso` = 90 dias sem uso. Vencido e suspenso não apagam as fichas. */
+  situacao: SituacaoDoAcesso;
+  /** Até quando o código de agora vale. */
+  venceEm: string;
+  /** A última chamada aceita na porta. */
+  ultimoUsoEm: string | null;
+  renovadoEm: string | null;
+  /** Renovado há pouco: até quando o código de antes ainda vale. Nulo = não há código antigo valendo. */
+  anteriorValeAte: string | null;
 };
 
+export type SituacaoDoAcesso = 'valendo' | 'vence' | 'vencido' | 'suspenso';
+
+/** O que os outros da diretoria fizeram nos acessos e quem olha ainda não viu. */
+export type AvisoDeAcesso = { acao: 'criou' | 'renovou' | 'reativou' | 'revogou'; em: string; por: string; sistema: string; loja: string; anteriorValeAte: string | null };
+
 export type AcessosDaConta = {
-  /** Só a diretoria cria e revoga. Quem decide é a API; isto só escolhe entre o botão e a frase. */
+  /** Só a diretoria cria, renova, reativa e revoga. Quem decide é a API; isto só escolhe entre o botão e a frase. */
   podeCriar: boolean;
+  /** No máximo 10 acessos valendo por conta: no teto, a tela troca o botão pelo aviso. */
+  teto: { maximo: number; ativos: number };
+  /** O termo de uso que quem cria aceita: o texto e a versão vêm da API. */
+  termo: { versao: string; de: string; itens: string[] };
+  avisos: AvisoDeAcesso[];
   acessos: AcessoDeOutroSistema[];
   lojas: Array<{ id: string; nome: string; origem: OrigemDaLoja }>;
 };
 
 /** A resposta de quem criou: é a ÚNICA vez em que o código aparece. */
-export type AcessoCriado = { id: string; nome: string; lojaId: string; lojaNome: string; criadoEm: string; codigo: string; temPlanilha: boolean };
+export type AcessoCriado = { id: string; nome: string; lojaId: string; lojaNome: string; criadoEm: string; venceEm: string; codigo: string; temPlanilha: boolean };
+
+/** A resposta de quem renovou: o código novo aparece aqui, uma vez. `anteriorValeAte` nulo = o antigo já tinha vencido. */
+export type AcessoRenovado = { id: string; nome: string; lojaNome: string; codigo: string; venceEm: string; anteriorValeAte: string | null };
 
 export const acessosApi = {
   obter: () => pedir<AcessosDaConta>('/acessos'),
 
-  criar: (nome: string, lojaId: string) => pedir<AcessoCriado>('/acessos', { method: 'POST', body: JSON.stringify({ nome, lojaId }) }),
+  /** Pede a senha de quem cria e o aceite do termo, na versão que a tela mostrou. */
+  criar: (nome: string, lojaId: string, senha: string, termoVersao: string) =>
+    pedir<AcessoCriado>('/acessos', { method: 'POST', body: JSON.stringify({ nome, lojaId, senha, termoVersao }) }),
+
+  /** Sai um código novo; o de antes vale mais 7 dias (se ainda não venceu). */
+  renovar: (id: string, senha: string) => pedir<AcessoRenovado>(`/acessos/${id}/renovar`, { method: 'POST', body: JSON.stringify({ senha }) }),
+
+  /** O suspenso volta a valer com o mesmo código. */
+  reativar: (id: string) => pedir<{ reativado: true }>(`/acessos/${id}/reativar`, { method: 'POST' }),
+
+  /** "Entendi" no aviso do que os outros da diretoria fizeram. */
+  avisosVistos: () => pedir<{ visto: true }>('/acessos/avisos/vistos', { method: 'POST' }),
 
   /** Vale na hora: o sistema deixa de conseguir enviar, e as fichas que ele mandou são apagadas. */
   revogar: (id: string) => pedir<{ revogado: true; fichasApagadas: boolean }>(`/acessos/${id}`, { method: 'DELETE' }),
