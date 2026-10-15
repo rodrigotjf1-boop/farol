@@ -7306,3 +7306,40 @@ desde a primeira vez: é um nome que ninguém tem onde guardar.
   - 3 estados × 16 larguras, sem nada para fora;
   - o roteiro completo da tela também passou de novo (13 estados × 16 larguras).
 - **Build**: `next build` passou.
+
+## 15/10/2026 · A21, fatia T5 (a parte da nuvem): a base de conhecimento desce para a loja (sem migration)
+
+### O que entra
+
+- **`GET /v1/agentes/base`** (`api/src/rotas/base-na-loja.ts`), com o token do agente. Traz os ingredientes da loja
+  que têm o que ensinar:
+  - as fotos de referência (T1);
+  - os exemplos da bancada que a conferência guardou (T4);
+  - o "não se vê de cima" (a leitura para de esperar vê-lo).
+
+  De cada quadro vão só o id, a origem, o sha256 e o tamanho. O ingrediente sem quadro e visível não desce. A
+  `impressao` muda quando entra ou sai um quadro, quando um quadro muda de imagem, ou quando um ingrediente muda de "se
+  vê" para "não se vê"; a ordem não muda.
+- **`GET /v1/agentes/base/quadros/:id`**: a imagem de um quadro DESTA loja. Outra loja recebe 404.
+- **O contrato** é `contratos/base-de-conhecimento.json`.
+
+### Por que não pela configuração
+
+As fichas descem marcadas na configuração (`fichas.impressao`). A base muda a cada conferência, e pôr a marca dela na
+configuração faria a loja puxar a configuração inteira a cada lanche conferido. A loja pede a lista quando precisa:
+antes de ler uma gravação de treino e uma vez por dia. É a frequência de leitura pelo dado, como o cadastro das fichas.
+
+### Como foi provado
+
+- **Testes da API** (`api/testes/base-na-loja.test.ts`): 5, sendo 2 sem banco e 3 com Postgres de verdade.
+  - A marca (a ordem não conta; o nome sem maiúscula nem espaço; muda com quadro, imagem e "não se vê").
+  - A lista com as chaves do contrato; o item sem nada a ensinar não desce.
+  - O quadro com os mesmos bytes do resumo; o da outra loja e sem token, recusados.
+  - A impressão muda com a foto nova, o "não se vê" e a foto tirada.
+- **Mutação: 9 trocas, 9 mortas**, com controle antes e depois.
+- **A suíte inteira da API**: 1491 de 1492. A que falha é a conhecida do banco local sem pgvector; no CI ela roda.
+
+### Falta
+
+A parte da loja: baixar a lista, guardar cada quadro pelo sha256, apagar o que saiu, e a leitura comparar com os
+exemplos. Entra num pacote novo, com o "pode" do dono.
