@@ -966,8 +966,12 @@ def cmd_servir(args: argparse.Namespace) -> int:
         print("  no histórico do shell e na lista de processos.\n", file=sys.stderr)
         return 1
 
+    from farol_agent.nuvem import SABE
+
+    # Sem a gravação de treino, o agente também não diz que sabe — senão o console prometeria o que a loja não faz.
+    sabe = tuple(s for s in SABE if s != "treino") if getattr(args, "sem_treino", False) else SABE
     try:
-        cliente = ClienteNuvem(args.nuvem, token, versao=args.versao or "0")
+        cliente = ClienteNuvem(args.nuvem, token, versao=args.versao or "0", sabe=sabe)
     except ErroDaNuvem as e:
         print(f"\n{e}\n", file=sys.stderr)
         return 1
@@ -1060,6 +1064,15 @@ def cmd_servir(args: argparse.Namespace) -> int:
         else:
             visor = None
 
+    treino_em_fundo = None
+    if not getattr(args, "sem_treino", False):
+        from farol_agent.treino_servico import TreinoEmFundo
+
+        # Thread própria, como a auditoria: buscar 30 minutos no gravador leva perto de meia hora.
+        treino_em_fundo = TreinoEmFundo(cliente, args.config)
+        treino_em_fundo.iniciar()
+        print("gravação de treino ligada: lê o que o console pedir, com a loja fechada")
+
     try:
         laco(
             sincronizador,
@@ -1071,6 +1084,8 @@ def cmd_servir(args: argparse.Namespace) -> int:
     except KeyboardInterrupt:
         print("\n  parado\n")
     finally:
+        if treino_em_fundo is not None:
+            treino_em_fundo.parar()
         if visor is not None:
             visor.parar()
         if auditoria is not None:
@@ -1237,7 +1252,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="abre a página dos canais no navegador DESTE computador (só 127.0.0.1)")
     sv.add_argument("--visor-porta", type=int, default=8765, dest="visor_porta",
                     help="porta da página dos canais (padrão 8765)")
-    sv.set_defaults(func=cmd_servir, sem_auditoria=False, visor=False)
+    sv.add_argument("--sem-treino", dest="sem_treino", action="store_true",
+                    help="não lê as gravações de treino que o console pedir (o agente também deixa de dizer que sabe)")
+    sv.set_defaults(func=cmd_servir, sem_auditoria=False, visor=False, sem_treino=False)
 
     args = p.parse_args(argv)
     return int(args.func(args))

@@ -54,6 +54,9 @@ def test_o_agente_declara_o_que_o_contrato_lista_e_pede_a_configuracao_como_ele_
     monkeypatch.setattr("urllib.request.urlopen", abrir)
     cliente_da_nuvem.ClienteNuvem("https://api.exemplo", "tok").configuracao()
     assert pedidos == ["https://api.exemplo" + CONTRATO["pedido"]]
+    # O serviço sem a gravação de treino (`--sem-treino`) declara menos — e pede a configuração com o que declara.
+    cliente_da_nuvem.ClienteNuvem("https://api.exemplo", "tok", sabe=("estados", "fichas")).configuracao()
+    assert pedidos[-1] == "https://api.exemplo/v1/agentes/configuracao?sabe=estados,fichas"
 
 
 def com_criterio_escondido(versao=5) -> dict:
@@ -141,6 +144,22 @@ def test_saber_so_uma_parte_do_que_se_sabe_hoje_tambem_faz_puxar(tmp_path):
     s = Sincronizador(nuvem, caminho)
     s.bater()
     assert nuvem.puxadas == 0
+
+
+def test_o_servico_sem_treino_anota_o_que_declarou_e_nao_puxa_a_cada_batida(tmp_path):
+    # `--sem-treino` (T3d-2): o cliente declara tudo menos "treino". A configuração guardada anota o que ESTE agente
+    # declarou; e as batidas seguintes não acham que falta "treino" — contra a lista geral, ele puxaria a configuração
+    # de novo a cada batida, para sempre.
+    sem_treino = tuple(x for x in SABE if x != "treino")
+    nuvem = NuvemFalsa(versao_remota=5)
+    nuvem.sabe = sem_treino
+    s = Sincronizador(nuvem, tmp_path / "c.json")
+    s.bater()
+    assert ler_do_disco(tmp_path / "c.json")[MARCA_DO_AGENTE] == {"sabe": list(sem_treino)}
+    assert s.config.pedida_sabendo == sem_treino
+    for _ in range(3):
+        s.bater()
+    assert (nuvem.batidas, nuvem.puxadas) == (4, 1)
 
 
 def test_se_a_puxada_falha_o_agente_segue_com_o_que_tem_e_tenta_na_proxima_batida(tmp_path):

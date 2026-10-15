@@ -65,8 +65,10 @@ class Pecas:
     nuvem: Any  # ClienteNuvem: gravacoes_de_treino, andamento_da_gravacao, lanche_de_treino
     gravador_do_canal: Callable[[int], Any]  # o cliente de arquivo do gravador daquele canal
     zona_do_canal: Callable[[int], Zona]  # a área de montagem do canal (o quadro de papel "montagem")
-    detector: treino_lanches.Detector
-    perfil: treino_lanches.PerfilDaBancada
+    # Nulo = este computador não tem o detector instalado, ou a loja ainda não tem o perfil da bancada: a gravação é
+    # buscada, e falha na leitura com o motivo (a tela mostra).
+    detector: treino_lanches.Detector | None
+    perfil: treino_lanches.PerfilDaBancada | None
     pode_buscar: Callable[[], bool]
     pode_ler: Callable[[], bool]
     agora: Callable[[], datetime] = lambda: datetime.now(timezone.utc)
@@ -169,6 +171,10 @@ def volta(pecas: Pecas, raiz: Path, *, folga_s: float = treino.FOLGA_PADRAO_S) -
         # 3. os lanches (a leitura que já terminou não se repete: o detector em cada quadro pesa)
         resumo = treino_lanches.lanches_ja_lidos(pasta / LANCHES)
         if resumo is None:
+            if pecas.detector is None:
+                return falhar("o detector não está instalado neste computador (farol-agent detector instalar)")
+            if pecas.perfil is None:
+                return falhar("falta o perfil da bancada desta loja (os números da câmera, medidos na instalação)")
             if not pecas.pode_ler():
                 return DEPOIS
             resumo = treino_lanches.lanches_da_densa(
