@@ -159,6 +159,23 @@ def test_a_virada_da_meia_noite_nao_quebra_o_lanche(tmp_path):
     assert resumo[0]["fim"] == "2026-10-16 00:00:37"
 
 
+def test_a_leitura_para_quando_mandam_sem_escrever_nada_e_a_que_terminou_e_reaproveitada(tmp_path):
+    densa = montar_densa(tmp_path, cena())
+    perguntas = []
+
+    def pode():
+        perguntas.append(1)
+        return len(perguntas) < 2  # a segunda pergunta (no quadro 60) diz que a loja abriu
+
+    assert tl.lanches_da_densa(densa, tmp_path / "lanches", DetectorDaCor(), PERFIL, pode_seguir=pode) is None
+    assert tl.lanches_ja_lidos(tmp_path / "lanches") is None, "interrompida, nada fica escrito"
+    assert len(perguntas) == 2, f"pergunta a cada {tl.PERGUNTA_A_CADA} quadros"
+    resumo = tl.lanches_da_densa(densa, tmp_path / "lanches", DetectorDaCor(), PERFIL)
+    assert tl.lanches_ja_lidos(tmp_path / "lanches") == resumo
+    (tmp_path / "lanches" / tl.RESUMO).write_text('{"não": "é lista"}', encoding="utf-8")
+    assert tl.lanches_ja_lidos(tmp_path / "lanches") is None
+
+
 def test_sem_quadro_que_abra_nao_ha_lanche(tmp_path):
     densa = montar_densa(tmp_path, cena()[:3])
     for p in (densa / "recortes").iterdir():

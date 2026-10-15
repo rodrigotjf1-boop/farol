@@ -7612,3 +7612,42 @@ peça trocável: quem tem as etapas lidas as passa ao corpo.
   redundância no código, que saiu, e três pediram casos nos testes — candidato torto antes dos bons, "vezes" negativo,
   adianto que vem como texto).
 - **A suíte inteira do agente**: 1882 passaram, 1 pulado.
+
+## 15/10/2026 · A21, fatia T3d-1: uma volta da gravação de treino, do começo ao fim (dormindo, sem migration)
+
+### O que entra
+
+- **`farol_agent/treino_laco.py`**: a volta que junta a parte da loja da T3 — perguntar (T3a), apagar o que a nuvem
+  mandou, a próxima gravação, buscar o trecho no gravador (T3b), a captura densa (T3c-1), os lanches (T3c-2), o corpo
+  de cada um e o envio (T3c-4), "pronta". O andamento sobe em faixas: a busca até 50%, a captura densa até 70%, os
+  lanches até 85%, o envio até 99%.
+- **Cada parada tem destino.** Fora da hora, gravador ocupado, gravação que não assentou, disco cheio, nuvem fora do
+  ar, loja aberta no meio da leitura: a volta para, e a seguinte retoma de onde parou — sem baixar de novo o que veio,
+  sem ler de novo os lanches que já foram lidos (o detector em cada quadro pesa: uma gravação de 30 minutos são ~1.800
+  quadros × 7 pedaços, pela conta uns 24 minutos de processador), sem reenviar lanche (`enviados.json`). Senha
+  recusada, gravação sem canal, gravador sem nada do horário: a gravação falha, com o motivo. Cancelada no console
+  (409, no andamento ou no lanche): para, e o que se guardou dela sai do disco; nenhum lanche dela sai depois. A nuvem
+  não conhece a gravação (404): esquece, e apaga. Token que não vale: para, sem apagar nada. O lanche recusado por estar
+  torto (422) não vai de novo.
+- **A leitura dos lanches (T3c-2) passou a parar** quando quem chama manda (pergunta a cada 30 quadros; parada, não
+  escreve nada e recomeça depois), e a que terminou é reaproveitada (`lanches.json`, escrito por último).
+- **Sem o adianto anotado**, a volta mede de novo no gravador, em vez de ficar presa.
+
+As peças que dependem da loja entram de fora (`Pecas`): a nuvem, o gravador do canal, a área de montagem, o detector,
+o perfil da bancada, "pode buscar?" e "pode ler?" (a hora é decisão do dono), e os relógios.
+
+### Como foi provado
+
+- **De ponta a ponta, sem mentira no meio** (`agent/testes/test_treino_laco.py`, 17 testes): o gravador de mentira
+  grava VÍDEO de verdade (AVI) da cena pedida — a bancada desenhada —, e a captura densa decodifica, recorta a área de
+  montagem e dá a hora (a da loja: o gravador estava 25 s adiantado), a leitura acha o lanche, o corpo segue o contrato
+  e sai pela nuvem de mentira; o andamento termina em "pronta". E cada parada acima, uma por uma.
+- **Mutação: 22 trocas, 22 mortas**, com controle antes e depois.
+- **A suíte inteira do agente**: 1900 passaram, 1 pulado.
+
+### Falta (T3d-2)
+
+Ligar no serviço do agente — a linha de execução que dá a volta de tempos em tempos, o cliente do gravador com a senha
+do cofre e o perfil medido, o detector, o perfil da bancada da loja (os números do canal 4, medidos na calibração de
+14/10), e as duas horas (buscar e ler) — e o agente declarar "treino". É o pacote novo, com o "pode" do dono, e as duas
+horas são decisão dele.
