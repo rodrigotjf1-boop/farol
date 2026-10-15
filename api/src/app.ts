@@ -29,6 +29,7 @@ import { rotasDeRegras } from './rotas/regras.js';
 import { rotasDeEstudos } from './rotas/estudos.js';
 import { rotasDeEventos } from './rotas/eventos.js';
 import { rotasDeFichas } from './rotas/fichas.js';
+import { rotasDeIngredientes } from './rotas/ingredientes.js';
 import { rotasDeLojas } from './rotas/lojas.js';
 import { rotasDeOrcamento } from './rotas/orcamento.js';
 import { rotasDeAnalises } from './rotas/analises.js';
@@ -192,6 +193,7 @@ export function criarApp(
   const regem = opcoes.regem ?? configDoRegem(process.env, VERSAO);
   rotasDoRegem(app, pool, regem);
   rotasDeFichas(app, pool, regem);
+  rotasDeIngredientes(app, pool);
   const cofreDoBalcao = opcoes.balcao ? opcoes.balcao.cofre : regem.chave;
   rotasDoBalcao(app, pool, { cofre: cofreDoBalcao });
   rotasDeDuvidas(app, pool, {
