@@ -1,0 +1,158 @@
+{
+  "sobre": "O lanche que a loja leu numa gravação de treino (A21, fatia T4; migration 049). Quem produz: a carga das leituras feitas antes da gravação automática e, na fatia T3, o agente. Quem consome: api/testes/treino.test.ts manda este corpo e confere o que foi gravado. Cada etapa diz o que a leitura achou e os nomes das FICHAS que ela acha possíveis: um nome = leitura específica; vários = um grupo que a cor não separa; nenhum = não deu para ver. O palpite da ficha é feito na nuvem, com as fichas de hoje.",
+  "rota": "POST /v1/agentes/treino/lanches",
+  "autenticacao": "Authorization: Bearer <token do agente> — a loja sai do token, nunca do corpo",
+  "corpo": {
+    "gravacao": {
+      "chave": "carga-2026-10-14-2148",
+      "pontoId": null,
+      "inicio": "2026-10-14T21:48:00-03:00",
+      "fim": "2026-10-14T22:18:00-03:00",
+      "origem": "carga"
+    },
+    "lanche": {
+      "chave": "lanche-14",
+      "abertoEm": "2026-10-14T22:00:40-03:00",
+      "fechouEm": "2026-10-14T22:01:23-03:00",
+      "etapas": [
+        {
+          "hora": "2026-10-14T22:00:40-03:00",
+          "lado": "pao",
+          "inicio": true,
+          "leu": "pão de brioche",
+          "candidatos": [
+            "Pão brioche"
+          ],
+          "vezes": 1,
+          "quadro": 0
+        },
+        {
+          "hora": "2026-10-14T22:00:52-03:00",
+          "lado": "tampo",
+          "inicio": false,
+          "leu": "cebola",
+          "candidatos": [
+            "Cebola roxa"
+          ],
+          "vezes": 1,
+          "quadro": 1
+        },
+        {
+          "hora": "2026-10-14T22:01:03-03:00",
+          "lado": "base",
+          "inicio": false,
+          "leu": "carne",
+          "candidatos": [
+            "Blend da casa"
+          ],
+          "vezes": 1,
+          "quadro": 2
+        },
+        {
+          "hora": "2026-10-14T22:01:09-03:00",
+          "lado": "base",
+          "inicio": false,
+          "leu": "fatia quadrada",
+          "candidatos": [
+            "Queijo prato"
+          ],
+          "vezes": 2,
+          "quadro": 3
+        },
+        {
+          "hora": "2026-10-14T22:01:15-03:00",
+          "lado": "base",
+          "inicio": false,
+          "leu": "avermelhado em tiras",
+          "candidatos": [
+            "Bacon fatiado",
+            "Cebola roxa"
+          ],
+          "vezes": 1,
+          "quadro": 4
+        },
+        {
+          "hora": "2026-10-14T22:01:19-03:00",
+          "lado": "base",
+          "inicio": false,
+          "leu": null,
+          "candidatos": [],
+          "vezes": 1,
+          "quadro": null
+        }
+      ]
+    },
+    "quadros": [
+      {
+        "imagemBase64": "/9j/4AAQSkZJRgABAQAAAQABAAD/wAARCAFAAUADASIAAhEBAxEB/9oACAEBAAA/AAH/2Q=="
+      },
+      {
+        "imagemBase64": "/9j/4AAQSkZJRgABAQAAAQABAAD/wAARCAFAAUADASIAAhEBAxEB/9oACAEBAAA/AAL/2Q=="
+      },
+      {
+        "imagemBase64": "/9j/4AAQSkZJRgABAQAAAQABAAD/wAARCAFAAUADASIAAhEBAxEB/9oACAEBAAA/AAP/2Q=="
+      },
+      {
+        "imagemBase64": "/9j/4AAQSkZJRgABAQAAAQABAAD/wAARCAFAAUADASIAAhEBAxEB/9oACAEBAAA/AAT/2Q=="
+      },
+      {
+        "imagemBase64": "/9j/4AAQSkZJRgABAQAAAQABAAD/wAARCAFAAUADASIAAhEBAxEB/9oACAEBAAA/AAX/2Q=="
+      }
+    ]
+  },
+  "resposta": {
+    "status": 201,
+    "corpo": {
+      "lancheId": "<uuid>",
+      "gravacaoId": "<uuid>",
+      "novo": true,
+      "conferido": false,
+      "quadros": 5
+    },
+    "deNovo": "mandar o mesmo lanche outra vez: 200, novo false — troca a leitura e os quadros, enquanto ninguém conferiu",
+    "depoisDeConferido": "mandar o lanche já conferido: 200, conferido true, quadros 0 — nada muda"
+  },
+  "recusas": [
+    {
+      "status": 401,
+      "erro": "credencial_invalida",
+      "quando": "sem token, ou token que não existe"
+    },
+    {
+      "status": 422,
+      "erro": "validacao",
+      "quando": "campo faltando ou torto: a mensagem diz qual (gravacao.chave, etapas[3].lado, quadros[1]…)"
+    },
+    {
+      "status": 422,
+      "erro": "validacao",
+      "quando": "gravacao.pontoId de um canal de outra loja"
+    },
+    {
+      "status": 413,
+      "quando": "o corpo passa do limite (40 quadros de até 300 kB)"
+    }
+  ],
+  "limites": {
+    "etapas": 60,
+    "quadros": 40,
+    "bytesDoQuadro": 300000,
+    "candidatos": 12,
+    "vezes": [
+      1,
+      6
+    ],
+    "duracaoMaxima": "2 horas"
+  },
+  "lados": [
+    "pao",
+    "tampo",
+    "base",
+    "outro"
+  ],
+  "origens": [
+    "gravador",
+    "programada",
+    "carga"
+  ]
+}

@@ -14,6 +14,7 @@ import { instalarGuarda, type Subida } from './guarda.js';
 import { voltaDaLeitura, type MemoriaDaRotina } from './leitura.js';
 import { migrarNaSubida } from './migracao.js';
 import { configDoRegem } from './regem.js';
+import { apagarQuadrosVencidos } from './rotas/treino.js';
 
 const PORTA = Number(process.env.PORT ?? 3000);
 
@@ -153,6 +154,33 @@ const leitura = setInterval(() => {
   void voltaDaLeitura(pool, regem, app.log, () => !porta.recusando, memoriaDaLeitura);
 }, INTERVALO_DA_LEITURA_MS);
 leitura.unref();
+
+// ─────────────── os quadros do treinamento ───────────────
+// Decisão do dono (15/10/2026): o quadro de cada etapa sobe para conferir e
+// sai 30 dias depois da conferência. Uma vez por hora basta — a conta é por
+// dia —, e o `delete` é uma instrução só, idempotente em toda réplica.
+// Enquanto a migration 049 não rodou, a tabela não existe: dizer UMA vez.
+const INTERVALO_DOS_QUADROS_MS = 3600_000;
+let avisouQuadrosSemTabela = false;
+const quadros = setInterval(() => {
+  if (porta.recusando) return;
+  void apagarQuadrosVencidos(pool)
+    .then((n) => {
+      avisouQuadrosSemTabela = false;
+      if (n > 0) app.log.info({ quadros: n }, 'quadros do treinamento vencidos APAGADOS (30 dias depois da conferência)');
+    })
+    .catch((e) => {
+      if ((e as { code?: string }).code === '42P01') {
+        if (!avisouQuadrosSemTabela) {
+          avisouQuadrosSemTabela = true;
+          app.log.warn('a limpeza dos quadros do treinamento está parada: falta a migration 049');
+        }
+        return;
+      }
+      app.log.error(e, 'a limpeza dos quadros do treinamento falhou');
+    });
+}, INTERVALO_DOS_QUADROS_MS);
+quadros.unref();
 
 try {
   // 0.0.0.0 é obrigatório no contêiner: ouvindo só em localhost, o
