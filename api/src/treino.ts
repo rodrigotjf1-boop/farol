@@ -8,18 +8,23 @@
 // cor não separa ("molho laranja") = vários; "não deu para ver" = nenhum.
 //
 // O PALPITE da ficha é feito aqui, com as fichas de hoje — a loja não
-// precisa saber delas para ler. É a mesma conta do protótipo aprovado:
-// cada ingrediente da ficha está "visto" quando uma etapa o tem entre os
-// candidatos; a ficha que mais bate ganha, e o que veio a mais e não é
-// adicional do produto pesa contra. O que "não se vê de cima" não entra.
+// precisa saber delas para ler. Desde o estudo das fichas (15/10/2026,
+// `estudo-das-fichas.ts`), cada ingrediente pesa pelo quanto ele separa os
+// lanches: o raro visto quase decide, o comum quase não conta; o que veio a
+// mais e não é adicional do produto pesa contra; o que "não se vê de cima"
+// não entra. Os produtos com a mesma ficha vista de cima (o "Número 16" e o
+// "Trio 16") são uma família: a bancada não os separa.
 //
 // A fila de conferência começa pela dúvida: é onde cada resposta ensina
 // mais.
 // =====================================================================
 
+import { estudarFichas, faixaDoIngrediente, mesmaFamilia, notaDaFamilia, oQueFoiVisto, type Estudo } from './estudo-das-fichas.js';
 import type { Base } from './fichas.js';
 import { chaveDoIngrediente } from './ingredientes.js';
 import { tamanhoDoJpeg } from './rotas/inventario.js';
+
+export { vezesNaFicha } from './estudo-das-fichas.js';
 
 export const LADOS = ['pao', 'tampo', 'base', 'outro'] as const;
 export type Lado = (typeof LADOS)[number];
@@ -129,60 +134,71 @@ export function lerLancheDeTreino(corpo: unknown): LancheLido | { problema: stri
 
 // ───────────────────────── a conta da ficha ─────────────────────────
 
-/** Quantas vezes o ingrediente entra: o número, quando a unidade se conta de cima (fatia, unidade); o resto é presença. */
-export function vezesNaFicha(quantidade: number | null, unidade: string | null): number {
-  const u = (unidade ?? '').trim().toLowerCase();
-  if (quantidade !== null && Number.isInteger(quantidade) && quantidade >= 1 && /^(fatias?|unidades?|un|und)$/.test(u)) return quantidade;
-  return 1;
-}
-
-export type Palpite = { produtoId: string; produto: string; batem: number; total: number; fora: number; nota: number };
+export type Palpite = {
+  produtoId: string;
+  produto: string;
+  /** Quantos ingredientes da ficha (dos que se veem de cima) a leitura viu, de quantos. */
+  batem: number;
+  total: number;
+  /** As etapas que não cabem na ficha (as que são adicional do produto também: vêm fora, mas não pesam). */
+  fora: number;
+  /** A soma das evidências (`notaDaFamilia`): só serve para ordenar. */
+  nota: number;
+  /** Os outros produtos com a mesma ficha vista de cima (o "Trio 16" do "Número 16"): a bancada não os separa. */
+  familia: string[];
+  /** Os ingredientes RAROS da ficha que a leitura viu: o porquê do palpite. */
+  raros: string[];
+};
 
 /**
  * As fichas que mais batem com o que a loja leu, da melhor para a pior. `invisiveis`: as chaves dos ingredientes
- * marcados "não se vê de cima" — não entram na conta.
+ * marcados "não se vê de cima" — não entram na conta. `estudo`: o das fichas de hoje, quando quem chama já o tem.
  */
-export function palpitesDoLanche(etapas: EtapaLida[], base: Base | null, invisiveis: Set<string> = new Set()): Palpite[] {
+export function palpitesDoLanche(
+  etapas: EtapaLida[],
+  base: Base | null,
+  invisiveis: Set<string> = new Set(),
+  estudo: Estudo = estudarFichas(base, invisiveis),
+): Palpite[] {
   if (!base) return [];
-  const comLeitura = etapas.filter((e) => e.candidatos.length > 0);
+  const visto = oQueFoiVisto(etapas);
   const palpites: Palpite[] = [];
-  for (const p of base.produtos) {
-    if (!p.ficha || !p.cozinha) continue;
-    const naFicha = new Set(p.ficha.ingredientes.map((i) => chaveDoIngrediente(i.nome)));
-    const adicionais = new Set<string>();
-    for (const g of p.adicionais ?? []) {
-      if (g.tipo !== 'adicionar') continue;
-      for (const o of g.opcoes ?? []) if ((o.efeito?.tipo === 'insumo' || o.efeito?.tipo === 'preparo') && o.efeito.nome) adicionais.add(chaveDoIngrediente(o.efeito.nome));
-    }
-    let batem = 0;
-    let total = 0;
-    for (const i of p.ficha.ingredientes) {
-      const k = chaveDoIngrediente(i.nome);
-      if (invisiveis.has(k)) continue;
-      total += 1;
-      if (comLeitura.some((e) => e.candidatos.some((c) => chaveDoIngrediente(c) === k))) batem += 1;
-    }
-    // a etapa lida que não cabe na ficha: fora; a que é adicional do produto não pesa contra. A que a leitura viu
-    // sem achar nome nas fichas ("molho verde" numa loja sem molho verde) também é fora — e estranha.
+  for (const f of estudo.familias) {
+    const nota = notaDaFamilia(estudo, f, etapas, visto);
+    const batem = [...f.ingredientes.keys()].filter((k) => visto.has(k)).length;
+    // a etapa lida que não cabe na ficha: fora (a que é adicional do produto também). A que a leitura viu sem achar
+    // nome nas fichas ("molho verde" numa loja sem molho verde) também é fora.
     let fora = 0;
-    let estranhos = 0;
     for (const e of etapas) {
       if (e.candidatos.length === 0) {
-        if (e.leu !== null) {
-          fora += 1;
-          estranhos += 1;
-        }
+        if (e.leu !== null) fora += 1;
         continue;
       }
-      const ks = e.candidatos.map(chaveDoIngrediente);
-      if (ks.some((k) => naFicha.has(k))) continue;
-      fora += 1;
-      if (!ks.some((k) => adicionais.has(k))) estranhos += 1;
+      if (!e.candidatos.some((c) => f.ingredientes.has(chaveDoIngrediente(c)))) fora += 1;
     }
-    if (total === 0) continue;
-    palpites.push({ produtoId: p.id, produto: p.nome, batem, total, fora, nota: batem / total - 0.2 * estranhos });
+    const raros = [...f.ingredientes.entries()].filter(([k]) => visto.has(k) && faixaDoIngrediente(estudo, k) === 'raro').map(([, i]) => i.nome);
+    for (const p of f.produtos) {
+      const familia = f.produtos.filter((x) => x.id !== p.id).map((x) => x.nome);
+      palpites.push({ produtoId: p.id, produto: p.nome, batem, total: f.ingredientes.size, fora, nota, familia, raros });
+    }
   }
   return palpites.sort((a, b) => b.nota - a.nota || a.fora - b.fora || a.produto.localeCompare(b.produto, 'pt-BR'));
+}
+
+/** Um palpite por família — o primeiro de cada (as opções de "Qual lanche era?" são lanches que a bancada separa). */
+export function umPorFamilia(palpites: Palpite[]): Palpite[] {
+  const vistos = new Set<string>();
+  return palpites.filter((p) => {
+    if (vistos.has(chaveDoIngrediente(p.produto))) return false;
+    vistos.add(chaveDoIngrediente(p.produto));
+    for (const n of p.familia) vistos.add(chaveDoIngrediente(n));
+    return true;
+  });
+}
+
+/** O palpite acertou? O produto escolhido, ou outro da mesma família (a bancada não separa o "Trio 16" do "Número 16"). */
+export function acertouOPalpite(estudo: Estudo, produto: string | null, palpite: string | null): boolean {
+  return produto !== null && palpite !== null && mesmaFamilia(estudo, produto, palpite);
 }
 
 // ───────────────────────── a conferência ─────────────────────────

@@ -420,4 +420,30 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     const recente = (await pool.query(`select l.id from treino_lanche l where l.loja_id = $1 and l.chave = 'lanche-15'`, [lojaId])).rows[0].id;
     assert.equal((await pool.query('select count(*)::int as n from treino_quadro where lanche_id = $1', [recente])).rows[0].n, 5, 'o conferido hoje fica');
   });
+
+  it('a família (o estudo das fichas): o combo com a mesma ficha não é a segunda opção, e escolhê-lo não é erro', async () => {
+    // a loja passa a ter o "X-Burger Trio", com a ficha do X-Burger: para a bancada, o mesmo lanche
+    const comTrio = copia(BASE);
+    const xb = comTrio.produtos.find((p) => p.nome === 'X-Burger')!;
+    comTrio.produtos.push({ ...copia(xb), id: randomUUID(), nome: 'X-Burger Trio', codigo: 'XBT' });
+    const { produtos, comFicha } = contarBase(comTrio);
+    await pool.query(`update fichas_da_loja set conteudo = $2, impressao = $3, produtos = $4, com_ficha = $5 where loja_id = $1`, [
+      lojaId,
+      JSON.stringify(comTrio),
+      impressaoDaBase(comTrio),
+      produtos,
+      comFicha,
+    ]);
+    const outro = CORPO();
+    outro.lanche.chave = 'lanche-trio';
+    const novo = (await mandar(outro)).json().lancheId as string;
+    const d = (await umLanche(novo)).json();
+    assert.equal(d.palpites[0].produto, 'X-Burger');
+    assert.deepEqual(d.palpites[0].familia, ['X-Burger Trio']);
+    assert.ok(!d.palpites.some((p: { produto: string }) => p.produto === 'X-Burger Trio'), 'o irmão não é a segunda opção');
+    assert.ok(d.produtos.some((p: { nome: string }) => p.nome === 'X-Burger Trio'), 'ele segue em "Outro produto"');
+    const r = await conferir(novo, { ...CONFERENCIA, produto: 'X-Burger Trio' });
+    assert.equal(r.statusCode, 200, r.body);
+    assert.deepEqual([r.json().produto, r.json().palpite, r.json().acertou], ['X-Burger Trio', 'X-Burger', true], 'a bancada não separa o trio');
+  });
 });
