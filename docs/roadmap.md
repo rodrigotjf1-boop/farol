@@ -4662,6 +4662,15 @@ que ficou de fora"**. A ordem: a planilha, a porta para outro sistema, o "Mais" 
   o "Mais" abre Fichas, Orçamento e Conexões (cada perfil vê o que pode abrir). Com isto o
   protótipo "fichas de qualquer origem" está inteiro no console.
 - **Telas antigas que dizem "nuvem" e "versão":** o dono pediu o protótipo do antes e depois.
+- **A fila da cozinha chega à loja (fatia 5) — a parte da nuvem: entregue em 15/10/2026** (sem migration;
+  [decisoes.md](decisoes.md), "A fila da cozinha chega à loja: a parte da nuvem"). O agente pergunta
+  `GET /v1/agentes/fila-da-cozinha` e a nuvem lê a fila no Regem com o acesso guardado da loja: **uma leitura por
+  loja a cada 15 s**, as perguntas ao mesmo tempo esperam a mesma leitura e a falha fica guardada por 30 s. Desce no
+  formato do Farol, com as escolhas no formato da base de fichas e os ids fixos (a loja casa o "sem cebola" com o
+  ingrediente da ficha pelo id); a versão é a do que desce, e toda resposta diz quando perguntar de novo. O
+  contrato é `contratos/fila-da-cozinha.json`. **Falta a parte da loja** (o agente perguntar e guardar a fila, e a
+  conferência da bancada usá-la): pacote novo, com o "pode" do dono. No piloto, o Regem da loja hoje só tem pedido
+  de delivery (o dono, 14/10).
 
 ### O que não foi medido
 

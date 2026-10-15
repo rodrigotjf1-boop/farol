@@ -87,7 +87,14 @@ export type RegemFalso = {
   /** A amostra de verdade, para o teste montar variações dela. */
   amostra: Cardapio;
   /** Estraga a resposta de uma leitura (para o que foge do contrato). Nulo = responde certo. */
-  leituraTorta: null | ((qual: 'catalogo' | 'fichas', corpo: Record<string, unknown>) => unknown);
+  leituraTorta: null | ((qual: 'catalogo' | 'fichas' | 'producao', corpo: Record<string, unknown>) => unknown);
+  /**
+   * A fila da cozinha que uma loja de lá responde em `GET /integracao/producao`:
+   * os pedidos, no formato de lá. Sem nada definido, a fila está vazia.
+   */
+  fila(lojaId: string, pedidos: unknown[]): void;
+  /** A autorização não inclui a fila (o escopo `producao.ler`): a fila responde 403, e o cardápio e as fichas seguem. */
+  filaSemEscopo: boolean;
   /** Segura as respostas das leituras até `soltar()`: o teste mexe no meio de uma leitura. */
   segurar(): void;
   soltar(): void;
@@ -154,6 +161,7 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
     fichas: real.fichas.fichas,
   };
   const cardapios = new Map<string, Cardapio>();
+  const filas = new Map<string, unknown[]>();
   let segurando = false;
   const esperando: Array<() => void> = [];
   /** acesso → o registro do aviso dele */
@@ -249,6 +257,8 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
     cardapio: (lojaId, c) => void cardapios.set(lojaId.toLowerCase(), c),
     amostra,
     leituraTorta: null,
+    fila: (lojaId, pedidos) => void filas.set(lojaId.toLowerCase(), pedidos),
+    filaSemEscopo: false,
     segurar: () => void (segurando = true),
     soltar: () => {
       segurando = false;
@@ -337,17 +347,26 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
         return json(res, 200, { url: new URL(corpo.url).href, pausado: false, registrado_em: new Date().toISOString(), falhas_seguidas: 0 });
       }
 
-      // ── as leituras: o cardápio e as fichas da loja do acesso ──
-      const leitura = /^\/integracao\/(catalogo|fichas)(?:\?versao=([0-9a-f]*))?$/.exec(caminho);
+      // ── as leituras: o cardápio, as fichas e a fila da cozinha da loja do acesso ──
+      const leitura = /^\/integracao\/(catalogo|fichas|producao)(?:\?versao=([0-9a-f]*))?$/.exec(caminho);
       if (req.method === 'GET' && leitura) {
-        const qual = leitura[1] as 'catalogo' | 'fichas';
+        const qual = leitura[1] as 'catalogo' | 'fichas' | 'producao';
         const acesso = /^Bearer (.+)$/.exec(autorizacao)?.[1] ?? '';
         const responder = () => {
           // O acesso é conferido NA HORA de responder: tirado enquanto a leitura esperava, é 401.
           const lojaId = acessos.get(acesso);
           if (!lojaId) return problema(res, 401, 'token-invalido', 'Token inválido', 'Token ausente, inválido ou revogado.');
+          // Depois do acesso, o escopo da rota — como lá.
+          if (qual === 'producao' && falso.filaSemEscopo) {
+            return problema(res, 403, 'escopo-insuficiente', 'Escopo insuficiente', 'Este token não tem o escopo producao.ler.');
+          }
           const c = cardapios.get(lojaId.toLowerCase()) ?? amostra;
-          const retrato = qual === 'catalogo' ? { categorias: c.categorias, setores: c.setores, produtos: c.produtos } : { fichas: c.fichas };
+          const retrato =
+            qual === 'catalogo'
+              ? { categorias: c.categorias, setores: c.setores, produtos: c.produtos }
+              : qual === 'fichas'
+                ? { fichas: c.fichas }
+                : { pedidos: filas.get(lojaId.toLowerCase()) ?? [] };
           // A versão é a impressão do conteúdo, como lá: muda quando o retrato muda.
           const versao = createHash('md5').update(JSON.stringify(retrato)).digest('hex');
           const corpo: Record<string, unknown> =

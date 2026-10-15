@@ -1,0 +1,331 @@
+{
+  "sobre": "A fila da cozinha descendo para a loja (A19, fatia 5): o que está em produção agora e o que ficou pronto há pouco, com os itens, a variação, as escolhas (o que acrescenta e o que tira) e a observação. A nuvem lê do Regem (GET /integracao/producao, escopo producao.ler — docs/integracao-farol.md §6, no repositório do Regem) com o acesso que a loja deu ao conectar, e entrega no formato do Farol. O agente nunca vê o acesso. 'doRegem' é a resposta de lá (o exemplo do contrato de lá); 'resposta' é exatamente o que desce para a loja a partir dela. Quem consome hoje: api/testes/fila-da-cozinha.test.ts. O agente lê este mesmo arquivo quando a parte da loja entrar (o pacote, com o 'pode' do dono).",
+  "autenticacao": "Authorization: Bearer <token do agente> — a loja sai do token, nunca de um parâmetro",
+  "rota": "GET /v1/agentes/fila-da-cozinha",
+  "pergunta": {
+    "versao": "opcional: a versão da fila que a loja já tem (64 caracteres hexadecimais). Igual à de agora, a resposta é só 'nada mudou'"
+  },
+  "ritmo": {
+    "frescorS": 15,
+    "esperaDaFalhaS": 30,
+    "regra": "A nuvem lê o Regem no máximo uma vez a cada 15 s por loja (o Regem aceita 60 chamadas por minuto por acesso, somando cardápio, fichas e fila). Toda resposta, de acerto ou de recusa, traz 'esperarS': em quantos segundos perguntar de novo. O agente segue o número que veio, e não um fixo dele."
+  },
+  "doRegem": {
+    "versao": "c07d5e0f4b2a6c8e1d3f5a7b9c0e2d4f",
+    "atualizado": true,
+    "gerado_em": "2026-10-15T22:40:05.000Z",
+    "loja_id": "5f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b",
+    "pedidos": [
+      {
+        "id": "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+        "numero": 39,
+        "origem": "balcao",
+        "canal": null,
+        "consumo": "viagem",
+        "status": "pronto",
+        "setor_id": "6e7f8091-a2b3-4c4d-9e5f-60718293a4b5",
+        "tempo_preparo_min": 12,
+        "alterado": false,
+        "criado_em": "2026-10-15T22:18:00.000Z",
+        "iniciado_em": "2026-10-15T22:19:30.000Z",
+        "pronto_em": "2026-10-15T22:29:10.000Z",
+        "entregue_em": null,
+        "cancelado_em": null,
+        "itens": [
+          {
+            "id": "1b2c3d4e-5f60-4b7c-9d8e-0f1a2b3c4d5e",
+            "produto_id": "7f8091a2-b3c4-4d5e-8f60-718293a4b5c6",
+            "ficha_id": "8091a2b3-c4d5-4e6f-9071-8293a4b5c6d7",
+            "variacao": null,
+            "descricao": "X-Bacon",
+            "quantidade": 1,
+            "observacao": null,
+            "removido": false,
+            "adicionais_texto": null,
+            "adicionais": []
+          }
+        ]
+      },
+      {
+        "id": "2c3d4e5f-6071-4c8d-ae9f-1a2b3c4d5e6f",
+        "numero": 41,
+        "origem": "mesa",
+        "canal": null,
+        "consumo": "local",
+        "status": "preparo",
+        "setor_id": "6e7f8091-a2b3-4c4d-9e5f-60718293a4b5",
+        "tempo_preparo_min": 12,
+        "alterado": false,
+        "criado_em": "2026-10-15T22:30:00.000Z",
+        "iniciado_em": "2026-10-15T22:32:00.000Z",
+        "pronto_em": null,
+        "entregue_em": null,
+        "cancelado_em": null,
+        "itens": [
+          {
+            "id": "3d4e5f60-7182-4d9e-bfa0-2b3c4d5e6f70",
+            "produto_id": "91a2b3c4-d5e6-4f70-8182-93a4b5c6d7e8",
+            "ficha_id": "a2b3c4d5-e6f7-4081-9293-a4b5c6d7e8f9",
+            "variacao": { "id": "b3c4d5e6-f708-4192-a3a4-b5c6d7e8f90a", "nome": "Duplo", "codigo": "XB-D", "fator_ficha": 2 },
+            "descricao": "X-Burger · Duplo",
+            "quantidade": 2,
+            "observacao": "bem passado",
+            "removido": false,
+            "adicionais_texto": "+ 2x Bacon · sem Cebola",
+            "adicionais": [
+              {
+                "tipo": "adicionar",
+                "opcao_id": "c4d5e6f7-0819-4a2b-b4c5-d6e7f8091a2b",
+                "nome": "Bacon",
+                "vezes": 2,
+                "acrescenta": { "tipo": "insumo", "insumo_id": "d5e6f708-192a-4b3c-85d6-e7f8091a2b3c", "nome": "Bacon fatiado", "quantidade_estoque": 0.02, "unidade_estoque": "kg" },
+                "retira": null
+              },
+              {
+                "tipo": "remover",
+                "opcao_id": null,
+                "nome": "Sem cebola",
+                "vezes": 1,
+                "acrescenta": null,
+                "retira": { "insumo_id": "e6f70819-2a3b-4c4d-96e7-f8091a2b3c4d", "sub_ficha_id": null, "nome": "Cebola roxa" }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "4e5f6071-8293-4eaf-80b1-3c4d5e6f7081",
+        "numero": 42,
+        "origem": "delivery",
+        "canal": "Cardápio",
+        "consumo": "viagem",
+        "status": "recebido",
+        "setor_id": null,
+        "tempo_preparo_min": null,
+        "alterado": true,
+        "criado_em": "2026-10-15T22:35:10.000Z",
+        "iniciado_em": null,
+        "pronto_em": null,
+        "entregue_em": null,
+        "cancelado_em": null,
+        "itens": [
+          {
+            "id": "5f607182-93a4-4fb0-91c2-4d5e6f708192",
+            "produto_id": "f7081920-3a4b-4c5d-a7f8-091a2b3c4d5e",
+            "ficha_id": "08192a3b-4c5d-4e6f-b809-1a2b3c4d5e6f",
+            "variacao": null,
+            "descricao": "X-Salada (+ Molho da casa)",
+            "quantidade": 1,
+            "observacao": null,
+            "removido": false,
+            "adicionais_texto": null,
+            "adicionais": [
+              {
+                "tipo": "adicionar",
+                "opcao_id": "192a3b4c-5d6e-4f70-8919-2a3b4c5d6e7f",
+                "nome": "Molho da casa",
+                "vezes": 1,
+                "acrescenta": { "tipo": "ficha", "ficha_id": "2a3b4c5d-6e7f-4081-9a2a-3b4c5d6e7f80" },
+                "retira": null
+              }
+            ]
+          },
+          {
+            "id": "60718293-a4b5-40c1-a2d3-5e6f708192a3",
+            "produto_id": null,
+            "ficha_id": null,
+            "variacao": null,
+            "descricao": "Batata média",
+            "quantidade": 1,
+            "observacao": null,
+            "removido": true,
+            "adicionais_texto": null,
+            "adicionais": []
+          }
+        ]
+      }
+    ]
+  },
+  "resposta": {
+    "versao": "2ba0d390ce70779a24d436891a8c12f848f6bdf0db8a63a79d2b9075e4d65d9d",
+    "atualizado": true,
+    "lidaEm": "2026-10-15T22:40:07.000Z",
+    "geradoEm": "2026-10-15T22:40:05.000Z",
+    "esperarS": 15,
+    "pedidos": [
+      {
+        "id": "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+        "numero": 39,
+        "origem": "balcao",
+        "canal": null,
+        "consumo": "viagem",
+        "etapa": "pronto",
+        "alterado": false,
+        "setorId": "6e7f8091-a2b3-4c4d-9e5f-60718293a4b5",
+        "tempoPreparoMin": 12,
+        "criadoEm": "2026-10-15T22:18:00.000Z",
+        "iniciadoEm": "2026-10-15T22:19:30.000Z",
+        "prontoEm": "2026-10-15T22:29:10.000Z",
+        "entregueEm": null,
+        "canceladoEm": null,
+        "itens": [
+          {
+            "id": "1b2c3d4e-5f60-4b7c-9d8e-0f1a2b3c4d5e",
+            "produtoId": "7f8091a2-b3c4-4d5e-8f60-718293a4b5c6",
+            "fichaId": "8091a2b3-c4d5-4e6f-9071-8293a4b5c6d7",
+            "variacao": null,
+            "descricao": "X-Bacon",
+            "quantidade": 1,
+            "observacao": null,
+            "removido": false,
+            "escolhasEmTexto": null,
+            "escolhas": []
+          }
+        ]
+      },
+      {
+        "id": "2c3d4e5f-6071-4c8d-ae9f-1a2b3c4d5e6f",
+        "numero": 41,
+        "origem": "mesa",
+        "canal": null,
+        "consumo": "local",
+        "etapa": "preparo",
+        "alterado": false,
+        "setorId": "6e7f8091-a2b3-4c4d-9e5f-60718293a4b5",
+        "tempoPreparoMin": 12,
+        "criadoEm": "2026-10-15T22:30:00.000Z",
+        "iniciadoEm": "2026-10-15T22:32:00.000Z",
+        "prontoEm": null,
+        "entregueEm": null,
+        "canceladoEm": null,
+        "itens": [
+          {
+            "id": "3d4e5f60-7182-4d9e-bfa0-2b3c4d5e6f70",
+            "produtoId": "91a2b3c4-d5e6-4f70-8182-93a4b5c6d7e8",
+            "fichaId": "a2b3c4d5-e6f7-4081-9293-a4b5c6d7e8f9",
+            "variacao": {
+              "nome": "Duplo",
+              "codigo": "XB-D",
+              "fator": 2
+            },
+            "descricao": "X-Burger · Duplo",
+            "quantidade": 2,
+            "observacao": "bem passado",
+            "removido": false,
+            "escolhasEmTexto": "+ 2x Bacon · sem Cebola",
+            "escolhas": [
+              {
+                "tipo": "adicionar",
+                "opcaoId": "c4d5e6f7-0819-4a2b-b4c5-d6e7f8091a2b",
+                "nome": "Bacon",
+                "vezes": 2,
+                "efeito": {
+                  "tipo": "insumo",
+                  "nome": "Bacon fatiado",
+                  "quantidade": 0.02,
+                  "unidade": "kg",
+                  "insumoId": "d5e6f708-192a-4b3c-85d6-e7f8091a2b3c"
+                }
+              },
+              {
+                "tipo": "remover",
+                "opcaoId": null,
+                "nome": "Sem cebola",
+                "vezes": 1,
+                "efeito": {
+                  "tipo": "retira",
+                  "nome": "Cebola roxa",
+                  "insumoId": "e6f70819-2a3b-4c4d-96e7-f8091a2b3c4d",
+                  "fichaId": null
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "4e5f6071-8293-4eaf-80b1-3c4d5e6f7081",
+        "numero": 42,
+        "origem": "delivery",
+        "canal": "Cardápio",
+        "consumo": "viagem",
+        "etapa": "recebido",
+        "alterado": true,
+        "setorId": null,
+        "tempoPreparoMin": null,
+        "criadoEm": "2026-10-15T22:35:10.000Z",
+        "iniciadoEm": null,
+        "prontoEm": null,
+        "entregueEm": null,
+        "canceladoEm": null,
+        "itens": [
+          {
+            "id": "5f607182-93a4-4fb0-91c2-4d5e6f708192",
+            "produtoId": "f7081920-3a4b-4c5d-a7f8-091a2b3c4d5e",
+            "fichaId": "08192a3b-4c5d-4e6f-b809-1a2b3c4d5e6f",
+            "variacao": null,
+            "descricao": "X-Salada (+ Molho da casa)",
+            "quantidade": 1,
+            "observacao": null,
+            "removido": false,
+            "escolhasEmTexto": null,
+            "escolhas": [
+              {
+                "tipo": "adicionar",
+                "opcaoId": "192a3b4c-5d6e-4f70-8919-2a3b4c5d6e7f",
+                "nome": "Molho da casa",
+                "vezes": 1,
+                "efeito": {
+                  "tipo": "preparo",
+                  "fichaId": "2a3b4c5d-6e7f-4081-9a2a-3b4c5d6e7f80",
+                  "nome": null
+                }
+              }
+            ]
+          },
+          {
+            "id": "60718293-a4b5-40c1-a2d3-5e6f708192a3",
+            "produtoId": null,
+            "fichaId": null,
+            "variacao": null,
+            "descricao": "Batata média",
+            "quantidade": 1,
+            "observacao": null,
+            "removido": true,
+            "escolhasEmTexto": null,
+            "escolhas": []
+          }
+        ]
+      }
+    ]
+  },
+  "naoMudou": {
+    "quando": "a versão que a loja mandou em ?versao= é a de agora",
+    "resposta": { "versao": "2ba0d390ce70779a24d436891a8c12f848f6bdf0db8a63a79d2b9075e4d65d9d", "atualizado": false, "lidaEm": "2026-10-15T22:40:22.000Z", "esperarS": 15 }
+  },
+  "chaves": {
+    "daResposta": ["versao", "atualizado", "lidaEm", "geradoEm", "esperarS", "pedidos"],
+    "doNaoMudou": ["versao", "atualizado", "lidaEm", "esperarS"],
+    "doPedido": ["id", "numero", "origem", "canal", "consumo", "etapa", "alterado", "setorId", "tempoPreparoMin", "criadoEm", "iniciadoEm", "prontoEm", "entregueEm", "canceladoEm", "itens"],
+    "doItem": ["id", "produtoId", "fichaId", "variacao", "descricao", "quantidade", "observacao", "removido", "escolhasEmTexto", "escolhas"],
+    "daEscolha": ["tipo", "opcaoId", "nome", "vezes", "efeito"],
+    "etapas": ["recebido", "preparo", "pronto", "entregue", "cancelado"],
+    "origens": ["balcao", "mesa", "comanda", "delivery", "totem"],
+    "efeitos": ["observacao", "insumo", "preparo", "produto", "retira", "nada"]
+  },
+  "regras": [
+    "A versão é a impressão dos pedidos que descem, e não a do Regem: muda quando muda o que a loja recebe. A hora em que o Regem montou a resposta (geradoEm) não entra nela.",
+    "lidaEm é a hora da última leitura do Regem que deu certo. Na loja que tem servidor próprio, o pedido chega ao Regem na nuvem até um minuto depois de entrar na fila.",
+    "A janela é a do Regem: em produção (recebido, preparo) das últimas 24 horas; pronto, entregue ou cancelado das últimas 2 horas. Pedido que sai da janela some da fila.",
+    "O efeito de uma escolha tem o formato da base de fichas (fichas-da-loja.json): a loja casa a escolha com a base pelos ids fixos (opcaoId, insumoId, fichaId), e a variação pelo código (ou pelo nome). O nome do preparo e do produto que uma escolha acrescenta vem nulo: a loja o acha na base, pelo id.",
+    "Pedido sem id, etapa ou hora de entrada, e item sem descrição, não descem (a nuvem registra quantos ficaram de fora).",
+    "Não desce: quem é o cliente, a mesa, a senha de retirada, o motivo do cancelamento e qualquer valor — o Regem nem os manda."
+  ],
+  "recusas": [
+    { "quando": "sem token, ou token que não vale", "status": 401, "oQueOAgenteFaz": "para e avisa: o token não vale" },
+    { "quando": "a loja não está ligada ao Regem, ou o acesso foi tirado lá", "status": 404, "erro": "sem_regem", "esperarS": 600, "oQueOAgenteFaz": "segue sem a fila e pergunta de novo depois de esperarS" },
+    { "quando": "ligada, mas a autorização não inclui a fila (o escopo producao.ler)", "status": 409, "erro": "sem_escopo", "esperarS": 600, "oQueOAgenteFaz": "segue sem a fila e pergunta de novo depois de esperarS; quem resolve é a pessoa, conectando a loja de novo no console" },
+    { "quando": "o Regem não respondeu, ou respondeu fora do contrato", "status": 502, "erro": "regem_fora", "esperarS": 30, "oQueOAgenteFaz": "fica com a fila que já tem e pergunta de novo depois de esperarS" },
+    { "quando": "esta instalação não tem a chave que abre o acesso", "status": 503, "erro": "sem_chave", "esperarS": 600, "oQueOAgenteFaz": "segue sem a fila e pergunta de novo depois de esperarS" }
+  ]
+}

@@ -31,6 +31,7 @@ import { rotasDeEventos } from './rotas/eventos.js';
 import { rotasDeFichas } from './rotas/fichas.js';
 import { rotasDeIngredientes } from './rotas/ingredientes.js';
 import { rotasDaBaseNaLoja } from './rotas/base-na-loja.js';
+import { rotasDaFilaDaCozinha } from './rotas/fila-da-cozinha.js';
 import { rotasDeLojas } from './rotas/lojas.js';
 import { rotasDoTreino } from './rotas/treino.js';
 import { rotasDeOrcamento } from './rotas/orcamento.js';
@@ -195,6 +196,7 @@ export function criarApp(
   const regem = opcoes.regem ?? configDoRegem(process.env, VERSAO);
   rotasDoRegem(app, pool, regem);
   rotasDeFichas(app, pool, regem);
+  rotasDaFilaDaCozinha(app, pool, regem);
   rotasDeIngredientes(app, pool);
   rotasDaBaseNaLoja(app, pool);
   rotasDoTreino(app, pool);
