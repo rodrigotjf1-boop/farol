@@ -6736,3 +6736,54 @@ a porção fora da disputa, o mais raro com o disco lido errado, o raro fora da 
 próxima com várias candidatas e no empate, o molho de cor pelo grupo, o "sem borrão" que não chama o detector nem borra,
 as referências lidas da pasta (com acento no nome, maiúscula na extensão, arquivo quebrado, o máximo) e mandadas antes
 do quadro com o cache. As mutações numa cópia, até zero vivas; a suíte inteira do agente.
+
+## 14/10/2026 (noite) · A porta para outro sistema no Padrão DMS, parte 1: erro em problem+json, revogado igual a inexistente, limite de chamadas, código novo e "só validar" (sem migration)
+
+### O pedido
+
+O Padrão DMS de integração (Hub DMS, aprovado pelo dono em 14/10) vale para toda porta que um sistema de fora usa. A
+sessão do Hub listou o que faltava na porta das fichas (`/v1/integracao/fichas`) em
+`docs/pedido-hub-dms-porta-no-padrao.md` e, com a sessão do Farol ocupada, o dono pediu que a parte sem tela e sem
+migration fosse feita de lá ("o farol está super ocupado na tarefa, não tem como prosseguir?").
+
+### O que entra
+
+- **O erro da porta em `application/problem+json`** (RFC 9457): `type`, `title`, `status`, `detail`, `request_id` —
+  e o `erro` e a `mensagem` do Farol junto, como extensão. Quem já lia `erro` continua lendo. Vale também para o que o
+  próprio Fastify recusa na porta (JSON torto, corpo grande, tipo errado, rota inexistente, erro interno). Fora da
+  porta, o console segue no `{ erro, mensagem }` de sempre (`porta-problema.ts`, `erros.ts`).
+- **O código revogado responde IGUAL ao que nunca existiu** (o `acesso_revogado` saiu): mesmo status, mesmo corpo
+  (menos o `request_id`), mesmo `WWW-Authenticate: Bearer error="invalid_token"`. A frase diz o que fazer nos dois
+  casos. Quem tem um código revogado não fica sabendo que ele existiu.
+- **O código novo no formato do Padrão:** `dms_ap_farol_` + 43 + `_` + 6 dígitos de conferência (`gerarChave` do
+  pacote comum 0.1.1, copiado em `api/src/dms/`). O código colado pela metade ou com uma letra trocada é recusado sem ir
+  ao banco, e o de outro produto ou de outro tipo não entra nem se estivesse no banco. **O `farol_…` de antes continua
+  valendo** até ser revogado: ninguém precisa trocar o código que já usa.
+- **Limite de chamadas** (429 com `Retry-After`, a frase diz o mesmo tempo): por acesso, 60 consultas por minuto, 12
+  envios por hora e 60 conferências por hora; somando a conta, 240 consultas por minuto e 60 envios por hora. A cota da
+  conta só conta o que passou na do acesso — um sistema preso num laço de 429 não gasta a cota das outras lojas. As
+  cotas são do processo (a API roda numa cópia só).
+- **`?somente_validar=true` no envio:** confere tudo e responde o que entraria (`so_validado`, `gravado: false`), sem
+  gravar a base, a data do último envio nem a versão que faz o agente baixar. Tem cota própria: quem está montando a
+  integração confere várias vezes seguidas, e na cota dos envios travaria em 12. Só `true` e `false` valem — quem
+  escreveu `somente_validar=1` queria conferir, e gravar seria o engano que dói (400).
+- **A documentação** (`docs/integracao-fichas.md` e a página `/integracao`, só o texto): o prefixo novo, a tabela de
+  erros, a forma do erro, a conferência sem gravar e os limites.
+
+### O que fica para a parte 2 (pede protótipo e migration 047)
+
+A validade de 12 meses, a suspensão depois de 90 dias sem uso, a senha e o termo ao criar o acesso. Sem elas, o kit do
+Padrão falha em "vencida" e "suspensa" — o teste do kit espera exatamente essas duas falhas, para a parte 2 não passar
+despercebida. O nome dos campos (`comFicha`, `recebidoEm` em camelCase; o Padrão usa `snake_case`) é decisão do dono.
+
+### Como foi provado
+
+Os testes da API contra Postgres (`testes/rota-acessos.test.ts`): o corpo problem+json com as extensões; o revogado,
+o inexistente e o antigo inexistente com o mesmo corpo e os mesmos cabeçalhos; o código antigo valendo e os que não
+servem recusados mesmo com a linha no banco; a 61ª consulta, o 13º envio e a 61ª conferência em 429 (com o
+`Retry-After` dentro da janela, nem acima nem muito abaixo); a conta com seis lojas — o acesso que insiste no 429 não
+gasta a cota das outras, e a 241ª consulta e o 61º envio da conta param; o "só validar" sem gravar nada, na loja sem
+base e na com base, e os valores tortos recusados sem gravar. **O kit de testes do Padrão roda contra a porta de
+verdade** (`testes/dms/kit-conformidade.mts`, cópia do Hub) e falha só em vencida e suspensa. Sem banco
+(`testes/erros.test.ts`): 404, 400, 413, 415, 500 e o 4xx sem tradução em problem+json na porta, e o contrato de
+sempre fora dela (também em `/v1/integracaox/…`). As mutações uma a uma, arquivo restaurado a cada uma, até zero vivas.

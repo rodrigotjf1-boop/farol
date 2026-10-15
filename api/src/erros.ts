@@ -35,6 +35,12 @@
 
 import type { FastifyInstance } from 'fastify';
 
+import { ehDaPorta, responderNaPorta } from './porta-problema.js';
+
+// A PORTA para outro sistema (`/v1/integracao/...`) segue o Padrão DMS: o mesmo `erro` e a mesma `mensagem` daqui,
+// dentro de um `application/problem+json` (`porta-problema.ts`). Também o erro que o próprio Fastify produz nela — e
+// o 4xx que ele produz lá é sempre o pedido que não se lê (400 do parser, 413 do tamanho, 415 do tipo): `parametro-invalido`.
+
 export type RespostaDeErro = { erro: string; mensagem: string; requestId?: string };
 
 /** Traduz o código do Fastify para o nosso contrato. */
@@ -88,10 +94,9 @@ export function instalarTratamentoDeErros(app: FastifyInstance): void {
     // Diz o método junto da rota: `GET /v1/pontos` existindo e
     // `POST /v1/pontos` não existindo é o engano mais comum de quem
     // integra, e "não existe essa rota" sozinho não ajuda a notar.
-    resposta.status(404).send({
-      erro: 'rota_nao_encontrada',
-      mensagem: `não existe ${req.method} ${req.url} nesta API`,
-    });
+    const mensagem = `não existe ${req.method} ${req.url} nesta API`;
+    if (ehDaPorta(req.url)) return responderNaPorta(req, resposta, 404, 'nao-encontrado', 'rota_nao_encontrada', mensagem);
+    resposta.status(404).send({ erro: 'rota_nao_encontrada', mensagem });
   });
 
   app.setErrorHandler((bruto, req, resposta) => {
@@ -100,31 +105,31 @@ export function instalarTratamentoDeErros(app: FastifyInstance): void {
     const erro = bruto as { statusCode?: number; code?: string; message?: string };
     const status = erro.statusCode ?? 500;
 
+    const daPorta = ehDaPorta(req.url);
+
     if (status >= 500) {
       // O detalhe INTEIRO vai para o log, com a stack. É o que permite
       // achar a causa depois — e foi a falta disso que custou caro.
       req.log.error({ err: bruto, reqId: req.id }, 'erro não tratado');
-      return resposta.status(status).send({
-        erro: 'erro_interno',
-        mensagem:
-          'algo quebrou do nosso lado. Informe o código abaixo a quem ' +
-          'cuida do sistema para achar o registro exato',
-        requestId: String(req.id),
-      });
+      const mensagem =
+        'algo quebrou do nosso lado. Informe o código abaixo a quem ' +
+        'cuida do sistema para achar o registro exato';
+      if (daPorta) return responderNaPorta(req, resposta, status, 'erro-interno', 'erro_interno', mensagem);
+      return resposta.status(status).send({ erro: 'erro_interno', mensagem, requestId: String(req.id) });
     }
 
     const traduzido = traduzir(erro.code, status);
     if (traduzido) {
       req.log.warn({ codigo: erro.code, status }, 'pedido recusado');
+      if (daPorta) return responderNaPorta(req, resposta, status, 'parametro-invalido', traduzido.erro, traduzido.mensagem);
       return resposta.status(status).send(traduzido);
     }
 
     // 4xx que não reconhecemos: a mensagem do Fastify é melhor que nada,
     // mas o código fica genérico para ninguém passar a depender dele.
     req.log.warn({ codigo: erro.code, status }, 'pedido recusado sem tradução');
-    return resposta.status(status).send({
-      erro: 'pedido_invalido',
-      mensagem: erro.message || 'o pedido não pôde ser atendido',
-    });
+    const mensagem = erro.message || 'o pedido não pôde ser atendido';
+    if (daPorta) return responderNaPorta(req, resposta, status, 'parametro-invalido', 'pedido_invalido', mensagem);
+    return resposta.status(status).send({ erro: 'pedido_invalido', mensagem });
   });
 }

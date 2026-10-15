@@ -99,7 +99,26 @@ const COM_DE_FORA = `{
   "problemas": 3
 }`;
 
-const FORMA_ERRADA = `{ "erro": "envio_invalido", "mensagem": "produtos[1].cozinha: era para ser verdadeiro ou falso (true ou false)" }`;
+const FORMA_ERRADA = `{
+  "type": "https://dev.dmstecnologias.com/erros/regra-invalida",
+  "title": "Regra inválida",
+  "status": 422,
+  "detail": "produtos[1].cozinha: era para ser verdadeiro ou falso (true ou false)",
+  "request_id": "req-3m",
+  "erro": "envio_invalido",
+  "mensagem": "produtos[1].cozinha: era para ser verdadeiro ou falso (true ou false)"
+}`;
+
+const SO_VALIDADO = `{
+  "resultado": "so_validado",
+  "gravado": false,
+  "produtos": 3,
+  "comFicha": 1,
+  "semFicha": ["Refrigerante lata"],
+  "deFora": [ … como no envio … ],
+  "soltos": [],
+  "problemas": 3
+}`;
 
 const O_QUE_TEM = `{
   "sistema": "PDV da Casa",
@@ -141,12 +160,16 @@ const DO_COMBO: Campo[] = [
   ['quantidade', 'se quiser', <>Quantos vêm no combo. Sem o campo, vale <Cod>1</Cod>.</>],
 ];
 const RECUSAS: Array<[string, string, string]> = [
+  ['400', 'corpo_invalido', 'O corpo não é JSON, ou veio vazio.'],
+  ['400', 'parametro_invalido', 'somente_validar com um valor que não é true nem false.'],
   ['401', 'sem_credencial', 'Faltou o cabeçalho Authorization: Bearer <código>.'],
-  ['401', 'credencial_invalida', 'O código não existe. Confira se foi copiado inteiro.'],
-  ['401', 'acesso_revogado', 'O acesso foi revogado pela diretoria. Peça outro.'],
-  ['413', '—', 'O envio passa de 8 MB.'],
+  ['401', 'credencial_invalida', 'O código não vale: não existe, foi copiado errado ou foi revogado. A resposta é a mesma nos três casos, de propósito.'],
+  ['413', 'corpo_grande', 'O envio passa de 8 MB.'],
+  ['415', 'tipo_invalido', 'O Content-Type não é application/json.'],
   ['422', 'envio_invalido', 'A forma do envio não serve. A mensagem diz o caminho do campo.'],
   ['422', 'nada_a_receber', 'Nenhum produto do envio está certo. A resposta traz deFora.'],
+  ['429', 'limite_de_chamadas', 'Chamadas demais em pouco tempo (ver Limites). O cabeçalho Retry-After diz em quantos segundos tentar de novo.'],
+  ['500', 'erro_interno', 'Algo quebrou do nosso lado. Informe o request_id a quem cuida da conta no Farol.'],
 ];
 
 function Cod({ children }: { children: React.ReactNode }) {
@@ -230,10 +253,12 @@ export default function Integracao() {
         <Secao id="codigo" titulo="Antes de começar: o código de acesso">
           <p className={P}>
             Quem cria o acesso é a diretoria da conta, no console do Farol (em {forte('Conexões')}, no cartão {forte('Outro sistema')}, botão{' '}
-            {forte('Criar acesso')}). Ela escolhe a loja e recebe um {forte('código de acesso')}, que começa por <Cod>farol_</Cod>.
+            {forte('Criar acesso')}). Ela escolhe a loja e recebe um {forte('código de acesso')}, que começa por <Cod>dms_ap_farol_</Cod> (os criados antes de
+            14/10/2026 começam por <Cod>farol_</Cod> e continuam valendo até serem revogados).
           </p>
           <ul className="flex max-w-[72ch] list-disc flex-col gap-1.5 pl-5 text-farol-suave">
             <li>O código vale para {forte('uma loja')}. Para outra loja, é outro código.</li>
+            <li>Os 6 últimos caracteres conferem o resto: um código copiado pela metade, ou com uma letra trocada, é recusado na hora.</li>
             <li>Ele aparece {forte('uma vez')}, na hora em que é criado. O Farol não o guarda: se for perdido, a diretoria revoga o acesso e cria outro.</li>
             <li>Trate o código como uma senha: guarde-o na configuração do seu sistema, fora do código-fonte, e não o escreva em registro (log).</li>
             <li>Quando a diretoria {forte('revoga')} o acesso, o código para de valer na hora, e as fichas que o seu sistema enviou são apagadas do Farol.</li>
@@ -244,7 +269,7 @@ export default function Integracao() {
         <Secao id="endereco" titulo="O endereço e a identificação">
           <Bloco rotulo="O endereço da porta">{ENDERECO}</Bloco>
           <p className={P}>Toda chamada leva o código no cabeçalho:</p>
-          <Bloco rotulo="Os cabeçalhos de toda chamada">{'Authorization: Bearer farol_...\nContent-Type: application/json'}</Bloco>
+          <Bloco rotulo="Os cabeçalhos de toda chamada">{'Authorization: Bearer dms_ap_farol_...\nContent-Type: application/json'}</Bloco>
           <p className={P}>A loja é a do código. Nada no corpo do envio escolhe a loja.</p>
         </Secao>
 
@@ -338,11 +363,51 @@ export default function Integracao() {
             ))}
           </div>
           <p className={P}>Quando o envio é recusado, as fichas que a loja tinha continuam como estavam.</p>
-          <p className={P}>A forma errada é erro de programação, e por isso recusa tudo, em vez de deixar um produto de fora:</p>
-          <Bloco rotulo="A resposta de um envio com a forma errada">{FORMA_ERRADA}</Bloco>
+
+          <h3 className={SUB}>A forma do erro</h3>
           <p className={P}>
-            São erros de forma: <Cod>produtos</Cod> não ser uma lista (ou vir vazia); um produto, ingrediente, variação, adicional ou item de combo que não é um
-            objeto; faltar o <Cod>nome</Cod>; vir texto onde vai <Cod>true</Cod>/<Cod>false</Cod>; vir um objeto ou uma lista onde vai um texto ou um número.
+            Todo erro da porta vem em <Cod>application/problem+json</Cod>, no Padrão de integração da DMS (RFC 9457): os mesmos nomes em todo produto da DMS. Junto
+            vêm o <Cod>erro</Cod> e a <Cod>mensagem</Cod> do Farol:
+          </p>
+          <Bloco rotulo="A resposta de um envio com a forma errada">{FORMA_ERRADA}</Bloco>
+          <ul className="flex max-w-[72ch] list-disc flex-col gap-1.5 pl-5 text-farol-suave">
+            <li>
+              <Cod>erro</Cod> é para o seu programa: estável, não muda de texto. Decida por ele (ou por <Cod>type</Cod>).
+            </li>
+            <li>
+              <Cod>mensagem</Cod> (igual a <Cod>detail</Cod>) é para a pessoa: diz o que fazer.
+            </li>
+            <li>
+              <Cod>request_id</Cod> identifica a chamada no registro do Farol. Diga-o a quem cuida da conta quando pedir ajuda.
+            </li>
+            <li>
+              O 401 traz o cabeçalho <Cod>WWW-Authenticate: Bearer</Cod>.
+            </li>
+          </ul>
+          <p className={P}>
+            A forma errada é erro de programação, e por isso recusa tudo, em vez de deixar um produto de fora. São erros de forma: <Cod>produtos</Cod> não ser uma
+            lista (ou vir vazia); um produto, ingrediente, variação, adicional ou item de combo que não é um objeto; faltar o <Cod>nome</Cod>; vir texto onde vai{' '}
+            <Cod>true</Cod>/<Cod>false</Cod>; vir um objeto ou uma lista onde vai um texto ou um número.
+          </p>
+        </Secao>
+
+        <Secao id="so-validar" titulo="Conferir sem gravar — PUT com somente_validar">
+          <p className={P}>
+            O mesmo envio, com{' '}
+            <span className="whitespace-nowrap">
+              <Cod>?somente_validar=true</Cod>
+            </span>{' '}
+            no endereço: o Farol confere tudo e responde o que entraria, {forte('sem gravar nada')} — as fichas
+            da loja, a data do último envio e o computador da loja ficam como estavam. Serve para montar a integração sem mexer na loja.
+          </p>
+          <Bloco rotulo="A resposta de uma conferência">{SO_VALIDADO}</Bloco>
+          <p className={P}>
+            O que o envio recusa, a conferência recusa igual (422, <Cod>envio_invalido</Cod> ou <Cod>nada_a_receber</Cod>). Só <Cod>true</Cod> e <Cod>false</Cod>{' '}
+            valem:{' '}
+            <span className="whitespace-nowrap">
+              <Cod>?somente_validar=1</Cod>
+            </span>{' '}
+            é recusado (400), para que ninguém grave achando que só conferia.
           </p>
         </Secao>
 
@@ -360,6 +425,19 @@ export default function Integracao() {
             <li>Até 8 MB por envio.</li>
             <li>Nomes com até 200 letras (o que passar é cortado).</li>
           </ul>
+          <p className={P}>Chamadas, por código de acesso:</p>
+          <ul className="flex max-w-[72ch] list-disc flex-col gap-1.5 pl-5 text-farol-suave">
+            <li>Envio (PUT): até 12 por hora.</li>
+            <li>
+              Conferência (PUT com <Cod>somente_validar=true</Cod>): até 60 por hora.
+            </li>
+            <li>Consulta (GET): até 60 por minuto.</li>
+            <li>E, somando todos os códigos da conta: 60 envios por hora e 240 consultas por minuto.</li>
+          </ul>
+          <p className={P}>
+            Passou do limite, a resposta é 429 com o cabeçalho <Cod>Retry-After</Cod> (em segundos). Espere esse tempo antes de tentar de novo: repetir antes não
+            adianta.
+          </p>
           <p className={P}>
             Envie quando o cardápio ou uma ficha mudar — ou uma vez por dia, se for mais simples. Ficha técnica não muda a toda hora: não é preciso enviar a cada
             pedido.

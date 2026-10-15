@@ -19,11 +19,15 @@
 import assert from 'node:assert/strict';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { after, before, beforeEach, describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import type { FastifyInstance } from 'fastify';
 import pg from 'pg';
 
 import { criarApp } from '../src/app.js';
+import { gerarChave } from '../src/dms/integracao-dms.js';
+import { LIMITE_DE_CONSULTAS_POR_MINUTO } from '../src/rotas/acessos.js';
+import { rodarKit } from './dms/kit-conformidade.mts';
 import { semLeituraEmCurso } from '../src/leitura.js';
 import { COLUNAS } from '../src/planilha-fichas.js';
 import type { ConfigDoRegem } from '../src/regem.js';
@@ -37,11 +41,33 @@ const CONSOLE = 'https://console.exemplo';
 const RETORNO = `${CONSOLE}/api/regem/retorno`;
 
 type Obj = Record<string, unknown>;
+/** A base dos nomes de problema do Padrão DMS (o `type` do `application/problem+json`). */
+const BASE_ERROS = 'https://dev.dmstecnologias.com/erros/';
+/** A resposta ao código que não vale: a mesma para o inexistente, o colado errado e o revogado. */
+const CODIGO_QUE_NAO_VALE =
+  'código de acesso inválido ou revogado. Confira se foi copiado inteiro; se foi revogado, peça outro a quem cuida da conta no Farol';
+/** O corpo sem o código de rastreio, que muda a cada pedido. */
+const semRastreio = (j: Obj): Obj => {
+  const { request_id: _r, ...resto } = j;
+  return resto;
+};
 const ing = (nome: string, quantidade: unknown = 1, unidade: unknown = 'g'): Obj => ({ nome, quantidade, unidade });
 /** Um envio pequeno e certo: dois produtos, um com ficha. */
 const PEQUENO = { produtos: [{ nome: 'Batata frita', ingredientes: [ing('Batata palito', 200), ing('Sal', 1, 'pitada')] }, { nome: 'Água sem gás', cozinha: false }] };
 /** Com um produto errado no meio: o X-Burger fica de fora, os outros dois entram. */
 const COM_PROBLEMA = { produtos: [PEQUENO.produtos[0], { nome: 'X-Burger', ingredientes: [ing('Pão', 1, 'unidade'), ing('Queijo', '', 'fatia')] }, PEQUENO.produtos[1]] };
+/**
+ * A chamada parou no limite: 429 no Padrão DMS, e o `Retry-After` é o fim da janela que acabou de começar (perto de
+ * `janelaSeg`, nunca acima) — e a frase diz o mesmo tempo.
+ */
+function recusou(r: { statusCode: number; headers: Record<string, unknown>; json: () => Obj }, frase: RegExp, janelaSeg: number) {
+  const segundos = Number(r.headers['retry-after']);
+  const j = r.json();
+  assert.deepEqual([r.statusCode, r.headers['content-type'], j.type, j.erro], [429, 'application/problem+json; charset=utf-8', `${BASE_ERROS}limite-de-chamadas`, 'limite_de_chamadas']);
+  assert.ok(Number.isInteger(segundos) && segundos > janelaSeg - 30 && segundos <= janelaSeg, `Retry-After ${String(r.headers['retry-after'])} numa janela de ${janelaSeg} s`);
+  assert.match(String(j.mensagem), frase);
+  assert.match(String(j.mensagem), new RegExp(`em ${segundos} s$`), 'a frase diz o mesmo tempo do cabeçalho');
+}
 /** Uma planilha pequena e certa, para a loja que já tinha fichas de planilha. */
 const PLANILHA = { fichas: [[...COLUNAS.fichas], ['Suco', '', '', '', 'Polpa', 100, 'g']] };
 
@@ -191,7 +217,7 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     const c = r.json();
     assert.deepEqual(Object.keys(c).sort(), ['codigo', 'criadoEm', 'id', 'lojaId', 'lojaNome', 'nome', 'temPlanilha']);
     assert.deepEqual([c.nome, c.lojaId, c.lojaNome, c.temPlanilha], ['PDV da Casa', minha.centro, 'Loja Centro', false], 'o nome sem espaço sobrando');
-    assert.match(c.codigo, /^farol_[A-Za-z0-9_-]{43}$/);
+    assert.match(c.codigo, /^dms_ap_farol_[A-Za-z0-9_-]{43}_[A-Za-z0-9_-]{6}$/, 'o código novo segue o Padrão DMS, com dígitos de conferência');
     assert.equal(r.headers['cache-control'], 'no-store');
 
     // no banco: só a impressão
@@ -251,7 +277,7 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     const { codigo } = await acessoDe(minha.centro);
     const tentar = async (headers: Record<string, string>) => {
       const r = [await app.inject({ method: 'PUT', url: '/v1/integracao/fichas', headers, payload: PEQUENO }), await app.inject({ method: 'GET', url: '/v1/integracao/fichas', headers })];
-      assert.deepEqual(r[0]!.json(), r[1]!.json(), 'as duas rotas da porta respondem igual');
+      assert.deepEqual(semRastreio(r[0]!.json()), semRastreio(r[1]!.json()), 'as duas rotas da porta respondem igual');
       return [r[0]!.statusCode, r[1]!.statusCode, r[0]!.json().erro];
     };
     assert.deepEqual(await tentar({}), [401, 401, 'sem_credencial']);
@@ -263,6 +289,182 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     assert.deepEqual(await tentar({ authorization: `Bearer farol_${randomBytes(32).toString('base64url')}` }), [401, 401, 'credencial_invalida']);
     assert.equal(await baseDe(minha.centro), null, 'nenhuma tentativa gravou nada');
     assert.deepEqual([(await enviar(codigo, PEQUENO)).statusCode, (await app.inject({ method: 'PUT', url: '/v1/integracao/fichas', headers: { authorization: `bearer ${codigo}` }, payload: PEQUENO })).statusCode], [200, 200], 'com o código, entra (o nome do esquema em qualquer caixa)');
+  });
+
+  // ───────────────────────── a porta: o Padrão DMS ─────────────────────────
+
+  it('o erro da porta sai no Padrão DMS (problem+json) com o erro do Farol junto — e o código revogado responde IGUAL ao que nunca existiu', async () => {
+    const sem = await enviar(null, PEQUENO);
+    const j = sem.json();
+    assert.equal(sem.statusCode, 401);
+    assert.equal(sem.headers['content-type'], 'application/problem+json; charset=utf-8');
+    assert.equal(sem.headers['www-authenticate'], 'Bearer');
+    assert.deepEqual(Object.keys(j).sort(), ['detail', 'erro', 'mensagem', 'request_id', 'status', 'title', 'type']);
+    assert.deepEqual([j.type, j.title, j.status, j.erro, j.detail], [`${BASE_ERROS}token-invalido`, 'Token inválido', 401, 'sem_credencial', j.mensagem]);
+    assert.ok(typeof j.request_id === 'string' && j.request_id.length > 0, 'o código de rastreio vai junto');
+
+    const nunca = await oQueTem(gerarChave('ap', 'farol').chave);
+    assert.equal(nunca.headers['www-authenticate'], 'Bearer error="invalid_token"');
+    assert.deepEqual([nunca.statusCode, nunca.json().type, nunca.json().erro, nunca.json().mensagem], [401, `${BASE_ERROS}token-invalido`, 'credencial_invalida', CODIGO_QUE_NAO_VALE]);
+    const antigoQueNunca = await oQueTem(`farol_${randomBytes(32).toString('base64url')}`);
+
+    const { id, codigo } = await acessoDe(minha.centro);
+    assert.equal((await revogar(minha.dono, id)).statusCode, 200);
+    for (const r of [await oQueTem(codigo), await enviar(codigo, PEQUENO), antigoQueNunca]) {
+      assert.deepEqual([r.statusCode, r.headers['content-type'], r.headers['www-authenticate'], semRastreio(r.json())], [401, nunca.headers['content-type'], nunca.headers['www-authenticate'], semRastreio(nunca.json())], 'o revogado não conta que existiu');
+    }
+  });
+
+  it('o código de antes do Padrão (farol_…) continua valendo; o de outro produto, de outro tipo ou torto não entra — nem se estivesse no banco', async () => {
+    const { id } = await acessoDe(minha.centro);
+    const trocar = (codigo: string) => pool.query('update acesso_externo set token_hash = $2 where id = $1', [id, createHash('sha256').update(codigo, 'utf8').digest('hex')]);
+
+    const antigo = `farol_${randomBytes(32).toString('base64url')}`;
+    await trocar(antigo);
+    assert.deepEqual([(await oQueTem(antigo)).statusCode, (await enviar(antigo, PEQUENO)).statusCode], [200, 200], 'o código antigo segue entrando');
+
+    // A conferência do formato vem antes do banco: o que não é código do Farol não entra nem com a linha certa lá.
+    const naoServem = [gerarChave('ap', 'liame').chave, gerarChave('lg', 'farol').chave, `farol_${'a'.repeat(42)}`, `farol_${'a'.repeat(44)}`, `xfarol_${'a'.repeat(43)}`, 'abc'];
+    for (const codigo of naoServem) {
+      await trocar(codigo);
+      const r = await oQueTem(codigo);
+      assert.deepEqual([r.statusCode, r.json().erro], [401, 'credencial_invalida'], codigo.slice(0, 14));
+    }
+    const novo = gerarChave('ap', 'farol').chave;
+    await trocar(novo);
+    assert.equal((await oQueTem(novo)).statusCode, 200, 'e o código no formato novo entra');
+  });
+
+  it('só validar confere tudo e responde o que entraria — sem gravar a base, a data do último envio nem a versão que faz o agente baixar', async () => {
+    const { id, codigo } = await acessoDe(minha.centro);
+    const validar = (corpo: unknown, valor = 'true') => app.inject({ method: 'PUT', url: `/v1/integracao/fichas?somente_validar=${valor}`, headers: { authorization: `Bearer ${codigo}` }, payload: corpo as object });
+    const recebido = async () => (await pool.query<{ r: Date | null }>('select recebido_em as r from acesso_externo where id = $1', [id])).rows[0]!.r;
+
+    // na loja sem base: não cria
+    const primeiro = await validar(PEQUENO);
+    assert.deepEqual([primeiro.statusCode, primeiro.json()], [200, { resultado: 'so_validado', gravado: false, produtos: 2, comFicha: 1, semFicha: ['Água sem gás'], deFora: [], soltos: [], problemas: 0 }]);
+    assert.deepEqual([await baseDe(minha.centro), await recebido()], [null, null]);
+
+    // na loja com base: não troca
+    await enviar(codigo, PEQUENO);
+    await pool.query(`update acesso_externo set recebido_em = now() - interval '1 hour' where id = $1`, [id]);
+    const antes = (await baseDe(minha.centro))!;
+    const [versao, quando] = [await versaoDe(minha.centro), await recebido()];
+    const r = await validar(COM_PROBLEMA);
+    const fora = [{ produto: 'X-Burger', problemas: [{ onde: 'produtos[1].ingredientes[1]', texto: 'falta a quantidade.' }] }];
+    assert.deepEqual([r.statusCode, r.json()], [200, { resultado: 'so_validado', gravado: false, produtos: 2, comFicha: 1, semFicha: ['Água sem gás'], deFora: fora, soltos: [], problemas: 1 }]);
+    const depois = (await baseDe(minha.centro))!;
+    assert.deepEqual([depois.impressao, depois.atualizada_em.getTime(), depois.importacao, await versaoDe(minha.centro), (await recebido())!.getTime()], [antes.impressao, antes.atualizada_em.getTime(), antes.importacao, versao, quando!.getTime()]);
+
+    // o que o envio recusa, a conferência recusa igual
+    assert.deepEqual([(await validar({ produtos: [] })).statusCode, (await validar({ produtos: [] })).json().erro], [422, 'envio_invalido']);
+    assert.deepEqual([(await validar({ produtos: [{ nome: 'A', ingredientes: [ing('x', '', 'g')] }] })).statusCode, (await validar({ produtos: [{ nome: 'A', ingredientes: [ing('x', '', 'g')] }] })).json().erro], [422, 'nada_a_receber']);
+
+    // valor que não é true nem false: recusa, e NÃO grava (quem escreveu "1" queria conferir)
+    for (const valor of ['1', 'TRUE', 'sim', '', 'true&somente_validar=true']) {
+      const torto = await validar(COM_PROBLEMA, valor);
+      assert.deepEqual([torto.statusCode, torto.json().type, torto.json().erro], [400, `${BASE_ERROS}parametro-invalido`, 'parametro_invalido'], valor);
+    }
+    assert.equal((await baseDe(minha.centro))!.impressao, antes.impressao, 'nenhum valor torto gravou');
+
+    // false = o envio de sempre
+    // (o COM_PROBLEMA sem o X-Burger é o PEQUENO: aqui vai um envio que muda de fato)
+    const grava = await validar({ produtos: [{ nome: 'Batata frita', ingredientes: [ing('Batata palito', 250)] }] }, 'false');
+    assert.deepEqual([grava.statusCode, grava.json().resultado, (await baseDe(minha.centro))!.impressao !== antes.impressao], [200, 'atualizada', true]);
+  });
+
+  it('o limite por acesso: a 61ª consulta e o 13º envio param em 429 com Retry-After; a conferência tem cota própria; a outra loja segue', async () => {
+    const { codigo } = await acessoDe(minha.centro);
+    const daBarra = await acessoDe(minha.barra, 'PDV da Barra');
+    // Uma API nova: as cotas são do processo, e começam do zero.
+    const outro = criarApp(pool, { logger: false, regem: cfg });
+    await outro.ready();
+    const ler = (c: string) => outro.inject({ method: 'GET', url: '/v1/integracao/fichas', headers: { authorization: `Bearer ${c}` } });
+    const mandar = (corpo: unknown, consulta = '') => outro.inject({ method: 'PUT', url: `/v1/integracao/fichas${consulta}`, headers: { authorization: `Bearer ${codigo}` }, payload: corpo as object });
+    try {
+      for (let n = 1; n <= 60; n += 1) assert.equal((await ler(codigo)).statusCode, 200, `consulta ${n}`);
+      recusou(await ler(codigo), /até 60 consultas por minuto por acesso/, 60);
+
+      // os envios têm outra cota: um corpo torto conta, e é recusado sem gravar
+      for (let n = 1; n <= 12; n += 1) assert.equal((await mandar({})).statusCode, 422, `envio ${n}`);
+      recusou(await mandar(PEQUENO), /até 12 envios por hora por acesso/, 3600);
+      assert.equal(await baseDe(minha.centro), null, 'o envio recusado pelo limite não gravou');
+
+      // a conferência tem a dela: segue depois de acabarem os envios
+      for (let n = 1; n <= 60; n += 1) assert.equal((await mandar({}, '?somente_validar=true')).statusCode, 422, `conferência ${n}`);
+      recusou(await mandar(PEQUENO, '?somente_validar=true'), /até 60 conferências por hora por acesso/, 3600);
+
+      // e a outra loja da conta não sentiu nada
+      assert.equal((await ler(daBarra.codigo)).statusCode, 200);
+    } finally {
+      await outro.close();
+    }
+  });
+
+  it('o limite da conta soma os acessos de todas as lojas — e o acesso preso no 429 não gasta a cota das outras lojas', async () => {
+    const conta = await criarLoja('Loja L1', { tenant: { nome: `${marca}-limite` } });
+    const lojas = [conta.lojaId];
+    for (let n = 2; n <= 6; n += 1) lojas.push((await criarLoja(`Loja L${n}`, { tenantId: conta.tenantId })).lojaId);
+    const dono = await criarUsuario(conta.tenantId, 'dono-limite', 'presidente');
+    const [a, b, c, d, e, f] = await Promise.all(lojas.map(async (l, i) => (await acessoDe(l, `PDV ${i + 1}`, dono)).codigo));
+    const outro = criarApp(pool, { logger: false, regem: cfg });
+    await outro.ready();
+    const ler = (c: string) => outro.inject({ method: 'GET', url: '/v1/integracao/fichas', headers: { authorization: `Bearer ${c}` } });
+    const mandar = (c: string, consulta = '') => outro.inject({ method: 'PUT', url: `/v1/integracao/fichas${consulta}`, headers: { authorization: `Bearer ${c}` }, payload: {} });
+    const vezes = async (quantas: number, chamar: () => Promise<{ statusCode: number }>) => {
+      const vistos: number[] = [];
+      for (let n = 0; n < quantas; n += 1) vistos.push((await chamar()).statusCode);
+      return [...new Set(vistos)];
+    };
+    try {
+      // consultas: o A esgota a dele e insiste; B, C e D usam a cota inteira; o E já encontra a conta cheia
+      assert.deepEqual(await vezes(60, () => ler(a!)), [200]);
+      assert.deepEqual(await vezes(30, () => ler(a!)), [429]);
+      for (const codigo of [b!, c!, d!]) assert.deepEqual(await vezes(60, () => ler(codigo)), [200], 'a insistência do A não gastou a cota da conta');
+      recusou(await ler(e!), /até 240 consultas por minuto somando os acessos da conta/, 60);
+
+      // envios: o mesmo, com 12 por acesso e 60 na conta
+      assert.deepEqual(await vezes(12, () => mandar(a!)), [422]);
+      assert.deepEqual(await vezes(5, () => mandar(a!)), [429]);
+      for (const codigo of [b!, c!, d!, e!]) assert.deepEqual(await vezes(12, () => mandar(codigo)), [422], 'a insistência do A não gastou a cota da conta');
+      recusou(await mandar(f!), /até 60 envios por hora somando os acessos da conta/, 3600);
+
+      // a conferência não tem cota da conta
+      assert.equal((await mandar(f!, '?somente_validar=true')).statusCode, 422);
+      // e a outra conta não sentiu nada
+      assert.equal((await ler((await acessoDe(minha.centro)).codigo)).statusCode, 200);
+    } finally {
+      await outro.close();
+      await pool.query('delete from acesso_externo where tenant_id = $1', [conta.tenantId]);
+    }
+  });
+
+  it('o kit de testes do Padrão DMS passa na porta — menos a validade e a suspensão do código, que são a parte 2', async () => {
+    const valida = await acessoDe(minha.centro);
+    const revogada = await acessoDe(minha.barra, 'PDV antigo');
+    assert.equal((await revogar(minha.dono, revogada.id)).statusCode, 200);
+    const doVizinho = await acessoDe(vizinha.loja, 'PDV do Vizinho', vizinha.dono);
+    const outro = criarApp(pool, { logger: false, regem: cfg });
+    const base = await outro.listen({ port: 0, host: '127.0.0.1' });
+    try {
+      const resultados = await rodarKit(
+        {
+          produto: 'farol',
+          base,
+          leitura: { caminho: '/v1/integracao/fichas', lista: false },
+          escrita: { caminho: '/v1/integracao/fichas', metodo: 'PUT', modo: 'substituicao', corpo: PEQUENO, corpoDiferente: COM_PROBLEMA },
+          limite: { chamadas: LIMITE_DE_CONSULTAS_POR_MINUTO + 1 },
+          copiaDoPacote: fileURLToPath(new URL('../src/dms/integracao-dms.ts', import.meta.url)),
+          credenciais: { valida: 'X', outraEmpresa: 'X', revogada: 'X' },
+        },
+        { valida: valida.codigo, outraEmpresa: doVizinho.codigo, revogada: revogada.codigo },
+      );
+      const falhas = resultados.filter((r) => !r.ok).map((r) => r.nome);
+      assert.deepEqual(falhas, ['vencida', 'suspensa'], resultados.map((r) => `${r.ok ? (r.pulado ? '·' : '✓') : '✗'} ${r.nome}: ${r.detalhe}`).join('\n'));
+      assert.deepEqual(resultados.filter((r) => r.pulado).map((r) => r.nome).sort(), ['cursor-de-outra-empresa', 'cursor-invalido', 'escrita-sem-idempotencia', 'idempotencia-outro-corpo', 'mesma-empresa-ve', 'outra-empresa-nao-ve', 'sem-permissao'], 'só pula o que a porta não tem');
+    } finally {
+      await outro.close();
+    }
   });
 
   // ───────────────────────── a porta: o envio ─────────────────────────
@@ -360,7 +562,8 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     ];
     for (const [corpo, motivo] of formas) {
       const r = await enviar(codigo, corpo);
-      assert.deepEqual([r.statusCode, r.json()], [422, { erro: 'envio_invalido', mensagem: motivo }]);
+      const j = r.json();
+      assert.deepEqual([r.statusCode, j.erro, j.mensagem, j.detail, j.type], [422, 'envio_invalido', motivo, motivo, `${BASE_ERROS}regra-invalida`]);
     }
     // o que não é JSON nem chega a ser lido
     const texto = await app.inject({ method: 'PUT', url: '/v1/integracao/fichas', headers: { authorization: `Bearer ${codigo}`, 'content-type': 'application/json' }, payload: '{"produtos": [' });
@@ -397,7 +600,7 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     assert.ok(await versaoDe(minha.centro) > versao, 'a base saiu: o agente da loja fica sabendo');
 
     for (const tentativa of [await enviar(codigo, PEQUENO), await oQueTem(codigo)]) {
-      assert.deepEqual([tentativa.statusCode, tentativa.json()], [401, { erro: 'acesso_revogado', mensagem: 'este acesso foi revogado. Peça outro a quem cuida da conta no Farol' }]);
+      assert.deepEqual([tentativa.statusCode, tentativa.json().erro, tentativa.json().mensagem], [401, 'credencial_invalida', CODIGO_QUE_NAO_VALE]);
     }
     assert.equal(await baseDe(minha.centro), null, 'o envio com o código revogado não gravou');
 
@@ -438,7 +641,7 @@ describe('a porta para outro sistema: as rotas', { skip: !URL_DO_BANCO && 'sem D
     await outro.ready();
     try {
       const r = await enviar(codigo, PEQUENO, outro);
-      assert.deepEqual([r.statusCode, r.json().erro], [401, 'acesso_revogado']);
+      assert.deepEqual([r.statusCode, r.json().erro], [401, 'credencial_invalida']);
       assert.equal(await baseDe(minha.centro), null);
       assert.equal((await pool.query('select recebido_em from acesso_externo where id = $1', [id])).rows[0].recebido_em, null, 'e não fica anotado como recebido');
     } finally {

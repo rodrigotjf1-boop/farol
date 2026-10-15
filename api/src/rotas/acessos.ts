@@ -40,16 +40,24 @@
 // campo). O conteúdo errado deixa aquele produto de fora, e os outros entram
 // — a mesma regra da planilha (decisão do dono: "entra o que está certo e a
 // tela lista o que ficou de fora"). A resposta diz o que ficou de fora.
+//
+// A PORTA SEGUE O PADRÃO DMS (Hub DMS, aprovado pelo dono em 14/10/2026):
+// erro em `application/problem+json` (com `erro` e `mensagem` do Farol como
+// extensão, `porta-problema.ts`); o código revogado responde IGUAL ao que
+// nunca existiu; limite de chamadas por acesso e por conta (429 com
+// `Retry-After`); código novo no formato `dms_ap_farol_…` com dígitos de
+// conferência (o `farol_…` de antes continua valendo); e
+// `?somente_validar=true` no envio, que confere sem gravar.
 // =====================================================================
-
-import { randomBytes } from 'node:crypto';
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type pg from 'pg';
 
 import { hashDoToken } from '../auth.js';
+import { JanelaFixa, cabecalhoWwwAuthenticate, gerarChave, lerChave } from '../dms/integracao-dms.js';
 import { impressaoDaBase } from '../fichas.js';
 import { lerEnvio, type Envio } from '../porta-fichas.js';
+import { responderNaPorta } from '../porta-problema.js';
 import { ehDiretoria, exigirDiretoria, podeConfigurar } from '../rbac.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 
@@ -58,8 +66,27 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_DO_ENVIO = 8 * 1024 * 1024;
 /** O tamanho do nome que a conta dá ao sistema (a mesma regra está no banco). */
 const MAX_DO_NOME = 40;
-/** Como todo código de acesso começa: é por aqui que um caça-segredos o reconhece num arquivo. */
-export const PREFIXO_DO_CODIGO = 'farol_';
+// O código de acesso NOVO segue o Padrão DMS: `dms_ap_farol_` + 43 + `_` + 6 dígitos de conferência (`gerarChave`). O
+// começo fixo é o que um caça-segredos reconhece num arquivo, e os dígitos recusam o código colado errado sem ir ao banco.
+/** O código de antes do Padrão DMS (até 14/10/2026): continua valendo até ser revogado. */
+const CODIGO_ANTIGO = /^farol_[A-Za-z0-9_-]{43}$/;
+
+/** Consultas (GET) por minuto, por acesso. */
+export const LIMITE_DE_CONSULTAS_POR_MINUTO = 60;
+/** Envios (PUT) por hora, por acesso: a ficha muda pouco, e a documentação manda enviar quando muda ou uma vez por dia. */
+export const LIMITE_DE_ENVIOS_POR_HORA = 12;
+/** Os limites somados da conta inteira (várias lojas, vários acessos). */
+export const LIMITE_DE_CONSULTAS_DA_CONTA_POR_MINUTO = 240;
+export const LIMITE_DE_ENVIOS_DA_CONTA_POR_HORA = 60;
+/**
+ * Conferências com `?somente_validar=true` por hora, por acesso. Têm cota própria: não gravam nem fazem o agente da loja
+ * baixar nada, e quem está montando a integração confere várias vezes seguidas — na cota dos envios, travaria em 12.
+ */
+export const LIMITE_DE_VALIDACOES_POR_HORA = 60;
+
+/** A resposta ao código que não vale: a MESMA para o que nunca existiu, o colado errado e o revogado (Padrão DMS §7). */
+const CODIGO_QUE_NAO_VALE =
+  'código de acesso inválido ou revogado. Confira se foi copiado inteiro; se foi revogado, peça outro a quem cuida da conta no Farol';
 
 /** De onde vêm as fichas de uma loja, para a tela dizer por que ela pode (ou não) ganhar um acesso. */
 export type OrigemDaLoja = 'livre' | 'planilha' | 'regem' | 'sistema';
@@ -90,6 +117,19 @@ function nomeDoSistema(v: unknown): string | null {
 }
 
 export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
+  // Os limites da porta valem por processo (a API do Farol roda numa cópia só); cada `criarApp` começa do zero.
+  const consultas = new JanelaFixa(LIMITE_DE_CONSULTAS_POR_MINUTO, 60_000);
+  const consultasDaConta = new JanelaFixa(LIMITE_DE_CONSULTAS_DA_CONTA_POR_MINUTO, 60_000);
+  const envios = new JanelaFixa(LIMITE_DE_ENVIOS_POR_HORA, 3_600_000);
+  const enviosDaConta = new JanelaFixa(LIMITE_DE_ENVIOS_DA_CONTA_POR_HORA, 3_600_000);
+  const validacoes = new JanelaFixa(LIMITE_DE_VALIDACOES_POR_HORA, 3_600_000);
+  /** Cada uso da porta: a cota do acesso, a da conta (nula = sem cota da conta) e como a frase do 429 a descreve. */
+  const COTAS = {
+    consulta: { doAcesso: consultas, daConta: consultasDaConta, porAcesso: `${LIMITE_DE_CONSULTAS_POR_MINUTO} consultas por minuto`, porConta: `${LIMITE_DE_CONSULTAS_DA_CONTA_POR_MINUTO} consultas por minuto` },
+    envio: { doAcesso: envios, daConta: enviosDaConta, porAcesso: `${LIMITE_DE_ENVIOS_POR_HORA} envios por hora`, porConta: `${LIMITE_DE_ENVIOS_DA_CONTA_POR_HORA} envios por hora` },
+    validacao: { doAcesso: validacoes, daConta: null, porAcesso: `${LIMITE_DE_VALIDACOES_POR_HORA} conferências por hora`, porConta: '' },
+  } as const;
+
   async function quem(req: FastifyRequest, resposta: FastifyReply): Promise<Sessao | null> {
     const s = await sessaoDe(pool, req);
     if (!s) {
@@ -175,7 +215,7 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
     }
     const lojaId = corpo.lojaId.toLowerCase();
 
-    const codigo = PREFIXO_DO_CODIGO + randomBytes(32).toString('base64url');
+    const codigo = gerarChave('ap', 'farol').chave;
     // Client dedicado: a trava da loja e as conferências só valem na MESMA conexão.
     const cliente = await pool.connect();
     try {
@@ -271,31 +311,50 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
 
   // ───────────────────────── a porta: quem está enviando ─────────────────────────
 
-  async function quemEnvia(req: FastifyRequest, resposta: FastifyReply): Promise<AcessoQueEnvia | null> {
+  /** O código que não vale: 401, sempre o mesmo corpo. */
+  function recusarCodigo(req: FastifyRequest, resposta: FastifyReply): null {
+    responderNaPorta(req, resposta, 401, 'token-invalido', 'credencial_invalida', CODIGO_QUE_NAO_VALE, {
+      wwwAuthenticate: cabecalhoWwwAuthenticate({ erro: 'invalid_token' }),
+    });
+    return null;
+  }
+
+  async function quemEnvia(req: FastifyRequest, resposta: FastifyReply, uso: keyof typeof COTAS): Promise<AcessoQueEnvia | null> {
     const cabecalho = req.headers.authorization;
     const [esquema, valor] = (cabecalho ?? '').split(' ');
     if (!cabecalho || esquema?.toLowerCase() !== 'bearer' || !valor?.trim()) {
-      resposta.status(401).send({ erro: 'sem_credencial', mensagem: 'envie o código de acesso no cabeçalho Authorization: Bearer <código>' });
+      responderNaPorta(req, resposta, 401, 'token-invalido', 'sem_credencial', 'envie o código de acesso no cabeçalho Authorization: Bearer <código>', {
+        wwwAuthenticate: cabecalhoWwwAuthenticate(),
+      });
       return null;
     }
-    const hash = hashDoToken(valor.trim());
+    const codigo = valor.trim();
+    // Formato que não serve nem vai ao banco: o código colado pela metade ou com um caractere trocado (os dígitos de
+    // conferência do formato novo pegam) recebe a mesma resposta do que nunca existiu.
+    const lido = lerChave(codigo);
+    if (!CODIGO_ANTIGO.test(codigo) && !(lido?.tipo === 'ap' && lido.produto === 'farol')) return recusarCodigo(req, resposta);
     const { rows } = await pool.query<AcessoQueEnvia & { revogado_em: Date | null }>(
       `select a.id, a.tenant_id, a.loja_id, a.nome, a.revogado_em, l.nome as loja_nome
          from acesso_externo a
          join loja l on l.id = a.loja_id
         where a.token_hash = $1`,
-      [hash],
+      [hashDoToken(codigo)],
     );
     const a = rows[0];
-    // A mesma resposta para o código que nunca existiu e para o digitado errado: não há o que distinguir.
-    if (!a) {
-      resposta.status(401).send({ erro: 'credencial_invalida', mensagem: 'código de acesso inválido' });
-      return null;
-    }
-    if (a.revogado_em !== null) {
-      // Esta é específica: só quem TEM o código chega aqui, e saber que ele foi revogado (e não digitado errado)
-      // é a diferença entre pedir outro em um minuto e procurar defeito no próprio sistema.
-      resposta.status(401).send({ erro: 'acesso_revogado', mensagem: 'este acesso foi revogado. Peça outro a quem cuida da conta no Farol' });
+    // O revogado responde IGUAL ao que nunca existiu (Padrão DMS §7): quem tem um código revogado não fica sabendo
+    // que ele existiu. A frase diz o que fazer nos dois casos.
+    if (!a || a.revogado_em !== null) return recusarCodigo(req, resposta);
+
+    // O limite conta só a chamada de acesso válido, por acesso e pela conta inteira. A cota da conta só conta o que
+    // passou na do acesso: um sistema preso num laço de 429 não gasta a cota das outras lojas da conta.
+    const cota = COTAS[uso];
+    const doAcesso = cota.doAcesso.contar(a.id);
+    const daConta = doAcesso.ok && cota.daConta ? cota.daConta.contar(a.tenant_id) : null;
+    const estourou = !doAcesso.ok ? { quanto: `${cota.porAcesso} por acesso`, ...doAcesso } : daConta && !daConta.ok ? { quanto: `${cota.porConta} somando os acessos da conta`, ...daConta } : null;
+    if (estourou) {
+      responderNaPorta(req, resposta, 429, 'limite-de-chamadas', 'limite_de_chamadas', `chamadas demais em pouco tempo (até ${estourou.quanto}). Tente de novo em ${estourou.retryAfterSeg} s`, {
+        retryAfterSeg: estourou.retryAfterSeg,
+      });
       return null;
     }
     return { id: a.id, tenant_id: a.tenant_id, loja_id: a.loja_id, nome: a.nome, loja_nome: a.loja_nome };
@@ -304,20 +363,33 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
   // ───────────────────────── a porta: o envio ─────────────────────────
 
   app.put('/v1/integracao/fichas', { bodyLimit: MAX_DO_ENVIO }, async (req, resposta) => {
-    const acesso = await quemEnvia(req, resposta);
+    // Só validar (Padrão DMS §5): confere tudo e diz o que entraria, sem gravar nada — nem a data do último envio. Só
+    // `true` e `false` valem: quem escreveu `somente_validar=1` queria conferir, e gravar seria o engano que dói.
+    const pedido = (req.query as Record<string, unknown> | undefined)?.somente_validar;
+    const soValidar = pedido === 'true';
+    const acesso = await quemEnvia(req, resposta, soValidar ? 'validacao' : 'envio');
     if (!acesso) return;
+    if (pedido !== undefined && pedido !== 'true' && pedido !== 'false') {
+      return responderNaPorta(req, resposta, 400, 'parametro-invalido', 'parametro_invalido', 'somente_validar aceita true ou false. Nada foi recebido');
+    }
 
     const envio = lerEnvio(req.body);
-    if (envio.impede !== null) return resposta.status(422).send({ erro: 'envio_invalido', mensagem: envio.impede });
+    if (envio.impede !== null) return responderNaPorta(req, resposta, 422, 'regra-invalida', 'envio_invalido', envio.impede);
 
     const relatorio = { produtos: envio.contas.produtos, comFicha: envio.contas.comFicha, semFicha: envio.semFicha, deFora: envio.deFora, soltos: envio.soltos, problemas: envio.problemas };
     if (envio.contas.produtos === 0) {
-      return resposta.status(422).send({
-        erro: 'nada_a_receber',
-        mensagem: 'nenhum produto do envio está certo, e nada foi recebido. As fichas que a loja tem continuam como estavam',
-        ...relatorio,
-      });
+      return responderNaPorta(
+        req,
+        resposta,
+        422,
+        'regra-invalida',
+        'nada_a_receber',
+        'nenhum produto do envio está certo, e nada foi recebido. As fichas que a loja tem continuam como estavam',
+        { campos: relatorio },
+      );
     }
+
+    if (soValidar) return { resultado: 'so_validado', gravado: false, ...relatorio };
 
     const impressao = impressaoDaBase(envio.base);
     const antes = await pool.query<{ impressao: string }>('select impressao from fichas_da_loja where loja_id = $1', [acesso.loja_id]);
@@ -348,9 +420,7 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
               atualizada_em = case when fichas_da_loja.impressao is distinct from excluded.impressao then now() else fichas_da_loja.atualizada_em end`,
       [acesso.id, JSON.stringify(envio.base), impressao, envio.contas.produtos, envio.contas.comFicha, JSON.stringify(registro)],
     );
-    if ((gravou.rowCount ?? 0) === 0) {
-      return resposta.status(401).send({ erro: 'acesso_revogado', mensagem: 'este acesso foi revogado. Peça outro a quem cuida da conta no Farol' });
-    }
+    if ((gravou.rowCount ?? 0) === 0) return recusarCodigo(req, resposta);
 
     req.log.info({ acesso: acesso.id, loja: acesso.loja_id, ...envio.contas, deFora: envio.deFora.length, problemas: envio.problemas }, 'porta: fichas recebidas');
     return {
@@ -362,7 +432,7 @@ export function rotasDeAcessos(app: FastifyInstance, pool: pg.Pool): void {
 
   // O que o Farol tem deste sistema: para quem integra conferir o código e o último envio.
   app.get('/v1/integracao/fichas', async (req, resposta) => {
-    const acesso = await quemEnvia(req, resposta);
+    const acesso = await quemEnvia(req, resposta, 'consulta');
     if (!acesso) return;
     const { rows } = await pool.query<{ recebido_em: Date | null; produtos: number | null; com_ficha: number | null }>(
       `select a.recebido_em, f.produtos, f.com_ficha
