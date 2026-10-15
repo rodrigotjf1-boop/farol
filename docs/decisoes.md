@@ -7546,3 +7546,37 @@ de treino.
 
 A captura densa a partir de um pedaço `.dav` de verdade do gravador da loja — os testes usam AVI. A leitura de verdade
 (e a comparação com a captura densa ao vivo de 14/10) espera a troca do pacote ou uma rodada à parte na loja.
+
+## 15/10/2026 · A21, fatia T3c-2: os quadros de cada lanche (dormindo, sem migration)
+
+### O que entra
+
+- **`farol_agent/treino_lanches.py`**: o `quadros_por_lanche` v3 da rodada 12 como módulo. Da captura densa
+  (T3c-1): o detector acha os pães abertos (o quadro inteiro e 6 pedaços sobrepostos; o mesmo pão visto em vários
+  pedaços conta uma vez); as metades vizinhas são um lanche; o lanche é seguido de quadro em quadro — no mesmo lugar,
+  pela sobreposição; empurrado ou fechado, pela cara (as cores do miolo), num trecho novo; sem pão por mais que o
+  perfil diz, termina; a trilha curta não é lanche. Cada lanche vira uma pasta: os recortes na CAIXA FIXA de cada
+  trecho, as etapas (mexeu, assentou e ficou diferente) e o `metades.csv` (onde o detector viu cada metade, em pixels
+  da caixa) — o que a identificação dos ingredientes (T3c-3) lê. O resumo de todas as trilhas fica em `lanches.json`.
+- **O que é da loja vai no perfil** (`PerfilDaBancada`, sem valor de fábrica): o tamanho do pão em pixels, os
+  limites de "mexeu" e "mudou", o tempo sem pão que encerra, a cara parecida e a duração mínima. O que é do modelo e
+  da conta (a nota 0,3, as metades a 1,6 diâmetro, a folga de 25%) fica no código, com a medida de onde veio.
+- **A hora com a data**: o v3 contava o segundo do dia, e a gravação que passa da meia-noite se perderia.
+- **O detector ganhou as caixas** (`MotorOnnx.caixas`, na mesma sessão e com a mesma prova da placa de vídeo; a
+  conta das caixas, `interpretar_caixas`, testável sem o arquivo do modelo).
+
+### Como foi provado
+
+- **Testes do agente** (`agent/testes/test_treino_lanches.py`): 10, com uma bancada desenhada (as metades como discos)
+  e um detector de mentira que acha os discos pela cor. A cena: o braço por cima, o ingrediente que fica, a mão em
+  cima de UMA metade (a região encolhe), o lanche empurrado, a bandeja curta, e o tremor de 2 px que o detector de
+  verdade tem; a virada da meia-noite; e as contas.
+- **Mutação: 25 trocas, 25 mortas**, com controle antes e depois. Duas pediram teste melhor no caminho: a cena era
+  "perfeita demais" (parado, a caixa vinha igual ao pixel, e um limite exigente de "mesmo lugar" passava) — entraram o
+  tremor e a mão sobre uma metade só.
+- **A suíte inteira do agente**: 1865 passaram, 1 pulado.
+
+### O que não foi medido
+
+O módulo contra o `quadros_por_lanche` v3 nos mesmos quadros de verdade da loja (14/10): a comparação é numa rodada
+à parte, no computador da loja (as imagens não saem de lá).
