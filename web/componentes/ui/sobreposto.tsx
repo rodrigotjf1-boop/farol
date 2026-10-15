@@ -39,6 +39,10 @@ function useDialogoAberto(ocupado: boolean, aoFechar: () => void) {
       // O Esc fecharia o <dialog> por conta própria, e a tela continuaria
       // achando que ele está aberto.
       e.preventDefault();
+      // E fecha SÓ este. O `cancel` do <dialog> não sobe na página, mas sobe
+      // pela árvore do React: o diálogo aberto dentro de uma gaveta ("Tirar
+      // esta foto?") fechava a gaveta junto (ERR-128, medido em 15/10/2026).
+      e.stopPropagation();
       if (!ocupado) aoFechar();
     },
     onClick: (e: React.MouseEvent) => {

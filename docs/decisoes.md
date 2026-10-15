@@ -7651,3 +7651,58 @@ Ligar no serviço do agente — a linha de execução que dá a volta de tempos 
 do cofre e o perfil medido, o detector, o perfil da bancada da loja (os números do canal 4, medidos na calibração de
 14/10), e as duas horas (buscar e ler) — e o agente declarar "treino". É o pacote novo, com o "pode" do dono, e as duas
 horas são decisão dele.
+
+## 15/10/2026 · A21, T4: o quadro maior da etapa, na conferência do lanche (sem migration)
+
+O pedido do dono, na gaveta do lanche: "ter a opção de ver a foto por completo para melhor análise; talvez ao clicar
+abrir um modal pequeno com a foto, para dar mais certeza ao usuário". Protótipo antes (#166), **aprovado no mesmo dia**.
+
+### O que entra
+
+- **A miniatura da etapa vira botão**, com uma lupa no canto que aparece sem o mouse em cima, porque no celular não
+  há mouse. A miniatura continua com 96 px e `object-cover`, ou seja, mostra só o meio do recorte. A etapa sem quadro
+  continua sem botão.
+- **O quadro maior** (`web/componentes/treino/quadro-da-etapa.tsx`):
+  - É outro `<dialog>` modal, aberto por cima da gaveta sem fechá-la; o navegador deixa a gaveta inerte atrás.
+  - O recorte aparece inteiro (`object-contain`), na proporção dele, sobre o "palco", o fundo das imagens de câmera do
+    console.
+  - Mostra a hora e o lado da etapa, o que o Farol leu (com o "×2" e o "pode ser" do grupo) e "você disse", quando a
+    etapa já foi respondida.
+  - Anterior e Próxima, as setas do teclado e o arrasto de lado passam as etapas; o leitor de tela ouve a etapa nova.
+  - Esc, o X ou um clique fora fecham só o quadro. O foco volta para a miniatura da etapa que estava à vista, não a que
+    abriu: é ao lado dela que se responde.
+- **ERR-128, de quebra.** O Esc num diálogo aberto dentro de uma gaveta fechava os dois: o `cancel` do `<dialog>` sobe
+  pela árvore do React. Já estava no ar no "Tirar esta foto?" da gaveta do ingrediente. A base dos diálogos
+  (`ui/sobreposto.tsx`) para a subida, e o quadro maior também.
+
+### Onde a tela difere do protótipo aprovado
+
+- **O desenho do protótipo tinha as duas metades** do lanche lado a lado. No console aparece a imagem que subiu da
+  loja, como ela é.
+- **O protótipo mostrava a certeza** ("pouca certeza", "certeza alta"). A conferência do console não tem esse campo;
+  quando a leitura ficou entre nomes, ela mostra "pode ser: A ou B", como na linha da etapa.
+- **A etapa sem quadro** não abre nada pela miniatura. Se o quadro maior chega nela pelas setas, mostra "Esta etapa
+  não tem quadro".
+
+### Como foi provado
+
+No console local (API e console desta máquina, banco de teste descartável), num Chrome sem janela, com tecla e clique
+de verdade. Os lanches de teste ganharam quadros LARGOS e um em pé, desenhados por script (nada da loja), porque com
+quadro quadrado a miniatura não corta nada.
+
+- Abrir, as setas, os botões, o arrasto, o Esc, o clique fora, o X, "você disse" e "pode ser": tudo passou.
+- O quadro aberto foi medido em 16 larguras (320 a 1920) e em 4 telas baixas (667×375, 844×390, 1366×600, 320×480):
+  nada passa da borda, a imagem fica inteira dentro da caixa, e o quadro cabe na tela.
+- O roteiro achou três defeitos, corrigidos antes do PR:
+  - o `close` atrasado do ensaio duplo do modo estrito fechava o quadro ao abrir;
+  - o quadro em pé passava da caixa, porque a altura em porcentagem não vale numa grade;
+  - o ERR-128.
+- Mutação: 5 mutantes, 5 mortos, com controle antes e depois. Os mutantes:
+  - o Esc do quadro subindo até a gaveta;
+  - o foco que não volta para a miniatura;
+  - o foco que não passa ao outro botão no fim da fila;
+  - o clique do fim do arrasto fechando o quadro;
+  - o ERR-128.
+
+  Na primeira rodada um mutante sobreviveu. O defeito era do roteiro, não do código: ele lia o foco pelo texto do
+  elemento, e quando o foco caía na página, o texto da página inteira tem "Anterior". Corrigido no roteiro.
