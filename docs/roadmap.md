@@ -5035,3 +5035,87 @@ depois do teste dos hambúrgueres, que diz se a loja vai precisar de modelo maio
 10. **Para a fase 3 do balcão:** pôr a chave da loja do piloto pelo comando de dentro do
     serviço (o caminho, clique a clique, vem com a entrega da fase 1) — e os critérios pagos
     de volta, com a cena dos canais escrita (item 3).
+
+## A21 · O treinamento da bancada e as fotos por ingrediente (protótipo e decisões aprovados em 15/10/2026)
+
+### O pedido, nas palavras do dono (15/10/2026)
+
+> "já providencie a opção de agregar imagens nas fichas em cada ingrediente"
+>
+> "poderíamos projetar o modo treinamento, com as fichas na mão, e imagens gravadas separadas, se roda análises
+> locais e traz o resultado para o usuário corrigir ou confirmar acertos aprimorando e aprendendo cada caso. dando
+> sugestões de nomes para mudar na ficha se for o caso."
+
+Na mesma conversa: as fichas "são o padrão de montagem, porém têm muitas variações, adicionais e observações que
+geralmente tiram algum ingrediente", e "até conseguirmos identificar os hambúrgueres, não avançamos" — as outras três
+estações esperam a bancada. O protótipo foi aprovado em 15/10 ("aprovado"), com as quatro decisões abaixo como
+recomendadas.
+
+### De onde parte (levantado em 15/10, na `main` 0133880)
+
+- **A base de conhecimento da nuvem não está em uso.** `base_conhecimento` e `base_frame` existem desde a migration
+  001 (item ou padrão por loja; N quadros por item, com `embedding vector(768)` e `url not null`), mas nada na API, no
+  console ou no agente grava ou lê nelas. No agente, o `JuizComparacao` só é montado nos testes, e o
+  `EmbedderSigLIP.embed` pega a saída errada do modelo (os 196 pedaços, não o vetor — ver o registro de 12/10 sobre o
+  passo 0 do A20).
+- **A leitura local da bancada existe, fora do pacote:** as ferramentas da rodada 12 do repasse (o recorte em caixa
+  fixa por lanche, as etapas por metade com alinhamento e a regra da luz, a conta da ficha na loja). Medido com o
+  gabarito do dono em 14 e 15/10: a ficha certa em 5 de 7 lanches, e 22 de 30 ingredientes pelo nome (ERR-120). A
+  base que ela usa (23 exemplos, 22 rotulados pelo dono) foi montada à mão, no computador da loja.
+- **Prontos e dormindo:** o cliente de arquivo do gravador (fatias 2.1, 2.2a e 2.2b do A19). É dele que sai a gravação
+  de treino "do que o gravador já guardou".
+- **Os modelos a copiar:** o envio das fotos do inventário (reduzidas no navegador e guardadas no banco) e a foto
+  padrão, que desce para a loja por uma lista com sha256 (`padroes.py`).
+
+### O desenho (o protótipo aprovado: `mockups/farol-conexoes-e-fichas.html`, telas Fichas e Treinamento)
+
+1. **As fotos de referência por ingrediente.** Na gaveta do produto, cada ingrediente da ficha — e o adicional que
+   acrescenta um — tem o botão das fotos. A gaveta do ingrediente mostra as fotos (até 6, reduzidas no aparelho como as
+   do inventário), quantos exemplos a bancada já deu, o reconhecimento medido e "não se vê de cima" (sal, tempero: o
+   Farol para de esperar vê-lo). A foto fica presa ao **nome** do ingrediente na loja, porque a ficha não tem número de
+   ingrediente e é trocada inteira a cada importação; quando o nome sai das fichas, as fotos esperam alguém juntá-las
+   ao nome novo, ou apagá-las.
+2. **A gravação de treino.** Um horário de movimento, de 15 minutos a 1 hora: do que o gravador ainda guarda, ou
+   programado. A gravação inteira fica no computador da loja, separada das outras.
+3. **A leitura na loja**, sem nuvem e com prioridade baixa: os lanches da gravação, cada um com as etapas (o que
+   apareceu em cada metade, com a certeza) e o palpite da ficha.
+4. **A conferência**, no console: "Qual lanche era?" (nada vem marcado: a pessoa escolhe), etapa por etapa ("Certo",
+   "Era outro", "Não era ingrediente", e um atalho para marcar as outras como certas) e a conta da ficha. O que falta
+   pede "O cliente pediu assim", "Faltou" ou "Estava lá; o Farol não viu"; o que veio a mais, "Pedido do cliente" ou "A
+   mais, sem pedido". A fila começa pelos lanches de mais dúvida: é onde cada conferência ensina mais.
+5. **O aprendizado.** Cada etapa conferida vira um exemplo do ingrediente na base de conhecimento (o recorte e as
+   medidas). A base desce para a loja, e a leitura compara com os exemplos e relê o que falta conferir. Os números da
+   tela contam só o que foi conferido: antes da conferência, o Farol não sabe se acertou.
+6. **As sugestões para as fichas**, só do que foi conferido: um nome para duas coisas, a ficha diferente do que a
+   bancada faz, o ingrediente que entra e não está na ficha, o nome novo digitado na conferência. O Farol não muda a
+   ficha: diz onde mudar.
+
+### As decisões (aprovadas em 15/10/2026)
+
+São as mesmas três que a onda 2 do A19 deixou abertas em 10/10, respondidas aqui para o treinamento, mais o limite das
+fotos. Para o exemplo de critério da onda 2, as três de 10/10 continuam como estavam.
+
+1. **A imagem.** A gravação inteira fica só no computador da loja. Os quadros das etapas sobem reduzidos — para
+   conferir de qualquer lugar, com a loja ligada ou não — e saem 30 dias depois da conferência. O recorte do
+   ingrediente conferido vira exemplo da base e fica enquanto a base o usar.
+2. **A meta.** O lanche certo em 9 de cada 10, com pelo menos 30 conferidos, antes de passar às outras estações.
+3. **Quem confere.** Diretoria, gerência e supervisão. Criar e cancelar gravação, responder às sugestões, tirar foto e
+   marcar "não se vê de cima": quem configura a loja (diretoria e gerência).
+4. **As fotos.** Até 6 por ingrediente.
+
+### As fatias
+
+| fatia | o que entra | migration | tela | na loja |
+|---|---|---|---|---|
+| **T0** | este plano e o protótipo no repositório | — | — | — |
+| **T1** | a base de conhecimento passa a valer na nuvem: o ingrediente da loja como item, a foto como quadro; listar os ingredientes das fichas com fotos e números, enviar, tirar, juntar as órfãs, "não se vê de cima" | a próxima livre | — | — |
+| **T2** | as fotos na tela Fichas: o botão em cada ingrediente e a gaveta do ingrediente | — | sim | — |
+| **T3** | a gravação de treino: o cadastro; o agente busca no gravador ou grava no horário, lê na loja (as ferramentas da rodada 12 viram módulo, com testes) e sobe a leitura e os quadros reduzidos | sim | — | pacote novo, com o "pode" |
+| **T4** | a conferência: a tela Treinamento, as respostas guardadas, os números e o prazo de 30 dias | se precisar | sim | — |
+| **T5** | o aprendizado: a etapa conferida vira exemplo; fotos e exemplos descem para a loja (lista com sha256, como a foto padrão); a leitura compara com eles e relê o que falta | — | — | pacote novo, com o "pode" |
+| **T6** | as sugestões para as fichas | — | sim | — |
+
+**A ordem.** T1 e T2 entregam as fotos, o primeiro pedido; T3 a T5 fecham o ciclo do treinamento; T6 vem quando
+houver conferências. Cada troca de pacote na loja continua pedindo o "pode" do dono — e o computador da loja é também
+o servidor local do Regem. A migration: a parte 2 da porta no Padrão DMS também espera uma; leva a 047 quem chegar
+primeiro à `main`, e a outra fica com a seguinte.
