@@ -42,23 +42,20 @@ except ImportError:  # na loja, rodando como arquivo solto
     sys.path.insert(0, r"C:\Farol\agent")
 
 import cv2
-import numpy as np
 
-from farol_agent.configuracao import de_json
+from farol_agent import gravacao_lida
+from farol_agent.gravacao_lida import FOLGA_DO_RELOGIO_DE_DENTRO, TAXA_PROVISORIA, guardar_recorte, quadro_do_canal  # noqa: F401
 from farol_agent.modelos import Frame, Zona
-from farol_agent.pipeline import recorte
 from farol_agent.quietude import PASSO, Quietude
 
 # Um pedaço da cópia: 5 minutos, pedidos ao gravador por horário.
 DURACAO_DO_PEDACO_S = 300.0
 # O tamanho do fluxo menor, em que a quietude mede ao vivo.
 LADO_DO_FLUXO_MENOR = (704, 480)
-# A taxa medida da gravação (3.851 quadros em 298,6 s, 13/10/2026): o relógio da leitura quando o de dentro não anda.
-TAXA_PROVISORIA = 12.9
 # O adianto do relógio do gravador sobre o do computador da loja, medido em 13/10/2026.
 ADIANTO_DO_GRAVADOR_S = 21.0
-# O relógio de dentro só vale se terminar a até 10% do tamanho do pedaço (o medido: 300,2 s num pedaço de 300).
-FOLGA_DO_RELOGIO_DE_DENTRO = 0.1
+# A taxa provisória, a folga do relógio de dentro, o recorte da área e o quadro do canal moram no pacote do agente
+# (`farol_agent.gravacao_lida`), que a gravação de treino (A21, T3c) também usa: o pacote leva só `farol_agent`.
 
 _NOME_DO_PEDACO = re.compile(r"^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})\.dav$")
 
@@ -132,27 +129,8 @@ def pedacos(pasta: Path, canal: int) -> list[Pedaco]:
 
 
 def instante(comeco: datetime, indice: int, total: int, duracao_s: float = DURACAO_DO_PEDACO_S) -> datetime:
-    """A hora do quadro `indice` de `total`, num pedaço de `duracao_s` que começa em `comeco`."""
-    if total <= 0:
-        raise ValueError("pedaço sem quadro")
-    return comeco + timedelta(seconds=indice * duracao_s / total)
-
-
-def quadro_do_canal(config_json: dict, canal: int, numero: int | None = None) -> tuple[str, Zona]:
-    """O ponto do canal e o quadro a medir: o de papel "montagem", senão o de `numero`, senão o primeiro."""
-    config = de_json(config_json)
-    ponto = next((p for p in config.pontos if p.canal == canal), None)
-    if ponto is None:
-        raise ValueError(f"o canal {canal} não está na configuração")
-    quadros = sorted((z for z in ponto.zonas if z.numero is not None), key=lambda z: z.numero)
-    if not quadros:
-        raise ValueError(f"o canal {canal} não tem quadro desenhado")
-    if numero is not None:
-        escolhido = next((z for z in quadros if z.numero == numero), None)
-        if escolhido is None:
-            raise ValueError(f"o canal {canal} não tem o quadro {numero}")
-        return str(ponto.id), escolhido
-    return str(ponto.id), next((z for z in quadros if z.papel == "montagem"), quadros[0])
+    """A hora do quadro `indice` de `total`, num pedaço de `duracao_s` (5 minutos, na cópia) que começa em `comeco`."""
+    return gravacao_lida.instante(comeco, indice, total, duracao_s)
 
 
 class _FonteDaGravacao:
@@ -163,18 +141,6 @@ class _FonteDaGravacao:
 
     def quadro_do_fluxo_menor(self) -> Frame | None:
         return self.atual
-
-
-def guardar_recorte(imagem: np.ndarray, zona: Zona, destino: Path) -> None:
-    """O quadro no tamanho da câmera, com o que é de fora do desenho apagado — o recorte do agente."""
-    f, dentro = recorte.recortar_area(Frame(imagem, datetime.min, ""), zona)
-    f = recorte.apagar_fora(f, dentro)
-    ok, bytes_ = cv2.imencode(".jpg", f.imagem, [cv2.IMWRITE_JPEG_QUALITY, 90])
-    if not ok:
-        raise ValueError("não consegui gravar o recorte")
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    # Pelos bytes, e não pelo caminho: com acento na pasta o OpenCV não grava (ERR-111).
-    bytes_.tofile(str(destino))
 
 
 @dataclass
