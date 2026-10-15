@@ -14,9 +14,12 @@ custo, margem nem dado de cliente** — e ignora qualquer campo que não esteja 
 
 Quem cria o acesso é a diretoria da conta, no console do Farol (em **Conexões**, no cartão
 **Outro sistema**, botão **Criar acesso**). Ela escolhe a loja e recebe um **código de acesso**,
-que começa por `farol_`.
+que começa por `dms_ap_farol_` (os criados antes de 14/10/2026 começam por `farol_` e continuam
+valendo até serem revogados).
 
 - O código vale para **uma loja**. Para outra loja, é outro código.
+- Os 6 últimos caracteres conferem o resto: um código copiado pela metade, ou com uma letra
+  trocada, é recusado na hora.
 - Ele aparece **uma vez**, na hora em que é criado. O Farol não o guarda: se for perdido, a
   diretoria revoga o acesso e cria outro.
 - Trate o código como uma senha: guarde-o na configuração do seu sistema, fora do código-fonte,
@@ -35,7 +38,7 @@ https://api.monitorfarol.com.br/v1/integracao/fichas
 Toda chamada leva o código no cabeçalho:
 
 ```
-Authorization: Bearer farol_...
+Authorization: Bearer dms_ap_farol_...
 Content-Type: application/json
 ```
 
@@ -209,25 +212,69 @@ envio seguinte trazê-lo certo.
 
 | Resposta | `erro` | Quando |
 |---|---|---|
+| `400` | `corpo_invalido` | O corpo não é JSON, ou veio vazio. |
+| `400` | `parametro_invalido` | `somente_validar` com um valor que não é `true` nem `false`. |
 | `401` | `sem_credencial` | Faltou o cabeçalho `Authorization: Bearer <código>`. |
-| `401` | `credencial_invalida` | O código não existe. Confira se foi copiado inteiro. |
-| `401` | `acesso_revogado` | O acesso foi revogado pela diretoria. Peça outro. |
-| `413` | — | O envio passa de 8 MB. |
+| `401` | `credencial_invalida` | O código não vale: não existe, foi copiado errado ou foi revogado. A resposta é a mesma nos três casos, de propósito. |
+| `413` | `corpo_grande` | O envio passa de 8 MB. |
+| `415` | `tipo_invalido` | O `Content-Type` não é `application/json`. |
 | `422` | `envio_invalido` | A **forma** do envio não serve. A `mensagem` diz o caminho do campo. |
 | `422` | `nada_a_receber` | Nenhum produto do envio está certo. A resposta traz `deFora`, como acima. |
+| `429` | `limite_de_chamadas` | Chamadas demais em pouco tempo (ver **Limites**). O cabeçalho `Retry-After` diz em quantos segundos tentar de novo. |
+| `500` | `erro_interno` | Algo quebrou do nosso lado. Informe o `request_id` a quem cuida da conta no Farol. |
 
 Quando o envio é recusado, as fichas que a loja tinha continuam como estavam.
 
-A forma errada é erro de programação, e por isso recusa tudo, em vez de deixar um produto de
-fora:
+### A forma do erro
+
+Todo erro da porta vem em `application/problem+json`, no Padrão de integração da DMS (RFC 9457):
+os mesmos nomes em todo produto da DMS. Junto vêm o `erro` e a `mensagem` do Farol:
 
 ```json
-{ "erro": "envio_invalido", "mensagem": "produtos[1].cozinha: era para ser verdadeiro ou falso (true ou false)" }
+{
+  "type": "https://dev.dmstecnologias.com/erros/regra-invalida",
+  "title": "Regra inválida",
+  "status": 422,
+  "detail": "produtos[1].cozinha: era para ser verdadeiro ou falso (true ou false)",
+  "request_id": "req-3m",
+  "erro": "envio_invalido",
+  "mensagem": "produtos[1].cozinha: era para ser verdadeiro ou falso (true ou false)"
+}
 ```
 
-São erros de forma: `produtos` não ser uma lista (ou vir vazia); um produto, ingrediente,
+- `erro` é para o seu programa: estável, não muda de texto. Decida por ele (ou por `type`).
+- `mensagem` (igual a `detail`) é para a pessoa: diz o que fazer.
+- `request_id` identifica a chamada no registro do Farol. Diga-o a quem cuida da conta quando
+  pedir ajuda.
+- O `401` traz o cabeçalho `WWW-Authenticate: Bearer`.
+
+A forma errada é erro de programação, e por isso recusa tudo, em vez de deixar um produto de
+fora. São erros de forma: `produtos` não ser uma lista (ou vir vazia); um produto, ingrediente,
 variação, adicional ou item de combo que não é um objeto; faltar o `nome`; vir texto onde vai
 `true`/`false`; vir um objeto ou uma lista onde vai um texto ou um número.
+
+## Conferir sem gravar — `PUT /v1/integracao/fichas?somente_validar=true`
+
+O mesmo envio, com `?somente_validar=true` no endereço: o Farol confere tudo e responde o que
+entraria, **sem gravar nada** — as fichas da loja, a data do último envio e o computador da loja
+ficam como estavam. Serve para montar a integração sem mexer na loja.
+
+```json
+{
+  "resultado": "so_validado",
+  "gravado": false,
+  "produtos": 3,
+  "comFicha": 1,
+  "semFicha": ["Refrigerante lata"],
+  "deFora": [ … como no envio … ],
+  "soltos": [],
+  "problemas": 3
+}
+```
+
+O que o envio recusa, a conferência recusa igual (`422`, `envio_invalido` ou `nada_a_receber`).
+Só `true` e `false` valem: `?somente_validar=1` é recusado (`400`), para que ninguém grave
+achando que só conferia.
 
 ## Conferir o código e o último envio — `GET /v1/integracao/fichas`
 
@@ -251,6 +298,19 @@ Farol tem do seu sistema:
 - Até 5.000 produtos por envio, e 300 ingredientes por produto.
 - Até 8 MB por envio.
 - Nomes com até 200 letras (o que passar é cortado).
+
+Chamadas, por código de acesso:
+
+| O quê | Até |
+|---|---|
+| Envio (`PUT`) | 12 por hora |
+| Conferência (`PUT` com `?somente_validar=true`) | 60 por hora |
+| Consulta (`GET`) | 60 por minuto |
+
+E, somando todos os códigos da conta: 60 envios por hora e 240 consultas por minuto.
+
+Passou do limite, a resposta é `429` com o cabeçalho `Retry-After` (em segundos). Espere esse
+tempo antes de tentar de novo: repetir antes não adianta.
 
 ## Quando enviar
 

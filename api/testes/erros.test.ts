@@ -100,6 +100,67 @@ describe('contrato de erro', () => {
     }
   });
 
+  it('na porta para outro sistema, o erro do próprio Fastify também sai no Padrão DMS — e fora dela, no contrato de sempre', async () => {
+    const PROBLEMA = 'application/problem+json; charset=utf-8';
+    const BASE = 'https://dev.dmstecnologias.com/erros/';
+    const noPadrao = (r: { statusCode: number; headers: Record<string, unknown>; json: () => Record<string, unknown> }, tipo: string, erro: string) => {
+      const j = r.json();
+      assert.equal(r.headers['content-type'], PROBLEMA);
+      assert.deepEqual([j.type, j.status, j.erro, j.detail === j.mensagem, typeof j.title, typeof j.request_id], [`${BASE}${tipo}`, r.statusCode, erro, true, 'string', 'string']);
+    };
+
+    // rota que não existe, com e sem consulta na URL
+    for (const url of ['/v1/integracao/nada', '/v1/integracao/nada?x=1']) {
+      const r = await app.inject({ method: 'GET', url });
+      assert.equal(r.statusCode, 404);
+      noPadrao(r, 'nao-encontrado', 'rota_nao_encontrada');
+    }
+    // JSON torto e corpo vazio: o parser recusa antes da rota
+    const torto = await app.inject({ method: 'PUT', url: '/v1/integracao/fichas', headers: { 'content-type': 'application/json' }, payload: '{"produtos": [' });
+    assert.equal(torto.statusCode, 400);
+    noPadrao(torto, 'parametro-invalido', 'corpo_invalido');
+    const vazio = await app.inject({ method: 'PUT', url: '/v1/integracao/fichas', headers: { 'content-type': 'application/json' }, payload: '' });
+    noPadrao(vazio, 'parametro-invalido', 'corpo_invalido');
+    const tipo = await app.inject({ method: 'PUT', url: '/v1/integracao/fichas', headers: { 'content-type': 'application/xml' }, payload: '<produtos/>' });
+    assert.equal(tipo.statusCode, 415);
+    noPadrao(tipo, 'parametro-invalido', 'tipo_invalido');
+    const grande = await app.inject({ method: 'PUT', url: '/v1/integracao/fichas', headers: { 'content-type': 'application/json' }, payload: JSON.stringify({ produtos: [{ nome: 'x'.repeat(9 * 1024 * 1024) }] }) });
+    assert.equal(grande.statusCode, 413);
+    noPadrao(grande, 'parametro-invalido', 'corpo_grande');
+    // o erro interno (o banco não responde): genérico, com o código de rastreio, sem vazar nada
+    const interno = await app.inject({ method: 'GET', url: '/v1/integracao/fichas', headers: { authorization: `Bearer farol_${'a'.repeat(43)}` } });
+    assert.equal(interno.statusCode, 500);
+    noPadrao(interno, 'erro-interno', 'erro_interno');
+    for (const vazamento of ['postgres', 'econnrefused', 'select ', 'pg.', 'at ']) assert.ok(!interno.body.toLowerCase().includes(vazamento), `vazou '${vazamento}'`);
+
+    // fora da porta — inclusive o que só COMEÇA parecido — segue no contrato de sempre
+    for (const url of ['/v1/nada', '/v1/integracaox/nada', '/v1/integracao']) {
+      const r = await app.inject({ method: 'GET', url });
+      assert.equal(r.statusCode, 404, url);
+      assert.match(String(r.headers['content-type']), /^application\/json/, url);
+      assert.deepEqual(Object.keys(r.json()).sort(), ['erro', 'mensagem'], url);
+    }
+  });
+
+  it('o 4xx que o contrato não traduz também sai no Padrão DMS na porta (e no contrato de sempre fora dela)', async () => {
+    // Nenhuma rota da porta lança um 4xx assim hoje: é a rede de baixo do contrato, e um app de teste a exercita.
+    const outro = criarApp(pool, { logger: false });
+    const bule = () => {
+      throw Object.assign(new Error('sou um bule'), { statusCode: 418 });
+    };
+    outro.get('/v1/integracao/teste-do-bule', bule);
+    outro.get('/v1/teste-do-bule', bule);
+    await outro.ready();
+    try {
+      const naPorta = await outro.inject({ method: 'GET', url: '/v1/integracao/teste-do-bule' });
+      assert.deepEqual([naPorta.statusCode, naPorta.headers['content-type'], naPorta.json().type, naPorta.json().erro, naPorta.json().mensagem], [418, 'application/problem+json; charset=utf-8', 'https://dev.dmstecnologias.com/erros/parametro-invalido', 'pedido_invalido', 'sou um bule']);
+      const fora = await outro.inject({ method: 'GET', url: '/v1/teste-do-bule' });
+      assert.deepEqual([fora.statusCode, fora.json()], [418, { erro: 'pedido_invalido', mensagem: 'sou um bule' }]);
+    } finally {
+      await outro.close();
+    }
+  });
+
   it('toda resposta de erro tem os dois campos', async () => {
     // A garantia que quem integra precisa: qualquer erro, mesma forma.
     const casos = [
