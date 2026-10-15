@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Conexões e fichas do Farol</title>
+<title>Fichas e treinamento do Farol</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
 /* Layout: sala de controle. Uma coluna de navegação estreita à esquerda (vira barra embaixo no celular),
@@ -496,6 +496,135 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
 .dialogo p { font-size: 14px; color: var(--suave); }
 .dialogo .linha-acoes { justify-content: flex-end; }
 
+/* ── o treinamento e as fotos dos ingredientes ── */
+/* mais tons da ilustração, fixos como os outros --il-*: o desenho que faz as vezes do quadro não muda com o tema */
+:root { --il-tomate: #d6473d; --il-cebola: #9d5b8c; --il-bacon: #b35a40; --il-tarja: rgba(8, 14, 22, 0.72); --il-tarja-texto: #f4f7fb; }
+.il-fundo { fill: var(--il-inox-2); }
+.il-fundo.chapa { fill: var(--il-chapa); }
+.il-pao { fill: var(--il-pao); }
+.il-miolo { fill: var(--il-folha); opacity: 0.32; }
+.il-molho { fill: var(--il-molho); }
+.il-carne { fill: var(--il-carne); }
+.il-marca { fill: none; stroke: var(--il-escuro); stroke-width: 2; stroke-linecap: round; opacity: 0.45; }
+.il-queijo { fill: var(--il-queijo); }
+.il-sobre { stroke: var(--il-escuro); stroke-opacity: 0.3; stroke-width: 1; }
+.il-alface { fill: var(--il-alface); }
+.il-tomate { fill: var(--il-tomate); }
+.il-semente { fill: var(--il-folha); opacity: 0.35; }
+.il-cebola { fill: none; stroke: var(--il-cebola); stroke-width: 3; stroke-linecap: round; }
+.il-bacon { fill: none; stroke: var(--il-bacon); stroke-width: 6; stroke-linecap: round; }
+.il-clara { fill: var(--il-folha); }
+.il-gema { fill: var(--il-queijo); }
+.il-batata { fill: none; stroke: var(--il-queijo); stroke-width: 5; stroke-linecap: round; }
+.il-mao { fill: var(--il-piso); opacity: 0.94; }
+/* o que mudou na etapa vem contornado no tom do facho */
+svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 2px var(--facho)); }
+.quadro { position: relative; aspect-ratio: 1; max-width: 100%; border-radius: 8px; overflow: hidden; background: var(--bg-2); }
+.quadro > svg, .quadro > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.quadro .tarja { position: absolute; left: 6px; bottom: 6px; padding: 1px 6px; border-radius: 4px; background: var(--il-tarja); color: var(--il-tarja-texto); font: 400 10.5px/1.5 var(--f-dado); pointer-events: none; }
+.folha.sem-entrada { animation: none; }
+/* `.dado` também é o bloco dos números grandes (estilo de base): na etiqueta, o espaçamento dele não vale */
+.chip.dado, .chip.dado + .chip.dado { padding: 2px 9px; border: 1px solid transparent; }
+.folha-pe .pe-nota { flex: 1 1 200px; }
+
+/* a tela: as abas, a fila de lanches, os conferidos, as gravações e as sugestões */
+.painel-treino { display: grid; gap: 14px; min-width: 0; }
+.abas button .mono { font-size: 12px; }
+.lista > [role="listitem"] + [role="listitem"] { border-top: 1px solid var(--fio); }
+.lanche { appearance: none; width: 100%; display: grid; grid-template-columns: auto minmax(0, 1.1fr) minmax(0, 1.5fr) 18px; grid-template-areas: "mini oq marcas seta"; align-items: center; gap: 8px 16px; padding: 10px 16px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.lanche:hover, .lanche:focus-visible { background: var(--painel-2); }
+.lanche .miniaturas { grid-area: mini; display: flex; gap: 6px; }
+.lanche .miniaturas svg { display: block; width: 46px; height: 46px; border-radius: 6px; }
+.lanche .oq { grid-area: oq; display: grid; gap: 2px; min-width: 0; }
+.lanche .oq b { font-weight: 600; overflow-wrap: anywhere; }
+.lanche .oq small { color: var(--suave); font-size: 12.5px; }
+.lanche .marcas { grid-area: marcas; display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.lanche .marcas .chip { white-space: normal; }
+.lanche > .ic { grid-area: seta; color: var(--fraco); justify-self: end; }
+.lanche.feito { cursor: default; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); grid-template-areas: "oq marcas"; padding: 12px 16px; }
+.lanche.feito .marcas { justify-content: flex-end; }
+.gravacao { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.4fr) auto; align-items: center; gap: 10px 16px; padding: 14px 16px; }
+.gravacao .de { display: grid; gap: 2px; min-width: 0; }
+.gravacao .de b { font-weight: 600; }
+.gravacao .de small { color: var(--suave); font-size: 12.5px; }
+.gravacao .estado { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.gravacao .acoes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.gravacao progress { width: 110px; max-width: 100%; height: 8px; accent-color: var(--facho); }
+.sugestoes { display: grid; gap: 14px; }
+.sugestao header .chip { white-space: normal; }
+.sugestao .miolo h3 { font-size: 16px; font-weight: 600; }
+.sugestao .miolo p { font-size: 14.5px; max-width: 70ch; }
+.sugestao .miolo p.nota { font-size: 13.5px; }
+.vazio .passo-a-passo { text-align: left; max-width: 52ch; }
+
+/* conferir um lanche: etapa por etapa, e a conta da ficha */
+.etapas { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.etapa { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px 14px; align-items: start; padding: 12px; border: 1px solid var(--fio); border-radius: 8px; background: var(--bg-2); }
+.etapa.atencao { border-color: var(--facho); }
+.etapa .leitura { display: grid; gap: 8px; min-width: 0; }
+.etapa .quando { font: 500 12px/1.5 var(--f-dado); color: var(--suave); }
+.etapa .leu { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.etapa .leu b { font-weight: 600; }
+.etapa .leu s { color: var(--fraco); }
+.comparo { list-style: none; margin: 0; padding: 0; display: grid; border: 1px solid var(--fio); border-radius: 8px; overflow: hidden; }
+.comparo li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; padding: 10px 12px; border-top: 1px solid var(--fio); }
+.comparo li:first-child { border-top: 0; }
+.comparo li > .ic { margin-top: 3px; }
+.comparo li > span { min-width: 0; }
+.comparo b { font-weight: 600; }
+.comparo small { display: block; color: var(--suave); font-size: 12.5px; }
+.comparo .seg { margin-top: 8px; }
+.comparo .bate > .ic { color: var(--ok); }
+.comparo .falta > .ic { color: var(--facho-texto); }
+.comparo .fora-da-ficha > .ic { color: var(--dado); }
+.comparo .nao-se-ve > .ic { color: var(--fraco); }
+
+/* as fotos de um ingrediente */
+.foto-chip { appearance: none; display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border: 1px solid var(--fio-2); border-radius: 999px; background: none; color: var(--suave); font: 500 12px/1.6 var(--f-dado); white-space: nowrap; cursor: pointer; }
+.foto-chip:hover { color: var(--tinta); border-color: var(--suave); }
+.foto-chip.sem { border-style: dashed; }
+.ingredientes li { grid-template-columns: 26px minmax(0, 1fr) auto auto; }
+.escolhas li:has(.foto-chip) { grid-template-columns: 18px minmax(0, 1fr) auto; align-items: start; }
+.fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 12px; }
+.foto { position: relative; margin: 0; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.foto figcaption { display: grid; gap: 1px; font-size: 13px; }
+.foto figcaption small { color: var(--suave); font-size: 12px; }
+.foto .btn { justify-self: start; }
+/* altura mínima, e não proporção quadrada: com o texto, o quadrado puxava a largura além da coluna (medido em 320 px) */
+.nova-foto label { display: grid; place-items: center; align-content: center; gap: 6px; min-height: 128px; min-width: 0; padding: 10px; border: 1px dashed var(--fio-2); border-radius: 8px; color: var(--suave); text-align: center; cursor: pointer; }
+.nova-foto label span { color: var(--tinta); font-weight: 600; }
+.nova-foto label small { font-size: 12px; }
+.nova-foto label:hover { border-color: var(--suave); }
+.nova-foto input:focus-visible + label { outline: 2px solid var(--facho); outline-offset: 2px; }
+.foto.enviando .quadro { display: grid; place-items: center; background: var(--painel-2); }
+.enviando-texto { font: 500 12.5px/1.4 var(--f-dado); color: var(--suave); animation: pulsar 1.2s ease-in-out infinite; }
+@keyframes pulsar { 50% { opacity: 0.4; } }
+.exemplos { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+.exemplos svg { display: block; width: 100%; height: auto; aspect-ratio: 1; border-radius: 6px; }
+.alternar { appearance: none; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; align-items: start; width: 100%; padding: 12px; border: 1px solid var(--fio); border-radius: 8px; background: var(--bg-2); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.alternar .chave { position: relative; width: 36px; height: 20px; margin-top: 2px; border-radius: 999px; background: var(--fio-2); transition: background 160ms; }
+.alternar .chave::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--painel); transition: transform 160ms; }
+.alternar[aria-pressed="true"] .chave { background: var(--facho); }
+.alternar[aria-pressed="true"] .chave::after { transform: translateX(16px); }
+.alternar b { display: block; font-weight: 600; }
+.alternar small { display: block; color: var(--suave); font-size: 12.5px; }
+.tres-campos { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+
+@media (max-width: 900px) {
+  .gravacao { grid-template-columns: minmax(0, 1fr); }
+  .gravacao .acoes { justify-content: flex-start; }
+}
+@media (max-width: 720px) {
+  .lanche { grid-template-columns: auto minmax(0, 1fr) 18px; grid-template-areas: "mini oq seta" "mini marcas seta"; }
+  .lanche.feito { grid-template-columns: minmax(0, 1fr); grid-template-areas: "oq" "marcas"; }
+  .lanche.feito .marcas { justify-content: flex-start; }
+}
+@media (max-width: 420px) {
+  .lanche { grid-template-columns: minmax(0, 1fr) 18px; grid-template-areas: "mini seta" "oq oq" "marcas marcas"; }
+  .etapa { grid-template-columns: 76px minmax(0, 1fr); gap: 10px; padding: 10px; }
+  .tres-campos { grid-template-columns: minmax(0, 1fr); }
+}
+
 @media (max-width: 900px) {
   .so-estreito { display: inline-flex; }
   .so-largo { display: none; }
@@ -563,6 +692,10 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
     <symbol id="i-copiar" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
     <symbol id="i-pontos" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/></symbol>
     <symbol id="i-conta" viewBox="0 0 24 24"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M8.5 8h7M8.5 12h2M13 12h2.5M8.5 16h2M13 16h2.5"/></symbol>
+    <symbol id="i-treino" viewBox="0 0 24 24"><path d="M2.5 9.5 12 5l9.5 4.5L12 14z"/><path d="M6.5 11.6V16c0 1.4 2.5 3 5.5 3s5.5-1.6 5.5-3v-4.4M21.5 9.5V15"/></symbol>
+    <symbol id="i-foto" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+    <symbol id="i-ideia" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></symbol>
+    <symbol id="i-voltar" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
     <symbol id="i-sistema" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
   </defs>
 </svg>
@@ -579,6 +712,7 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
     <a class="ir" href="#canais" data-ir="fora"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg><span>Canais</span></a>
     <a class="ir" href="#criterios" data-ir="fora"><svg class="ic" aria-hidden="true"><use href="#i-lista"/></svg><span>Critérios</span></a>
     <a class="ir so-coluna" href="#fichas" data-ir="fichas"><svg class="ic" aria-hidden="true"><use href="#i-ficha"/></svg><span>Fichas</span></a>
+    <a class="ir so-coluna" href="#treinamento" data-ir="treinamento"><svg class="ic" aria-hidden="true"><use href="#i-treino"/></svg><span>Treinamento</span></a>
     <a class="ir" href="#alertas" data-ir="fora"><svg class="ic" aria-hidden="true"><use href="#i-sino"/></svg><span>Alertas</span></a>
     <a class="ir so-coluna" href="#orcamento" data-ir="fora" data-quem="configura"><svg class="ic" aria-hidden="true"><use href="#i-conta"/></svg><span>Orçamento</span></a>
     <button class="ir so-barra" type="button" id="mais" aria-haspopup="dialog" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-pontos"/></svg><span>Mais</span></button>
@@ -623,6 +757,13 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
       <button type="button" data-v="carregando" aria-pressed="false">carregando</button>
       <button type="button" data-v="erro" aria-pressed="false">sem resposta</button>
     </div></div>
+    <div class="campo"><span class="rotulo">Treinamento</span><div class="seg" id="proto-treino" role="group" aria-label="Treinamento">
+      <button type="button" data-v="novo" aria-pressed="false">começando</button>
+      <button type="button" data-v="lendo" aria-pressed="false">lendo a 1ª gravação</button>
+      <button type="button" data-v="conferir" aria-pressed="true">lanches para conferir</button>
+      <button type="button" data-v="tudo" aria-pressed="false">tudo conferido</button>
+      <button type="button" data-v="semloja" aria-pressed="false">loja sem resposta</button>
+    </div></div>
     <div class="campo"><span class="rotulo">Quem olha</span><div class="seg" id="proto-perfil" role="group" aria-label="Quem olha">
       <button type="button" data-v="diretoria" aria-pressed="true">diretoria</button>
       <button type="button" data-v="gerente" aria-pressed="false">gerente</button>
@@ -633,7 +774,7 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
       <button type="button" data-v="dark" aria-pressed="false">escuro</button>
       <button type="button" data-v="light" aria-pressed="false">claro</button>
     </div></div>
-    <p class="nota">Os dados são de exemplo. Nada é enviado nem baixado de verdade: a planilha, o código de acesso e a ida ao Regem são simulados.</p>
+    <p class="nota">Os dados são de exemplo. Nada é enviado nem baixado de verdade: a planilha, o código de acesso, a ida ao Regem, as fotos e as gravações são simulados. Os quadros da bancada são desenhos, no lugar das imagens da câmera.</p>
   </div>
   <button class="btn mini" type="button" id="proto-abrir" aria-expanded="false" aria-controls="proto-painel"><svg class="ic p" aria-hidden="true"><use href="#i-ajustes"/></svg>Protótipo</button>
 </div>
@@ -685,12 +826,13 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
         ['Molho da casa', '15 g', 'preparo da casa — entra como um ingrediente só'],
         ['Sal', '2 g', '']
       ] },
+      // o 4º campo: o ingrediente que o adicional acrescenta ou tira (é o que a bancada pode mostrar a mais ou a menos)
       adicionais: [
-        ['mais', 'Bacon', 'acrescenta 20 g de Bacon fatiado'],
-        ['mais', 'Ovo', 'acrescenta o preparo “Ovo frito”'],
+        ['mais', 'Bacon', 'acrescenta 20 g de Bacon fatiado', 'Bacon fatiado'],
+        ['mais', 'Ovo', 'acrescenta o preparo “Ovo frito”', 'Ovo frito'],
         ['mais', 'Refrigerante', 'acrescenta o produto “Refrigerante lata”'],
         ['info', 'Ponto da carne', 'só uma observação para a cozinha'],
-        ['menos', 'Sem cebola', 'tira a Cebola roxa']
+        ['menos', 'Sem cebola', 'tira a Cebola roxa', 'Cebola roxa']
       ]
     },
     {
@@ -704,13 +846,13 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
         ['Blend da casa', '120 g', 'preparo da casa — entra como um ingrediente só'],
         ['Queijo prato', '1 fatia', '']
       ] },
-      adicionais: [['mais', 'Bacon', 'acrescenta 20 g de Bacon fatiado'], ['menos', 'Sem tomate', 'tira o Tomate']]
+      adicionais: [['mais', 'Bacon', 'acrescenta 20 g de Bacon fatiado', 'Bacon fatiado'], ['menos', 'Sem tomate', 'tira o Tomate', 'Tomate']]
     },
     {
       id: 'bat', nome: 'Batata frita', categoria: 'Porções', cozinha: true,
       variacoes: [['Média', 'a ficha inteira'], ['Grande', 'uma vez e meia a ficha']],
       ficha: { nome: 'Batata frita', ingredientes: [['Batata palito', '200 g', ''], ['Sal', '3 g', '']] },
-      adicionais: [['mais', 'Cheddar', 'acrescenta 40 g de Cheddar cremoso']]
+      adicionais: [['mais', 'Cheddar', 'acrescenta 40 g de Cheddar cremoso', 'Cheddar cremoso']]
     },
     {
       id: 'cmb', nome: 'Combo da casa', categoria: 'Combos', cozinha: true,
@@ -719,6 +861,133 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
     { id: 'mil', nome: 'Milk-shake', categoria: 'Sobremesas', cozinha: true, variacoes: [['300 ml', ''], ['500 ml', '']], ficha: null, adicionais: [] },
     { id: 'ref', nome: 'Refrigerante lata', categoria: 'Bebidas', cozinha: false, variacoes: [], ficha: null, adicionais: [] },
     { id: 'agu', nome: 'Água sem gás', categoria: 'Bebidas', cozinha: false, variacoes: [], ficha: null, adicionais: [] }
+  ];
+
+  // As FOTOS DE REFERÊNCIA de cada ingrediente (o dono, 15/10/2026: "já providencie a opção de agregar imagens nas
+  // fichas em cada ingrediente"). Ficam presas ao NOME do ingrediente na loja — a ficha não tem número de ingrediente e
+  // é trocada inteira a cada importação —, valem para todo produto que o usa e descem para o computador da loja, onde
+  // o Farol reconhece o ingrediente sem nuvem. No protótipo, desenhos de exemplo: nunca imagem de loja.
+  var LIMITE_FOTOS = 6;
+  // `camadas`: o desenho de exemplo que faz as vezes da foto (ver `desenho`)
+  var FOTOS = {
+    'Blend da casa': [
+      { id: 'f1', jeito: 'na chapa, antes de ir para o pão', quando: 'hoje, 10:12', camadas: ['carne'], fundo: 'chapa' },
+      { id: 'f2', jeito: 'sobre o pão, de cima', quando: 'hoje, 10:13', camadas: ['pao', 'carne'] },
+      { id: 'f3', jeito: 'com a fatia de queijo por cima', quando: 'hoje, 10:15', camadas: ['pao', 'carne', 'queijo'] }
+    ],
+    'Queijo prato': [
+      { id: 'f4', jeito: 'a fatia inteira, de cima', quando: 'ontem, 18:40', camadas: ['queijo'] },
+      { id: 'f5', jeito: 'duas fatias, uma sobre a outra', quando: 'ontem, 18:41', camadas: ['queijo2'] }
+    ],
+    'Molho da casa': [{ id: 'f6', jeito: 'espalhado no tampo', quando: 'ontem, 18:52', camadas: ['pao', 'molho'] }]
+  };
+  // fotos de um ingrediente que saiu das fichas (mudou de nome no Regem ou na planilha): esperam alguém dizer de qual
+  // ingrediente são — ou serem apagadas
+  var ORFAS = { 'Queijo mussarela': [{ id: 'f9', jeito: 'a fatia inteira, de cima', quando: '12/10, 17:20', camadas: ['queijo'] }] };
+
+  /* ─────────── o TREINAMENTO da bancada ─────────── */
+  // O dono, 15/10/2026: "o modo treinamento, com as fichas na mão, e imagens gravadas separadas: roda análises locais e
+  // traz o resultado para o usuário corrigir ou confirmar acertos, aprimorando e aprendendo cada caso; dando sugestões
+  // de nomes para mudar na ficha se for o caso". O que se grava para treinar fica no computador da loja, separado por
+  // gravação; quem lê é o computador da loja (sem nuvem); a nuvem guarda o que a pessoa conferiu e os números.
+  var BANCADA = 'Bancada 1';
+  // como cada ingrediente aparece no desenho de exemplo (no console, aqui vai o recorte da câmera)
+  var FORMA = {
+    'Pão brioche': 'pao', 'Molho da casa': 'molho', 'Blend da casa': 'carne', 'Queijo prato': 'queijo', 'Cebola roxa': 'cebola',
+    'Alface': 'alface', 'Tomate': 'tomate', 'Bacon fatiado': 'bacon', 'Ovo frito': 'ovo', 'Cheddar cremoso': 'molho', 'Batata palito': 'batata'
+  };
+  // as gravações de treino: um horário escolhido, gravado e lido no computador da loja
+  var GRAVACOES = [
+    { id: 'g4', quando: 'hoje, 19:30 às 20:00', como: 'programada', situacao: 'programada' },
+    { id: 'g3', quando: 'hoje, 12:00 às 12:30', como: 'do gravador', situacao: 'lendo', feito: 40 },
+    { id: 'g2', quando: 'ontem, 19:30 às 20:00', como: 'do gravador', situacao: 'pronta', lanches: 9 },
+    { id: 'g1', quando: '13/10, 20:00 às 20:30', como: 'programada', situacao: 'conferida', lanches: 7, apaga: '12/11' }
+  ];
+  // os lanches que o computador da loja leu na gravação de ontem e ainda esperam conferência. Cada etapa é um momento
+  // em que a metade ficou parada e algo novo apareceu nela; `leu` é o que a leitura da loja disse, com a certeza dela.
+  var LANCHES = [
+    { id: 'l1937', hora: '19:37', fechou: '19:38:30', grav: 'g2', motivo: 'duvida', etapas: [
+      { hora: '19:37:02', lado: 'pão aberto', leu: 'Pão brioche', certeza: 'media', forma: 'pao' },
+      { hora: '19:37:08', lado: 'tampo', leu: 'Molho da casa', certeza: 'alta', forma: 'molho' },
+      { hora: '19:37:15', lado: 'tampo', leu: 'Cebola roxa', certeza: 'baixa', forma: 'tomate' },
+      { hora: '19:37:40', lado: 'base', leu: 'Blend da casa', certeza: 'alta', forma: 'carne' },
+      { hora: '19:37:52', lado: 'base', leu: 'Queijo prato', certeza: 'media', forma: 'queijo' }
+    ] },
+    { id: 'l1946', hora: '19:46', fechou: '19:47:05', grav: 'g2', motivo: 'coberto', etapas: [
+      { hora: '19:46:00', lado: 'pão aberto', leu: 'Pão brioche', certeza: 'alta', forma: 'pao' },
+      { hora: '19:46:02', lado: 'tampo', leu: 'Molho da casa', certeza: 'alta', forma: 'molho' },
+      { hora: '19:46:09', lado: 'tampo', leu: 'Cebola roxa', certeza: 'media', forma: 'cebola' },
+      { hora: '19:46:30', lado: 'base', leu: 'Blend da casa', certeza: 'alta', forma: 'carne' },
+      { hora: '19:46:41', lado: 'base', leu: null, certeza: 'nenhuma', forma: 'mao' }
+    ] },
+    { id: 'l1944', hora: '19:44', fechou: '19:44:58', grav: 'g2', motivo: 'diferenca', etapas: [
+      { hora: '19:43:55', lado: 'pão aberto', leu: 'Pão brioche', certeza: 'alta', forma: 'pao' },
+      { hora: '19:44:00', lado: 'tampo', leu: 'Molho da casa', certeza: 'alta', forma: 'molho' },
+      { hora: '19:44:20', lado: 'base', leu: 'Blend da casa', certeza: 'alta', forma: 'carne' },
+      { hora: '19:44:31', lado: 'base', leu: 'Queijo prato', vezes: 2, certeza: 'alta', forma: 'queijo2' }
+    ] },
+    { id: 'l1941', hora: '19:41', fechou: '19:42:20', grav: 'g2', motivo: 'diferenca', etapas: [
+      { hora: '19:41:00', lado: 'pão aberto', leu: 'Pão brioche', certeza: 'alta', forma: 'pao' },
+      { hora: '19:41:05', lado: 'tampo', leu: 'Molho da casa', certeza: 'alta', forma: 'molho' },
+      { hora: '19:41:12', lado: 'tampo', leu: 'Cebola roxa', certeza: 'alta', forma: 'cebola' },
+      { hora: '19:41:33', lado: 'base', leu: 'Blend da casa', certeza: 'alta', forma: 'carne' },
+      { hora: '19:41:44', lado: 'base', leu: 'Queijo prato', vezes: 2, certeza: 'alta', forma: 'queijo2' },
+      { hora: '19:41:52', lado: 'base', leu: 'Bacon fatiado', certeza: 'media', forma: 'bacon' }
+    ] },
+    { id: 'l1934', hora: '19:34', fechou: '19:35:10', grav: 'g2', motivo: 'certo', etapas: [
+      { hora: '19:34:04', lado: 'pão aberto', leu: 'Pão brioche', certeza: 'alta', forma: 'pao' },
+      { hora: '19:34:10', lado: 'tampo', leu: 'Molho da casa', certeza: 'alta', forma: 'molho' },
+      { hora: '19:34:16', lado: 'tampo', leu: 'Cebola roxa', certeza: 'alta', forma: 'cebola' },
+      { hora: '19:34:40', lado: 'base', leu: 'Blend da casa', certeza: 'alta', forma: 'carne' },
+      { hora: '19:34:50', lado: 'base', leu: 'Queijo prato', vezes: 2, certeza: 'alta', forma: 'queijo2' }
+    ] }
+  ];
+  // os já conferidos (7 da gravação de 13/10 e 4 da de ontem): o que o Farol achou antes e o que a pessoa disse
+  var CONFERIDOS = [
+    { hora: '19:58', grav: 'g2', achou: 'X-Salada', era: 'X-Salada', por: 'Gil Prado' },
+    { hora: '19:52', grav: 'g2', achou: 'X-Burger', era: 'X-Burger', por: 'Gil Prado' },
+    { hora: '19:49', grav: 'g2', achou: 'X-Burger', era: 'X-Salada', por: 'Gil Prado' },
+    { hora: '19:31', grav: 'g2', achou: 'X-Burger', era: 'X-Burger', por: 'Gil Prado' },
+    { hora: '20:27', grav: 'g1', achou: 'X-Burger', era: 'X-Burger', por: 'Gil Prado' },
+    { hora: '20:22', grav: 'g1', achou: 'X-Salada', era: 'X-Salada', por: 'Gil Prado' },
+    { hora: '20:18', grav: 'g1', achou: 'X-Burger', era: 'X-Salada', por: 'Gil Prado' },
+    { hora: '20:13', grav: 'g1', achou: 'X-Burger', era: 'X-Burger', por: 'Gil Prado' },
+    { hora: '20:09', grav: 'g1', achou: 'X-Salada', era: 'X-Burger', por: 'Gil Prado' },
+    { hora: '20:05', grav: 'g1', achou: 'X-Burger', era: 'X-Burger', por: 'Gil Prado' },
+    { hora: '20:02', grav: 'g1', achou: 'X-Burger', era: 'X-Salada', por: 'Gil Prado' }
+  ];
+  // o que o Farol já aprendeu de cada ingrediente NESTA bancada, contado só nos lanches conferidos: em quantos o
+  // ingrediente estava, em quantos a leitura da loja o reconheceu antes da conferência, e quantos exemplos guardou
+  var APRENDIDO = {
+    'Pão brioche': { presente: 11, reconheceu: 10, exemplos: 11 },
+    'Molho da casa': { presente: 11, reconheceu: 10, exemplos: 11 },
+    'Blend da casa': { presente: 11, reconheceu: 11, exemplos: 11 },
+    'Queijo prato': { presente: 11, reconheceu: 6, exemplos: 6 },
+    'Cebola roxa': { presente: 9, reconheceu: 7, exemplos: 7 },
+    'Alface': { presente: 4, reconheceu: 2, exemplos: 3 },
+    'Tomate': { presente: 4, reconheceu: 0, exemplos: 1 },
+    'Bacon fatiado': { presente: 2, reconheceu: 1, exemplos: 2 },
+    'Ovo frito': { presente: 0, reconheceu: 0, exemplos: 0 }
+  };
+  // o que não se vê de cima (quem configura marca no ingrediente): o Farol não espera ver
+  var NAO_SE_VE = { 'Sal': true };
+  // as sugestões para as fichas: só nascem do que alguém CONFERIU, nunca de uma leitura sem conferência
+  var SUGESTOES = [
+    { id: 's1', tipo: 'um nome para duas coisas', ingrediente: 'Molho da casa',
+      titulo: '“Molho da casa” parece ser dois molhos',
+      viu: 'Nos lanches conferidos, o Molho da casa apareceu de dois jeitos: laranja nos 7 X-Burger e branco nos 4 X-Salada.',
+      propoe: 'Se são dois molhos, dê um nome a cada um nas fichas — por exemplo, “Molho da casa” no X-Burger e “Molho branco” no X-Salada. Com um nome só, o Farol aprende os dois como se fossem um.',
+      ondeRegem: 'nas fichas do X-Burger e do X-Salada', sim: 'Vou dar nomes diferentes', nao: 'É o mesmo molho' },
+    { id: 's2', tipo: 'ficha diferente da bancada', ingrediente: 'Queijo prato',
+      titulo: 'X-Burger: a ficha diz 2 fatias de queijo; a bancada pôs 1',
+      viu: 'Em 5 dos 7 X-Burger conferidos, entrou 1 fatia de Queijo prato.',
+      propoe: 'Se o certo é 1 fatia, corrija a quantidade na ficha. Se são 2, a ficha está certa e o que muda é a montagem.',
+      ondeRegem: 'na ficha do X-Burger', sim: 'Vou corrigir a ficha', nao: 'A ficha está certa' },
+    { id: 's3', tipo: 'falta na ficha', ingrediente: 'Cebola roxa',
+      titulo: 'X-Salada: entra Cebola roxa, que não está na ficha',
+      viu: 'Em 3 dos 4 X-Salada conferidos, a bancada pôs Cebola roxa.',
+      propoe: 'Se ela faz parte do X-Salada, inclua na ficha. Se foi pedido do cliente, deixe como está: com os pedidos do KDS, o Farol vai saber disso sozinho.',
+      ondeRegem: 'na ficha do X-Salada', sim: 'Vou incluir na ficha', nao: 'Foi pedido do cliente' }
   ];
 
   // o modelo da planilha: a aba "Fichas", uma linha por ingrediente
@@ -751,7 +1020,11 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
 
   var SITUACOES = ['nao', 'planilha', 'planilha-parcial', 'sistema-novo', 'sistema', 'voltou', 'conectado', 'semfichas', 'problema', 'revogado', 'carregando', 'erro'];
   var DO_REGEM = ['voltou', 'conectado', 'semfichas', 'problema', 'revogado'];
-  var est = { tela: 'fichas', situacao: 'conectado', perfil: 'diretoria', filtro: 'todos', busca: '', pares: {}, acessos: [], imp: null, novo: null };
+  var est = { tela: 'fichas', situacao: 'conectado', perfil: 'diretoria', filtro: 'todos', busca: '', pares: {}, acessos: [], imp: null, novo: null,
+    // o treinamento: a situação (controle do protótipo), a aba, o filtro dos lanches, o que já foi respondido em cada
+    // lanche (rascunho), os conferidos nesta visita, os pulados, as decisões das sugestões e o que está aberto
+    treino: { situacao: 'conferir', aba: 'lanches', filtro: 'conferir', resp: {}, feitos: [], pulados: [], decisoes: {}, novas: [],
+      aberto: null, ingrediente: null, deProduto: null, enviando: null, erroFoto: '', nova: null } };
   LOJAS_DO_REGEM.forEach(function (r) { est.pares[r.id] = r.sugestao; });
 
   function diretoria() { return est.perfil === 'diretoria'; }
@@ -890,9 +1163,10 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
     if (p.ficha) {
       s += '<div class="bloco"><h3>A ficha, na ordem em que foi cadastrada</h3><ol class="ingredientes">';
       p.ficha.ingredientes.forEach(function (i) {
-        s += '<li><span>' + esc(i[0]) + (i[2] ? '<small>' + esc(i[2]) + '</small>' : '') + '</span><span class="q">' + esc(i[1]) + '</span></li>';
+        s += '<li><span>' + esc(i[0]) + (i[2] ? '<small>' + esc(i[2]) + '</small>' : '') + '</span><span class="q">' + esc(i[1]) + '</span>' + botaoDasFotos(i[0], p.id) + '</li>';
       });
-      s += '</ol>' + (o === 'regem' ? '<p class="nota">A embalagem que só entra no pedido para viagem fica fora desta lista.</p>' : '') + '</div>';
+      s += '</ol><p class="nota">' + ic('foto', 'p') + ' Em cada ingrediente, as fotos de referência dele: o Farol usa para reconhecê-lo na bancada.</p>' +
+        (o === 'regem' ? '<p class="nota">A embalagem que só entra no pedido para viagem fica fora desta lista.</p>' : '') + '</div>';
     } else if (p.combo) {
       s += '<div class="bloco"><h3>O que vem no combo</h3><ul class="escolhas">';
       p.combo.forEach(function (c) { s += '<li>' + ic('certo', 'p') + '<span>' + esc(c) + '</span></li>'; });
@@ -907,7 +1181,10 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
     }
     if (p.adicionais.length) {
       s += '<div class="bloco"><h3>O que o cliente pode pedir a mais ou tirar</h3><ul class="escolhas">';
-      p.adicionais.forEach(function (a) { s += '<li>' + ic(a[0], 'p') + '<span>' + esc(a[1]) + '<small>' + esc(a[2]) + '</small></span></li>'; });
+      p.adicionais.forEach(function (a) {
+        // o adicional que acrescenta um ingrediente também leva às fotos dele
+        s += '<li>' + ic(a[0], 'p') + '<span>' + esc(a[1]) + '<small>' + esc(a[2]) + '</small></span>' + (a[0] === 'mais' && a[3] ? botaoDasFotos(a[3], p.id) : '') + '</li>';
+      });
       s += '</ul></div>';
     }
     var pe = o === 'planilha' ? 'Para mudar, corrija a planilha e importe de novo.'
@@ -915,6 +1192,641 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
       : 'Para mudar, mude no Regem. O Farol busca as fichas uma vez por dia' + comOBotao('; para trazer já, use “Buscar agora”.', '.');
     s += '</div><div class="folha-pe"><p class="nota">' + pe + '</p><button class="btn" type="button" data-fechar>Fechar</button></div></aside>';
     return s;
+  }
+
+  /* ─────────── o treinamento: as contas ─────────── */
+  function slug(s) { return semAcento(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+  function produtoPorNome(nome) { var r = null; PRODUTOS.forEach(function (p) { if (p.nome === nome) r = p; }); return r; }
+  function gravacaoPorId(id) { var r = null; GRAVACOES.forEach(function (g) { if (g.id === id) r = g; }); return r; }
+  function lanchePorId(id) { var r = null; LANCHES.forEach(function (l) { if (l.id === id) r = l; }); return r; }
+  // as fichas que a loja tem de fato (Regem "sem fichas" não conta)
+  function haFichas() { return temFichas() && comFicha(produtos()) > 0; }
+  // os produtos que já passaram por esta bancada, nos lanches conferidos
+  var DA_BANCADA = ['X-Burger', 'X-Salada'];
+  // todos os ingredientes da loja — das fichas e dos adicionais —, com os produtos em que entram
+  function ingredientesDaLoja() {
+    var mapa = {}, ordem = [];
+    function por(nome, onde) {
+      if (!mapa[nome]) { mapa[nome] = []; ordem.push(nome); }
+      if (mapa[nome].indexOf(onde) < 0) mapa[nome].push(onde);
+    }
+    produtos().forEach(function (p) {
+      if (p.ficha) p.ficha.ingredientes.forEach(function (i) { por(i[0], p.nome); });
+      p.adicionais.forEach(function (a) { if (a[0] === 'mais' && a[3]) por(a[3], p.nome + ' (adicional)'); });
+    });
+    return ordem.map(function (n) { return { nome: n, produtos: mapa[n] }; });
+  }
+  function ingredientesDaBancada() {
+    return ingredientesDaLoja().filter(function (i) {
+      return i.produtos.some(function (p) { return DA_BANCADA.indexOf(p.replace(' (adicional)', '')) >= 0; });
+    });
+  }
+  function aprendido(nome) {
+    var s = est.treino.situacao;
+    if (s === 'novo' || s === 'lendo') return { presente: 0, reconheceu: 0, exemplos: 0 };
+    return APRENDIDO[nome] || { presente: 0, reconheceu: 0, exemplos: 0 };
+  }
+  // quantas vezes o ingrediente entra na montagem: o número, quando a unidade se conta de cima (fatia, unidade);
+  // peso, volume, folha e rodela contam como presença
+  function vezesNaFicha(qtd) {
+    var m = /^(\d+)\s+(fatias?|unidades?)$/.exec(qtd || '');
+    return m ? Number(m[1]) : 1;
+  }
+  function respDe(l) {
+    if (!est.treino.resp[l.id]) est.treino.resp[l.id] = { etapas: {}, produto: '', outroProduto: '', ficha: {}, fora: {} };
+    return est.treino.resp[l.id];
+  }
+  function nomeDaResposta(re) {
+    if (re.nome === '__novo') return re.novo ? re.novo.trim() : '';
+    if (re.nome === '__naosei') return '';
+    return re.nome || '';
+  }
+  // o que a etapa mostrou: a correção de quem conferiu, ou a leitura da loja
+  function rotuloDaEtapa(l, i) {
+    var re = respDe(l).etapas[i], e = l.etapas[i];
+    if (re && re.v === 'nada') return null;
+    if (re && re.v === 'outro') return nomeDaResposta(re) || null;
+    return e.leu;
+  }
+  function vistos(l, soALeitura) {
+    var conta = {};
+    l.etapas.forEach(function (e, i) {
+      var nome = soALeitura ? e.leu : rotuloDaEtapa(l, i);
+      if (nome) conta[nome] = (conta[nome] || 0) + (e.vezes || 1);
+    });
+    return conta;
+  }
+  function ehAdicional(p, nome) { return p.adicionais.some(function (a) { return a[0] === 'mais' && a[3] === nome; }); }
+  function adicionalQueTira(p, nome) { var r = ''; p.adicionais.forEach(function (a) { if (a[0] === 'menos' && a[3] === nome) r = a[1]; }); return r; }
+  // a conta da ficha: o que bate, o que veio a menos, o que falta, o que não se vê e o que veio fora dela
+  function compararComFicha(nomeDoProduto, conta) {
+    var p = produtoPorNome(nomeDoProduto), r = { bate: [], menos: [], falta: [], naoSeVe: [], fora: [] };
+    if (!p || !p.ficha) return r;
+    var naFicha = {};
+    p.ficha.ingredientes.forEach(function (i) {
+      var nome = i[0], quer = vezesNaFicha(i[1]), viu = conta[nome] || 0;
+      naFicha[nome] = true;
+      if (NAO_SE_VE[nome]) r.naoSeVe.push({ nome: nome });
+      else if (viu >= quer) r.bate.push({ nome: nome, viu: viu, quer: quer });
+      else if (viu > 0) r.menos.push({ nome: nome, viu: viu, quer: quer });
+      else r.falta.push({ nome: nome, viu: 0, quer: quer });
+    });
+    Object.keys(conta).forEach(function (nome) { if (!naFicha[nome]) r.fora.push({ nome: nome, adicional: ehAdicional(p, nome) }); });
+    return r;
+  }
+  // o palpite da leitura da loja, ANTES de qualquer conferência: a ficha que mais bate com o que ela leu
+  // (o que veio a mais e é adicional do produto não pesa contra)
+  function palpites(l) {
+    var conta = vistos(l, true);
+    return produtos().filter(function (p) { return p.ficha && p.cozinha; }).map(function (p) {
+      var c = compararComFicha(p.nome, conta), total = c.bate.length + c.menos.length + c.falta.length;
+      var batem = c.bate.length + c.menos.length, estranhos = c.fora.filter(function (f) { return !f.adicional; }).length;
+      return { nome: p.nome, batem: batem, total: total, fora: c.fora.length, nota: batem / Math.max(total, 1) - 0.2 * estranhos };
+    }).sort(function (a, b) { return b.nota - a.nota; });
+  }
+  function produtoEscolhido(l, r, pal) {
+    if (r.produto === '__nao') return '';
+    if (r.produto === '__outro') return r.outroProduto || '';
+    return r.produto || pal[0].nome;
+  }
+  // os conferidos nesta visita (e, no controle "tudo conferido", os que faltavam, respondidos pelo palpite)
+  function feitos() {
+    var f = est.treino.feitos.slice();
+    if (est.treino.situacao === 'tudo') {
+      LANCHES.forEach(function (l) {
+        if (f.some(function (x) { return x.id === l.id; })) return;
+        var achou = palpites(l)[0].nome;
+        f.push({ id: l.id, hora: l.hora, grav: l.grav, achou: achou, era: l.id === 'l1937' ? 'X-Salada' : achou, por: 'Gil Prado' });
+      });
+    }
+    return f;
+  }
+  function conferidos() {
+    var s = est.treino.situacao;
+    if (s === 'novo' || s === 'lendo') return est.treino.feitos.slice();
+    return feitos().concat(CONFERIDOS);
+  }
+  function emFila() { var s = est.treino.situacao; return s === 'conferir' || s === 'semloja'; }
+  function paraConferir() {
+    if (!emFila()) return [];
+    var ja = feitos().map(function (x) { return x.id; });
+    return LANCHES.filter(function (l) { return ja.indexOf(l.id) < 0 && est.treino.pulados.indexOf(l.id) < 0; });
+  }
+  function pulados() {
+    if (!emFila()) return [];
+    var ja = feitos().map(function (x) { return x.id; });
+    return LANCHES.filter(function (l) { return ja.indexOf(l.id) < 0 && est.treino.pulados.indexOf(l.id) >= 0; });
+  }
+  function gravacoes() {
+    var s = est.treino.situacao;
+    return GRAVACOES.filter(function (g) {
+      if (g.cancelada) return false;
+      if (g.criada) return true;
+      if (s === 'novo') return false;
+      if (s === 'lendo') return g.id === 'g3';
+      return true;
+    });
+  }
+  function situacaoDaGravacao(g) {
+    if (g.situacao === 'pronta') {
+      var faltam = paraConferir().concat(pulados()).filter(function (l) { return l.grav === g.id; }).length;
+      if (!faltam) return 'conferida';
+    }
+    return g.situacao;
+  }
+  function contas() {
+    var c = conferidos(), acertou = c.filter(function (x) { return x.achou === x.era; }).length;
+    var ings = ingredientesDaBancada().filter(function (i) { return !NAO_SE_VE[i.nome]; });
+    var comExemplo = ings.filter(function (i) { return aprendido(i.nome).exemplos > 0; }).length;
+    return { conf: c.length, acertou: acertou, ings: ings.length, comExemplo: comExemplo };
+  }
+  function sugestoes() {
+    var s = est.treino.situacao;
+    if (s === 'novo' || s === 'lendo') return est.treino.novas.slice();
+    return est.treino.novas.concat(SUGESTOES);
+  }
+  function sugestoesAbertas() { return sugestoes().filter(function (g) { return !est.treino.decisoes[g.id]; }); }
+  // onde a ficha se muda, conforme de onde ela vem
+  function ondeMudar(onde) {
+    var o = origem();
+    if (o === 'planilha') return 'Na planilha, ' + onde + ', e importe de novo.';
+    if (o === 'sistema') return 'No ' + SISTEMA + ', ' + onde + '.';
+    return 'No Regem, em Estoque › Fichas técnicas, ' + onde + '.';
+  }
+
+  /* ─────────── o desenho de exemplo (no console, aqui vai o recorte da câmera da bancada) ─────────── */
+  var FORMAS = {
+    pao: '<circle cx="50" cy="50" r="44" class="il-pao"/><circle cx="50" cy="50" r="37" class="il-miolo"/>',
+    molho: '<path class="il-molho" d="M27 47c4-14 28-19 41-9 11 8 6 25-8 28-17 4-37-4-33-19z"/>',
+    cebola: '<path class="il-cebola" d="M30 40q8-8 16 0M53 35q8-7 15 1M33 58q9-7 17 1M55 58q7-6 14 2M42 48q7-6 13 1"/>',
+    alface: '<path class="il-alface" d="M22 50c3-11 11-7 15-13s12-4 16 0 13-2 16 6 9 11 3 17-8 10-17 8-12 4-18-2-16-6-15-16z"/>',
+    tomate: '<circle cx="39" cy="46" r="12" class="il-tomate"/><circle cx="61" cy="55" r="12" class="il-tomate"/><circle cx="39" cy="46" r="6" class="il-semente"/><circle cx="61" cy="55" r="6" class="il-semente"/>',
+    carne: '<circle cx="50" cy="50" r="35" class="il-carne"/><path class="il-marca" d="M30 41h40M27 50h46M30 59h40"/>',
+    queijo: '<rect x="25" y="25" width="50" height="50" rx="2" transform="rotate(8 50 50)" class="il-queijo"/>',
+    queijo2: '<rect x="23" y="27" width="50" height="50" rx="2" transform="rotate(-6 48 52)" class="il-queijo"/><rect x="28" y="22" width="50" height="50" rx="2" transform="rotate(14 53 47)" class="il-queijo il-sobre"/>',
+    bacon: '<path class="il-bacon" d="M24 40c8-5 16 4 24 0s16 4 26 0M24 52c8-5 16 4 24 0s16 4 26 0M26 64c8-5 16 4 24 0s14 4 22 0"/>',
+    ovo: '<path class="il-clara" d="M24 50c0-16 18-23 31-19s21 16 15 29-27 14-37 6-9-10-9-16z"/><circle cx="49" cy="49" r="10" class="il-gema"/>',
+    batata: '<path class="il-batata" d="M28 34l30 6M30 46l34 2M26 58l32-4M36 68l28-6M44 30l2 34"/>',
+    mao: '<rect x="48" y="40" width="44" height="74" rx="20" transform="rotate(-24 70 77)" class="il-mao"/>'
+  };
+  // `camadas`: as formas na ordem em que entraram; com `marcar`, a última — o que mudou nesta etapa — vem contornada
+  function desenho(camadas, marcar, rotulo, fundo) {
+    var s = '<svg viewBox="0 0 100 100"' + (rotulo ? ' role="img" aria-label="' + esc(rotulo) + '"' : ' aria-hidden="true"') + '><rect width="100" height="100" class="il-fundo' + (fundo === 'chapa' ? ' chapa' : '') + '"/>';
+    camadas.forEach(function (c, i) { s += '<g' + (marcar && i === camadas.length - 1 ? ' class="nova"' : '') + '>' + (FORMAS[c] || '') + '</g>'; });
+    return s + '</svg>';
+  }
+  // `semTarja`: nos quadros pequenos das etapas, o aviso de "desenho" vai uma vez só, no texto do bloco
+  function quadro(camadas, marcar, rotulo, fundo, semTarja) {
+    return '<div class="quadro">' + desenho(camadas, marcar, rotulo, fundo) + (semTarja ? '' : '<span class="tarja" aria-hidden="true">desenho de exemplo</span>') + '</div>';
+  }
+  // a metade como estava naquela etapa: o pão e o que já tinha entrado do mesmo lado
+  function camadasAte(l, i) {
+    var e = l.etapas[i], c = ['pao'];
+    if (e.lado === 'pão aberto') return c;
+    for (var k = 0; k <= i; k++) if (l.etapas[k].lado === e.lado) c.push(l.etapas[k].forma);
+    return c;
+  }
+  // a metade como ficou no fim (a mão já saiu)
+  function camadasDoLado(l, lado) {
+    var c = ['pao'];
+    l.etapas.forEach(function (e) { if (e.lado === lado && e.forma !== 'mao') c.push(e.forma); });
+    return c;
+  }
+
+  /* ─────────── as fotos de um ingrediente ─────────── */
+  function botaoDasFotos(nome, deProduto) {
+    var n = (FOTOS[nome] || []).length, nao = !!NAO_SE_VE[nome];
+    var texto = nao ? 'não se vê' : n ? String(n) : 'sem foto';
+    var rotulo = nao ? nome + ': não se vê de cima' : (n ? plural(n, 'foto', 'fotos') : 'sem foto') + ' de ' + nome;
+    return '<button class="foto-chip' + (n || nao ? '' : ' sem') + '" type="button" data-ingrediente="' + esc(nome) + '"' + (deProduto ? ' data-de-produto="' + esc(deProduto) + '"' : '') +
+      ' id="fc-' + slug(nome) + '" aria-label="' + esc(rotulo) + '">' + ic('foto', 'p') + '<span aria-hidden="true">' + esc(texto) + '</span></button>';
+  }
+  function ladrilhoDaFoto(nome, f, podeTirar) {
+    var imagem = f.url ? '<div class="quadro"><img src="' + esc(f.url) + '" alt="A foto que você escolheu agora, de ' + esc(nome) + '"></div>' : quadro(f.camadas, false, 'Desenho de exemplo: ' + nome + ', ' + f.jeito, f.fundo);
+    return '<figure class="foto">' + imagem + '<figcaption><span>' + esc(f.jeito) + '</span><small class="mono">' + esc(f.quando) + '</small></figcaption>' +
+      (podeTirar ? '<button class="btn mini perigo" type="button" data-tirar-foto="' + f.id + '" id="tirar-' + f.id + '">Tirar</button>' : '') + '</figure>';
+  }
+  function folhaDoIngrediente(nome) {
+    var info = null;
+    ingredientesDaLoja().forEach(function (i) { if (i.nome === nome) info = i; });
+    var orfa = !info && !!ORFAS[nome], fotos = (orfa ? ORFAS[nome] : FOTOS[nome]) || [], a = aprendido(nome), nao = !!NAO_SE_VE[nome];
+    var s = '<aside class="folha estreita" role="dialog" aria-modal="true" aria-labelledby="ing-titulo"><div class="folha-cab"><div><h2 id="ing-titulo">' + esc(nome) + '</h2><p>' +
+      (orfa ? 'saiu das fichas da loja' : 'entra em ' + esc(info ? info.produtos.join(', ') : '')) + '</p></div><button class="btn quadrado fantasma" type="button" data-fechar aria-label="Fechar">' + ic('x') + '</button></div><div class="folha-corpo">';
+    if (orfa) {
+      s += '<div class="aviso facho" role="status">' + ic('info') + '<div><b>Este ingrediente saiu das fichas.</b> As fotos dele esperam aqui: se ele só mudou de nome, diga qual é o nome novo e elas vão junto.</div></div>';
+      if (configura()) {
+        s += '<div class="campo"><label for="orfa-destino">É o mesmo ingrediente que</label><select class="entrada" id="orfa-destino"><option value="">Escolha na lista</option>';
+        ingredientesDaLoja().forEach(function (i) { if (!NAO_SE_VE[i.nome]) s += '<option>' + esc(i.nome) + '</option>'; });
+        s += '</select></div><div class="linha-acoes"><button class="btn cheio" type="button" data-ligar-orfa="' + esc(nome) + '">Juntar as fotos</button><button class="btn perigo" type="button" data-apagar-orfa="' + esc(nome) + '">Apagar as fotos</button></div>';
+      } else {
+        s += '<p class="nota">Quem configura a loja diz de qual ingrediente elas são.</p>';
+      }
+    } else {
+      var estado = nao ? '<span class="chip">não se vê de cima</span>' : !a.exemplos ? '<span class="chip fora">a bancada ainda não deu exemplo</span>'
+        : '<span class="chip ' + (a.reconheceu / Math.max(a.presente, 1) >= 0.85 && a.presente >= 5 ? 'ok' : 'facho') + '">reconheceu em ' + a.reconheceu + ' de ' + plural(a.presente, 'lanche', 'lanches') + '</span>';
+      s += '<div class="contas"><span class="chip">' + (fotos.length ? plural(fotos.length, 'foto sua', 'fotos suas') : 'nenhuma foto sua') + '</span><span class="chip">' + plural(a.exemplos, 'exemplo da bancada', 'exemplos da bancada') + '</span>' + estado + '</div>';
+    }
+    // as fotos de referência
+    s += '<section class="bloco" aria-labelledby="fr-t"><h3 id="fr-t">Fotos de referência</h3>';
+    if (!orfa) s += '<p class="nota">Fotos suas, do ingrediente como ele entra no lanche. Valem para todos os produtos que o usam e vão para o computador da loja, onde o Farol o reconhece sem nuvem.</p>';
+    s += '<div class="fotos">';
+    fotos.forEach(function (f) { s += ladrilhoDaFoto(nome, f, configura() && !orfa); });
+    if (!orfa && est.treino.enviando === nome) s += '<figure class="foto enviando" aria-live="polite"><div class="quadro"><span class="enviando-texto">enviando…</span></div><figcaption><span>a foto escolhida</span><small class="mono">reduzida no aparelho</small></figcaption></figure>';
+    if (!orfa && fotos.length < LIMITE_FOTOS && est.treino.enviando !== nome) {
+      s += '<div class="foto nova-foto"><input class="sr" type="file" id="foto-arquivo" accept="image/*" data-foto-de="' + esc(nome) + '"><label for="foto-arquivo">' + ic('foto', 'g') + '<span>Enviar foto</span><small>JPG ou PNG, do celular ou do computador</small></label></div>';
+    }
+    s += '</div>';
+    if (est.treino.erroFoto) s += '<div class="aviso fora" role="alert">' + ic('alerta') + '<div>' + esc(est.treino.erroFoto) + '</div></div>';
+    if (!orfa && fotos.length >= LIMITE_FOTOS) s += '<p class="nota">Chegou ao limite de ' + LIMITE_FOTOS + ' fotos por ingrediente. Para enviar outra, tire uma.</p>';
+    if (!orfa) {
+      s += '<p class="nota">A foto é reduzida no seu aparelho antes de ir (até 1.600 px), como as fotos do inventário.</p>';
+      s += '<div class="so-proto"><span>só no protótipo</span><div class="linha-acoes"><button class="btn mini" type="button" data-simular-foto="nao-foto" id="sim-nao-foto">Simular um arquivo que não é foto</button><button class="btn mini" type="button" data-simular-foto="limite" id="sim-limite">Simular o limite de fotos</button></div></div>';
+    }
+    s += '</section>';
+    if (!orfa) {
+      s += '<section class="bloco" aria-labelledby="cf-dica"><h3 id="cf-dica">Como fotografar</h3><ul class="escolhas">' +
+        '<li>' + ic('certo', 'p') + '<span>De cima, como a câmera da bancada vê.</span></li>' +
+        '<li>' + ic('certo', 'p') + '<span>Na bancada ou sobre o pão, com a luz de sempre.</span></li>' +
+        '<li>' + ic('certo', 'p') + '<span>Uma foto da porção inteira e outra de perto.</span></li>' +
+        '<li>' + ic('certo', 'p') + '<span>Se ele muda no preparo (cru e grelhado, inteiro e em fatias), uma foto de cada jeito.</span></li>' +
+        '<li>' + ic('certo', 'p') + '<span>Sem pessoas na foto: só o ingrediente.</span></li></ul></section>';
+      // os exemplos da bancada: recortes dos lanches conferidos
+      s += '<section class="bloco" aria-labelledby="ex-t"><h3 id="ex-t">Exemplos da bancada</h3>';
+      if (nao) s += '<p class="nota">Marcado como “não se vê de cima”: o Farol não espera vê-lo na bancada.</p>';
+      else if (!a.exemplos) s += '<p class="nota">Nenhum ainda. Os exemplos entram quando alguém confere um lanche com ' + esc(nome) + ', na tela Treinamento.</p>';
+      else {
+        s += '<p class="nota">O recorte do ' + esc(nome) + ' em cada lanche conferido. É com eles que a leitura da loja compara.</p><div class="exemplos">';
+        for (var k = 0; k < Math.min(a.exemplos, 6); k++) s += desenho(['pao', FORMA[nome] || 'molho'], false, '');
+        s += '</div>' + (a.exemplos > 6 ? '<p class="nota">e mais ' + (a.exemplos - 6) + '.</p>' : '');
+      }
+      s += '</section>';
+      if (configura()) {
+        s += '<section class="bloco" aria-labelledby="ve-t"><h3 id="ve-t">Na câmera</h3><button class="alternar" type="button" data-nao-se-ve="' + esc(nome) + '" id="nao-se-ve" aria-pressed="' + nao + '"><span class="chave" aria-hidden="true"></span><span><b>Não se vê de cima</b><small>Para sal, tempero e o que fica escondido. O Farol para de esperar vê-lo na bancada.</small></span></button></section>';
+      }
+    }
+    s += '</div><div class="folha-pe">';
+    var volta = est.treino.deProduto ? produtoPorId(est.treino.deProduto) : null;
+    if (volta) s += '<button class="btn" type="button" data-voltar-produto="' + volta.id + '">' + ic('voltar', 'p') + 'Voltar ao ' + esc(volta.nome) + '</button>';
+    return s + '<button class="btn" type="button" data-fechar>Fechar</button></div></aside>';
+  }
+  function produtoPorId(id) { var r = null; PRODUTOS.forEach(function (p) { if (p.id === id) r = p; }); return r; }
+  function dialogoApagarOrfa(nome) {
+    return '<div class="dialogo" role="alertdialog" aria-modal="true" aria-labelledby="dlg-t" aria-describedby="dlg-d"><div><h2 id="dlg-t">Apagar as fotos de “' + esc(nome) + '”?</h2>' +
+      '<p id="dlg-d">' + plural((ORFAS[nome] || []).length, 'foto sai', 'fotos saem') + ' do Farol e do computador da loja. Se o ingrediente só mudou de nome, junte as fotos ao nome novo em vez de apagar.</p>' +
+      '<div class="linha-acoes"><button class="btn" type="button" data-manter-foto data-foco>Manter</button><button class="btn perigo" type="button" data-confirmar-apagar-orfa="' + esc(nome) + '">Apagar as fotos</button></div></div></div>';
+  }
+  function dialogoTirarFoto(nome, id) {
+    return '<div class="dialogo" role="alertdialog" aria-modal="true" aria-labelledby="dlg-t" aria-describedby="dlg-d"><div><h2 id="dlg-t">Tirar esta foto do ' + esc(nome) + '?</h2>' +
+      '<p id="dlg-d">O Farol deixa de usá-la como referência. Os exemplos da bancada não mudam.</p>' +
+      '<div class="linha-acoes"><button class="btn" type="button" data-manter-foto data-foco>Manter</button><button class="btn perigo" type="button" data-confirmar-tirar="' + id + '">Tirar</button></div></div></div>';
+  }
+
+  /* ─────────── a tela Treinamento ─────────── */
+  var ABAS_TREINO = [['lanches', 'Lanches'], ['ingredientes', 'Ingredientes'], ['sugestoes', 'Sugestões para as fichas'], ['gravacoes', 'Gravações']];
+  function telaTreinamento() {
+    var t = est.treino;
+    var s = '<div class="cab"><div><h1>Treinamento</h1><div class="sobre"><span class="chip mono">' + esc(BANCADA) + '</span><span class="chip dado">lido no computador da loja</span></div>' +
+      '<p class="suave" style="margin-top:8px;max-width:68ch">O Farol lê os lanches de uma gravação de treino e mostra o que viu, etapa por etapa. Você confirma ou corrige; cada caso conferido vira exemplo para a próxima leitura.</p></div>';
+    if (configura() && haFichas()) s += '<div class="acoes"><button class="btn cheio" type="button" data-nova-gravacao id="nova-gravacao">' + ic('mais', 'p') + 'Nova gravação de treino</button></div>';
+    s += '</div>';
+    if (!haFichas()) {
+      return s + '<div class="vazio">' + ic('ficha', 'g') + '<h2>Primeiro, as fichas</h2><p>O treinamento compara o que a bancada montou com as fichas da loja. Sem elas, o Farol não sabe o que esperar de cada lanche.</p><button class="btn cheio" type="button" data-ir="fichas">Ir para Fichas</button></div>';
+    }
+    if (!gravacoes().length) return s + comecarTreino();
+    if (t.situacao === 'semloja') {
+      s += '<div class="aviso facho" role="status">' + ic('alerta') + '<div><b>O computador da loja não responde desde hoje, 03:10.</b> Dá para conferir normalmente: os quadros já subiram, e o que você ensinar chega à loja quando ele voltar. A gravação de hoje, 12:00 às 12:30, para de ser lida até lá.</div></div>';
+    }
+    s += numerosDoTreino();
+    var n = { lanches: paraConferir().length, ingredientes: ingredientesDaBancada().length, sugestoes: sugestoesAbertas().length, gravacoes: gravacoes().length };
+    s += '<div class="abas" role="tablist" aria-label="Partes do treinamento">';
+    ABAS_TREINO.forEach(function (a) {
+      var sel = t.aba === a[0];
+      s += '<button type="button" role="tab" id="aba-' + a[0] + '" aria-controls="painel-treino" aria-selected="' + sel + '" tabindex="' + (sel ? '0' : '-1') + '" data-aba-treino="' + a[0] + '">' + a[1] + ' <span class="mono">' + n[a[0]] + '</span></button>';
+    });
+    s += '</div><div role="tabpanel" id="painel-treino" class="painel-treino" aria-labelledby="aba-' + t.aba + '" tabindex="0">';
+    s += t.aba === 'ingredientes' ? painelIngredientes() : t.aba === 'sugestoes' ? painelSugestoes() : t.aba === 'gravacoes' ? painelGravacoes() : painelLanches();
+    return s + '</div>';
+  }
+  function comecarTreino() {
+    var s = '<div class="vazio">' + ic('treino', 'g') + '<h2>O Farol aprende com a sua bancada</h2><p>Escolha um horário de movimento. O Farol grava, lê os lanches no computador da loja e traz o que viu para você conferir.</p>' +
+      '<ol class="passo-a-passo comeco"><li>Escolha o horário: do que o gravador já guardou, ou para gravar depois.</li><li>O computador da loja lê os lanches, devagar, sem atrapalhar o expediente.</li><li>Você confere: confirma o que está certo e corrige o que não está. Cada conferência ensina.</li></ol>';
+    s += configura() ? '<button class="btn cheio" type="button" data-nova-gravacao id="nova-gravacao-vazio">' + ic('mais', 'p') + 'Nova gravação de treino</button>' : '<p class="nota">Quem configura a loja cria a gravação de treino.</p>';
+    return s + '</div>';
+  }
+  function numerosDoTreino() {
+    var c = contas();
+    var s = '<div class="dados" role="group" aria-label="O que o Farol já sabe nesta bancada">' +
+      '<div class="dado"><b>' + c.conf + '</b><span>' + (c.conf === 1 ? 'lanche conferido' : 'lanches conferidos') + '</span></div>' +
+      '<div class="dado"><b>' + (c.conf ? c.acertou + ' de ' + c.conf : '—') + '</b><span>o lanche certo, antes da conferência</span></div>' +
+      '<div class="dado"><b>' + c.comExemplo + ' de ' + c.ings + '</b><span>ingredientes da bancada com exemplo</span></div></div>';
+    var linhas = gravacoes().slice().reverse().map(function (g) {
+      var cs = conferidos().filter(function (x) { return x.grav === g.id; });
+      return { g: g, total: cs.length, certo: cs.filter(function (x) { return x.achou === x.era; }).length };
+    }).filter(function (x) { return x.total > 0; });
+    if (!linhas.length) return s;
+    s += '<section class="cartao" aria-labelledby="t-acerto"><header><h2 id="t-acerto">O lanche certo, gravação por gravação</h2><span class="chip empurra">meta proposta: 9 em 10</span></header><div class="miolo"><div class="funil">';
+    linhas.forEach(function (x) {
+      var pct = Math.round(100 * x.certo / x.total);
+      s += '<div class="funil-linha"><span>' + esc(x.g.quando) + '</span><span class="trilha" role="img" aria-label="' + pct + '%"><i style="width:' + pct + '%"></i></span><span class="v">' + x.certo + ' de ' + x.total + '</span></div>';
+    });
+    return s + '</div><p class="nota">Contado só nos lanches que alguém conferiu: antes da conferência, o Farol não sabe se acertou. A meta ainda é proposta: o lanche certo em 9 de cada 10, com pelo menos 30 conferidos.</p></div></section>';
+  }
+  // a linha de um lanche na fila
+  var MOTIVOS = { duvida: ['facho', 'leitura com pouca certeza'], coberto: ['facho', 'uma etapa ficou coberta'], diferenca: ['dado', 'diferente da ficha'], certo: ['', 'o Farol acha que acertou'] };
+  function linhaDoLanche(l) {
+    var p = palpites(l)[0], m = MOTIVOS[l.motivo];
+    return '<button class="lanche" type="button" data-lanche="' + l.id + '" id="lanche-' + l.id + '">' +
+      '<span class="miniaturas" aria-hidden="true">' + desenho(camadasDoLado(l, 'tampo'), false, '') + desenho(camadasDoLado(l, 'base'), false, '') + '</span>' +
+      '<span class="oq"><b>Lanche das ' + l.hora + '</b><small>gravação de ' + esc(gravacaoPorId(l.grav).quando) + '</small></span>' +
+      '<span class="marcas"><span class="chip">o Farol acha: ' + esc(p.nome) + '</span><span class="chip' + (m[0] ? ' ' + m[0] : '') + '">' + m[1] + '</span></span>' + ic('seta', 'p') + '</button>';
+  }
+  function linhaConferida(c) {
+    var certo = c.achou === c.era;
+    return '<div class="lanche feito" role="listitem"><span class="oq"><b>Lanche das ' + c.hora + ' · ' + esc(c.era || 'não era lanche') + '</b><small>gravação de ' + esc(gravacaoPorId(c.grav).quando) + ' · conferido por ' + esc(c.por) + '</small></span>' +
+      '<span class="marcas">' + (certo ? '<span class="chip ok">o Farol acertou</span>' : '<span class="chip fora">o Farol achou ' + esc(c.achou) + '</span>') + '</span></div>';
+  }
+  function painelLanches() {
+    var t = est.treino, fila = paraConferir(), feitos = conferidos(), pul = pulados();
+    var s = '<div class="barra"><div class="seg" role="group" aria-label="Quais lanches">';
+    [['conferir', 'Para conferir', fila.length], ['conferidos', 'Conferidos', feitos.length], ['pulados', 'Pulados', pul.length]].forEach(function (f) {
+      s += '<button type="button" data-filtro-lanches="' + f[0] + '" aria-pressed="' + (t.filtro === f[0]) + '">' + f[1] + ' <span class="mono">' + f[2] + '</span></button>';
+    });
+    s += '</div></div>';
+    if (t.filtro === 'conferidos') {
+      if (!feitos.length) return s + '<div class="vazio"><h2>Nenhum lanche conferido ainda</h2><p>Os lanches que alguém conferir aparecem aqui, com o que o Farol tinha achado.</p></div>';
+      s += '<div class="lista" role="list" aria-label="Lanches conferidos">';
+      feitos.forEach(function (c) { s += linhaConferida(c); });
+      return s + '</div>';
+    }
+    var lista = t.filtro === 'pulados' ? pul : fila;
+    if (!lista.length) {
+      if (t.filtro === 'pulados') return s + '<div class="vazio"><h2>Nenhum lanche pulado</h2><p>Quando você pular um lanche na conferência, ele espera aqui.</p></div>';
+      var lendo = gravacoes().filter(function (g) { return situacaoDaGravacao(g) === 'lendo'; })[0];
+      if (lendo) return s + '<div class="vazio" role="status">' + ic('relogio', 'g') + '<h2>Nada para conferir ainda</h2><p>A gravação de ' + esc(lendo.quando) + ' está sendo lida no computador da loja (' + lendo.feito + '%). Os lanches aparecem aqui quando a leitura terminar.</p></div>';
+      return s + '<div class="vazio" role="status">' + ic('certo', 'g') + '<h2>Tudo conferido</h2><p>Não há lanche esperando conferência. Para o Farol aprender mais, grave outro horário de movimento.</p>' +
+        (configura() ? '<button class="btn" type="button" data-nova-gravacao id="nova-gravacao-tudo">' + ic('mais', 'p') + 'Nova gravação de treino</button>' : '') + '</div>';
+    }
+    if (t.filtro === 'conferir') s += '<p class="nota">Primeiro os lanches em que o Farol tem mais dúvida: é onde a sua conferência ensina mais.</p>';
+    s += '<div class="lista" role="list" aria-label="' + (t.filtro === 'pulados' ? 'Lanches pulados' : 'Lanches para conferir') + '">';
+    lista.forEach(function (l) { s += '<div role="listitem">' + linhaDoLanche(l) + '</div>'; });
+    return s + '</div>';
+  }
+  function linhaDoIngrediente(i) {
+    var a = aprendido(i.nome), f = (FOTOS[i.nome] || []).length, estado;
+    if (NAO_SE_VE[i.nome]) estado = '<span class="chip">não se vê de cima</span>';
+    else if (!a.exemplos) estado = '<span class="chip fora">sem exemplo</span>';
+    else if (a.reconheceu / Math.max(a.presente, 1) >= 0.85 && a.presente >= 5) estado = '<span class="chip ok">reconhece: ' + a.reconheceu + ' de ' + a.presente + '</span>';
+    else estado = '<span class="chip facho">aprendendo: ' + a.reconheceu + ' de ' + a.presente + '</span>';
+    return '<button class="linha ing" type="button" data-ingrediente="' + esc(i.nome) + '" id="ing-' + slug(i.nome) + '">' +
+      '<span class="nome"><b>' + esc(i.nome) + '</b><small>' + esc(i.produtos.join(', ')) + '</small></span>' +
+      '<span class="marcas"><span class="chip">' + (f ? plural(f, 'foto', 'fotos') : 'sem foto') + '</span><span class="chip">' + plural(a.exemplos, 'exemplo', 'exemplos') + '</span></span>' +
+      '<span class="marcas">' + estado + '</span>' + ic('seta', 'p') + '</button>';
+  }
+  function painelIngredientes() {
+    var t = est.treino, todos = ingredientesDaBancada(), s = '';
+    var orfas = Object.keys(ORFAS);
+    if (orfas.length) {
+      s += '<div class="aviso facho" role="status">' + ic('info') + '<div><b>' + plural(orfas.length, 'ingrediente que saiu das fichas ainda tem fotos', 'ingredientes que saíram das fichas ainda têm fotos') + ':</b> ' + esc(orfas.join(', ')) + '.' +
+        ' <button class="btn mini" type="button" data-ingrediente="' + esc(orfas[0]) + '" id="ver-orfa">Ver</button></div></div>';
+    }
+    var semEx = todos.filter(function (i) { return !NAO_SE_VE[i.nome] && !aprendido(i.nome).exemplos; });
+    var semFoto = todos.filter(function (i) { return !NAO_SE_VE[i.nome] && !(FOTOS[i.nome] || []).length; });
+    var filtro = t.filtroIng || 'todos';
+    s += '<div class="barra"><div class="seg" role="group" aria-label="Quais ingredientes">';
+    [['todos', 'Todos', todos.length], ['semex', 'Sem exemplo', semEx.length], ['semfoto', 'Sem foto', semFoto.length]].forEach(function (f) {
+      s += '<button type="button" data-filtro-ing="' + f[0] + '" aria-pressed="' + (filtro === f[0]) + '">' + f[1] + ' <span class="mono">' + f[2] + '</span></button>';
+    });
+    s += '</div></div>';
+    var lista = filtro === 'semex' ? semEx : filtro === 'semfoto' ? semFoto : todos;
+    if (!lista.length) return s + '<div class="vazio"><h2>Nenhum ingrediente com esse filtro</h2><p>Volte a ver todos.</p><button class="btn" type="button" data-filtro-ing="todos">Ver todos</button></div>';
+    s += '<div class="lista" role="list" aria-label="Ingredientes desta bancada"><div class="lista-cab" aria-hidden="true"><span>Ingrediente</span><span>Fotos e exemplos</span><span>O que o Farol sabe</span><span></span></div>';
+    lista.forEach(function (i) { s += linhaDoIngrediente(i); });
+    return s + '</div><p class="nota">Os ingredientes dos lanches que já passaram por esta bancada. Outro ingrediente da loja entra aqui quando um lanche que o leva for conferido nela.</p>';
+  }
+  function cartaoDaSugestao(g) {
+    var d = est.treino.decisoes[g.id];
+    var s = '<section class="cartao sugestao" aria-labelledby="sg-' + g.id + '"><header><span class="chip">' + esc(g.tipo) + '</span>' +
+      (d ? '<span class="chip ' + (d === 'sim' ? 'facho' : 'ok') + ' empurra">' + (d === 'sim' ? 'a mudar na ficha' : 'fica como está') + '</span>' : '') + '</header><div class="miolo">' +
+      '<h3 id="sg-' + g.id + '">' + esc(g.titulo) + '</h3><p><b>O que a bancada mostrou.</b> ' + esc(g.viu) + '</p><p><b>A sugestão.</b> ' + esc(g.propoe) + '</p><p class="nota">' + esc(ondeMudar(g.ondeRegem)) + '</p>';
+    if (!d && configura()) s += '<div class="linha-acoes"><button class="btn cheio" type="button" data-sugestao="' + g.id + '" data-v="sim" id="sg-' + g.id + '-sim">' + esc(g.sim) + '</button><button class="btn" type="button" data-sugestao="' + g.id + '" data-v="nao" id="sg-' + g.id + '-nao">' + esc(g.nao) + '</button></div>';
+    if (!d && !configura()) s += '<p class="nota">Quem configura a loja responde às sugestões.</p>';
+    if (d === 'sim') s += '<p class="nota">Quando a ficha chegar com a mudança, o Farol leva junto as fotos e os exemplos do nome antigo.</p>';
+    return s + '</div></section>';
+  }
+  function painelSugestoes() {
+    var todas = sugestoes();
+    var s = '<p class="nota">As sugestões nascem só do que alguém conferiu, nunca de uma leitura sem conferência. O Farol não muda a ficha: quem muda é você, onde ela é cadastrada.</p>';
+    if (!todas.length) return s + '<div class="vazio">' + ic('ideia', 'g') + '<h2>Nenhuma sugestão por enquanto</h2><p>Elas aparecem quando os lanches conferidos mostram um nome que confunde ou uma ficha diferente do que a bancada faz.</p></div>';
+    var abertas = todas.filter(function (g) { return !est.treino.decisoes[g.id]; }), feitas = todas.filter(function (g) { return est.treino.decisoes[g.id]; });
+    s += '<div class="sugestoes">';
+    abertas.concat(feitas).forEach(function (g) { s += cartaoDaSugestao(g); });
+    return s + '</div>';
+  }
+  function linhaDaGravacao(g) {
+    var sit = situacaoDaGravacao(g), estado, acoes = '';
+    if (sit === 'programada') estado = '<span class="chip">programada</span><span class="suave">grava no horário e lê depois</span>';
+    else if (sit === 'fila') estado = '<span class="chip">na fila</span><span class="suave">começa quando a de antes terminar</span>';
+    else if (sit === 'lendo') {
+      estado = est.treino.situacao === 'semloja' ? '<span class="chip fora">parada</span><span class="suave">o computador da loja não responde</span>'
+        : '<span class="chip facho">lendo na loja</span><progress max="100" value="' + g.feito + '" aria-label="Leitura da gravação">' + g.feito + '%</progress><span class="suave mono">' + g.feito + '%</span>';
+    } else if (sit === 'pronta') {
+      var faltam = paraConferir().concat(pulados()).filter(function (l) { return l.grav === g.id; }).length;
+      estado = '<span class="chip dado">' + faltam + ' para conferir</span><span class="suave mono">' + plural(g.lanches, 'lanche', 'lanches') + '</span>';
+    } else if (sit === 'apagada') estado = '<span class="chip">imagens apagadas</span><span class="suave mono">' + plural(g.lanches, 'lanche', 'lanches') + ' · o aprendido ficou</span>';
+    else estado = '<span class="chip ok">conferida</span><span class="suave mono">' + plural(g.lanches, 'lanche', 'lanches') + (g.apaga ? ' · imagens até ' + g.apaga : ' · imagens por 30 dias') + '</span>';
+    if (sit === 'pronta') acoes += '<button class="btn mini" type="button" data-ir-lanches>Conferir</button>';
+    if (configura()) {
+      if (sit === 'programada' || sit === 'fila') acoes += '<button class="btn mini" type="button" data-cancelar-gravacao="' + g.id + '" id="cancelar-' + g.id + '">Cancelar</button>';
+      if (sit === 'conferida') acoes += '<button class="btn mini perigo" type="button" data-apagar-gravacao="' + g.id + '" id="apagar-' + g.id + '">Apagar as imagens</button>';
+    }
+    return '<div class="gravacao" role="listitem"><div class="de"><b>' + esc(g.quando) + '</b><small>' + esc(g.como === 'programada' ? 'programada' : 'do que o gravador guardou') + ' · ' + esc(BANCADA) + '</small></div><div class="estado">' + estado + '</div><div class="acoes">' + acoes + '</div></div>';
+  }
+  function painelGravacoes() {
+    var lista = gravacoes();
+    var s = '<div class="lista" role="list" aria-label="Gravações de treino">';
+    lista.forEach(function (g) { s += linhaDaGravacao(g); });
+    return s + '</div><p class="nota">A gravação inteira fica no computador da loja, separada das outras, e sai 30 dias depois de conferida. Para você conferir de qualquer lugar, sobem só os quadros das etapas, reduzidos.</p>';
+  }
+
+  /* ─────────── conferir um lanche ─────────── */
+  function botaoDaEtapa(i, v, texto, atual) {
+    return '<button type="button" data-etapa="' + i + '" data-v="' + v + '" id="et-' + i + '-' + v + '" aria-pressed="' + (atual === v) + '">' + texto + '</button>';
+  }
+  function escolhaDoIngrediente(i, re) {
+    var s = '<div class="campo"><label for="et-' + i + '-nome">O que era</label><select class="entrada" id="et-' + i + '-nome" data-etapa-nome="' + i + '"><option value="">Escolha o ingrediente</option>';
+    ingredientesDaLoja().forEach(function (g) { if (!NAO_SE_VE[g.nome]) s += '<option' + (re.nome === g.nome ? ' selected' : '') + '>' + esc(g.nome) + '</option>'; });
+    s += '<option value="__novo"' + (re.nome === '__novo' ? ' selected' : '') + '>Um ingrediente que não está nas fichas…</option><option value="__naosei"' + (re.nome === '__naosei' ? ' selected' : '') + '>Não sei o que era</option></select></div>';
+    if (re.nome === '__novo') {
+      s += '<div class="campo"><label for="et-' + i + '-novo">Nome do ingrediente</label><input class="entrada" id="et-' + i + '-novo" type="text" maxlength="40" autocomplete="off" data-etapa-novo="' + i + '" value="' + esc(re.novo || '') + '"><small>Vira uma sugestão para as fichas.</small></div>';
+    }
+    return s;
+  }
+  var CERTEZA = { alta: ['ok', 'certeza alta'], media: ['', 'certeza média'], baixa: ['facho', 'pouca certeza'], nenhuma: ['facho', 'sem leitura'] };
+  function blocoQualLanche(r, pal) {
+    var s = '<section class="bloco" aria-labelledby="ql-t"><h3 id="ql-t">Qual lanche era?</h3><div class="familias" role="radiogroup" aria-labelledby="ql-t">';
+    pal.slice(0, 2).forEach(function (o, i) {
+      s += '<div class="familia"><input type="radio" name="qual-lanche" id="ql-' + i + '" value="' + esc(o.nome) + '" data-qual-lanche' + (r.produto === o.nome ? ' checked' : '') + '><label for="ql-' + i + '"><b>' + esc(o.nome) + (i === 0 ? ' <span class="chip dado">o Farol acha</span>' : '') + '</b><small>confere ' + o.batem + ' de ' + o.total + (o.fora ? ' · ' + o.fora + ' fora da ficha' : '') + '</small></label></div>';
+    });
+    s += '<div class="familia"><input type="radio" name="qual-lanche" id="ql-outro" value="__outro" data-qual-lanche' + (r.produto === '__outro' ? ' checked' : '') + '><label for="ql-outro"><b>Outro produto</b><small>escolha na lista</small></label></div>';
+    s += '<div class="familia"><input type="radio" name="qual-lanche" id="ql-nao" value="__nao" data-qual-lanche' + (r.produto === '__nao' ? ' checked' : '') + '><label for="ql-nao"><b>Não era um lanche</b><small>ou não dá para saber</small></label></div></div>';
+    if (r.produto === '__outro') {
+      s += '<div class="campo"><label for="ql-qual">Qual produto</label><select class="entrada" id="ql-qual" data-outro-produto><option value="">Escolha o produto</option>';
+      produtos().forEach(function (p) { if (p.ficha && p.cozinha && !pal.slice(0, 2).some(function (o) { return o.nome === p.nome; })) s += '<option' + (r.outroProduto === p.nome ? ' selected' : '') + '>' + esc(p.nome) + '</option>'; });
+      s += '</select></div>';
+    }
+    return s + '</section>';
+  }
+  function blocoEtapas(l, r, podeConferir) {
+    var s = '<section class="bloco" aria-labelledby="et-t"><h3 id="et-t">O que o Farol viu, etapa por etapa</h3><p class="nota">Na ordem em que aconteceu. Em cada quadro, o que mudou vem contornado. (No protótipo, desenhos no lugar dos recortes da câmera.)</p>';
+    // o atalho: depois de corrigir o que está errado, o resto se confirma de uma vez (cada etapa certa vira exemplo)
+    var semResposta = l.etapas.filter(function (e, i) { return e.leu && !(r.etapas[i] && r.etapas[i].v); }).length;
+    if (podeConferir && semResposta) s += '<div class="linha-acoes"><button class="btn mini" type="button" data-etapas-certas id="etapas-certas">' + ic('certo', 'p') + 'Marcar as outras ' + semResposta + ' como certas</button></div>';
+    s += '<ol class="etapas">';
+    l.etapas.forEach(function (e, i) {
+      var re = r.etapas[i] || {}, c = CERTEZA[e.certeza];
+      var lido = e.leu ? esc(e.leu) + (e.vezes > 1 ? ' <span class="mono">×' + e.vezes + '</span>' : '') : 'não deu para ver';
+      var leitura = '<b>' + lido + '</b>';
+      if (re.v === 'outro' && nomeDaResposta(re)) leitura = '<s>' + lido + '</s> <b>' + esc(nomeDaResposta(re)) + '</b>';
+      else if (re.v === 'outro' && re.nome === '__naosei') leitura = '<s>' + lido + '</s> <b>não sei</b>';
+      else if (re.v === 'nada') leitura = '<s>' + lido + '</s> <b>não era ingrediente</b>';
+      s += '<li class="etapa' + (e.certeza === 'baixa' || e.certeza === 'nenhuma' ? ' atencao' : '') + '">' + quadro(camadasAte(l, i), true, 'Desenho de exemplo: ' + e.lado + ', às ' + e.hora, null, true) +
+        '<div class="leitura"><p class="quando">' + e.hora + ' · ' + esc(e.lado) + '</p><p class="leu">' + leitura + ' <span class="chip' + (c[0] ? ' ' + c[0] : '') + '">' + c[1] + '</span></p>';
+      if (podeConferir) {
+        s += '<div class="seg" role="group" aria-label="A leitura das ' + e.hora + '">' +
+          (e.leu ? botaoDaEtapa(i, 'certo', 'Certo', re.v) + botaoDaEtapa(i, 'outro', 'Era outro', re.v) + botaoDaEtapa(i, 'nada', 'Não era ingrediente', re.v)
+            : botaoDaEtapa(i, 'outro', 'Eu sei o que era', re.v)) + '</div>';
+        if (re.v === 'outro') s += escolhaDoIngrediente(i, re);
+      }
+      s += '</div></li>';
+    });
+    return s + '</ol></section>';
+  }
+  function segDaDiferenca(nome, atual, opcoes) {
+    var s = '<div class="seg" role="group" aria-label="' + esc(nome) + '">';
+    opcoes.forEach(function (o) { s += '<button type="button" data-diferenca="' + esc(nome) + '" data-v="' + o[0] + '" id="df-' + slug(nome) + '-' + o[0] + '" aria-pressed="' + (atual === o[0]) + '">' + o[1] + '</button>'; });
+    return s + '</div>';
+  }
+  function blocoComparo(l, r, pal, podeConferir) {
+    var nomeP = produtoEscolhido(l, r, pal);
+    if (!nomeP) return '';
+    var p = produtoPorNome(nomeP), c = compararComFicha(nomeP, vistos(l, false));
+    var s = '<section class="bloco" aria-labelledby="cp-t"><h3 id="cp-t">Comparado com a ficha do ' + esc(nomeP) + '</h3>' + (r.produto ? '' : '<p class="nota">Pelo palpite do Farol. Muda quando você escolher o lanche acima.</p>') + '<ul class="comparo">';
+    c.bate.forEach(function (x) { s += '<li class="bate">' + ic('certo', 'p') + '<span><b>' + esc(x.nome) + '</b>' + (x.quer > 1 ? ' <span class="mono">' + x.viu + ' de ' + x.quer + '</span>' : '') + '<small>visto</small></span></li>'; });
+    c.menos.concat(c.falta).forEach(function (x) {
+      var tira = adicionalQueTira(p, x.nome);
+      s += '<li class="falta">' + ic('alerta', 'p') + '<span><b>' + esc(x.nome) + '</b> <span class="mono">' + x.viu + ' de ' + x.quer + '</span><small>' + (x.viu ? 'veio menos do que a ficha diz' : 'não foi visto') + (tira ? ' · o ' + esc(nomeP) + ' tem o adicional “' + esc(tira) + '”' : '') + '</small>' +
+        (podeConferir ? segDaDiferenca(x.nome, r.ficha[x.nome], [['cliente', 'O cliente pediu assim'], ['faltou', 'Faltou'], ['naoviu', 'Estava lá; o Farol não viu']]) : '') + '</span></li>';
+    });
+    c.fora.forEach(function (x) {
+      s += '<li class="fora-da-ficha">' + ic('mais', 'p') + '<span><b>' + esc(x.nome) + '</b><small>' + (x.adicional ? 'fora da ficha, mas é adicional do ' + esc(nomeP) : 'fora da ficha') + '</small>' +
+        (podeConferir ? segDaDiferenca(x.nome, r.fora[x.nome], [['adicional', 'Pedido do cliente'], ['amais', 'A mais, sem pedido']]) : '') + '</span></li>';
+    });
+    c.naoSeVe.forEach(function (x) { s += '<li class="nao-se-ve">' + ic('menos', 'p') + '<span><b>' + esc(x.nome) + '</b><small>não se vê de cima: o Farol não confere</small></span></li>'; });
+    s += '</ul>';
+    if (c.menos.length || c.falta.length) s += '<p class="nota">O que falta nem sempre é erro: o cliente pode ter pedido sem. Com os pedidos do KDS, o Farol vai saber isso sozinho.</p>';
+    return s + '</section>';
+  }
+  function semDiferenca(l, pal) {
+    var c = compararComFicha(pal[0].nome, vistos(l, true));
+    return !c.menos.length && !c.falta.length && !c.fora.length && l.etapas.every(function (e) { return e.certeza === 'alta'; });
+  }
+  function folhaDoLanche(id) {
+    var l = lanchePorId(id);
+    if (!l) return '';
+    var r = respDe(l), pal = palpites(l), g = gravacaoPorId(l.grav), fila = paraConferir(), pos = fila.indexOf(l);
+    var s = '<aside class="folha" role="dialog" aria-modal="true" aria-labelledby="lanche-titulo"><div class="folha-cab"><div><h2 id="lanche-titulo">Lanche das ' + l.hora + '</h2><p>' + esc(BANCADA) + ' · gravação de ' + esc(g.quando) + ' · fechou às ' + l.fechou +
+      (pos >= 0 ? ' · ' + (pos + 1) + ' de ' + fila.length + ' para conferir' : '') + '</p></div><button class="btn quadrado fantasma" type="button" data-fechar aria-label="Fechar">' + ic('x') + '</button></div><div class="folha-corpo">';
+    if (l.motivo === 'duvida') s += '<div class="aviso facho">' + ic('info') + '<div><b>Uma leitura saiu com pouca certeza.</b> Confira com calma: é onde a sua resposta mais ensina.</div></div>';
+    if (l.motivo === 'coberto') s += '<div class="aviso facho">' + ic('info') + '<div><b>Numa etapa, a mão cobriu a base.</b> O Farol não leu o que entrou ali. Se você souber, diga; se não souber, deixe sem resposta.</div></div>';
+    s += blocoQualLanche(r, pal) + blocoEtapas(l, r, true) + blocoComparo(l, r, pal, true);
+    s += '<p class="nota">' + ic('cadeado', 'p') + ' A gravação inteira fica no computador da loja. Os quadros das etapas sobem reduzidos, só para a conferência, e saem 30 dias depois dela.</p>';
+    s += '</div><div class="folha-pe">';
+    var conferidas = l.etapas.filter(function (e, i) { return r.etapas[i] && r.etapas[i].v; }).length;
+    s += '<p class="nota pe-nota">' + (r.produto ? conferidas + ' de ' + plural(l.etapas.length, 'etapa conferida', 'etapas conferidas') + (conferidas ? ': cada uma vira exemplo.' : '.') : 'Escolha qual lanche era para salvar.') + '</p>';
+    s += '<button class="btn" type="button" data-pular-lanche id="pular-lanche">Pular</button>';
+    if (!r.produto && semDiferenca(l, pal)) s += '<button class="btn" type="button" data-tudo-certo id="tudo-certo">' + ic('certo', 'p') + 'Está tudo certo</button>';
+    s += '<button class="btn cheio" type="button" data-salvar-lanche id="salvar-lanche"' + (r.produto ? '' : ' disabled') + '>Salvar e ir para o próximo</button>';
+    return s + '</div></aside>';
+  }
+  // o que a conferência ensina: cada etapa confirmada vira exemplo; o lanche conta para o acerto
+  function salvarLanche(l) {
+    var r = respDe(l), pal = palpites(l), achou = pal[0].nome;
+    var era = r.produto === '__outro' ? r.outroProduto : r.produto === '__nao' ? '' : r.produto;
+    var novos = 0, presentes = {};
+    function presente(nome, reconheceu) {
+      var a = APRENDIDO[nome] || (APRENDIDO[nome] = { presente: 0, reconheceu: 0, exemplos: 0 });
+      if (presentes[nome]) return a;
+      presentes[nome] = true;
+      a.presente++;
+      if (reconheceu) a.reconheceu++;
+      return a;
+    }
+    l.etapas.forEach(function (e, i) {
+      var re = r.etapas[i];
+      if (!re) return;
+      var nome = re.v === 'certo' ? e.leu : re.v === 'outro' ? nomeDaResposta(re) : '';
+      if (!nome) return;
+      presente(nome, re.v === 'certo').exemplos++;
+      novos++;
+      if (re.nome === '__novo' && re.novo) novaSugestao(re.novo.trim(), l);
+    });
+    Object.keys(r.ficha).forEach(function (nome) { if (r.ficha[nome] === 'naoviu') presente(nome, false); });
+    est.treino.feitos.unshift({ id: l.id, hora: l.hora, grav: l.grav, achou: achou, era: era, por: 'você' });
+    est.treino.pulados = est.treino.pulados.filter(function (x) { return x !== l.id; });
+    return novos;
+  }
+  function novaSugestao(nome, l) {
+    if (est.treino.novas.some(function (g) { return g.ingrediente === nome; })) return;
+    est.treino.novas.unshift({ id: 'n-' + slug(nome), tipo: 'nome fora das fichas', ingrediente: nome,
+      titulo: '“' + nome + '” não está em nenhuma ficha',
+      viu: 'Ao conferir o lanche das ' + l.hora + ', você chamou um ingrediente de “' + nome + '”.',
+      propoe: 'Se ele entra em algum lanche, cadastre-o na ficha com este nome: assim o Farol junta os exemplos dele ao ingrediente certo.',
+      ondeRegem: 'na ficha do lanche em que ele entra', sim: 'Vou cadastrar', nao: 'Foi engano meu' });
+  }
+
+  /* ─────────── nova gravação de treino ─────────── */
+  function dataISO(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function novaGravacao() {
+    var ontem = new Date(); ontem.setDate(ontem.getDate() - 1);
+    return { de: 'gravador', dia: dataISO(ontem), das: '19:30', as: '20:00', erro: '' };
+  }
+  function folhaNovaGravacao() {
+    var n = est.treino.nova;
+    var s = '<aside class="folha estreita" role="dialog" aria-modal="true" aria-labelledby="ng-titulo"><div class="folha-cab"><div><h2 id="ng-titulo">Nova gravação de treino</h2><p>Um horário de movimento, para o Farol ler e você conferir.</p></div><button class="btn quadrado fantasma" type="button" data-fechar aria-label="Fechar">' + ic('x') + '</button></div><div class="folha-corpo">';
+    s += '<div class="campo"><label for="ng-bancada">Bancada</label><select class="entrada" id="ng-bancada"><option>' + esc(BANCADA) + ' · câmera 4</option></select></div>';
+    s += '<div class="campo"><span class="rotulo" id="ng-de-t">De onde</span><div class="familias" role="radiogroup" aria-labelledby="ng-de-t">' +
+      '<div class="familia"><input type="radio" name="ng-de" id="ng-gravador" value="gravador" data-ng-de' + (n.de === 'gravador' ? ' checked' : '') + '><label for="ng-gravador"><b>Do que o gravador já guardou</b><small>um horário das últimas 18 horas</small></label></div>' +
+      '<div class="familia"><input type="radio" name="ng-de" id="ng-programar" value="programar" data-ng-de' + (n.de === 'programar' ? ' checked' : '') + '><label for="ng-programar"><b>Programar</b><small>um horário que ainda vai acontecer</small></label></div></div></div>';
+    s += '<div class="tres-campos"><div class="campo"><label for="ng-dia">Dia</label><input class="entrada" type="date" id="ng-dia" value="' + esc(n.dia) + '"' + (n.erro ? ' aria-describedby="ng-erro"' : '') + '></div>' +
+      '<div class="campo"><label for="ng-das">Das</label><input class="entrada" type="time" id="ng-das" value="' + esc(n.das) + '"></div>' +
+      '<div class="campo"><label for="ng-as">Às</label><input class="entrada" type="time" id="ng-as" value="' + esc(n.as) + '"></div></div>';
+    if (n.erro) s += '<span class="erro-do-campo" id="ng-erro" role="alert">' + esc(n.erro) + '</span>';
+    s += '<div class="ajuda"><b>Para o Farol aprender mais por minuto gravado</b><ul><li>Um horário de movimento: mais lanches, mais exemplos.</li><li>De 15 minutos a 1 hora por gravação.</li><li>Com a luz de sempre da bancada.</li></ul></div>';
+    s += '<p class="nota">A leitura roda no computador da loja, devagar, para não atrapalhar o expediente: 30 minutos gravados levam perto de 1 hora para ler. O quanto o gravador guarda é medido nele; o desta loja guarda cerca de 18 horas.</p>';
+    return s + '</div><div class="folha-pe"><button class="btn" type="button" data-fechar>Cancelar</button><button class="btn cheio" type="button" data-criar-gravacao>Criar gravação</button></div></aside>';
+  }
+  function quandoDaGravacao(dia, das, as) {
+    var hoje = dataISO(new Date()), ontem = new Date(); ontem.setDate(ontem.getDate() - 1);
+    var d = dia === hoje ? 'hoje' : dia === dataISO(ontem) ? 'ontem' : dia.slice(8, 10) + '/' + dia.slice(5, 7);
+    return d + ', ' + das + ' às ' + as;
+  }
+  function conferirNovaGravacao(n) {
+    if (!n.dia || !n.das || !n.as) return 'Preencha o dia e os dois horários.';
+    var ini = new Date(n.dia + 'T' + n.das), fim = new Date(n.dia + 'T' + n.as), agora = new Date();
+    var min = (fim - ini) / 60000;
+    if (!(min > 0)) return 'O fim precisa ser depois do começo.';
+    if (min < 15 || min > 60) return 'Uma gravação de treino vai de 15 minutos a 1 hora.';
+    if (n.de === 'gravador') {
+      if (fim > agora) return 'Este horário ainda não terminou: escolha “Programar”.';
+      if (agora - ini > 18 * 3600000) return 'O gravador não guarda mais este horário: ele guarda cerca de 18 horas.';
+    } else if (ini < agora) return 'Este horário já começou: escolha “Do que o gravador já guardou”.';
+    return '';
+  }
+  function dialogoApagarGravacao(id) {
+    var g = gravacaoPorId(id);
+    return '<div class="dialogo" role="alertdialog" aria-modal="true" aria-labelledby="dlg-t" aria-describedby="dlg-d"><div><h2 id="dlg-t">Apagar as imagens da gravação de ' + esc(g.quando) + '?</h2>' +
+      '<p id="dlg-d">A gravação sai do computador da loja e os quadros das etapas saem da nuvem. O que o Farol aprendeu fica: o recorte de cada ingrediente conferido e os números.</p>' +
+      '<div class="linha-acoes"><button class="btn" type="button" data-fechar data-foco>Manter</button><button class="btn perigo" type="button" data-confirmar-apagar-gravacao="' + id + '">Apagar as imagens</button></div></div></div>';
   }
 
   /* ─────────── importar por planilha: o modelo, o envio, a conferência ─────────── */
@@ -1155,6 +2067,7 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
     }
     var s = '<div class="mais-folha" role="dialog" aria-modal="true" aria-labelledby="mais-t"><h2 id="mais-t">Mais</h2>';
     s += item('fichas', 'fichas', 'ficha', 'Fichas', 'o que a loja vende e do que é feito');
+    s += item('treinamento', 'treinamento', 'treino', 'Treinamento', 'a bancada aprende com o que você confere');
     if (configura()) {
       s += item('orcamento', 'fora', 'conta', 'Orçamento', 'o que falta para a loja ficar coberta');
       s += item('conexoes', 'conexoes', 'tomada', 'Conexões', 'de onde vêm as fichas das lojas');
@@ -1165,7 +2078,7 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
   /* ─────────── pintar ─────────── */
   function pintarCaminho() {
     var el = document.getElementById('caminho');
-    el.innerHTML = est.tela === 'conexoes' ? '<span>Sua conta</span>' + ic('seta', 'p') + '<b>Conexões</b>' : '<span>Loja Centro</span>' + ic('seta', 'p') + '<b>Fichas</b>';
+    el.innerHTML = est.tela === 'conexoes' ? '<span>Sua conta</span>' + ic('seta', 'p') + '<b>Conexões</b>' : '<span>Loja Centro</span>' + ic('seta', 'p') + '<b>' + (est.tela === 'treinamento' ? 'Treinamento' : 'Fichas') + '</b>';
     Array.prototype.forEach.call(document.querySelectorAll('a.ir'), function (a) {
       if (a.getAttribute('data-ir') === est.tela) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
       // Orçamento e Conexões são de quem configura: a supervisão não vê o item
@@ -1188,7 +2101,7 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
       tela.innerHTML = '<div class="vazio" role="alert">' + ic('alerta', 'g') + '<h2>O console não respondeu</h2><p>Não deu para carregar esta tela. Nada foi perdido: as fichas que a loja já tem continuam valendo lá.</p><button class="btn cheio" type="button" data-tentar>Tentar de novo</button></div>';
       return;
     }
-    tela.innerHTML = est.tela === 'conexoes' ? telaConexoes() : telaFichas();
+    tela.innerHTML = est.tela === 'conexoes' ? telaConexoes() : est.tela === 'treinamento' ? telaTreinamento() : telaFichas();
   }
 
   /* ─────────── avisos, gaveta e diálogo ─────────── */
@@ -1204,6 +2117,11 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
     sobre.innerHTML = '';
     est.imp = null;
     est.novo = null;
+    est.treino.aberto = null;
+    est.treino.ingrediente = null;
+    est.treino.deProduto = null;
+    est.treino.nova = null;
+    est.treino.erroFoto = '';
     document.getElementById('mais').setAttribute('aria-expanded', 'false');
   }
   function fechar() {
@@ -1219,11 +2137,23 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
     var alvo = sobre.querySelector('[data-foco]') || sobre.querySelector('button');
     if (alvo) alvo.focus();
   }
+  // a MESMA gaveta, desenhada de novo depois de uma escolha dentro dela: sem a animação de entrada, na mesma rolagem,
+  // e com o foco de volta em quem foi clicado
+  function redesenhar(html, focoId) {
+    var corpo = sobre.querySelector('.folha-corpo'), topo = corpo ? corpo.scrollTop : 0;
+    sobre.innerHTML = '<div class="veu" data-fechar></div>' + html;
+    var folha = sobre.querySelector('.folha');
+    if (folha) folha.classList.add('sem-entrada');
+    var novo = sobre.querySelector('.folha-corpo');
+    if (novo) novo.scrollTop = topo;
+    var alvo = focoId ? document.getElementById(focoId) : null;
+    if (alvo) { try { alvo.focus({ preventScroll: true }); } catch (e) { alvo.focus(); } }
+  }
 
   /* ─────────── navegação ─────────── */
   function ir(qual) {
-    if (qual !== 'fichas' && qual !== 'conexoes') {
-      avisar('Tela de exemplo: neste protótipo só Fichas e Conexões abrem.', true);
+    if (qual !== 'fichas' && qual !== 'conexoes' && qual !== 'treinamento') {
+      avisar('Tela de exemplo: neste protótipo só Fichas, Treinamento e Conexões abrem.', true);
       return;
     }
     est.tela = qual;
@@ -1235,6 +2165,27 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
   }
   function marcar(grupo, v) {
     Array.prototype.forEach.call(document.querySelectorAll('#' + grupo + ' button'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-v') === v)); });
+  }
+  function focar(seletor) { var x = document.querySelector(seletor); if (x) x.focus(); }
+  function trocarAba(qual) { est.treino.aba = qual; pintar(); focar('#aba-' + qual); }
+  // depois de salvar ou pular um lanche: o próximo da fila, ou de volta à tela
+  function seguirNaFila(texto) {
+    var fila = paraConferir();
+    pintar();
+    if (fila.length) {
+      est.treino.aberto = fila[0].id;
+      voltarPara = '#aba-lanches';
+      abrir(folhaDoLanche(fila[0].id));
+    } else {
+      limparSobre();
+      voltarPara = null;
+      tela.focus();
+    }
+    avisar(fila.length ? texto : texto + ' Não há mais lanche para conferir.');
+  }
+  function voltarAoIngrediente(focoId) {
+    abrir(folhaDoIngrediente(est.treino.ingrediente));
+    if (focoId) focar('#' + focoId);
   }
   function aplicarSituacao(v) {
     if (SITUACOES.indexOf(v) < 0) return;
@@ -1366,6 +2317,175 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
       tela.focus();
       return;
     }
+    // o treinamento
+    if ((el = t.closest('[data-aba-treino]'))) { trocarAba(el.getAttribute('data-aba-treino')); return; }
+    if ((el = t.closest('[data-filtro-lanches]'))) { est.treino.filtro = el.getAttribute('data-filtro-lanches'); pintar(); focar('[data-filtro-lanches="' + est.treino.filtro + '"]'); return; }
+    if ((el = t.closest('[data-filtro-ing]'))) { est.treino.filtroIng = el.getAttribute('data-filtro-ing'); pintar(); focar('[data-filtro-ing="' + est.treino.filtroIng + '"]'); return; }
+    if (t.closest('[data-ir-lanches]')) { est.treino.aba = 'lanches'; est.treino.filtro = 'conferir'; pintar(); focar('#aba-lanches'); return; }
+    if ((el = t.closest('[data-lanche]'))) { est.treino.aberto = el.getAttribute('data-lanche'); abrir(folhaDoLanche(est.treino.aberto), '#' + el.id); return; }
+    if ((el = t.closest('[data-etapa]'))) {
+      var lE = lanchePorId(est.treino.aberto), rE = respDe(lE), iE = Number(el.getAttribute('data-etapa')), vE = el.getAttribute('data-v'), antes = rE.etapas[iE] || {};
+      // tocar de novo no que já está marcado desmarca
+      rE.etapas[iE] = antes.v === vE ? {} : { v: vE, nome: vE === 'outro' ? (antes.nome || '') : '', novo: antes.novo || '' };
+      redesenhar(folhaDoLanche(lE.id), rE.etapas[iE].v === 'outro' ? 'et-' + iE + '-nome' : el.id);
+      return;
+    }
+    if ((el = t.closest('[data-diferenca]'))) {
+      var rD = respDe(lanchePorId(est.treino.aberto)), nD = el.getAttribute('data-diferenca'), vD = el.getAttribute('data-v');
+      var onde = vD === 'adicional' || vD === 'amais' ? rD.fora : rD.ficha;
+      onde[nD] = onde[nD] === vD ? '' : vD;
+      redesenhar(folhaDoLanche(est.treino.aberto), el.id);
+      return;
+    }
+    if (t.closest('[data-etapas-certas]')) {
+      var lC = lanchePorId(est.treino.aberto), rC = respDe(lC);
+      lC.etapas.forEach(function (e, i) { if (e.leu && !(rC.etapas[i] && rC.etapas[i].v)) rC.etapas[i] = { v: 'certo' }; });
+      redesenhar(folhaDoLanche(lC.id), 'salvar-lanche');
+      return;
+    }
+    if (t.closest('[data-pular-lanche]')) {
+      if (est.treino.pulados.indexOf(est.treino.aberto) < 0) est.treino.pulados.push(est.treino.aberto);
+      seguirNaFila('Pulado: o lanche espera em “Pulados”.');
+      return;
+    }
+    if (t.closest('[data-tudo-certo]')) {
+      var lT = lanchePorId(est.treino.aberto), rT = respDe(lT);
+      rT.produto = palpites(lT)[0].nome;
+      lT.etapas.forEach(function (e, i) { if (e.leu) rT.etapas[i] = { v: 'certo' }; });
+      seguirNaFila('Guardado: ' + plural(salvarLanche(lT), 'exemplo novo', 'exemplos novos') + ' para a ' + BANCADA + '.');
+      return;
+    }
+    if (t.closest('[data-salvar-lanche]')) {
+      var lS = lanchePorId(est.treino.aberto), rS = respDe(lS);
+      if (rS.produto === '__outro' && !rS.outroProduto) { avisar('Escolha qual produto era.', true); focar('#ql-qual'); return; }
+      var nS = salvarLanche(lS);
+      seguirNaFila(nS ? 'Guardado: ' + plural(nS, 'exemplo novo', 'exemplos novos') + ' para a ' + BANCADA + '. O Farol relê os lanches que faltam com o que aprendeu.' : 'Guardado. Sem etapa confirmada, o lanche conta só para o acerto.');
+      return;
+    }
+    // as fotos de um ingrediente
+    if ((el = t.closest('[data-ingrediente]'))) {
+      var deP = el.getAttribute('data-de-produto');
+      est.treino.ingrediente = el.getAttribute('data-ingrediente');
+      est.treino.deProduto = deP || null;
+      est.treino.erroFoto = '';
+      abrir(folhaDoIngrediente(est.treino.ingrediente), deP ? undefined : '#' + el.id);
+      return;
+    }
+    if ((el = t.closest('[data-voltar-produto]'))) {
+      var deI = est.treino.ingrediente;
+      est.treino.ingrediente = null;
+      est.treino.deProduto = null;
+      abrir(folhaDoProduto(el.getAttribute('data-voltar-produto')));
+      focar('#fc-' + slug(deI));
+      return;
+    }
+    if ((el = t.closest('[data-tirar-foto]'))) { est.treino.tirar = el.getAttribute('data-tirar-foto'); abrir(dialogoTirarFoto(est.treino.ingrediente, est.treino.tirar)); return; }
+    if (t.closest('[data-manter-foto]')) { voltarAoIngrediente(est.treino.tirar ? 'tirar-' + est.treino.tirar : 'ing-titulo'); return; }
+    if ((el = t.closest('[data-confirmar-tirar]'))) {
+      var idF = el.getAttribute('data-confirmar-tirar'), nomeF = est.treino.ingrediente;
+      FOTOS[nomeF] = (FOTOS[nomeF] || []).filter(function (f) { return f.id !== idF; });
+      est.treino.tirar = null;
+      voltarAoIngrediente(null);
+      if (est.tela === 'treinamento') pintar();
+      avisar('Foto tirada do ' + nomeF + '.');
+      return;
+    }
+    if ((el = t.closest('[data-simular-foto]'))) {
+      var nomeSim = est.treino.ingrediente, simulado = el.getAttribute('data-simular-foto');
+      if (simulado === 'nao-foto') est.treino.erroFoto = '“cardapio.pdf” não é uma foto. Envie um arquivo de imagem, como JPG ou PNG.';
+      else {
+        var cheia = FOTOS[nomeSim] = FOTOS[nomeSim] || [];
+        while (cheia.length < LIMITE_FOTOS) cheia.push({ id: 'x' + cheia.length, jeito: 'de exemplo', quando: 'agora', camadas: ['pao', FORMA[nomeSim] || 'molho'] });
+        est.treino.erroFoto = '';
+      }
+      redesenhar(folhaDoIngrediente(nomeSim), el.id);
+      return;
+    }
+    if ((el = t.closest('[data-nao-se-ve]'))) {
+      var nomeN = el.getAttribute('data-nao-se-ve');
+      if (NAO_SE_VE[nomeN]) delete NAO_SE_VE[nomeN]; else NAO_SE_VE[nomeN] = true;
+      redesenhar(folhaDoIngrediente(nomeN), 'nao-se-ve');
+      if (est.tela === 'treinamento') pintar();
+      avisar(NAO_SE_VE[nomeN] ? 'O Farol para de esperar ver ' + nomeN + ' na bancada.' : 'O Farol volta a esperar ver ' + nomeN + ' na bancada.');
+      return;
+    }
+    if ((el = t.closest('[data-ligar-orfa]'))) {
+      var deO = el.getAttribute('data-ligar-orfa'), paraO = document.getElementById('orfa-destino').value;
+      if (!paraO) { avisar('Escolha de qual ingrediente são as fotos.', true); focar('#orfa-destino'); return; }
+      var juntas = (FOTOS[paraO] || []).concat(ORFAS[deO]);
+      FOTOS[paraO] = juntas.slice(0, LIMITE_FOTOS);
+      delete ORFAS[deO];
+      est.treino.ingrediente = paraO;
+      abrir(folhaDoIngrediente(paraO));
+      if (est.tela === 'treinamento') pintar();
+      avisar('As fotos de “' + deO + '” agora são do ' + paraO + '.' + (juntas.length > LIMITE_FOTOS ? ' Ficaram as ' + LIMITE_FOTOS + ' primeiras: é o limite.' : ''));
+      return;
+    }
+    if ((el = t.closest('[data-apagar-orfa]'))) { abrir(dialogoApagarOrfa(el.getAttribute('data-apagar-orfa'))); return; }
+    if ((el = t.closest('[data-confirmar-apagar-orfa]'))) {
+      var deA = el.getAttribute('data-confirmar-apagar-orfa');
+      delete ORFAS[deA];
+      limparSobre();
+      voltarPara = null;
+      pintar();
+      tela.focus();
+      avisar('As fotos de “' + deA + '” foram apagadas.');
+      return;
+    }
+    // as sugestões para as fichas
+    if ((el = t.closest('[data-sugestao]'))) {
+      est.treino.decisoes[el.getAttribute('data-sugestao')] = el.getAttribute('data-v');
+      pintar();
+      focar('#aba-sugestoes');
+      avisar(el.getAttribute('data-v') === 'sim' ? 'Anotado. Quando a ficha chegar com a mudança, o Farol leva junto as fotos e os exemplos.' : 'Anotado: fica como está. O Farol só volta ao assunto se lanches novos mostrarem outra coisa.');
+      return;
+    }
+    // as gravações de treino
+    if ((el = t.closest('[data-nova-gravacao]'))) { est.treino.nova = novaGravacao(); abrir(folhaNovaGravacao(), '#' + el.id); return; }
+    if (t.closest('[data-criar-gravacao]')) {
+      var n = est.treino.nova;
+      n.dia = document.getElementById('ng-dia').value;
+      n.das = document.getElementById('ng-das').value;
+      n.as = document.getElementById('ng-as').value;
+      n.erro = conferirNovaGravacao(n);
+      if (n.erro) { redesenhar(folhaNovaGravacao(), 'ng-dia'); return; }
+      GRAVACOES.unshift({ id: 'g' + Date.now(), quando: quandoDaGravacao(n.dia, n.das, n.as), como: n.de === 'gravador' ? 'do gravador' : 'programada', situacao: n.de === 'gravador' ? 'fila' : 'programada', criada: true });
+      var doGravador = n.de === 'gravador';
+      limparSobre();
+      voltarPara = null;
+      est.treino.aba = 'gravacoes';
+      pintar();
+      focar('#aba-gravacoes');
+      avisar(doGravador ? 'Gravação criada: o computador da loja busca o trecho no gravador e lê quando chegar a vez dela.' : 'Gravação programada: o Farol grava no horário e lê depois.');
+      return;
+    }
+    if ((el = t.closest('[data-cancelar-gravacao]'))) {
+      var gC = gravacaoPorId(el.getAttribute('data-cancelar-gravacao'));
+      gC.cancelada = true;
+      pintar();
+      focar('#aba-gravacoes');
+      avisar('Gravação de ' + gC.quando + ' cancelada.');
+      return;
+    }
+    if ((el = t.closest('[data-apagar-gravacao]'))) { abrir(dialogoApagarGravacao(el.getAttribute('data-apagar-gravacao')), '#' + el.id); return; }
+    if ((el = t.closest('[data-confirmar-apagar-gravacao]'))) {
+      var gA = gravacaoPorId(el.getAttribute('data-confirmar-apagar-gravacao'));
+      gA.situacao = 'apagada';
+      limparSobre();
+      voltarPara = null;
+      pintar();
+      focar('#aba-gravacoes');
+      avisar('Imagens da gravação de ' + gA.quando + ' apagadas. O que o Farol aprendeu ficou.');
+      return;
+    }
+    if ((el = t.closest('#proto-treino button'))) {
+      est.treino.situacao = el.getAttribute('data-v');
+      est.treino.filtro = 'conferir';
+      marcar('proto-treino', est.treino.situacao);
+      limparSobre();
+      pintar();
+      return;
+    }
     if (t.closest('#tema')) { raiz.setAttribute('data-theme', temaEscuro() ? 'light' : 'dark'); marcar('proto-tema', raiz.getAttribute('data-theme')); pintarTema(); return; }
     if (t.closest('#proto-abrir')) {
       var painel = document.getElementById('proto-painel'), abre = painel.hidden;
@@ -1392,6 +2512,11 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
       var campo = document.getElementById('busca-fichas');
       if (campo) { campo.focus(); try { campo.setSelectionRange(pos, pos); } catch (e) { /* tipo sem seleção: segue */ } }
     }
+    // o nome de um ingrediente que não está nas fichas: guarda enquanto digita (vira sugestão ao salvar)
+    if (t.hasAttribute('data-etapa-novo')) {
+      var rN = respDe(lanchePorId(est.treino.aberto)).etapas[Number(t.getAttribute('data-etapa-novo'))];
+      if (rN) rN.novo = t.value;
+    }
   });
   document.addEventListener('change', function (ev) {
     var t = ev.target;
@@ -1406,6 +2531,48 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
     }
     // escolheu um arquivo: o protótipo não o lê — segue como se a planilha estivesse certa
     if (t.id === 'imp-arquivo' && t.files && t.files.length) { passoDaImportacao(3, 'certa'); return; }
+    // o treinamento: qual lanche era, o produto da lista, o ingrediente de uma etapa, de onde vem a gravação
+    if (t.hasAttribute('data-qual-lanche')) { respDe(lanchePorId(est.treino.aberto)).produto = t.value; redesenhar(folhaDoLanche(est.treino.aberto), t.id); return; }
+    if (t.hasAttribute('data-outro-produto')) { respDe(lanchePorId(est.treino.aberto)).outroProduto = t.value; redesenhar(folhaDoLanche(est.treino.aberto), 'ql-qual'); return; }
+    if (t.hasAttribute('data-etapa-nome')) {
+      var iN = Number(t.getAttribute('data-etapa-nome')), rEt = respDe(lanchePorId(est.treino.aberto)).etapas[iN];
+      if (rEt) rEt.nome = t.value;
+      redesenhar(folhaDoLanche(est.treino.aberto), t.value === '__novo' ? 'et-' + iN + '-novo' : t.id);
+      return;
+    }
+    if (t.hasAttribute('data-ng-de') && est.treino.nova) {
+      var nv = est.treino.nova;
+      nv.de = t.value;
+      nv.dia = document.getElementById('ng-dia').value;
+      nv.das = document.getElementById('ng-das').value;
+      nv.as = document.getElementById('ng-as').value;
+      nv.erro = '';
+      redesenhar(folhaNovaGravacao(), t.id);
+      return;
+    }
+    // a foto de um ingrediente: o protótipo mostra a imagem escolhida só neste navegador — nada é enviado
+    if (t.id === 'foto-arquivo' && t.files && t.files.length) {
+      var arq = t.files[0], de = t.getAttribute('data-foto-de');
+      if (!/^image\//.test(arq.type || '')) {
+        est.treino.erroFoto = '“' + arq.name + '” não é uma foto. Envie um arquivo de imagem, como JPG ou PNG.';
+        redesenhar(folhaDoIngrediente(de), 'foto-arquivo');
+        return;
+      }
+      if ((FOTOS[de] || []).length >= LIMITE_FOTOS) return;
+      est.treino.erroFoto = '';
+      est.treino.enviando = de;
+      redesenhar(folhaDoIngrediente(de));
+      var url = '';
+      try { url = URL.createObjectURL(arq); } catch (e) { url = ''; }
+      window.setTimeout(function () {
+        est.treino.enviando = null;
+        (FOTOS[de] = FOTOS[de] || []).push({ id: 'n' + Date.now(), jeito: 'enviada agora', quando: 'agora', camadas: ['pao', FORMA[de] || 'molho'], url: url });
+        if (est.treino.ingrediente === de && sobre.querySelector('#ing-titulo')) redesenhar(folhaDoIngrediente(de), FOTOS[de].length < LIMITE_FOTOS ? 'foto-arquivo' : null);
+        if (est.tela === 'treinamento') pintar();
+        avisar('Foto enviada. Ela vai para o computador da loja na próxima atualização dele.');
+      }, 1200);
+      return;
+    }
     if (t.id === 'novo-loja' && est.novo) {
       est.novo.loja = t.value;
       est.novo.nome = document.getElementById('novo-nome').value;
@@ -1415,12 +2582,20 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
     }
   });
   document.addEventListener('keydown', function (ev) {
-    if (ev.key === 'Escape' && sobre.innerHTML) { ev.preventDefault(); fechar(); }
+    if (ev.key === 'Escape' && sobre.innerHTML) { ev.preventDefault(); fechar(); return; }
+    // as abas do treinamento: setas, Home e End trocam de aba (o padrão de abas do leitor de tela)
+    var aba = ev.target instanceof Element ? ev.target.closest('[role="tab"][data-aba-treino]') : null;
+    if (aba && ['ArrowRight', 'ArrowLeft', 'Home', 'End'].indexOf(ev.key) >= 0) {
+      ev.preventDefault();
+      var ids = ABAS_TREINO.map(function (a) { return a[0]; }), k = ids.indexOf(aba.getAttribute('data-aba-treino'));
+      k = ev.key === 'Home' ? 0 : ev.key === 'End' ? ids.length - 1 : (k + (ev.key === 'ArrowRight' ? 1 : -1) + ids.length) % ids.length;
+      trocarAba(ids[k]);
+    }
   });
 
   function lerEndereco() {
     var h = (window.location.hash || '').slice(1);
-    est.tela = h === 'conexoes' ? 'conexoes' : 'fichas';
+    est.tela = h === 'conexoes' || h === 'treinamento' ? h : 'fichas';
     pintar();
   }
   window.addEventListener('hashchange', lerEndereco);

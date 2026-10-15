@@ -166,6 +166,135 @@
 .dialogo p { font-size: 14px; color: var(--suave); }
 .dialogo .linha-acoes { justify-content: flex-end; }
 
+/* ── o treinamento e as fotos dos ingredientes ── */
+/* mais tons da ilustração, fixos como os outros --il-*: o desenho que faz as vezes do quadro não muda com o tema */
+:root { --il-tomate: #d6473d; --il-cebola: #9d5b8c; --il-bacon: #b35a40; --il-tarja: rgba(8, 14, 22, 0.72); --il-tarja-texto: #f4f7fb; }
+.il-fundo { fill: var(--il-inox-2); }
+.il-fundo.chapa { fill: var(--il-chapa); }
+.il-pao { fill: var(--il-pao); }
+.il-miolo { fill: var(--il-folha); opacity: 0.32; }
+.il-molho { fill: var(--il-molho); }
+.il-carne { fill: var(--il-carne); }
+.il-marca { fill: none; stroke: var(--il-escuro); stroke-width: 2; stroke-linecap: round; opacity: 0.45; }
+.il-queijo { fill: var(--il-queijo); }
+.il-sobre { stroke: var(--il-escuro); stroke-opacity: 0.3; stroke-width: 1; }
+.il-alface { fill: var(--il-alface); }
+.il-tomate { fill: var(--il-tomate); }
+.il-semente { fill: var(--il-folha); opacity: 0.35; }
+.il-cebola { fill: none; stroke: var(--il-cebola); stroke-width: 3; stroke-linecap: round; }
+.il-bacon { fill: none; stroke: var(--il-bacon); stroke-width: 6; stroke-linecap: round; }
+.il-clara { fill: var(--il-folha); }
+.il-gema { fill: var(--il-queijo); }
+.il-batata { fill: none; stroke: var(--il-queijo); stroke-width: 5; stroke-linecap: round; }
+.il-mao { fill: var(--il-piso); opacity: 0.94; }
+/* o que mudou na etapa vem contornado no tom do facho */
+svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 2px var(--facho)); }
+.quadro { position: relative; aspect-ratio: 1; max-width: 100%; border-radius: 8px; overflow: hidden; background: var(--bg-2); }
+.quadro > svg, .quadro > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.quadro .tarja { position: absolute; left: 6px; bottom: 6px; padding: 1px 6px; border-radius: 4px; background: var(--il-tarja); color: var(--il-tarja-texto); font: 400 10.5px/1.5 var(--f-dado); pointer-events: none; }
+.folha.sem-entrada { animation: none; }
+/* `.dado` também é o bloco dos números grandes (estilo de base): na etiqueta, o espaçamento dele não vale */
+.chip.dado, .chip.dado + .chip.dado { padding: 2px 9px; border: 1px solid transparent; }
+.folha-pe .pe-nota { flex: 1 1 200px; }
+
+/* a tela: as abas, a fila de lanches, os conferidos, as gravações e as sugestões */
+.painel-treino { display: grid; gap: 14px; min-width: 0; }
+.abas button .mono { font-size: 12px; }
+.lista > [role="listitem"] + [role="listitem"] { border-top: 1px solid var(--fio); }
+.lanche { appearance: none; width: 100%; display: grid; grid-template-columns: auto minmax(0, 1.1fr) minmax(0, 1.5fr) 18px; grid-template-areas: "mini oq marcas seta"; align-items: center; gap: 8px 16px; padding: 10px 16px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.lanche:hover, .lanche:focus-visible { background: var(--painel-2); }
+.lanche .miniaturas { grid-area: mini; display: flex; gap: 6px; }
+.lanche .miniaturas svg { display: block; width: 46px; height: 46px; border-radius: 6px; }
+.lanche .oq { grid-area: oq; display: grid; gap: 2px; min-width: 0; }
+.lanche .oq b { font-weight: 600; overflow-wrap: anywhere; }
+.lanche .oq small { color: var(--suave); font-size: 12.5px; }
+.lanche .marcas { grid-area: marcas; display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.lanche .marcas .chip { white-space: normal; }
+.lanche > .ic { grid-area: seta; color: var(--fraco); justify-self: end; }
+.lanche.feito { cursor: default; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); grid-template-areas: "oq marcas"; padding: 12px 16px; }
+.lanche.feito .marcas { justify-content: flex-end; }
+.gravacao { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.4fr) auto; align-items: center; gap: 10px 16px; padding: 14px 16px; }
+.gravacao .de { display: grid; gap: 2px; min-width: 0; }
+.gravacao .de b { font-weight: 600; }
+.gravacao .de small { color: var(--suave); font-size: 12.5px; }
+.gravacao .estado { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.gravacao .acoes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.gravacao progress { width: 110px; max-width: 100%; height: 8px; accent-color: var(--facho); }
+.sugestoes { display: grid; gap: 14px; }
+.sugestao header .chip { white-space: normal; }
+.sugestao .miolo h3 { font-size: 16px; font-weight: 600; }
+.sugestao .miolo p { font-size: 14.5px; max-width: 70ch; }
+.sugestao .miolo p.nota { font-size: 13.5px; }
+.vazio .passo-a-passo { text-align: left; max-width: 52ch; }
+
+/* conferir um lanche: etapa por etapa, e a conta da ficha */
+.etapas { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.etapa { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px 14px; align-items: start; padding: 12px; border: 1px solid var(--fio); border-radius: 8px; background: var(--bg-2); }
+.etapa.atencao { border-color: var(--facho); }
+.etapa .leitura { display: grid; gap: 8px; min-width: 0; }
+.etapa .quando { font: 500 12px/1.5 var(--f-dado); color: var(--suave); }
+.etapa .leu { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.etapa .leu b { font-weight: 600; }
+.etapa .leu s { color: var(--fraco); }
+.comparo { list-style: none; margin: 0; padding: 0; display: grid; border: 1px solid var(--fio); border-radius: 8px; overflow: hidden; }
+.comparo li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; padding: 10px 12px; border-top: 1px solid var(--fio); }
+.comparo li:first-child { border-top: 0; }
+.comparo li > .ic { margin-top: 3px; }
+.comparo li > span { min-width: 0; }
+.comparo b { font-weight: 600; }
+.comparo small { display: block; color: var(--suave); font-size: 12.5px; }
+.comparo .seg { margin-top: 8px; }
+.comparo .bate > .ic { color: var(--ok); }
+.comparo .falta > .ic { color: var(--facho-texto); }
+.comparo .fora-da-ficha > .ic { color: var(--dado); }
+.comparo .nao-se-ve > .ic { color: var(--fraco); }
+
+/* as fotos de um ingrediente */
+.foto-chip { appearance: none; display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border: 1px solid var(--fio-2); border-radius: 999px; background: none; color: var(--suave); font: 500 12px/1.6 var(--f-dado); white-space: nowrap; cursor: pointer; }
+.foto-chip:hover { color: var(--tinta); border-color: var(--suave); }
+.foto-chip.sem { border-style: dashed; }
+.ingredientes li { grid-template-columns: 26px minmax(0, 1fr) auto auto; }
+.escolhas li:has(.foto-chip) { grid-template-columns: 18px minmax(0, 1fr) auto; align-items: start; }
+.fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 12px; }
+.foto { position: relative; margin: 0; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.foto figcaption { display: grid; gap: 1px; font-size: 13px; }
+.foto figcaption small { color: var(--suave); font-size: 12px; }
+.foto .btn { justify-self: start; }
+/* altura mínima, e não proporção quadrada: com o texto, o quadrado puxava a largura além da coluna (medido em 320 px) */
+.nova-foto label { display: grid; place-items: center; align-content: center; gap: 6px; min-height: 128px; min-width: 0; padding: 10px; border: 1px dashed var(--fio-2); border-radius: 8px; color: var(--suave); text-align: center; cursor: pointer; }
+.nova-foto label span { color: var(--tinta); font-weight: 600; }
+.nova-foto label small { font-size: 12px; }
+.nova-foto label:hover { border-color: var(--suave); }
+.nova-foto input:focus-visible + label { outline: 2px solid var(--facho); outline-offset: 2px; }
+.foto.enviando .quadro { display: grid; place-items: center; background: var(--painel-2); }
+.enviando-texto { font: 500 12.5px/1.4 var(--f-dado); color: var(--suave); animation: pulsar 1.2s ease-in-out infinite; }
+@keyframes pulsar { 50% { opacity: 0.4; } }
+.exemplos { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+.exemplos svg { display: block; width: 100%; height: auto; aspect-ratio: 1; border-radius: 6px; }
+.alternar { appearance: none; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; align-items: start; width: 100%; padding: 12px; border: 1px solid var(--fio); border-radius: 8px; background: var(--bg-2); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.alternar .chave { position: relative; width: 36px; height: 20px; margin-top: 2px; border-radius: 999px; background: var(--fio-2); transition: background 160ms; }
+.alternar .chave::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--painel); transition: transform 160ms; }
+.alternar[aria-pressed="true"] .chave { background: var(--facho); }
+.alternar[aria-pressed="true"] .chave::after { transform: translateX(16px); }
+.alternar b { display: block; font-weight: 600; }
+.alternar small { display: block; color: var(--suave); font-size: 12.5px; }
+.tres-campos { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+
+@media (max-width: 900px) {
+  .gravacao { grid-template-columns: minmax(0, 1fr); }
+  .gravacao .acoes { justify-content: flex-start; }
+}
+@media (max-width: 720px) {
+  .lanche { grid-template-columns: auto minmax(0, 1fr) 18px; grid-template-areas: "mini oq seta" "mini marcas seta"; }
+  .lanche.feito { grid-template-columns: minmax(0, 1fr); grid-template-areas: "oq" "marcas"; }
+  .lanche.feito .marcas { justify-content: flex-start; }
+}
+@media (max-width: 420px) {
+  .lanche { grid-template-columns: minmax(0, 1fr) 18px; grid-template-areas: "mini seta" "oq oq" "marcas marcas"; }
+  .etapa { grid-template-columns: 76px minmax(0, 1fr); gap: 10px; padding: 10px; }
+  .tres-campos { grid-template-columns: minmax(0, 1fr); }
+}
+
 @media (max-width: 900px) {
   .so-estreito { display: inline-flex; }
   .so-largo { display: none; }

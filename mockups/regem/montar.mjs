@@ -1,4 +1,5 @@
-// Junta as partes do protótipo das telas do lado do Regem (Conexões e Fichas) num arquivo só.
+// Junta as partes do protótipo das telas do lado do Regem (Conexões e Fichas, com as fotos de cada ingrediente) e do
+// Treinamento da bancada num arquivo só.
 //
 //   node mockups/regem/montar.mjs
 //
@@ -25,7 +26,7 @@ const corpo = juntar('.html');
 const js = juntar('.js');
 if (!base || !corpo || !js) throw new Error('faltou parte: estilo de base, html ou js');
 
-const TITULO = '<title>Conexões e fichas do Farol</title>';
+const TITULO = '<title>Fichas e treinamento do Farol</title>';
 const FONTES =
   '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">';
 
