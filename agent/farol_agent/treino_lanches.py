@@ -205,15 +205,26 @@ def ler_imagem(caminho: Path) -> np.ndarray | None:
         return None
 
 
+class Interrompida(Exception):
+    """Quem chama mandou parar no meio da leitura (a loja abriu): nada fica escrito, e a leitura recomeça depois."""
+
+
+# De quantos em quantos quadros se pergunta se pode seguir (o detector leva ~0,1 s por pedaço no processador).
+PERGUNTA_A_CADA = 30
+
+
 def seguir(
-    linhas: list[dict], recortes: Path, detector: Detector, perfil: PerfilDaBancada
+    linhas: list[dict], recortes: Path, detector: Detector, perfil: PerfilDaBancada,
+    pode_seguir: Callable[[], bool] = lambda: True,
 ) -> tuple[list[Trilha], int, int]:
     """Segue os lanches pela captura densa. Devolve as trilhas (todas, curtas inclusive) e o tamanho do quadro."""
     ativos: list[Trilha] = []
     todos: list[Trilha] = []
     largura = altura = 0
     ultima: datetime | None = None
-    for linha in linhas:
+    for n, linha in enumerate(linhas):
+        if n % PERGUNTA_A_CADA == 0 and n and not pode_seguir():
+            raise Interrompida()
         img = ler_imagem(recortes / linha["recorte"])
         if img is None:
             continue
@@ -339,11 +350,14 @@ def escrever_lanche(a: Trilha, recortes: Path, saida: Path, largura: int, altura
 
 
 def lanches_da_densa(
-    densa: Path, saida: Path, detector: Detector, perfil: PerfilDaBancada, *, linhas: list[dict] | None = None
-) -> list[dict]:
+    densa: Path, saida: Path, detector: Detector, perfil: PerfilDaBancada, *, linhas: list[dict] | None = None,
+    pode_seguir: Callable[[], bool] = lambda: True,
+) -> list[dict] | None:
     """A captura densa (`treino_quadros`: `paradas.csv` + `recortes/`) vira uma pasta por lanche, em `saida`.
 
-    Devolve o resumo de cada trilha — as curtas também, marcadas como "não é lanche" —, que fica em `lanches.json`.
+    Devolve o resumo de cada trilha — as curtas também, marcadas como "não é lanche" —, que fica em `lanches.json`
+    (escrito por último: ele existir quer dizer que a leitura terminou). Nulo quando `pode_seguir` mandou parar no
+    meio: nada fica escrito, e a leitura recomeça na vez seguinte.
     """
     densa, saida = Path(densa), Path(saida)
     if linhas is None:
@@ -351,7 +365,10 @@ def lanches_da_densa(
 
         linhas = list(linhas_da_densa(densa))
     recortes = densa / "recortes"
-    todos, largura, altura = seguir(linhas, recortes, detector, perfil)
+    try:
+        todos, largura, altura = seguir(linhas, recortes, detector, perfil, pode_seguir)
+    except Interrompida:
+        return None
     saida.mkdir(parents=True, exist_ok=True)
     resumo = []
     for a in todos:
@@ -369,5 +386,17 @@ def lanches_da_densa(
             "etapas": list(a.etapas),
             "pasta": f"lanche-{a.id:02d}" if e_lanche else None,
         })
-    (saida / "lanches.json").write_text(json.dumps(resumo, ensure_ascii=False, indent=1), encoding="utf-8")
+    (saida / RESUMO).write_text(json.dumps(resumo, ensure_ascii=False, indent=1), encoding="utf-8")
     return resumo
+
+
+RESUMO = "lanches.json"
+
+
+def lanches_ja_lidos(saida: Path) -> list[dict] | None:
+    """O resumo de uma leitura que já terminou (o `lanches.json` é escrito por último), ou nulo."""
+    try:
+        bruto = json.loads((Path(saida) / RESUMO).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return bruto if isinstance(bruto, list) and all(isinstance(r, dict) for r in bruto) else None
