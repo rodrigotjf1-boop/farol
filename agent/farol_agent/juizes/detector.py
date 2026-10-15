@@ -342,6 +342,39 @@ def interpretar_saida(logits: np.ndarray, classe: str) -> list[float]:
     return [float(p) for p in prob if p >= _PISO]
 
 
+def interpretar_caixas(
+    caixas: np.ndarray, logits: np.ndarray, classe: str, limite: float, largura: int, altura: int
+) -> list[tuple[float, float, float, float, float]]:
+    """As caixas da classe com nota a partir de `limite`, em pixels da imagem: (x0, y0, x1, y1, nota).
+
+    O modelo dá cada caixa como (centro x, centro y, largura, altura), de 0 a 1. Separado do motor para ser testável
+    sem o arquivo do modelo (a leitura da bancada, A21 T3c, acha os pães abertos — o modelo os chama de "donut").
+    """
+    notas = interpretar_saida_completa(logits, classe)
+    bruto = np.asarray(caixas, dtype=np.float32)
+    if bruto.ndim == 3:
+        bruto = bruto[0]
+    if bruto.ndim != 2 or bruto.shape[1] != 4 or bruto.shape[0] != notas.shape[0]:
+        raise ErroDoJuiz(f"caixas do modelo com formato inesperado {tuple(bruto.shape)}", recuperavel=False)
+    saida = []
+    for k in np.nonzero(notas >= limite)[0]:
+        cx, cy, bw, bh = (float(v) for v in bruto[k])
+        saida.append(((cx - bw / 2) * largura, (cy - bh / 2) * altura, (cx + bw / 2) * largura, (cy + bh / 2) * altura, float(notas[k])))
+    return saida
+
+
+def interpretar_saida_completa(logits: np.ndarray, classe: str) -> np.ndarray:
+    """A nota da classe em TODAS as posições de saída (a ordem é a das caixas)."""
+    if classe not in _COCO91:
+        raise ErroDoJuiz(f"o modelo não tem a classe {classe!r}", recuperavel=False)
+    bruto = np.asarray(logits, dtype=np.float32)
+    if bruto.ndim == 3:
+        bruto = bruto[0]
+    if bruto.ndim != 2 or bruto.shape[1] != len(_COCO91):
+        raise ErroDoJuiz(f"saída do modelo com formato inesperado {tuple(bruto.shape)}", recuperavel=False)
+    return 1.0 / (1.0 + np.exp(-bruto[:, _COCO91.index(classe)]))
+
+
 # ───────────────────────────── a prova da placa ─────────────────────────────
 
 # A sessão ABRIR na placa de vídeo não prova que a placa responde certo.
@@ -519,6 +552,18 @@ class MotorOnnx:
         with self._uma_por_vez:
             (logits,) = self._sessao.run(["logits"], {self._entrada: tensor})
         return interpretar_saida(logits, classe)
+
+    def caixas(self, imagem_bgr: np.ndarray, classe: str, limite: float) -> list[tuple[float, float, float, float, float]]:
+        """Onde estão os objetos da classe, com nota a partir de `limite`: (x0, y0, x1, y1, nota) em pixels da imagem."""
+        import cv2
+
+        altura, largura = imagem_bgr.shape[:2]
+        rgb = cv2.cvtColor(imagem_bgr, cv2.COLOR_BGR2RGB)
+        r = cv2.resize(rgb, (_LADO, _LADO), interpolation=cv2.INTER_LINEAR)
+        tensor = np.transpose(r.astype(np.float32) / 255.0, (2, 0, 1))[None]
+        with self._uma_por_vez:
+            caixas, logits = self._sessao.run(["pred_boxes", "logits"], {self._entrada: tensor})
+        return interpretar_caixas(caixas, logits, classe, limite, largura, altura)
 
 
 # ───────────────────────────── o juiz ─────────────────────────────
