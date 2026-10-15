@@ -7343,3 +7343,82 @@ antes de ler uma gravação de treino e uma vez por dia. É a frequência de lei
 
 A parte da loja: baixar a lista, guardar cada quadro pelo sha256, apagar o que saiu, e a leitura comparar com os
 exemplos. Entra num pacote novo, com o "pode" do dono.
+
+## 15/10/2026 · A fila da cozinha chega à loja: a parte da nuvem (fatia 5 do "Regem no Farol", sem migration)
+
+### O que entra
+
+- **`GET /v1/agentes/fila-da-cozinha?versao=`** (`api/src/rotas/fila-da-cozinha.ts`), com o token do agente. A nuvem
+  lê a fila no Regem (`GET /integracao/producao`, a fase 2 de lá) com o acesso guardado da loja. O agente nunca vê
+  esse acesso.
+- **A conversão** (`api/src/fila-da-cozinha.ts`): os pedidos da janela do Regem (em produção nas últimas 24 horas;
+  prontos, entregues ou cancelados nas últimas 2 horas), cada um com os itens, a variação, as escolhas e a
+  observação. A escolha sai no formato da base de fichas (`Efeito`) e com os ids fixos de lá: a opção, o insumo, a
+  sub-receita. Assim a loja casa o "sem cebola" com o ingrediente da ficha pelo id, sem depender de nome. O id da
+  variação, que o Regem troca a cada salvamento, não desce: a variação casa pelo código, como na base.
+- **A versão é a do que desce**, e não a do Regem. Lá a versão muda quando muda o que não desce (o id da variação),
+  e a loja baixaria a mesma fila de novo. A hora em que o Regem montou a resposta também não entra.
+- **O contrato** é `contratos/fila-da-cozinha.json`: a resposta de exemplo do Regem (`doRegem`) e exatamente o que
+  desce dela, o "nada mudou", o ritmo e cada recusa com o que o agente faz.
+
+### O ritmo: uma leitura do Regem por loja a cada 15 segundos
+
+O Regem aceita 60 chamadas por minuto por acesso, somando cardápio, fichas e fila, e sugere ler a fila de 15 em 15
+segundos. A última leitura de cada loja fica na memória da API:
+
+- quem pergunta dentro dos 15 s recebe a mesma leitura;
+- perguntas ao mesmo tempo esperam a MESMA leitura;
+- uma falha fica guardada por 30 s, e o Regem fora do ar não recebe uma chamada a cada pergunta;
+- a falha de passagem não apaga a leitura boa: a pergunta seguinte ao Regem ainda leva a versão de lá;
+- a loja sem leitura há 10 minutos sai da memória.
+
+Toda resposta, de acerto ou de recusa, diz em quantos segundos perguntar de novo (`esperarS`). A nuvem regula o
+ritmo da loja sem pacote novo. Cada réplica da API tem a sua memória: com N réplicas, até N leituras por loja a cada
+15 s.
+
+### As recusas
+
+| status | erro | quando | o agente pergunta de novo em |
+|---|---|---|---|
+| 404 | `sem_regem` | a loja não está ligada ao Regem, ou o acesso foi tirado lá | 600 s |
+| 409 | `sem_escopo` | ligada, mas a autorização não inclui a fila (é preciso conectar de novo) | 600 s |
+| 502 | `regem_fora` | o Regem não respondeu, ou respondeu fora do contrato | 30 s |
+| 503 | `sem_chave` | esta instalação não tem a chave que abre o acesso | 600 s |
+
+**O acesso tirado no Regem** (401 na leitura da fila) não é tratado aqui: a rota dispara a leitura das fichas. Ela
+confirma com a chamada dela e aplica a regra que já existe (o acesso cai e a base da loja sai na hora, decisão de
+11/10). A regra fica num lugar só.
+
+### Uma escrita a menos por pergunta
+
+Cada pergunta do agente anotava o uso do token na linha do agente (`token_usado_em`). Com a fila perguntada a cada
+15 s, seriam 4 escritas por minuto por loja só para isso. Agora a anotação acontece no máximo uma vez por minuto.
+Ninguém lê esse campo além da própria escrita.
+
+### Como foi provado
+
+- **Testes da API** (`api/testes/fila-da-cozinha.test.ts`): 22, sendo 5 sem banco e 17 com Postgres de verdade e o
+  Regem de teste (que passou a responder a fila e o 403 de escopo).
+  - O contrato: a resposta do exemplo é a que a conversão tira do exemplo do Regem, com a versão; as chaves e as
+    listas; o que não desce.
+  - O tolerante: pedido, item e escolha fora do contrato ficam de fora e são contados.
+  - A versão: muda com o que desce, e só com isso.
+  - A rota: a fila exatamente como no contrato; o "nada mudou"; as perguntas juntas (5 ao mesmo tempo, 1 leitura);
+    a pergunta "mudou?" ao Regem com a versão de lá; a mudança que não desce; cada falha do Regem (erro, limite,
+    mudo, página, resposta torta); a falha guardada; o escopo; o acesso tirado (a conexão cai e a base sai); uma loja
+    não vê a fila da outra; a conexão nova não usa a versão da antiga; sem a chave; a faxina da memória; a anotação
+    do uso do token.
+- **Mutação: 33 trocas, 33 mortas**, com controle antes e depois (a conversão, a memória, as perguntas juntas, cada
+  recusa, a versão, a faxina e a anotação do uso do token).
+- **Um teste antigo ficou firme.** Na suíte inteira, o teste de corrida do teto das dúvidas do balcão falhou uma vez:
+  ele esperava tempos fixos, e com mais carga a segunda dúvida chegava depois de a primeira terminar (e cabia no
+  teto). Agora ele espera pelo efeito: as duas chamadas paradas na trava do banco, e a resposta da que perde. Com a
+  trava tirada da rota de propósito, ele falha (ERR-127).
+- **A suíte inteira da API**: 1513 de 1514. A que falha é a conhecida do banco local sem pgvector; no CI ela roda.
+
+### Falta
+
+- **A parte da loja**: o agente perguntar a fila no ritmo que a nuvem diz, guardar a última, e a conferência da
+  bancada usá-la (a escolha "sem" explica a falta do ingrediente). Entra num pacote novo, com o "pode" do dono.
+- **No piloto**, o Regem da loja hoje só tem pedido de delivery (o dono, 14/10). O balcão e o salão entram na fila
+  quando passarem pelo Regem.

@@ -53,7 +53,12 @@ const ordem = (o: Obj): number => numero(o.ordem) ?? 0;
 const chave = (s: string): string => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 const comparar = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
-function efeitoDe(grupoTipo: 'adicionar' | 'remover', o: Obj, nomeDaFicha: Map<string, string>, nomeDoProduto: Map<string, string>): Efeito {
+/**
+ * O que a opção muda na montagem. Serve também à fila da cozinha
+ * (`fila-da-cozinha.ts`): a escolha feita no pedido tem o mesmo `acrescenta`
+ * e `retira` da opção do catálogo.
+ */
+export function efeitoDe(grupoTipo: 'adicionar' | 'remover', o: Obj, nomeDaFicha: Map<string, string>, nomeDoProduto: Map<string, string>): Efeito {
   if (o.informativa === true) return { tipo: 'observacao' };
   if (grupoTipo === 'remover') {
     const r = o.retira as Obj | null | undefined;

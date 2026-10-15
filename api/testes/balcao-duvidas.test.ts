@@ -214,6 +214,23 @@ describe('o balcão: a porta da dúvida (Postgres real)', { skip: !URL_DO_BANCO 
     for (let i = 0; i < 200 && plataforma.enviados.length < quantas; i += 1) await new Promise((ok) => setTimeout(ok, 10));
     assert.equal(plataforma.enviados.length, quantas, 'a chamada chegou à plataforma');
   };
+  /**
+   * Quantas conexões DESTE arquivo estão paradas numa trava do banco. A conta é pelo nome da conexão (`marca`):
+   * os outros arquivos da suíte rodam ao mesmo tempo no mesmo banco.
+   */
+  const naTrava = async (quantas: number) => {
+    let n = 0;
+    for (let i = 0; i < 500 && n < quantas; i += 1) {
+      n = (
+        await pool.query<{ n: number }>(
+          `select count(*)::int as n from pg_stat_activity where application_name = $1 and wait_event_type = 'Lock'`,
+          [marca],
+        )
+      ).rows[0]!.n;
+      if (n < quantas) await new Promise((ok) => setTimeout(ok, 10));
+    }
+    assert.equal(n, quantas, 'as chamadas pararam na trava');
+  };
 
   type Loja = Awaited<ReturnType<typeof montarLoja>>;
 
@@ -288,7 +305,8 @@ describe('o balcão: a porta da dúvida (Postgres real)', { skip: !URL_DO_BANCO 
   before(async () => {
     adminAntes = process.env.FAROL_ADMIN_TOKEN;
     process.env.FAROL_ADMIN_TOKEN = ADMIN;
-    pool = new pg.Pool({ connectionString: URL_DO_BANCO });
+    // O nome das conexões é a marca deste arquivo: é por ele que `naTrava` acha as chamadas paradas na trava.
+    pool = new pg.Pool({ connectionString: URL_DO_BANCO, application_name: marca });
     app = criarApp(pool, { logger: { level: 'info', stream: { write: (l) => void registro.push(l) } }, balcao: { cofre, enviar, dolar: DOLAR } });
     await app.ready();
   });
@@ -720,11 +738,15 @@ describe('o balcão: a porta da dúvida (Postgres real)', { skip: !URL_DO_BANCO 
         await segura.query('begin');
         await segura.query('select id from loja where id = $1 for no key update', [loja.lojaId]);
         const promessas = [loja.perguntar(a), loja.perguntar(b)];
-        await new Promise((ok) => setTimeout(ok, 300));
+        // Espera as DUAS pararem na trava, e não um tempo fixo: com a suíte inteira rodando, 300 ms não bastavam e a
+        // segunda chegava depois de a primeira terminar — aí ela cabia no teto (ERR-127).
+        await naTrava(2);
         assert.equal(plataforma.enviados.length, antes, 'ninguém perguntou antes de reservar');
         await segura.query('commit');
         await chegou(antes + 1);
-        await new Promise((ok) => setTimeout(ok, 200));
+        // A outra responde (o teto) com a primeira ainda em voo: espera por ELA. O prazo só existe para o teste falhar
+        // em vez de parar, se ela também for à plataforma.
+        await Promise.race([Promise.race(promessas), new Promise((ok) => setTimeout(ok, 5000))]);
         assert.equal(plataforma.enviados.length, antes + 1, 'com uma em voo, a outra não chegou à plataforma');
         voos.forEach((v) => v.soltar());
         respostas = await Promise.all(promessas);

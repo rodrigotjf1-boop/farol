@@ -89,9 +89,15 @@ export async function autenticarAgente(
   }
 
   // Registra o uso sem segurar a resposta: é telemetria, não parte do
-  // contrato. Se falhar, o evento ainda tem que entrar.
+  // contrato. Se falhar, o evento ainda tem que entrar. No máximo uma
+  // escrita por minuto: a loja pergunta a fila da cozinha a cada 15 s, e
+  // cada pergunta reescreveria a linha do agente.
   void pool
-    .query('update agente set token_usado_em = now() where id = $1', [agente.id])
+    .query(
+      `update agente set token_usado_em = now()
+        where id = $1 and (token_usado_em is null or token_usado_em < now() - interval '1 minute')`,
+      [agente.id],
+    )
     .catch(() => {});
 
   return {

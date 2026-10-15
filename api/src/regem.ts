@@ -254,15 +254,16 @@ export type Retrato = { mudou: true; versao: string; corpo: unknown } | { mudou:
 const VERSAO = /^[0-9a-f]{8,64}$/i;
 
 /**
- * Lê um retrato da loja do acesso (o cardápio ou as fichas). Com a versão
- * que se tem guardada, o Regem responde só "nada mudou" quando é o caso.
+ * Lê um retrato da loja do acesso (o cardápio, as fichas ou a fila da
+ * cozinha — `producao`, a janela do que está em produção). Com a versão que
+ * se tem guardada, o Regem responde só "nada mudou" quando é o caso.
  *
  * 401 aqui quer dizer UMA coisa: o acesso desta loja não vale mais.
  */
 export async function lerRetrato(
   cfg: ConfigDoRegem,
   acesso: string,
-  qual: 'catalogo' | 'fichas',
+  qual: 'catalogo' | 'fichas' | 'producao',
   versaoQueTenho: string | null,
 ): Promise<Retrato> {
   const pergunta = versaoQueTenho && VERSAO.test(versaoQueTenho) ? `?versao=${versaoQueTenho}` : '';
