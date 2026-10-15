@@ -1595,6 +1595,65 @@ export const fichasApi = {
   planilha: (lojaId: string) => pedir<Pick<ModeloDaPlanilha, 'abas' | 'nomes'>>(`/lojas/${lojaId}/fichas/planilha`),
 };
 
+// ───────────────── os ingredientes e as fotos de referência (A21) ─────────────────
+
+export type FotoDoIngrediente = { id: string; largura: number | null; altura: number | null; legenda: string | null; criadoEm: string };
+
+export type IngredienteDaLoja = {
+  nome: string;
+  /** Onde ele entra: pela ficha, ou por um adicional do produto. */
+  produtos: Array<{ produtoId: string; produto: string; adicional: boolean }>;
+  /** Nulo = nada guardado ainda (nem foto, nem "não se vê de cima"). */
+  itemId: string | null;
+  /** Falso = "não se vê de cima": o Farol não espera vê-lo na bancada. */
+  visivel: boolean;
+  fotos: FotoDoIngrediente[];
+  /** Os recortes que a conferência do treinamento guarda (fatias T4 e T5). */
+  exemplos: number;
+};
+
+export type IngredientesDaLoja = {
+  limiteDeFotos: number;
+  /** Tirar foto, "não se vê", juntar e apagar. Quem decide é a API; isto só escolhe entre o botão e a frase. */
+  podeConfigurar: boolean;
+  ingredientes: IngredienteDaLoja[];
+  /** Os que saíram das fichas e ainda têm foto: esperam alguém juntar ao nome novo, ou apagar. */
+  orfaos: Array<{ itemId: string; nome: string; fotos: FotoDoIngrediente[]; exemplos: number }>;
+};
+
+export const ingredientesApi = {
+  listar: (lojaId: string) => pedir<IngredientesDaLoja>(`/lojas/${lojaId}/ingredientes`),
+
+  /** Uma foto mandada daqui, já reduzida e em JPEG. O nome que fica é o da ficha. */
+  mandarFoto: (lojaId: string, nome: string, imagemBase64: string) =>
+    pedir<{ fotoId: string; itemId: string; nome: string }>(`/lojas/${lojaId}/ingredientes/fotos`, {
+      method: 'POST',
+      body: JSON.stringify({ nome, imagemBase64 }),
+    }),
+
+  /** A imagem de uma foto. O id nunca muda de imagem: o navegador guarda. */
+  urlDaFoto: (fotoId: string) => `/api/base/fotos/${fotoId}/imagem`,
+
+  tirarFoto: (fotoId: string) => pedir<{ excluida: true; itemId: string }>(`/base/fotos/${fotoId}`, { method: 'DELETE' }),
+
+  /** "Não se vê de cima" (falso) ou de volta (verdadeiro). */
+  visivel: (lojaId: string, nome: string, visivel: boolean) =>
+    pedir<{ nome: string; itemId: string; visivel: boolean }>(`/lojas/${lojaId}/ingredientes/visivel`, {
+      method: 'PUT',
+      body: JSON.stringify({ nome, visivel }),
+    }),
+
+  /** As fotos do órfão passam para um ingrediente das fichas. Passando do máximo, a API recusa e diz quantas tirar. */
+  juntar: (itemId: string, para: string) =>
+    pedir<{ itemId: string; nome: string; de: string; movidas: number }>(`/base/itens/${itemId}/juntar`, {
+      method: 'POST',
+      body: JSON.stringify({ para }),
+    }),
+
+  /** O órfão e as fotos dele saem de vez. */
+  apagar: (itemId: string) => pedir<{ excluido: true; nome: string; quadros: number }>(`/base/itens/${itemId}`, { method: 'DELETE' }),
+};
+
 // ───────────────────────── o acesso de outro sistema ─────────────────────────
 
 /** De onde uma loja recebe as fichas: só a livre e a de planilha podem ganhar um acesso. */
