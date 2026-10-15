@@ -161,11 +161,24 @@ def _ler_manifesto(arquivo: Path) -> dict[str, dict[str, Any]]:
     return {k: v for k, v in bruto["pedacos"].items() if isinstance(v, dict)}
 
 
-def _gravar_manifesto(arquivo: Path, pedacos_: dict[str, dict[str, Any]]) -> None:
+def _gravar_manifesto(arquivo: Path, pedacos_: dict[str, dict[str, Any]], adianto_s: float | None = None) -> None:
     # Troca de uma vez: o agente que cai no meio da escrita não deixa manifesto pela metade.
     temporario = arquivo.with_name(arquivo.name + ".novo")
-    temporario.write_text(json.dumps({"formato": FORMATO_DO_MANIFESTO, "pedacos": pedacos_}, ensure_ascii=False), encoding="utf-8")
+    dados: dict[str, Any] = {"formato": FORMATO_DO_MANIFESTO, "pedacos": pedacos_}
+    if adianto_s is not None:
+        dados["adiantoS"] = adianto_s
+    temporario.write_text(json.dumps(dados, ensure_ascii=False), encoding="utf-8")
     os.replace(temporario, arquivo)
+
+
+def adianto_do_gravador(pasta: Path) -> float | None:
+    """Quanto o relógio do gravador estava adiantado sobre o do computador na última busca (a hora "na loja" da
+    leitura desconta isso). Nulo se a busca ainda não mediu."""
+    try:
+        valor = json.loads((Path(pasta) / MANIFESTO).read_text(encoding="utf-8")).get("adiantoS")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return float(valor) if isinstance(valor, (int, float)) and not isinstance(valor, bool) else None
 
 
 def _local(t: datetime) -> datetime:
@@ -242,13 +255,13 @@ def buscar_trecho(
             tentativas += 1
             if tentativas < TENTATIVAS_POR_PEDACO:
                 anotados[nome] = {"situacao": None, "tentativas": tentativas, **onde}
-                _gravar_manifesto(arquivo_do_manifesto, anotados)
+                _gravar_manifesto(arquivo_do_manifesto, anotados, diferenca.total_seconds())
                 return contar(GRAVADOR, str(e))
             _log.warning("treino: o pedaço %s falhou %d vezes; fica de fora (%s)", nome, tentativas, e)
             anotados[nome] = {"situacao": FALHOU, "tentativas": tentativas, **onde}
         else:
             anotados[nome] = {"situacao": OK, "tamanho": trecho.tamanho, **onde, "cobre_ate": trecho.ate.isoformat()}
-        _gravar_manifesto(arquivo_do_manifesto, anotados)
+        _gravar_manifesto(arquivo_do_manifesto, anotados, diferenca.total_seconds())
         if ao_andar is not None:
             ao_andar(contar())
     return contar()

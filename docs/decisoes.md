@@ -7580,3 +7580,35 @@ A captura densa a partir de um pedaço `.dav` de verdade do gravador da loja —
 
 O módulo contra o `quadros_por_lanche` v3 nos mesmos quadros de verdade da loja (14/10): a comparação é numa rodada
 à parte, no computador da loja (as imagens não saem de lá).
+
+## 15/10/2026 · A21, fatia T3c-4 (antes da T3c-3): o corpo do lanche de treino (dormindo, sem migration)
+
+### Por que antes do identificador
+
+A conferência (T4) já aceita a etapa sem leitura: a pessoa diz o que era, e a resposta vira exemplo da base. Então o
+ciclo do treinamento — o gravador, a leitura da bancada, a conferência, o exemplo — anda antes de o identificador da
+rodada 12 (1.160 linhas, ainda mudando; o acerto dele só se mede na conferência) virar módulo. Ele entra depois, como
+peça trocável: quem tem as etapas lidas as passa ao corpo.
+
+### O que entra
+
+- **`farol_agent/treino_corpo.py`**: cada lanche da leitura da bancada (T3c-2) vira o corpo de
+  `POST /v1/agentes/treino/lanches` (`contratos/lanche-de-treino.json`): a gravação, o lanche (quando abriu, quando
+  fechou, as etapas) e os quadros das etapas reduzidos (lado maior até 360 px, em JPEG dentro dos 300 kB; o pequeno
+  não aumenta). Sem identificação, a primeira etapa é o pão aberto e as outras vão de lado não sabido, sem leitura. A
+  hora vai com o fuso, e a etapa que passou da meia-noite é do dia seguinte. Os limites do contrato valem antes de
+  valer lá: 60 etapas, 40 quadros (a etapa que passa vai sem quadro), 12 candidatos (só texto), "vezes" de 1 a 6, e o
+  lado fora da lista vira "outro".
+- **O envio** (`ClienteNuvem.lanche_de_treino`), com destino: 409 (a gravação foi encerrada) para de mandar; 422 e 413
+  não se repetem; rede, 5xx, 429 e credencial, de novo depois.
+- **A busca (T3b) guarda o adianto do gravador** que mediu, no manifesto (`adiantoS`): é ele que a captura densa
+  desconta para dar a hora da loja.
+
+### Como foi provado
+
+- **Testes do agente** (`agent/testes/test_treino_corpo.py`): 16, contra o contrato (as chaves, os lados, as origens
+  e os limites são os do arquivo; a rota também); e a T3b ganhou o teste do adianto.
+- **Mutação: 20 trocas, 20 mortas**, com controle antes e depois (quatro sobreviveram na primeira rodada: uma era
+  redundância no código, que saiu, e três pediram casos nos testes — candidato torto antes dos bons, "vezes" negativo,
+  adianto que vem como texto).
+- **A suíte inteira do agente**: 1882 passaram, 1 pulado.

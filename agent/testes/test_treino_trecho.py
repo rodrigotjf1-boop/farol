@@ -163,6 +163,17 @@ def test_os_pedacos_ficam_como_o_leitor_do_repasse_le_e_o_manifesto_diz_onde_cad
     assert tt.pedacos_baixados(tmp_path / "nao-existe", 4) == []
 
 
+def test_o_manifesto_guarda_o_adianto_que_a_busca_mediu(tmp_path):
+    assert tt.adianto_do_gravador(tmp_path) is None, "antes da busca, não se sabe"
+    buscar(GravadorDeMentira(), tmp_path)
+    assert tt.adianto_do_gravador(tmp_path) == ADIANTADO.total_seconds()
+    (tmp_path / tt.MANIFESTO).write_text("[1, 2]", encoding="utf-8")
+    assert tt.adianto_do_gravador(tmp_path) is None
+    for torto in ('"25"', "true", "null"):
+        (tmp_path / tt.MANIFESTO).write_text('{"formato": 1, "pedacos": {}, "adiantoS": ' + torto + "}", encoding="utf-8")
+        assert tt.adianto_do_gravador(tmp_path) is None, torto
+
+
 def test_o_arquivo_pela_metade_de_uma_queda_nao_entra_na_leitura(tmp_path):
     # O agente caiu no meio do pedido (falta de luz): o arquivo ficou, mas o manifesto nunca disse que ele veio inteiro.
     cortado = datetime(2026, 10, 15, 19, 31, 4)
