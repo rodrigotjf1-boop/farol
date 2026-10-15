@@ -7706,3 +7706,69 @@ quadro quadrado a miniatura não corta nada.
 
   Na primeira rodada um mutante sobreviveu. O defeito era do roteiro, não do código: ele lia o foco pelo texto do
   elemento, e quando o foco caía na página, o texto da página inteira tem "Anterior". Corrigido no roteiro.
+
+## 15/10/2026 · A21, fatia T3d-2: a gravação de treino ligada no serviço do agente (sem migration; vale com o pacote novo)
+
+### O que entra
+
+- **`farol_agent/treino_servico.py` (`TreinoEmFundo`)** liga a volta da T3d-1 numa linha de execução própria do
+  serviço, como a auditoria:
+  - dá uma volta, e outra logo depois (5 s) enquanto uma gravação termina — pronta, falhou ou parou;
+  - sem nada a fazer, ou fora da hora, espera 5 minutos;
+  - um erro inesperado numa volta fica no registro e não para a linha.
+- **As peças saem da configuração em disco, a cada volta** (ela muda com o console):
+  - o gravador do ponto do canal, com o perfil de arquivo medido daquele gravador; a senha do cofre só é lida na hora
+    do pedido;
+  - a área de montagem do canal;
+  - o detector da auditoria, o mesmo, carregado uma vez;
+  - o perfil da bancada da loja, `perfil_da_bancada.json` ao lado da configuração, com os números da câmera.
+- **Sem o detector ou sem o perfil da bancada**, a gravação não fica presa: é buscada e falha na leitura, com o motivo
+  que a tela mostra.
+- **O agente declara "treino"** ao pedir a configuração (`contratos/o-que-o-agente-sabe.json`). É isso que tira da
+  tela Treinamento o aviso "o computador da loja ainda não sabe gravar".
+- **`farol-agent servir --sem-treino`** não liga a gravação de treino e também não declara "treino". A configuração
+  guardada anota o que ESTE agente declarou. Assim ele não acha que "falta treino" a cada batida, o que o faria puxar
+  a configuração de novo, para sempre.
+
+### A hora de buscar e de ler: proposta, a decisão é do dono
+
+**Só com a loja FECHADA**, pelo horário de funcionamento que vem na configuração:
+- a placa de rede da loja de teste é de 10 Mbit/s;
+- o computador é também o servidor local do Regem;
+- buscar 30 minutos no gravador e ler a bancada não podem disputar o expediente.
+
+A leitura dos lanches para quando a loja abre e retoma depois. Loja sem horário cadastrado não busca, e o registro diz
+isso uma vez.
+
+### Como foi provado
+
+- **Testes da T3 e do que o agente sabe, entre eles:**
+  - as peças lidas da configuração em disco, com a senha do cofre só na hora;
+  - o perfil medido do gravador;
+  - a hora, com a janela que cruza a meia-noite;
+  - a linha que espera pouco ou muito, e que não para com um erro;
+  - o serviço com e sem `--sem-treino`;
+  - a volta que falha sem detector ou sem perfil;
+  - o agente `--sem-treino` que não puxa a configuração a cada batida.
+- **API:** os testes que leem o contrato, com banco, 21 de 21.
+- **Mutação: 27 trocas, 27 mortas**, com controle antes e depois. Na primeira rodada 3 sobreviveram e ganharam
+  teste:
+  - o canal cujo ponto não tem o endereço do gravador;
+  - o perfil da bancada torto de outros jeitos (JSON quebrado, lista no lugar do objeto, número que é texto);
+  - o parar que não espera a volta em curso.
+- **Suíte inteira do agente: 1926 passaram, 1 pulado.**
+  - Um teste da foto padrão trazia a lista de saberes escrita à mão; agora ele a monta de `nuvem.SABE`.
+  - Numa das rodadas, com a máquina carregada, o teste de tempo do RTSP (desistir em menos de 5 s) passou do tempo.
+    Sozinho, ele passa 3 de 3, e a rodada seguinte passou inteira.
+
+### Falta, para valer na loja
+
+- **O pacote novo**, com o "pode" do dono.
+- **Na troca, o `perfil_da_bancada.json` da loja.** São os números do canal 4, da calibração de 14/10, os mesmos da
+  comparação de 15/10.
+- **O gravador gravando — feito.** O HD de antes falhou, e a loja ficou sem gravar das 11h30 às 17h05 de 15/10. O
+  dono pôs um de 2 TB na mesma tarde, e o gravador voltou a gravar (conferido). A gravação de treino "do gravador"
+  depende do que ele guarda; quantos dias cabem nos 2 TB ainda é para medir.
+- **As decisões do dono:**
+  - a hora de buscar e ler;
+  - se o computador da loja dorme de madrugada (A22). Dormindo, ele não busca nem lê.

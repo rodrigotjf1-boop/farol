@@ -265,6 +265,23 @@ def test_o_gravador_sem_o_horario_falha_com_o_motivo(tmp_path):
     assert nuvem.andamentos[-1] == {"situacao": "falhou", "motivo": "o gravador não tinha mais esse horário"}
 
 
+def test_sem_o_detector_ou_sem_o_perfil_da_bancada_a_gravacao_falha_na_leitura_com_o_motivo(tmp_path):
+    # T3d-2: o computador sem o detector instalado, ou a loja ainda sem o perfil da bancada. O trecho é buscado e a
+    # captura densa feita; a gravação falha na leitura dos lanches, com o motivo que a tela mostra — não fica presa.
+    nuvem, gravador = Nuvem(), Gravador()
+    assert treino_laco.volta(pecas(nuvem, gravador, detector=None), tmp_path / "sem-detector") == treino_laco.FALHOU
+    assert gravador.pedidos > 0, "a busca aconteceu"
+    assert nuvem.andamentos[-1] == {
+        "situacao": "falhou", "motivo": "o detector não está instalado neste computador (farol-agent detector instalar)",
+    }
+    nuvem = Nuvem()
+    assert treino_laco.volta(pecas(nuvem, Gravador(), perfil=None), tmp_path / "sem-perfil") == treino_laco.FALHOU
+    assert nuvem.andamentos[-1] == {
+        "situacao": "falhou", "motivo": "falta o perfil da bancada desta loja (os números da câmera, medidos na instalação)",
+    }
+    assert nuvem.lanches == []
+
+
 def test_sem_canal_falha_com_o_motivo(tmp_path):
     nuvem = Nuvem()
     nuvem.ativa = dict(GRAVACAO, canal=None)

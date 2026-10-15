@@ -37,7 +37,7 @@ from farol_agent.juizes.padrao import JuizDoPadrao
 from farol_agent.juizes.seletor import JuizPorRegra, SeletorDeJuiz
 from farol_agent.modelos import EventoGatilho, Frame, Resultado, TipoRegra, Veredito, Via, Zona
 from farol_agent.motor import MotorDeRegras
-from farol_agent.nuvem import ClienteNuvem
+from farol_agent.nuvem import SABE, ClienteNuvem
 from farol_agent.padroes import PadraoRef, Padroes
 from farol_agent.pipeline import recorte
 from testes.conftest import BASE
@@ -849,8 +849,9 @@ def test_o_agente_baixa_a_foto_em_bytes_e_o_resto_continua_em_json(monkeypatch):
     assert cliente.configuracao() == {"versao": 7}
     assert pedidos == [
         ("GET", "https://api.exemplo/v1/agentes/padroes/n1", "image/*", "Bearer tok"),
-        # O agente diz o que sabe fazer ao pedir a configuração (ver `nuvem.SABE`).
-        ("GET", "https://api.exemplo/v1/agentes/configuracao?sabe=estados,estudo,bancada,fichas", "application/json", "Bearer tok"),
+        # O agente diz o que sabe fazer ao pedir a configuração: a lista é a de `nuvem.SABE`, conferida com o contrato
+        # em `test_sabe.py` — escrita à mão aqui, ela quebrava a cada saber novo (a T3d-2 trouxe "treino").
+        ("GET", "https://api.exemplo/v1/agentes/configuracao?sabe=" + ",".join(SABE), "application/json", "Bearer tok"),
     ]
 
 

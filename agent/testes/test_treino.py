@@ -357,9 +357,13 @@ def test_pela_rede_o_409_manda_parar(servidor):
     assert treino.Andamento(G, cliente.andamento_da_gravacao).lendo(10) == treino.PARAR
 
 
-# ───────────────────────────── dormindo ─────────────────────────────
+# ───────────────────────────── a declaração ─────────────────────────────
 
 
-def test_tudo_isto_dorme_o_agente_ainda_nao_declara_treino():
-    # Quando a leitura da bancada (T3c) entrar, o agente passa a declarar "treino" — e a tela deixa de avisar.
-    assert "treino" not in cliente_da_nuvem.SABE
+def test_o_agente_declara_treino_e_o_servico_sem_treino_nao():
+    # Com a volta ligada no serviço (T3d-2), o agente declara "treino" — e a tela deixa de avisar que a loja não sabe
+    # gravar. O serviço ligado com `--sem-treino` não lê as gravações, e também não diz que sabe.
+    assert "treino" in cliente_da_nuvem.SABE
+    assert "treino" in ClienteNuvem("https://api.exemplo", "tok").sabe
+    sem = ClienteNuvem("https://api.exemplo", "tok", sabe=tuple(s for s in cliente_da_nuvem.SABE if s != "treino"))
+    assert "treino" not in sem.sabe

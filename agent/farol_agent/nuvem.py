@@ -75,13 +75,16 @@ class ErroDaNuvem(Exception):
 #   estudo   o estudo do critério: o contexto e o gatilho que a loja confere sozinha.
 #   bancada  o quadro de bancada: a imagem espera as mãos saírem.
 #   fichas   a base de fichas da loja: o agente baixa a cópia e a guarda.
+#   treino   a gravação de treino (A21): o agente busca no gravador, lê a
+#            bancada e manda os lanches para a conferência.
 #
 # A nuvem GUARDA a declaração (é como o console sabe o que já vale na loja).
-# "bancada" e "fichas" não mudam o que desce — o papel do quadro e a marca
-# da base descem para todos —, só informam. E fazem o agente que acabou de
-# aprender pedir a configuração de novo. A lista é a de
+# "bancada", "fichas" e "treino" não mudam o que desce — o papel do quadro e
+# a marca da base descem para todos —, só informam ("treino" é o que tira o
+# aviso "o computador da loja ainda não sabe gravar" da tela). E fazem o
+# agente que acabou de aprender pedir a configuração de novo. A lista é a de
 # `contratos/o-que-o-agente-sabe.json`.
-SABE: tuple[str, ...] = ("estados", "estudo", "bancada", "fichas")
+SABE: tuple[str, ...] = ("estados", "estudo", "bancada", "fichas", "treino")
 
 
 class ClienteNuvem:
@@ -92,6 +95,7 @@ class ClienteNuvem:
         *,
         timeout: float = TIMEOUT_PADRAO,
         versao: str = "0",
+        sabe: tuple[str, ...] = SABE,
     ):
         if not base_url:
             raise ErroDaNuvem("endereço da nuvem não configurado", recuperavel=False)
@@ -101,6 +105,8 @@ class ClienteNuvem:
         self._token = token
         self.timeout = timeout
         self.user_agent = USER_AGENT.format(versao=versao)
+        # O que ESTE agente declara: o serviço ligado sem a gravação de treino (`--sem-treino`) não diz "treino".
+        self.sabe = tuple(sabe)
 
     # ───────────────────────────── público ─────────────────────────────
 
@@ -126,7 +132,7 @@ class ClienteNuvem:
         return self._pedir("POST", "/v1/agentes/heartbeat", {"versao": versao})
 
     def configuracao(self) -> dict[str, Any]:
-        return self._pedir("GET", "/v1/agentes/configuracao?sabe=" + ",".join(SABE))
+        return self._pedir("GET", "/v1/agentes/configuracao?sabe=" + ",".join(self.sabe))
 
     def baixar_padrao(self, foto_id: str) -> bytes:
         """A imagem de uma foto padrão desta loja, para comparar aqui."""

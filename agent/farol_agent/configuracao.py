@@ -565,6 +565,10 @@ class Sincronizador:
             self.ultimo_erro = str(e)
         return self.config
 
+    def _sabe(self, padrao: tuple[str, ...]) -> tuple[str, ...]:
+        """O que ESTE agente declara: o do cliente (o serviço sem a gravação de treino não diz "treino")."""
+        return tuple(getattr(self.cliente, "sabe", padrao))
+
     def bater(self) -> list[dict[str, Any]]:
         """Um heartbeat. Devolve os comandos pendentes.
 
@@ -591,7 +595,7 @@ class Sincronizador:
         if remota is not None and remota != local:
             _log.info("configuração mudou na nuvem (%s → %s)", local, remota)
             self.puxar()
-        elif self.config is not None and set(SABE) - set(self.config.pedida_sabendo):
+        elif self.config is not None and set(self._sabe(SABE)) - set(self.config.pedida_sabendo):
             # O agente foi atualizado. A nuvem só manda certas coisas para
             # quem declara saber lidar com elas (o critério em ensaio, o
             # estudo do critério): a configuração em disco foi pedida
@@ -599,7 +603,7 @@ class Sincronizador:
             # puxada falhar, tenta de novo na próxima batida.
             _log.info(
                 "o agente sabe mais do que sabia quando a configuração desceu (%s): puxando de novo",
-                ", ".join(sorted(set(SABE) - set(self.config.pedida_sabendo))),
+                ", ".join(sorted(set(self._sabe(SABE)) - set(self.config.pedida_sabendo))),
             )
             self.puxar()
 
@@ -624,7 +628,7 @@ class Sincronizador:
             # tem de pedir de novo.
             bruto = self.cliente.configuracao()
             if isinstance(bruto, dict):
-                bruto = {**bruto, MARCA_DO_AGENTE: {"sabe": list(SABE)}}
+                bruto = {**bruto, MARCA_DO_AGENTE: {"sabe": list(self._sabe(SABE))}}
             nova = de_json(bruto)
         except (ErroDaNuvem, ErroDeConfiguracao) as e:
             self.ultimo_erro = str(e)
