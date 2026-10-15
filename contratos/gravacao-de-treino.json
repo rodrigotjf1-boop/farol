@@ -1,0 +1,55 @@
+{
+  "sobre": "A gravação de treino entre a nuvem e o computador da loja (A21, fatia T3; migration 050). Quem cria é o console (quem configura a loja): do que o gravador já guardou, ou programada. A loja pergunta o que tem de ler, conta o andamento e manda os lanches lidos por POST /v1/agentes/treino/lanches (contratos/lanche-de-treino.json) com gravacao.chave = a chave desta lista. Quem consome hoje: api/testes/treino-gravacao.test.ts. O agente lê este mesmo arquivo quando a parte da loja entrar (o pacote, com o 'pode' do dono).",
+  "autenticacao": "Authorization: Bearer <token do agente> — a loja sai do token, nunca do corpo",
+  "lista": {
+    "rota": "GET /v1/agentes/treino/gravacoes",
+    "chaves": ["id", "chave", "pontoId", "canal", "inicio", "fim", "origem", "situacao"],
+    "resposta": {
+      "gravacoes": [
+        {
+          "id": "6f1c2a3b-4d5e-4f60-8a71-b2c3d4e5f607",
+          "chave": "console-0b1c2d3e-4f50-4617-a8b9-c0d1e2f30415",
+          "pontoId": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+          "canal": 4,
+          "inicio": "2026-10-15T19:30:00.000Z",
+          "fim": "2026-10-15T20:00:00.000Z",
+          "origem": "gravador",
+          "situacao": "fila"
+        }
+      ],
+      "apagar": ["carga-2026-10-14-1930"]
+    },
+    "sobreApagar": "As gravações que a loja já pode apagar do computador dela: cancelada, apagada (no console), que falhou — ou pronta, com todos os lanches conferidos há mais de 30 dias. Apagar o que não existe não é erro."
+  },
+  "andamento": {
+    "rota": "POST /v1/agentes/treino/gravacoes/:id/andamento",
+    "corpos": {
+      "lendo": { "situacao": "lendo", "progresso": 40 },
+      "pronta": { "situacao": "pronta" },
+      "falhou": { "situacao": "falhou", "motivo": "o gravador não tinha mais esse horário" }
+    },
+    "resposta": { "situacao": "lendo" },
+    "sobre": "A loja conta o andamento enquanto lê (a porcentagem é opcional), e no fim pronta ou falhou. 'pronta' guarda 100%. 'falhou' exige o motivo, que a tela mostra."
+  },
+  "recusas": [
+    { "quando": "sem token", "status": 401, "oQueOAgenteFaz": "para e avisa: o token não vale" },
+    { "quando": "a gravação não é desta loja (ou não existe)", "status": 404, "erro": "nao_encontrado", "oQueOAgenteFaz": "esquece a gravação" },
+    { "quando": "alguém cancelou no console, ou a gravação já foi encerrada", "status": 409, "erro": "encerrada", "oQueOAgenteFaz": "para de ler e apaga o que guardou dela" },
+    { "quando": "situação que não existe", "status": 422, "erro": "validacao", "oQueOAgenteFaz": "não repete: é erro de quem mandou" },
+    { "quando": "falhou sem o motivo", "status": 422, "erro": "validacao", "oQueOAgenteFaz": "não repete: é erro de quem mandou" }
+  ],
+  "lanche": {
+    "rota": "POST /v1/agentes/treino/lanches",
+    "encerrada": { "status": 409, "erro": "gravacao_encerrada", "oQueOAgenteFaz": "para de mandar lanches desta gravação" }
+  },
+  "regras": { "minimoMin": 15, "maximoMin": 60, "gravadorGuardaH": 18, "programarAteDias": 7 },
+  "situacoes": {
+    "programada": "o horário ainda vai acontecer: a loja busca o trecho no gravador depois que ele terminar",
+    "fila": "o horário já passou: a loja busca no gravador quando chegar a vez",
+    "lendo": "a loja está lendo (com a porcentagem)",
+    "pronta": "lida: os lanches esperam conferência",
+    "falhou": "não deu para ler (com o motivo)",
+    "cancelada": "alguém desistiu no console antes de começar",
+    "apagada": "conferida, e as imagens saíram (a loja apaga a gravação; os quadros saíram da nuvem)"
+  }
+}

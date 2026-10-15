@@ -20,12 +20,17 @@
 //   • a gravação inteira fica no computador da loja; os quadros saem 30
 //     dias depois da conferência (decisão 1).
 //
+// A GRAVAÇÃO DE TREINO (fatia T3): quem configura cria no console
+// (`componentes/treino/gaveta-da-gravacao.tsx`), cancela o que ainda não
+// começou e apaga as imagens da gravação já conferida. Quem lê é o
+// computador da loja — enquanto o pacote dele não sabe (`lojaSabeGravar`),
+// a tela diz que a gravação espera na fila.
+//
 // O que o protótipo tem e ainda não tem serviço fica de fora, para a tela
-// não prometer: "Nova gravação de treino" (fatia T3, com o pacote novo da
-// loja) e a aba "Sugestões para as fichas" (fatia T6).
+// não prometer: a aba "Sugestões para as fichas" (fatia T6).
 // =====================================================================
 
-import { ChevronRight, ClipboardList, Clock, GraduationCap, ImageOff, Info, Lock, Store, TriangleAlert } from 'lucide-react';
+import { ChevronRight, ClipboardList, Clock, GraduationCap, ImageOff, Info, Lock, Plus, Store, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -33,11 +38,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useConsole } from '@/componentes/console';
 import { chaveDoIngrediente, GavetaDoIngrediente, type AlvoDaGaveta } from '@/componentes/fichas/gaveta-do-ingrediente';
 import { frase, numero, plural } from '@/componentes/formatos';
+import { GavetaDaGravacao } from '@/componentes/treino/gaveta-da-gravacao';
 import { GavetaDoLanche, quandoDaGravacao } from '@/componentes/treino/gaveta-do-lanche';
 import { useAvisar } from '@/componentes/ui/avisos';
 import { Botao, classesDoBotao } from '@/componentes/ui/botao';
 import { AJUDA } from '@/componentes/ui/campo';
 import { Alerta, Cabecalho, CARTAO, Chip, Ossos, Segmentado, Vazio, type Tom } from '@/componentes/ui/pecas';
+import { Dialogo } from '@/componentes/ui/sobreposto';
 import {
   ErroDaApi,
   ingredientesApi,
@@ -78,9 +85,9 @@ function situacaoDaGravacao(g: GravacaoDeTreino): { tom: Tom; texto: string; sob
   const faltam = g.lanches - g.conferidos;
   switch (g.situacao) {
     case 'programada':
-      return { tom: 'neutro', texto: 'programada', sobre: 'grava no horário e lê depois' };
+      return { tom: 'neutro', texto: 'programada', sobre: 'a loja busca no gravador depois do horário e lê' };
     case 'fila':
-      return { tom: 'neutro', texto: 'na fila', sobre: 'começa quando a de antes terminar' };
+      return { tom: 'neutro', texto: 'na fila', sobre: 'começa quando chegar a vez dela' };
     case 'lendo':
       return { tom: 'atencao', texto: 'lendo na loja', sobre: g.progresso !== null ? `${g.progresso}%` : null };
     case 'apagada':
@@ -88,7 +95,7 @@ function situacaoDaGravacao(g: GravacaoDeTreino): { tom: Tom; texto: string; sob
     case 'cancelada':
       return { tom: 'neutro', texto: 'cancelada', sobre: null };
     case 'falhou':
-      return { tom: 'critico', texto: 'a leitura falhou', sobre: null };
+      return { tom: 'critico', texto: 'a leitura falhou', sobre: g.motivo };
     default:
       if (g.lanches === 0) return { tom: 'neutro', texto: 'sem lanche', sobre: 'a leitura não achou lanche nesse horário' };
       return faltam > 0
@@ -122,6 +129,12 @@ export default function Treinamento() {
   /** O lanche na gaveta, e de qual lista ele veio (o "próximo" é dessa lista). */
   const [aberto, setAberto] = useState<{ id: string; de: FiltroDosLanches } | null>(null);
   const [ingredienteAberto, setIngredienteAberto] = useState<{ nome?: string; orfao?: string } | null>(null);
+  // a gravação de treino (fatia T3): a gaveta da nova, a que está sendo cancelada e a das imagens a apagar
+  const [novaGravacao, setNovaGravacao] = useState(false);
+  const [cancelando, setCancelando] = useState<string | null>(null);
+  const [apagando, setApagando] = useState<GravacaoDeTreino | null>(null);
+  const [ocupadoApagar, setOcupadoApagar] = useState(false);
+  const [erroApagar, setErroApagar] = useState<string | null>(null);
   const botoes = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const carregar = useCallback(async (): Promise<TreinoDaLoja | null> => {
@@ -202,6 +215,45 @@ export default function Treinamento() {
   const lista = aberto ? listas[aberto.de] : [];
   const posicao = aberto && aberto.de === 'conferir' ? lista.findIndex((l) => l.id === aberto.id) : -1;
 
+  // ───────────────────────── a gravação de treino (fatia T3) ─────────────────────────
+
+  async function criou(texto: string) {
+    setNovaGravacao(false);
+    avisar(texto);
+    await carregar();
+    setAba('gravacoes');
+  }
+
+  // do protótipo: cancelar não pede confirmação — a gravação ainda não começou, e criar de novo é fácil
+  async function cancelarGravacao(g: GravacaoDeTreino) {
+    setCancelando(g.id);
+    try {
+      await treinoApi.cancelarGravacao(g.id);
+      avisar(`Gravação de ${quandoDaGravacao(g.inicio, g.fim, fuso)} cancelada.`);
+    } catch (e) {
+      avisar(frase(mensagemDe(e)));
+    } finally {
+      setCancelando(null);
+      await carregar();
+    }
+  }
+
+  async function apagarImagens() {
+    if (!apagando) return;
+    setOcupadoApagar(true);
+    setErroApagar(null);
+    try {
+      await treinoApi.apagarImagens(apagando.id);
+      avisar(`Imagens da gravação de ${quandoDaGravacao(apagando.inicio, apagando.fim, fuso)} apagadas. O que o Farol aprendeu ficou.`);
+      setApagando(null);
+      await carregar();
+    } catch (e) {
+      setErroApagar(frase(mensagemDe(e)));
+    } finally {
+      setOcupadoApagar(false);
+    }
+  }
+
   // ───────────────────────── a gaveta do ingrediente ─────────────────────────
 
   const alvoAberto: AlvoDaGaveta | null = (() => {
@@ -225,6 +277,14 @@ export default function Treinamento() {
   // Sem ingrediente nenhum nas fichas (e sem órfão): a loja não tem fichas — o treinamento não tem com o que comparar
   const semFichas = ingredientes !== null && ingredientes.ingredientes.length === 0 && ingredientes.orfaos.length === 0;
   const conta = { conferir: listas.conferir.length, ingredientes: daBancada.length, gravacoes: d?.gravacoes.length ?? 0 };
+  // a gravação nova: quem configura, com fichas e com uma câmera do gravador (a API decide; a tela só não oferece)
+  const podeGravar = !!d && d.podeConfigurar && !semFichas && d.canais.length > 0;
+  const botaoNova = (
+    <Botao variante="primario" onClick={() => setNovaGravacao(true)}>
+      <Plus className="h-4 w-4" aria-hidden />
+      Nova gravação de treino
+    </Botao>
+  );
 
   return (
     <>
@@ -250,6 +310,7 @@ export default function Treinamento() {
             )}
           </span>
         }
+        acoes={podeGravar && d.gravacoes.length > 0 ? botaoNova : undefined}
       >
         O Farol lê os lanches de uma gravação de treino e mostra o que viu, etapa por etapa. Você confirma ou corrige; cada caso conferido vira exemplo
         na base da bancada.
@@ -278,7 +339,7 @@ export default function Treinamento() {
               </Botao>
             }
           >
-            {frase(falha.texto)}.
+            {frase(falha.texto)}
           </Vazio>
         ))}
 
@@ -297,9 +358,21 @@ export default function Treinamento() {
       )}
 
       {d && !semFichas && d.gravacoes.length === 0 && (
-        <Vazio icone={GraduationCap} titulo="O Farol aprende com a sua bancada">
-          Num horário de movimento, o Farol lê os lanches da bancada no computador da loja e traz o que viu para você conferir: você confirma o que está
-          certo e corrige o que não está. Cada conferência ensina. Quando a primeira gravação de treino for lida, os lanches aparecem aqui.
+        <Vazio
+          icone={GraduationCap}
+          titulo="O Farol aprende com a sua bancada"
+          acao={
+            <div className="flex flex-col items-center gap-3">
+              <ol className="max-w-[52ch] list-decimal space-y-1 pl-5 text-left text-[13.5px] text-farol-suave">
+                <li>Escolha o horário: do que o gravador já guardou, ou para gravar depois.</li>
+                <li>O computador da loja lê os lanches, devagar, sem atrapalhar o expediente.</li>
+                <li>Você confere: confirma o que está certo e corrige o que não está. Cada conferência ensina.</li>
+              </ol>
+              {podeGravar ? botaoNova : <p className={AJUDA}>Quem configura a loja cria a gravação de treino.</p>}
+            </div>
+          }
+        >
+          Escolha um horário de movimento. O Farol lê os lanches no computador da loja e traz o que viu para você conferir.
         </Vazio>
       )}
 
@@ -387,13 +460,26 @@ export default function Treinamento() {
                     key={g.id}
                     g={g}
                     fuso={fuso}
+                    podeConfigurar={d.podeConfigurar}
+                    cancelando={cancelando === g.id}
                     aoConferir={() => {
                       setFiltro('conferir');
                       setAba('lanches');
                     }}
+                    aoCancelar={() => void cancelarGravacao(g)}
+                    aoApagar={() => {
+                      setErroApagar(null);
+                      setApagando(g);
+                    }}
                   />
                 ))}
               </ul>
+              {!d.lojaSabeGravar && d.gravacoes.some((g) => g.situacao === 'programada' || g.situacao === 'fila') && (
+                <Alerta tom="atencao" icone={Info} papel="status">
+                  <b className="font-semibold">O computador da loja ainda não sabe gravar o treino.</b> As gravações na fila começam quando o pacote
+                  novo for instalado nele.
+                </Alerta>
+              )}
               <p className={`${AJUDA} flex items-start gap-1.5`}>
                 <Lock className="mt-px h-[13px] w-[13px] shrink-0" aria-hidden />A gravação inteira fica no computador da loja, separada das outras.
                 Para você conferir de qualquer lugar, sobem só os quadros das etapas, reduzidos; eles saem {d.diasDosQuadros} dias depois da
@@ -428,6 +514,34 @@ export default function Treinamento() {
           aoMudar={carregarIngredientes}
           aoFechar={() => setIngredienteAberto(null)}
         />
+      )}
+
+      {novaGravacao && d && (
+        <GavetaDaGravacao
+          lojaId={id}
+          fuso={fuso}
+          canais={d.canais}
+          regras={d.regras}
+          lojaSabeGravar={d.lojaSabeGravar}
+          aoCriar={(texto) => void criou(texto)}
+          aoFechar={() => setNovaGravacao(false)}
+        />
+      )}
+
+      {apagando && (
+        <Dialogo
+          titulo={`Apagar as imagens da gravação de ${quandoDaGravacao(apagando.inicio, apagando.fim, fuso)}?`}
+          rotuloConfirmar="Apagar as imagens"
+          rotuloOcupado="Apagando…"
+          rotuloCancelar="Manter"
+          ocupado={ocupadoApagar}
+          erro={erroApagar}
+          aoConfirmar={() => void apagarImagens()}
+          aoCancelar={() => setApagando(null)}
+        >
+          Os quadros das etapas saem da nuvem agora, e o computador da loja recebe a ordem de apagar a gravação. O que o Farol aprendeu fica: o recorte
+          de cada ingrediente conferido e os números.
+        </Dialogo>
       )}
     </>
   );
@@ -762,9 +876,28 @@ function PainelDosIngredientes({
 
 // ───────────────────────── as gravações ─────────────────────────
 
-function LinhaDaGravacao({ g, fuso, aoConferir }: { g: GravacaoDeTreino; fuso: string; aoConferir: () => void }) {
+function LinhaDaGravacao({
+  g,
+  fuso,
+  podeConfigurar,
+  cancelando,
+  aoConferir,
+  aoCancelar,
+  aoApagar,
+}: {
+  g: GravacaoDeTreino;
+  fuso: string;
+  podeConfigurar: boolean;
+  cancelando: boolean;
+  aoConferir: () => void;
+  aoCancelar: () => void;
+  aoApagar: () => void;
+}) {
   const s = situacaoDaGravacao(g);
   const deOnde = [ORIGEM[g.origem], g.canal ? (g.canal.numero !== null ? `${g.canal.nome} · canal ${g.canal.numero}` : g.canal.nome) : null].filter(Boolean).join(' · ');
+  // do protótipo: cancela-se o que ainda não começou; apagam-se as imagens da gravação já conferida
+  const cancela = podeConfigurar && (g.situacao === 'programada' || g.situacao === 'fila');
+  const apaga = podeConfigurar && g.situacao === 'pronta' && g.lanches > 0 && g.conferidos === g.lanches;
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 max-sm:px-3" data-gravacao={g.id}>
       <span className="flex min-w-0 flex-[1_1_220px] flex-col">
@@ -780,11 +913,25 @@ function LinhaDaGravacao({ g, fuso, aoConferir }: { g: GravacaoDeTreino; fuso: s
         )}
         {s.sobre && <span className="break-words font-mono text-xs text-farol-suave">{s.sobre}</span>}
       </span>
-      {g.situacao === 'pronta' && g.lanches > g.conferidos && (
-        <Botao mini onClick={aoConferir}>
-          Conferir
-        </Botao>
-      )}
+      {(g.situacao === 'pronta' && g.lanches > g.conferidos) || cancela || apaga ? (
+        <span className="flex flex-wrap gap-2">
+          {g.situacao === 'pronta' && g.lanches > g.conferidos && (
+            <Botao mini onClick={aoConferir}>
+              Conferir
+            </Botao>
+          )}
+          {cancela && (
+            <Botao mini onClick={aoCancelar} ocupado={cancelando}>
+              Cancelar
+            </Botao>
+          )}
+          {apaga && (
+            <Botao mini variante="perigo-leve" onClick={aoApagar}>
+              Apagar as imagens
+            </Botao>
+          )}
+        </span>
+      ) : null}
     </li>
   );
 }

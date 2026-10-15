@@ -18,10 +18,17 @@
 //     usar; o quadro do treino sai 30 dias depois da conferência (decisão
 //     1; `apagarQuadrosVencidos`, chamada pela rotina da API);
 //   • o acerto conta SÓ o que alguém conferiu: antes da conferência, o
-//     Farol não sabe se acertou.
+//     Farol não sabe se acertou;
+//   • a GRAVAÇÃO DE TREINO (fatia T3, migration 050): quem configura cria
+//     no console (do que o gravador já guardou, ou programada), cancela o
+//     que ainda não começou e apaga as imagens da gravação já conferida; a
+//     loja pergunta o que tem de ler (`GET /v1/agentes/treino/gravacoes`,
+//     com a lista do que ela já pode apagar do computador dela) e conta o
+//     andamento (`POST …/andamento`: lendo, pronta, ou falhou com o
+//     motivo). Contrato em `contratos/gravacao-de-treino.json`.
 // =====================================================================
 
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type pg from 'pg';
@@ -43,6 +50,7 @@ import {
   type Conferencia,
   type EtapaLida,
 } from '../treino.js';
+import { aindaEDaLoja, GRAVACAO, lerAndamento, lerNovaGravacao, SQL_DO_QUE_A_LOJA_APAGA } from '../treino-gravacao.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -184,10 +192,16 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
                 inicio = least(treino_gravacao.inicio, excluded.inicio),
                 fim = greatest(treino_gravacao.fim, excluded.fim),
                 lida_em = now()
-         returning id`,
+         returning id, situacao`,
         [agente.lojaId, g.pontoId, g.chave, g.inicio, g.fim, g.origem],
       );
       const gravacaoId = gravacao.rows[0].id as string;
+      // alguém cancelou no console, ou apagou as imagens, enquanto a loja lia: o lanche não entra (fatia T3)
+      const encerrada = gravacao.rows[0].situacao as string;
+      if (encerrada === 'cancelada' || encerrada === 'apagada') {
+        await cliente.query('rollback');
+        return resposta.status(409).send({ erro: 'gravacao_encerrada', mensagem: `esta gravação foi ${encerrada}: a loja não manda mais lanches dela` });
+      }
       // a linha do lanche fica travada: dois envios do mesmo lanche passam um depois do outro
       const antes = await cliente.query(
         'select id, situacao from treino_lanche where gravacao_id = $1 and chave = $2 for update',
@@ -242,9 +256,9 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
     const loja = await daLoja(pool, s.tenantId, id);
     if (!loja) return naoAchei(resposta, 'não existe essa loja');
 
-    const [gravacoes, lanches, contas, conferidos] = await Promise.all([
+    const [gravacoes, lanches, contas, conferidos, canais, sabe] = await Promise.all([
       pool.query(
-        `select g.id, g.chave, g.inicio, g.fim, g.origem, g.situacao, g.progresso, g.apagada_em,
+        `select g.id, g.chave, g.inicio, g.fim, g.origem, g.situacao, g.progresso, g.apagada_em, g.motivo,
                 p.nome as canal_nome, p.canal as canal_numero,
                 count(l.*)::int as lanches,
                 (count(l.*) filter (where l.situacao = 'conferido'))::int as conferidos,
@@ -280,6 +294,19 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
         `select leitura, resposta from treino_lanche where loja_id = $1 and situacao = 'conferido' and resposta is not null`,
         [id],
       ),
+      // as bancadas que se gravam: os canais do gravador desta loja (A21, fatia T3)
+      pool.query<{ id: string; nome: string; canal: number | null }>(
+        `select p.id, p.nome, p.canal
+           from ponto p join setor st on st.id = p.setor_id
+          where st.loja_id = $1 and p.origem = 'dvr'
+          order by p.canal nulls last, p.nome`,
+        [id],
+      ),
+      // o computador da loja já sabe gravar o treino? (o agente declara `treino` ao pedir a configuração)
+      pool.query<{ sabe: boolean }>(
+        `select exists (select 1 from agente a where a.loja_id = $1 and a.estado = 'ativo' and 'treino' = any(a.sabe)) as sabe`,
+        [id],
+      ),
     ]);
     const naTela = lanches.rows.map((l) => paraTela(l, loja.base, loja.invisiveis));
     // a fila: a dúvida primeiro, depois a hora
@@ -293,6 +320,11 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
       podeConfigurar: podeConfigurar(s),
       meta: META,
       diasDosQuadros: DIAS_DOS_QUADROS,
+      /** As regras da gravação nova (as mesmas que a API confere): de 15 minutos a 1 hora; o gravador guarda ~18 horas. */
+      regras: GRAVACAO,
+      canais: canais.rows.map((p) => ({ id: p.id, nome: p.nome, numero: p.canal })),
+      /** Falso: o computador da loja ainda não sabe gravar o treino (o pacote dele é anterior à fatia T3). */
+      lojaSabeGravar: sabe.rows[0]?.sabe === true,
       gravacoes: gravacoes.rows.map((g) => ({
         id: g.id,
         chave: g.chave,
@@ -301,6 +333,7 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
         origem: g.origem,
         situacao: g.situacao,
         progresso: g.progresso,
+        motivo: g.motivo,
         apagadaEm: g.apagada_em,
         canal: g.canal_nome ? { nome: g.canal_nome, numero: g.canal_numero } : null,
         lanches: g.lanches,
@@ -462,5 +495,227 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
     if (ainda.rowCount === 0) return naoAchei(resposta, 'lanche não encontrado');
     if (ainda.rows[0].situacao === 'pulado') return { pulado: true };
     return resposta.status(409).send({ erro: 'ja_conferido', mensagem: 'este lanche já foi conferido' });
+  });
+
+  // ───────────────────── a gravação de treino (fatia T3) ─────────────────────
+
+  const soQuemConfigura = (s: Sessao, resposta: FastifyReply) => {
+    // decisão 3 do dono (15/10/2026): criar, cancelar e apagar é de quem configura a loja
+    if (podeConfigurar(s)) return true;
+    resposta.status(403).send({ erro: 'sem_permissao', mensagem: 'quem cria, cancela e apaga a gravação de treino é quem configura a loja' });
+    return false;
+  };
+
+  app.post('/v1/lojas/:id/treino/gravacoes', async (req, resposta) => {
+    const s = await quem(req, resposta);
+    if (!s || !soQuemConfigura(s, resposta)) return;
+    const { id } = req.params as { id: string };
+    if (!UUID.test(id)) return naoAchei(resposta, 'não existe essa loja');
+    const lida = lerNovaGravacao(req.body, new Date());
+    if ('problema' in lida) return invalido(resposta, lida.problema);
+
+    const cliente = await pool.connect();
+    try {
+      await cliente.query('begin');
+      // a loja travada: dois pedidos ao mesmo tempo não passam juntos pela conferência de horário
+      const loja = await cliente.query('select id from loja where id = $1 and tenant_id = $2 for update', [id, s.tenantId]);
+      if (loja.rowCount === 0) {
+        await cliente.query('rollback');
+        return naoAchei(resposta, 'não existe essa loja');
+      }
+      const canal = await cliente.query(
+        `select p.nome from ponto p join setor st on st.id = p.setor_id where p.id = $1 and st.loja_id = $2 and p.origem = 'dvr'`,
+        [lida.pontoId, id],
+      );
+      if (canal.rowCount === 0) {
+        await cliente.query('rollback');
+        return invalido(resposta, 'este canal não é uma câmera do gravador desta loja');
+      }
+      const junto = await cliente.query(
+        `select 1 from treino_gravacao
+          where loja_id = $1 and ponto_id = $2 and situacao not in ('cancelada', 'falhou') and inicio < $4 and fim > $3
+          limit 1`,
+        [id, lida.pontoId, lida.inicio.toISOString(), lida.fim.toISOString()],
+      );
+      if (junto.rowCount) {
+        await cliente.query('rollback');
+        return resposta.status(409).send({ erro: 'sobreposta', mensagem: 'já existe uma gravação de treino deste canal nesse horário' });
+      }
+      const nova = await cliente.query(
+        `insert into treino_gravacao (loja_id, ponto_id, chave, inicio, fim, origem, situacao, criado_por)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
+         returning id, chave, situacao`,
+        [id, lida.pontoId, `console-${randomUUID()}`, lida.inicio.toISOString(), lida.fim.toISOString(), lida.de, lida.de === 'gravador' ? 'fila' : 'programada', s.usuarioId],
+      );
+      await cliente.query('commit');
+      req.log.info({ loja: id, gravacao: nova.rows[0].id, de: lida.de, por: s.usuarioId }, 'gravação de treino CRIADA');
+      return resposta.status(201).send({ id: nova.rows[0].id, chave: nova.rows[0].chave, situacao: nova.rows[0].situacao });
+    } catch (e) {
+      await cliente.query('rollback').catch(() => {});
+      throw e;
+    } finally {
+      cliente.release();
+    }
+  });
+
+  app.post('/v1/treino/gravacoes/:id/cancelar', async (req, resposta) => {
+    const s = await quem(req, resposta);
+    if (!s || !soQuemConfigura(s, resposta)) return;
+    const { id } = req.params as { id: string };
+    if (!UUID.test(id)) return naoAchei(resposta, 'gravação não encontrada');
+    // do protótipo: cancela-se o que ainda não começou a ser lido (programada ou na fila)
+    const r = await pool.query(
+      `update treino_gravacao g set situacao = 'cancelada'
+         from loja l
+        where g.id = $1 and l.id = g.loja_id and l.tenant_id = $2 and g.situacao in ('programada', 'fila')
+       returning g.id`,
+      [id, s.tenantId],
+    );
+    if (r.rowCount === 1) {
+      req.log.info({ gravacao: id, por: s.usuarioId }, 'gravação de treino CANCELADA');
+      return { cancelada: true };
+    }
+    const ainda = await pool.query(
+      `select g.situacao from treino_gravacao g join loja l on l.id = g.loja_id where g.id = $1 and l.tenant_id = $2`,
+      [id, s.tenantId],
+    );
+    if (ainda.rowCount === 0) return naoAchei(resposta, 'gravação não encontrada');
+    if (ainda.rows[0].situacao === 'cancelada') return { cancelada: true };
+    return resposta.status(409).send({ erro: 'nao_cancela', mensagem: 'esta gravação já começou a ser lida: não dá mais para cancelar' });
+  });
+
+  app.post('/v1/treino/gravacoes/:id/apagar-imagens', async (req, resposta) => {
+    const s = await quem(req, resposta);
+    if (!s || !soQuemConfigura(s, resposta)) return;
+    const { id } = req.params as { id: string };
+    if (!UUID.test(id)) return naoAchei(resposta, 'gravação não encontrada');
+    const cliente = await pool.connect();
+    try {
+      await cliente.query('begin');
+      const g = await cliente.query(
+        `select g.situacao from treino_gravacao g join loja l on l.id = g.loja_id where g.id = $1 and l.tenant_id = $2 for update of g`,
+        [id, s.tenantId],
+      );
+      if (g.rowCount === 0) {
+        await cliente.query('rollback');
+        return naoAchei(resposta, 'gravação não encontrada');
+      }
+      if (g.rows[0].situacao === 'apagada') {
+        await cliente.query('rollback');
+        return { apagada: true, quadros: 0 };
+      }
+      // do protótipo: apaga-se a gravação já conferida — pronta, sem lanche esperando conferência
+      const faltam = await cliente.query(`select count(*)::int as n from treino_lanche where gravacao_id = $1 and situacao <> 'conferido'`, [id]);
+      if (g.rows[0].situacao !== 'pronta' || faltam.rows[0].n > 0) {
+        await cliente.query('rollback');
+        return resposta.status(409).send({
+          erro: 'falta_conferir',
+          mensagem: g.rows[0].situacao !== 'pronta' ? 'esta gravação ainda não foi lida' : `ainda há ${faltam.rows[0].n === 1 ? '1 lanche' : `${faltam.rows[0].n} lanches`} para conferir nesta gravação`,
+        });
+      }
+      // os quadros saem da nuvem; o que foi aprendido (os exemplos e os números) fica
+      const saiu = await cliente.query(
+        `delete from treino_quadro q using treino_lanche l where l.id = q.lanche_id and l.gravacao_id = $1`,
+        [id],
+      );
+      await cliente.query(`update treino_gravacao set situacao = 'apagada', apagada_em = now() where id = $1`, [id]);
+      await cliente.query('commit');
+      req.log.info({ gravacao: id, quadros: saiu.rowCount, por: s.usuarioId }, 'gravação de treino: imagens APAGADAS');
+      return { apagada: true, quadros: saiu.rowCount ?? 0 };
+    } catch (e) {
+      await cliente.query('rollback').catch(() => {});
+      throw e;
+    } finally {
+      cliente.release();
+    }
+  });
+
+  // ───────────────────── o computador da loja e a gravação ─────────────────────
+
+  async function doAgente(req: FastifyRequest, resposta: FastifyReply) {
+    try {
+      return await autenticarAgente(pool, req.headers.authorization);
+    } catch (e) {
+      if (e instanceof ErroDeAuth) {
+        req.log.warn({ motivo: e.motivo }, 'credencial recusada na gravação de treino');
+        resposta.status(e.status).send({ erro: e.motivo, mensagem: e.message });
+        return null;
+      }
+      throw e;
+    }
+  }
+
+  // o que a loja tem de fazer: as gravações a ler, e as que ela já pode apagar do computador dela
+  app.get('/v1/agentes/treino/gravacoes', async (req, resposta) => {
+    const agente = await doAgente(req, resposta);
+    if (!agente) return;
+    const [fazer, apagar] = await Promise.all([
+      pool.query(
+        `select g.id, g.chave, g.ponto_id, p.canal, g.inicio, g.fim, g.origem, g.situacao
+           from treino_gravacao g
+           left join ponto p on p.id = g.ponto_id
+          where g.loja_id = $1 and g.situacao in ('programada', 'fila', 'lendo')
+          order by g.inicio
+          limit 50`,
+        [agente.lojaId],
+      ),
+      pool.query(
+        `select g.chave from treino_gravacao g where g.loja_id = $1 and (${SQL_DO_QUE_A_LOJA_APAGA}) order by g.criado_em desc limit 200`,
+        [agente.lojaId],
+      ),
+    ]);
+    return {
+      gravacoes: fazer.rows.map((g) => ({
+        id: g.id,
+        chave: g.chave,
+        pontoId: g.ponto_id,
+        canal: g.canal,
+        inicio: g.inicio,
+        fim: g.fim,
+        origem: g.origem,
+        situacao: g.situacao,
+      })),
+      apagar: apagar.rows.map((g) => g.chave as string),
+    };
+  });
+
+  app.post('/v1/agentes/treino/gravacoes/:id/andamento', async (req, resposta) => {
+    const agente = await doAgente(req, resposta);
+    if (!agente) return;
+    const { id } = req.params as { id: string };
+    if (!UUID.test(id)) return naoAchei(resposta, 'gravação não encontrada');
+    const lido = lerAndamento(req.body);
+    if ('problema' in lido) return invalido(resposta, lido.problema);
+    const cliente = await pool.connect();
+    try {
+      await cliente.query('begin');
+      const g = await cliente.query(`select situacao from treino_gravacao where id = $1 and loja_id = $2 for update`, [id, agente.lojaId]);
+      if (g.rowCount === 0) {
+        await cliente.query('rollback');
+        return naoAchei(resposta, 'gravação não encontrada');
+      }
+      if (!aindaEDaLoja(g.rows[0].situacao)) {
+        // cancelada no console (ou já encerrada): a loja para de ler
+        await cliente.query('rollback');
+        return resposta.status(409).send({ erro: 'encerrada', situacao: g.rows[0].situacao, mensagem: `esta gravação está ${g.rows[0].situacao}: pare de ler` });
+      }
+      await cliente.query(
+        `update treino_gravacao
+            set situacao = $2,
+                progresso = coalesce($3, progresso),
+                motivo = $4,
+                lida_em = case when $2 = 'pronta' then now() else lida_em end
+          where id = $1`,
+        [id, lido.situacao, lido.progresso, lido.motivo],
+      );
+      await cliente.query('commit');
+      if (lido.situacao !== 'lendo') req.log.info({ gravacao: id, situacao: lido.situacao, motivo: lido.motivo }, 'gravação de treino: a loja contou');
+      return { situacao: lido.situacao };
+    } catch (e) {
+      await cliente.query('rollback').catch(() => {});
+      throw e;
+    } finally {
+      cliente.release();
+    }
   });
 }

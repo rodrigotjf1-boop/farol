@@ -7150,3 +7150,94 @@ A 048 foi da porta (#150), que chegou antes à `main`. Esta fica com a 049.
   - a etapa marcada "Certo" mostrava a leitura riscada, como se estivesse errada;
   - os três números e as quatro escolhas de "Qual lanche era?" ocupavam a tela do celular, empilhados.
 - **Build**: `next build` passou.
+
+## 15/10/2026 · A carga das leituras de 14/10 para a conferência (sem código no repositório)
+
+As leituras que a bancada fez em 14/10 (as do repasse, rodada 12) subiram para a conferência pela rota do agente
+(`POST /v1/agentes/treino/lanches`). Foi uma vez só, por um roteiro numa pasta temporária do computador da loja, que
+depois foi apagada.
+
+- **O que subiu.** 10 lanches de duas gravações:
+  - `carga-2026-10-14-2148`: os lanches 01, 02, 14, 20, 28, 30, 35 e 38;
+  - `carga-2026-10-14-1930`: o Numero 16 e o Mussarela.
+
+  São 64 quadros reduzidos, com no máximo 360 px. O lanche 27, a trilha que misturou o 28 e o 30, não tem etapa de
+  ingrediente e ficou de fora.
+- **A leitura usada** é o identificador local sem a correção de luz: o resultado da v12, o melhor medido.
+- **Os nomes possíveis de cada etapa** saem das fichas da loja (31 nomes). O grupo de cor vira os nomes dele que estão
+  nas fichas. O "não sei" do identificador vira "não deu para ver". O que não é ingrediente (papel, fechou, saiu) fica
+  de fora.
+- **O canal 4** veio da configuração que desce para o agente, e o token, do ambiente do computador da loja. Nenhum dos
+  dois foi impresso.
+- **Para quê.** O dono confere em Treinamento. Cada etapa respondida vira exemplo da base, e o acerto começa a contar.
+
+## 15/10/2026 · A21, fatia T3 (a nuvem e a tela): a gravação de treino — criar, cancelar, apagar as imagens, e a conversa com a loja (migration 050)
+
+### O que entra
+
+- **A migration 050**: `treino_gravacao.motivo`, o porquê de a leitura ter falhado, como a loja contou.
+- **As regras** (`api/src/treino-gravacao.ts`), as do protótipo:
+  - de 15 minutos a 1 hora;
+  - do gravador: o horário já terminou e começou há no máximo 18 horas, o que o gravador desta loja guarda;
+  - programada: ainda vai começar, até 7 dias;
+  - a data chega com o fuso escrito: o console monta no relógio da loja.
+- **No console** (quem configura):
+  - `POST /v1/lojas/:id/treino/gravacoes` cria. O canal tem de ser uma câmera do gravador desta loja, e duas gravações
+    do mesmo canal não se sobrepõem (a que falhou ou foi cancelada não segura o horário);
+  - `POST /v1/treino/gravacoes/:id/cancelar` cancela a programada ou a da fila;
+  - `POST /v1/treino/gravacoes/:id/apagar-imagens` apaga, só quando a gravação está pronta e com tudo conferido. Os
+    quadros saem da nuvem na hora e o exemplo fica.
+- **Para a loja** (com o token do agente):
+  - `GET /v1/agentes/treino/gravacoes` diz o que ler e o que ela já pode apagar do computador dela: a cancelada, a
+    apagada, a que falhou, e a pronta com tudo conferido há mais de 30 dias;
+  - `POST /v1/agentes/treino/gravacoes/:id/andamento` recebe lendo (com a porcentagem), pronta ou falhou (com o
+    motivo). A gravação cancelada no console responde 409, e a loja para;
+  - o lanche de gravação cancelada ou apagada não entra (409).
+
+  O contrato é `contratos/gravacao-de-treino.json`.
+- **A lista da tela** traz as câmeras do gravador, as regras e se o computador da loja já sabe gravar (o agente ativo
+  declara `treino`).
+- **A tela**:
+  - "Nova gravação de treino" (`web/componentes/treino/gaveta-da-gravacao.tsx`): a bancada, de onde, o dia e os dois
+    horários, com o erro dito antes de mandar;
+  - "Cancelar" e "Apagar as imagens" (com confirmação) na aba Gravações;
+  - o motivo da falha na linha;
+  - o aviso enquanto o computador da loja não sabe gravar: a gravação espera na fila.
+
+### O que mudou do protótipo
+
+- **"Programar" não grava ao vivo**: o gravador já grava sempre. O computador da loja busca o trecho nele depois que o
+  horário termina, como na gravação "do que o gravador já guardou". É um caminho só.
+- **"30 minutos gravados levam perto de 1 hora para ler" ficou de fora**: ainda não foi medido com o módulo da loja.
+- **O diálogo de apagar** diz o que acontece agora: os quadros saem da nuvem, e o computador da loja recebe a ordem de
+  apagar a gravação.
+- **O aviso de que a loja ainda não sabe gravar** é novo: o protótipo não tinha esse estado.
+
+### Como foi provado
+
+- **Testes da API** (`api/testes/treino-gravacao.test.ts`): 10, sendo 4 sem banco e 6 com Postgres de verdade.
+  - As regras, com os limites.
+  - Quem cria; o canal de outra loja e a câmera IP recusados; a sobreposição.
+  - A lista da loja com as chaves do contrato; o andamento.
+  - A falha com o motivo.
+  - Cancelar, com o lanche da cancelada recusado.
+  - Apagar as imagens: os quadros saem e o exemplo fica.
+  - A regra dos 30 dias para a loja apagar a dela.
+- **Mutação: 39 trocas no código novo, 39 mortas**, com controle antes e depois. Duas, de trecho com quebra de linha,
+  não tinham sido aplicadas: o arquivo de rotas está com CRLF. O roteiro avisou ("trecho não achado"), e elas rodaram
+  de novo com trechos de uma linha.
+- **A suíte inteira da API** contra o banco de teste com as 50 migrations: 1477 de 1478. A que falha é a conhecida do
+  banco local sem pgvector; no CI ela roda. A 050 roda duas vezes sem erro.
+- **A tela**, no console local:
+  - criar com 5 minutos mostra o erro, e com 30 minutos cria;
+  - a programada aparece no topo e cancela;
+  - o diálogo de apagar apaga a gravação conferida;
+  - a supervisão não cria, não cancela e não apaga;
+  - 13 estados × 16 larguras, sem nada para fora e sem erro de script.
+- **Build**: `next build` passou.
+
+### Falta
+
+A parte da loja: o módulo do agente que pergunta, busca o trecho no gravador, lê os lanches (as ferramentas da rodada
+12, que viram módulo com testes), manda e conta o andamento, e apaga o que a nuvem disser. Entra num pacote novo, com o
+"pode" do dono.
