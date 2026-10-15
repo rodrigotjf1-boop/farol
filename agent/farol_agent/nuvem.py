@@ -148,6 +148,10 @@ class ClienteNuvem:
         """Conta o andamento de uma gravação de treino: lendo (com a porcentagem), pronta ou falhou (com o motivo)."""
         return self._pedir("POST", f"/v1/agentes/treino/gravacoes/{gravacao_id}/andamento", corpo)
 
+    def lanche_de_treino(self, corpo: dict[str, Any]) -> dict[str, Any]:
+        """Manda um lanche lido numa gravação de treino, com os quadros reduzidos das etapas (A21, T3)."""
+        return self._pedir("POST", "/v1/agentes/treino/lanches", corpo)
+
     def responder(
         self,
         comando_id: str,
