@@ -5163,7 +5163,10 @@ dono contou em 14/10: em dia de semana, a bancada 1 monta o balcão e o delivery
 - **a escolha só existe em texto.** Em 30 dias, 2.347 pedidos, 2.224 itens com escolha em texto ("Molho cheddar no
   sanduíche", "Bacon") e **nenhuma escolha estruturada**. Os adicionais dos canais não têm o código PDV ligado às
   opções do Regem: é o mesmo motivo que faz o Regem avisar que o adicional "não baixou estoque". Com o código ligado,
-  o "sem cebola" chega com o id do ingrediente (e o estoque baixa). Até lá, o Farol tem de ler o texto;
+  o "sem cebola" chega com o id do ingrediente (e o estoque baixa). Até lá, o Farol tem de ler o texto — e dá:
+  **são só 46 escolhas diferentes** (4.749 em 30 dias), e **96% delas têm o nome de uma opção que existe no cadastro
+  do Regem**. Só 37% casam com uma opção do próprio produto: 24 dos 44 produtos com escolha não têm grupo de
+  adicionais, e a opção está cadastrada em outro produto;
 - trio e sanduíche são a mesma ficha na bancada (o dono, 14/10): o "Trio 10" casa com a ficha do Número 10 pelo combo
   que a base de fichas já guarda.
 
@@ -5173,7 +5176,7 @@ dono contou em 14/10: em dia de semana, a bancada 1 monta o balcão e o delivery
 |---|---|---|---|
 | **F1** | a nuvem guarda a fila que lê, por 7 dias: os pedidos e os itens, **sem a observação** (pode ter texto do cliente); é o que deixa casar a leitura que chega horas depois (a gravação de treino) | servidor | migration |
 | **F2** | o palpite da conferência (T4) usa a fila: primeiro os produtos pedidos mais perto do lanche e ainda não gastos, depois as fichas todas; o pedido é gasto quando o lanche é conferido | servidor | — |
-| **F3** | a leitura do texto das escolhas na nuvem ("sem X", "+ X", "X no sanduíche"), contra os ingredientes da ficha do produto | servidor | — |
+| **F3** | a leitura do texto das escolhas na nuvem: cada pedaço do texto casa, pelo nome, com uma opção do cadastro (primeiro a do próprio produto, depois a de outro) e ganha o efeito dela — tira, acrescenta, ou é acompanhamento e não conta na bancada | servidor | — |
 | **F4** | na loja: o agente pergunta a fila no ritmo que a nuvem diz e a usa na leitura ao vivo | agente | pacote novo, com o "pode" |
 
 **Para o dono decidir:** (1) guardar a fila na nuvem por 7 dias, sem a observação; (2) até quanto tempo depois do
