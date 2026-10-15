@@ -7462,3 +7462,38 @@ teste guarda isso.
 T3b (buscar no gravador: a hora de buscar é decisão do dono — a placa da loja é de 10 Mbit/s e, pela conta com a
 medida de 10/10 (um bloco de 2 s = 0,53 MB em 1,9 s), 30 minutos de gravação são perto de 480 MB e 28 minutos de
 rede), T3c (ler a bancada) e T3d (ligar). A troca de pacote pede o "pode".
+
+## 15/10/2026 · A21, fatia T3b: buscar no gravador o trecho da gravação de treino (dormindo, sem migration)
+
+### O que entra
+
+`farol_agent/treino_trecho.py`, no agente, em cima do cliente de arquivo do gravador (onda 2, fatia 2.1):
+
+- **Pedaços de até 40 s, alinhados aos blocos do gravador.** É o maior pedido do cliente, e o pedido desalinhado
+  cobriria mais que isso. Com bloco de 3 s, o pedaço é de 39 s; sem bloco medido, de 40 s sem a fração do segundo.
+- **A hora é a do gravador.** O instante da nuvem vira a hora do computador (o fuso da máquina) e, com a diferença
+  que o cliente mede, a do gravador. O nome de cada pedaço é a hora do gravador em que ele começa.
+- **Só o que assentou** (pelo perfil do gravador), **só quando "pode buscar"** (quem chama decide; a hora é do dono)
+  e **com 2 GB livres no disco**, no mínimo: o computador da loja é também o servidor local do Regem.
+- **Retoma de onde parou.** O manifesto da pasta (`trecho.json`, trocado de uma vez a cada pedaço) diz o que já veio;
+  o que veio não é pedido de novo, nem depois de o agente reiniciar. O pedaço que sumiu do disco volta a ser pedido;
+  manifesto torto, ou de outro formato, vale como vazio.
+- **O destino de cada erro do gravador:** sem gravação no pedaço, anota e segue (o gravador guarda ~18 h); ocupado,
+  para e tenta depois; senha recusada, para tudo (o cliente não repete a senha recusada — a conta do gravador
+  trava); outro erro, o pedaço é tentado de novo depois e, na terceira vez, fica anotado como falho e a busca segue.
+
+Quem chama recebe como a busca ficou (os pedaços que vieram, sem gravação e falhos; por que parou) e conta o andamento
+— a ligação com a T3a é a T3d.
+
+### Como foi provado
+
+- **Testes do agente** (`agent/testes/test_treino_trecho.py`): 22, com um gravador de mentira que faz a mesma conta
+  de alinhamento do cliente de verdade e recusa, como ele, o pedido que cobre mais de 40 s. Os pedaços com cinco
+  perfis de gravador; a hora; o assentar; a retomada (com o agente "reiniciado"); cada erro; o disco; o manifesto.
+- **Mutação: 19 trocas, 19 mortas**, com controle antes e depois.
+- **A suíte inteira do agente**: 1837 passaram, 1 pulado.
+
+### O que não foi medido
+
+O gravador da loja entregando um trecho de 30 minutos assim, pedaço a pedaço: a conta de 480 MB e 28 minutos é feita
+com a medida de um bloco (10/10). A primeira busca de verdade é a prova — e ela pede a troca do pacote.
