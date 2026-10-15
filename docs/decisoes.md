@@ -7506,3 +7506,43 @@ dorme, mudou sem custo: os pedaços ficam na pasta do canal com esse nome, e o m
 termina (os pedaços daqui têm até 40 s, não 5 minutos). `pedacos_baixados` entrega à leitura só os que vieram
 inteiros, em ordem: o arquivo pela metade que fica de uma queda (o manifesto nunca disse que ele veio) não entra, e é
 pedido de novo por cima. Testes 25; mutação 25 de 25.
+
+## 15/10/2026 · A21, fatia T3c-1: a gravação de treino vira um quadro por segundo da bancada (dormindo, sem migration)
+
+### O achado que ordenou a T3c
+
+O pacote da loja leva só `farol_agent`, compilado (`ferramentas/pacote_compilado.sh`): o `ferramentas/repasse/` não
+vai. E a leitura da bancada da rodada 12 — `quadros_por_lanche` v3 e `identificar_lanche` v14, que até hoje rodaram
+como roteiros soltos na loja — lê a CAPTURA DENSA (um quadro por segundo, feita ao vivo), enquanto o leitor do
+expediente (R1) tira só um quadro por parada da bancada. A T3c ficou em quatro: a captura densa a partir da gravação
+(esta), os quadros de cada lanche, os ingredientes (com a calibração do canal 4 num perfil da loja) e o corpo do lanche
+de treino.
+
+### O que entra
+
+- **`farol_agent/gravacao_lida.py`**: o que o R1 e a gravação de treino dividem, agora dentro do pacote — os quadros
+  com a hora certa (o relógio de dentro consertado; a contagem como reserva, e o aviso de qual valeu em cada quadro),
+  a folga do relógio de dentro (10% do tamanho do pedaço), a hora pela contagem, o quadro do canal (o de papel
+  "montagem") e o recorte da área. O `ferramentas/repasse/leitor.py` passou a importá-los dali, com os mesmos nomes
+  (os 38 testes dele seguem verdes).
+- **`farol_agent/treino_quadros.py`**: para cada pedaço que a busca trouxe (`treino_trecho.pedacos_baixados`, com o
+  fim no que o pedido cobre — o último pedaço, curto, traz o bloco inteiro), um recorte a cada segundo da área de
+  montagem, com a hora do gravador e a da loja (menos o adianto). Depois de um salto do relógio, a amostra seguinte é
+  um passo depois — não uma atrás da outra. Sai em `paradas.csv` + `recortes/`, o formato da captura densa ao vivo e
+  do R1. A retomada é pelo `densa.json` (trocado de uma vez a cada pedaço, e o `paradas.csv` refeito dele): o pedaço
+  lido não é lido de novo, o que não abre fica anotado e não se repete, e anotação de outro passo ou de outro adianto
+  não vale. Quem chama diz se pode seguir, antes de cada pedaço (o computador da loja é também o servidor do Regem).
+
+### Como foi provado
+
+- **Testes do agente** (`agent/testes/test_treino_quadros.py`): 15, com vídeo de verdade (o sintético do R1) e com
+  uma captura de mentira para o relógio de dentro que recua e o que não anda; o relógio que termina longe do tamanho
+  do pedaço; o salto; a retomada; o pedaço que não abre; a ordem; e a captura densa consumindo o manifesto da busca.
+- **Mutação: 21 trocas, 21 mortas** (uma ficou viva na primeira rodada — a borda dos 10% do relógio de dentro; o teste
+  da borda entrou e ela morreu), com controle antes e depois, rodando também os testes do R1.
+- **A suíte inteira do agente**: 1855 passaram, 1 pulado.
+
+### O que não foi medido
+
+A captura densa a partir de um pedaço `.dav` de verdade do gravador da loja — os testes usam AVI. A leitura de verdade
+(e a comparação com a captura densa ao vivo de 14/10) espera a troca do pacote ou uma rodada à parte na loja.

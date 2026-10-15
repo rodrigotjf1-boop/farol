@@ -132,8 +132,9 @@ def pasta_dos_videos(pasta: Path, canal: int) -> Path:
 
 
 def pedacos_baixados(pasta: Path, canal: int) -> list[tuple[Path, datetime, datetime]]:
-    """Os pedaços que vieram inteiros, em ordem: o arquivo, onde começa e onde termina (hora do gravador).
+    """Os pedaços que vieram inteiros, em ordem: o arquivo, onde começa e até onde o vídeo dele vai (hora do gravador).
 
+    O fim é até onde o pedido COBRE: o gravador entrega blocos inteiros, e o último pedaço, curto, traz o bloco todo.
     É o que a leitura da bancada (T3c) lê. Pedaço anotado que sumiu do disco não entra.
     """
     saida = []
@@ -141,7 +142,7 @@ def pedacos_baixados(pasta: Path, canal: int) -> list[tuple[Path, datetime, date
         if a.get("situacao") != OK:
             continue
         try:
-            de, ate = datetime.fromisoformat(a["de"]), datetime.fromisoformat(a["ate"])
+            de, ate = datetime.fromisoformat(a["de"]), datetime.fromisoformat(a.get("cobre_ate") or a["ate"])
         except (KeyError, TypeError, ValueError):
             continue
         arquivo = pasta_dos_videos(pasta, canal) / nome
@@ -246,7 +247,7 @@ def buscar_trecho(
             _log.warning("treino: o pedaço %s falhou %d vezes; fica de fora (%s)", nome, tentativas, e)
             anotados[nome] = {"situacao": FALHOU, "tentativas": tentativas, **onde}
         else:
-            anotados[nome] = {"situacao": OK, "tamanho": trecho.tamanho, **onde}
+            anotados[nome] = {"situacao": OK, "tamanho": trecho.tamanho, **onde, "cobre_ate": trecho.ate.isoformat()}
         _gravar_manifesto(arquivo_do_manifesto, anotados)
         if ao_andar is not None:
             ao_andar(contar())

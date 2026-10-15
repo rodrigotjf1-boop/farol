@@ -156,8 +156,8 @@ def test_os_pedacos_ficam_como_o_leitor_do_repasse_le_e_o_manifesto_diz_onde_cad
     assert [(de, ate) for _, de, ate in baixados] == [
         (datetime(2026, 10, 15, 19, 30, 24), datetime(2026, 10, 15, 19, 31, 4)),
         (datetime(2026, 10, 15, 19, 31, 44), datetime(2026, 10, 15, 19, 32, 24)),
-        (datetime(2026, 10, 15, 19, 32, 24), datetime(2026, 10, 15, 19, 32, 25)),
-    ], "o pedaço sem gravação não entra; o último é curto"
+        (datetime(2026, 10, 15, 19, 32, 24), datetime(2026, 10, 15, 19, 32, 26)),
+    ], "o pedaço sem gravação não entra; o último é curto, e o vídeo dele vai até o fim do bloco (o que o pedido cobre)"
     baixados[0][0].unlink()
     assert len(tt.pedacos_baixados(tmp_path, 4)) == 2, "o que sumiu do disco não entra"
     assert tt.pedacos_baixados(tmp_path / "nao-existe", 4) == []
