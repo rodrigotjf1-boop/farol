@@ -39,7 +39,7 @@ import { Botao, classesDoBotao } from '@/componentes/ui/botao';
 import { AJUDA, ROTULO } from '@/componentes/ui/campo';
 import { Alerta, Cabecalho, CARTAO, Chip, Ossos, Vazio } from '@/componentes/ui/pecas';
 import { Dialogo } from '@/componentes/ui/sobreposto';
-import { OutroSistema, Planilha } from '@/componentes/conexoes/outro-sistema';
+import { AvisoDosAcessos, OutroSistema, Planilha } from '@/componentes/conexoes/outro-sistema';
 import { acessosApi, ErroDaApi, regemApi, type AcessosDaConta, type ConexaoComORegem, type LojaDoRegemEsperando, type LojaDoRegemLigada, type VoltaDoRegem } from '@/lib/api';
 
 /** "Não usar esta loja agora": o acesso dela é devolvido ao Regem. */
@@ -694,6 +694,8 @@ export default function Conexoes() {
 
       {c && !falha && (
         <>
+          {/* O que os outros da diretoria fizeram nos acessos de outro sistema, até "Entendi". */}
+          {acessos && <AvisoDosAcessos a={acessos} aoMudar={buscar} />}
           {temEsperando && <LigarAsLojas c={c} aoSalvar={salvarPares} />}
           {temLigadas && (
             <Conectadas

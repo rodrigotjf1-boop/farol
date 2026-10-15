@@ -27,8 +27,29 @@
   var EMPRESA_NO_REGEM = 'Casa do Lanche Alimentação Ltda';
   // o outro sistema, com o nome que a diretoria deu ao criar o acesso
   var SISTEMA = 'ERP da rede';
-  var CODIGO_DE_EXEMPLO = 'FAROL-EXEMPLO-7K2M-QX4D-9TBN';
+  // o formato do Padrão DMS (dms_ap_farol_ + 43 + _ + 6 de conferência), com um corpo que não vale em lugar nenhum
+  var CODIGO_DE_EXEMPLO = 'dms_ap_farol_exemplo-do-prototipo-nao-vale-em-lugar_000000';
   var DOCUMENTACAO = 'monitorfarol.com.br/integracao';
+
+  // A parte 2 da porta (Padrão DMS §2.4, aprovado pelo dono em 14/10/2026): o código vale 12 meses, com aviso 15 dias
+  // antes; renovar gera outro e o antigo vale mais 7 dias; 90 dias sem uso, fica suspenso até a diretoria reativar;
+  // quem cria confirma a senha e aceita o termo (a versão fica guardada); os outros da diretoria são avisados; no
+  // máximo 10 acessos valendo por conta. Hoje, no exemplo, é 15/10/2026.
+  var QUEM_CRIOU = 'Marina Alves';
+  var TERMO_VERSAO = 'versão 1, de 15/10/2026';
+  var TERMO = [
+    'O código deixa um sistema enviar as fichas da loja escolhida e consultar o que o Farol tem desse sistema. Ele não abre câmeras, alertas, análises nem outra loja.',
+    'Quem tem o código envia em nome da loja. Entregue-o só a quem cuida do sistema e guarde-o como se guarda uma senha.',
+    'O código vale 12 meses. Para antes se ficar 90 dias sem envio (fica suspenso até alguém da diretoria reativar) ou se for revogado.',
+    'Desconfiou que o código vazou? Revogue na hora: o envio para, e as fichas que o sistema mandou são apagadas.',
+    'O Farol registra quem criou, renovou, reativou e revogou cada acesso, e quando. Os outros da diretoria veem esses avisos no console.',
+    'Pela porta, o Farol não recebe preço, custo, margem nem dado de cliente, e ignora o que não estiver na documentação.'
+  ];
+  var TETO_DE_ACESSOS = 10;
+  // só para a situação "conta no teto": as outras lojas de uma rede que já tem 10 acessos
+  var LOJAS_EXTRAS = ['Loja Méier', 'Loja Tijuca', 'Loja Recreio', 'Loja Niterói', 'Loja Botafogo', 'Loja Leblon', 'Loja Madureira', 'Loja Ipanema'];
+  // em que pé está o acesso da Loja Centro, em cada situação do controle
+  var ESTADO_DO_ACESSO = { 'sistema-novo': 'novo', sistema: 'valendo', 'sistema-vence': 'vence', 'sistema-vencido': 'vencido', 'sistema-suspenso': 'suspenso', 'sistema-renovado': 'renovado', 'sistema-teto': 'valendo' };
   var UNIDADES = 'g, kg, ml, l, unidade, fatia, folha, rodela, colher, pitada';
 
   // a base de fichas da loja (sem preço e sem custo: o Farol não recebe nem pede)
@@ -236,28 +257,34 @@
   function nomesDeFora() { return DE_FORA.map(function (d) { return d.produto; }); }
   function quantosProblemas() { return DE_FORA.reduce(function (n, d) { return n + d.problemas.length; }, 0); }
 
-  var SITUACOES = ['nao', 'planilha', 'planilha-parcial', 'sistema-novo', 'sistema', 'voltou', 'conectado', 'semfichas', 'problema', 'revogado', 'carregando', 'erro'];
+  var SITUACOES = ['nao', 'planilha', 'planilha-parcial', 'sistema-novo', 'sistema', 'sistema-vence', 'sistema-vencido', 'sistema-suspenso', 'sistema-renovado', 'sistema-teto', 'voltou', 'conectado', 'semfichas', 'problema', 'revogado', 'carregando', 'erro'];
   var DO_REGEM = ['voltou', 'conectado', 'semfichas', 'problema', 'revogado'];
-  var est = { tela: 'fichas', situacao: 'conectado', perfil: 'diretoria', filtro: 'todos', busca: '', pares: {}, acessos: [], imp: null, novo: null,
+  var est = { tela: 'fichas', situacao: 'conectado', perfil: 'diretoria', filtro: 'todos', busca: '', pares: {}, acessos: [], imp: null, novo: null, renova: null, avisoVisto: false,
     // o treinamento: a situação (controle do protótipo), a aba, o filtro dos lanches, o que já foi respondido em cada
     // lanche (rascunho), os conferidos nesta visita, os pulados, as decisões das sugestões e o que está aberto
     treino: { situacao: 'conferir', aba: 'lanches', filtro: 'conferir', resp: {}, feitos: [], pulados: [], decisoes: {}, novas: [],
       aberto: null, ingrediente: null, deProduto: null, enviando: null, erroFoto: '', nova: null } };
   LOJAS_DO_REGEM.forEach(function (r) { est.pares[r.id] = r.sugestao; });
 
-  function diretoria() { return est.perfil === 'diretoria'; }
+  // "diretoria · outra pessoa": também é da diretoria, e é quem recebe o aviso do que a colega fez nos acessos
+  function diretoria() { return est.perfil === 'diretoria' || est.perfil === 'diretoria-outra'; }
+  function acessoDaCentro() { var a = null; est.acessos.forEach(function (x) { if (x.loja === 'centro') a = x; }); return a; }
   // quem configura a loja: importa a planilha e pede a busca. A supervisão só vê.
   function configura() { return est.perfil !== 'supervisao'; }
   function origem() {
     if (est.situacao === 'planilha' || est.situacao === 'planilha-parcial') return 'planilha';
-    if (est.situacao === 'sistema' || est.situacao === 'sistema-novo') return 'sistema';
+    if (est.situacao.indexOf('sistema') === 0) return 'sistema';
     if (DO_REGEM.indexOf(est.situacao) >= 0) return 'regem';
     return 'nenhuma';
   }
   // ligada ao Regem (as duas lojas do exemplo): uma loja recebe as fichas de um lugar só
   function ligadaAoRegem() { return ['conectado', 'semfichas', 'problema', 'revogado'].indexOf(est.situacao) >= 0; }
-  // com o acesso tirado no Regem as fichas são apagadas (a mesma regra do desconectar): a loja fica sem fichas
-  function temFichas() { return ['conectado', 'semfichas', 'problema', 'planilha', 'planilha-parcial', 'sistema'].indexOf(est.situacao) >= 0; }
+  // com o acesso tirado no Regem as fichas são apagadas (a mesma regra do desconectar): a loja fica sem fichas.
+  // Vencido ou suspenso NÃO é revogado: as fichas do último envio ficam e continuam valendo para a conferência.
+  function temFichas() {
+    if (est.situacao.indexOf('sistema') === 0) return est.situacao !== 'sistema-novo';
+    return ['conectado', 'semfichas', 'problema', 'planilha', 'planilha-parcial'].indexOf(est.situacao) >= 0;
+  }
   function produtos() {
     // a planilha que entrou em parte: só o que estava certo está na base
     if (est.situacao === 'planilha-parcial') return PRODUTOS.filter(function (p) { return nomesDeFora().indexOf(p.nome) < 0; });
@@ -265,7 +292,7 @@
     return PRODUTOS.map(function (p) { var c = {}; for (var k in p) c[k] = p[k]; c.ficha = null; return c; });
   }
   function comFicha(lista) { return lista.filter(function (p) { return !!p.ficha; }).length; }
-  function nomeDaLoja(id) { var n = ''; LOJAS_DO_FAROL.forEach(function (l) { if (l.id === id) n = l.nome; }); return n; }
+  function nomeDaLoja(id) { var n = ''; LOJAS_DO_FAROL.forEach(function (l) { if (l.id === id) n = l.nome; }); return n || (LOJAS_EXTRAS.indexOf(id) >= 0 ? id : ''); }
   // a frase só manda usar o botão para quem tem o botão
   function comOBotao(com, sem) { return configura() ? com : sem; }
 
@@ -273,11 +300,30 @@
   function chipsDaOrigem() {
     var o = origem();
     if (o === 'planilha') return '<span class="chip mono">da planilha</span><span class="chip ok">importada hoje, 14:02</span>';
-    if (o === 'sistema') return '<span class="chip mono">do ' + esc(SISTEMA) + '</span><span class="chip ok">recebido hoje, 14:02</span>';
+    if (o === 'sistema') {
+      var e = ESTADO_DO_ACESSO[est.situacao];
+      var de = '<span class="chip mono">do ' + esc(SISTEMA) + '</span>';
+      if (e === 'vencido') return de + '<span class="chip fora">o acesso venceu em 03/10</span>';
+      if (e === 'suspenso') return de + '<span class="chip fora">o acesso está suspenso</span>';
+      return de + '<span class="chip ok">recebido hoje, 14:02</span>' + (e === 'vence' ? '<span class="chip facho">o acesso vence em 12 dias</span>' : '');
+    }
     if (est.situacao === 'problema') return '<span class="chip mono">do Regem</span><span class="chip fora">a busca de hoje falhou</span>';
     return '<span class="chip mono">do Regem</span><span class="chip ok">atualizado hoje, 04:10</span>';
   }
   function avisoDaLeitura() {
+    // o acesso do outro sistema: só quem é da diretoria tem o botão; os outros ficam sabendo quem resolve
+    var praConexoes = function (rotulo) {
+      return diretoria() ? ' <button class="btn mini" type="button" data-ir="conexoes">' + ic('tomada', 'p') + rotulo + '</button>' : ' Quem resolve é a diretoria, em Conexões.';
+    };
+    if (est.situacao === 'sistema-vence') {
+      return '<div class="aviso facho" role="status">' + ic('relogio') + '<div><b>O acesso do ' + esc(SISTEMA) + ' vence em 12 dias, em 27/10.</b> Depois disso, ele não consegue mais enviar, e as fichas param de se atualizar.' + praConexoes('Renovar em Conexões') + '</div></div>';
+    }
+    if (est.situacao === 'sistema-vencido') {
+      return '<div class="aviso fora" role="status">' + ic('alerta') + '<div><b>O acesso do ' + esc(SISTEMA) + ' venceu em 03/10.</b> As fichas abaixo são as do último envio, de 02/10, e continuam valendo para a conferência; o que mudou no sistema depois disso não chegou.' + praConexoes('Renovar em Conexões') + '</div></div>';
+    }
+    if (est.situacao === 'sistema-suspenso') {
+      return '<div class="aviso fora" role="status">' + ic('alerta') + '<div><b>O acesso do ' + esc(SISTEMA) + ' está suspenso:</b> ficou 90 dias sem enviar (o último envio foi em 14/07). As fichas abaixo são as daquele envio.' + praConexoes('Reativar em Conexões') + '</div></div>';
+    }
     if (est.situacao === 'problema') {
       return '<div class="aviso fora" role="status">' + ic('alerta') + '<div><b>O Farol não conseguiu ler o Regem na busca de hoje, às 04:10.</b> As fichas abaixo são as de ontem. Ele tenta de novo sozinho' + comOBotao('; para tentar já, use “Buscar agora”.', '.') + '</div></div>';
     }
@@ -1191,24 +1237,50 @@
     return s;
   }
   // outro sistema: o acesso é criado AQUI, por quem é da conta — ninguém da distribuição cola credencial
+  // cada acesso diz até quando vale e em que pé está (Padrão DMS §2.4)
+  function estadoDoAcesso(a) {
+    var e = a.situacao || 'valendo';
+    if (e === 'novo') return '<span class="chip">ainda não enviou nada</span><span class="suave mono">criado hoje, 13:40 · vale até 15/10/2027</span>';
+    if (e === 'vence') return '<span class="chip facho">vence em 12 dias</span><span class="suave mono">recebido hoje, 14:02 · vale até 27/10</span>';
+    if (e === 'vencido') return '<span class="chip fora">venceu em 03/10</span><span class="suave mono">não recebe nada desde então · último envio em 02/10</span>';
+    if (e === 'suspenso') return '<span class="chip fora">suspenso</span><span class="suave mono">90 dias sem envio · o último foi em 14/07</span>';
+    if (e === 'renovado') return '<span class="chip ok">renovado hoje, 10:05</span><span class="suave mono">o antigo vale até 22/10 · o novo, até 15/10/2027</span>';
+    // renovado depois de vencer: não há código antigo valendo, e o sistema ainda não enviou com o novo
+    if (e === 'renovado-vencido') return '<span class="chip ok">renovado hoje, 10:05</span><span class="suave mono">esperando o primeiro envio com ele · vale até 15/10/2027</span>';
+    return '<span class="chip ok">recebido hoje, 14:02</span><span class="suave mono">7 produtos · 3 com ficha · vale até 02/03/2027</span>';
+  }
   function linhaDoAcesso(a, i) {
-    var estado = a.enviou
-      ? '<span class="chip ok">recebido hoje, 14:02</span><span class="suave mono">7 produtos · 3 com ficha</span>'
-      : '<span class="chip">ainda não enviou nada</span><span class="suave mono">criado hoje, 13:40</span>';
-    var s = '<div class="acesso"><div class="de"><b>' + esc(a.nome) + '</b><small>envia para a ' + esc(nomeDaLoja(a.loja)) + '</small></div><div class="estado">' + estado + '</div><div class="acoes">';
+    var e = a.situacao || 'valendo';
+    var s = '<div class="acesso"><div class="de"><b>' + esc(a.nome) + '</b><small>envia para a ' + esc(nomeDaLoja(a.loja)) + ' · criado por ' + esc(a.por || QUEM_CRIOU) + '</small></div><div class="estado">' + estadoDoAcesso(a) + '</div><div class="acoes">';
     if (a.enviou && a.loja === 'centro') s += '<button class="btn mini" type="button" data-ir="fichas">Ver fichas</button>';
-    if (diretoria()) s += '<button class="btn mini perigo" type="button" data-revogar="' + i + '" id="revogar-' + i + '">Revogar</button>';
+    if (diretoria()) {
+      // suspenso: reativar é um clique (o código é o mesmo); vencido ou perto de vencer: renovar (sai outro código)
+      if (e === 'suspenso') s += '<button class="btn mini cheio" type="button" data-reativar="' + i + '" id="reativar-' + i + '">Reativar</button>';
+      else if (e !== 'renovado' && e !== 'renovado-vencido') s += '<button class="btn mini' + (e === 'vence' || e === 'vencido' ? ' cheio' : '') + '" type="button" data-renovar="' + i + '" id="renovar-' + i + '">Renovar</button>';
+      s += '<button class="btn mini perigo" type="button" data-revogar="' + i + '" id="revogar-' + i + '">Revogar</button>';
+    }
     return s + '</div></div>';
+  }
+  // os outros da diretoria ficam sabendo do que uma pessoa fez nos acessos — aqui, no console (o Farol não manda e-mail)
+  function avisoParaADiretoria() {
+    if (est.perfil !== 'diretoria-outra' || est.avisoVisto) return '';
+    var o = '';
+    if (est.situacao === 'sistema-novo') o = esc(QUEM_CRIOU) + ' criou o acesso do ' + esc(SISTEMA) + ' para a Loja Centro hoje, às 13:40.';
+    if (est.situacao === 'sistema-renovado') o = esc(QUEM_CRIOU) + ' renovou o acesso do ' + esc(SISTEMA) + ' hoje, às 10:05. O código antigo vale até 22/10.';
+    if (!o) return '';
+    return '<div class="aviso facho" role="status">' + ic('sino') + '<div><b>Mudou um acesso de outro sistema.</b> ' + o + ' Não foi você? Revogue o acesso e fale com quem o criou.<button class="btn mini" type="button" data-entendi>Entendi</button></div></div>';
   }
   function cartaoOutroSistema() {
     var n = est.acessos.length;
-    var s = '<section class="cartao" aria-labelledby="t-sistema"><header><h2 id="t-sistema">Outro sistema</h2><span class="chip' + (n ? ' ok' : '') + '">' + (n ? plural(n, 'acesso', 'acessos') : 'nenhum acesso') + '</span>';
-    if (diretoria()) s += '<button class="btn mini empurra" type="button" data-novo-acesso id="novo-acesso">' + ic('chave', 'p') + 'Criar acesso</button>';
+    var noTeto = n >= TETO_DE_ACESSOS;
+    var s = '<section class="cartao" aria-labelledby="t-sistema"><header><h2 id="t-sistema">Outro sistema</h2><span class="chip' + (noTeto ? ' facho' : n ? ' ok' : '') + '">' + (n ? plural(n, 'acesso', 'acessos') + (noTeto ? ' · o máximo' : '') : 'nenhum acesso') + '</span>';
+    if (diretoria() && !noTeto) s += '<button class="btn mini empurra" type="button" data-novo-acesso id="novo-acesso">' + ic('chave', 'p') + 'Criar acesso</button>';
     s += '</header>';
     if (n) {
+      if (noTeto && diretoria()) s += '<div class="miolo"><div class="aviso facho">' + ic('info') + '<div><b>A conta chegou a ' + TETO_DE_ACESSOS + ' acessos, o máximo.</b> Para criar outro, revogue um que não se usa mais.</div></div></div>';
       s += '<div class="miolo sem-folga">';
       est.acessos.forEach(function (a, i) { s += linhaDoAcesso(a, i); });
-      s += '</div><div class="miolo"><p class="nota">O código de acesso aparece uma vez, quando é criado. Perdeu? Revogue e crie outro. A documentação para quem cuida do sistema fica em <span class="mono">' + DOCUMENTACAO + '</span>.</p></div>';
+      s += '</div><div class="miolo"><p class="nota">O código de acesso aparece uma vez, quando é criado ou renovado. Ele vale 12 meses, e 15 dias antes de vencer o Farol avisa aqui e na tela Fichas. Parado 90 dias, fica suspenso até alguém da diretoria reativar. Perdeu o código? Renove: sai um novo, e o antigo para em 7 dias. Desconfia que vazou? Revogue. A documentação para quem cuida do sistema fica em <span class="mono">' + DOCUMENTACAO + '</span>.</p></div>';
       return s + '</section>';
     }
     s += '<div class="miolo"><p>A loja usa outro sistema para o cardápio e as fichas? Ele pode enviá-las ao Farol. Você cria um acesso aqui e entrega a quem cuida desse sistema — com o endereço da documentação.</p>';
@@ -1225,6 +1297,7 @@
   }
   function telaConexoes() {
     var s = '<div class="cab"><div><h1>Conexões</h1><p class="suave" style="margin-top:8px;max-width:64ch">De onde o Farol recebe o que as lojas vendem e produzem. Vale para a conta inteira; cada loja recebe as fichas de um lugar só.</p></div></div>';
+    s += avisoParaADiretoria();
     if (est.situacao === 'voltou') s += cartaoLigar();
     else if (ligadaAoRegem()) s += cartaoConectado();
     else s += cartaoSemConexao();
@@ -1240,6 +1313,43 @@
     return '<div class="dialogo" role="alertdialog" aria-modal="true" aria-labelledby="dlg-t" aria-describedby="dlg-d"><div><h2 id="dlg-t">Revogar o acesso do ' + esc(a.nome) + '?</h2>' +
       '<p id="dlg-d">O sistema deixa de conseguir enviar na hora' + (a.enviou ? ', e o Farol <b>apaga as fichas que ele mandou</b> para a ' + esc(nomeDaLoja(a.loja)) : '') + '. Para voltar, é criar outro acesso e entregar o código novo.</p>' +
       '<div class="linha-acoes"><button class="btn" type="button" data-fechar data-foco>Manter</button><button class="btn perigo" type="button" data-confirmar-revogar="' + i + '">Revogar</button></div></div></div>';
+  }
+  // o termo de uso do acesso: o texto inteiro a um toque, e o aceite (a versão fica guardada junto do acesso)
+  function blocoDoTermo(id, marcado, erro) {
+    var s = '<div class="bloco termo"><h3>Termo de uso do acesso</h3><details><summary>Ler o termo (' + TERMO_VERSAO + ')</summary><ol class="termo-itens">';
+    TERMO.forEach(function (t) { s += '<li>' + esc(t) + '</li>'; });
+    s += '</ol></details><label class="marcar"><input type="checkbox" id="' + id + '"' + (marcado ? ' checked' : '') + (erro ? ' aria-invalid="true" aria-describedby="' + id + '-erro"' : '') + '><span>Li e aceito o termo de uso do acesso</span></label>';
+    return s + (erro ? '<span class="erro-do-campo" id="' + id + '-erro" role="alert">' + esc(erro) + '</span>' : '') + '</div>';
+  }
+  // a senha de quem cria ou renova: confirma que é a própria pessoa, e não alguém com o console aberto
+  function campoDaSenha(id, erro, fazendo) {
+    return '<div class="campo"><label for="' + id + '">Sua senha</label><input class="entrada" id="' + id + '" type="password" autocomplete="current-password"' + (erro ? ' aria-invalid="true" aria-describedby="' + id + '-erro"' : '') + '><small>Para confirmar que é você quem está ' + fazendo + ' o acesso. No protótipo, qualquer senha serve — menos “errada”.</small>' + (erro ? '<span class="erro-do-campo" id="' + id + '-erro" role="alert">' + esc(erro) + '</span>' : '') + '</div>';
+  }
+  function erroDaSenha(valor) {
+    if (!valor) return 'Digite a sua senha para confirmar.';
+    if (valor === 'errada') return 'A senha não confere. Tente de novo.';
+    return '';
+  }
+  // renovar: sai um código novo; o antigo vale mais 7 dias (se ainda não venceu)
+  function folhaRenovar() {
+    var r = est.renova, a = est.acessos[r.i], vencido = a.situacao === 'vencido', s, pe;
+    s = '<aside class="folha estreita" role="dialog" aria-modal="true" aria-labelledby="renova-titulo"><div class="folha-cab"><div><h2 id="renova-titulo">' + (r.passo === 1 ? 'Renovar o acesso' : 'Código novo') + '</h2><p>' + esc(a.nome) + ' → ' + esc(nomeDaLoja(a.loja)) + '</p></div><button class="btn quadrado fantasma" type="button" data-fechar aria-label="Fechar">' + ic('x') + '</button></div><div class="folha-corpo">';
+    if (r.passo === 1) {
+      s += '<p>Sai um código novo, que vale 12 meses, até <b>15/10/2027</b>. É ele que vai para o sistema.</p>';
+      s += vencido
+        ? '<div class="aviso fora">' + ic('alerta') + '<div><b>O código de hoje já venceu, em 03/10.</b> O sistema volta a enviar assim que receber o novo.</div></div>'
+        : '<div class="aviso facho">' + ic('relogio') + '<div><b>O código de hoje continua valendo por mais 7 dias, até 22/10,</b> para dar tempo de trocar no sistema. Depois, só o novo entra.</div></div>';
+      s += '<p class="nota">' + ic('cadeado', 'p') + ' Termo de uso: ' + TERMO_VERSAO + ', aceito por ' + esc(a.por || QUEM_CRIOU) + ' ao criar o acesso. Se o texto mudar, a renovação pede o aceite de novo.</p>';
+      s += campoDaSenha('renova-senha', r.erroSenha, 'renovando');
+      s += '<p class="nota">' + ic('sino', 'p') + ' Os outros da diretoria veem um aviso de que você renovou este acesso.</p>';
+      pe = '<button class="btn" type="button" data-fechar>Cancelar</button><button class="btn cheio" type="button" data-gerar-codigo>Gerar o código novo</button>';
+    } else {
+      s += '<div class="bloco"><h3>O código novo</h3><div class="codigo"><code id="codigo-de-acesso">' + CODIGO_DE_EXEMPLO + '</code><button class="btn mini" type="button" data-copiar data-foco>' + ic('copiar', 'p') + 'Copiar</button></div><p class="suave">Vale até <b>15/10/2027</b>.</p></div>';
+      s += '<div class="aviso facho" role="status">' + ic('info') + '<div><b>Este código aparece só agora.</b> Depois de fechar, o Farol não o mostra de novo. Se perder, renove outra vez.</div></div>';
+      s += '<div class="bloco"><h3>O que fazer agora</h3><ol class="entregar"><li><span>Entregue o código novo a quem cuida do sistema, para ele trocar' + (vencido ? '.' : ' antes de <b>22/10</b>, quando o antigo para.') + '</span></li><li><span>Para conferir, o sistema consulta a porta: a resposta traz o nome do sistema e a loja.</span></li><li><span>Mais nada: a documentação e as fichas não mudam.</span></li></ol></div>';
+      pe = '<button class="btn cheio" type="button" data-concluir-renovar>Concluir</button>';
+    }
+    return s + '</div><div class="folha-pe">' + pe + '</div></aside>';
   }
   // criar o acesso: o nome e a loja; depois, o código — que aparece uma vez
   function comoEstaALoja(id) {
@@ -1268,9 +1378,13 @@
       });
       s += '</select><small>O acesso vale para uma loja. Para outra loja, crie outro.</small></div>';
       if (comoEstaALoja(n.loja) === 'planilha') s += '<div class="aviso facho">' + ic('info') + '<div>A ' + esc(nomeDaLoja(n.loja)) + ' tem fichas de planilha. Elas ficam até o sistema enviar as dele; aí as do sistema entram no lugar.</div></div>';
+      s += '<div class="bloco"><h3>O que este acesso pode</h3><p class="suave">Enviar as fichas da loja escolhida e consultar o que o Farol tem desse sistema. Mais nada: nem câmeras, nem alertas, nem outra loja.</p><p class="suave">Vale 12 meses, até <b>15/10/2027</b>. Quinze dias antes de vencer, o Farol avisa aqui e na tela Fichas.</p></div>';
+      s += blocoDoTermo('novo-termo', n.termo, n.erroTermo);
+      s += campoDaSenha('novo-senha', n.erroSenha, 'criando');
+      s += '<p class="nota">' + ic('sino', 'p') + ' Os outros da diretoria veem um aviso de que você criou este acesso.</p>';
       pe = '<button class="btn" type="button" data-fechar>Cancelar</button><button class="btn cheio" type="button" data-criar-acesso>Criar acesso</button>';
     } else {
-      s += '<div class="bloco"><h3>O código de acesso</h3><div class="codigo"><code id="codigo-de-acesso">' + CODIGO_DE_EXEMPLO + '</code><button class="btn mini" type="button" data-copiar data-foco>' + ic('copiar', 'p') + 'Copiar</button></div></div>';
+      s += '<div class="bloco"><h3>O código de acesso</h3><div class="codigo"><code id="codigo-de-acesso">' + CODIGO_DE_EXEMPLO + '</code><button class="btn mini" type="button" data-copiar data-foco>' + ic('copiar', 'p') + 'Copiar</button></div><p class="suave">Vale até <b>15/10/2027</b>. Termo aceito: ' + TERMO_VERSAO + '.</p></div>';
       s += '<div class="aviso facho" role="status">' + ic('info') + '<div><b>Este código aparece só agora.</b> Depois de fechar, o Farol não o mostra de novo. Se perder, revogue este acesso e crie outro.</div></div>';
       s += '<div class="bloco"><h3>O que entregar a quem cuida do sistema</h3><ol class="entregar"><li><span>O código de acesso acima.</span></li><li><span>O endereço da documentação: <span class="mono">' + DOCUMENTACAO + '</span></span></li><li><span>Mais nada: nenhuma senha sua e nenhuma entrada no console.</span></li></ol></div>';
       pe = '<button class="btn cheio" type="button" data-concluir-acesso>Concluir</button>';
@@ -1340,6 +1454,7 @@
     est.treino.deProduto = null;
     est.treino.nova = null;
     est.treino.erroFoto = '';
+    est.renova = null;
     document.getElementById('mais').setAttribute('aria-expanded', 'false');
   }
   function fechar() {
@@ -1409,8 +1524,12 @@
     if (SITUACOES.indexOf(v) < 0) return;
     est.situacao = v;
     // os acessos de outro sistema acompanham a situação escolhida
-    if (v === 'sistema-novo' || v === 'sistema') est.acessos = [{ nome: SISTEMA, loja: 'centro', enviou: v === 'sistema' }];
-    else if (v !== 'carregando' && v !== 'erro') est.acessos = est.acessos.filter(function (a) { return a.loja !== 'centro' && DO_REGEM.indexOf(v) < 0; });
+    if (v.indexOf('sistema') === 0) {
+      est.acessos = [{ nome: SISTEMA, loja: 'centro', enviou: v !== 'sistema-novo', situacao: ESTADO_DO_ACESSO[v], por: QUEM_CRIOU }];
+      // a rede que chegou ao teto: a Barra e mais oito lojas, todas com acesso valendo
+      if (v === 'sistema-teto') ['barra'].concat(LOJAS_EXTRAS).forEach(function (l) { est.acessos.push({ nome: SISTEMA, loja: l, enviou: true, situacao: 'valendo', por: QUEM_CRIOU }); });
+    } else if (v !== 'carregando' && v !== 'erro') est.acessos = est.acessos.filter(function (a) { return a.loja !== 'centro' && DO_REGEM.indexOf(v) < 0; });
+    est.avisoVisto = false;
     marcar('proto-situacao', v);
     limparSobre();
     pintar();
@@ -1491,7 +1610,7 @@
     if (t.closest('[data-novo-acesso]')) {
       var primeira = '';
       LOJAS_DO_FAROL.forEach(function (l) { var c = comoEstaALoja(l.id); if (!primeira && (c === 'livre' || c === 'planilha')) primeira = l.id; });
-      est.novo = { passo: 1, nome: '', loja: primeira, erro: '' };
+      est.novo = { passo: 1, nome: '', loja: primeira, erro: '', termo: false, erroTermo: '', erroSenha: '' };
       abrir(folhaNovoAcesso(), '#novo-acesso');
       return;
     }
@@ -1499,12 +1618,59 @@
       var nome = (document.getElementById('novo-nome').value || '').trim();
       est.novo.nome = nome;
       est.novo.loja = document.getElementById('novo-loja').value;
-      if (!nome) { est.novo.erro = 'Dê um nome ao sistema, para ele aparecer na tela Fichas.'; abrir(folhaNovoAcesso()); return; }
-      est.novo.erro = '';
+      est.novo.termo = document.getElementById('novo-termo').checked;
+      est.novo.erro = nome ? '' : 'Dê um nome ao sistema, para ele aparecer na tela Fichas.';
+      est.novo.erroTermo = est.novo.termo ? '' : 'Para criar o acesso, aceite o termo.';
+      est.novo.erroSenha = erroDaSenha(document.getElementById('novo-senha').value);
+      if (est.novo.erro || est.novo.erroTermo || est.novo.erroSenha) {
+        abrir(folhaNovoAcesso());
+        // o foco vai para o primeiro campo com problema
+        var primeiro = sobre.querySelector('[aria-invalid="true"]');
+        if (primeiro) primeiro.focus();
+        return;
+      }
       est.novo.passo = 2;
       abrir(folhaNovoAcesso());
       return;
     }
+    // renovar: a senha, depois o código novo, que aparece uma vez
+    if ((el = t.closest('[data-renovar]'))) {
+      est.renova = { i: Number(el.getAttribute('data-renovar')), passo: 1, erroSenha: '' };
+      abrir(folhaRenovar(), '#' + el.id);
+      var senha = document.getElementById('renova-senha');
+      if (senha) senha.focus();
+      return;
+    }
+    if (t.closest('[data-gerar-codigo]')) {
+      est.renova.erroSenha = erroDaSenha(document.getElementById('renova-senha').value);
+      if (est.renova.erroSenha) { abrir(folhaRenovar()); document.getElementById('renova-senha').focus(); return; }
+      est.renova.passo = 2;
+      abrir(folhaRenovar());
+      return;
+    }
+    if (t.closest('[data-concluir-renovar]')) {
+      var renovado = est.acessos[est.renova.i], venceu = renovado.situacao === 'vencido';
+      renovado.situacao = venceu ? 'renovado-vencido' : 'renovado';
+      limparSobre();
+      voltarPara = null;
+      // a loja deixa de estar "vencida" ou "vencendo": o controle do protótipo acompanha, sem refazer os acessos
+      if (renovado.loja === 'centro') { est.situacao = venceu ? 'sistema' : 'sistema-renovado'; marcar('proto-situacao', est.situacao); }
+      pintar();
+      avisar(venceu ? 'Código novo gerado. O ' + renovado.nome + ' volta a enviar assim que receber o novo.' : 'Código novo gerado. O antigo vale até 22/10.');
+      tela.focus();
+      return;
+    }
+    // reativar o suspenso: um clique, o mesmo código
+    if ((el = t.closest('[data-reativar]'))) {
+      var reativado = est.acessos[Number(el.getAttribute('data-reativar'))];
+      reativado.situacao = 'valendo';
+      if (reativado.loja === 'centro') { est.situacao = 'sistema'; marcar('proto-situacao', est.situacao); }
+      pintar();
+      avisar('Acesso reativado: o ' + reativado.nome + ' volta a conseguir enviar agora, com o mesmo código. Se ficar mais 90 dias sem enviar, é suspenso de novo.');
+      tela.focus();
+      return;
+    }
+    if (t.closest('[data-entendi]')) { est.avisoVisto = true; pintar(); tela.focus(); return; }
     if (t.closest('[data-copiar]')) {
       var copiou = function () { avisar('Código copiado.'); };
       var naoCopiou = function () { avisar('Não deu para copiar sozinho: selecione o código e copie.', true); };
@@ -1515,7 +1681,7 @@
       return;
     }
     if (t.closest('[data-concluir-acesso]')) {
-      var criado = { nome: est.novo.nome, loja: est.novo.loja, enviou: false };
+      var criado = { nome: est.novo.nome, loja: est.novo.loja, enviou: false, situacao: 'novo', por: QUEM_CRIOU };
       limparSobre();
       voltarPara = null;
       if (criado.loja === 'centro') { SISTEMA = criado.nome; aplicarSituacao('sistema-novo'); }
@@ -1794,6 +1960,7 @@
     if (t.id === 'novo-loja' && est.novo) {
       est.novo.loja = t.value;
       est.novo.nome = document.getElementById('novo-nome').value;
+      est.novo.termo = document.getElementById('novo-termo').checked;
       abrir(folhaNovoAcesso());
       var sel = document.getElementById('novo-loja');
       if (sel) sel.focus();
