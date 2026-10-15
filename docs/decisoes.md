@@ -6997,3 +6997,87 @@ local; no CI ela roda). **As telas de verdade** (o console construído, contra a
 login): cada estado em Conexões e Fichas, as gavetas de criar e de renovar (com os erros), o reativar, o aviso e o teto,
 nas 16 larguras de 320 a 1920 px, sem nada passar da borda nem erro de JavaScript — o roteiro achou o selo do renovado
 passando da coluna em 768 px, corrigido antes do PR.
+
+## 15/10/2026 · A21, fatia T4 (a API): a conferência do treinamento — o lanche lido, o palpite, a resposta e o exemplo (migration 049)
+
+### O pedido
+
+A conferência do protótipo aprovado em 15/10 (tela Treinamento), do lado da nuvem. A tela vem logo depois, num PR
+próprio. A T4 vem antes da T3 (o roadmap diz por quê): a rota que recebe o lanche lido é a que o agente vai usar, e as
+leituras de 14/10 entram por ela numa carga.
+
+### O que entra
+
+- **A migration 049**, com três tabelas:
+  - `treino_gravacao`: a gravação, com a chave da loja, o canal, o horário, a origem (`gravador`, `programada` ou
+    `carga`) e a situação;
+  - `treino_lanche`: a leitura (jsonb), a situação (`conferir`, `conferido`, `pulado`), a resposta, o produto, o
+    palpite e o acerto;
+  - `treino_quadro`: os quadros reduzidos, pelo número da etapa.
+
+  `base_frame` ganha `lanche_id`, `etapa` e `ponto_id`: o exemplo diz de que lanche, etapa e canal veio. Nenhuma linha
+  que já existia muda.
+- **O contrato** `contratos/lanche-de-treino.json`. Cada etapa diz:
+  - o lado e se é o começo da metade;
+  - o que a leitura disse;
+  - os nomes das fichas que ela acha possíveis: um nome é leitura específica; vários, um grupo que a cor não separa
+    (o "molho laranja"); nenhum, não deu para ver;
+  - quantas vezes;
+  - o quadro.
+- **O palpite da ficha** (`api/src/treino.ts`) é feito na nuvem, com as fichas de hoje:
+  - o ingrediente da ficha conta como visto quando alguma etapa o tem entre os possíveis;
+  - a nota é o que bate sobre o total, menos 0,2 por estranho;
+  - o adicional do produto não é estranho;
+  - o "não se vê de cima" não entra na conta;
+  - o produto sem ficha, ou que a cozinha não faz, não entra.
+- **A fila** começa pelos lanches a conferir, na ordem do motivo: a leitura não viu uma etapa; ficou entre dois
+  nomes; o palpite tem diferença; e, por último, os que o Farol acha que acertou. É onde a resposta ensina mais.
+- **As rotas** (`api/src/rotas/treino.ts`):
+  - `POST /v1/agentes/treino/lanches`:
+    - com o token do agente, e o canal tem de ser da loja;
+    - o mesmo lanche mandado de novo troca a leitura e os quadros;
+    - o lanche já conferido não muda;
+  - `GET /v1/lojas/:id/treino`: a fila, as gravações, as contas e o que cada ingrediente já ensinou;
+  - `GET /v1/treino/lanches/:id` e `GET /v1/treino/quadros/:id/imagem`;
+  - `POST /v1/treino/lanches/:id/conferencia`. A resposta diz:
+    - o produto, ou "não era um lanche";
+    - etapa por etapa: certo, era outro (qual), ou não era ingrediente;
+    - o que faltou: o cliente pediu assim, faltou, ou estava lá e a leitura não viu;
+    - o que veio a mais: pedido do cliente, ou a mais sem pedido;
+  - `POST /v1/treino/lanches/:id/pular`.
+- **O exemplo.** A etapa respondida com nome das fichas, e que tem quadro, vira um quadro `bancada` do ingrediente,
+  com a imagem copiada. Conferir de novo troca os exemplos do lanche. "Certo" só vale onde a leitura disse um nome; no
+  grupo, a pessoa escolhe qual.
+- **Os 30 dias.** De hora em hora, o servidor apaga os quadros dos lanches conferidos há mais de 30 dias. O exemplo
+  fica (decisão 1).
+- **Quem pode.** Conferir e ver é de quem acompanha a loja: supervisão para cima (decisão 3). Outra conta não acha
+  nada (404).
+
+### Como foi provado
+
+- **Testes da API** (`api/testes/treino.test.ts`): 16, sendo 8 sem banco e 8 com Postgres de verdade.
+  - Sem banco:
+    - o corpo do contrato e as recusas (o limite de 2 horas, o quadro que não é JPEG ou passa do tamanho, as vezes, o
+      lado);
+    - o palpite (o que não se vê, o estranho, o adicional, o que a cozinha não faz, o visto sem nome);
+    - o motivo;
+    - a resposta ("certo" num grupo é recusado);
+    - o que vira exemplo e o aprendizado.
+  - Com banco:
+    - o corpo do contrato de ponta a ponta;
+    - o canal de outra loja;
+    - a fila com as fichas de hoje e as miniaturas;
+    - quem vê e quem confere (a execução não);
+    - o acerto e os exemplos com a imagem copiada;
+    - conferir de novo;
+    - mandar de novo o conferido;
+    - pular;
+    - os 30 dias.
+- **Mutação: 34 trocas no código novo, 34 mortas**, com um controle sem troca que passa antes e depois.
+- **A suíte inteira da API** contra um banco de teste local montado com as 49 migrations: 1467 de 1468. A que falha é a
+  já conhecida do banco local sem pgvector ("embedding de dimensão errada"); no CI ela roda. A 049 roda duas vezes sem
+  erro.
+
+### O número
+
+A 048 foi da porta (#150), que chegou antes à `main`. Esta fica com a 049.

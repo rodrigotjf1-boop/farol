@@ -5111,11 +5111,16 @@ fotos. Para o exemplo de critério da onda 2, as três de 10/10 continuam como e
 | **T1** ✅ | a base de conhecimento passa a valer na nuvem: o ingrediente da loja como item, a foto como quadro; listar os ingredientes das fichas com fotos e números, enviar, tirar, juntar as órfãs, "não se vê de cima" (15/10; o registro de decisões diz como foi provado) | 047 | — | — |
 | **T2** ✅ | as fotos na tela Fichas: o botão em cada ingrediente e a gaveta do ingrediente (15/10) | — | sim | — |
 | **T3** | a gravação de treino: o cadastro; o agente busca no gravador ou grava no horário, lê na loja (as ferramentas da rodada 12 viram módulo, com testes) e sobe a leitura e os quadros reduzidos | sim | — | pacote novo, com o "pode" |
-| **T4** | a conferência: a tela Treinamento, as respostas guardadas, os números e o prazo de 30 dias | se precisar | sim | — |
+| **T4** | a conferência: a tela Treinamento, as respostas guardadas, os números e o prazo de 30 dias. **A API ✅ (15/10):** a loja manda o lanche lido (o contrato `lanche-de-treino.json`), a nuvem faz o palpite com as fichas de hoje e ordena a fila pela dúvida; a resposta guarda o acerto e vira exemplo da base; os quadros saem 30 dias depois da conferência. A tela vem a seguir | 049 | sim | — |
 | **T5** | o aprendizado: a etapa conferida vira exemplo; fotos e exemplos descem para a loja (lista com sha256, como a foto padrão); a leitura compara com eles e relê o que falta | — | — | pacote novo, com o "pode" |
 | **T6** | as sugestões para as fichas | — | sim | — |
 
 **A ordem.** T1 e T2 entregam as fotos, o primeiro pedido; T3 a T5 fecham o ciclo do treinamento; T6 vem quando
 houver conferências. Cada troca de pacote na loja continua pedindo o "pode" do dono — e o computador da loja é também
 o servidor local do Regem. A migration: a parte 2 da porta no Padrão DMS também espera uma; leva a 047 quem chegar
-primeiro à `main`, e a outra fica com a seguinte.
+primeiro à `main`, e a outra fica com a seguinte. (Ficou assim: a 047 com a T1, a 048 com a porta, a 049 com a T4.)
+
+**A T4 antes da T3 (15/10).** A conferência não depende do pacote novo: a rota que recebe o lanche lido é a mesma
+que o agente vai usar na T3, e as leituras que a rodada 12 já fez na loja (14/10, com o gabarito do dono) entram por
+ela, numa carga feita uma vez. Assim a tela de conferência e o aprendizado na nuvem ficam prontos e provados com
+lanches de verdade, enquanto o pacote espera o "pode".
