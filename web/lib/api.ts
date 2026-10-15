@@ -1707,6 +1707,8 @@ export type GravacaoDeTreino = {
   origem: 'gravador' | 'programada' | 'carga';
   situacao: 'programada' | 'fila' | 'lendo' | 'pronta' | 'apagada' | 'cancelada' | 'falhou';
   progresso: number | null;
+  /** Por que a leitura não deu certo, como a loja contou (só na situação `falhou`). */
+  motivo: string | null;
   apagadaEm: string | null;
   canal: { nome: string; numero: number | null } | null;
   lanches: number;
@@ -1715,11 +1717,19 @@ export type GravacaoDeTreino = {
   acertou: number;
 };
 
+/** As regras da gravação nova — as mesmas que a API confere. */
+export type RegrasDaGravacao = { minimoMin: number; maximoMin: number; gravadorGuardaH: number; programarAteDias: number };
+
 export type TreinoDaLoja = {
   podeConfigurar: boolean;
   /** A meta aprovada: o lanche certo em `acerto` (0,9) dos conferidos, com pelo menos `minimo` (30). */
   meta: { acerto: number; minimo: number };
   diasDosQuadros: number;
+  regras: RegrasDaGravacao;
+  /** As bancadas que se gravam: as câmeras do gravador desta loja. */
+  canais: Array<{ id: string; nome: string; numero: number | null }>;
+  /** Falso: o computador da loja ainda não sabe gravar o treino (o pacote dele é anterior à fatia T3). */
+  lojaSabeGravar: boolean;
   gravacoes: GravacaoDeTreino[];
   lanches: LancheNaFila[];
   /** Sobre TODOS os conferidos (a lista traz os mais novos). */
@@ -1763,6 +1773,18 @@ export const treinoApi = {
     }),
 
   pular: (id: string) => pedir<{ pulado: true }>(`/treino/lanches/${id}/pular`, { method: 'POST' }),
+
+  /** A gravação de treino nova (quem configura): `inicio` e `fim` com o fuso escrito, no relógio da loja. */
+  criarGravacao: (lojaId: string, nova: { pontoId: string; de: 'gravador' | 'programada'; inicio: string; fim: string }) =>
+    pedir<{ id: string; chave: string; situacao: GravacaoDeTreino['situacao'] }>(`/lojas/${lojaId}/treino/gravacoes`, {
+      method: 'POST',
+      body: JSON.stringify(nova),
+    }),
+
+  cancelarGravacao: (id: string) => pedir<{ cancelada: true }>(`/treino/gravacoes/${id}/cancelar`, { method: 'POST' }),
+
+  /** Os quadros da gravação conferida saem da nuvem agora; o que foi aprendido fica. */
+  apagarImagens: (id: string) => pedir<{ apagada: true; quadros: number }>(`/treino/gravacoes/${id}/apagar-imagens`, { method: 'POST' }),
 };
 
 // ───────────────────────── o acesso de outro sistema ─────────────────────────
