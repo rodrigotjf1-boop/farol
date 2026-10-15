@@ -140,6 +140,14 @@ class ClienteNuvem:
         """A imagem de uma foto de equipamento desta loja, para a análise única dela."""
         return self._buscar("GET", f"/v1/agentes/inventario/fotos/{foto_id}", None, aceita="image/*")
 
+    def gravacoes_de_treino(self) -> dict[str, Any]:
+        """O que a loja tem de ler e o que ela já pode apagar: `{gravacoes, apagar}` (A21, T3)."""
+        return self._pedir("GET", "/v1/agentes/treino/gravacoes")
+
+    def andamento_da_gravacao(self, gravacao_id: str, corpo: dict[str, Any]) -> dict[str, Any]:
+        """Conta o andamento de uma gravação de treino: lendo (com a porcentagem), pronta ou falhou (com o motivo)."""
+        return self._pedir("POST", f"/v1/agentes/treino/gravacoes/{gravacao_id}/andamento", corpo)
+
     def responder(
         self,
         comando_id: str,

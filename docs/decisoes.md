@@ -7422,3 +7422,43 @@ Ninguém lê esse campo além da própria escrita.
   bancada usá-la (a escolha "sem" explica a falta do ingrediente). Entra num pacote novo, com o "pode" do dono.
 - **No piloto**, o Regem da loja hoje só tem pedido de delivery (o dono, 14/10). O balcão e o salão entram na fila
   quando passarem pelo Regem.
+
+## 15/10/2026 · A21, fatia T3a: a gravação de treino do lado da loja — a conversa com a nuvem (dormindo, sem migration)
+
+### O que entra
+
+- **`farol_agent/treino.py`**, no agente, e duas chamadas no cliente da nuvem (`gravacoes_de_treino` e
+  `andamento_da_gravacao`). O agente:
+  - pergunta o que ler e o que já pode apagar (`GET /v1/agentes/treino/gravacoes`), e confere a lista: a gravação
+    fora do formato fica de fora, e a chave que não serve de nome de pasta não entra;
+  - escolhe a próxima: a que já estava lendo (volta de onde parou) e, depois, a mais antiga cujo horário acabou há
+    mais que a folga do gravador para a gravação assentar (o perfil do gravador diz a dele; sem perfil, 3 minutos);
+  - conta o andamento: a porcentagem só sobe quando anda 5 pontos (e "lendo" nunca diz 100 — quem diz é "pronta");
+    a que não entrou é mandada de novo; o motivo da falha vai limpo, com até 200 caracteres, e nunca vazio;
+  - dá a cada recusa o destino do contrato: 401/403 para e avisa; 404 esquece a gravação; 409 para de ler e apaga o
+    que guardou dela; 422 não repete; rede, 5xx e 429 contam de novo na volta seguinte;
+  - apaga do disco só o que a nuvem mandou, só pasta e só dentro da pasta do treino: um atalho com o nome da chave
+    que aponte para fora não é seguido.
+- **A T3 da loja ficou em quatro fatias** (o roadmap, A21): T3a (esta), T3b buscar o trecho no gravador, T3c ler a
+  bancada, T3d ligar.
+
+### Dormindo
+
+Nada no agente chama o módulo, e o agente ainda não declara "treino": a tela continua avisando que o computador da
+loja não sabe gravar. Declarar antes da leitura da bancada (T3c) faria o console prometer o que a loja não faz. Um
+teste guarda isso.
+
+### Como foi provado
+
+- **Testes do agente** (`agent/testes/test_treino.py`): 26. O contrato (`contratos/gravacao-de-treino.json`, o mesmo
+  da API): a lista do exemplo, os corpos do andamento e cada recusa; a próxima; a porcentagem; o motivo; a lista
+  torta; o disco (com o atalho para fora, provado com a junção de pasta do Windows); e as duas rotas pela rede de
+  verdade.
+- **Mutação: 24 trocas, 24 mortas**, com controle antes e depois.
+- **A suíte inteira do agente**: 1815 passaram, 1 pulado.
+
+### Falta
+
+T3b (buscar no gravador: a hora de buscar é decisão do dono — a placa da loja é de 10 Mbit/s e, pela conta com a
+medida de 10/10 (um bloco de 2 s = 0,53 MB em 1,9 s), 30 minutos de gravação são perto de 480 MB e 28 minutos de
+rede), T3c (ler a bancada) e T3d (ligar). A troca de pacote pede o "pode".
