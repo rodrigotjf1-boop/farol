@@ -263,7 +263,7 @@
     // o treinamento: a situação (controle do protótipo), a aba, o filtro dos lanches, o que já foi respondido em cada
     // lanche (rascunho), os conferidos nesta visita, os pulados, as decisões das sugestões e o que está aberto
     treino: { situacao: 'conferir', aba: 'lanches', filtro: 'conferir', resp: {}, feitos: [], pulados: [], decisoes: {}, novas: [],
-      aberto: null, ingrediente: null, deProduto: null, enviando: null, erroFoto: '', nova: null } };
+      aberto: null, ingrediente: null, deProduto: null, enviando: null, erroFoto: '', nova: null, foto: null } };
   LOJAS_DO_REGEM.forEach(function (r) { est.pares[r.id] = r.sugestao; });
 
   // "diretoria · outra pessoa": também é da diretoria, e é quem recebe o aviso do que a colega fez nos acessos
@@ -650,6 +650,20 @@
     for (var k = 0; k <= i; k++) if (l.etapas[k].lado === e.lado) c.push(l.etapas[k].forma);
     return c;
   }
+  // o recorte inteiro de uma etapa, como sobe da loja: a área do lanche, com as duas metades lado a lado (a miniatura
+  // da lista mostra só o meio dele). O que mudou na etapa vem contornado, como na miniatura.
+  function desenhoDoRecorte(l, i, rotulo) {
+    var e = l.etapas[i], aberto = e.lado === 'pão aberto';
+    var s = '<svg viewBox="0 0 230 120" role="img" aria-label="' + esc(rotulo) + '"><rect width="230" height="120" class="il-fundo"/>';
+    [['tampo', 8], ['base', 122]].forEach(function (m) {
+      var c = ['pao'], marcar = aberto || e.lado === m[0];
+      if (!aberto) for (var k = 0; k <= i; k++) if (l.etapas[k].lado === m[0]) c.push(l.etapas[k].forma);
+      s += '<g transform="translate(' + m[1] + ' 10)">';
+      c.forEach(function (f, j) { s += '<g' + (marcar && j === c.length - 1 ? ' class="nova"' : '') + '>' + (FORMAS[f] || '') + '</g>'; });
+      s += '</g>';
+    });
+    return s + '</svg>';
+  }
   // a metade como ficou no fim (a mão já saiu)
   function camadasDoLado(l, lado) {
     var c = ['pao'];
@@ -953,7 +967,9 @@
       if (re.v === 'outro' && nomeDaResposta(re)) leitura = '<s>' + lido + '</s> <b>' + esc(nomeDaResposta(re)) + '</b>';
       else if (re.v === 'outro' && re.nome === '__naosei') leitura = '<s>' + lido + '</s> <b>não sei</b>';
       else if (re.v === 'nada') leitura = '<s>' + lido + '</s> <b>não era ingrediente</b>';
-      s += '<li class="etapa' + (e.certeza === 'baixa' || e.certeza === 'nenhuma' ? ' atencao' : '') + '">' + quadro(camadasAte(l, i), true, 'Desenho de exemplo: ' + e.lado + ', às ' + e.hora, null, true) +
+      // a miniatura abre o recorte inteiro, maior (o rótulo vai no botão: o desenho fica mudo)
+      s += '<li class="etapa' + (e.certeza === 'baixa' || e.certeza === 'nenhuma' ? ' atencao' : '') + '"><button class="ver-foto" type="button" data-foto-etapa="' + i + '" id="vf-' + i + '" aria-label="Ver maior o quadro das ' + e.hora + ' (' + esc(e.lado) + ')">' +
+        quadro(camadasAte(l, i), true, null, null, true) + '<span class="lupa" aria-hidden="true">' + ic('busca', 'p') + '</span></button>' +
         '<div class="leitura"><p class="quando">' + e.hora + ' · ' + esc(e.lado) + '</p><p class="leu">' + leitura + ' <span class="chip' + (c[0] ? ' ' + c[0] : '') + '">' + c[1] + '</span></p>';
       if (podeConferir) {
         s += '<div class="seg" role="group" aria-label="A leitura das ' + e.hora + '">' +
@@ -1454,6 +1470,7 @@
     est.treino.deProduto = null;
     est.treino.nova = null;
     est.treino.erroFoto = '';
+    est.treino.foto = null;
     est.renova = null;
     document.getElementById('mais').setAttribute('aria-expanded', 'false');
   }
@@ -1481,6 +1498,63 @@
     if (novo) novo.scrollTop = topo;
     var alvo = focoId ? document.getElementById(focoId) : null;
     if (alvo) { try { alvo.focus({ preventScroll: true }); } catch (e) { alvo.focus(); } }
+  }
+
+  /* ─────────── o quadro de uma etapa, maior: por cima da gaveta do lanche, sem fechá-la ─────────── */
+  var RESPOSTA = { certo: 'certo', outro: 'era outro', nada: 'não era ingrediente' };
+  function corpoDaFoto(l, i) {
+    var e = l.etapas[i], c = CERTEZA[e.certeza], re = respDe(l).etapas[i] || {}, n = l.etapas.length;
+    var lido = e.leu ? esc(e.leu) + (e.vezes > 1 ? ' <span class="mono">×' + e.vezes + '</span>' : '') : 'nada: não deu para ver';
+    var disse = re.v === 'outro' && nomeDaResposta(re) ? 'era ' + esc(nomeDaResposta(re)) : re.v ? RESPOSTA[re.v] : '';
+    var s = '<div><div class="foto-cab"><div><h2 id="fe-t">Etapa das ' + e.hora + '</h2><p id="fe-d">' + esc(e.lado) + ' · o Farol leu <b>' + lido + '</b> <span class="chip' + (c[0] ? ' ' + c[0] : '') + '">' + c[1] + '</span>' +
+      (disse ? ' <span class="chip dado">você disse: ' + disse + '</span>' : '') + '</p></div>' +
+      '<button class="btn quadrado fantasma" type="button" data-fechar-foto id="fe-fechar" aria-label="Fechar o quadro">' + ic('x') + '</button></div>';
+    s += '<div class="quadro inteiro">' + desenhoDoRecorte(l, i, 'Desenho de exemplo: o recorte inteiro das ' + e.hora) + '<span class="tarja" aria-hidden="true">desenho de exemplo</span></div>';
+    s += '<div class="foto-nav"><button class="btn" type="button" data-foto-ir="' + (i - 1) + '" id="fe-antes"' + (i ? '' : ' disabled') + '>' + ic('voltar', 'p') + 'Anterior</button>' +
+      '<span class="mono">' + (i + 1) + ' de ' + n + '</span>' +
+      '<button class="btn" type="button" data-foto-ir="' + (i + 1) + '" id="fe-depois"' + (i < n - 1 ? '' : ' disabled') + '>Próxima' + ic('seta', 'p') + '</button></div>';
+    s += '<p class="nota">O recorte inteiro, como subiu da loja: a miniatura mostra só o meio dele. Passe as etapas pelas setas ou arrastando o quadro para o lado.</p>';
+    return s + '</div>';
+  }
+  // `focoId`: o botão que pediu a etapa (o clique nem sempre leva o foco ao botão: no Safari, não leva)
+  function mostrarFoto(i, focoId) {
+    var l = lanchePorId(est.treino.aberto);
+    if (!l || !l.etapas[i]) return;
+    var camada = sobre.querySelector('.camada-foto'), abrindo = !camada;
+    if (abrindo) {
+      camada = document.createElement('div');
+      camada.className = 'camada-foto';
+      camada.innerHTML = '<div class="veu" data-fechar-foto></div><div class="dialogo foto-cheia" role="dialog" aria-modal="true" aria-labelledby="fe-t" aria-describedby="fe-d" tabindex="-1"></div><p class="so-leitor" aria-live="polite" id="fe-anuncio"></p>';
+      sobre.appendChild(camada);
+      // a gaveta fica atrás, parada: nem o clique nem o Tab chegam nela até o quadro fechar
+      var folha = sobre.querySelector('.folha');
+      if (folha) folha.inert = true;
+    }
+    var antes = focoId || (document.activeElement && camada.contains(document.activeElement) ? document.activeElement.id : '');
+    est.treino.foto = i;
+    var dlg = camada.querySelector('.foto-cheia');
+    dlg.innerHTML = corpoDaFoto(l, i);
+    if (abrindo) { dlg.focus(); return; }
+    // passou de etapa: o foco fica no mesmo botão (ou no outro, se este acabou a fila) e o leitor de tela ouve a etapa nova
+    var e = l.etapas[i], alvo = antes ? document.getElementById(antes) : null;
+    if (alvo && alvo.disabled) alvo = document.getElementById(antes === 'fe-antes' ? 'fe-depois' : 'fe-antes');
+    (alvo || dlg).focus();
+    camada.querySelector('#fe-anuncio').textContent = 'Etapa ' + (i + 1) + ' de ' + l.etapas.length + ', às ' + e.hora + ', ' + e.lado + ': o Farol leu ' + (e.leu || 'nada') + ', ' + CERTEZA[e.certeza][1] + '.';
+  }
+  function passarFoto(passo) {
+    if (est.treino.foto === null || !sobre.querySelector('.camada-foto')) return;
+    mostrarFoto(est.treino.foto + passo);
+  }
+  function fecharFoto() {
+    var camada = sobre.querySelector('.camada-foto'), i = est.treino.foto;
+    if (!camada) return;
+    camada.parentNode.removeChild(camada);
+    est.treino.foto = null;
+    var folha = sobre.querySelector('.folha');
+    if (folha) folha.inert = false;
+    // o foco volta para a miniatura da etapa que estava à vista (não a que abriu): é ao lado dela que se responde
+    var alvo = document.getElementById('vf-' + i);
+    if (alvo) { alvo.scrollIntoView({ block: 'nearest' }); try { alvo.focus({ preventScroll: true }); } catch (e) { alvo.focus(); } }
   }
 
   /* ─────────── navegação ─────────── */
@@ -1549,6 +1623,10 @@
   document.addEventListener('click', function (ev) {
     var t = ev.target, el;
     if (!(t instanceof Element)) return;
+    // o quadro de uma etapa, maior (fecha só ele: a gaveta do lanche continua aberta atrás)
+    if ((el = t.closest('[data-foto-etapa]'))) { mostrarFoto(Number(el.getAttribute('data-foto-etapa'))); return; }
+    if (t.closest('[data-fechar-foto]')) { fecharFoto(); return; }
+    if ((el = t.closest('[data-foto-ir]'))) { mostrarFoto(Number(el.getAttribute('data-foto-ir')), el.id); return; }
     if ((el = t.closest('[data-fechar]'))) { fechar(); return; }
     if (t.closest('#mais')) {
       if (sobre.querySelector('.mais-folha')) { fechar(); return; }
@@ -1967,6 +2045,11 @@
     }
   });
   document.addEventListener('keydown', function (ev) {
+    // com o quadro aberto, Esc fecha só ele, e as setas passam as etapas
+    if (sobre.querySelector('.camada-foto')) {
+      if (ev.key === 'Escape') { ev.preventDefault(); fecharFoto(); return; }
+      if (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') { ev.preventDefault(); passarFoto(ev.key === 'ArrowRight' ? 1 : -1); return; }
+    }
     if (ev.key === 'Escape' && sobre.innerHTML) { ev.preventDefault(); fechar(); return; }
     // as abas do treinamento: setas, Home e End trocam de aba (o padrão de abas do leitor de tela)
     var aba = ev.target instanceof Element ? ev.target.closest('[role="tab"][data-aba-treino]') : null;
@@ -1976,6 +2059,19 @@
       k = ev.key === 'Home' ? 0 : ev.key === 'End' ? ids.length - 1 : (k + (ev.key === 'ArrowRight' ? 1 : -1) + ids.length) % ids.length;
       trocarAba(ids[k]);
     }
+  });
+
+  // arrastar o quadro para o lado passa as etapas (o dedo no celular, ou o mouse)
+  var arrasto = null;
+  document.addEventListener('pointerdown', function (ev) {
+    arrasto = ev.target instanceof Element && ev.target.closest('.foto-cheia .quadro') ? { x: ev.clientX, y: ev.clientY } : null;
+  });
+  document.addEventListener('pointercancel', function () { arrasto = null; });
+  document.addEventListener('pointerup', function (ev) {
+    if (!arrasto) return;
+    var dx = ev.clientX - arrasto.x, dy = ev.clientY - arrasto.y;
+    arrasto = null;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) passarFoto(dx < 0 ? 1 : -1);
   });
 
   function lerEndereco() {
