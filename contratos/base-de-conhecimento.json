@@ -1,0 +1,37 @@
+{
+  "sobre": "A base de conhecimento da loja descendo para o computador dela (A21, fatia T5): os ingredientes que têm o que ensinar — as fotos de referência (T1), os exemplos da bancada que a conferência guardou (T4) e o 'não se vê de cima'. A loja pede a lista antes de ler uma gravação de treino (e uma vez por dia), compara a impressão com a da cópia dela e baixa, pelo id, só o quadro que falta (guardado pelo sha256). Quem consome hoje: api/testes/base-na-loja.test.ts. O agente lê este mesmo arquivo quando a parte da loja da T5 entrar (o pacote, com o 'pode' do dono).",
+  "autenticacao": "Authorization: Bearer <token do agente> — a loja sai do token, nunca de um parâmetro",
+  "lista": {
+    "rota": "GET /v1/agentes/base",
+    "chavesDoItem": ["nome", "visivel", "quadros"],
+    "chavesDoQuadro": ["id", "origem", "sha256", "largura", "altura"],
+    "origens": ["foto", "bancada"],
+    "resposta": {
+      "impressao": "4f0c2d0b9a6c1e8b7d5f3a2c1e0f9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a3f2e",
+      "itens": [
+        {
+          "nome": "Queijo prato",
+          "visivel": true,
+          "quadros": [
+            { "id": "2b3c4d5e-6f70-4812-9a3b-4c5d6e7f8091", "origem": "foto", "sha256": "9f2e7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f", "largura": 1600, "altura": 1200 },
+            { "id": "3c4d5e6f-7081-4923-ab4c-5d6e7f809102", "origem": "bancada", "sha256": "1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f809", "largura": 320, "altura": 320 }
+          ]
+        },
+        { "nome": "Sal", "visivel": false, "quadros": [] }
+      ]
+    },
+    "regras": [
+      "O ingrediente sem quadro e visível não desce: não há o que ensinar.",
+      "O ingrediente 'não se vê de cima' desce mesmo sem quadro: a leitura para de esperar vê-lo.",
+      "A impressão muda quando entra ou sai um quadro, quando um quadro muda de imagem, ou quando um ingrediente muda de 'se vê' para 'não se vê' (ou volta). A ordem não muda a impressão."
+    ]
+  },
+  "quadro": {
+    "rota": "GET /v1/agentes/base/quadros/:id",
+    "resposta": "os bytes da imagem (content-type do quadro, JPEG), com cache imutável: o quadro de um id nunca muda de imagem"
+  },
+  "recusas": [
+    { "quando": "sem token", "status": 401, "oQueOAgenteFaz": "para e avisa: o token não vale" },
+    { "quando": "o quadro é de outra loja, ou não existe mais", "status": 404, "erro": "nao_encontrado", "oQueOAgenteFaz": "pede a lista de novo: o quadro saiu da base" }
+  ]
+}
