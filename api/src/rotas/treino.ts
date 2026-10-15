@@ -25,7 +25,11 @@
 //     loja pergunta o que tem de ler (`GET /v1/agentes/treino/gravacoes`,
 //     com a lista do que ela já pode apagar do computador dela) e conta o
 //     andamento (`POST …/andamento`: lendo, pronta, ou falhou com o
-//     motivo). Contrato em `contratos/gravacao-de-treino.json`.
+//     motivo). Contrato em `contratos/gravacao-de-treino.json`;
+//   • as SUGESTÕES PARA AS FICHAS (fatia T6, migration 051): calculadas
+//     das conferências (`api/src/treino-sugestoes.ts`), vão na lista da
+//     loja com a resposta de quem configura; `POST …/treino/sugestoes`
+//     guarda a resposta (sim/não) e um retrato do que a sugestão dizia.
 // =====================================================================
 
 import { createHash, randomUUID } from 'node:crypto';
@@ -51,6 +55,7 @@ import {
   type EtapaLida,
 } from '../treino.js';
 import { aindaEDaLoja, GRAVACAO, lerAndamento, lerNovaGravacao, SQL_DO_QUE_A_LOJA_APAGA } from '../treino-gravacao.js';
+import { DECISOES, sugestoesDoTreino, type DecisaoDaSugestao, type Sugestao } from '../treino-sugestoes.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -58,6 +63,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_DO_CORPO = 18 * 1024 * 1024;
 /** Os conferidos mais novos que a lista traz (os que esperam conferência vêm todos). */
 const CONFERIDOS_NA_LISTA = 200;
+/** De quantos conferidos (os mais novos) saem as sugestões para as fichas. */
+const CONFERIDOS_DAS_SUGESTOES = 500;
 
 /** Apaga os quadros dos lanches conferidos há mais de 30 dias (decisão do dono). Devolve quantos saíram. */
 export async function apagarQuadrosVencidos(pool: pg.Pool, agora: Date = new Date()): Promise<number> {
@@ -113,7 +120,7 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
   /** As fichas da loja (nula = sem base) e o que "não se vê de cima" — ou `null` se a loja não é da conta. */
   async function daLoja(cliente: pg.Pool | pg.PoolClient, tenantId: string, lojaId: string) {
     const r = await cliente.query(
-      `select f.conteudo,
+      `select f.conteudo, f.fonte,
               coalesce((select array_agg(lower(btrim(b.nome))) from base_conhecimento b
                          where b.loja_id = l.id and b.tipo = 'item' and not b.visivel), '{}') as invisiveis
          from loja l
@@ -122,7 +129,43 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
       [lojaId, tenantId],
     );
     if (r.rowCount === 0) return null;
-    return { base: lerBase(r.rows[0].conteudo) as Base | null, invisiveis: new Set<string>(r.rows[0].invisiveis as string[]) };
+    return {
+      base: lerBase(r.rows[0].conteudo) as Base | null,
+      invisiveis: new Set<string>(r.rows[0].invisiveis as string[]),
+      /** De onde as fichas vêm (`regem`, `planilha`, `sistema`): a tela diz onde mudar. Nulo = sem fichas. */
+      fonte: (r.rows[0].fonte as string | null) ?? null,
+    };
+  }
+
+  /** As sugestões para as fichas (fatia T6): calculadas das conferências, com a resposta de quem configura. */
+  async function sugestoesDaLoja(lojaId: string, base: Base | null) {
+    const [conferidos, respostas] = await Promise.all([
+      pool.query<{ produto: string | null; leitura: { etapas: EtapaLida[] }; resposta: Conferencia }>(
+        `select produto, leitura, resposta from treino_lanche
+          where loja_id = $1 and situacao = 'conferido' and resposta is not null
+          order by conferido_em desc
+          limit $2`,
+        [lojaId, CONFERIDOS_DAS_SUGESTOES],
+      ),
+      pool.query<{ chave: string; decisao: DecisaoDaSugestao; resumo: Sugestao; decidido_em: Date; decidido_por_nome: string | null }>(
+        `select s.chave, s.decisao, s.resumo, s.decidido_em, u.nome as decidido_por_nome
+           from treino_sugestao s left join usuario u on u.id = s.decidido_por
+          where s.loja_id = $1`,
+        [lojaId],
+      ),
+    ]);
+    const agora = sugestoesDoTreino(
+      conferidos.rows.map((c) => ({ produto: c.produto, etapas: c.leitura?.etapas ?? [], conferencia: c.resposta })),
+      base,
+    );
+    const respondidas = new Map(respostas.rows.map((r) => [r.chave, r]));
+    const comResposta = (s: Sugestao) => {
+      const r = respondidas.get(s.chave);
+      return { ...s, decisao: r?.decisao ?? null, decididoEm: r?.decidido_em ?? null, decididoPor: r?.decidido_por_nome ?? null };
+    };
+    // a respondida que as conferências de agora já não mostram continua na tela, como foi respondida
+    const deAntes = respostas.rows.filter((r) => !agora.some((s) => s.chave === r.chave)).map((r) => comResposta(r.resumo));
+    return { agora, lista: [...agora.map(comResposta), ...deAntes] };
   }
 
   /** O lanche como a tela o vê: o palpite com as fichas de hoje, o motivo na fila e as miniaturas das duas metades. */
@@ -256,7 +299,7 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
     const loja = await daLoja(pool, s.tenantId, id);
     if (!loja) return naoAchei(resposta, 'não existe essa loja');
 
-    const [gravacoes, lanches, contas, conferidos, canais, sabe] = await Promise.all([
+    const [gravacoes, lanches, contas, conferidos, canais, sabe, sugestoes] = await Promise.all([
       pool.query(
         `select g.id, g.chave, g.inicio, g.fim, g.origem, g.situacao, g.progresso, g.apagada_em, g.motivo,
                 p.nome as canal_nome, p.canal as canal_numero,
@@ -307,6 +350,8 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
         `select exists (select 1 from agente a where a.loja_id = $1 and a.estado = 'ativo' and 'treino' = any(a.sabe)) as sabe`,
         [id],
       ),
+      // as sugestões para as fichas (fatia T6)
+      sugestoesDaLoja(id, loja.base),
     ]);
     const naTela = lanches.rows.map((l) => paraTela(l, loja.base, loja.invisiveis));
     // a fila: a dúvida primeiro, depois a hora
@@ -325,6 +370,9 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
       canais: canais.rows.map((p) => ({ id: p.id, nome: p.nome, numero: p.canal })),
       /** Falso: o computador da loja ainda não sabe gravar o treino (o pacote dele é anterior à fatia T3). */
       lojaSabeGravar: sabe.rows[0]?.sabe === true,
+      /** As sugestões para as fichas, a responder primeiro; e de onde as fichas vêm (a tela diz onde mudar). */
+      sugestoes: sugestoes.lista,
+      fichasDe: loja.fonte,
       gravacoes: gravacoes.rows.map((g) => ({
         id: g.id,
         chave: g.chave,
@@ -717,5 +765,33 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
     } finally {
       cliente.release();
     }
+  });
+
+  // ───────────────────── as sugestões para as fichas (fatia T6) ─────────────────────
+
+  // quem configura responde: "vou mudar a ficha" (sim) ou "fica como está" (não). O Farol não muda a ficha.
+  app.post('/v1/lojas/:id/treino/sugestoes', async (req, resposta) => {
+    const s = await quem(req, resposta);
+    if (!s) return;
+    if (!podeConfigurar(s)) return resposta.status(403).send({ erro: 'sem_permissao', mensagem: 'quem responde às sugestões é quem configura a loja' });
+    const { id } = req.params as { id: string };
+    if (!UUID.test(id)) return naoAchei(resposta, 'não existe essa loja');
+    const corpo = (req.body ?? {}) as { chave?: unknown; decisao?: unknown };
+    if (typeof corpo.chave !== 'string' || !corpo.chave || corpo.chave.length > 300) return invalido(resposta, 'chave: a sugestão respondida');
+    if (!DECISOES.includes(corpo.decisao as DecisaoDaSugestao)) return invalido(resposta, `decisao: ${DECISOES.join(' ou ')}`);
+    const loja = await daLoja(pool, s.tenantId, id);
+    if (!loja) return naoAchei(resposta, 'não existe essa loja');
+    // a sugestão tem de existir AGORA, das conferências desta loja: não se responde ao que o Farol não sugeriu
+    const sugestao = (await sugestoesDaLoja(id, loja.base)).agora.find((x) => x.chave === corpo.chave);
+    if (!sugestao) return naoAchei(resposta, 'esta sugestão não existe mais: as conferências mudaram');
+    await pool.query(
+      `insert into treino_sugestao (loja_id, chave, decisao, resumo, decidido_por)
+       values ($1, $2, $3, $4, $5)
+       on conflict (loja_id, chave) do update
+          set decisao = excluded.decisao, resumo = excluded.resumo, decidido_por = excluded.decidido_por, decidido_em = now()`,
+      [id, sugestao.chave, corpo.decisao, JSON.stringify(sugestao), s.usuarioId],
+    );
+    req.log.info({ loja: id, sugestao: sugestao.chave, decisao: corpo.decisao, por: s.usuarioId }, 'sugestão para as fichas RESPONDIDA');
+    return { chave: sugestao.chave, decisao: corpo.decisao };
   });
 }

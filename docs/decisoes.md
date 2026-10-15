@@ -7241,3 +7241,68 @@ depois foi apagada.
 A parte da loja: o módulo do agente que pergunta, busca o trecho no gravador, lê os lanches (as ferramentas da rodada
 12, que viram módulo com testes), manda e conta o andamento, e apaga o que a nuvem disser. Entra num pacote novo, com o
 "pode" do dono.
+
+## 15/10/2026 · A21, fatia T6: as sugestões para as fichas (migration 051)
+
+### O que entra
+
+- **As sugestões** (`api/src/treino-sugestoes.ts`) são tiradas SÓ do que alguém conferiu, com as fichas de hoje. São
+  quatro tipos, os do protótipo:
+  - **nome fora das fichas**: alguém escreveu, na conferência, um nome que não está em ficha nenhuma. A sugestão é
+    cadastrar, para os exemplos irem para o ingrediente certo. Conta uma vez por lanche;
+  - **falta na ficha**: num produto, quem conferiu disse que um ingrediente veio "a mais, sem pedido";
+  - **ficha diferente da bancada**: num produto, quem conferiu disse que um ingrediente da ficha FALTOU, e a etapa
+    mostra menos do que a ficha pede. O título diz quanto entrou (o valor que mais aparece) ou que não entrou;
+  - **um nome para duas coisas**: o mesmo nome confirmado em etapas que a leitura viu como molhos de cores diferentes.
+- **A migration 051** guarda a resposta de quem configura (`sim`: vai mudar a ficha; `nao`: fica como está), pela
+  chave da sugestão (o tipo, o produto e o ingrediente). Junto vai um retrato do que a sugestão dizia: a respondida que
+  as conferências deixaram de mostrar continua na tela, como foi respondida.
+- **As rotas**:
+  - a lista da loja traz as sugestões, com a resposta, e de onde as fichas vêm;
+  - `POST /v1/lojas/:id/treino/sugestoes` guarda a resposta. É de quem configura, e só vale para o que o Farol sugere
+    AGORA.
+- **A tela**: a aba "Sugestões para as fichas" (`web/componentes/treino/painel-das-sugestoes.tsx`), com a conta das
+  que esperam resposta. Cada cartão traz:
+  - o que a bancada mostrou;
+  - a sugestão;
+  - onde mudar, pela origem das fichas: no Regem, em Estoque › Fichas técnicas; na planilha, importando de novo; ou
+    no sistema que envia as fichas;
+  - os dois botões, com o que cada resposta quer dizer.
+
+  Quem não configura vê a frase "Quem configura a loja responde às sugestões".
+
+### Os limites — leitura minha, para o dono confirmar
+
+Um caso só não vira sugestão. A falta na ficha e a ficha diferente pedem pelo menos 3 lanches E pelo menos metade dos
+conferidos daquele produto. O molho de duas cores pede cada cor em pelo menos 2 etapas. O nome fora das fichas vale
+desde a primeira vez: é um nome que ninguém tem onde guardar.
+
+### O que mudou do protótipo
+
+- **Ficou de fora a frase** "quando a ficha chegar com a mudança, o Farol leva junto as fotos e os exemplos do nome
+  antigo": isso ainda não existe. O órfão continua sendo juntado à mão, em Fichas (fatia T2). No lugar dela, a
+  respondida diz quem respondeu e quando.
+- **O "dois jeitos" só olha molho**: a leitura de verdade dá nome de cor só aos molhos ("molho laranja", "molho
+  branco"). A cebola e a carne têm grupos próprios, que já são "um nome para duas coisas" de propósito.
+
+### Como foi provado
+
+- **Testes da API** (`api/testes/treino-sugestoes.test.ts`): 9, sendo 6 sem banco e 3 com Postgres de verdade.
+  - Cada tipo, com o limite de cada lado. Os casos que NÃO sugerem: o pedido do cliente, a leitura que não viu, a
+    etapa que mostra o que a ficha pede, a cebola de duas cores.
+  - A ordem dos tipos.
+  - A resposta: a supervisão e outra conta não respondem; a decisão torta e a sugestão que não existe são recusadas;
+    mudar a resposta guarda o retrato novo; a respondida que sumiu das conferências fica.
+- **Mutação: 25 trocas no código novo, 25 mortas**, com controle antes e depois. Três testes foram reforçados antes da
+  rodada, porque deixariam mutação viva: a moda com contagens misturadas, a ordem dos tipos que não coincide com a
+  alfabética, e o retrato quando a resposta muda.
+- **A suíte inteira da API** contra o banco de teste com as 51 migrations: 1486 de 1487. A que falha é a conhecida do
+  banco local sem pgvector; no CI ela roda. A 051 roda duas vezes sem erro.
+- **A tela**, no console local:
+  - uma conta com três X-Burger conferidos de um jeito que gera três sugestões;
+  - a gerência respondeu "Vou cadastrar": a conta da aba caiu de 3 para 2, e a respondida foi para o fim, com quem
+    respondeu;
+  - a supervisão viu os cartões sem os botões;
+  - 3 estados × 16 larguras, sem nada para fora;
+  - o roteiro completo da tela também passou de novo (13 estados × 16 larguras).
+- **Build**: `next build` passou.
