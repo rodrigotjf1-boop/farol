@@ -13,7 +13,11 @@ identificar os ingredientes"; "um pão na bancada é o start da montagem".
    pela posição de quadro em quadro. O lanche que se mexeu ("o colaborador pode
    chegar para o lado quando tem alta demanda" — o dono, 14/10) ou que fechou
    (as duas metades viram um disco) é reconhecido pela CARA: as cores do miolo
-   do recorte. Empurrado, ele começa um trecho novo, com outra caixa.
+   do recorte. Empurrado, ele começa um trecho novo, com outra caixa. E o lanche
+   PUXADO ao longo da bancada ("puxa da esquerda para a direita, para o meio do
+   tampo" — o dono, 15/10) é ele mesmo longe, se já era lanche, ficou no eixo da
+   área de montagem e tem a cara muito parecida (`MESMA_CARA_LONGE`) com a da
+   última vez que ele foi VISTO (e não com a do lugar, com a mão por cima).
 3. Recorte do lanche em cada quadro em que ele está, numa CAIXA FIXA por trecho
    (a câmera é fixa; medido na v2: a caixa que acompanha o detector muda de
    tamanho a cada quadro, e "o lanche andou" se mistura com "entrou
@@ -62,6 +66,18 @@ MESMO_LUGAR = 0.2
 ACOMPANHA = 0.3
 # Até quantos "lados" do lanche ele pode ter sido empurrado e ainda ser ele (com a mesma cara).
 EMPURRADO_ATE = 1.5
+# O PUXÃO ao longo da bancada (o dono, 15/10/2026: "o colaborador puxa o hambúrguer que está aguardando, já com os
+# pães, molho e alface, da esquerda para a direita, para o meio do tampo"). Longe (mais que `EMPURRADO_ATE`), ainda é
+# ele se: já era lanche (`duracao_minima_s` do perfil), reaparece quase no mesmo eixo da área de montagem (o lado
+# maior do recorte; fora dele no máximo `FORA_DO_EIXO` lado) e com a cara MUITO parecida com a da última vez que foi
+# visto. Medido na densa das 21h30 de 14/10 (16/10): o puxão de verdade, 0,98; os enganos que as colunas sozinhas
+# juntariam (a carne da chapa para o pão, pães diferentes), até 0,75; o pão vazio na mão, 0,93 — mas ele não era
+# lanche ainda.
+# PERTO, a cara continua a do LUGAR (a de cada quadro, com o lanche visto ou não). Medido na mesma densa: com a da
+# última vista, o empurrão de perto juntou mais 4, e nenhum era o mesmo lanche (o embrulho com o pão aberto ao lado, a
+# carne da chapa com a carne no pão); a do lugar recusa o que aparece ao lado logo depois da mão.
+MESMA_CARA_LONGE = 0.9
+FORA_DO_EIXO = 0.5
 # A menor caixa que vira recorte, em pixels.
 CAIXA_MINIMA = 50
 
@@ -120,6 +136,13 @@ def centro(a) -> tuple[float, float]:
 
 def lado_maior(a) -> float:
     return max(a[2] - a[0], a[3] - a[1])
+
+
+def fora_do_eixo(a, b, largura: int, altura: int) -> float:
+    """Quanto o centro de `b` sai do eixo da área de montagem passando pelo de `a`, em pixels: a bancada corre ao longo
+    do lado maior do recorte (deitado, o eixo é o horizontal; em pé, o vertical)."""
+    (ax, ay), (bx, by) = centro(a), centro(b)
+    return abs(by - ay) if largura >= altura else abs(bx - ax)
 
 
 def paes(detector: Detector, imagem: np.ndarray, perfil: PerfilDaBancada) -> list[Caixa]:
@@ -182,7 +205,9 @@ class Trilha:
     fim: datetime | None = None
     trecho: int = 0
     mudou_de_lugar: int = 0
+    # a cara do lugar (de cada quadro) e a da última vez que o lanche foi visto (a do puxão)
     cara: np.ndarray | None = None
+    cara_vista: np.ndarray | None = None
     # cada quadro: (hora, recorte, trecho, região, metades vistas)
     quadros: list[tuple] = field(default_factory=list)
     caixas: dict[int, tuple[int, int, int, int]] = field(default_factory=dict)
@@ -245,7 +270,9 @@ def seguir(
                 livres.remove(par)
             else:
                 sem_par.append(r)
-        # 2) O lanche que se MEXEU (empurrado, ou fechado): região sem par, perto de um lanche sem par e com a mesma cara.
+        # 2) O lanche que se MEXEU (empurrado, ou fechado): região sem par, perto de um lanche sem par e com a mesma cara
+        #    (a do lugar). Longe, só o PUXADO ao longo da bancada: já era lanche, no mesmo eixo, com a cara muito
+        #    parecida com a da última vez que foi visto.
         for r in sem_par:
             cara = aparencia(img, r)
             candidatos = [
@@ -253,6 +280,13 @@ def seguir(
                 and math.dist(centro(a.regiao), centro(r)) < EMPURRADO_ATE * lado_maior(a.regiao)
                 and cv2.compareHist(a.cara, cara, cv2.HISTCMP_CORREL) >= perfil.parecido
             ]
+            if not candidatos:
+                candidatos = [
+                    a for a in livres if a.cara_vista is not None
+                    and (agora - a.inicio).total_seconds() >= perfil.duracao_minima_s
+                    and fora_do_eixo(a.regiao, r, largura, altura) <= FORA_DO_EIXO * lado_maior(a.regiao)
+                    and cv2.compareHist(a.cara_vista, cara, cv2.HISTCMP_CORREL) >= MESMA_CARA_LONGE
+                ]
             if candidatos:
                 par = min(candidatos, key=lambda a: math.dist(centro(a.regiao), centro(r)))
                 par.regiao = r[:4]
@@ -276,6 +310,10 @@ def seguir(
             x0, y0, x1, y1 = a.regiao
             if x1 - x0 >= CAIXA_MINIMA and y1 - y0 >= CAIXA_MINIMA:
                 a.cara = aparencia(img, a.regiao)
+                # A do puxão é a do lanche VISTO: sem pão neste quadro, o lugar dele mostra a mão por cima ou a bancada
+                # vazia (depois do puxão), e o lanche puxado não se reconheceria (16/10/2026).
+                if a.id in vistas:
+                    a.cara_vista = a.cara
     for a in ativos:
         a.fim = ultima
     return todos, largura, altura

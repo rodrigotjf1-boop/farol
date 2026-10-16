@@ -108,6 +108,93 @@ def cena(t0: datetime = T0) -> list[tuple[datetime, np.ndarray]]:
     return saida
 
 
+def cena_do_puxao(puxa_em=50, dx=400, dy=20, outra_cara=False, perto_depois_da_mao=False, mao=True, t0: datetime = T0):
+    """Um lanche à esquerda (com o ingrediente escuro desde os 5 s); em `puxa_em` e no segundo seguinte a mão cobre o
+    lugar; depois ele está `dx`, `dy` px dali (com outro ingrediente, se `outra_cara`) por 30 s, e some.
+    `perto_depois_da_mao`: o que aparece está perto (250 px), logo depois da mão. Sem a `mao`, ele aparece no lugar
+    novo já em `puxa_em` (e a cara do lugar, a do último quadro, é a do lanche).
+
+    A mão é de uma cor que não é a do lanche: a cara do lugar com ela por cima dá −0,005 com a do lanche. (A mão cinza
+    do `quadro()` dá 0,60 — passaria no "parecido" do empurrão de perto, e o teste da cara não pegaria nada.)"""
+    if perto_depois_da_mao:
+        dx, dy = 250, 0
+    saida = []
+    fim = puxa_em + 32
+    for s in range(fim + 16):
+        t = 2 * (s % 2)
+        paes, escuro = [], None
+        coberto = mao and puxa_em <= s < puxa_em + 2
+        if s < puxa_em:
+            paes, escuro = [(300 + t, 270), (390 + t, 270)], (390 + t, 270) if s >= 5 else None
+        elif not coberto and s < fim:
+            paes = [(300 + dx + t, 270 + dy), (390 + dx + t, 270 + dy)]
+            escuro = (390 + dx + t, 270 + dy)
+        img = quadro(paes, None, escuro)
+        if coberto:
+            cv2.rectangle(img, (235, 160), (455, 380), (200, 120, 60), -1)  # a mão por cima, nas duas metades
+        if outra_cara and puxa_em <= s < fim and not coberto:
+            # O "outro lanche", parecido: o mesmo escuro e mais um ingrediente vermelho na outra metade. Depois do JPEG
+            # do quadro, a cara dá 0,71–0,72 com a do lanche: parecida para o empurrão de perto (0,5), não para o
+            # puxão (0,9). (O mesmo lanche dá 0,998–1,000.)
+            cv2.circle(img, (300 + dx + t, 270 + dy), 28, (40, 40, 200), -1)
+        saida.append((t0 + timedelta(seconds=s), img))
+    return saida
+
+
+def test_o_lanche_puxado_ao_longo_da_bancada_e_o_mesmo(tmp_path):
+    # 400 px é mais que 1,5 lado do lanche (o empurrão de perto): só a regra do puxão junta. E 20 px fora da linha, como
+    # o puxão de verdade (a mão não puxa reto).
+    resumo = tl.lanches_da_densa(montar_densa(tmp_path, cena_do_puxao()), tmp_path / "lanches", DetectorDaCor(), PERFIL)
+    lanches = [r for r in resumo if r["eLanche"]]
+    assert len(resumo) == 1 and len(lanches) == 1, f"um lanche só, não dois: {[(r['lanche'], r['duracaoS']) for r in resumo]}"
+    assert lanches[0]["mudouDeLugar"] == 1
+    assert "21h00m52.jpg" in lanches[0]["etapas"], "no lugar novo, um trecho novo (outra caixa fixa)"
+
+
+@pytest.mark.parametrize("cena,porque", [
+    (dict(puxa_em=20), "puxado antes de ser lanche (20 s, o perfil pede 40)"),
+    (dict(dx=400, dy=200), "longe e fora do eixo da bancada (200 px para baixo)"),
+    (dict(outra_cara=True), "longe, com outra cara: é outro lanche"),
+    (dict(outra_cara=True, mao=False), "a 1,56 lado, sem a mão e com a cara só parecida: o empurrão de perto não vai até lá"),
+])
+def test_longe_so_junta_o_puxao(tmp_path, cena, porque):
+    resumo = tl.lanches_da_densa(montar_densa(tmp_path, cena_do_puxao(**cena)), tmp_path / "lanches", DetectorDaCor(), PERFIL)
+    assert len(resumo) == 2, f"{porque}: {[(r['lanche'], r['duracaoS'], r['mudouDeLugar']) for r in resumo]}"
+    assert all(r["mudouDeLugar"] == 0 for r in resumo)
+
+
+def test_perto_vale_a_cara_do_lugar_e_o_parecido_ao_lado_depois_da_mao_e_outro(tmp_path):
+    # Perto, logo depois da mão, aparece um lanche parecido (0,71 com a cara da última vista — passaria no "parecido"
+    # de 0,5) e diferente. A cara do lugar é a da mão, e ele não se junta. Medido na densa de 14/10: com a da última
+    # vista, o empurrão de perto juntou mais 4, e nenhum era o mesmo lanche (o embrulho com o pão aberto ao lado).
+    cena = cena_do_puxao(perto_depois_da_mao=True, outra_cara=True)
+    resumo = tl.lanches_da_densa(montar_densa(tmp_path, cena), tmp_path / "lanches", DetectorDaCor(), PERFIL)
+    assert len(resumo) == 2 and all(r["mudouDeLugar"] == 0 for r in resumo), [(r["lanche"], r["duracaoS"]) for r in resumo]
+
+
+def test_o_lanche_sem_cara_nao_quebra_a_busca_longe(tmp_path):
+    # Outra loja, a câmera mais longe: o pão pequeno no quadro. A região de uma metade só (37 px) fica menor que a caixa
+    # mínima, e o lanche fica sem cara — a busca longe passa por ele sem comparar (e sem quebrar).
+    pequeno = tl.PerfilDaBancada(**{**PERFIL.__dict__, "pao_px_min": 10})
+    quadros = []
+    for s in range(80):
+        img = quadro()
+        if s < 45:
+            cv2.circle(img, (150, 270), 12, LARANJA, -1)
+        elif s < 76:
+            for cx in (600, 690):
+                cv2.circle(img, (cx, 270), 40, LARANJA, -1)
+        quadros.append((T0 + timedelta(seconds=s), img))
+    resumo = tl.lanches_da_densa(montar_densa(tmp_path, quadros), tmp_path / "lanches", DetectorDaCor(), pequeno)
+    assert len(resumo) == 2 and all(r["mudouDeLugar"] == 0 for r in resumo), resumo
+
+
+def test_fora_do_eixo_e_pelo_lado_maior_do_recorte():
+    a, b = (0, 0, 100, 100), (300, 40, 400, 140)
+    assert tl.fora_do_eixo(a, b, 960, 540) == 40, "deitado: o eixo é o horizontal"
+    assert tl.fora_do_eixo(a, b, 540, 960) == 300, "em pé: o eixo é o vertical"
+
+
 # ───────────────────────────── a cena ─────────────────────────────
 
 

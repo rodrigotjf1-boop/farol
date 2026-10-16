@@ -8200,3 +8200,88 @@ configuração.
   "dormindo · acorda às…" da lista passava da borda em 320 px. Ele e o do "sem sinal", que agora pode dizer "não
   acordou às…", passaram a quebrar a linha.
 - **O build do console** passa.
+
+## 16/10/2026 · A21: o lanche PUXADO ao longo da bancada é o mesmo (sem migration; vale com o pacote novo)
+
+### O pedido
+
+O dono, 15/10 (~23h30): "muitas das vezes o colaborador puxa o hambúrguer que está aguardando, já com os pães, molho e
+alface na bancada, da esquerda para a direita, para o meio — é bom identificar essa movimentação para não achar que é
+um novo produto". E, em 16/10 (~01h10), uma ideia de como: "setorizar a montagem por colunas imaginárias… se um pão
+que está com alface e molho especial está no primeiro setor à esquerda e depois aparece num setor à direita que estava
+vazio, e seu setor fica vazio, significa que ele foi arrastado de uma coluna (setor) para outra".
+
+### Como foi medido
+
+Na captura densa das 21h30 de 14/10 (1.731 quadros do canal 4), no computador da loja, com a leitura da bancada da
+`main`:
+- **47 trilhas.** Em 23 vezes, uma trilha some e outra começa até 12 s depois. Quase todas são o detector piscando: uma
+  trilha de 12,4 s foi vista uma vez só.
+- **Um puxão de verdade**, conferido nos recortes: às 22:14:40 → 22:14:43, o lanche de 90 s aparece 2,2 lados adiante,
+  quase na mesma linha (15 px fora dela). A cara bate (0,98). A regra de antes o partiu em dois só pela distância: o
+  empurrão de perto vai até 1,5 lado.
+- **As colunas, sozinhas, marcaram 4:** o puxão e 3 enganos (a carne da chapa para o pão; dois pães diferentes). Um
+  acerto em 4.
+- **O que separa o puxão dos enganos é a cara:** 0,98 contra no máximo 0,75. A cara que conta é a da última vez em que
+  o lanche foi VISTO. No lugar dele, com a mão por cima, a cara é a da mão.
+- **O pão vazio na mão** deu 0,93, mas ainda não era lanche. Por isso a regra pede que ele já seja lanche.
+
+### O que entra
+
+- **`farol_agent/treino_lanches.py`:** longe (mais que 1,5 lado), o lanche ainda é o mesmo se:
+  - já era lanche (a duração mínima do perfil: 40 s na loja);
+  - reaparece no eixo da área de montagem (o lado maior do recorte), no máximo meio lado fora dele;
+  - tem a cara muito parecida (0,9 ou mais) com a da última vez em que foi visto.
+- **No lugar novo**, o lanche começa outro trecho, com outra caixa fixa, como no empurrão.
+- **A ideia das colunas** entra como o EIXO: o lanche anda ao longo da bancada. O "setor que fica vazio" é a trilha que
+  acaba sem pão.
+- **Perto, nada muda:** o empurrão continua comparando com a cara do lugar.
+
+### A leitura de antes × a de agora, na mesma densa
+
+As duas rodaram no computador da loja, com os pães já detectados na medição (sem o detector):
+- **Controle:** a de antes, refeita, deu as mesmas 47 trilhas da medição.
+- **Antes:** 47 trilhas, 9 lanches (1.371 s), 8 junções, todas de perto.
+- **Agora:** 46 trilhas, 9 lanches (1.376 s), as mesmas 8 de perto e 1 longe, a do puxão. Nada mais mudou.
+- **Um caminho medido e descartado: a cara da última vista também no empurrão de perto.** Ele juntou mais 4, e nenhuma
+  era o mesmo lanche:
+  - o embrulho com o pão aberto ao lado, o que criava um lanche de 49 s que não existe;
+  - a carne na chapa com a carne no pão;
+  - um lanche sendo embrulhado com a borda de outro pão;
+  - a bandeja de carnes com o lanche fechado.
+
+  Perto, a cara do lugar recusa o que aparece ao lado logo depois da mão. O preço é que o lanche empurrado de perto
+  logo depois da mão também não se junta, como antes.
+
+### Achado no caminho (não é desta mudança)
+
+O lanche puxado leva junto um engano que o empurrão de perto já fazia:
+- **às 22:14:45**, com o pão coberto enquanto a carne entrava, a bandeja de carnes ao lado passou pelo empurrão: 0,9
+  lado de distância, região 1,66 vez maior que a do lanche, cara do lugar parecida;
+- **antes**, o engano ficava numa trilha de 14 s, que não era lanche;
+- **agora**, o lanche puxado termina com 12 s na bandeja, e ganha uma etapa a mais: a da bandeja.
+
+A correção (a região que cresce muito não é o lanche empurrado) vai medida à parte.
+
+### Como foi provado
+
+- **Testes do agente** (`agent/testes/test_treino_lanches.py`): 8 novos, 19 no arquivo. A cena desenhada tem o
+  lanche, a mão por cima e o lanche 400 px adiante, 20 px fora da linha. A mão é de outra cor que o lanche: a mão
+  cinza dava 0,60 com o lanche, e o teste da cara não pegaria nada. Os casos:
+  - o puxão junta;
+  - longe, não junta antes de ser lanche, fora do eixo, nem com a cara só parecida (0,71 depois do JPEG; o mesmo
+    lanche dá 0,998 a 1,000);
+  - a 1,56 lado, sem a mão e com a cara só parecida, também não: o empurrão de perto não vai até lá;
+  - perto, o lanche parecido que aparece ao lado logo depois da mão é outro;
+  - o lanche sem cara (o pão pequeno no quadro de outra loja) não quebra a busca longe;
+  - o eixo vem do lado maior do recorte.
+- **Mutação: 19 trocas, 19 mortas**, com controle antes e depois. Na primeira versão (uma cara só, a da última vista), a
+  mutação matou 16 de 16: a comparação na loja é que mostrou os 4 enganos de perto (ERR-130). Na segunda, 18 de 19: a
+  que viveu (o empurrão de perto indo até 2 lados) pediu o caso sem a mão.
+- **A suíte inteira do agente:** 1961 passaram, 1 pulado.
+
+### Falta
+
+- **O engano do empurrão de perto (a bandeja)**, medido à parte.
+- **Valer na loja:** o pacote novo (troca autorizada).
+- **Medir de novo** na primeira gravação de treino: outras horas e outros colaboradores.
