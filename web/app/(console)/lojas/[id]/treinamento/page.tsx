@@ -76,6 +76,7 @@ const MOTIVO: Record<MotivoNaFila, { tom: Tom; texto: string }> = {
   diferenca: { tom: 'vazado', texto: 'diferente da ficha' },
   certo: { tom: 'neutro', texto: 'o Farol acha que acertou' },
 };
+const SEM_LEITURA: { tom: Tom; texto: string } = { tom: 'neutro', texto: 'sem leitura dos ingredientes' };
 
 /** "Reconhece" quando a leitura acertou o ingrediente em 85% das vezes, com pelo menos 5 lanches (o protótipo). */
 const RECONHECE = { parte: 0.85, minimo: 5 };
@@ -718,7 +719,8 @@ function PainelDosLanches({
       )}
       <ul className={`${CARTAO} divide-y divide-farol-borda overflow-hidden`} aria-label={filtro === 'conferir' ? 'Lanches para conferir' : filtro === 'pulados' ? 'Lanches pulados' : 'Lanches conferidos'} data-lanches={filtro}>
         {lista.map((l) => {
-          const motivo = MOTIVO[l.motivo];
+          // antes da identificação dos ingredientes, nenhuma etapa tem leitura: não é "uma etapa", é o lanche todo
+          const motivo = l.semLeitura ? SEM_LEITURA : MOTIVO[l.motivo];
           const certo = l.acertou === true;
           return (
             <li key={l.id}>

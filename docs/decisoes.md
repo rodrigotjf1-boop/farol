@@ -7877,3 +7877,116 @@ loja, garantido pela trava da loja na criação (V105) e pelo índice único `ac
   `ja_tem_acesso`.
 - Mutação, com controle antes e depois: a leitura voltar a dizer 10, a criação voltar a recusar a 11ª, a criação sem
   conferir se a loja já tem acesso, e a criação sem travar a loja. O teste pega as quatro.
+
+## 15/10/2026 · A21: a conferência nova do lanche — uma foto por cartão (sem migration)
+
+O protótipo (#171) saiu do que o dono pediu conferindo de verdade. Ele pediu quatro coisas:
+
+- o recorte que pega as duas metades;
+- a foto que só mostra o papel do delivery;
+- poder marcar mais de um ingrediente por etapa;
+- as perguntas que separam as fichas (o 16 e o trio 16).
+
+O protótipo foi **aprovado no mesmo dia** ("prototipos aprovados"), com as três escolhas que ficaram para ele
+confirmar ("2 ok"):
+
+- sobrando uma ficha nas perguntas, ela já fica marcada;
+- o trio com a ficha do lanche conta como acerto;
+- o lanche sem palpite conta como não acertado.
+
+### O que entra
+
+- **A API aceita a resposta por foto** (`versao: 2`, `lerConferencia` em `api/src/treino.ts`). Vem uma resposta por
+  foto, na ordem das fotos que a gaveta recebeu, com:
+  - tudo o que aparece na foto (nomes das fichas, ou escritos à mão);
+  - "não dá para analisar", com o que houve;
+  - as respostas às perguntas;
+  - a observação do lanche.
+
+  A resposta por etapa continua aceita, e as já guardadas continuam valendo.
+- **As fotos** (`fotosDoLanche`): viram uma foto só as etapas que apontam para o mesmo quadro (a carga de 14/10 fazia
+  assim com o que "já estava") ou para quadros com a mesma imagem (o sha256 de cada quadro). A resposta guarda as
+  etapas de cada foto: depois de 30 dias, sem os quadros, o agrupamento da hora da conferência continua valendo.
+- **O que cada etapa ensina** (`ensinoDasEtapas`) é um ponto só para os dois formatos. Os exemplos, o aprendizado e as
+  sugestões para as fichas leem por ele. Nos exemplos:
+  - cada marca vai com o quadro da etapa;
+  - a mesma imagem com o mesmo nome entra uma vez;
+  - a foto ruim não ensina;
+  - o nome fora das fichas vira sugestão.
+- **O palpite traz o que a tela nova precisa:**
+  - os ingredientes da ficha, cada um com em quantas famílias entra;
+  - o que o cliente pode pedir a mais e o que pode mandar tirar;
+  - o porquê: o raro que a leitura viu e o raro que ela pode ter visto, com o que leu e em que outro lanche ele vai;
+  - quais fichas são plausíveis para as perguntas.
+- **Sem nada visto da ficha, não há palpite.** A lista diz "sem palpite", a conferência guarda `palpite` nulo e o
+  lanche conta como não acertado.
+- **A gaveta nova** (`web/componentes/treino/gaveta-do-lanche.tsx`; as contas em `conferencia-por-foto.ts`), como o
+  protótipo:
+  - o palpite com o porquê;
+  - as perguntas que separam as fichas, que não mudam de lugar sob o dedo;
+  - um cartão por foto, com as marcas;
+  - o atalho "Marcar o que o Farol leu";
+  - "Não dá para analisar";
+  - "Outro ingrediente";
+  - a conta da ficha pelas marcas;
+  - a observação do lanche.
+
+  O quadro maior passa as fotos (`quadro-da-foto.tsx`).
+- **A lista** diz "sem leitura dos ingredientes" no lanche em que nenhuma etapa tem leitura. Antes dizia "uma etapa
+  ficou sem leitura".
+
+### Onde a tela difere do protótipo aprovado
+
+- **A certeza da leitura.** O protótipo tinha "certeza alta/média/pouca", mas a leitura da loja não manda certeza.
+  - "Foto sem dúvida" é a foto em que cada leitura dá UM nome: o que ela disse, ou, quando ficou entre dois, o que está
+    na ficha do lanche.
+  - A foto sem leitura, ou com uma leitura que nenhuma ficha tem, é dúvida. O selo da foto diz "com dúvida" ou "sem
+    leitura".
+  - Consequência: o recorte só do papel lido como "pão" é "sem dúvida", e o atalho marca nele o pão da ficha. Quem
+    confere marca "Não dá para analisar"; a marca fica guardada, mas não ensina.
+  - Quando o identificador mandar a certeza (T3c-3), ela entra aqui.
+- **As fotos parecidas.** O protótipo juntava as quase iguais; aqui só se juntam as IGUAIS (o mesmo quadro, ou os
+  mesmos bytes). Quem sabe juntar as parecidas é o computador da loja, que tem a gravação (com a T3c-3). Por isso não
+  aparece "N fotos parecidas".
+- **A conta dos exemplos.** O protótipo contava um exemplo por foto do cartão. Com fotos iguais, a imagem é uma só e
+  entra uma vez.
+- **"Outro ingrediente"** mantém o "Um ingrediente que não está nas fichas…" da conferência de antes. O nome escrito
+  entra marcado e vira sugestão para as fichas.
+- **As plausíveis** usam os números do protótipo: até 2,5 abaixo do melhor, de 2 a 4 fichas. Ainda não foram medidos.
+
+### Como foi provado
+
+- **API, Postgres de verdade (banco de teste descartável):**
+  - o agrupamento;
+  - a resposta por foto, certa e torta;
+  - o que cada etapa ensina, nos dois formatos;
+  - os exemplos sem repetir a imagem;
+  - o aprendizado e as sugestões pela resposta nova;
+  - o lanche sem leitura;
+  - o palpite com o que a tela precisa.
+
+  Os testes do treino e do estudo: 52, todos passando. A suíte inteira: 1540 de 1541. A falha é a conhecida do banco
+  local sem pgvector (ERR-029).
+- **Mutação da API:** 33 mutantes, 33 mortos, com controle antes e depois.
+- **Console local, num Chrome sem janela, com tecla e clique de verdade.** Os lanches de teste são desenhos, nada da
+  loja:
+  - o caso do dono;
+  - a foto da dúvida;
+  - o sem leitura;
+  - as fotos de bytes iguais;
+  - o conferido no formato antigo, que reabre com as marcas nas fotos.
+
+  A gaveta foi medida em 4 estados × 16 larguras (320 a 1920) e o quadro maior em 4 telas baixas.
+- **Mutação da tela:** 15 mutantes, 15 mortos, com controle antes e depois. Na primeira rodada, um ficou vivo: o atalho
+  marcando a foto com dúvida. Nenhum lanche de teste tinha uma foto MISTURADA (uma leitura que dá nome e outra que
+  não dá). O lanche das fotos iguais ganhou um "molho verde", e o mutante morreu.
+- **Achados e corrigidos antes do PR:**
+  - em 320 px, o texto do atalho não quebrava a linha e passava da borda;
+  - o palpite saía colado para o leitor de tela ("achaCheddar"), e o selo da foto também ("verdecom dúvida").
+
+### Falta
+
+- **A T3c-3 na loja:** os nomes possíveis em cada leitura, o recorte da METADE, o papel como "não é ingrediente", a
+  certeza e juntar as fotos parecidas.
+- **Refazer os exemplos das conferências** já feitas com a regra nova (várias marcas por foto). As respostas estão
+  guardadas.

@@ -1683,6 +1683,32 @@ export type EtapaDoLanche = {
 
 export type PalpiteDaFicha = { produtoId: string; produto: string; batem: number; total: number; fora: number };
 
+/** Um ingrediente raro da ficha que a leitura viu: o porquê do palpite. */
+export type RaroVisto = {
+  nome: string;
+  /** A leitura disse só ele. Falso: veio num grupo ("pode ser A ou B"). */
+  certo: boolean;
+  /** No grupo, o que a leitura disse ("molho laranja"). */
+  de: string | null;
+  /** Os outros lanches (um por família) que também levam ele. */
+  tambemEm: string[];
+};
+
+/** O palpite como a gaveta o recebe: com o que as perguntas que separam as fichas precisam. */
+export type PalpiteDoLanche = PalpiteDaFicha & {
+  nota: number;
+  /** Os outros produtos com a mesma ficha vista de cima (o trio do lanche). */
+  familia: string[];
+  raros: RaroVisto[];
+  /** Os ingredientes da ficha que se veem de cima, com em quantas famílias da loja cada um entra. */
+  ingredientes: Array<{ nome: string; usos: number }>;
+  /** O que o cliente pode pedir a mais, e o que pode mandar tirar. */
+  adicionais: string[];
+  tira: string[];
+  /** Entra nas perguntas que separam as fichas. */
+  plausivel: boolean;
+};
+
 export type LancheNaFila = {
   id: string;
   gravacaoId: string;
@@ -1690,6 +1716,8 @@ export type LancheNaFila = {
   fechouEm: string | null;
   situacao: 'conferir' | 'conferido' | 'pulado';
   motivo: MotivoNaFila;
+  /** Nenhuma etapa tem leitura: antes da identificação dos ingredientes, todo lanche chega assim. */
+  semLeitura: boolean;
   palpite: PalpiteDaFicha | null;
   produto: string | null;
   acertou: boolean | null;
@@ -1768,17 +1796,38 @@ export type TreinoDaLoja = {
 
 /** Nulo = sem resposta (a etapa não ensina). `nome`: o que era, no "outro"; a API devolve nulo nos demais. */
 export type RespostaDaEtapa = { v: 'certo' | 'outro' | 'nada'; nome?: string | null } | null;
-export type ConferenciaDoLanche = {
+/** A conferência como foi até 15/10/2026: uma resposta por etapa. A API ainda devolve as guardadas assim. */
+export type ConferenciaPorEtapa = {
   produto: string | null;
   etapas: RespostaDaEtapa[];
   faltas: Record<string, 'cliente' | 'faltou' | 'naoviu'>;
   aMais: Record<string, 'adicional' | 'amais'>;
 };
+/** A resposta de uma foto, na conferência nova. `etapas`: a API devolve as da foto; para mandar, não precisa. */
+export type RespostaDaFoto = { etapas?: number[]; marcados: string[]; ruim: boolean; obs: string | null };
+/** A conferência nova (protótipo aprovado em 15/10/2026): uma resposta por foto, na ordem de `fotos`. */
+export type ConferenciaPorFoto = {
+  versao: 2;
+  produto: string | null;
+  fotos: RespostaDaFoto[];
+  perguntas: Record<string, 'sim' | 'nao'>;
+  obs: string | null;
+  faltas: Record<string, 'cliente' | 'faltou' | 'naoviu'>;
+  aMais: Record<string, 'adicional' | 'amais'>;
+};
+export type ConferenciaDoLanche = ConferenciaPorEtapa | ConferenciaPorFoto;
+
+/** Uma foto da conferência: as etapas com a mesma imagem. */
+export type FotoDoLanche = { etapas: number[]; quadroId: string | null };
 
 export type LancheParaConferir = Omit<LancheNaFila, 'etapas'> & {
   gravacao: { id: string; inicio: string; fim: string; origem: GravacaoDeTreino['origem'] };
   etapas: EtapaDoLanche[];
-  palpites: PalpiteDaFicha[];
+  fotos: FotoDoLanche[];
+  /** Um por família, até 4 (as plausíveis das perguntas estão entre eles). */
+  palpites: PalpiteDoLanche[];
+  /** Nada do que a leitura viu bate com uma ficha: o Farol não tem palpite. */
+  semPalpite: boolean;
   resposta: ConferenciaDoLanche | null;
   produtos: Array<{ id: string; nome: string }>;
   ingredientes: string[];
@@ -1794,7 +1843,7 @@ export const treinoApi = {
   /** O quadro de uma etapa. O id nunca muda de imagem: o navegador guarda. */
   urlDoQuadro: (quadroId: string) => `/api/treino/quadros/${quadroId}/imagem`,
 
-  conferir: (id: string, conferencia: ConferenciaDoLanche) =>
+  conferir: (id: string, conferencia: ConferenciaPorFoto) =>
     pedir<{ conferido: true; produto: string | null; palpite: string | null; acertou: boolean; exemplos: number }>(`/treino/lanches/${id}/conferencia`, {
       method: 'POST',
       body: JSON.stringify(conferencia),
