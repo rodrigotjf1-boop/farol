@@ -15,7 +15,7 @@ import { describe, it } from 'node:test';
 
 import { estudarFichas, ESTRANHO, faixaDoIngrediente, mesmaFamilia, pesoDoIngrediente } from '../src/estudo-das-fichas.js';
 import type { Base, Produto } from '../src/fichas.js';
-import { acertouOPalpite, palpitesDoLanche, umPorFamilia, type EtapaLida } from '../src/treino.js';
+import { acertouOPalpite, palpitesDoLanche, PLAUSIVEL, umPorFamilia, type EtapaLida } from '../src/treino.js';
 
 type Linha = [nome: string, quantidade: number | null, unidade: string | null];
 
@@ -155,7 +155,7 @@ describe('o estudo das fichas', () => {
     // cremoso só existe no Clássico 7 (e no combo dele).
     const p = melhor(leitura('Pão de hambúrguer', 'Carne', 'Queijo', 'Alface', 'Cheddar cremoso'));
     assert.ok(p.todos.includes('Clássico 7'), `o palpite foi ${p.produto}`);
-    assert.deepEqual(p.raros, ['Cheddar cremoso'], 'o porquê: o raro visto');
+    assert.deepEqual(p.raros, [{ nome: 'Cheddar cremoso', certo: true, de: null, tambemEm: [] }], 'o porquê: o raro visto');
     assert.deepEqual([p.batem, p.total, p.fora], [3, 4, 2], 'os números da tela seguem os mesmos');
   });
 
@@ -235,5 +235,53 @@ describe('o estudo das fichas', () => {
   it('sem fichas, sem palpite', () => {
     assert.deepEqual(palpitesDoLanche(leitura('Carne'), null), []);
     assert.equal(estudarFichas(null).familias.length, 0);
+  });
+
+  // ───── o que a conferência nova mostra (protótipo aprovado em 15/10/2026) ─────
+
+  it('o porquê: o raro que veio num grupo diz o que a leitura leu; o raro de outra família diz qual', () => {
+    const p = melhor([...leitura('Pão de hambúrguer', 'Carne'), etapa(['Cheddar cremoso', 'Alface'], 1, 'creme claro'), etapa(['Cebola caramelizada'])]);
+    assert.ok(p.todos.includes('Clássico 7'), `o palpite foi ${p.produto}`);
+    assert.deepEqual(p.raros, [
+      { nome: 'Cheddar cremoso', certo: false, de: 'creme claro', tambemEm: [] },
+      { nome: 'Cebola caramelizada', certo: true, de: null, tambemEm: ['Smash 2'] },
+    ], 'o mais raro primeiro');
+  });
+
+  it('o palpite traz a ficha com a raridade de cada ingrediente, o que o cliente pode pedir a mais e o que pode tirar', () => {
+    const base = cardapio();
+    base.produtos.find((p) => p.nome === 'Clássico 7')!.adicionais = [
+      { nome: 'Extras', tipo: 'adicionar', opcoes: [{ id: null, nome: 'Ovo', codigo: null, efeito: { tipo: 'insumo', nome: 'Ovo', quantidade: 1, unidade: 'unidade', insumoId: null } }] },
+      { nome: 'Tirar', tipo: 'remover', opcoes: [{ id: null, nome: 'Sem cebola', codigo: null, efeito: { tipo: 'retira', nome: 'Cebola caramelizada', insumoId: null, fichaId: null } }] },
+    ];
+    // o irmão (o combo) leva o que o lanche oferece: é a mesma ficha para a bancada
+    const p = palpitesDoLanche(leitura('Pão de hambúrguer', 'Carne', 'Cheddar cremoso'), base).find((x) => x.produto === 'Combo 7')!;
+    assert.deepEqual(p.ingredientes, [
+      { nome: 'Pão de hambúrguer', usos: 7 },
+      { nome: 'Carne', usos: 7 },
+      { nome: 'Cheddar cremoso', usos: 1 },
+      { nome: 'Cebola caramelizada', usos: 2 },
+    ]);
+    assert.deepEqual([p.adicionais, p.tira], [['Ovo'], ['Cebola caramelizada']]);
+    const smash = palpitesDoLanche(leitura('Carne'), base).find((x) => x.produto === 'Smash 1')!;
+    assert.deepEqual([smash.adicionais, smash.tira], [[], []], 'quem não oferece nada');
+  });
+
+  it('as plausíveis das perguntas: as famílias perto do melhor, no mínimo 2 e no máximo 4, na ordem; o irmão acompanha', () => {
+    for (const lido of [
+      leitura('Pão de hambúrguer', 'Carne', 'Cheddar cremoso'),
+      leitura('Pão de hambúrguer', 'Carne', 'Cheddar cremoso', 'Cebola caramelizada'),
+      leitura('Pão de hambúrguer', 'Carne', 'Queijo'),
+    ]) {
+      const todos = palpitesDoLanche(lido, cardapio());
+      const familias = umPorFamilia(todos);
+      const dentro = familias.filter((p) => p.nota >= familias[0]!.nota - PLAUSIVEL.distancia).length;
+      const n = Math.max(PLAUSIVEL.minimo, Math.min(PLAUSIVEL.maximo, dentro));
+      assert.deepEqual(familias.map((p) => p.plausivel), familias.map((_, i) => i < n), lido.map((e) => e.leu).join('+'));
+      for (const p of todos) {
+        const irmao = familias.find((f) => f.produto === p.produto || f.familia.includes(p.produto))!;
+        assert.equal(p.plausivel, irmao.plausivel, `${p.produto} acompanha a família`);
+      }
+    }
   });
 });

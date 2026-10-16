@@ -24,7 +24,7 @@
 
 import type { Base } from './fichas.js';
 import { chaveDoIngrediente, ingredientesDaBase } from './ingredientes.js';
-import { nomeEnsinado, vezesNaFicha, type Conferencia, type EtapaLida } from './treino.js';
+import { ensinoDasEtapas, vezesNaFicha, vistosDaConferencia, type Conferencia, type EtapaLida } from './treino.js';
 
 export const LIMITES = { minimo: 3, parte: 0.5, jeitos: 2 } as const;
 export const TIPOS = ['nome-fora', 'falta-na-ficha', 'ficha-diferente', 'duas-coisas'] as const;
@@ -93,17 +93,17 @@ export function sugestoesDoTreino(conferidos: Conferido[], base: Base | null): S
   const fora = new Map<string, { nome: string; lanches: number; produtos: Set<string> }>();
   for (const c of conferidos) {
     const noLanche = new Set<string>();
-    c.etapas.forEach((_, i) => {
-      const r = c.conferencia.etapas[i];
-      if (r?.v !== 'outro' || !r.nome) return;
-      const k = chaveDoIngrediente(r.nome);
-      if (vocab.has(k) || noLanche.has(k)) return;
-      noLanche.add(k);
-      const f = fora.get(k) ?? { nome: r.nome, lanches: 0, produtos: new Set<string>() };
-      f.lanches += 1;
-      if (c.produto) f.produtos.add(c.produto);
-      fora.set(k, f);
-    });
+    for (const x of ensinoDasEtapas(c.etapas, c.conferencia)) {
+      for (const nome of x.nomes) {
+        const k = chaveDoIngrediente(nome);
+        if (vocab.has(k) || noLanche.has(k)) continue;
+        noLanche.add(k);
+        const f = fora.get(k) ?? { nome, lanches: 0, produtos: new Set<string>() };
+        f.lanches += 1;
+        if (c.produto) f.produtos.add(c.produto);
+        fora.set(k, f);
+      }
+    }
   }
   for (const f of fora.values()) {
     nova({
@@ -167,11 +167,7 @@ export function sugestoesDoTreino(conferidos: Conferido[], base: Base | null): S
       for (const c of lanches) {
         const falta = Object.entries(c.conferencia.faltas).find(([nome]) => chaveDoIngrediente(nome) === k)?.[1];
         if (falta !== 'faltou') continue;
-        let viu = 0;
-        c.etapas.forEach((e, i) => {
-          const nome = nomeEnsinado(e, c.conferencia.etapas[i] ?? null);
-          if (nome && chaveDoIngrediente(nome) === k) viu += e.vezes;
-        });
+        const viu = vistosDaConferencia(c.etapas, c.conferencia).get(k)?.vezes ?? 0;
         if (viu < quer) vistos.push(viu);
       }
       if (!repetido(vistos.length)) continue;
@@ -202,8 +198,10 @@ export function sugestoesDoTreino(conferidos: Conferido[], base: Base | null): S
   // ───── 4. o mesmo nome em molhos de cores diferentes ─────
   const jeitos = new Map<string, { nome: string; porLeitura: Map<string, { vezes: number; produtos: Set<string> }> }>();
   for (const c of conferidos) {
+    const ensino = ensinoDasEtapas(c.etapas, c.conferencia);
     c.etapas.forEach((e, i) => {
-      const nome = nomeEnsinado(e, c.conferencia.etapas[i] ?? null);
+      // o nome que responde à leitura daquela etapa (na conferência nova, a marca da foto entre os candidatos dela)
+      const nome = ensino[i]!.daLeitura;
       const leu = (e.leu ?? '').trim().toLowerCase();
       if (!nome || !/^molho \S/.test(leu)) return;
       const k = chaveDoIngrediente(nome);
