@@ -8285,3 +8285,41 @@ A correção (a região que cresce muito não é o lanche empurrado) vai medida 
 - **O engano do empurrão de perto (a bandeja)**, medido à parte.
 - **Valer na loja:** o pacote novo (troca autorizada).
 - **Medir de novo** na primeira gravação de treino: outras horas e outros colaboradores.
+
+## 16/10/2026 · A21: a gravação de treino no canal sem o quadro da bancada não se cria, e na loja falha com o motivo (sem migration; o agente vale com o pacote novo)
+
+### O que aconteceu
+
+A primeira gravação de treino foi cadastrada no canal 1, que não tem quadro desenhado. Sem o quadro, a loja não tem de
+onde recortar a montagem. Três efeitos:
+- **na loja**, a cada 5 minutos, um erro inesperado com Traceback (`o canal 1 não tem quadro desenhado`). O agente
+  baixava o trecho e só então pedia o quadro;
+- **no console**, a gravação ficou "lendo", sem motivo nenhum;
+- **a troca do pacote do puxão** (`88941e0`) voltou sozinha ao anterior. O `trocar_pacote.ps1` vê o Traceback na
+  subida e entende que o agente não subiu. O agente seguiu rodando no pacote anterior.
+
+O portão da troca está certo: Traceback na subida é sinal de problema. A correção é no código (ERR-131).
+
+### O que entra
+
+- **A API** (`POST /v1/lojas/:id/treino/gravacoes`) recusa, com 422, o canal sem quadro: "este canal não tem o quadro
+  da bancada desenhado: desenhe a área da montagem em Canais, ou escolha o canal da bancada". A imagem inteira do canal
+  e o quadro excluído não contam. A gaveta "Nova gravação" já mostra a frase que a API devolve; a tela não muda.
+- **O agente** (`treino_laco.volta`) confere o quadro do canal ANTES de buscar o trecho. Faltando (ou o canal fora da
+  configuração), a gravação falha com o motivo que a tela mostra, pelo caminho que o contrato já tinha
+  (`contratos/gravacao-de-treino.json`, "falhou"). A gravação que falhou sai da fila, e a loja apaga o que guardou.
+
+### A gravação que já está no canal 1
+
+Ela continua na nuvem. Com o pacote novo, a loja a marca como "falhou", com o motivo, na primeira volta. Para o treino
+andar, uma gravação nova no canal 4, o da bancada.
+
+### Como foi provado
+
+- **API** (`api/testes/treino-gravacao.test.ts`, com Postgres): o canal do gravador sem quadro e o com o quadro
+  excluído dão 422 com a frase; o canal com o quadro cria. O arquivo inteiro passa: 10 de 10.
+- **Agente** (`agent/testes/test_treino_laco.py`): o canal sem quadro e o canal fora da configuração falham com o
+  motivo, sem nenhum pedido ao gravador. O arquivo inteiro passa: 20 de 20.
+- **Mutação: 6 trocas, 6 mortas** (4 na API, 2 no agente), com controle antes e depois.
+- **As suítes inteiras:** a do agente, 1963 passaram e 1 pulado. A da API, no banco descartável local, 1572 de 1573: a
+  que falha é a conhecida do banco local sem pgvector ("embedding de dimensão errada"), que no CI passa.

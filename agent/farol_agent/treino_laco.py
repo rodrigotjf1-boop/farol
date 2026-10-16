@@ -143,6 +143,12 @@ def volta(pecas: Pecas, raiz: Path, *, folga_s: float = treino.FOLGA_PADRAO_S) -
         # 1. o trecho, do gravador
         if not g.canal:
             return falhar("a gravação não diz de que canal é")
+        # O quadro da bancada ANTES de buscar: sem ele não há o que ler, e o trecho baixado seria à toa. (16/10/2026: a
+        # gravação no canal 1, que não tem quadro, virava um erro inesperado a cada volta — e a tela não dizia nada.)
+        try:
+            zona = pecas.zona_do_canal(g.canal)
+        except ValueError as e:
+            return falhar(f"{e}: a gravação de treino precisa do canal com o quadro da bancada (a área da montagem)")
         busca = treino_trecho.buscar_trecho(
             pecas.gravador_do_canal(g.canal), g.canal, g.inicio, g.fim, pasta,
             pode_buscar=pecas.pode_buscar, ao_andar=lambda b: _contar(andamento, _faixa("busca", b.fracao)),
@@ -163,7 +169,7 @@ def volta(pecas: Pecas, raiz: Path, *, folga_s: float = treino.FOLGA_PADRAO_S) -
             except ErroDoGravador:
                 return DEPOIS
         densa = treino_quadros.densa_da_gravacao(
-            treino_trecho.pedacos_baixados(pasta, g.canal), pecas.zona_do_canal(g.canal), pasta / DENSA,
+            treino_trecho.pedacos_baixados(pasta, g.canal), zona, pasta / DENSA,
             adianto_s=adianto, pode_seguir=pecas.pode_ler, ao_andar=lambda d: _contar(andamento, _faixa("densa", d.fracao)),
         )
         if not densa.completa:
