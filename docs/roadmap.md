@@ -1200,6 +1200,11 @@ gravador atende (1,5 s, fora da trava), e o OpenCV passa a desistir em 5 s
 
 ## A11 · A imagem que sai da loja: o borrão não borrava — 🟡 corrigido, cobertura parcial (06/10/2026)
 
+> **16/10/2026 — na loja piloto, o borrão está DESLIGADO por decisão do dono** ("não vamos tratar ou distorcer rostos
+> até final do produto funcionando por completo determinado por mim"): a variável `FAROL_BORRAR_ROSTOS=0` no
+> computador da loja. Sem ela, o borrão segue ligado, o padrão do produto. Religar = apagar a variável e reiniciar o
+> agente. Ver `docs/decisoes.md`, 16/10.
+
 ### O que aconteceu
 
 Para conferir uma medida, dois quadros foram trazidos de uma loja depois de

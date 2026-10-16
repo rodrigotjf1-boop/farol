@@ -378,3 +378,86 @@ def test_a_imagem_que_o_MOTOR_guarda_para_o_juiz_tem_o_rosto_apagado(
         assert _borda_mais_forte(img, (0, 0, 60, 60)) > 100, "o resto da cena continua lá"
     finally:
         fila.fechar()
+
+
+# ───────────────── desligado no computador da loja (o dono, 16/10/2026) ─────────────────
+
+
+@pytest.fixture
+def desligado(monkeypatch):
+    """A loja piloto: FAROL_BORRAR_ROSTOS=0. O detector que acha rosto anota quando é perguntado."""
+    perguntas = []
+
+    def detector():
+        perguntas.append(1)
+        return DetectorFixo()
+
+    monkeypatch.setattr(recorte, "_obter_detector", detector)
+    monkeypatch.setattr(recorte, "_avisou_desligado", False)
+    monkeypatch.setenv("FAROL_BORRAR_ROSTOS", "0")
+    return perguntas
+
+
+@pytest.mark.parametrize("valor,ligado", [
+    ("0", False), ("nao", False), ("NÃO", False), (" false ", False), ("desligado", False),
+    ("1", True), ("sim", True), ("", True), (None, True),
+])
+def test_so_o_valor_que_desliga_desliga(monkeypatch, valor, ligado):
+    if valor is None:
+        monkeypatch.delenv("FAROL_BORRAR_ROSTOS", raising=False)
+    else:
+        monkeypatch.setenv("FAROL_BORRAR_ROSTOS", valor)
+    assert recorte.borrao_ligado() is ligado
+
+
+def test_desligado_a_imagem_sai_como_veio_sem_perguntar_ao_detector_e_o_registro_diz_uma_vez(desligado, caplog):
+    f = _quadro()
+    caixa = _caixa(f.largura, f.altura)
+    with caplog.at_level("INFO", logger=recorte.__name__):
+        depois, borrou = recorte.borrar_rostos(f)
+        recorte.borrar_rostos(f)
+    assert borrou is False and depois is f
+    assert _borda_mais_forte(depois.imagem, caixa) == 255, "o rosto continua como veio"
+    assert desligado == [], "o detector de rosto nem é perguntado"
+    avisos = [r for r in caplog.records if "DESLIGADO" in r.getMessage()]
+    assert len(avisos) == 1 and avisos[0].levelname == "INFO", "uma linha só, e não é aviso: é a escolha da loja"
+
+
+def test_desligado_o_PREVIEW_e_a_imagem_do_MOTOR_saem_sem_o_borrao(desligado, regra, tmp_path):
+    q = capturar(FonteDeXadrez(), lado_maior=640, jpeg=90)
+    img = cv2.imdecode(np.frombuffer(base64.b64decode(q.imagem_base64), np.uint8), cv2.IMREAD_COLOR)
+    assert q.rosto_borrado is False
+    assert _borda_mais_forte(img, _caixa(640, 480, folga=8)) > 100, "o rosto não foi apagado"
+
+    fila = Fila(tmp_path / "fila.db")
+    try:
+        motor = MotorDeRegras(fila, [dataclasses.replace(regra, borrar_rosto=True)])
+        fonte = FonteSintetica()
+        assert motor.preparar(EventoGatilho(ponto_id=fonte.ponto_id, ts=BASE), fonte).enfileirados
+        (arquivo,) = list(fila.spool.glob("*.jpg"))
+        img = imagens.ler(arquivo)
+        h, w = img.shape[:2]
+        assert _borda_mais_forte(img, _caixa(w, h, folga=8)) > 100, "o rosto não foi apagado"
+    finally:
+        fila.fechar()
+
+
+@pytest.mark.parametrize("valor,diz", [("0", True), (None, False)])
+def test_a_subida_do_agente_diz_quando_o_borrao_esta_desligado(tmp_path, monkeypatch, capsys, valor, diz):
+    # Na loja, a troca de pacote mostra o registro da subida: é ali que se confere que a variável chegou ao agente.
+    from farol_agent import cli, nuvem, treino_servico
+    from testes.test_treino_servico import _ClienteDeMentira, _TreinoDeMentira
+
+    _ClienteDeMentira.criados.clear()
+    _TreinoDeMentira.vistos.clear()
+    monkeypatch.setenv("FAROL_AGENTE_TOKEN", "token-de-teste")
+    if valor is None:
+        monkeypatch.delenv("FAROL_BORRAR_ROSTOS", raising=False)
+    else:
+        monkeypatch.setenv("FAROL_BORRAR_ROSTOS", valor)
+    monkeypatch.setattr(nuvem, "ClienteNuvem", _ClienteDeMentira)
+    monkeypatch.setattr(treino_servico, "TreinoEmFundo", _TreinoDeMentira)
+    argv = ["servir", "--nuvem", "https://api.exemplo", "--config", str(tmp_path / "configuracao.json"),
+            "--fila", str(tmp_path / "fila.db"), "--sem-auditoria", "--voltas", "0"]
+    assert cli.main(argv) == 0
+    assert ("borrão de rosto DESLIGADO neste computador" in capsys.readouterr().out) is diz
