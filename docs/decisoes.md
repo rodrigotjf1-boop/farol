@@ -7986,7 +7986,94 @@ confirmar ("2 ok"):
 
 ### Falta
 
-- **A T3c-3 na loja:** os nomes possíveis em cada leitura, o recorte da METADE, o papel como "não é ingrediente", a
-  certeza e juntar as fotos parecidas.
-- **Refazer os exemplos das conferências** já feitas com a regra nova (várias marcas por foto). As respostas estão
-  guardadas.
+- **A T3c-3 na loja:** os nomes possíveis em cada leitura, o papel como "não é ingrediente", a certeza e juntar as
+  fotos parecidas. (O recorte da METADE entrou antes, no corpo do lanche: ver 16/10.)
+- **As conferências já feitas** no formato antigo (um nome por etapa) seguem valendo e não ganham nada "refeitas" pela
+  regra nova: a resposta antiga não tem as outras marcas da foto. O ganho vem de quem conferiu REABRIR o lanche e
+  marcar tudo o que aparece em cada foto ("Salvar de novo" troca os exemplos dele).
+
+## 16/10/2026 · A21: a etapa sobe no recorte da METADE em que entrou o ingrediente (sem migration; vale com o pacote novo)
+
+### O pedido
+
+O dono, conferindo os lanches de 14/10 (15/10, ~18h): "o ideal é que os cortes centralizem o máximo possível ou no
+tampo superior ou no tampo inferior do pão, que é onde vão os ingredientes". Até aqui, o quadro de cada etapa era o
+recorte do lanche inteiro: as duas metades e o papel em volta. Na madrugada de 16/10, junto com o "pode" da troca de
+pacote, ele perguntou se isso estava resolvido. Não estava: ia junto com a T3c-3. Entrou antes, sozinho.
+
+### O que entra
+
+- **`farol_agent/treino_corpo.py`**, ao montar o corpo do lanche. Cada etapa, menos a primeira (o pão aberto), é
+  comparada com a anterior no mesmo trecho, que tem a mesma caixa fixa. A metade que mudou sobe recortada, centrada
+  nela, com 35% de folga de cada lado. O lado continua "outro": quem diz se é tampo ou base é a identificação.
+- **As metades** vêm do `metades.csv` que a leitura da bancada já escreve:
+  - as caixas do detector nos 30 quadros antes da etapa (o pão coberto de ingrediente some do detector);
+  - juntas pelo centro, ficam os dois grupos com mais caixas;
+  - de cada metade, vale a caixa mais perto no tempo.
+- **A mudança** se mede no miolo de cada metade: um disco de 0,42 do lado da caixa, longe do papel-alumínio da borda,
+  que cintila. Antes de comparar, a luz do quadro é alinhada à do anterior (a sombra muda o tom e mantém o desenho).
+  Um pixel mudou quando o ΔE passa de 22. A metade da etapa é a que tem 10% ou mais do miolo mudado e pelo menos o
+  dobro da outra.
+- **Na dúvida, sobe o recorte inteiro**, como antes:
+  - a primeira etapa;
+  - o lanche no lugar novo (outro trecho);
+  - nenhuma metade conhecida;
+  - nenhuma metade vista até 2 quadros da etapa (o lanche já tinha saído);
+  - a metade que só aparece depois da etapa (ainda não tinha chegado);
+  - a caixa menor que 0,6 da mediana do trecho (não é metade);
+  - nenhuma metade mudou o bastante;
+  - as duas mudaram parecido;
+  - sem `metades.csv`, ou com ele torto.
+
+### Como foi medido, nos lanches de verdade
+
+Nos 9 lanches das 21h48 de 14/10 (os da carga da conferência), 58 etapas têm a anterior no mesmo trecho. Cada versão
+da regra rodou no computador da loja, só lendo as pastas e sem o detector. As decisões foram revistas uma a uma, no
+antes e no depois:
+
+| versão | o que mudou | decididas | certas |
+|---|---|---|---|
+| 1 | a mudança na caixa inteira | 1 (55 "espalhadas": a mão e o lanche do lado mudam junto) | — |
+| 2 | o miolo de cada metade, com a luz alinhada | 29 | 10 das 16 revistas |
+| 4 | sem a caixa pequena (um "pão" de 20 px entre as metades), a posição mais perto no tempo, só a janela antes | 30 | 24, mais 2 neutras; 4 erradas |
+| 6 | o mínimo de 10%, o dobro da outra, alguma metade vista até 2 quadros | 23 | 23 |
+
+As outras 35 sobem no recorte inteiro. Os 4 erros da versão 4:
+- três depois de o lanche sair: a mão, ou o vazio, no lugar dele;
+- um em que o pão chegando numa metade ganhou do molho que entrou na outra.
+
+A trava pela cor não serviu: a ideia era que papel-alumínio e inox têm pouca saturação, mas no inox escuro a
+saturação oscila.
+
+### Como foi provado
+
+- **Testes do agente** (`agent/testes/test_treino_corpo.py`): 27 novos, com o recorte desenhado (o papel riscado,
+  as metades e os ingredientes). Cobrem:
+  - a metade certa e centrada;
+  - um sexto do miolo já vale;
+  - na dúvida, o inteiro: as duas mudaram, mudou pouco, só a luz;
+  - a luz que muda junto não esconde o ingrediente;
+  - o lugar novo;
+  - o lanche que saiu;
+  - a metade que não tinha chegado;
+  - a caixa pequena;
+  - uma metade só;
+  - as metades de perto da etapa e a metade coberta que some do detector;
+  - o detector que não viu na hora, mas viu perto;
+  - o tom do pão que escurece um pouco e a carne parecida com o pão;
+  - a metade um pouco menor;
+  - o cintilar em pontinhos, um pão visto uma vez só e uma folha nova junto com a luz;
+  - sem `metades.csv`, ou torto;
+  - o recorte na borda.
+- **Mutação: 33 trocas, 33 mortas**, com controle antes e depois. Na primeira rodada morreram 30; as 3 vivas
+  pediram casos novos nos testes:
+  - o cintilar em pontinhos (a abertura que limpa a mudança);
+  - um pão visto uma vez só (o grupo de uma caixa não é metade);
+  - uma folha nova junto com a luz (o ajuste da luz só pelo papel de desenho igual).
+- **A suíte inteira do agente:** 1953 passaram, 1 pulado.
+
+### Falta
+
+- **Valer na loja:** o pacote novo (o "pode" de 16/10).
+- **A T3c-3:** diz o lado (tampo ou base) e lê o que entrou; esta regra fica como a escolha da metade para o recorte.
+- **Medir de novo** com os lanches da primeira gravação de treino: outras horas e outros colaboradores.
