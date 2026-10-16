@@ -78,6 +78,11 @@ EMPURRADO_ATE = 1.5
 # carne da chapa com a carne no pão); a do lugar recusa o que aparece ao lado logo depois da mão.
 MESMA_CARA_LONGE = 0.9
 FORA_DO_EIXO = 0.5
+# A região nova que CRESCE muito não é o lanche que se mexeu: é ele junto de outra coisa ao lado. Medido na densa de
+# 14/10 (16/10): das 8 junções de perto, as que cresceram mais que 1,5 vez foram vários pães postos de uma vez (2,46), a
+# bandeja de carnes ao lado do lanche coberto (1,66) e o par de pães que sai da mão para a bancada (1,73, ainda não era
+# lanche); o empurrão, o fechar e a mão por cima ficaram entre 0,29 e 0,90.
+CRESCE_ATE = 1.5
 # A menor caixa que vira recorte, em pixels.
 CAIXA_MINIMA = 50
 
@@ -278,12 +283,14 @@ def seguir(
             candidatos = [
                 a for a in livres if a.cara is not None
                 and math.dist(centro(a.regiao), centro(r)) < EMPURRADO_ATE * lado_maior(a.regiao)
+                and lado_maior(r) <= CRESCE_ATE * lado_maior(a.regiao)
                 and cv2.compareHist(a.cara, cara, cv2.HISTCMP_CORREL) >= perfil.parecido
             ]
             if not candidatos:
                 candidatos = [
                     a for a in livres if a.cara_vista is not None
                     and (agora - a.inicio).total_seconds() >= perfil.duracao_minima_s
+                    and lado_maior(r) <= CRESCE_ATE * lado_maior(a.regiao)
                     and fora_do_eixo(a.regiao, r, largura, altura) <= FORA_DO_EIXO * lado_maior(a.regiao)
                     and cv2.compareHist(a.cara_vista, cara, cv2.HISTCMP_CORREL) >= MESMA_CARA_LONGE
                 ]

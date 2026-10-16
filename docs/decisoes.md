@@ -8323,3 +8323,60 @@ andar, uma gravação nova no canal 4, o da bancada.
 - **Mutação: 6 trocas, 6 mortas** (4 na API, 2 no agente), com controle antes e depois.
 - **As suítes inteiras:** a do agente, 1963 passaram e 1 pulado. A da API, no banco descartável local, 1572 de 1573: a
   que falha é a conhecida do banco local sem pgvector ("embedding de dimensão errada"), que no CI passa.
+
+## 16/10/2026 · A21: a região que cresce muito não é o lanche que se mexeu (sem migration; vale com o pacote novo)
+
+### O achado
+
+Medindo o puxão (ver acima), o lanche puxado terminava com 12 s numa bandeja de carnes. O empurrão de perto já fazia
+isso antes: com o pão coberto enquanto a carne entrava, a bandeja ao lado passou por ele (a 0,95 lado, cara do lugar
+0,65). A região da bandeja era 1,66 vez a do lanche.
+
+### Como foi medido
+
+As 8 junções de perto da leitura atual, na densa de 14/10, conferidas uma a uma nos recortes do último quadro em que A
+foi visto e do primeiro de B. "Tamanho" é o lado da região nova sobre o do lanche.
+
+| tamanho | o que era | certo? |
+|---|---|---|
+| 0,86 | o mesmo lanche, com a mão por cima de parte dele | sim |
+| 0,49 | o mesmo lanche, a região encolheu | sim |
+| 0,90 | o lanche fechando (as duas metades viram uma) | sim |
+| 1,73 | o par de pães que sai da mão para a bancada (ainda não era lanche) | sim |
+| 0,40 | o pão e o embrulho que estava sendo dobrado ao lado | não |
+| 2,46 | um pão e vários pães postos de uma vez ao lado | não |
+| 1,66 | o lanche coberto e a bandeja de carnes ao lado | não |
+| 0,29 | duas metades e uma só | dúvida |
+
+### O que entra
+
+- **`farol_agent/treino_lanches.py`:** perto e longe, a região nova só é o lanche que se mexeu se tiver no máximo 1,5
+  vez o lado dele (`CRESCE_ATE`).
+- **O que muda nas 8:** saem as duas erradas que crescem (2,46 e 1,66) e o par de pães da mão (1,73), que ainda não era
+  lanche. O par passa a começar a trilha dele na bancada. O embrulho (0,40) continua: encolher é o que o lanche faz ao
+  fechar, e o tamanho não o separa.
+
+### A leitura atual × com o teto, na mesma densa
+
+Com os pães já detectados, no computador da loja. Controle: a leitura de 14/10, refeita, deu as trilhas guardadas.
+- **Os 9 lanches continuam,** com o mesmo começo.
+- **O lanche de 279 s** deixa de ter o trecho dos vários pães postos de uma vez.
+- **O lanche puxado** deixa de terminar na bandeja. Ele fica no lugar e chega até 22:15:03: o fechamento entra (antes,
+  ele terminava às 22:14:57, na bandeja).
+- **Uma junção nova,** numa trilha de 1 s que não é lanche: os vários pães encolhem para um na mão.
+
+### Como foi provado
+
+- **Testes do agente** (`agent/testes/test_treino_lanches.py`): 3 novos, 22 no arquivo:
+  - perto, quatro pães postos de uma vez logo abaixo (2,07 vezes, cara 0,99) não são o lanche;
+  - perto, o lanche empurrado com as metades mais afastadas (1,17 vez) ainda é ele;
+  - longe, dois lanches lado a lado no eixo (2,07 vezes, cara 0,99) não são o lanche puxado.
+- **Mutação: 6 trocas, 6 mortas**, com controle antes e depois: sem o teto (perto, longe), o teto de 1,0 e de 2,5, e o
+  teto ao contrário (limitando o encolher).
+- **A suíte inteira do agente:** 1966 passaram, 1 pulado.
+
+### Falta
+
+- **Valer na loja:** o pacote novo (troca autorizada).
+- **O embrulho (0,40) e a dúvida (0,29):** encolher não separa. Fica para quando a identificação (T3c-3) disser o que
+  há no recorte: o papel laminado, por exemplo, "não é ingrediente".
