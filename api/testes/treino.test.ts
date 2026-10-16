@@ -21,13 +21,19 @@ import { contarBase, impressaoDaBase, type Base } from '../src/fichas.js';
 import { apagarQuadrosVencidos } from '../src/rotas/treino.js';
 import {
   aprendizado,
+  ensinoDasEtapas,
   exemplosDaConferencia,
+  fotosDoLanche,
   lerConferencia,
   lerLancheDeTreino,
   MAX_BYTES_DO_QUADRO,
   motivoDoLanche,
+  palpiteQueVale,
   palpitesDoLanche,
+  semLeitura,
   vezesNaFicha,
+  vistosDaConferencia,
+  type ConferenciaPorFoto,
   type EtapaLida,
 } from '../src/treino.js';
 
@@ -178,6 +184,149 @@ describe('o lanche lido e a conta da ficha (sem banco)', () => {
     assert.equal(vezesNaFicha(0.12, 'kg'), 1);
     assert.equal(vezesNaFicha(2, 'folhas'), 1, 'folha não se conta de cima com segurança');
     assert.equal(vezesNaFicha(null, null), 1);
+  });
+});
+
+// ───────── a conferência nova: uma resposta por FOTO (protótipo aprovado pelo dono em 15/10/2026) ─────────
+
+/** As etapas do contrato, com a 4 (o bacon) no MESMO quadro da 3 (o queijo): uma foto com duas leituras. */
+const ETAPAS_DUPLA = (() => {
+  const e = copia(ETAPAS);
+  e[4]!.quadro = 3;
+  return e;
+})();
+/** A conferência nova certa para `ETAPAS_DUPLA` (5 fotos: [0], [1], [2], [3, 4], [5]). */
+const POR_FOTO = () => ({
+  versao: 2,
+  produto: 'X-Burger',
+  fotos: [
+    { marcados: ['Pão brioche'], ruim: false, obs: null },
+    { marcados: ['Cebola roxa'], ruim: false, obs: null },
+    { marcados: ['Blend da casa', ' blend da casa '], ruim: false, obs: null },
+    { marcados: ['Queijo prato', 'Bacon fatiado'], ruim: false, obs: null },
+    { marcados: [], ruim: true, obs: ' só a mão por cima ' },
+  ],
+  perguntas: { 'Cebola roxa': 'sim' },
+  obs: ' o bacon foi pedido ',
+  faltas: { Sal: 'cliente' },
+  aMais: { 'Bacon fatiado': 'adicional' },
+});
+const lerPorFoto = (corpo: unknown, etapas = ETAPAS_DUPLA) => {
+  const c = lerConferencia(corpo, etapas, BASE, fotosDoLanche(etapas));
+  assert.ok(!('problema' in c), JSON.stringify(c));
+  return c as ConferenciaPorFoto;
+};
+
+describe('a conferência por foto (sem banco)', () => {
+  it('as fotos: o mesmo quadro, ou a mesma imagem, é uma foto só; a etapa sem quadro fica sozinha', () => {
+    assert.deepEqual(fotosDoLanche(ETAPAS).map((f) => f.etapas), [[0], [1], [2], [3], [4], [5]], 'cada etapa com o seu quadro');
+    assert.deepEqual(fotosDoLanche(ETAPAS)[5], { etapas: [5], quadro: null });
+    assert.deepEqual(fotosDoLanche(ETAPAS_DUPLA).map((f) => f.etapas), [[0], [1], [2], [3, 4], [5]], 'o mesmo quadro');
+    // o computador da loja manda um quadro por etapa: quadros diferentes com os MESMOS bytes são a mesma foto
+    const sha = new Map<number, string | null>([[0, 'a'], [1, 'b'], [2, 'c'], [3, 'd'], [4, 'd']]);
+    assert.deepEqual(fotosDoLanche(ETAPAS, sha).map((f) => f.etapas), [[0], [1], [2], [3, 4], [5]], 'a mesma imagem');
+    assert.equal(fotosDoLanche(ETAPAS, sha)[3]!.quadro, 3, 'o quadro da foto é o da primeira etapa');
+    // sem a imagem guardada (quadro já apagado), vale o índice
+    assert.deepEqual(fotosDoLanche(ETAPAS, new Map([[3, null], [4, null]])).length, 6);
+  });
+
+  it('a resposta: uma por foto; o agrupamento é o da API; o nome repetido e o espaço saem', () => {
+    const corpo = POR_FOTO() as Record<string, unknown> & { fotos: Array<Record<string, unknown>> };
+    // o corpo não escolhe o agrupamento: as etapas que ele diz numa foto não contam
+    corpo.fotos[0]!.etapas = [3, 4, 5];
+    const c = lerPorFoto(corpo);
+    assert.equal(c.versao, 2);
+    assert.equal(c.produto, 'X-Burger');
+    assert.deepEqual(c.fotos.map((f) => f.etapas), [[0], [1], [2], [3, 4], [5]]);
+    assert.deepEqual(c.fotos[2]!.marcados, ['Blend da casa'], 'o mesmo nome com outra caixa é uma marca só');
+    assert.deepEqual(c.fotos[4], { etapas: [5], marcados: [], ruim: true, obs: 'só a mão por cima' });
+    assert.equal(c.fotos[0]!.obs, null);
+    assert.deepEqual(c.perguntas, { 'Cebola roxa': 'sim' });
+    assert.equal(c.obs, 'o bacon foi pedido');
+    assert.deepEqual([c.faltas, c.aMais], [{ Sal: 'cliente' }, { 'Bacon fatiado': 'adicional' }]);
+    // a observação em branco é nula; sem `versao`, `fotos` já diz que é a nova
+    const semVersao = POR_FOTO() as Record<string, unknown>;
+    delete semVersao.versao;
+    semVersao.obs = '   ';
+    assert.equal(lerPorFoto(semVersao).obs, null);
+  });
+
+  it('recusa a resposta por foto torta, dizendo onde', () => {
+    const tortas: Array<[string, (c: ReturnType<typeof POR_FOTO>) => void, RegExp]> = [
+      ['uma foto a menos', (c) => c.fotos.pop(), /uma resposta por foto \(5\)/],
+      ['marcas que não são lista', (c) => ((c.fotos[0] as Record<string, unknown>).marcados = 'Pão brioche'), /fotos\[0\].marcados/],
+      ['marcas demais', (c) => (c.fotos[1]!.marcados = Array.from({ length: 13 }, (_, i) => `Nome ${i}`)), /fotos\[1\].marcados: até 12/],
+      ['marca em branco', (c) => (c.fotos[1]!.marcados = ['  ']), /fotos\[1\].marcados/],
+      ['ruim que não é verdadeiro ou falso', (c) => ((c.fotos[2] as Record<string, unknown>).ruim = 'sim'), /fotos\[2\].ruim/],
+      ['o que houve comprido demais', (c) => (c.fotos[4]!.obs = 'x'.repeat(121)), /fotos\[4\].obs/],
+      ['pergunta com resposta torta', (c) => ((c.perguntas as Record<string, string>)['Cebola roxa'] = 'talvez'), /perguntas/],
+      ['observação do lanche comprida demais', (c) => (c.obs = 'x'.repeat(301)), /obs: até 300/],
+      ['produto sem ficha', (c) => (c.produto = 'Refrigerante lata'), /produto/],
+    ];
+    for (const [nome, estragar, esperado] of tortas) {
+      const c = POR_FOTO();
+      estragar(c);
+      const r = lerConferencia(c, ETAPAS_DUPLA, BASE, fotosDoLanche(ETAPAS_DUPLA));
+      assert.ok('problema' in r, nome);
+      assert.match((r as { problema: string }).problema, esperado, nome);
+    }
+  });
+
+  it('o que cada etapa ensina: tudo o que foi marcado na foto; a leitura de cada uma; a foto ruim, nada', () => {
+    const e = ensinoDasEtapas(ETAPAS_DUPLA, lerPorFoto(POR_FOTO()));
+    assert.deepEqual(e[3], { nomes: ['Queijo prato', 'Bacon fatiado'], daLeitura: 'Queijo prato', reconheceu: true });
+    // a leitura da etapa 4 ficou entre bacon e cebola: a marca da foto que está entre os candidatos dela é o bacon
+    assert.deepEqual(e[4], { nomes: ['Queijo prato', 'Bacon fatiado'], daLeitura: 'Bacon fatiado', reconheceu: false });
+    assert.deepEqual(e[5], { nomes: [], daLeitura: null, reconheceu: false }, 'a foto ruim não ensina');
+    // na resposta por etapa (a antiga), o mesmo de sempre
+    const antiga = lerConferencia({ produto: 'X-Burger', etapas: [{ v: 'certo' }, { v: 'nada' }, { v: 'outro', nome: 'Blend da casa' }, null, null, null] }, ETAPAS, BASE);
+    assert.ok(!('problema' in antiga));
+    const a = ensinoDasEtapas(ETAPAS, antiga);
+    assert.deepEqual([a[0], a[1], a[2], a[3]], [
+      { nomes: ['Pão brioche'], daLeitura: 'Pão brioche', reconheceu: true },
+      { nomes: [], daLeitura: null, reconheceu: false },
+      { nomes: ['Blend da casa'], daLeitura: 'Blend da casa', reconheceu: false },
+      { nomes: [], daLeitura: null, reconheceu: false },
+    ], 'na antiga, só o "Certo" é reconhecido (o "Era outro" com o mesmo nome também é correção)');
+  });
+
+  it('os exemplos: cada marca com o quadro da etapa; a mesma imagem com o mesmo nome entra uma vez; a foto ruim, não', () => {
+    const corpo = POR_FOTO();
+    corpo.fotos[1] = { marcados: ['Cebola roxa'], ruim: true, obs: null };
+    corpo.fotos[3]!.marcados.push('Picles');
+    assert.deepEqual(exemplosDaConferencia(ETAPAS_DUPLA, lerPorFoto(corpo), NOMES), [
+      { etapa: 0, nome: 'Pão brioche', quadro: 0 },
+      { etapa: 2, nome: 'Blend da casa', quadro: 2 },
+      { etapa: 3, nome: 'Queijo prato', quadro: 3 },
+      { etapa: 3, nome: 'Bacon fatiado', quadro: 3 },
+    ], 'a cebola ficou na foto ruim; o picles não está nas fichas; a etapa 4 é o mesmo quadro da 3');
+  });
+
+  it('o aprendizado e a conta da ficha pela resposta por foto: a marca é presença, e as fatias vêm da leitura', () => {
+    const a = aprendizado([{ etapas: ETAPAS_DUPLA, conferencia: lerPorFoto(POR_FOTO()) }]);
+    assert.deepEqual(a['Queijo prato'], { presente: 1, reconheceu: 1 });
+    assert.deepEqual(a['Bacon fatiado'], { presente: 1, reconheceu: 0 }, 'a leitura ficou entre bacon e cebola');
+    assert.deepEqual(a['Cebola roxa'], { presente: 1, reconheceu: 1 });
+    assert.equal(a['Sal'], undefined, 'o sal faltou porque o cliente pediu: não estava lá');
+    // a carne marcada também na foto do queijo (ela continua à vista) conta uma vez; o queijo, as 2 fatias da leitura
+    const corpo = POR_FOTO();
+    corpo.fotos[3]!.marcados.push('Blend da casa');
+    const v = vistosDaConferencia(ETAPAS_DUPLA, lerPorFoto(corpo));
+    assert.deepEqual(v.get('blend da casa'), { nome: 'Blend da casa', vezes: 1 });
+    assert.deepEqual(v.get('queijo prato'), { nome: 'Queijo prato', vezes: 2 });
+    assert.equal(v.has('ovo frito'), false);
+  });
+
+  it('sem nada visto da ficha, o Farol não tem palpite; sem leitura nenhuma, a tela diz', () => {
+    const nada = ETAPAS.map((e) => ({ ...e, leu: null, candidatos: [] }));
+    assert.equal(semLeitura(nada), true);
+    assert.equal(palpiteQueVale(palpitesDoLanche(nada, BASE)), null, 'a ficha com menos ingredientes não é palpite');
+    assert.equal(semLeitura(ETAPAS), false);
+    assert.equal(palpiteQueVale(palpitesDoLanche(ETAPAS, BASE))?.produto, 'X-Burger');
+    // viu só o que nenhuma ficha tem: também sem palpite
+    const estranho = nada.map((e, i) => (i === 1 ? { ...e, leu: 'molho verde' } : e));
+    assert.equal(semLeitura(estranho), false);
+    assert.equal(palpiteQueVale(palpitesDoLanche(estranho, BASE)), null);
   });
 });
 
@@ -445,5 +594,75 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     const r = await conferir(novo, { ...CONFERENCIA, produto: 'X-Burger Trio' });
     assert.equal(r.statusCode, 200, r.body);
     assert.deepEqual([r.json().produto, r.json().palpite, r.json().acertou], ['X-Burger Trio', 'X-Burger', true], 'a bancada não separa o trio');
+  });
+
+  it('a conferência nova: as fotos (a mesma imagem junta), os dados das perguntas, a resposta por foto, os exemplos sem repetir', async () => {
+    // as etapas 3 e 4 com quadros de MESMOS bytes (o computador da loja manda um quadro por etapa)
+    const corpo = CORPO();
+    corpo.lanche.chave = 'lanche-por-foto';
+    corpo.quadros[4] = { ...corpo.quadros[3]! };
+    const m = await mandar(corpo);
+    assert.equal(m.statusCode, 201, m.body);
+    const id = m.json().lancheId as string;
+    const d = (await umLanche(id)).json();
+    assert.deepEqual(d.fotos.map((f: { etapas: number[] }) => f.etapas), [[0], [1], [2], [3, 4], [5]]);
+    assert.equal(d.fotos[3].quadroId, d.etapas[3].quadroId, 'a foto mostra o quadro da primeira etapa dela');
+    assert.equal(d.fotos[4].quadroId, null, 'a etapa sem quadro');
+    assert.equal(d.semPalpite, false);
+    const p0 = d.palpites[0];
+    assert.equal(p0.produto, 'X-Burger');
+    assert.equal(p0.plausivel, true);
+    assert.ok(p0.ingredientes.length > 0 && p0.ingredientes.every((i: { nome: string; usos: number }) => typeof i.usos === 'number' && i.nome));
+    assert.ok(Array.isArray(p0.adicionais) && Array.isArray(p0.tira) && Array.isArray(p0.raros));
+
+    const antes = (await lista()).json().aprendizado['Bacon fatiado']?.presente ?? 0;
+    const torta = await conferir(id, { versao: 2, produto: 'X-Burger', fotos: [] }, cookieSupervisao);
+    assert.equal(torta.statusCode, 422);
+    assert.match(torta.json().mensagem, /uma resposta por foto \(5\)/);
+    const r = await conferir(
+      id,
+      {
+        versao: 2,
+        produto: 'X-Burger',
+        fotos: [
+          { marcados: ['Pão brioche'], ruim: false, obs: null },
+          { marcados: ['Cebola roxa'], ruim: true, obs: 'borrada' },
+          { marcados: ['Blend da casa'], ruim: false, obs: null },
+          { marcados: ['Queijo prato', 'Bacon fatiado'], ruim: false, obs: null },
+          { marcados: [], ruim: false, obs: null },
+        ],
+        perguntas: { 'Cebola roxa': 'nao' },
+        obs: 'o bacon foi pedido',
+        faltas: {},
+        aMais: { 'Bacon fatiado': 'adicional' },
+      },
+      cookieSupervisao,
+    );
+    assert.equal(r.statusCode, 200, r.body);
+    assert.deepEqual([r.json().palpite, r.json().acertou, r.json().exemplos], ['X-Burger', true, 4], 'a cebola ficou na foto ruim; a etapa 4 é a mesma imagem da 3');
+    const ex = await pool.query(`select b.nome, f.etapa from base_frame f join base_conhecimento b on b.id = f.base_id where f.lanche_id = $1 order by f.etapa, b.nome`, [id]);
+    assert.deepEqual(ex.rows.map((e) => [e.nome, e.etapa]), [['Pão brioche', 0], ['Blend da casa', 2], ['Bacon fatiado', 3], ['Queijo prato', 3]]);
+    const guardada = (await pool.query('select resposta from treino_lanche where id = $1', [id])).rows[0].resposta;
+    assert.deepEqual([guardada.versao, guardada.fotos[3].etapas, guardada.fotos[1].obs, guardada.obs], [2, [3, 4], 'borrada', 'o bacon foi pedido']);
+    // a gaveta devolve a resposta nova; a lista conta o aprendizado dela
+    assert.equal((await umLanche(id)).json().resposta.versao, 2);
+    assert.equal((await lista()).json().aprendizado['Bacon fatiado'].presente, antes + 1);
+  });
+
+  it('o lanche sem leitura: sem palpite na lista e na gaveta; conferido, conta como não acertado', async () => {
+    const corpo = CORPO();
+    corpo.lanche.chave = 'lanche-sem-leitura';
+    for (const e of corpo.lanche.etapas) {
+      e.leu = null;
+      e.candidatos = [];
+    }
+    const id = (await mandar(corpo)).json().lancheId as string;
+    const x = (await lista()).json().lanches.find((y: { id: string }) => y.id === id);
+    assert.deepEqual([x.semLeitura, x.palpite], [true, null]);
+    const d = (await umLanche(id)).json();
+    assert.equal(d.semPalpite, true);
+    const r = await conferir(id, { versao: 2, produto: 'X-Burger', fotos: d.fotos.map(() => ({ marcados: [], ruim: false, obs: null })) });
+    assert.equal(r.statusCode, 200, r.body);
+    assert.deepEqual([r.json().palpite, r.json().acertou, r.json().exemplos], [null, false, 0]);
   });
 });

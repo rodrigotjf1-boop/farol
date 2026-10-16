@@ -43,8 +43,10 @@ export type Familia = {
   produtos: Array<{ id: string; nome: string }>;
   /** Por chave: só o que se vê de cima. */
   ingredientes: Map<string, IngredienteDaFamilia>;
-  /** As chaves do que algum produto da família acrescenta como adicional (o cliente pode ter pedido). */
-  adicionais: Set<string>;
+  /** O que algum produto da família acrescenta como adicional (o cliente pode ter pedido): chave → nome. */
+  adicionais: Map<string, string>;
+  /** O que algum produto da família deixa o cliente mandar tirar ("Sem cebola"): chave → nome. */
+  retira: Map<string, string>;
 };
 
 export type Estudo = {
@@ -84,14 +86,18 @@ export function estudarFichas(base: Base | null, invisiveis: Set<string> = new S
       .join('|');
     let f = porChave.get(chave);
     if (!f) {
-      f = { chave, produtos: [], ingredientes, adicionais: new Set() };
+      f = { chave, produtos: [], ingredientes, adicionais: new Map(), retira: new Map() };
       porChave.set(chave, f);
     }
     f.produtos.push({ id: p.id, nome: p.nome });
     for (const g of p.adicionais ?? []) {
-      if (g.tipo !== 'adicionar') continue;
       for (const o of g.opcoes ?? []) {
-        if ((o.efeito?.tipo === 'insumo' || o.efeito?.tipo === 'preparo') && o.efeito.nome) f.adicionais.add(chaveDoIngrediente(o.efeito.nome));
+        const ef = o.efeito;
+        if (g.tipo === 'adicionar' && (ef?.tipo === 'insumo' || ef?.tipo === 'preparo') && ef.nome) {
+          if (!f.adicionais.has(chaveDoIngrediente(ef.nome))) f.adicionais.set(chaveDoIngrediente(ef.nome), ef.nome);
+        }
+        // o "Sem cebola": a opção que tira um ingrediente da ficha, em qualquer grupo
+        if (ef?.tipo === 'retira' && ef.nome && !f.retira.has(chaveDoIngrediente(ef.nome))) f.retira.set(chaveDoIngrediente(ef.nome), ef.nome);
       }
     }
     familiaDoProduto.set(chaveDoIngrediente(p.nome), f);
@@ -123,22 +129,25 @@ export function mesmaFamilia(e: Estudo, produtoA: string, produtoB: string): boo
   return fa !== undefined && fa === e.familiaDoProduto.get(b);
 }
 
-/** O que a leitura viu de cada ingrediente: a maior parte que uma etapa deu a ele e quantas vezes entrou. */
-export type Visto = Map<string, { parte: number; vezes: number }>;
+/** O que a leitura viu de cada ingrediente: a maior parte que uma etapa deu a ele, quantas vezes entrou e, quando ele
+ * só veio em grupo, o que a leitura disse ("molho laranja"). */
+export type Visto = Map<string, { parte: number; vezes: number; de: string | null }>;
 
 /**
  * A leitura do lanche, por ingrediente. `parte`: 1 quando uma etapa disse só ele; 1/m quando ele estava num grupo de m
- * nomes possíveis ("pode ser A ou B"). `vezes`: quantas vezes entrou, somado só nas etapas que disseram um nome.
+ * nomes possíveis ("pode ser A ou B"). `vezes`: quantas vezes entrou, somado só nas etapas que disseram um nome. `de`:
+ * o que a primeira etapa de grupo leu (o porquê do palpite diz "o que leu como 'molho laranja' pode ser…").
  */
-export function oQueFoiVisto(etapas: Array<{ candidatos: string[]; vezes: number }>): Visto {
+export function oQueFoiVisto(etapas: Array<{ candidatos: string[]; vezes: number; leu?: string | null }>): Visto {
   const visto: Visto = new Map();
   for (const e of etapas) {
     const ks = [...new Set(e.candidatos.map(chaveDoIngrediente))];
     if (ks.length === 0) continue;
     for (const k of ks) {
-      const v = visto.get(k) ?? { parte: 0, vezes: 0 };
+      const v = visto.get(k) ?? { parte: 0, vezes: 0, de: null };
       v.parte = Math.max(v.parte, 1 / ks.length);
       if (ks.length === 1) v.vezes += e.vezes;
+      else if (v.de === null) v.de = e.leu ?? null;
       visto.set(k, v);
     }
   }

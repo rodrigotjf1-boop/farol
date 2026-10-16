@@ -47,12 +47,15 @@ import {
   aprendizado,
   DIAS_DOS_QUADROS,
   exemplosDaConferencia,
+  fotosDoLanche,
   lerConferencia,
   lerLancheDeTreino,
   META,
   motivoDoLanche,
   MOTIVOS,
+  palpiteQueVale,
   palpitesDoLanche,
+  semLeitura,
   umPorFamilia,
   type Conferencia,
   type EtapaLida,
@@ -95,13 +98,17 @@ type LinhaDoLanche = {
   acertou: boolean | null;
   conferido_em: Date | null;
   conferido_por_nome: string | null;
-  quadros: Array<{ id: string; n: number }> | null;
+  quadros: Array<{ id: string; n: number; sha256: string | null }> | null;
 };
 
 const CAMPOS_DO_LANCHE = `
   l.id, l.gravacao_id, l.aberto_em, l.fechou_em, l.leitura, l.situacao, l.resposta, l.produto, l.palpite, l.acertou,
   l.conferido_em, u.nome as conferido_por_nome,
-  (select jsonb_agg(jsonb_build_object('id', q.id, 'n', q.n) order by q.n) from treino_quadro q where q.lanche_id = l.id) as quadros`;
+  (select jsonb_agg(jsonb_build_object('id', q.id, 'n', q.n, 'sha256', q.sha256) order by q.n) from treino_quadro q where q.lanche_id = l.id) as quadros`;
+
+/** A imagem de cada quadro (n → sha256): as etapas com a MESMA imagem são uma foto só na conferência nova. */
+const shaDosQuadros = (quadros: Array<{ n: number; sha256: string | null }> | null): Map<number, string | null> =>
+  new Map((quadros ?? []).map((q) => [q.n, q.sha256]));
 
 export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
   async function quem(req: FastifyRequest, resposta: FastifyReply): Promise<Sessao | null> {
@@ -175,6 +182,8 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
   function paraTela(l: LinhaDoLanche, base: Base | null, invisiveis: Set<string>) {
     const etapas = l.leitura?.etapas ?? [];
     const palpites = palpitesDoLanche(etapas, base, invisiveis);
+    // sem nada visto da ficha, o Farol não tem palpite (o lanche sem leitura, antes da identificação)
+    const vale = palpiteQueVale(palpites);
     const quadroDe = new Map((l.quadros ?? []).map((q) => [q.n, q.id]));
     // a miniatura de cada metade: o último quadro dela (como ficou)
     const miniatura = (lado: string) => {
@@ -191,7 +200,9 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
       fechouEm: l.fechou_em,
       situacao: l.situacao,
       motivo: motivoDoLanche(etapas, palpites[0]),
-      palpite: palpites[0] ? { produtoId: palpites[0].produtoId, produto: palpites[0].produto, batem: palpites[0].batem, total: palpites[0].total, fora: palpites[0].fora } : null,
+      /** Nenhuma etapa tem leitura (antes da identificação dos ingredientes): a tela diz isso, sem palpite. */
+      semLeitura: semLeitura(etapas),
+      palpite: vale ? { produtoId: vale.produtoId, produto: vale.produto, batem: vale.batem, total: vale.total, fora: vale.fora } : null,
       produto: l.produto,
       acertou: l.acertou,
       conferidoEm: l.conferido_em,
@@ -419,13 +430,21 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
     const loja = (await daLoja(pool, s.tenantId, l.loja_id))!;
     const quadroDe = new Map((l.quadros ?? []).map((q) => [q.n, q.id]));
     const etapas = l.leitura?.etapas ?? [];
+    const palpites = palpitesDoLanche(etapas, loja.base, loja.invisiveis);
     return {
       ...paraTela(l, loja.base, loja.invisiveis),
       gravacao: { id: l.gravacao_id, inicio: l.gravacao_inicio, fim: l.gravacao_fim, origem: l.gravacao_origem },
       etapas: etapas.map((e) => ({ ...e, quadroId: e.quadro !== null ? (quadroDe.get(e.quadro) ?? null) : null })),
+      /** A conferência nova: um cartão por foto (as etapas com a mesma imagem juntas), na ordem da primeira etapa. */
+      fotos: fotosDoLanche(etapas, shaDosQuadros(l.quadros)).map((f) => ({
+        etapas: f.etapas,
+        quadroId: f.quadro !== null ? (quadroDe.get(f.quadro) ?? null) : null,
+      })),
       // um por família: as opções de "Qual lanche era?" são lanches que a bancada separa (o "Trio 16" do "Número 16"
-      // fica em "Outro produto")
-      palpites: umPorFamilia(palpitesDoLanche(etapas, loja.base, loja.invisiveis)).slice(0, 3),
+      // fica em "Outro produto"). Até 4: as plausíveis das perguntas que separam as fichas estão entre elas.
+      palpites: umPorFamilia(palpites).slice(0, 4),
+      /** Nada do que a leitura viu bate com uma ficha: o Farol não tem palpite (e o lanche conta como não acertado). */
+      semPalpite: palpiteQueVale(palpites) === null,
       resposta: l.resposta,
       /** Para "Outro produto": os produtos da loja que têm ficha. */
       produtos: (loja.base?.produtos ?? []).filter((p) => p.ficha && p.cozinha).map((p) => ({ id: p.id, nome: p.nome })),
@@ -469,7 +488,8 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
     try {
       await cliente.query('begin');
       const r = await cliente.query(
-        `select l.id, l.loja_id, l.leitura, g.ponto_id
+        `select l.id, l.loja_id, l.leitura, g.ponto_id,
+                (select jsonb_agg(jsonb_build_object('n', q.n, 'sha256', q.sha256)) from treino_quadro q where q.lanche_id = l.id) as quadros
            from treino_lanche l
            join treino_gravacao g on g.id = l.gravacao_id
            join loja lo on lo.id = l.loja_id
@@ -477,20 +497,24 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
             for update of l`,
         [id, s.tenantId],
       );
-      const l = r.rows[0] as { id: string; loja_id: string; leitura: { etapas: EtapaLida[] }; ponto_id: string | null } | undefined;
+      const l = r.rows[0] as
+        | { id: string; loja_id: string; leitura: { etapas: EtapaLida[] }; ponto_id: string | null; quadros: Array<{ n: number; sha256: string | null }> | null }
+        | undefined;
       if (!l) {
         await cliente.query('rollback');
         return naoAchei(resposta, 'lanche não encontrado');
       }
       const loja = (await daLoja(cliente, s.tenantId, l.loja_id))!;
       const etapas = l.leitura?.etapas ?? [];
-      const conferencia = lerConferencia(req.body, etapas, loja.base);
+      // a conferência nova responde por foto: o agrupamento é o da API (o mesmo que a gaveta recebeu)
+      const conferencia = lerConferencia(req.body, etapas, loja.base, fotosDoLanche(etapas, shaDosQuadros(l.quadros)));
       if ('problema' in conferencia) {
         await cliente.query('rollback');
         return invalido(resposta, conferencia.problema);
       }
       const estudo = estudarFichas(loja.base, loja.invisiveis);
-      const palpite = palpitesDoLanche(etapas, loja.base, loja.invisiveis, estudo)[0]?.produto ?? null;
+      // sem nada visto da ficha, não há palpite: o lanche conta como não acertado (decisão do dono, 15/10/2026)
+      const palpite = palpiteQueVale(palpitesDoLanche(etapas, loja.base, loja.invisiveis, estudo))?.produto ?? null;
       // o produto escolhido, ou outro da mesma família: a bancada não separa o "Trio 16" do "Número 16"
       const acertou = acertouOPalpite(estudo, conferencia.produto, palpite);
       await cliente.query(
@@ -509,11 +533,13 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
            returning id`,
           [l.loja_id, ex.nome],
         );
+        // a mesma imagem (outro quadro com os mesmos bytes) para o mesmo ingrediente, do mesmo lanche: uma vez só
         const novo = await cliente.query(
           `insert into base_frame (base_id, origem, imagem, tipo, largura, altura, sha256, lanche_id, etapa, ponto_id, criado_por)
            select $1, 'bancada', q.imagem, q.tipo, q.largura, q.altura, q.sha256, $2, $3, $4, $5
              from treino_quadro q
-            where q.lanche_id = $2 and q.n = $6`,
+            where q.lanche_id = $2 and q.n = $6
+              and not exists (select 1 from base_frame b where b.base_id = $1 and b.lanche_id = $2 and b.sha256 = q.sha256)`,
           [item.rows[0].id, id, ex.etapa, l.ponto_id, s.usuarioId, ex.quadro],
         );
         exemplos += novo.rowCount ?? 0;

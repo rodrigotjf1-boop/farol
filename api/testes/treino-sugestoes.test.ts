@@ -16,7 +16,7 @@ import pg from 'pg';
 
 import { criarApp } from '../src/app.js';
 import { contarBase, impressaoDaBase, type Base } from '../src/fichas.js';
-import type { Conferencia, EtapaLida } from '../src/treino.js';
+import type { ConferenciaPorEtapa, ConferenciaPorFoto, EtapaLida } from '../src/treino.js';
 import { chaveDaSugestao, LIMITES, sugestoesDoTreino, type Conferido } from '../src/treino-sugestoes.js';
 
 const BASE = (JSON.parse(readFileSync(new URL('../../contratos/fichas-da-loja.json', import.meta.url), 'utf8')) as { resposta: { base: Base } }).resposta.base;
@@ -24,9 +24,9 @@ const LANCHE = JSON.parse(readFileSync(new URL('../../contratos/lanche-de-treino
   corpo: { gravacao: Record<string, unknown>; lanche: { etapas: EtapaLida[] } & Record<string, unknown>; quadros: unknown[] };
 };
 
-type Etapa = { leu: string | null; candidatos?: string[]; vezes?: number; resposta: Conferencia['etapas'][number] };
+type Etapa = { leu: string | null; candidatos?: string[]; vezes?: number; resposta: ConferenciaPorEtapa['etapas'][number] };
 /** Um lanche conferido: as etapas com a resposta de cada uma, o que faltou e o que veio a mais. */
-function conferido(produto: string | null, etapas: Etapa[], faltas: Conferencia['faltas'] = {}, aMais: Conferencia['aMais'] = {}): Conferido {
+function conferido(produto: string | null, etapas: Etapa[], faltas: ConferenciaPorEtapa['faltas'] = {}, aMais: ConferenciaPorEtapa['aMais'] = {}): Conferido {
   return {
     produto,
     etapas: etapas.map((e, i) => ({ hora: `2026-10-14T22:0${i}:00-03:00`, lado: 'base', inicio: false, leu: e.leu, candidatos: e.candidatos ?? [], vezes: e.vezes ?? 1, quadro: null })),
@@ -37,6 +37,27 @@ const certo = (nome: string, vezes = 1, leu = nome.toLowerCase()): Etapa => ({ l
 const outro = (nome: string, leu: string | null = 'algo'): Etapa => ({ leu, candidatos: [], resposta: { v: 'outro', nome } });
 /** O X-Burger montado pela ficha, com `queijo` fatias. */
 const xBurger = (queijo = 2) => [certo('Pão brioche'), certo('Blend da casa'), certo('Queijo prato', queijo), certo('Cebola roxa')];
+
+/** Uma foto da conferência NOVA: a leitura da etapa e o que a pessoa marcou nela. */
+type Foto = { leu: string | null; candidatos?: string[]; vezes?: number; marcados: string[]; ruim?: boolean };
+/** Um lanche conferido pela conferência nova: cada etapa com o seu quadro (uma foto por etapa). */
+function porFoto(produto: string | null, fotos: Foto[], faltas: ConferenciaPorFoto['faltas'] = {}, aMais: ConferenciaPorFoto['aMais'] = {}): Conferido {
+  return {
+    produto,
+    etapas: fotos.map((e, i) => ({ hora: `2026-10-15T22:0${i}:00-03:00`, lado: 'base', inicio: false, leu: e.leu, candidatos: e.candidatos ?? [], vezes: e.vezes ?? 1, quadro: i })),
+    conferencia: {
+      versao: 2,
+      produto,
+      fotos: fotos.map((e, i) => ({ etapas: [i], marcados: e.marcados, ruim: e.ruim ?? false, obs: null })),
+      perguntas: {},
+      obs: null,
+      faltas,
+      aMais,
+    },
+  };
+}
+const marcada = (nome: string, vezes = 1): Foto => ({ leu: nome.toLowerCase(), candidatos: [nome], vezes, marcados: [nome] });
+const xBurgerPorFoto = (queijo = 2) => [marcada('Pão brioche'), marcada('Blend da casa'), marcada('Queijo prato', queijo), marcada('Cebola roxa')];
 
 describe('as sugestões para as fichas (sem banco)', () => {
   it('sem fichas, nenhuma; o lanche montado pela ficha não sugere nada', () => {
@@ -112,6 +133,29 @@ describe('as sugestões para as fichas (sem banco)', () => {
     // o que não é molho (cor de cebola, de carne) não entra nesta conta
     const cebola = (leu: string) => conferido('X-Burger', [outro('Cebola roxa', leu)]);
     assert.equal(sugestoesDoTreino([cebola('cebola escura'), cebola('cebola escura'), cebola('roxa'), cebola('roxa')], BASE).filter((x) => x.tipo === 'duas-coisas').length, 0);
+  });
+
+  it('a conferência por foto também sugere: o nome marcado fora das fichas, o que faltou, o molho de duas cores', () => {
+    // o nome escrito à mão e marcado, em dois lanches (o mesmo nome duas vezes no lanche conta uma); na foto ruim, não
+    const fora = sugestoesDoTreino(
+      [
+        porFoto('X-Burger', [...xBurgerPorFoto(), { leu: null, marcados: ['Picles'] }]),
+        porFoto('X-Burger', [...xBurgerPorFoto(), { leu: 'verde', marcados: ['picles', 'Picles'] }]),
+        porFoto('X-Burger', [...xBurgerPorFoto(), { leu: 'verde', marcados: ['Jalapeño'], ruim: true }]),
+      ],
+      BASE,
+    );
+    assert.deepEqual(fora.map((x) => [x.tipo, x.ingrediente]), [['nome-fora', 'Picles']]);
+    assert.match(fora[0]!.viu, /^Em 2 lanches conferidos \(X-Burger\)/);
+    // o que faltou: o queijo marcado, com 1 fatia na leitura, e "faltou" em 3 de 4
+    const umaFatia = () => porFoto('X-Burger', xBurgerPorFoto(1), { 'Queijo prato': 'faltou' });
+    const f = sugestoesDoTreino([umaFatia(), umaFatia(), umaFatia(), porFoto('X-Burger', xBurgerPorFoto())], BASE);
+    assert.deepEqual(f.map((x) => x.titulo), ['X-Burger: a ficha diz 2 fatias de Queijo prato; a bancada pôs 1']);
+    // o molho de duas cores: a leitura ficou entre dois nomes, e a marca da foto que está entre eles diz qual era
+    // (o pão marcado ANTES: a leitura da etapa é a marca que está entre os candidatos dela, não a primeira da foto)
+    const molho = (leu: string) => porFoto('X-Burger', [{ leu, candidatos: ['Molho da casa', 'Cebola roxa'], marcados: ['Pão brioche', 'Molho da casa'] }]);
+    const d = sugestoesDoTreino([molho('molho laranja'), molho('molho laranja'), molho('molho branco'), molho('molho branco')], BASE).filter((x) => x.tipo === 'duas-coisas');
+    assert.deepEqual(d.map((x) => x.ingrediente), ['Molho da casa']);
   });
 
   it('a ordem: os tipos na ordem do protótipo; os limites são os escritos', () => {
