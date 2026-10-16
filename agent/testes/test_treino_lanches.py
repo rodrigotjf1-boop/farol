@@ -189,6 +189,51 @@ def test_o_lanche_sem_cara_nao_quebra_a_busca_longe(tmp_path):
     assert len(resumo) == 2 and all(r["mudouDeLugar"] == 0 for r in resumo), resumo
 
 
+def cena_da_troca(paes_depois, escuros_depois, mao=False, puxa_em=50, t0: datetime = T0):
+    """O lanche à esquerda (com o ingrediente escuro desde os 5 s); em `puxa_em` ele some (com a `mao`, ela cobre o lugar
+    por 2 s) e aparece o que está em `paes_depois` (com os ingredientes escuros em `escuros_depois`) por 30 s."""
+    saida = []
+    depois = puxa_em + (2 if mao else 0)
+    fim = depois + 30
+    for s in range(fim + 16):
+        t = 2 * (s % 2)
+        if s < puxa_em:
+            img = quadro([(300 + t, 270), (390 + t, 270)], None, (390 + t, 270) if s >= 5 else None)
+        elif s < depois:
+            img = quadro()
+            cv2.rectangle(img, (235, 160), (455, 380), (200, 120, 60), -1)  # a mão por cima, de outra cor
+        elif s < fim:
+            img = quadro([(x + t, y) for x, y in paes_depois])
+            for x, y in escuros_depois:
+                cv2.circle(img, (x + t, y), 28, (30, 30, 30), -1)
+        else:
+            img = quadro()
+        saida.append((t0 + timedelta(seconds=s), img))
+    return saida
+
+
+def test_perto_a_regiao_que_cresce_muito_nao_e_o_lanche_que_se_mexeu(tmp_path):
+    # Logo abaixo, quatro pães postos de uma vez (como às 22:07 de 14/10): a 0,70 lado, a cara 0,99 — mas a região é
+    # 2,07 vezes a do lanche. É ele junto de outra coisa, e não ele empurrado.
+    cena = cena_da_troca([(300, 420), (390, 420), (480, 420), (570, 420)], [(390, 420), (570, 420)])
+    resumo = tl.lanches_da_densa(montar_densa(tmp_path, cena), tmp_path / "lanches", DetectorDaCor(), PERFIL)
+    assert len(resumo) == 2 and all(r["mudouDeLugar"] == 0 for r in resumo), [(r["lanche"], r["duracaoS"], r["mudouDeLugar"]) for r in resumo]
+
+
+def test_perto_a_regiao_que_cresce_pouco_ainda_e_o_lanche(tmp_path):
+    # Empurrado 250 px com as metades mais afastadas (120 px): a região é 1,17 vez a do lanche, e ele é o mesmo.
+    cena = cena_da_troca([(550, 270), (670, 270)], [(670, 270)])
+    resumo = tl.lanches_da_densa(montar_densa(tmp_path, cena), tmp_path / "lanches", DetectorDaCor(), PERFIL)
+    assert len(resumo) == 1 and resumo[0]["mudouDeLugar"] == 1, [(r["lanche"], r["duracaoS"]) for r in resumo]
+
+
+def test_longe_a_regiao_que_cresce_muito_nao_e_o_lanche_puxado(tmp_path):
+    # Depois da mão, 1,64 lado adiante no eixo, dois lanches lado a lado com a mesma cara (0,99): a região é 2,07 vezes.
+    cena = cena_da_troca([(620, 290), (710, 290), (800, 290), (890, 290)], [(710, 290), (890, 290)], mao=True)
+    resumo = tl.lanches_da_densa(montar_densa(tmp_path, cena), tmp_path / "lanches", DetectorDaCor(), PERFIL)
+    assert len(resumo) == 2 and all(r["mudouDeLugar"] == 0 for r in resumo), [(r["lanche"], r["duracaoS"], r["mudouDeLugar"]) for r in resumo]
+
+
 def test_fora_do_eixo_e_pelo_lado_maior_do_recorte():
     a, b = (0, 0, 100, 100), (300, 40, 400, 140)
     assert tl.fora_do_eixo(a, b, 960, 540) == 40, "deitado: o eixo é o horizontal"
