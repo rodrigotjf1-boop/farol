@@ -1,0 +1,74 @@
+{
+  "_": "O horário do computador da loja (A22): os MESMOS casos, conferidos pela API (api/src/computador.ts) e, na fatia P3, pelo agente que dorme e acorda. dia: 1 = segunda … 7 = domingo; dorme e acorda no relógio da loja, ou nulo. O estado de cada instante é o do último acontecimento antes dele, dando a volta na semana. O minuto do 'acorda' já é acordado; o do 'dorme' já é dormindo.",
+  "saber": "dormir",
+  "fuso": "America/Sao_Paulo",
+  "horarioDaLoja": [
+    { "dias": [1, 2, 3, 4], "hora_ini": "19:00", "hora_fim": "03:00" },
+    { "dias": [5, 6], "hora_ini": "19:00", "hora_fim": "05:45" },
+    { "dias": [7], "hora_ini": "19:00", "hora_fim": "03:15" }
+  ],
+  "folgaDaSugestaoMin": 60,
+  "sugestao": {
+    "_": "1 hora depois de fechar e 1 hora antes de abrir. A segunda dorme às 04:15 porque o domingo fecha às 03:15.",
+    "ligado": true,
+    "dias": [
+      { "dia": 1, "dorme": "04:15", "acorda": "18:00" },
+      { "dia": 2, "dorme": "04:00", "acorda": "18:00" },
+      { "dia": 3, "dorme": "04:00", "acorda": "18:00" },
+      { "dia": 4, "dorme": "04:00", "acorda": "18:00" },
+      { "dia": 5, "dorme": "04:00", "acorda": "18:00" },
+      { "dia": 6, "dorme": "06:45", "acorda": "18:00" },
+      { "dia": 7, "dorme": "06:45", "acorda": "18:00" }
+    ]
+  },
+  "horario": {
+    "_": "O que o dono pediu em 16/10/2026: dorme 1 hora depois de fechar (04:00 de segunda a sexta, 06:45 no sábado e no domingo) e acorda às 18:00.",
+    "ligado": true,
+    "dias": [
+      { "dia": 1, "dorme": "04:00", "acorda": "18:00" },
+      { "dia": 2, "dorme": "04:00", "acorda": "18:00" },
+      { "dia": 3, "dorme": "04:00", "acorda": "18:00" },
+      { "dia": 4, "dorme": "04:00", "acorda": "18:00" },
+      { "dia": 5, "dorme": "04:00", "acorda": "18:00" },
+      { "dia": 6, "dorme": "06:45", "acorda": "18:00" },
+      { "dia": 7, "dorme": "06:45", "acorda": "18:00" }
+    ]
+  },
+  "casos": [
+    { "quando": "2026-10-19T03:59", "dormindo": false, "porque": "segunda 03:59: o domingo fechou às 03:15, e ele só dorme às 04:00" },
+    { "quando": "2026-10-19T04:00", "dormindo": true, "porque": "segunda, no minuto de dormir" },
+    { "quando": "2026-10-19T12:00", "dormindo": true, "porque": "segunda ao meio-dia" },
+    { "quando": "2026-10-19T17:59", "dormindo": true, "porque": "segunda, um minuto antes de acordar" },
+    { "quando": "2026-10-19T18:00", "dormindo": false, "porque": "segunda, no minuto de acordar" },
+    { "quando": "2026-10-19T23:00", "dormindo": false, "porque": "segunda à noite, com a loja aberta" },
+    { "quando": "2026-10-23T04:00", "dormindo": true, "porque": "sexta 04:00: a quinta fechou às 03:00" },
+    { "quando": "2026-10-24T05:59", "dormindo": false, "porque": "sábado 05:59: a sexta fechou às 05:45, e ele só dorme às 06:45" },
+    { "quando": "2026-10-24T06:44", "dormindo": false, "porque": "sábado, um minuto antes de dormir" },
+    { "quando": "2026-10-24T06:45", "dormindo": true, "porque": "sábado, no minuto de dormir" },
+    { "quando": "2026-10-25T12:00", "dormindo": true, "porque": "domingo ao meio-dia" },
+    { "quando": "2026-10-25T18:00", "dormindo": false, "porque": "domingo, no minuto de acordar" },
+    { "quando": "2026-10-26T00:30", "dormindo": false, "porque": "segunda 00:30 ainda é o domingo, aberto até 03:15" }
+  ],
+  "choques": [
+    {
+      "_": "dormir às 03:00 na terça: a segunda ainda está aberta no minuto de fechar (03:00)",
+      "dias": [{ "dia": 2, "dorme": "03:00", "acorda": "18:00" }],
+      "choques": [{ "dia": 2, "de": "03:00", "ate": "03:01" }]
+    },
+    {
+      "_": "dormir às 05:00 no sábado: a sexta fecha às 05:45",
+      "dias": [{ "dia": 6, "dorme": "05:00", "acorda": "18:00" }],
+      "choques": [{ "dia": 6, "de": "05:00", "ate": "05:46" }]
+    },
+    {
+      "_": "acordar às 19:30 na quarta: a loja abre às 19:00",
+      "dias": [{ "dia": 3, "dorme": "04:00", "acorda": "19:30" }],
+      "choques": [{ "dia": 3, "de": "19:00", "ate": "19:30" }]
+    },
+    {
+      "_": "dormir na segunda sem acordar até a terça: dorme a segunda à noite inteira, com a loja aberta",
+      "dias": [{ "dia": 1, "dorme": "04:00", "acorda": null }, { "dia": 2, "dorme": "04:00", "acorda": "18:00" }],
+      "choques": [{ "dia": 1, "de": "19:00", "ate": "24:00" }, { "dia": 2, "de": "00:00", "ate": "03:01" }]
+    }
+  ]
+}

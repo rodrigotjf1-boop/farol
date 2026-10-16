@@ -38,6 +38,7 @@ import {
   type Severidade,
   type Prioridade,
 } from './alertas.js';
+import { silencioDoAgente, type HorarioDoComputador } from './computador.js';
 
 export interface EventoParaAvisar {
   id: string;
@@ -218,11 +219,13 @@ export async function despacharAgentesCaidos(
   // `ultimo_heartbeat is null` NÃO entra: agente recém-criado e nunca
   // ativado não é agente caído — é agente que ninguém instalou ainda, e
   // avisar disso como emergência treinaria o dono a ignorar o aviso.
-  const caidos = await pool.query<{
+  const todos = await pool.query<{
     id: string; nome: string; tenant_id: string; loja_id: string;
     ultimo_heartbeat: Date;
+    horario_computador: HorarioDoComputador | null; timezone: string; sabe: string[] | null;
   }>(
-    `select a.id, a.nome, l.tenant_id, a.loja_id, a.ultimo_heartbeat
+    `select a.id, a.nome, l.tenant_id, a.loja_id, a.ultimo_heartbeat,
+            l.horario_computador, l.timezone, a.sabe
        from agente a
        join loja l on l.id = a.loja_id
       where a.estado = 'ativo'
@@ -230,7 +233,14 @@ export async function despacharAgentesCaidos(
         and a.ultimo_heartbeat < now() - ($1 || ' minutes')::interval`,
     [String(minutos)],
   );
-  if (caidos.rowCount === 0) return { criados: 0, agentes: 0 };
+  // O computador que DORME NO HORÁRIO não caiu (A22): calou na hora de dormir, sabe dormir, e o horário dele está
+  // ligado. Passou do "acorda" (com a folga) sem voltar, o aviso volta — com a hora desde a última batida.
+  const caidos = {
+    rows: todos.rows.filter((a) => !silencioDoAgente({
+      horario: a.horario_computador, fuso: a.timezone, sabe: a.sabe, ultimaBatida: a.ultimo_heartbeat, agora,
+    }).dormindo),
+  };
+  if (caidos.rows.length === 0) return { criados: 0, agentes: 0 };
 
   // DUAS consultas de configuração para N agentes, não duas por agente.
   // O caso que decide este desenho é o pior: queda do provedor derruba a
@@ -292,7 +302,7 @@ export async function despacharAgentesCaidos(
     }
   }
 
-  if (linhas.length === 0) return { criados: 0, agentes: caidos.rowCount ?? 0 };
+  if (linhas.length === 0) return { criados: 0, agentes: caidos.rows.length };
 
   // E UM insert para todos os avisos de todas as lojas.
   const r = await pool.query(
@@ -305,5 +315,5 @@ export async function despacharAgentesCaidos(
     [JSON.stringify(linhas)],
   );
 
-  return { criados: r.rowCount ?? 0, agentes: caidos.rowCount ?? 0 };
+  return { criados: r.rowCount ?? 0, agentes: caidos.rows.length };
 }

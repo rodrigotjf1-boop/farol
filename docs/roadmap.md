@@ -5184,7 +5184,7 @@ pedido um lanche ainda pode ser dele (medido: 3 minutos, num caso só; proponho 
 primeiro); (3) ligar, no cadastro do Regem, o código PDV dos adicionais dos canais às opções — resolve o estoque e a
 fila juntos.
 
-## A22 · O computador da loja dorme e acorda sozinho (pedido do dono, 15/10/2026; protótipo esperando a aprovação)
+## A22 · O computador da loja dorme e acorda sozinho (pedido do dono, 15/10/2026; protótipo aprovado em 16/10/2026)
 
 ### O pedido
 
@@ -5205,10 +5205,16 @@ fila juntos.
 |---|---|---|---|---|
 | **P0** | o protótipo (`mockups/farol-computador-da-loja.html`): a tela Computador da loja, a gaveta do horário, o teste de 3 minutos e as situações | — | — | — |
 | **P1** | o teste de verdade numa madrugada: dormir, acordar 5 minutos depois, conferir o agente e o Regem de pé e apagar os agendamentos | — | — | com o "pode" do dono |
-| **P2** | a API e a tela: o horário guardado por loja; o "agente sem sinal" vira "dormindo" no horário, e o aviso não sai | sim | sim | — |
+| **P2** | a API e a tela: o horário guardado por loja; o "agente sem sinal" vira "dormindo" no horário, e o aviso não sai. **A API ✅ (16/10, migration 052):** `GET`/`PUT /v1/lojas/:id/computador` e `POST …/conferir` (a semana de um rascunho, sem salvar); a recusa de dormir com a loja aberta, com o dia e o trecho; a sugestão com 1 hora de folga; o horário desce em `loja.horarioComputador`; a moldura e o vigia só dizem "dormindo" para o agente que declara `dormir` (até a P3, nenhum: nada muda). **A tela:** a seguir | 052 | sim | — |
 | **P3** | o agente aplica o horário (a espera e a tarefa de acordar) e conta o que aconteceu (dormiu, acordou e em quanto tempo) | — | — | pacote novo, com o "pode" |
 
-**As decisões que o protótipo pede ao dono:**
-- salvar com o computador dormindo com a loja aberta: o protótipo NÃO deixa;
-- a folga de 30 minutos da sugestão;
-- o teste de 3 minutos na tela, só para quem configura.
+**As decisões que o protótipo pedia ao dono — respondidas em 16/10/2026 ("protótipo aprovado", com o horário dele):**
+- salvar com o computador dormindo com a loja aberta: **não deixa** (a API recusa, com o dia e o trecho);
+- a folga da sugestão: **1 hora**, não 30 minutos (o dono: "adormecer servidor 1 hora após esses horários e ligar 1 hora
+  antes"). Na loja piloto: dorme às 04:00 de segunda a sexta e às 06:45 no sábado e no domingo, acorda às 18:00;
+- o teste de 3 minutos na tela, só para quem configura: **sim** (entra com a P3, que é quem sabe dormir).
+
+**Ideia do dono para depois (16/10/2026):** "futuramente vou pôr um critério de varredura e análise do horário que o
+servidor ficou off, procurando anomalias ou pessoas não identificadas" — ao acordar, ler no gravador o trecho em que o
+computador dormiu. Encaixa na busca investigativa (onda 10 do A19) e no A8; o agente já sabe pedir ao gravador o que
+foi gravado.

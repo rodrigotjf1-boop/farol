@@ -51,7 +51,7 @@ export async function configuracaoDaLoja(pool: pg.Pool, lojaId: string, sabe: Re
   // juntas.
   const l = await pool.query(
     `select l.id, l.nome, l.config_versao, l.modo_julgamento, l.resolucao_padrao,
-            l.horario_funcionamento, l.tipo_negocio, l.pedido_com_contexto,
+            l.horario_funcionamento, l.tipo_negocio, l.pedido_com_contexto, l.horario_computador,
             f.impressao as fichas_impressao, f.produtos as fichas_produtos, f.com_ficha as fichas_com_ficha
        from loja l
        left join fichas_da_loja f on f.loja_id = l.id
@@ -246,6 +246,10 @@ export async function configuracaoDaLoja(pool: pg.Pool, lojaId: string, sabe: Re
       // Quando a loja abre. Vazio = sempre aberta. Quem decide se é hora
       // de conferir é o agente, com o relógio do computador da loja.
       horarioFuncionamento: l.rows[0].horario_funcionamento ?? [],
+      // Quando o computador da loja dorme e acorda sozinho (A22; `contratos/horario-do-computador.json`). Nulo =
+      // nunca programado: ele fica ligado o tempo todo. Quem aplica é o agente que sabe dormir (fatia P3); o
+      // antigo ignora a entrada.
+      horarioComputador: l.rows[0].horario_computador ?? null,
       // O contexto que vai com a pergunta feita a um modelo: que negócio é
       // (a cena de cada canal desce no ponto). E a chave interna que diz se
       // o agente já pergunta com contexto — ligada, canal sem cena escrita
