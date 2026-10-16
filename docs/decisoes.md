@@ -8380,3 +8380,37 @@ Com os pães já detectados, no computador da loja. Controle: a leitura de 14/10
 - **Valer na loja:** o pacote novo (troca autorizada).
 - **O embrulho (0,40) e a dúvida (0,29):** encolher não separa. Fica para quando a identificação (T3c-3) disser o que
   há no recorte: o papel laminado, por exemplo, "não é ingrediente".
+
+## 16/10/2026 · O borrão de rosto desligado na loja piloto, por uma chave do computador dela (sem migration; vale com o pacote novo)
+
+### O que o dono decidiu
+
+Conferindo o treinamento (16/10), o dono disse: "não se limite a tratamento LGPD, não vamos tratar ou distorcer rostos
+até final do produto funcionando por completo determinado por mim". Perguntei se o borrão da auditoria ao vivo, nas
+imagens que vão ao juiz de nuvem, saía também. A resposta: "sim desligar". Cláusulas de uso de imagem, se for o caso,
+no fim do projeto.
+
+### O que entra
+
+- **`FAROL_BORRAR_ROSTOS`**, uma variável do computador da loja. Com `0` (ou "nao", "false", "desligado"), o borrão de
+  rosto não roda em nenhum caminho do agente: a imagem que vai ao juiz, a prévia do canal no console, a descrição da
+  cena e os mapas. O detector de rosto nem é perguntado. Sem a variável, o borrão segue LIGADO: é o padrão do produto
+  para qualquer outra loja.
+- **O registro diz:** a subida do agente escreve "borrão de rosto DESLIGADO neste computador", e a primeira imagem que
+  sai sem borrão escreve uma linha (informação, e não aviso: é a escolha da loja).
+- **O caminho do treino** nunca teve borrão. O que ele tem é o cinza liso fora do quadro desenhado no canal.
+
+### Como foi provado
+
+- **Testes do agente** (`agent/testes/test_borrao.py`): 13 novos, 32 no arquivo:
+  - quais valores desligam;
+  - desligado, a imagem sai como veio, sem perguntar ao detector, e o registro diz uma vez só;
+  - a prévia e a imagem do motor saem sem o borrão;
+  - a subida do agente diz quando está desligado (e não diz quando não está).
+- **Mutação: 8 trocas, 8 mortas**, com controle antes e depois.
+- **A suíte inteira do agente:** 1979 passaram, 1 pulado.
+
+### Na loja
+
+A variável `FAROL_BORRAR_ROSTOS=0` nas variáveis do usuário do computador da loja (as mesmas onde já ficam as do agente)
+e o pacote novo. Para religar, apagar a variável e reiniciar o agente.

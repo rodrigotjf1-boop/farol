@@ -374,6 +374,19 @@ def _apagar(regiao: np.ndarray) -> np.ndarray:
     return saida
 
 
+# O borrão desligado NESTE computador. O dono, 16/10/2026: "não vamos tratar ou distorcer rostos até final do produto
+# funcionando por completo determinado por mim" (LGPD fica para o fim do projeto). A loja piloto põe
+# FAROL_BORRAR_ROSTOS=0 nas variáveis do computador dela; sem a variável, o borrão segue LIGADO — o padrão do produto
+# para qualquer outra loja.
+BORRAO_DESLIGADO = ("0", "nao", "não", "false", "desligado")
+_avisou_desligado = False
+
+
+def borrao_ligado() -> bool:
+    """Falso só quando o computador da loja desligou o borrão (`FAROL_BORRAR_ROSTOS`)."""
+    return os.environ.get("FAROL_BORRAR_ROSTOS", "").strip().lower() not in BORRAO_DESLIGADO
+
+
 def borrar_rostos(frame: Frame) -> tuple[Frame, bool]:
     """Apaga os rostos que o detector achar. Mitigação de LGPD, não garantia.
 
@@ -387,8 +400,15 @@ def borrar_rostos(frame: Frame) -> tuple[Frame, bool]:
     mandar a imagem.
 
     **Nunca levanta exceção**: sem detector, o pipeline segue e devolve
-    `False`.
+    `False`. Com o borrão desligado neste computador (`borrao_ligado`), a
+    imagem segue como veio e o detector nem é perguntado.
     """
+    global _avisou_desligado
+    if not borrao_ligado():
+        if not _avisou_desligado:
+            _avisou_desligado = True
+            _log.info("borrão de rosto DESLIGADO neste computador (FAROL_BORRAR_ROSTOS): as imagens saem como vieram")
+        return frame, False
     caixas = _caixas_de_rosto(frame.imagem)
     if not caixas:
         return frame, False

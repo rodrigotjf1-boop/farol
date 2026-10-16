@@ -1073,6 +1073,11 @@ def cmd_servir(args: argparse.Namespace) -> int:
         treino_em_fundo.iniciar()
         print("gravação de treino ligada: lê o que o console pedir, com a loja fechada")
 
+    from farol_agent.pipeline.recorte import borrao_ligado
+
+    if not borrao_ligado():
+        print("borrão de rosto DESLIGADO neste computador (FAROL_BORRAR_ROSTOS): as imagens saem como vieram")
+
     try:
         laco(
             sincronizador,
