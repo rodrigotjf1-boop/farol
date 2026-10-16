@@ -17,7 +17,8 @@ import type { Eu, LojaResumo } from '@/lib/api';
 export const LIMITE_DO_AGENTE_SEG = 5 * 60;
 
 export type Saude = {
-  estado: 'ativo' | 'fora' | 'nenhum';
+  /** `dormindo`: o computador da loja dorme no horário programado (A22) — nada é conferido, e não é falha. */
+  estado: 'ativo' | 'fora' | 'nenhum' | 'dormindo';
   /** "Agente ativo" */
   titulo: string;
   /** "Ativo" */
@@ -41,7 +42,7 @@ export function haQuanto(segundos: number | null): string {
   return `há ${dias} ${dias === 1 ? 'dia' : 'dias'}`;
 }
 
-export function saudeDaLoja(loja: Pick<LojaResumo, 'agentes' | 'segundos_sem_bater'>): Saude {
+export function saudeDaLoja(loja: Pick<LojaResumo, 'agentes' | 'segundos_sem_bater' | 'computador'>): Saude {
   if (loja.agentes === 0) {
     return { estado: 'nenhum', titulo: 'Sem agente', curto: 'Não instalado', detalhe: 'nada é verificado nesta loja' };
   }
@@ -49,11 +50,18 @@ export function saudeDaLoja(loja: Pick<LojaResumo, 'agentes' | 'segundos_sem_bat
   if (s !== null && s <= LIMITE_DO_AGENTE_SEG) {
     return { estado: 'ativo', titulo: 'Agente ativo', curto: 'Ativo', detalhe: `bateu ${haQuanto(s)}` };
   }
+  // O silêncio que é o sono programado (A22): quem decide é a API — o agente sabe dormir e calou na hora certa.
+  const c = loja.computador;
+  if (c?.dormindo) {
+    return { estado: 'dormindo', titulo: 'Dormindo', curto: 'Dormindo', detalhe: c.acorda_as ? `acorda às ${c.acorda_as}` : 'no horário' };
+  }
   return {
     estado: 'fora',
     titulo: 'Agente sem sinal',
     curto: 'Sem sinal',
-    detalhe: s === null ? 'ainda não bateu' : `última batida ${haQuanto(s)}`,
+    detalhe: c?.nao_acordou && c.acorda_as
+      ? `não acordou às ${c.acorda_as}`
+      : s === null ? 'ainda não bateu' : `última batida ${haQuanto(s)}`,
   };
 }
 
