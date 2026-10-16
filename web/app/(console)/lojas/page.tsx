@@ -4,7 +4,7 @@
 // tela é "qual delas precisa de mim?" — por isso o estado do agente vem
 // antes de qualquer número.
 
-import { ArrowRight, Building2, Store, Unplug } from 'lucide-react';
+import { ArrowRight, Building2, Moon, Store, Unplug } from 'lucide-react';
 import Link from 'next/link';
 
 import { saudeDaLoja, useConsole } from '@/componentes/console';
@@ -50,11 +50,16 @@ function CartaoDaLoja({ loja, veResultados }: { loja: LojaResumo; veResultados: 
             </Chip>
           )}
           {saude.estado === 'fora' && (
-            <Chip tom="critico" icone={Unplug}>
+            <Chip tom="critico" icone={Unplug} quebra>
               agente sem sinal · {saude.detalhe}
             </Chip>
           )}
           {saude.estado === 'nenhum' && <Chip tom="atencao">sem agente instalado</Chip>}
+          {saude.estado === 'dormindo' && (
+            <Chip icone={Moon} quebra>
+              dormindo · {saude.detalhe}
+            </Chip>
+          )}
         </div>
       </div>
 

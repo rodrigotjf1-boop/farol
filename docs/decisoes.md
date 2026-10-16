@@ -8153,3 +8153,50 @@ configuração.
   pacote novo, com o "pode".
 - **Mudar o horário da loja depois:** se ele passar a chocar com um horário já salvo, a tela do computador mostra o
   choque. A P3 também não deve dormir com a loja aberta (a guarda do lado da loja).
+
+## 16/10/2026 · A22, fatia P2 (a tela): o Computador da loja no console (sem migration)
+
+### O que entra
+
+- **`/lojas/<id>/computador` — "Computador da loja",** do protótipo aprovado em 16/10/2026:
+  - como ele está agora: acordado (bateu há…), dormindo até HH:MM ou não acordou às HH:MM;
+  - o aviso de cada situação, inclusive o do pacote antigo ("ainda não sabe dormir e acordar sozinho");
+  - a semana em barras de 24 horas (acordado, dormindo, a loja aberta e o choque), com a marca de agora;
+  - "Antes de programar", com a folga de 1 hora.
+- **A gaveta "Horário do computador":**
+  - "Dormir e acordar sozinho";
+  - "Sugerir pelo horário da loja";
+  - a hora de dormir e a de acordar de cada dia;
+  - a semana redesenhada pela API a cada mudança (`conferir`);
+  - o choque de cada dia, com o trecho;
+  - "Salvar o horário" travado enquanto houver choque. Sem o horário da loja, a gaveta manda informá-lo em Critérios.
+- **A moldura:**
+  - o estado do agente no pé da coluna leva à tela do computador e diz "Dormindo · acorda às HH:MM" quando é o sono
+    programado;
+  - a faixa vermelha do "sem sinal" diz "não acordou às HH:MM" quando é o caso;
+  - a lista de lojas tem o selo "dormindo".
+
+### Divergências do protótipo
+
+- **O teste "dormir 3 minutos" e "O que aconteceu"** ficam para a P3: quem dorme é o agente, e é ele quem conta o que
+  aconteceu.
+- **A folga da sugestão é 1 hora,** e não 30 minutos (decisão do dono).
+- **A semana e os choques vêm da API,** e a gaveta pede a cada mudança. No protótipo a conta era da página.
+- **A marca de agora** usa o relógio do navegador no fuso da loja (é só a marca; quem diz "dormindo" é a API).
+- **Novo:** sem o horário da loja, a gaveta avisa e manda informá-lo em Critérios. A API recusa salvar ligado sem ele.
+
+### Como foi provado
+
+- **O roteiro de tela** (no console local contra o banco de teste, num Chrome sem janela, com cliques de verdade)
+  cobriu:
+  - as cinco situações: sem horário, acordado, dormindo, não acordou e pacote antigo, com o aviso de cada uma e o pé
+    da coluna levando à tela;
+  - a faixa vermelha só na queda;
+  - a gaveta: o rascunho pela API, o choque do sábado com o trecho e o salvar travado, a sugestão, salvar, salvar sem
+    mexer (nada muda) e desligar;
+  - a lista com "dormindo";
+  - a supervisão sem o botão.
+- **As medidas:** 144, em 16 larguras (320 a 1920), com e sem a gaveta, e nenhum problema. Na primeira rodada, o selo
+  "dormindo · acorda às…" da lista passava da borda em 320 px. Ele e o do "sem sinal", que agora pode dizer "não
+  acordou às…", passaram a quebrar a linha.
+- **O build do console** passa.

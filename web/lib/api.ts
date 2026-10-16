@@ -353,9 +353,41 @@ export type LojaResumo = {
   fecha_as: string | null;
   /** Que negócio é ("hamburgueria"). Vale para a loja inteira. */
   tipo_negocio?: string;
+  /** O computador da loja (A22): se dorme no horário agora. Nulo = o horário nunca foi programado. */
+  computador?: ComputadorDaLoja | null;
 };
 
 export type Loja = Omit<LojaResumo, 'setores' | 'pontos'>;
+
+// ───────────────────── o computador da loja (A22) ─────────────────────
+
+/** Um dia do horário do computador: dorme e acorda no relógio da loja, ou nulo (nada naquele dia). 1 = segunda. */
+export type DiaDoComputador = { dia: number; dorme: string | null; acorda: string | null };
+export type HorarioDoComputador = { ligado: boolean; dias: DiaDoComputador[] };
+/** Um trecho em minutos do dia (0 a 1440): [início, fim). */
+export type TrechoDoDia = [number, number];
+/** A semana que a API desenha: de cada dia, quando ele dorme, quando a loja está aberta e onde os dois se chocam. */
+export type DiaDesenhado = { dia: number; dormindo: TrechoDoDia[]; aberta: TrechoDoDia[]; choques: TrechoDoDia[] };
+export type ChoqueDoDia = { dia: number; de: string; ate: string };
+/** O que a moldura recebe: dormindo no horário (o agente sabe dormir e calou na hora), ou não acordou. */
+export type ComputadorDaLoja = { ligado: boolean; dormindo: boolean; nao_acordou: boolean; acorda_as: string | null };
+export type TelaDoComputador = {
+  horario: HorarioDoComputador | null;
+  temHorarioDaLoja: boolean;
+  sugestao: HorarioDoComputador | null;
+  semana: DiaDesenhado[];
+  choques: ChoqueDoDia[];
+  situacao: { dormindo_agora: boolean; dormiu_as: string | null; acorda_as: string | null };
+  agente: {
+    versao: string | null;
+    sabeDormir: boolean;
+    segundosSemBater: number | null;
+    dormindo: boolean;
+    nao_acordou: boolean;
+    acorda_as: string | null;
+  } | null;
+  configura: boolean;
+};
 
 export const consoleApi = {
   lojas: () => pedir<{ lojas: LojaResumo[] }>('/lojas'),
@@ -394,6 +426,20 @@ export const consoleApi = {
 
   /** O orçamento por uso da loja: carga de cada canal, opções por nível e três pacotes. */
   orcamento: (lojaId: string) => pedir<Orcamento>(`/lojas/${lojaId}/orcamento`),
+
+  /** O computador da loja: o horário em que dorme e acorda, a semana desenhada e como ele está agora. */
+  computador: (lojaId: string) => pedir<TelaDoComputador>(`/lojas/${lojaId}/computador`),
+
+  /** A semana de um rascunho do horário, sem salvar: a gaveta redesenha pela API (a conta é uma só). */
+  conferirHorarioDoComputador: (lojaId: string, horario: HorarioDoComputador) =>
+    pedir<{ semana: DiaDesenhado[]; choques: ChoqueDoDia[] }>(`/lojas/${lojaId}/computador/conferir`, {
+      method: 'POST',
+      body: JSON.stringify(horario),
+    }),
+
+  /** Salva o horário do computador. Recusa dormir com a loja aberta (a mensagem diz o dia e o trecho). */
+  salvarHorarioDoComputador: (lojaId: string, horario: HorarioDoComputador) =>
+    pedir<TelaDoComputador>(`/lojas/${lojaId}/computador`, { method: 'PUT', body: JSON.stringify(horario) }),
 
   /** O horário inteiro da loja. Mandar de novo dá no mesmo. */
   salvarHorario: (lojaId: string, horario: FaixaDeHorario[]) =>

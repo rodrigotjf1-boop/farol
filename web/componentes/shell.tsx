@@ -616,22 +616,31 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </Link>
         )}
 
-        {saude && (
-          <div
-            className="flex items-start justify-center gap-2.5 rounded-[10px] border border-farol-borda bg-farol-painel-2 px-0 py-2.5 text-[12.5px] leading-snug lg:justify-start lg:px-2.5"
+        {/* O estado do computador da loja leva à tela dele (A22): o horário em que dorme e acorda. */}
+        {saude && lojaId && (
+          <Link
+            href={`/lojas/${lojaId}/computador`}
+            data-computador-da-loja
+            aria-current={caminho === `/lojas/${lojaId}/computador` ? 'page' : undefined}
+            className={
+              'flex items-start justify-center gap-2.5 rounded-[10px] border px-0 py-2.5 text-[12.5px] leading-snug no-underline transition-colors lg:justify-start lg:px-2.5 ' +
+              (caminho === `/lojas/${lojaId}/computador`
+                ? 'border-farol-borda-forte bg-farol-painel text-farol-tinta shadow-farol-1'
+                : 'border-farol-borda bg-farol-painel-2 text-farol-tinta hover:border-farol-borda-forte')
+            }
             title={`${saude.titulo} — ${saude.detalhe}`}
           >
             <span className="lg:mt-[5px]">
               <Ponto tom={tom} pulsa={saude.estado === 'ativo'} />
             </span>
-            <div className="hidden min-w-0 lg:block">
+            <span className="hidden min-w-0 lg:block">
               <b className="block text-[13px] font-semibold">{saude.titulo}</b>
               <span className="text-farol-suave">{saude.detalhe}</span>
-            </div>
-            <span className="sr-only lg:hidden">
-              {saude.titulo}, {saude.detalhe}
             </span>
-          </div>
+            <span className="sr-only lg:hidden">
+              Computador da loja: {saude.titulo}, {saude.detalhe}
+            </span>
+          </Link>
         )}
 
         {eu && (
@@ -684,11 +693,21 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {saude?.estado === 'fora' && loja && loja.segundos_sem_bater !== null && (
           <div className="mx-auto max-w-[1180px] px-4 pt-4 md:px-[clamp(16px,3.2vw,36px)]">
             <Alerta tom="critico" icone={Unplug} papel="alert">
-              <b className="font-semibold">
-                O agente desta loja está sem sinal {haQuanto(loja.segundos_sem_bater)}.
-              </b>{' '}
-              Enquanto ele estiver fora, nenhuma câmera é verificada. Confira se o computador da loja está ligado e
-              com internet.
+              {loja.computador?.nao_acordou && loja.computador.acorda_as ? (
+                <>
+                  <b className="font-semibold">O computador da loja não acordou às {loja.computador.acorda_as}.</b>{' '}
+                  Ele dormiu no horário e não voltou: pode ter faltado energia enquanto ele dormia, e aí ele só volta quando
+                  alguém apertar o botão de ligar. Enquanto isso, nenhuma câmera é verificada.
+                </>
+              ) : (
+                <>
+                  <b className="font-semibold">
+                    O agente desta loja está sem sinal {haQuanto(loja.segundos_sem_bater)}.
+                  </b>{' '}
+                  Enquanto ele estiver fora, nenhuma câmera é verificada. Confira se o computador da loja está ligado e
+                  com internet.
+                </>
+              )}
             </Alerta>
           </div>
         )}
