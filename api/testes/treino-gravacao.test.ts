@@ -2,8 +2,8 @@
 //
 //   - as regras do protótipo: de 15 minutos a 1 hora; do gravador, o horário já terminou e começou há no máximo 18
 //     horas; programada, ainda vai começar (até 7 dias); a data vem com o fuso;
-//   - quem cria, cancela e apaga é quem configura a loja; o canal tem de ser uma câmera do gravador DESTA loja; duas
-//     gravações do mesmo canal não se sobrepõem;
+//   - quem cria, cancela e apaga é quem configura a loja; o canal tem de ser uma câmera do gravador DESTA loja, com o
+//     quadro da bancada desenhado (16/10/2026); duas gravações do mesmo canal não se sobrepõem;
 //   - a loja pergunta o que tem de ler (`contratos/gravacao-de-treino.json`) e conta o andamento; cancelada no
 //     console, ela para (409) — e o lanche de gravação cancelada não entra;
 //   - apagar as imagens só da gravação conferida: os quadros saem, o exemplo fica, e a loja recebe a ordem de apagar.
@@ -95,6 +95,7 @@ describe('a gravação de treino (Postgres real)', { skip: !URL_DO_BANCO && 'sem
   let lojaId = '';
   let pontoId = '';
   let pontoIp = '';
+  let pontoSemQuadro = '';
   let pontoVizinho = '';
   let token = '';
   let tokenVizinho = '';
@@ -143,6 +144,13 @@ describe('a gravação de treino (Postgres real)', { skip: !URL_DO_BANCO && 'sem
     const ponto = await app.inject({ method: 'POST', url: `/v1/setores/${conta.setores[0].id}/pontos`, headers: { cookie }, payload: { nome: 'Bancada', origem: 'dvr', canal: 4, host: '192.168.1.108' } });
     assert.equal(ponto.statusCode, 201, ponto.body);
     pontoId = ponto.json().id;
+    // o quadro da bancada: sem ele, a loja não tem o que ler (a criação recusa)
+    const quadro = await app.inject({ method: 'POST', url: `/v1/pontos/${pontoId}/zonas`, headers: { cookie }, payload: { nome: 'Montagem', papel: 'montagem' } });
+    assert.equal(quadro.statusCode, 201, quadro.body);
+    // uma câmera do gravador SEM quadro desenhado (como o canal 1 da loja piloto, em 16/10)
+    const semQuadro = await app.inject({ method: 'POST', url: `/v1/setores/${conta.setores[0].id}/pontos`, headers: { cookie }, payload: { nome: 'Entrada', origem: 'dvr', canal: 1, host: '192.168.1.108' } });
+    assert.equal(semQuadro.statusCode, 201, semQuadro.body);
+    pontoSemQuadro = semQuadro.json().id;
     // uma câmera IP: não tem gravador, não entra entre as bancadas que se gravam
     const ip = await app.inject({ method: 'POST', url: `/v1/setores/${conta.setores[0].id}/pontos`, headers: { cookie }, payload: { nome: 'Salão', origem: 'ip', host: '192.168.1.60' } });
     assert.equal(ip.statusCode, 201, ip.body);
@@ -173,6 +181,15 @@ describe('a gravação de treino (Postgres real)', { skip: !URL_DO_BANCO && 'sem
     assert.equal((await criar(doGravador, cookieSupervisao)).statusCode, 403, 'a supervisão confere, mas não cria');
     assert.equal((await criar({ ...doGravador, pontoId: pontoVizinho })).statusCode, 422, 'o canal de outra loja');
     assert.equal((await criar({ ...doGravador, pontoId: pontoIp })).statusCode, 422, 'a câmera IP não tem gravador');
+    const semQuadro = await criar({ ...doGravador, pontoId: pontoSemQuadro });
+    assert.equal(semQuadro.statusCode, 422, 'a câmera do gravador sem o quadro da bancada: a loja não teria o que ler');
+    assert.equal(semQuadro.json().mensagem, 'este canal não tem o quadro da bancada desenhado: desenhe a área da montagem em Canais, ou escolha o canal da bancada');
+    // o quadro que foi excluído não conta
+    const rascunho = await app.inject({ method: 'POST', url: `/v1/pontos/${pontoSemQuadro}/zonas`, headers: { cookie }, payload: { nome: 'Rascunho' } });
+    assert.equal(rascunho.statusCode, 201, rascunho.body);
+    const excluido = await app.inject({ method: 'DELETE', url: `/v1/zonas/${rascunho.json().id}`, headers: { cookie } });
+    assert.equal(excluido.statusCode, 200, excluido.body);
+    assert.equal((await criar({ ...doGravador, pontoId: pontoSemQuadro })).statusCode, 422, 'o quadro excluído não conta');
     assert.equal((await criar(doGravador, cookieVizinho)).statusCode, 404, 'outra conta nem acha a loja');
     assert.equal((await criar({ ...doGravador, fim: agora(-80) })).statusCode, 422, '10 minutos não é gravação de treino');
 
@@ -193,7 +210,7 @@ describe('a gravação de treino (Postgres real)', { skip: !URL_DO_BANCO && 'sem
     chaves.programada = p.json().chave;
 
     const l = (await lista()).json();
-    assert.deepEqual(l.canais, [{ id: pontoId, nome: 'Bancada', numero: 4 }]);
+    assert.deepEqual(l.canais, [{ id: pontoSemQuadro, nome: 'Entrada', numero: 1 }, { id: pontoId, nome: 'Bancada', numero: 4 }]);
     assert.equal(l.lojaSabeGravar, false, 'o agente ainda não declarou `treino`');
     assert.deepEqual(l.regras, { ...GRAVACAO });
     assert.deepEqual(

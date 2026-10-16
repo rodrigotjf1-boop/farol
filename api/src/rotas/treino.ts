@@ -604,13 +604,22 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
         await cliente.query('rollback');
         return naoAchei(resposta, 'não existe essa loja');
       }
-      const canal = await cliente.query(
-        `select p.nome from ponto p join setor st on st.id = p.setor_id where p.id = $1 and st.loja_id = $2 and p.origem = 'dvr'`,
+      // e o quadro da bancada desenhado (uma área que não é a imagem inteira): é dele que a loja recorta a montagem.
+      // 16/10/2026: a primeira gravação foi no canal 1, sem quadro, e a loja não tinha o que ler.
+      const canal = await cliente.query<{ nome: string; tem_quadro: boolean }>(
+        `select p.nome,
+                exists (select 1 from zona z where z.ponto_id = p.id and not z.principal and z.excluida_em is null) as tem_quadro
+           from ponto p join setor st on st.id = p.setor_id
+          where p.id = $1 and st.loja_id = $2 and p.origem = 'dvr'`,
         [lida.pontoId, id],
       );
       if (canal.rowCount === 0) {
         await cliente.query('rollback');
         return invalido(resposta, 'este canal não é uma câmera do gravador desta loja');
+      }
+      if (!canal.rows[0]!.tem_quadro) {
+        await cliente.query('rollback');
+        return invalido(resposta, 'este canal não tem o quadro da bancada desenhado: desenhe a área da montagem em Canais, ou escolha o canal da bancada');
       }
       const junto = await cliente.query(
         `select 1 from treino_gravacao

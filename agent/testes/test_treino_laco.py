@@ -289,6 +289,25 @@ def test_sem_canal_falha_com_o_motivo(tmp_path):
     assert nuvem.andamentos[-1]["motivo"] == "a gravação não diz de que canal é"
 
 
+@pytest.mark.parametrize("do_canal,motivo", [
+    (dict(numero=None), "o canal 4 não tem quadro desenhado"),
+    (dict(canal=1), "o canal 4 não está na configuração"),
+])
+def test_o_canal_sem_o_quadro_da_bancada_falha_com_o_motivo_sem_buscar_no_gravador(tmp_path, do_canal, motivo):
+    # 16/10/2026: a gravação no canal 1, sem quadro, virava um erro inesperado a cada volta (e a troca de pacote o via
+    # na subida). Agora falha com o motivo que a tela mostra, antes de pedir o trecho ao gravador.
+    c = config(**do_canal)
+    nuvem, gravador = Nuvem(), Gravador()
+    zona_do_canal = lambda canal: gravacao_lida.quadro_do_canal(c, canal)[1]  # noqa: E731 — como o serviço monta
+    assert treino_laco.volta(pecas(nuvem, gravador, zona_do_canal=zona_do_canal), tmp_path) == treino_laco.FALHOU
+    assert gravador.pedidos == 0, "sem o quadro, nada é pedido ao gravador"
+    assert nuvem.andamentos == [{
+        "situacao": "falhou",
+        "motivo": f"{motivo}: a gravação de treino precisa do canal com o quadro da bancada (a área da montagem)",
+    }]
+    assert len(nuvem.andamentos[0]["motivo"]) <= treino.MAX_MOTIVO, "o motivo inteiro chega à tela"
+
+
 def test_cancelada_no_console_para_e_apaga_o_que_guardou(tmp_path):
     nuvem, gravador = Nuvem(), Gravador()
     assert treino_laco.volta(pecas(nuvem, gravador, pode_ler=lambda: False), tmp_path) == treino_laco.DEPOIS
