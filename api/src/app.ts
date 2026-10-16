@@ -15,6 +15,7 @@ import { rotasDeAcessos } from './rotas/acessos.js';
 import { rotasDeAgentes } from './rotas/agentes.js';
 import { rotasDeAlertas } from './rotas/alertas.js';
 import { rotasDoBalcao } from './rotas/balcao.js';
+import { rotasDoComputador } from './rotas/computador.js';
 import { rotasDoConsole } from './rotas/console.js';
 import { rotasDeConfiguracao } from './rotas/configuracao.js';
 import { rotasDeDiagnostico } from './rotas/diagnostico.js';
@@ -184,6 +185,7 @@ export function criarApp(
 
   rotasDeSessao(app, pool);
   rotasDoConsole(app, pool);
+  rotasDoComputador(app, pool);
   rotasDeRegras(app, pool);
   rotasDeEstudos(app, pool);
   rotasDeDiagnostico(app, pool);

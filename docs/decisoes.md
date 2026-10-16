@@ -8077,3 +8077,79 @@ saturação oscila.
 - **Valer na loja:** o pacote novo (o "pode" de 16/10).
 - **A T3c-3:** diz o lado (tampo ou base) e lê o que entrou; esta regra fica como a escolha da metade para o recorte.
 - **Medir de novo** com os lanches da primeira gravação de treino: outras horas e outros colaboradores.
+
+## 16/10/2026 · A22, fatia P2 (a API): o horário do computador da loja (migration 052)
+
+### O que o dono decidiu
+
+- **"protótipo aprovado"** (16/10, ~01h10). Lido como o protótipo do computador da loja, com as três decisões.
+- **O horário (16/10, ~02h15):** "o expediente comum é de domingo a quinta das 19:00 até as 03:00 e sexta e sábado das
+  19:00 até as 05:45. adormecer servidor 1 hora após esses horários e ligar 1 hora antes".
+- **As três decisões, então:**
+  - não salvar com o computador dormindo com a loja aberta;
+  - a folga da sugestão é de **1 hora**, e não 30 minutos;
+  - o teste de 3 minutos na tela, só para quem configura (entra com a P3).
+
+### O que entra
+
+- **Migration 052:** `loja.horario_computador` (jsonb; nulo = nunca programado), com
+  `{ligado, dias:[{dia, dorme, acorda}]}`, os sete dias, no relógio da loja.
+- **`api/src/computador.ts`, a conta sem banco.**
+  - A semana se conta em minutos desde segunda 00:00.
+  - O estado de cada instante é o do último acontecimento antes dele, dando a volta na semana. Sem "acorda" no dia,
+    ele dorme até o "acorda" seguinte.
+  - Os choques com a loja aberta contam o minuto de fechar como aberto, como `faixaContem`. Sem horário da loja, ela
+    vale como sempre aberta.
+  - A sugestão: 1 hora depois de fechar e 1 hora antes de abrir, com sono mínimo de 1 hora. Dois trechos fechados no
+    mesmo dia: fica o mais longo.
+  - O silêncio do agente.
+- **O silêncio do agente.** Ele só é sono quando estas quatro coisas valem juntas:
+  - o horário está ligado;
+  - o agente declara `dormir` (o pacote antigo fica ligado o tempo todo, e o silêncio dele é queda);
+  - agora cai no sono programado, até 10 minutos depois do "acorda";
+  - ele bateu até 10 minutos antes do "dorme".
+
+  Calado desde mais cedo, ele caiu antes da hora. Passou do "acorda" sem voltar: "não acordou".
+- **As rotas** (`api/src/rotas/computador.ts`):
+  - `GET /v1/lojas/:id/computador` traz o horário, a semana desenhada, a sugestão, os choques, a situação e o agente;
+  - `POST …/conferir` traz a semana de um rascunho, sem salvar: a gaveta redesenha pela API, e a conta é uma só;
+  - `PUT` salva. Quem salva é quem configura, e a versão da configuração sobe na mesma linha.
+  - O `PUT` recusa dois casos:
+    - `sem_horario_da_loja`;
+    - `dorme_com_a_loja_aberta`, que diz o dia e o trecho: "na segunda, das 19:00 às 24:00; …".
+- **A moldura e o vigia.** `GET /v1/lojas` e `GET /v1/lojas/:id` passam a trazer
+  `computador: {ligado, dormindo, nao_acordou, acorda_as}`, que é nulo sem horário. O vigia do "agente caiu"
+  (`despacho.ts`) não avisa do agente que dorme no horário.
+- **A configuração** leva `loja.horarioComputador`. O agente antigo ignora a entrada.
+- **O contrato** `contratos/horario-do-computador.json` traz o formato, o horário de funcionamento da loja piloto, a
+  sugestão, os instantes dormindo ou acordado, os choques e a palavra `dormir`.
+- **A palavra `dormir`:** ela entra em `o-que-o-agente-sabe.json` com a P3, junto com o agente que a declara. O
+  contrato dos saberes exige que o agente declare exatamente a lista.
+
+### Até a P3, nada muda na loja
+
+Nenhum agente declara `dormir`: a moldura e o vigia seguem como hoje, e o horário só fica guardado e desce na
+configuração.
+
+### Como foi provado
+
+- **Testes** (`api/testes/computador.test.ts`): 32. Cobrem:
+  - a conta, com os casos do contrato;
+  - a recusa com o dia e o trecho;
+  - o silêncio: o pacote antigo, a queda antes da hora, a folga de acordar, o "não acordou" e o sono que atravessa a
+    semana;
+  - as rotas com duas lojas na mesma conta e uma vizinha;
+  - a configuração que desce;
+  - o vigia com envio de verdade.
+- **Mutação: 33 trocas, 33 mortas**, com controle antes e depois. Na primeira rodada sobraram 3: duas eram
+  código redundante, que saiu; a terceira pediu um caso (faixas da loja que se encostam viram uma só).
+- **A suíte inteira da API:** 1569 de 1570. A que falta é a conhecida do banco local sem pgvector (ERR-029).
+
+### Falta
+
+- **A tela (P2b):** "Computador da loja", a gaveta do horário, e a moldura dizendo "Dormindo · acorda às 18:00".
+- **O teste de verdade numa madrugada (P1):** pede o "pode" do dono.
+- **O agente aplicar o horário (P3):** a espera e o despertador, o teste de 3 minutos e "o que aconteceu". Vai no
+  pacote novo, com o "pode".
+- **Mudar o horário da loja depois:** se ele passar a chocar com um horário já salvo, a tela do computador mostra o
+  choque. A P3 também não deve dormir com a loja aberta (a guarda do lado da loja).

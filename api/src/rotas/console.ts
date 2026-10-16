@@ -25,6 +25,7 @@ import {
   POLIGONO_DA_IMAGEM_COMPLETA,
   SQL_NUMERO_DO_QUADRO,
 } from '../cena.js';
+import { computadorDaLoja } from '../computador.js';
 import { lerHorario, situacaoAgora } from '../horario.js';
 import { exigirConfigurar, peloMenos } from '../rbac.js';
 import { acharCampoProibido } from './lojas.js';
@@ -69,7 +70,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
     // entra na conta: loja só com agente por instalar fica com nulo.
     const { rows } = await pool.query(
       `select l.id, l.nome, l.timezone, l.modo_julgamento, l.resolucao_padrao, l.ativa,
-              l.horario_funcionamento, l.tipo_negocio,
+              l.horario_funcionamento, l.tipo_negocio, l.horario_computador,
               (select count(*)::int from setor st where st.loja_id = l.id) as setores,
               (select count(*)::int
                  from ponto p
@@ -82,7 +83,14 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
               (select min(extract(epoch from (now() - a.ultimo_heartbeat)))::int
                  from agente a
                 where a.loja_id = l.id and a.estado = 'ativo'
-                  and a.ultimo_heartbeat is not null) as segundos_sem_bater
+                  and a.ultimo_heartbeat is not null) as segundos_sem_bater,
+              -- O agente que bateu por último, para dizer se o silêncio dele é o sono programado (A22).
+              (select jsonb_build_object('batida', a.ultimo_heartbeat, 'sabe', a.sabe)
+                 from agente a
+                where a.loja_id = l.id and a.estado = 'ativo'
+                  and a.ultimo_heartbeat is not null
+                order by a.ultimo_heartbeat desc
+                limit 1) as ultimo_agente
          from loja l
         where l.tenant_id = $1
         order by l.nome`,
@@ -120,9 +128,12 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
     // navegador erra. `null` é "a loja não informou horário".
     const agora = new Date();
     return {
-      lojas: rows.map((l) => ({
+      lojas: rows.map(({ horario_computador: hc, ultimo_agente: ua, ...l }) => ({
         ...l,
         ...situacaoAgora(l.horario_funcionamento, agora, l.timezone),
+        // O computador da loja (A22): nulo quando o horário nunca foi programado; "dormindo" só quando o agente
+        // declara que sabe dormir e calou na hora certa.
+        computador: computadorDaLoja(hc, l.timezone, ua, agora),
         resultado_24h: porLoja.get(l.id) ?? null,
       })),
     };
@@ -141,7 +152,7 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
     // conferir depois é como nasce vazamento entre clientes.
     const l = await pool.query(
       `select id, nome, timezone, modo_julgamento, resolucao_padrao, ativa,
-              horario_funcionamento, tipo_negocio
+              horario_funcionamento, tipo_negocio, horario_computador
          from loja where id = $1 and tenant_id = $2`,
       [id, s.tenantId],
     );
@@ -226,10 +237,13 @@ export function rotasDoConsole(app: FastifyInstance, pool: pg.Pool): void {
       [id],
     );
 
+    const { horario_computador: hc, ...loja } = l.rows[0];
+    const ultimo = ag.rows.find((a) => a.estado === 'ativo' && a.ultimo_heartbeat !== null);
     return {
       loja: {
-        ...l.rows[0],
-        ...situacaoAgora(l.rows[0].horario_funcionamento, new Date(), l.rows[0].timezone),
+        ...loja,
+        ...situacaoAgora(loja.horario_funcionamento, new Date(), loja.timezone),
+        computador: computadorDaLoja(hc, loja.timezone, ultimo ? { batida: ultimo.ultimo_heartbeat, sabe: ultimo.sabe } : null, new Date()),
       },
       setores: [...setores.values()],
       agentes: ag.rows,
