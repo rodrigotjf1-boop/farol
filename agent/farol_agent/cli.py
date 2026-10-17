@@ -893,6 +893,9 @@ def cmd_detector(args: argparse.Namespace) -> int:
                 # Dito na instalação, que é quando tem alguém olhando a tela.
                 print(f"  a placa de vídeo desta máquina {motor.placa_reprovada}:")
                 print("  o detector roda no processador. Ele funciona; só não usa a placa.")
+            if motor.openvino_recusado:
+                print(f"  o OpenVINO desta máquina {motor.openvino_recusado}:")
+                print("  o detector roda pelo ONNX Runtime. Ele funciona; só não ganha a velocidade do OpenVINO.")
             print("  reinicie o agente para ele passar a usar o detector.\n")
             return 0
 

@@ -28,6 +28,9 @@ dev = ["pytest>=8.0"]
 # agente funciona sem ele — só não julga esses dois tipos de critério.
 # No Windows com placa de vídeo, instale `onnxruntime-directml` no lugar.
 detector = ["onnxruntime>=1.20"]
+# O detector mais rápido no processador (medido na loja piloto em 17/10/2026: 1,8 vez, com os mesmos pães). Apache 2.0.
+# Opcional: sem ele, o detector roda pelo ONNX Runtime, como sempre; com ele, só fica se passar na prova da partida.
+openvino = ["openvino>=2025.0"]
 
 [tool.pytest.ini_options]
 testpaths = ["testes"]
