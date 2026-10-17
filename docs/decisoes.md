@@ -8551,3 +8551,37 @@ Por ingrediente, no 1º palpite, os números são o piso: numa foto com vários,
 - a identificação nos lanches conferidos pelo dono;
 - o vetor por pedacinho da imagem, para saber onde está cada ingrediente na mesma foto;
 - o pão de 1 corte contra o brioche, em resolução maior.
+
+## 17/10/2026 · A23.2a: no processador, o detector roda pelo OpenVINO — e só se passar na prova da partida (sem migration; vale com o pacote novo e o OpenVINO instalado)
+
+### O que muda
+
+O detector (o RF-DETR Nano, que acha pessoas, objetos e os pães da bancada) roda pelo OpenVINO quando três coisas
+valem juntas:
+- **o detector está no processador**, porque não há placa de vídeo ou porque a placa foi reprovada na prova;
+- **o OpenVINO está instalado** no ambiente do agente;
+- **o OpenVINO passa na prova da partida:** as mesmas três cenas da prova da placa (13/10), nele e no ONNX Runtime, com
+  a mesma régua (0,05).
+
+Sem o OpenVINO, nada muda e nada se diz. Com ele instalado e reprovado, o detector segue no ONNX Runtime, e o registro
+diz por quê, uma vez, na partida. A instalação (`farol-agent detector instalar`) também diz.
+
+### Por quê
+
+Medido na loja piloto em 17/10 (a entrada de cima): pelo OpenVINO, 419 ms por quadro da bancada em 7 pedaços, contra
+757 ms pelo ONNX Runtime, e os mesmos pães caixa por caixa. A leitura da bancada ao vivo (A23.2) cabe no processador
+por causa disso.
+
+### Os cuidados
+
+- **O modelo entra pelos bytes, e não pelo caminho.** Biblioteca nativa com acento na pasta é o ERR-111. Conferido com o
+  modelo de verdade numa pasta "configuração da loja", nesta máquina de desenvolvimento.
+- **A precisão vai fixada em 32 bits.** Num processador com contas de 16 bits, o OpenVINO escolheria a menor sozinho, e a
+  resposta mudaria de máquina para máquina.
+- **Com a placa de vídeo aprovada, o OpenVINO nem é tentado.** Com a placa reprovada, o detector cai no processador e aí
+  vale o OpenVINO, com a prova contra o ONNX Runtime.
+
+### Na loja
+
+O OpenVINO se instala no ambiente do agente (`pip install openvino`, o extra `openvino` do `pyproject.toml`), com o
+pacote novo. A conferência é a linha da partida: "detector local pronto: rfdetr-nano em OpenVINO (processador)".

@@ -1210,7 +1210,7 @@ confirmar. O produto sai da busca nas fichas, a cada passo, com a fila do KDS li
 |---|---|---|
 | **A23.0** | parar de gastar: o critério "Produto" (ação, canal 4: 12 de 12 "não avaliável" na nuvem em 16/10) volta a só observar, ou é desligado, pelo dono, até a A23.5. Uma trava no agente pelo papel "posição de montagem" foi escrita e descartada antes do commit: o mesmo papel leva à nuvem, com o contexto da cena, os critérios de estado da bancada (bancada limpa), e a suíte caiu | com o dono (Critérios → "Produto") |
 | **A23.1** | medir: o processador a 1 quadro por segundo na bancada (3 × 7 pedaços, OpenVINO); a identificação com os 140 exemplos nos lanches conferidos; a nuvem com o recorte de um ingrediente | 🟡 medidos em 17/10 o processador, o OpenVINO e os exemplos (abaixo); faltam a nuvem por ingrediente e os lanches conferidos |
-| **A23.2** | a leitura ao vivo: os estados da bancada (vazia, lanche em montagem, concluído) e os passos com hora — no canal 4, no processador, com o OpenVINO | a fazer |
+| **A23.2** | a leitura ao vivo: os estados da bancada (vazia, lanche em montagem, concluído) e os passos com hora — no canal 4, no processador, com o OpenVINO | 🟡 A23.2a feita (17/10): o detector pelo OpenVINO, só se passar na prova da partida; falta a leitura ao vivo |
 | **A23.3** | a identificação na loja pelos exemplos (o vetor do DINOv2-small no lugar do histograma de cor), e a nuvem por ingrediente, com a resposta guardada como exemplo a confirmar | a fazer |
 | **A23.4** | o produto pela busca nas fichas a cada passo, e a fila do KDS (o agente ler a fila que a nuvem já entrega) | a fazer |
 | **A23.5** | o critério "Produto" respondido por esse caminho | a fazer |

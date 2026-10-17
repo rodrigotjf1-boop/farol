@@ -50,6 +50,7 @@ import time
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Protocol
 
 import numpy as np
@@ -452,9 +453,52 @@ def provar_a_placa(da_placa: Any, do_processador: Any) -> float:
     return max(distancias)
 
 
+# ───────────────────────────── o OpenVINO no processador ─────────────────────────────
+
+# Medido na loja piloto em 17/10/2026 (docs/decisoes.md, "A23.1 medido"): o mesmo modelo, no mesmo processador, leva
+# 419 ms por quadro da bancada em 7 pedaços pelo OpenVINO, contra 757 ms pelo ONNX Runtime — e acha os mesmos pães,
+# caixa por caixa. Rodar em outro motor é como rodar em outra placa: só fica quem passa na prova.
+PROVEDOR_OPENVINO = "OpenVINO (processador)"
+
+
+class SessaoOpenVINO:
+    """O modelo pelo OpenVINO, no processador, com a cara da sessão do ONNX Runtime (`run`, `get_inputs`,
+    `get_outputs`, `get_providers`): o resto do motor não precisa saber quem roda.
+
+    O modelo entra pelos BYTES, e não pelo caminho: biblioteca nativa com acento na pasta é o ERR-111. A precisão vai
+    fixada em 32 bits: num processador com contas de 16 bits, o OpenVINO escolheria a menor por conta própria, e a
+    resposta mudaria de máquina para máquina.
+    """
+
+    def __init__(self, dados: bytes) -> None:
+        import openvino as ov
+
+        core = ov.Core()
+        modelo = core.read_model(model=dados)
+        self._compilado = core.compile_model(
+            modelo, "CPU", {"PERFORMANCE_HINT": "LATENCY", "INFERENCE_PRECISION_HINT": "f32"}
+        )
+        self._entradas = [i.get_any_name() for i in self._compilado.inputs]
+        self._saidas = {o.get_any_name(): o for o in self._compilado.outputs}
+
+    def get_providers(self) -> list[str]:
+        return [PROVEDOR_OPENVINO]
+
+    def get_inputs(self) -> list[SimpleNamespace]:
+        return [SimpleNamespace(name=n) for n in self._entradas]
+
+    def get_outputs(self) -> list[SimpleNamespace]:
+        return [SimpleNamespace(name=n) for n in self._saidas]
+
+    def run(self, nomes: list[str], entradas: dict[str, np.ndarray]) -> list[np.ndarray]:
+        resposta = self._compilado([entradas[n] for n in self._entradas])
+        return [resposta[self._saidas[n]] for n in nomes]
+
+
 class MotorOnnx:
     """RF-DETR Nano pelo ONNX Runtime. Usa a placa de vídeo quando há — e
-    quando ela passa na prova (`provar_a_placa`)."""
+    quando ela passa na prova (`provar_a_placa`). No processador, roda pelo
+    OpenVINO quando ele está instalado — e quando passa na mesma prova."""
 
     nome = MODELO_NOME
 
@@ -496,6 +540,10 @@ class MotorOnnx:
         self.placa_reprovada: str | None = None
         if self._sessao.get_providers()[0] != "CPUExecutionProvider":
             self._conferir_a_placa(ort)
+        # No processador, o OpenVINO — se instalado e aprovado na mesma prova. Por que ficou de fora, quando ficou.
+        self.openvino_recusado: str | None = None
+        if self._sessao.get_providers()[0] == "CPUExecutionProvider":
+            self._tentar_o_openvino()
         # A placa de vídeo (DirectML) não aceita duas inferências ao mesmo
         # tempo na mesma sessão. Quem usa o detector são duas linhas de
         # execução — a auditoria e o quadro de preview —, então a chamada
@@ -542,6 +590,31 @@ class MotorOnnx:
         )
         self._sessao = do_processador
         self.placa_reprovada = motivo
+
+    def _tentar_o_openvino(self) -> None:
+        """No processador, o OpenVINO, quando instalado: as cenas de prova nele e no ONNX Runtime, e ele só fica se
+        responder igual (a régua da placa). Não instalado, nada muda e nada se diz; instalado e recusado, o registro
+        diz por quê."""
+        try:
+            import openvino  # noqa: F401
+        except ImportError:
+            return
+        try:
+            candidata = SessaoOpenVINO(self.caminho.read_bytes())
+            distancia = provar_a_placa(candidata, self._sessao)
+            # `<=` com NaN é falso: resposta com NaN é reprovação.
+            motivo = (
+                None
+                if distancia <= REGUA_DA_PLACA
+                else f"respondeu diferente do ONNX Runtime (diferença {distancia:.2f}; o aceito é até {REGUA_DA_PLACA})"
+            )
+        except Exception as e:  # noqa: BLE001
+            motivo = f"não conseguiu abrir o modelo ou rodar a prova ({type(e).__name__})"
+        if motivo is not None:
+            _log.warning("o OpenVINO está instalado, mas %s: o detector segue no ONNX Runtime, no processador", motivo)
+            self.openvino_recusado = motivo
+            return
+        self._sessao = candidata
 
     def pontuar(self, imagem_bgr: np.ndarray, classe: str) -> list[float]:
         import cv2

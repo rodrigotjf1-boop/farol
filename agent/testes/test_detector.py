@@ -384,8 +384,11 @@ class _Ort:
         return [s for s in self.abertas if s.get_providers()[0] == provedor]
 
 
-def _motor(monkeypatch, tmp_path, ort):
+def _motor(monkeypatch, tmp_path, ort, ov=None):
     monkeypatch.setitem(sys.modules, "onnxruntime", ort)
+    # Sem `ov`, o OpenVINO NÃO está instalado — também na máquina de quem roda os testes e tem ele (None em
+    # `sys.modules` faz o `import` falhar).
+    monkeypatch.setitem(sys.modules, "openvino", ov)
     arquivo = tmp_path / "rfdetr-nano.onnx"
     arquivo.write_bytes(b"modelo de mentira")
     return MotorOnnx(arquivo, conferir_sha256=False)
@@ -544,6 +547,162 @@ def test_a_prova_devolve_a_MAIOR_distancia_e_o_NaN_nao_some():
     assert np.isnan(provar_a_placa(placa, processador))
 
 
+# ─────────────── no processador, o OpenVINO também só fica se passar na prova ───────────────
+#
+# Medido na loja piloto em 17/10/2026: pelo OpenVINO, o mesmo modelo leva 419 ms por quadro da bancada em 7 pedaços,
+# contra 757 ms pelo ONNX Runtime, e acha os mesmos pães caixa por caixa. Outro motor é como outra placa: a sessão
+# abrir não prova nada, a resposta é que prova.
+
+
+class _Ov:
+    """O `openvino` de mentira: anota o que recebeu para abrir o modelo e com que ajustes compilou, e responde com
+    `responder` (a resposta "de verdade" do modelo de mentira, se nada for dito)."""
+
+    def __init__(self, *, responder=_certa, abre=True):
+        self.lidos: list = []
+        self.compilados: list[tuple[str, dict]] = []
+        self.rodadas = 0
+        ov = self
+
+        class _Porta:
+            def __init__(self, nome):
+                self._nome = nome
+
+            def get_any_name(self):
+                return self._nome
+
+        class _Compilado:
+            inputs = [_Porta("pixel_values")]
+            outputs = [_Porta("pred_boxes"), _Porta("logits")]
+
+            def __call__(self, entradas):
+                ov.rodadas += 1
+                (tensor,) = entradas
+                return {self.outputs[0]: np.zeros((1, 300, 4), np.float32), self.outputs[1]: responder(tensor)}
+
+        class Core:
+            def read_model(self, model=None, weights=None):
+                ov.lidos.append(model)
+                if not abre:
+                    raise RuntimeError("o modelo não abriu")
+                return "o modelo"
+
+            def compile_model(self, modelo, dispositivo, ajustes=None):
+                ov.compilados.append((dispositivo, dict(ajustes or {})))
+                return _Compilado()
+
+        self.Core = Core
+
+
+def _so_processador():
+    return _Ort(provedores=("CPUExecutionProvider",))
+
+
+def test_no_processador_o_openvino_que_responde_igual_fica(monkeypatch, tmp_path, caplog):
+    # Igual a menos do arredondamento e da ORDEM das linhas, como na prova da placa.
+    def responder(t):
+        return np.roll(_certa(t), 5, axis=1) + np.float32(1e-4)
+
+    ort, ov = _so_processador(), _Ov(responder=responder)
+    with caplog.at_level(logging.WARNING):
+        motor = _motor(monkeypatch, tmp_path, ort, ov)
+
+    assert motor.onde == "OpenVINO (processador)"
+    assert motor.openvino_recusado is None and motor.placa_reprovada is None
+    assert caplog.records == []
+    # O modelo entra pelos BYTES (com acento na pasta, biblioteca nativa não abre caminho — ERR-111), em 32 bits.
+    assert ov.lidos == [b"modelo de mentira"]
+    assert ov.compilados == [("CPU", {"PERFORMANCE_HINT": "LATENCY", "INFERENCE_PRECISION_HINT": "f32"})]
+    (processador,) = ort.de("CPUExecutionProvider")
+    assert (ov.rodadas, processador.rodadas) == (3, 3), "a prova são as três cenas, nos dois"
+    notas = motor.pontuar(_QUADRO, "person")
+    assert (ov.rodadas, processador.rodadas) == (4, 3), "aprovado, é o OpenVINO que roda o detector"
+    assert notas == interpretar_saida(responder(np.full((1, 3, 384, 384), 77, np.float32) / 255.0), "person")
+
+
+def test_o_openvino_que_responde_diferente_fica_de_fora_e_o_registro_diz(monkeypatch, tmp_path, caplog):
+    ort, ov = _so_processador(), _Ov(responder=_lixo)
+    with caplog.at_level(logging.WARNING):
+        motor = _motor(monkeypatch, tmp_path, ort, ov)
+
+    assert motor.onde == "CPUExecutionProvider"
+    assert "respondeu diferente do ONNX Runtime" in motor.openvino_recusado
+    avisos = [r.getMessage() for r in caplog.records]
+    assert len(avisos) == 1 and "OpenVINO" in avisos[0] and "segue no ONNX Runtime" in avisos[0]
+    assert motor.openvino_recusado in avisos[0]
+    (processador,) = ort.de("CPUExecutionProvider")
+    assert motor.pontuar(_QUADRO, "person") == _DO_QUADRO
+    assert (ov.rodadas, processador.rodadas) == (3, 4), "recusado, o OpenVINO não roda mais nada"
+
+
+@pytest.mark.parametrize(
+    "ov, trecho",
+    [
+        (lambda: _Ov(abre=False), "não conseguiu abrir o modelo ou rodar a prova (RuntimeError)"),
+        (lambda: _Ov(responder=_que_levanta), "não conseguiu abrir o modelo ou rodar a prova (RuntimeError)"),
+        (lambda: _Ov(responder=_de_outro_tamanho), "não conseguiu abrir o modelo ou rodar a prova (ValueError)"),
+        (lambda: _Ov(responder=_com_nan), "respondeu diferente do ONNX Runtime (diferença nan"),
+    ],
+)
+def test_o_openvino_que_nao_abre_nao_roda_ou_responde_NaN_tambem_fica_de_fora(monkeypatch, tmp_path, ov, trecho):
+    motor = _motor(monkeypatch, tmp_path, _so_processador(), ov())
+
+    assert motor.onde == "CPUExecutionProvider"
+    assert trecho in motor.openvino_recusado
+    assert motor.pontuar(_QUADRO, "person") == _DO_QUADRO
+
+
+@pytest.mark.parametrize("fator, fica", [(0.9, True), (1.1, False)])
+def test_a_regua_do_openvino_e_a_da_placa(monkeypatch, tmp_path, fator, fica):
+    desvio = np.float32(REGUA_DA_PLACA * fator)
+
+    motor = _motor(monkeypatch, tmp_path, _so_processador(), _Ov(responder=lambda t: _certa(t) + desvio))
+
+    assert (motor.onde == "OpenVINO (processador)") is fica
+    assert (motor.openvino_recusado is None) is fica
+
+
+def test_sem_o_openvino_instalado_nada_muda_e_nada_se_diz(monkeypatch, tmp_path, caplog):
+    ort = _so_processador()
+    with caplog.at_level(logging.WARNING):
+        motor = _motor(monkeypatch, tmp_path, ort, None)
+
+    assert motor.onde == "CPUExecutionProvider" and motor.openvino_recusado is None
+    assert len(ort.abertas) == 1 and ort.abertas[0].rodadas == 0
+    assert caplog.records == []
+
+
+def test_com_a_placa_aprovada_o_openvino_nem_e_tentado(monkeypatch, tmp_path):
+    ov = _Ov()
+
+    motor = _motor(monkeypatch, tmp_path, _Ort(da_placa=_certa), ov)
+
+    assert motor.onde == "DmlExecutionProvider"
+    assert ov.lidos == [] and ov.rodadas == 0
+
+
+def test_a_placa_reprovada_cai_no_processador_e_ai_vale_o_openvino(monkeypatch, tmp_path):
+    ort, ov = _Ort(da_placa=_lixo), _Ov()
+
+    motor = _motor(monkeypatch, tmp_path, ort, ov)
+
+    assert "respondeu diferente do processador" in motor.placa_reprovada
+    assert motor.onde == "OpenVINO (processador)" and motor.openvino_recusado is None
+    (placa,), (processador,) = ort.de("DmlExecutionProvider"), ort.de("CPUExecutionProvider")
+    assert (placa.rodadas, processador.rodadas, ov.rodadas) == (3, 6, 3), "uma prova contra a placa e outra contra o OpenVINO"
+
+
+def test_o_openvino_aprovado_tambem_acha_as_caixas(monkeypatch, tmp_path):
+    # A leitura da bancada pede as duas saídas (`pred_boxes` e `logits`), na ordem pedida.
+    ov = _Ov()
+    motor = _motor(monkeypatch, tmp_path, _so_processador(), ov)
+
+    caixas = motor.caixas(_QUADRO, "person", 0.0)
+
+    assert motor.onde == "OpenVINO (processador)" and ov.rodadas == 4
+    assert len(caixas) == 300 and all(c[:4] == (0.0, 0.0, 0.0, 0.0) for c in caixas)
+
+
 @pytest.mark.parametrize("da_placa, reprovada", [(_lixo, True), (_certa, False)])
 def test_cli_instalar_diz_quando_a_placa_foi_reprovada(monkeypatch, tmp_path, capsys, da_placa, reprovada):
     # Dito na instalação, que é quando tem alguém olhando a tela.
@@ -555,6 +714,7 @@ def test_cli_instalar_diz_quando_a_placa_foi_reprovada(monkeypatch, tmp_path, ca
     monkeypatch.setattr(detector, "instalar_modelo", lambda pasta: arquivo)
     monkeypatch.setattr(detector, "MODELO_SHA256", detector.sha256_de(arquivo))
     monkeypatch.setitem(sys.modules, "onnxruntime", _Ort(da_placa=da_placa))
+    monkeypatch.setitem(sys.modules, "openvino", None)
 
     assert main(["detector", "instalar", "--pasta", str(tmp_path)]) == 0
 
@@ -563,6 +723,28 @@ def test_cli_instalar_diz_quando_a_placa_foi_reprovada(monkeypatch, tmp_path, ca
     assert ("roda em DmlExecutionProvider" in saida) is not reprovada
     assert ("a placa de vídeo desta máquina respondeu diferente do processador" in saida) is reprovada
     assert ("o detector roda no processador" in saida) is reprovada
+    assert "OpenVINO" not in saida
+
+
+@pytest.mark.parametrize("responder, recusado", [(_lixo, True), (_certa, False)])
+def test_cli_instalar_diz_quando_o_openvino_foi_recusado(monkeypatch, tmp_path, capsys, responder, recusado):
+    from farol_agent.cli import main
+    from farol_agent.juizes import detector
+
+    arquivo = tmp_path / "rfdetr-nano.onnx"
+    arquivo.write_bytes(b"modelo de mentira")
+    monkeypatch.setattr(detector, "instalar_modelo", lambda pasta: arquivo)
+    monkeypatch.setattr(detector, "MODELO_SHA256", detector.sha256_de(arquivo))
+    monkeypatch.setitem(sys.modules, "onnxruntime", _so_processador())
+    monkeypatch.setitem(sys.modules, "openvino", _Ov(responder=responder))
+
+    assert main(["detector", "instalar", "--pasta", str(tmp_path)]) == 0
+
+    saida = capsys.readouterr().out
+    assert ("roda em CPUExecutionProvider" in saida) is recusado
+    assert ("roda em OpenVINO (processador)" in saida) is not recusado
+    assert ("o OpenVINO desta máquina respondeu diferente do ONNX Runtime" in saida) is recusado
+    assert ("o detector roda pelo ONNX Runtime" in saida) is recusado
 
 
 # ─────────────────── quem julga presença e contagem ───────────────────
