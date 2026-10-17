@@ -897,3 +897,48 @@ def test_todo_recusado_do_contrato_e_recusado_pelo_agente():
     for ruim in _contrato()["recusados"]:
         with pytest.raises(ErroDoJuiz):
             Procura.de_parametros(ruim)
+
+
+# ─────────── o detector carrega uma vez, e quem chega no meio espera ───────────
+#
+# Na loja, em 17/10/2026 (ERR-133): a bancada ao vivo pediu o detector no mesmo segundo que a auditoria; o "já tentei"
+# valia antes de o modelo terminar de carregar (~4 s, com a prova do OpenVINO), e ela desistiu dizendo "o detector não
+# está instalado neste computador". A gravação de treino pede pelo mesmo caminho, e falharia a gravação com esse motivo.
+
+
+def test_quem_pede_o_detector_enquanto_ele_carrega_espera_e_recebe_o_mesmo(monkeypatch, tmp_path):
+    import threading
+
+    from farol_agent import auditoria
+    from farol_agent.juizes import detector
+
+    (tmp_path / detector.MODELO_ARQUIVO).write_bytes(b"modelo de mentira")
+    monkeypatch.setenv("FAROL_MODELOS", str(tmp_path))
+    monkeypatch.setattr(auditoria, "_detector", None)
+    monkeypatch.setattr(auditoria, "_detector_tentado", False)
+    carregando, solta = threading.Event(), threading.Event()
+    carregados = []
+
+    class MotorQueDemora:
+        nome, onde = "rfdetr-nano", "processador"
+
+        def __init__(self, caminho):
+            carregados.append(caminho)
+            carregando.set()
+            assert solta.wait(10), "o teste não soltou o carregamento"
+
+    monkeypatch.setattr(detector, "MotorOnnx", MotorQueDemora)
+    respostas = []
+    primeira = threading.Thread(target=lambda: respostas.append(auditoria._detector_local()))
+    segunda = threading.Thread(target=lambda: respostas.append(auditoria._detector_local()))
+    primeira.start()
+    assert carregando.wait(10)
+    segunda.start()
+    segunda.join(0.5)
+    assert segunda.is_alive(), "quem chega com o detector carregando ESPERA (antes, recebia 'não há detector' na hora)"
+    solta.set()
+    primeira.join(10)
+    segunda.join(10)
+
+    assert len(respostas) == 2 and respostas[0] is not None and respostas[0] is respostas[1]
+    assert len(carregados) == 1, "o modelo carrega uma vez só"

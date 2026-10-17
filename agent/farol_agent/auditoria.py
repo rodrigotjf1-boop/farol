@@ -117,6 +117,10 @@ INTERVALO_DA_LIMPEZA_MIN = 60
 # liga um critério no console travaria a batida por segundos, à toa.
 _detector: Any = None
 _detector_tentado = False
+# Quem pede o detector enquanto ele carrega ESPERA o carregamento terminar. Sem a trava, "já tentei" valia antes de
+# o modelo estar pronto, e a outra linha de execução recebia "não há detector" — na loja, em 17/10/2026, a bancada ao
+# vivo pediu no mesmo segundo que a auditoria e desistiu dizendo que o detector não estava instalado (ERR-133).
+_detector_trava = threading.Lock()
 
 
 def _detector_local():
@@ -126,6 +130,11 @@ def _detector_local():
     (`farol-agent detector instalar`). Sem ele, critérios de presença e
     contagem ficam de fora — e o motivo é dito uma vez.
     """
+    with _detector_trava:
+        return _carregar_o_detector()
+
+
+def _carregar_o_detector():
     global _detector, _detector_tentado
     if _detector_tentado:
         return _detector
