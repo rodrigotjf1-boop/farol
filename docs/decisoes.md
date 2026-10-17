@@ -8585,3 +8585,77 @@ por causa disso.
 
 O OpenVINO se instala no ambiente do agente (`pip install openvino`, o extra `openvino` do `pyproject.toml`), com o
 pacote novo. A conferência é a linha da partida: "detector local pronto: rfdetr-nano em OpenVINO (processador)".
+
+## 17/10/2026 · A23.2b: a bancada ao vivo — o lanche lido enquanto acontece, na loja (sem migration; dorme até `FAROL_BANCADA_AO_VIVO`)
+
+### O que muda
+
+Com `FAROL_BANCADA_AO_VIVO` no ambiente do agente (os números dos canais, separados por vírgula), o agente lê a bancada
+desses canais ao vivo:
+- **uma linha de execução por canal**;
+- **um quadro por segundo do fluxo principal**, na resolução da câmera;
+- **o recorte na área de montagem**, como na gravação de treino;
+- **o detector acha os pães abertos**, e a mesma leitura da gravação de treino segue cada lanche.
+
+Sem a variável, nada muda: a leitura nem liga.
+
+O que sai fica no computador da loja, ao lado da configuração, em `bancada/canal-NN/`.
+
+**A linha do tempo do dia** (`AAAA-MM-DD.jsonl`), cada linha com a hora e o fuso, tem estes eventos:
+
+| evento | o que diz |
+|---|---|
+| `estado` | a bancada mudou: `vazia` (não há o que analisar) ou `lanche` (um ou mais lanches em montagem) |
+| `pao` | apareceu um pão aberto |
+| `lanche` | um lanche terminou, com o começo, o fim, as etapas (a hora de cada passo que assentou diferente) e a pasta; `encerrado` marca quando quem terminou foi a leitura (a loja fechou, o agente parou) |
+| `resumo` | de dez em dez minutos, quantos quadros, quanto tempo cada um levou e o que ficou de fora |
+| `ligada` e `desligada` | o começo e o fim da leitura, com o motivo |
+
+**A pasta de cada lanche** (`AAAA-MM-DD/lanche-HHhMMmSS-N/`) tem os recortes na caixa fixa, as etapas e o
+`metades.csv`, como a gravação de treino. É o que a identificação dos ingredientes vai ler (A23.3).
+
+**O que fica guardado:**
+- os quadros que nenhum lanche na bancada usa saem do disco logo;
+- as pastas dos lanches ficam 3 dias;
+- a linha do tempo fica 30 dias;
+- só se apaga o que a leitura criou, pelo nome.
+
+**Com a loja aberta.** Vale o horário da configuração, e mais 30 minutos depois de fechar, para o último lanche. Com a
+loja fechada, a leitura para, o fluxo do gravador fecha e o processador fica para a gravação de treino. Loja sem
+horário cadastrado: lê sempre.
+
+### A mesma leitura da gravação de treino
+
+A conta de `treino_lanches.seguir` virou o `Seguidor`, quadro a quadro. A gravação de treino e a bancada ao vivo usam a
+mesma. A prova foi feita na densa de 14/10 21h30, na loja, com os pães guardados:
+- **47 trilhas e 1.935 quadros:** a versão da main e a nova deram o mesmo, trilha por trilha e quadro por quadro;
+- **o controle:** a versão de 14/10, refeita, deu as trilhas guardadas;
+- **a comparação acusa quando há diferença:** a versão de 14/10 contra a da main deu 17 trilhas diferentes.
+
+### Os cuidados
+
+- **O quadro é gravado e lido de volta** (JPEG 90), como na gravação de treino: os números da câmera foram medidos no
+  recorte gravado.
+- **O mesmo quadro não conta duas vezes.** Sem quadro, a leitura conta e segue.
+- **Um defeito num quadro não para a leitura:** conta, e o registro diz uma vez por hora.
+- **A configuração é conferida a cada 5 minutos.**
+  - Mudou a área ou o gravador: a leitura recomeça.
+  - A loja fechou ou falta uma peça (o detector, o perfil da bancada, o quadro da bancada): a leitura para, e o
+    registro diz o motivo uma vez.
+- **Um fluxo principal aberto por canal ligado.** O gravador aceita poucos, e a captura densa de 14/10 já mostrou que
+  um a mais funciona.
+
+### O que ainda não faz
+
+- **Não identifica os ingredientes nem diz o produto.** Isso é da A23.3 e da A23.4.
+- **Não manda nada à nuvem, e nada aparece no console.** A tela vem com protótipo.
+- **A pasta do lanche é escrita dentro do laço.** Custa um a três segundos por lanche (estimativa, não medido); o
+  `resumo` mostra o tempo de cada quadro, e isso se mede na loja.
+
+### Na loja
+
+A leitura precisa de quatro coisas:
+- o pacote novo;
+- o `openvino` instalado;
+- o perfil da bancada, que a loja já tem;
+- a variável `FAROL_BANCADA_AO_VIVO=4`, posta quando o dono pedir para ligar.

@@ -283,6 +283,14 @@ def test_o_metades_e_os_recortes_ficam_como_a_identificacao_le(tmp_path):
     assert com_braco["metades"] == "", "o braço por cima: o quadro conta, sem metade vista"
 
 
+def test_a_leitura_que_acaba_com_o_lanche_na_bancada_termina_ele_no_ultimo_quadro(tmp_path):
+    # Até os 58 s: o pão foi visto pela última vez aos 54, e o perfil espera 12 s para encerrar — o lanche ainda está
+    # na bancada quando a gravação acaba. Ele termina no último quadro lido, e não no último em que o pão foi visto.
+    densa = montar_densa(tmp_path, cena()[:59])
+    resumo = tl.lanches_da_densa(densa, tmp_path / "lanches", DetectorDaCor(), PERFIL)
+    assert (resumo[0]["fim"], resumo[0]["duracaoS"]) == ("2026-10-15 21:00:58", 58.0)
+
+
 def test_a_virada_da_meia_noite_nao_quebra_o_lanche(tmp_path):
     t0 = datetime(2026, 10, 15, 23, 59, 30)
     densa = montar_densa(tmp_path, cena(t0))

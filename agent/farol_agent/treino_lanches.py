@@ -34,7 +34,8 @@ duração mínima. O que é do modelo e da conta fica aqui.
 **A hora é a data inteira**, e não o segundo do dia (o v3 contava o segundo do
 dia, e a gravação que passa da meia-noite se perderia).
 
-**Dorme:** nada no agente chama este módulo ainda (a T3d liga).
+**Quem usa:** a gravação de treino (`treino_laco`, todos os quadros de uma vez) e a bancada ao vivo
+(`bancada_ao_vivo`, A23.2, um quadro por segundo), pela mesma conta (`Seguidor`).
 """
 
 from __future__ import annotations
@@ -243,26 +244,27 @@ class Interrompida(Exception):
 PERGUNTA_A_CADA = 30
 
 
-def seguir(
-    linhas: list[dict], recortes: Path, detector: Detector, perfil: PerfilDaBancada,
-    pode_seguir: Callable[[], bool] = lambda: True,
-) -> tuple[list[Trilha], int, int]:
-    """Segue os lanches pela captura densa. Devolve as trilhas (todas, curtas inclusive) e o tamanho do quadro."""
-    ativos: list[Trilha] = []
-    todos: list[Trilha] = []
-    largura = altura = 0
-    ultima: datetime | None = None
-    for n, linha in enumerate(linhas):
-        if n % PERGUNTA_A_CADA == 0 and n and not pode_seguir():
-            raise Interrompida()
-        img = ler_imagem(recortes / linha["recorte"])
-        if img is None:
-            continue
+class Seguidor:
+    """Segue os lanches quadro a quadro: `quadro()` a cada quadro, na ordem do tempo, e `encerrar()` no fim.
+
+    A mesma conta serve à gravação de treino (`seguir`, todos os quadros de uma vez) e à bancada ao vivo (A23.2, um
+    quadro por segundo, enquanto acontece). `guardar_todos=False` (ao vivo): o lanche que termina sai da memória —
+    quem chama recebe ele de `quadro()` e decide o que fazer.
+    """
+
+    def __init__(self, perfil: PerfilDaBancada, *, guardar_todos: bool = True) -> None:
+        self.perfil = perfil
+        self.ativos: list[Trilha] = []
+        self.todos: list[Trilha] = []
+        self._guardar_todos = guardar_todos
+        self._proximo_id = 1
+
+    def quadro(self, img: np.ndarray, agora: datetime, recorte: str, regioes: list[tuple]) -> list[Trilha]:
+        """Um quadro: as regiões de lanche que o detector achou nele (`lanches_do_quadro`). Devolve os lanches que
+        terminaram neste quadro (sem pão visto por mais de `sumiu_s`)."""
+        perfil = self.perfil
         altura, largura = img.shape[:2]
-        agora = _hora(linha["na_loja"])
-        ultima = agora
-        regioes = lanches_do_quadro(paes(detector, img, perfil))
-        livres = list(ativos)
+        livres = list(self.ativos)
         sem_par = []
         vistas: dict[int, tuple] = {}
         # 1) O lanche que ficou no lugar: a região cobre a dele. Um lanche, uma região.
@@ -303,17 +305,21 @@ def seguir(
                 vistas[par.id] = r[5]
                 livres.remove(par)
             else:
-                novo = Trilha(id=len(todos) + 1, regiao=r[:4], visto=agora, inicio=agora)
+                novo = Trilha(id=self._proximo_id, regiao=r[:4], visto=agora, inicio=agora)
+                self._proximo_id += 1
                 vistas[novo.id] = r[5]
-                ativos.append(novo)
-                todos.append(novo)
-        for a in list(ativos):
+                self.ativos.append(novo)
+                if self._guardar_todos:
+                    self.todos.append(novo)
+        terminaram = []
+        for a in list(self.ativos):
             if (agora - a.visto).total_seconds() > perfil.sumiu_s:
                 a.fim = agora
-                ativos.remove(a)
+                self.ativos.remove(a)
+                terminaram.append(a)
                 continue
             # O quadro conta para o lanche mesmo sem pão visto (braço por cima, carne cobrindo a base, embrulhando).
-            a.quadros.append((agora, linha["recorte"], a.trecho, tuple(a.regiao), vistas.get(a.id, ())))
+            a.quadros.append((agora, recorte, a.trecho, tuple(a.regiao), vistas.get(a.id, ())))
             x0, y0, x1, y1 = a.regiao
             if x1 - x0 >= CAIXA_MINIMA and y1 - y0 >= CAIXA_MINIMA:
                 a.cara = aparencia(img, a.regiao)
@@ -321,9 +327,37 @@ def seguir(
                 # vazia (depois do puxão), e o lanche puxado não se reconheceria (16/10/2026).
                 if a.id in vistas:
                     a.cara_vista = a.cara
-    for a in ativos:
-        a.fim = ultima
-    return todos, largura, altura
+        return terminaram
+
+    def encerrar(self, ultima: datetime | None) -> list[Trilha]:
+        """O fim da leitura: os lanches que ainda estavam na bancada terminam no último quadro."""
+        terminaram = list(self.ativos)
+        for a in terminaram:
+            a.fim = ultima
+        self.ativos = []
+        return terminaram
+
+
+def seguir(
+    linhas: list[dict], recortes: Path, detector: Detector, perfil: PerfilDaBancada,
+    pode_seguir: Callable[[], bool] = lambda: True,
+) -> tuple[list[Trilha], int, int]:
+    """Segue os lanches pela captura densa. Devolve as trilhas (todas, curtas inclusive) e o tamanho do quadro."""
+    seguidor = Seguidor(perfil)
+    largura = altura = 0
+    ultima: datetime | None = None
+    for n, linha in enumerate(linhas):
+        if n % PERGUNTA_A_CADA == 0 and n and not pode_seguir():
+            raise Interrompida()
+        img = ler_imagem(recortes / linha["recorte"])
+        if img is None:
+            continue
+        altura, largura = img.shape[:2]
+        agora = _hora(linha["na_loja"])
+        ultima = agora
+        seguidor.quadro(img, agora, linha["recorte"], lanches_do_quadro(paes(detector, img, perfil)))
+    seguidor.encerrar(ultima)
+    return seguidor.todos, largura, altura
 
 
 def caixa_do_trecho(regioes: list[tuple], largura: int, altura: int) -> tuple[int, int, int, int]:
@@ -345,10 +379,13 @@ def nome_do_recorte(t: datetime) -> str:
     return f"{t:%Hh%Mm%S}.jpg"
 
 
-def escrever_lanche(a: Trilha, recortes: Path, saida: Path, largura: int, altura: int, perfil: PerfilDaBancada) -> Path:
+def escrever_lanche(
+    a: Trilha, recortes: Path, saida: Path, largura: int, altura: int, perfil: PerfilDaBancada, *, nome: str | None = None,
+) -> Path:
     """Os recortes do lanche na caixa fixa de cada trecho, as etapas e o `metades.csv` (as metades vistas pelo
-    detector, em pixels da caixa fixa: x0:y0:x1:y1:nota, separadas por ponto e vírgula)."""
-    pasta = saida / f"lanche-{a.id:02d}"
+    detector, em pixels da caixa fixa: x0:y0:x1:y1:nota, separadas por ponto e vírgula). A pasta é `nome`, ou
+    `lanche-NN` pelo número do lanche (o da gravação de treino)."""
+    pasta = saida / (nome or f"lanche-{a.id:02d}")
     pasta.mkdir(parents=True, exist_ok=True)
     por_trecho: dict[int, list] = {}
     for _, _, trecho, regiao, _ in a.quadros:
