@@ -1198,6 +1198,23 @@ gravador atende (1,5 s, fora da trava), e o OpenCV passa a desistir em 5 s
 
 ---
 
+## A23 · A bancada ao vivo: o lanche lido como vídeo, a nuvem só para o ingrediente — 🟡 em construção (16/10/2026)
+
+O pedido do dono (16/10): a montagem é acompanhada como um vídeo. Com a bancada vazia, não há o que analisar, e isso não
+é falha. Entrou pão, o lanche fica em análise contínua até fechar e embalar; a mão entrando e saindo não conclui nada.
+Cada ingrediente que entra é um passo, identificado na loja pelos exemplos; quando a loja não souber, a nuvem responde
+"qual ingrediente de hambúrguer é este recorte", com o recorte na resolução máxima. A resposta da nuvem vira exemplo a
+confirmar. O produto sai da busca nas fichas, a cada passo, com a fila do KDS limitando os candidatos.
+
+| fatia | o que entra | estado |
+|---|---|---|
+| **A23.0** | parar de gastar: o critério "Produto" (ação, canal 4: 12 de 12 "não avaliável" na nuvem em 16/10) volta a só observar, ou é desligado, pelo dono, até a A23.5. Uma trava no agente pelo papel "posição de montagem" foi escrita e descartada antes do commit: o mesmo papel leva à nuvem, com o contexto da cena, os critérios de estado da bancada (bancada limpa), e a suíte caiu | com o dono (Critérios → "Produto") |
+| **A23.1** | medir: o processador a 1 quadro por segundo na bancada (3 × 7 pedaços, OpenVINO); a identificação com os 140 exemplos nos lanches conferidos; a nuvem com o recorte de um ingrediente | a fazer (com a loja fechada) |
+| **A23.2** | a leitura ao vivo: os estados da bancada (vazia, lanche em montagem, concluído) e os passos com hora | a fazer |
+| **A23.3** | a identificação na loja pelos exemplos, e a nuvem por ingrediente, com a resposta guardada como exemplo a confirmar | a fazer |
+| **A23.4** | o produto pela busca nas fichas a cada passo, e a fila do KDS (o agente ler a fila que a nuvem já entrega) | a fazer |
+| **A23.5** | o critério "Produto" respondido por esse caminho | a fazer |
+
 ## A11 · A imagem que sai da loja: o borrão não borrava — 🟡 corrigido, cobertura parcial (06/10/2026)
 
 > **16/10/2026 — na loja piloto, o borrão está DESLIGADO por decisão do dono** ("não vamos tratar ou distorcer rostos
