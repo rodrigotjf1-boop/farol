@@ -1209,11 +1209,26 @@ confirmar. O produto sai da busca nas fichas, a cada passo, com a fila do KDS li
 | fatia | o que entra | estado |
 |---|---|---|
 | **A23.0** | parar de gastar: o critério "Produto" (ação, canal 4: 12 de 12 "não avaliável" na nuvem em 16/10) volta a só observar, ou é desligado, pelo dono, até a A23.5. Uma trava no agente pelo papel "posição de montagem" foi escrita e descartada antes do commit: o mesmo papel leva à nuvem, com o contexto da cena, os critérios de estado da bancada (bancada limpa), e a suíte caiu | com o dono (Critérios → "Produto") |
-| **A23.1** | medir: o processador a 1 quadro por segundo na bancada (3 × 7 pedaços, OpenVINO); a identificação com os 140 exemplos nos lanches conferidos; a nuvem com o recorte de um ingrediente | a fazer (com a loja fechada) |
-| **A23.2** | a leitura ao vivo: os estados da bancada (vazia, lanche em montagem, concluído) e os passos com hora | a fazer |
-| **A23.3** | a identificação na loja pelos exemplos, e a nuvem por ingrediente, com a resposta guardada como exemplo a confirmar | a fazer |
+| **A23.1** | medir: o processador a 1 quadro por segundo na bancada (3 × 7 pedaços, OpenVINO); a identificação com os 140 exemplos nos lanches conferidos; a nuvem com o recorte de um ingrediente | 🟡 medidos em 17/10 o processador, o OpenVINO e os exemplos (abaixo); faltam a nuvem por ingrediente e os lanches conferidos |
+| **A23.2** | a leitura ao vivo: os estados da bancada (vazia, lanche em montagem, concluído) e os passos com hora — no canal 4, no processador, com o OpenVINO | a fazer |
+| **A23.3** | a identificação na loja pelos exemplos (o vetor do DINOv2-small no lugar do histograma de cor), e a nuvem por ingrediente, com a resposta guardada como exemplo a confirmar | a fazer |
 | **A23.4** | o produto pela busca nas fichas a cada passo, e a fila do KDS (o agente ler a fila que a nuvem já entrega) | a fazer |
 | **A23.5** | o critério "Produto" respondido por esse caminho | a fazer |
+
+### A23.1 — o que foi medido na loja (17/10/2026, de madrugada)
+
+Medido com a loja ainda aberta, em prioridade baixa, por exceção do dono. Os detalhes estão em `docs/decisoes.md`, 17/10.
+
+- **Achar os pães na bancada** (240 quadros de 1907×885 da gravação de 14/10, canal 4):
+  - **com 7 pedaços**, o jeito de hoje: 757 ms por quadro pelo ONNX Runtime e **419 ms pelo OpenVINO**;
+  - **o OpenVINO acha os mesmos pães**: 267 de 267 em 120 quadros, caixa por caixa;
+  - **com menos pedaços se perdem pães**: com 3, um em cada três; com 1, três em cada quatro;
+  - **uma bancada a 1 quadro por segundo cabe no processador** (0,42 s de cada segundo);
+  - **cinco bancadas não cabem** (2,1 s por segundo, o dobro do que o processador tem): para elas, a placa de vídeo.
+- **Reconhecer o ingrediente pelos exemplos** (100 fotos da base da loja, 17 ingredientes, deixando cada foto de fora):
+  - **o primeiro palpite certo:** 47 de 100 pela cor, como hoje, e **72 de 100 pelo DINOv2-small**;
+  - **certo entre os três primeiros:** 62 de 100 pela cor, e **88 de 100 pelo DINOv2-small**;
+  - **o tempo do DINOv2-small:** 61 ms por foto no processador.
 
 ## A11 · A imagem que sai da loja: o borrão não borrava — 🟡 corrigido, cobertura parcial (06/10/2026)
 

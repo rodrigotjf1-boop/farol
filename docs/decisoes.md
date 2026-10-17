@@ -8477,3 +8477,77 @@ Ver o roadmap, A23:
 - **A23.3:** a identificação, na loja e pela nuvem;
 - **A23.4:** o produto e a fila do KDS;
 - **A23.5:** o "Produto" respondido por esse caminho.
+
+## 17/10/2026 · A23.1 medido: o processador da loja aguenta uma bancada, não cinco; os exemplos reconhecem melhor com o DINOv2 (sem código no agente)
+
+### O que foi medido
+
+Na loja piloto, de 03h48 a 04h09 de 17/10, com a loja ainda aberta, por exceção do dono. Tudo rodou em prioridade
+baixa, com roteiros de medida fora do repositório. Os resultados ficaram na loja, em `C:\Farol\guardado\`, e o
+agente seguiu sem aviso nem erro.
+
+**Achar os pães na bancada.** Foram 240 quadros de 1907×885 da gravação de 14/10 do canal 4, com o mesmo detector e
+a mesma classe do agente, e o pão entre 100 e 260 px. O processador é um i7-10700F com 8 núcleos, e os dois motores
+ocupam os 8 enquanto rodam.
+
+| corte do quadro | pães achados (dos 511 da V7) | ONNX Runtime (hoje) | OpenVINO |
+|---|---|---|---|
+| V7: o quadro inteiro e mais 6 pedaços (o jeito de hoje) | 511 | 757 ms (p95 771) | **419 ms (p95 441)** |
+| V3: 3 pedaços na largura | 331 (65%) | 327 ms | 186 ms |
+| V1: só o quadro inteiro | 121 (24%) | 111 ms | 62 ms |
+
+**Caixa por caixa, o OpenVINO acha os mesmos pães que o ONNX Runtime.** Em 120 quadros, com a V7:
+- 267 pães nos dois;
+- nenhum só num deles;
+- as caixas se sobrepõem por inteiro (1,000);
+- a nota difere no máximo 0,0006.
+
+**Reconhecer o ingrediente pelos exemplos que o dono confirmou.** A base da loja tem 100 fotos diferentes, com 142
+marcações de 17 ingredientes. Cada foto foi testada deixando-a de fora, de modo que só as outras 99 valem. Conta como
+certo qualquer ingrediente marcado na foto.
+
+| como compara | a foto mais parecida | o 1º palpite pelo ingrediente | entre os 3 primeiros | tempo por foto |
+|---|---|---|---|---|
+| a cor (o histograma da "cara", como hoje) | 56 de 100 | 47 de 100 | 62 de 100 | — |
+| DINOv2-small, int8 | **80 de 100** | **72 de 100** | **88 de 100** | 61 ms |
+| DINOv2-small, fp32 | 80 de 100 | 71 de 100 | 87 de 100 | 67 ms |
+
+O "1º palpite pelo ingrediente" é o protótipo de cada ingrediente, a média dos exemplos dele. O DINOv2-small usado é o
+modelo `facebook/dinov2-small`, Apache-2.0. O arquivo ONNX é o do `onnx-community`, conferido pelo sha256 publicado.
+
+Por ingrediente, no 1º palpite, os números são o piso: numa foto com vários, só um pode ser o 1º.
+- **Os que se reconhecem bem:** bacon (10 de 11), fatia de cheddar (6 de 7), pão brioche (13 de 17) e barbecue (3 de 3).
+- **Os fracos:**
+  - pão de gergelim de 1 corte, com 2 de 14 (os pães se parecem);
+  - alface, com 7 de 21;
+  - molho especial, com 9 de 22.
+- **Os que não dá para testar:** os cinco ingredientes com uma foto só. Deixando a foto de fora, não sobra exemplo.
+
+### O que fica decidido
+
+- **O corte do quadro fica na V7.** Cortar menos pedaços perde pães.
+- **Na loja sem placa de vídeo, o detector passa a rodar pelo OpenVINO.**
+  - Acha os mesmos pães, 1,8 vez mais rápido.
+  - Vale a regra da prova da placa, de 13/10: o motor só fica se responder igual, e respondeu.
+  - Entra com a A23.2, com a comparação caixa por caixa nos testes.
+- **Uma bancada a 1 quadro por segundo cabe no processador da loja:** 0,42 s de cada segundo.
+  - A A23.2 começa no canal 4, sem esperar a compra de hardware.
+- **Cinco bancadas a 1 quadro por segundo não cabem** (medido).
+  - Pedem 2,1 s de processador por segundo, o dobro do que ele tem.
+  - Sem a placa, seria um quadro a cada ~2 s por bancada, com o processador todo ocupado.
+  - No pico as cinco trabalham juntas, e é o pico que decide.
+  - Para as cinco, a placa de vídeo.
+- **O tempo na placa é estimativa, não medida.**
+  - A Roboflow publica ~2,3 ms por imagem para o RF-DETR Nano numa T4, com TensorRT FP16.
+  - A V7 são 7 imagens por quadro.
+  - O número se mede quando a placa chegar, pela mesma regra da prova da placa.
+- **Na identificação, o vetor do DINOv2-small substitui o histograma de cor**, a partir da A23.3.
+  - Entra em `docs/licencas.md` junto com o código.
+  - O modelo já está na loja, em `C:\Farol\modelos\dinov2-small\`, só para medir.
+
+### O que falta medir
+
+- a nuvem com o recorte de um ingrediente;
+- a identificação nos lanches conferidos pelo dono;
+- o vetor por pedacinho da imagem, para saber onde está cada ingrediente na mesma foto;
+- o pão de 1 corte contra o brioche, em resolução maior.
