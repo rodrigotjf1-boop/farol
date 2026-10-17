@@ -8414,3 +8414,66 @@ no fim do projeto.
 
 A variável `FAROL_BORRAR_ROSTOS=0` nas variáveis do usuário do computador da loja (as mesmas onde já ficam as do agente)
 e o pacote novo. Para religar, apagar a variável e reiniciar o agente.
+
+## 16/10/2026 · A23: a bancada ao vivo — o lanche lido como vídeo, e a nuvem só para o ingrediente (direção do dono; sem código)
+
+### O que o dono disse
+
+Depois de ligar o critério "Produto" (ação, canal 4) e ver que ele ia à nuvem:
+
+> temos que reduzir de 30 seg para 5 seg. A montagem é que precisamos de atualizações rápidas para identificar a
+> montagem do produto e identificar qual. Bancada vazia, provavelmente sem produto. Se um pão entra na bancada, ele vai
+> ser preparado até conclusão e embalagem. […] Não adianta subir uma imagem à nuvem: a nuvem não vai entender […],
+> sempre vai ser inconclusiva e vamos perder dinheiro com análise na API. A análise na nuvem é, basicamente, para
+> identificar ingrediente quando localmente não conseguirmos […], cortar a imagem com máximo de resolução […] e
+> perguntar qual ingrediente é, com base em uso numa hamburgueria. […] Com o retorno temos o ingrediente e vamos
+> montando o produto: [ingrediente 1, a nuvem disse bacon; 2, o agente local identificou picles; 3, pão; 4, a nuvem
+> detectou carne] — com base nesses ingredientes vou filtrar as fichas e ver em qual se enquadra, com confiança de 85%
+> (exemplo). O que vem da nuvem temos que registrar e ter como aprendizado […]. O KDS vai facilitar […], porém não vai
+> ser eficaz se não aprendermos a identificar o que o colaborador está montando na bancada. Nosso agente é como uma IA
+> olhando a bancada e descrevendo cada passo […], como se estivéssemos analisando o vídeo e não frames. Caso não seja
+> possível […] e faltar recursos, você deve levantar o que precisamos.
+
+E: "a mão sair não significa nenhum tipo de conclusão: enquanto tem ingrediente na bancada, ela fica online em
+análises. Só com bancada vazia não é necessário nem tem como analisar; não é falha de análise, é que não tem o que
+analisar".
+
+### O que foi medido
+
+Na loja, de 19h51 a 20h00 de 16/10:
+- **12 de 12 "não avaliável"** no "Produto" (Claude Haiku, ~1,3 centavo e ~2 s por pergunta);
+- **o motivo, em todas:** um quadro solto, sem a ficha e sem a sequência do lanche;
+- **por que ia à nuvem:** é critério de ação, e a loja (modo híbrido) não tem um juiz que leia texto livre.
+
+### O que fica decidido
+
+- **Os estados da bancada:**
+  - vazia: não há o que analisar, e isso não é falha nem "não avaliável";
+  - lanche em montagem: do pão até fechar e embalar, em análise contínua (~1 quadro por segundo), e a mão entrando e
+    saindo não conclui nada;
+  - concluído: ao fechar e embalar.
+- **Os momentos em que a bancada assenta** servem só para tirar a foto limpa de cada passo.
+- **A nuvem responde só "qual ingrediente de hambúrguer é este recorte"**, quando a loja não souber, com o recorte na
+  resolução máxima. A resposta vira exemplo a confirmar.
+- **O produto sai da busca nas fichas, a cada passo.** O ingrediente-chave corta os candidatos, e a fila do KDS limita
+  ao que está em produção.
+
+### Parar de gastar agora
+
+O "Produto" volta a só observar, ou é desligado pelo dono, até a leitura ao vivo responder por ele.
+
+Uma trava no agente (estado e ação de um quadro de "posição de montagem" nunca à nuvem) foi escrita, testada e
+descartada antes do commit: o mesmo papel já leva à nuvem, de propósito e com o contexto da cena, os critérios de
+estado da bancada ("bancada limpa"). A suíte do agente caiu nos testes do pedido com contexto, e a trava desligaria o
+que não era o pedido.
+
+O quadro do canal 4 está com o papel "livre". Por isso, hoje, nem a espera pelas mãos vale nele.
+
+### O plano
+
+Ver o roadmap, A23:
+- **A23.1:** medir o processador, a identificação com os 140 exemplos e a nuvem por ingrediente;
+- **A23.2:** a leitura ao vivo;
+- **A23.3:** a identificação, na loja e pela nuvem;
+- **A23.4:** o produto e a fila do KDS;
+- **A23.5:** o "Produto" respondido por esse caminho.
