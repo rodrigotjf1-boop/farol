@@ -8659,3 +8659,20 @@ A leitura precisa de quatro coisas:
 - o `openvino` instalado;
 - o perfil da bancada, que a loja já tem;
 - a variável `FAROL_BANCADA_AO_VIVO=4`, posta quando o dono pedir para ligar.
+
+## 17/10/2026 · O detector carrega uma vez, e quem pede no meio espera (ERR-133; sem migration; vale com o pacote novo)
+
+### O que aconteceu
+
+O dono mandou ligar a bancada ao vivo na loja ("pode ligar"), às 05h32 de 17/10. No mesmo segundo em que a auditoria
+montou, o registro disse: "bancada ao vivo, canal 4: não leio agora — o detector não está instalado neste computador".
+Quatro segundos depois veio "detector local pronto: rfdetr-nano em OpenVINO (processador)".
+
+O detector é carregado uma vez por processo, e a marca "já tentei" vinha antes de o carregamento terminar (uns 4 s, com
+a prova do OpenVINO). Quem pedia no meio recebia "não há detector". A leitura ao vivo se corrige sozinha na conferência
+seguinte, 5 minutos depois. A gravação de treino pede pelo mesmo caminho, e falharia a gravação com esse motivo falso.
+
+### O que fica
+
+Uma trava em volta do "já tentei" e do carregamento. Quem chega no meio espera e recebe o mesmo detector, e o modelo
+carrega uma vez só.
