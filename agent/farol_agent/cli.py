@@ -1076,17 +1076,19 @@ def cmd_servir(args: argparse.Namespace) -> int:
         treino_em_fundo.iniciar()
         print("gravação de treino ligada: lê o que o console pedir, com a loja fechada")
 
-    from farol_agent.bancada_ao_vivo import VARIAVEL, BancadaAoVivo, canais_ligados
+    from farol_agent.bancada_ao_vivo import GUARDAR, VARIAVEL, BancadaAoVivo, canais_ligados, guardar_quadros_ligado
 
     bancada_ao_vivo = None
     canais_ao_vivo = canais_ligados(os.environ.get(VARIAVEL))
     if canais_ao_vivo:
         # Uma linha de execução por canal, como a auditoria: um quadro por segundo do fluxo principal (A23.2).
-        bancada_ao_vivo = BancadaAoVivo(args.config, canais_ao_vivo)
+        guardar = guardar_quadros_ligado(os.environ.get(GUARDAR))
+        bancada_ao_vivo = BancadaAoVivo(args.config, canais_ao_vivo, guardar_quadros=guardar)
         bancada_ao_vivo.iniciar()
         print(
             f"bancada ao vivo LIGADA ({VARIAVEL}): canal {', '.join(map(str, canais_ao_vivo))} — "
             "um quadro por segundo, com a loja aberta"
+            + (f"; guardando TODOS os quadros ({GUARDAR})" if guardar else "")
         )
 
     from farol_agent.pipeline.recorte import borrao_ligado

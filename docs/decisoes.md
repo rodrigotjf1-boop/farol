@@ -8676,3 +8676,30 @@ seguinte, 5 minutos depois. A gravação de treino pede pelo mesmo caminho, e fa
 
 Uma trava em volta do "já tentei" e do carregamento. Quem chega no meio espera e recebe o mesmo detector, e o modelo
 carrega uma vez só.
+
+## 18/10/2026 · A23.2c: a noite inteira guardada — a leitura ao vivo guarda todos os quadros, para ser lida de novo (sem migration; vale com o pacote novo e a chave)
+
+### O que a primeira noite mostrou
+
+A primeira noite ao vivo (17 para 18/10) leu um quadro por segundo das 19h00 às 06h19, com 459 ms por quadro e
+nenhum erro da leitura. Mas a contagem não vale, e o motivo está nas imagens: os colaboradores forram a bancada com um
+papel por lanche e montam de 2 a 5 lanches lado a lado (o dono, 17/10). A leitura pelo pão mistura os lanches de
+papéis vizinhos:
+- metade dos 337 "lanches" da noite mudou de lugar, ou seja, juntou papéis;
+- houve uns 1.600 pedaços curtos.
+
+O próximo jeito de separar, pelo lugar do lanche (o papel ou a caixa), precisa ser medido na noite inteira. A leitura
+ao vivo, porém, só guardava os quadros dos lanches que ela mesma achou.
+
+### O que muda
+
+Com `FAROL_BANCADA_GUARDAR_QUADROS=1` no ambiente do agente, a leitura ao vivo guarda TODOS os quadros da sessão.
+- **O formato é o da densa da gravação de treino:** `bancada/canal-NN/densa/AAAA-MM-DD_HHhMM/`, com o `paradas.csv` e a
+  pasta `recortes/`.
+- **A releitura dá o mesmo:** `treino_lanches.lanches_da_densa` lê a sessão de novo e dá o mesmo lanche que o ao vivo
+  deu, coberto por teste.
+- **Cada versão nova da leitura** (pelo lugar, com o DINOv2) roda na noite inteira e se compara com a de antes, sem
+  depender do gravador.
+- **O que fica guardado:** a sessão fica 2 dias. São uns 10 GB por noite, num disco com 94 GB livres.
+
+Sem a chave, nada muda: só ficam os quadros dos lanches, nas pastas deles.
