@@ -186,6 +186,62 @@ def test_o_mesmo_quadro_nao_conta_duas_vezes_e_sem_quadro_segue(tmp_path):
     assert (le.contas.quadros, le.contas.repetidos, le.contas.sem_quadro) == (2, 1, 1)
 
 
+def test_com_a_chave_a_sessao_inteira_fica_guardada_e_a_releitura_da_o_mesmo(tmp_path):
+    le = bav.LeituraDoCanal(
+        4, ZONA, FluxoDeMentira(cena()), DetectorDaCor(), PERFIL, tmp_path / "canal-04",
+        relogio=lambda: T0, guardar_quadros=True,
+    )
+    ler_tudo(le, 80)
+    le.encerrar("o agente parou")
+    sessao = tmp_path / "canal-04" / bav.DENSA / "2026-10-15_21h00"
+
+    assert len(list((sessao / "recortes").iterdir())) == 80, "todo quadro da sessão fica, com ou sem lanche"
+    with (sessao / "paradas.csv").open(encoding="utf-8", newline="") as f:
+        linhas = list(csv.DictReader(f))
+    assert [int(l["indice"]) for l in linhas] == list(range(80)) and linhas[0]["na_loja"] == "2026-10-15 21:00:00.000"
+    # A releitura da sessão guardada, pela leitura da gravação de treino, dá o lanche que o ao vivo deu.
+    releitura = tl.lanches_da_densa(sessao, tmp_path / "releitura", DetectorDaCor(), PERFIL)
+    ao_vivo = next(e for e in linha_do_tempo(le.pasta) if e["evento"] == "lanche")
+    r = next(r for r in releitura if r["eLanche"])
+    assert (sem_fuso(ao_vivo["inicio"]), sem_fuso(ao_vivo["fim"])) == (
+        datetime.fromisoformat(r["inicio"]), datetime.fromisoformat(r["fim"]),
+    )
+    assert ao_vivo["etapas"] == [e.removesuffix(".jpg") for e in r["etapas"]]
+    assert (ao_vivo["quadros"], ao_vivo["mudouDeLugar"]) == (r["quadros"], r["mudouDeLugar"])
+
+
+def test_a_sessao_guardada_fica_com_todo_quadro_ate_o_que_a_leitura_nao_conseguiu_ler(tmp_path):
+    class DetectorQueQuebra(DetectorDaCor):
+        def caixas(self, imagem, classe, limite):
+            raise RuntimeError("o detector caiu")
+
+    le = bav.LeituraDoCanal(
+        4, ZONA, FluxoDeMentira([(T0, quadro())]), DetectorQueQuebra(), PERFIL, tmp_path / "canal-04",
+        relogio=lambda: T0, guardar_quadros=True,
+    )
+    with pytest.raises(RuntimeError):
+        le.um_quadro()
+    le.encerrar("o agente parou")
+
+    assert [f.name for f in (tmp_path / "canal-04" / bav.DENSA / "2026-10-15_21h00" / "recortes").iterdir()] == [
+        "2026-10-15_21-00-00_000.jpg",
+    ], "o fim da leitura não apaga nada da sessão guardada"
+
+
+def test_sem_a_chave_nao_ha_sessao_guardada(tmp_path):
+    le = leitura(tmp_path, cena())
+    ler_tudo(le, 80)
+
+    assert not (le.pasta / bav.DENSA).exists()
+
+
+@pytest.mark.parametrize(
+    "valor, liga", [(None, False), ("", False), ("0", False), ("nao", False), ("1", True), (" Sim ", True), ("ligado", True)],
+)
+def test_a_chave_de_guardar_os_quadros(valor, liga):
+    assert bav.guardar_quadros_ligado(valor) is liga
+
+
 def test_o_resumo_sai_de_dez_em_dez_minutos_com_as_contas(tmp_path):
     quadros = [(T0 + timedelta(seconds=s), quadro()) for s in range(0, 1300, 10)]
     le = leitura(tmp_path, quadros)
@@ -251,12 +307,18 @@ def test_a_limpeza_apaga_so_o_velho_e_so_o_que_a_leitura_criou(tmp_path):
     (tmp_path / "outra-coisa").mkdir()
     (tmp_path / "notas.txt").write_text("de outra pessoa", encoding="utf-8")
 
-    assert bav.limpar(tmp_path, hoje) == 3
+    for nome in ("2026-10-14_19h00", "2026-10-15_19h00", "2026-10-17_05h37", "uma-pasta-qualquer"):
+        (tmp_path / bav.DENSA / nome / "recortes").mkdir(parents=True)
+
+    assert bav.limpar(tmp_path, hoje) == 4
 
     assert sorted(p.name for p in tmp_path.iterdir()) == [
         "2026-09-17.jsonl", "2026-09-18.jsonl", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17", "2026-13-45",
-        "notas.txt", "outra-coisa",
+        "densa", "notas.txt", "outra-coisa",
     ]
+    assert sorted(p.name for p in (tmp_path / bav.DENSA).iterdir()) == [
+        "2026-10-15_19h00", "2026-10-17_05h37", "uma-pasta-qualquer",
+    ], "a sessão inteira fica 2 dias; o que não é sessão, fica"
 
 
 # ───────────────────────────── o serviço ─────────────────────────────
@@ -362,6 +424,15 @@ def test_o_laco_abre_o_fluxo_le_a_bancada_e_ao_fechar_encerra(tmp_path):
     assert eventos[0]["evento"] == "ligada" and [e["trilha"] for e in eventos if e["evento"] == "lanche"] == [1]
     assert (eventos[-1]["evento"], eventos[-1]["motivo"]) == ("desligada", "o agente parou")
     assert fluxo.parado and sv.c.leitura is None
+
+
+def test_o_servico_com_a_chave_guarda_a_sessao_inteira(tmp_path):
+    sv = Servico(em_disco(tmp_path), FluxoDeMentira(cena()[:30]), guardar_quadros=True)
+
+    sv.passos(31)
+    sv.s.fechar(sv.c, "o agente parou")
+
+    assert len(list((sv.pasta / bav.DENSA / "2026-10-15_21h00" / "recortes").iterdir())) == 30
 
 
 def test_o_laco_confere_a_configuracao_so_de_tempos_em_tempos(tmp_path):
@@ -473,8 +544,8 @@ def test_a_linha_de_execucao_le_e_para(tmp_path):
 class _BancadaDeMentira:
     vistos: list[str] = []
 
-    def __init__(self, caminho_config, canais):
-        _BancadaDeMentira.vistos.append(f"criada:{Path(caminho_config).name}:{canais}")
+    def __init__(self, caminho_config, canais, *, guardar_quadros=False):
+        _BancadaDeMentira.vistos.append(f"criada:{Path(caminho_config).name}:{canais}:guardar={guardar_quadros}")
 
     def iniciar(self):
         _BancadaDeMentira.vistos.append("iniciada")
@@ -483,16 +554,24 @@ class _BancadaDeMentira:
         _BancadaDeMentira.vistos.append("parada")
 
 
-@pytest.mark.parametrize("valor, vistos", [(None, []), ("4", ["criada:configuracao.json:[4]", "iniciada", "parada"])])
-def test_o_agente_so_liga_a_bancada_ao_vivo_com_a_variavel(tmp_path, monkeypatch, capsys, valor, vistos):
+@pytest.mark.parametrize(
+    "valor, guardar, vistos",
+    [
+        (None, "1", []),
+        ("4", None, ["criada:configuracao.json:[4]:guardar=False", "iniciada", "parada"]),
+        ("4", "1", ["criada:configuracao.json:[4]:guardar=True", "iniciada", "parada"]),
+    ],
+)
+def test_o_agente_so_liga_a_bancada_ao_vivo_com_a_variavel(tmp_path, monkeypatch, capsys, valor, guardar, vistos):
     from farol_agent import nuvem
 
     _BancadaDeMentira.vistos.clear()
     monkeypatch.setenv("FAROL_AGENTE_TOKEN", "token-de-teste")
-    if valor is None:
-        monkeypatch.delenv(bav.VARIAVEL, raising=False)
-    else:
-        monkeypatch.setenv(bav.VARIAVEL, valor)
+    for nome, v in ((bav.VARIAVEL, valor), (bav.GUARDAR, guardar)):
+        if v is None:
+            monkeypatch.delenv(nome, raising=False)
+        else:
+            monkeypatch.setenv(nome, v)
     monkeypatch.setattr(nuvem, "ClienteNuvem", _ClienteDeMentira)
     monkeypatch.setattr(bav, "BancadaAoVivo", _BancadaDeMentira)
     monkeypatch.setattr(treino_servico, "TreinoEmFundo", lambda *a, **k: None)
@@ -502,4 +581,6 @@ def test_o_agente_so_liga_a_bancada_ao_vivo_com_a_variavel(tmp_path, monkeypatch
     assert cli.main(argv) == 0
 
     assert _BancadaDeMentira.vistos == vistos
-    assert ("bancada ao vivo LIGADA (FAROL_BANCADA_AO_VIVO): canal 4" in capsys.readouterr().out) is bool(vistos)
+    saida = capsys.readouterr().out
+    assert ("bancada ao vivo LIGADA (FAROL_BANCADA_AO_VIVO): canal 4" in saida) is bool(vistos)
+    assert ("guardando TODOS os quadros (FAROL_BANCADA_GUARDAR_QUADROS)" in saida) is (bool(vistos) and guardar == "1")

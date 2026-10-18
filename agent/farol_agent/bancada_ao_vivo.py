@@ -35,6 +35,7 @@ Sem horário cadastrado, lê sempre.
 
 from __future__ import annotations
 
+import csv
 import json
 import logging
 import re
@@ -47,7 +48,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from farol_agent import treino_lanches
+from farol_agent import treino_lanches, treino_quadros
 from farol_agent.configuracao import de_json, ler_do_disco
 from farol_agent.gravacao_lida import guardar_recorte, quadro_do_canal
 from farol_agent.modelos import Janela, Zona
@@ -56,8 +57,14 @@ from farol_agent.treino_servico import _detector_da_auditoria, janelas_da_loja, 
 _log = logging.getLogger(__name__)
 
 VARIAVEL = "FAROL_BANCADA_AO_VIVO"
+# Com esta chave, a leitura guarda TODOS os quadros da sessão, no formato da densa da gravação de treino
+# (`paradas.csv` + `recortes/`): a noite inteira pode ser lida de novo depois, por qualquer versão da leitura, e as
+# versões comparadas lado a lado. Sem ela, só ficam os quadros dos lanches (nas pastas deles).
+GUARDAR = "FAROL_BANCADA_GUARDAR_QUADROS"
 PASTA = "bancada"
 QUADROS = "quadros"
+DENSA = "densa"
+GUARDA_DENSA_DIAS = 2
 # Um quadro por segundo: o da gravação de treino (a carne e o queijo levam 2 a 3 s para entrar — o dono, 14/10).
 A_CADA_S = 1.0
 # O quadro mais velho que isto não vale: o fluxo parou, e o quadro que ficou não é de agora.
@@ -74,6 +81,12 @@ VAZIA, LANCHE = "vazia", "lanche"
 _DIA = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _LINHA = re.compile(r"^(\d{4}-\d{2}-\d{2})\.jsonl$")
 _QUADRO = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_\d{3}\.jpg$")
+_SESSAO = re.compile(r"^(\d{4}-\d{2}-\d{2})_\d{2}h\d{2}$")
+
+
+def guardar_quadros_ligado(valor: str | None) -> bool:
+    """`FAROL_BANCADA_GUARDAR_QUADROS`: "1", "sim", "true" ou "ligado" liga; o resto, não."""
+    return (valor or "").strip().lower() in ("1", "sim", "true", "ligado")
 
 
 def canais_ligados(valor: str | None) -> list[int]:
@@ -106,21 +119,27 @@ def _iso(t: datetime) -> str:
 
 
 def limpar(pasta: Path, hoje: date) -> int:
-    """Apaga as pastas de lanche com mais de `GUARDA_DIAS` dias e as linhas do tempo com mais de `GUARDA_LINHA_DIAS`.
-    Só o que esta leitura cria, pelo nome. Devolve quantas apagou."""
+    """Apaga as pastas de lanche com mais de `GUARDA_DIAS` dias, as linhas do tempo com mais de `GUARDA_LINHA_DIAS` e
+    as sessões guardadas inteiras (`densa/`) com mais de `GUARDA_DENSA_DIAS`. Só o que esta leitura cria, pelo nome.
+    Devolve quantas apagou."""
     apagadas = 0
     if not pasta.is_dir():
         return 0
-    for item in pasta.iterdir():
+    itens = [(item, _DIA, GUARDA_DIAS) for item in pasta.iterdir() if item.is_dir()]
+    itens += [(item, _LINHA, GUARDA_LINHA_DIAS) for item in pasta.iterdir() if item.is_file()]
+    if (pasta / DENSA).is_dir():
+        itens += [(item, _SESSAO, GUARDA_DENSA_DIAS) for item in (pasta / DENSA).iterdir() if item.is_dir()]
+    for item, nome, dias in itens:
+        m = nome.match(item.name)
+        if not m:
+            continue
         try:
-            if item.is_dir() and _DIA.match(item.name):
-                if (hoje - date.fromisoformat(item.name)).days > GUARDA_DIAS:
+            if (hoje - date.fromisoformat(m.group(1) if m.groups() else item.name)).days > dias:
+                if item.is_dir():
                     shutil.rmtree(item)
-                    apagadas += 1
-            elif item.is_file() and (m := _LINHA.match(item.name)):
-                if (hoje - date.fromisoformat(m.group(1))).days > GUARDA_LINHA_DIAS:
+                else:
                     item.unlink()
-                    apagadas += 1
+                apagadas += 1
         except (ValueError, OSError) as e:
             _log.warning("bancada ao vivo: não apaguei %s (%s)", item.name, type(e).__name__)
     return apagadas
@@ -167,16 +186,31 @@ class LeituraDoCanal:
     def __init__(
         self, canal: int, zona: Zona, fluxo: Fluxo, detector: treino_lanches.Detector,
         perfil: treino_lanches.PerfilDaBancada, pasta: Path, *, relogio: Callable[[], datetime] = datetime.now,
+        guardar_quadros: bool = False,
     ) -> None:
         self.canal, self.zona, self.fluxo, self.detector, self.perfil = canal, zona, fluxo, detector, perfil
         self.pasta = Path(pasta)
         self._relogio = relogio
-        self.quadros = self.pasta / QUADROS
-        self.quadros.mkdir(parents=True, exist_ok=True)
-        # Os quadros de uma leitura que caiu no meio não servem a ninguém: saem (só os desta leitura, pelo nome).
-        for arquivo in self.quadros.iterdir():
-            if arquivo.is_file() and _QUADRO.match(arquivo.name):
-                arquivo.unlink(missing_ok=True)
+        self.guardar = guardar_quadros
+        self._paradas: Path | None = None
+        self._indice = 0
+        if self.guardar:
+            # A sessão inteira, como a densa da gravação de treino: `paradas.csv` + `recortes/`, que
+            # `treino_lanches.lanches_da_densa` lê de novo.
+            sessao = self.pasta / DENSA / f"{relogio():%Y-%m-%d_%Hh%M}"
+            self.quadros = sessao / treino_quadros.RECORTES
+            self.quadros.mkdir(parents=True, exist_ok=True)
+            self._paradas = sessao / treino_quadros.PARADAS
+            if not self._paradas.exists():
+                with self._paradas.open("w", encoding="utf-8", newline="") as f:
+                    csv.writer(f, lineterminator="\n").writerow(treino_quadros.CABECALHO)
+        else:
+            self.quadros = self.pasta / QUADROS
+            self.quadros.mkdir(parents=True, exist_ok=True)
+            # Os quadros de uma leitura que caiu no meio não servem a ninguém: saem (só os desta leitura, pelo nome).
+            for arquivo in self.quadros.iterdir():
+                if arquivo.is_file() and _QUADRO.match(arquivo.name):
+                    arquivo.unlink(missing_ok=True)
         self.seguidor = treino_lanches.Seguidor(perfil, guardar_todos=False)
         self.estado: str | None = None
         self.contas = _Contas()
@@ -225,6 +259,11 @@ class LeituraDoCanal:
         # Gravado e lido de volta, como na gravação de treino: os números da câmera foram medidos no recorte gravado.
         guardar_recorte(imagem, self.zona, destino)
         self._guardados.append((quando, destino))
+        if self._paradas is not None:
+            texto = f"{quando:%Y-%m-%d %H:%M:%S.%f}"[:-3]
+            with self._paradas.open("a", encoding="utf-8", newline="") as f:
+                csv.writer(f, lineterminator="\n").writerow(["ao-vivo", self._indice, texto, texto, 0, nome])
+            self._indice += 1
         img = treino_lanches.ler_imagem(destino)
         if img is None:
             raise OSError(f"o recorte {nome} não abriu depois de gravado")
@@ -269,7 +308,11 @@ class LeituraDoCanal:
             self.anotar(quando, "estado", estado=estado, lanches=len(self.seguidor.ativos))
 
     def _soltar_quadros(self, quando: datetime) -> None:
-        """Os quadros que nenhum lanche na bancada usa saem do disco (o lanche novo começa no quadro de agora)."""
+        """Os quadros que nenhum lanche na bancada usa saem do disco (o lanche novo começa no quadro de agora). Com a
+        sessão guardada, todos ficam."""
+        if self.guardar:
+            self._guardados.clear()
+            return
         em_uso = min((a.quadros[0][0] for a in self.seguidor.ativos if a.quadros), default=quando)
         while self._guardados and self._guardados[0][0] < em_uso:
             _, arquivo = self._guardados.popleft()
@@ -292,7 +335,9 @@ class LeituraDoCanal:
         finally:
             self.fluxo.parar()
             while self._guardados:
-                self._guardados.popleft()[1].unlink(missing_ok=True)
+                arquivo = self._guardados.popleft()[1]
+                if not self.guardar:
+                    arquivo.unlink(missing_ok=True)
 
 
 @dataclass
@@ -327,9 +372,11 @@ class BancadaAoVivo:
         a_cada_s: float = A_CADA_S,
         config_a_cada_s: float = CONFIG_A_CADA_S,
         limpeza_a_cada_s: float = LIMPEZA_A_CADA_S,
+        guardar_quadros: bool = False,
     ) -> None:
         self.caminho_config = Path(caminho_config)
         self.canais = list(canais)
+        self.guardar_quadros = guardar_quadros
         self.raiz = self.caminho_config.parent / PASTA
         self._detector_de, self._abrir_fluxo, self._relogio = detector_de, abrir_fluxo, relogio
         self.a_cada_s, self.config_a_cada_s, self.limpeza_a_cada_s = a_cada_s, config_a_cada_s, limpeza_a_cada_s
@@ -389,7 +436,7 @@ class BancadaAoVivo:
                     fluxo = self._abrir_fluxo(pecas["ponto"])
                     c.leitura = LeituraDoCanal(
                         c.canal, pecas["zona"], fluxo, pecas["detector"], pecas["perfil"], self.pasta_do_canal(c.canal),
-                        relogio=self._relogio,
+                        relogio=self._relogio, guardar_quadros=self.guardar_quadros,
                     )
                     c.chave, c.motivo_dito = nova, None
                     c.leitura.anotar(self._relogio(), "ligada")
