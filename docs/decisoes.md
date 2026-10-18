@@ -8703,3 +8703,32 @@ Com `FAROL_BANCADA_GUARDAR_QUADROS=1` no ambiente do agente, a leitura ao vivo g
 - **O que fica guardado:** a sessão fica 2 dias. São uns 10 GB por noite, num disco com 94 GB livres.
 
 Sem a chave, nada muda: só ficam os quadros dos lanches, nas pastas deles.
+
+## 18/10/2026 · A23.2d: ao longo da bancada — um lanche por papel, os papéis lado a lado (sem migration; vale com o pacote novo e os dois números no perfil da bancada da loja)
+
+### O que mudou
+
+As metades de pão de um quadro viram lanches pela distância entre elas. Até aqui, contava a distância comum: menos de
+1,6 diâmetro, em qualquer direção.
+
+Na loja piloto, cada lanche é montado no seu papel, com 2 a 5 papéis lado a lado ao longo da bancada (o dono,
+17/10). As metades de baixo de dois papéis vizinhos ficam a ~1,4 diâmetro, e a distância comum junta os dois lanches.
+
+Com os dois números novos no perfil da bancada da loja (`junta` e `alonga`), as metades se juntam AO LONGO da bancada:
+- a distância na direção em que os papéis ficam lado a lado (o lado maior do recorte) pesa inteira;
+- a atravessada, da tampa em cima para a base embaixo no mesmo papel, pesa 1/`alonga`;
+- as metades juntam a menos de `junta` diâmetros.
+
+Sem os números no perfil, tudo segue como antes. A leitura da gravação de treino e a ao vivo usam a mesma regra.
+
+### O que foi medido (uma medida, 15 minutos)
+
+A medida foi feita na densa das 22h00 às 22h15 de 17/10, canal 4, com 924 quadros e os pães do detector da loja.
+- **Contagem:** com a distância comum, 15 lanches, 8 deles "mudaram de lugar"; ao longo da bancada (`junta` 0,9,
+  `alonga` 3,0), 21 lanches, 9 deles "mudaram de lugar".
+- **Imagens dos 8 momentos com mais pães:** a distância comum juntou lanches vizinhos em vários, num deles 6 pães de
+  vários lanches numa região só. Ao longo da bancada, as colunas saem separadas, cada uma com a tampa e a base. O erro
+  que sobra é a base de um lanche desalinhada perto da tampa do vizinho.
+
+O perfil da loja piloto leva `junta` 0,9 e `alonga` 3,0, de uma medida só. A medida da noite inteira, na sessão
+guardada (A23.2c), dirá se ficam.
