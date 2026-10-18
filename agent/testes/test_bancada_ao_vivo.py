@@ -33,7 +33,7 @@ from farol_agent import treino_lanches as tl
 from farol_agent.modelos import Janela, Zona
 
 from .test_repasse_leitor import config as config_de_teste
-from .test_treino_lanches import PERFIL, T0, DetectorDaCor, cena, montar_densa, quadro
+from .test_treino_lanches import AO_LONGO, PERFIL, T0, DetectorDaCor, cena, montar_densa, quadro
 from .test_treino_servico import _ClienteDeMentira
 
 TELA_INTEIRA = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
@@ -124,6 +124,18 @@ def test_toda_hora_da_linha_do_tempo_tem_o_fuso(tmp_path):
                 assert datetime.fromisoformat(e[campo]).tzinfo is not None, (campo, e)
                 vistos += 1
     assert vistos >= 9
+
+
+def test_ao_vivo_usa_o_ao_longo_da_bancada_do_perfil(tmp_path):
+    # Dois lanches lado a lado por 50 s; o perfil da loja diz "ao longo da bancada" (um lanche por papel).
+    lado_a_lado = [(T0 + timedelta(seconds=s), quadro([(300, 200), (300, 300), (410, 200), (410, 300)])) for s in range(70)]
+    contagem = {}
+    for nome, perfil in (("comum", PERFIL), ("ao longo", AO_LONGO)):
+        le = bav.LeituraDoCanal(4, ZONA, FluxoDeMentira(lado_a_lado[:50]), DetectorDaCor(), perfil, tmp_path / nome)
+        ler_tudo(le, 50)
+        le.encerrar("o agente parou")
+        contagem[nome] = len([e for e in linha_do_tempo(le.pasta) if e["evento"] == "lanche"])
+    assert contagem == {"comum": 1, "ao longo": 2}
 
 
 def test_a_bancada_vazia_desde_o_comeco_diz_vazia_e_nada_mais(tmp_path):

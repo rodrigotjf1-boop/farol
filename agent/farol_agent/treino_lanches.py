@@ -104,10 +104,24 @@ class PerfilDaBancada:
     parecido: float
     # A trilha mais curta que isso não é lanche (a bandeja de discos e o embrulho).
     duracao_minima_s: float
+    # Opcional — juntar as metades AO LONGO da bancada: na loja em que cada lanche é montado no seu papel, com os
+    # papéis lado a lado ao longo da bancada, a distância nessa direção (o lado maior do recorte) pesa inteira e a
+    # atravessada (a tampa em cima, a base embaixo, no mesmo papel) pesa 1/`alonga`; as metades juntam a menos de
+    # `junta` diâmetros. Nulos: a distância comum (`JUNTA_METADES`), como antes.
+    junta: float | None = None
+    alonga: float | None = None
 
     @classmethod
     def de_json(cls, dados: dict[str, Any]) -> "PerfilDaBancada":
-        return cls(**{k: float(dados[k]) for k in cls.__dataclass_fields__})
+        opcionais = {"junta", "alonga"}
+        valores: dict[str, Any] = {k: float(dados[k]) for k in cls.__dataclass_fields__ if k not in opcionais}
+        for k in opcionais:
+            valores[k] = float(dados[k]) if dados.get(k) is not None else None
+        return cls(**valores)
+
+    @property
+    def ao_longo(self) -> bool:
+        return self.junta is not None and self.alonga is not None
 
 
 class Detector(Protocol):
@@ -166,14 +180,27 @@ def paes(detector: Detector, imagem: np.ndarray, perfil: PerfilDaBancada) -> lis
     return [a for a in ficam if perfil.pao_px_min <= lado_maior(a) <= perfil.pao_px_max]
 
 
-def lanches_do_quadro(achados: list[Caixa]) -> list[tuple]:
-    """Junta as metades vizinhas. Cada região: (x0, y0, x1, y1, quantas metades, as metades)."""
+def _perto(a: Caixa, b: Caixa, perfil: PerfilDaBancada | None, deitado: bool) -> bool:
+    """As duas metades são do mesmo lanche? Com o perfil "ao longo" (`PerfilDaBancada.junta` e `alonga`), a distância
+    ao longo da bancada pesa inteira e a atravessada pesa 1/alonga; senão, a distância comum."""
+    (ax, ay), (bx, by) = centro(a), centro(b)
+    d = max(lado_maior(a), lado_maior(b))
+    if perfil is None or not perfil.ao_longo:
+        return math.dist((ax, ay), (bx, by)) < JUNTA_METADES * d
+    ao_longo, atravessado = (abs(ax - bx), abs(ay - by)) if deitado else (abs(ay - by), abs(ax - bx))
+    return math.hypot(ao_longo, atravessado / perfil.alonga) < perfil.junta * d
+
+
+def lanches_do_quadro(
+    achados: list[Caixa], perfil: PerfilDaBancada | None = None, largura: int = 1, altura: int = 0,
+) -> list[tuple]:
+    """Junta as metades vizinhas. Cada região: (x0, y0, x1, y1, quantas metades, as metades). A bancada corre ao longo
+    do lado maior do quadro (`largura` × `altura`)."""
+    deitado = largura >= altura
     grupos: list[list[Caixa]] = []
     for a in achados:
-        ca = centro(a)
-        d = lado_maior(a)
         for g in grupos:
-            if any(math.dist(ca, centro(b)) < JUNTA_METADES * max(d, lado_maior(b)) for b in g):
+            if any(_perto(a, b, perfil, deitado) for b in g):
                 g.append(a)
                 break
         else:
@@ -355,7 +382,7 @@ def seguir(
         altura, largura = img.shape[:2]
         agora = _hora(linha["na_loja"])
         ultima = agora
-        seguidor.quadro(img, agora, linha["recorte"], lanches_do_quadro(paes(detector, img, perfil)))
+        seguidor.quadro(img, agora, linha["recorte"], lanches_do_quadro(paes(detector, img, perfil), perfil, largura, altura))
     seguidor.encerrar(ultima)
     return seguidor.todos, largura, altura
 

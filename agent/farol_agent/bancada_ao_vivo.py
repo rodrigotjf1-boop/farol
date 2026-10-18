@@ -269,7 +269,9 @@ class LeituraDoCanal:
             raise OSError(f"o recorte {nome} não abriu depois de gravado")
         self._altura, self._largura = img.shape[:2]
         antes = {a.id for a in self.seguidor.ativos}
-        regioes = treino_lanches.lanches_do_quadro(treino_lanches.paes(self.detector, img, self.perfil))
+        regioes = treino_lanches.lanches_do_quadro(
+            treino_lanches.paes(self.detector, img, self.perfil), self.perfil, self._largura, self._altura,
+        )
         terminaram = self.seguidor.quadro(img, quando, nome, regioes)
         for a in self.seguidor.ativos:
             if a.id not in antes:

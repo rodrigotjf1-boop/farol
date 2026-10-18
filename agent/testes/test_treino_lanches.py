@@ -356,6 +356,68 @@ def test_metades_vizinhas_sao_um_lanche_e_distantes_sao_dois():
     assert (x0, x1) == (260 - 0.25 * 170, 430 + 0.25 * 170) and (y0, y1) == (230 - 0.25 * 80, 310 + 0.25 * 80)
 
 
+# ─────────── ao longo da bancada: um lanche por papel, os papéis lado a lado ───────────
+#
+# O dono, 17/10/2026: "os colaboradores já forram a base com papel e colocam os pães em cima de cada papel; geralmente
+# são montados em escala, 3 por vez, 2 por vez, até 4 ou 5". Na primeira noite ao vivo, a distância comum juntou os
+# lanches de papéis vizinhos (as metades de baixo de dois papéis ficam a ~1,4 diâmetro uma da outra). Ao longo da
+# bancada, a tampa e a base do MESMO papel (uma em cima da outra) juntam, e as colunas vizinhas não.
+
+AO_LONGO = tl.PerfilDaBancada(
+    pao_px_min=50, pao_px_max=120, mexe=6.0, mudou=6.0, sumiu_s=12, parecido=0.5, duracao_minima_s=40, junta=0.9, alonga=3.0,
+)
+# Dois lanches lado a lado, cada um com a tampa em cima e a base embaixo; pães de 100 px; as colunas a 1,4 diâmetro.
+TAMPA_A, BASE_A = (250, 100, 350, 200, 0.9), (250, 215, 350, 315, 0.9)
+TAMPA_B, BASE_B = (390, 100, 490, 200, 0.9), (390, 215, 490, 315, 0.9)
+
+
+def test_sem_os_numeros_no_perfil_e_a_distancia_comum_e_os_papeis_vizinhos_se_juntam():
+    assert [r[4] for r in tl.lanches_do_quadro([TAMPA_A, BASE_A, TAMPA_B, BASE_B], PERFIL, 960, 540)] == [4]
+
+
+def test_ao_longo_da_bancada_os_lanches_lado_a_lado_ficam_separados():
+    regioes = tl.lanches_do_quadro([TAMPA_A, BASE_A, TAMPA_B, BASE_B], AO_LONGO, 960, 540)
+    assert sorted(sorted(b[0] for b in r[5]) for r in regioes) == [[250, 250], [390, 390]], "cada coluna é um lanche"
+
+
+def test_ao_longo_a_tampa_e_a_base_do_mesmo_papel_juntam_um_pouco_desalinhadas():
+    base_torta = (290, 240, 390, 340, 0.9)  # 40 px para o lado e 140 px para baixo da tampa
+    assert [r[4] for r in tl.lanches_do_quadro([TAMPA_A, base_torta], AO_LONGO, 960, 540)] == [2]
+
+
+def test_ao_longo_a_bancada_corre_pelo_lado_maior_do_quadro():
+    # O mesmo par de lanches, girado: num quadro em pé, os papéis ficam um embaixo do outro.
+    def girar(c):
+        return (c[1], c[0], c[3], c[2], c[4])
+
+    em_pe = [girar(c) for c in (TAMPA_A, BASE_A, TAMPA_B, BASE_B)]
+
+    def pares(largura, altura):  # o y de cima de cada metade, por região: o mesmo y = o mesmo lanche
+        return sorted(sorted(b[1] for b in r[5]) for r in tl.lanches_do_quadro(em_pe, AO_LONGO, largura, altura))
+
+    assert pares(540, 960) == [[250, 250], [390, 390]], "em pé, cada lanche com a sua tampa e a sua base"
+    assert pares(960, 540) == [[250, 390], [250, 390]], "lido deitado, junta tampa com tampa: o lado maior decide"
+
+
+def test_o_perfil_le_os_numeros_do_ao_longo_quando_ha():
+    dados = {k: getattr(PERFIL, k) for k in tl.PerfilDaBancada.__dataclass_fields__ if k not in ("junta", "alonga")}
+    sem = tl.PerfilDaBancada.de_json(dados)
+    com = tl.PerfilDaBancada.de_json({**dados, "junta": "0.9", "alonga": 3})
+    assert (sem.junta, sem.alonga, sem.ao_longo) == (None, None, False)
+    assert (com.junta, com.alonga, com.ao_longo) == (0.9, 3.0, True)
+    assert not tl.PerfilDaBancada.de_json({**dados, "junta": 0.9}).ao_longo, "com um número só, a distância comum"
+
+
+def test_a_leitura_da_densa_usa_o_ao_longo_do_perfil(tmp_path):
+    # Dois lanches lado a lado por 50 s (as colunas a 110 px; os discos do desenho têm 81 px).
+    quadros = [(T0 + timedelta(seconds=s), quadro([(300, 200), (300, 300), (410, 200), (410, 300)])) for s in range(50)]
+    densa = montar_densa(tmp_path, quadros)
+    comum = tl.lanches_da_densa(densa, tmp_path / "comum", DetectorDaCor(), PERFIL)
+    ao_longo = tl.lanches_da_densa(densa, tmp_path / "ao-longo", DetectorDaCor(), AO_LONGO)
+    assert [r["eLanche"] for r in comum] == [True], "a distância comum junta os dois"
+    assert [r["eLanche"] for r in ao_longo] == [True, True], "ao longo da bancada, são dois lanches"
+
+
 def test_a_caixa_fixa_e_a_uniao_e_a_regiao_errada_no_meio_nao_a_estica():
     normais = [(100, 100, 300, 200), (110, 105, 310, 205), (105, 95, 305, 195)]
     assert tl.caixa_do_trecho(normais, 960, 540) == (100, 95, 310, 205)
