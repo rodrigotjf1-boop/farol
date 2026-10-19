@@ -242,6 +242,7 @@ describe('fichas: as rotas da tela', { skip: !URL_DO_BANCO && 'sem DATABASE_URL'
       regemLojaNome: null,
       leitura: null,
       totais: null,
+      mudouEm: null,
       produtos: [],
     });
     // A supervisão vê o mesmo estado, sem nenhum dos botões.
@@ -309,18 +310,23 @@ describe('fichas: as rotas da tela', { skip: !URL_DO_BANCO && 'sem DATABASE_URL'
 
   // ───────────────────────── buscar agora ─────────────────────────
 
-  it('"Buscar agora" diz o que aconteceu: nada mudou, mudou, e a loja que continua sem fichas', async () => {
+  it('"Buscar agora" diz o que aconteceu: nada mudou, mudou, e a loja que continua sem fichas — e quando as fichas mudaram', async () => {
     const c = await ligada(minha.centro, 'Centro de lá');
+    const ligou = (await fichas(minha.gerente, minha.centro)).json().mudouEm;
+    assert.ok(typeof ligou === 'string' && !Number.isNaN(Date.parse(ligou)), `a tela recebe quando as fichas mudaram: ${ligou}`);
     const nada = await buscar(minha.gerente, minha.centro);
-    assert.deepEqual([nada.statusCode, nada.json()], [200, { resultado: 'nada_mudou', produtos: 4, comFicha: 1 }]);
+    assert.deepEqual([nada.statusCode, nada.json()], [200, { resultado: 'nada_mudou', produtos: 4, comFicha: 1, mudouEm: ligou }], 'a busca que não traz nada não mexe na hora');
     assert.equal(falso.chamadas.filter((x) => x.caminho.includes('?versao=')).length, 2, 'perguntou com a versão que tinha');
 
     const semFichas = structuredClone(falso.amostra);
     semFichas.fichas = [];
     falso.cardapio(c.id, semFichas);
-    assert.deepEqual((await buscar(minha.gerente, minha.centro)).json(), { resultado: 'atualizada', produtos: 4, comFicha: 0 });
-    assert.deepEqual((await fichas(minha.gerente, minha.centro)).json().totais, { produtos: 4, comFicha: 0 });
-    assert.deepEqual((await buscar(minha.gerente, minha.centro)).json(), { resultado: 'nada_mudou', produtos: 4, comFicha: 0 });
+    const mudou = (await buscar(minha.gerente, minha.centro)).json();
+    assert.deepEqual({ ...mudou, mudouEm: null }, { resultado: 'atualizada', produtos: 4, comFicha: 0, mudouEm: null });
+    assert.ok(Date.parse(mudou.mudouEm) > Date.parse(ligou), `a hora andou: ${ligou} → ${mudou.mudouEm}`);
+    const tela = (await fichas(minha.gerente, minha.centro)).json();
+    assert.deepEqual([tela.totais, tela.mudouEm], [{ produtos: 4, comFicha: 0 }, mudou.mudouEm]);
+    assert.deepEqual((await buscar(minha.gerente, minha.centro)).json(), { resultado: 'nada_mudou', produtos: 4, comFicha: 0, mudouEm: mudou.mudouEm });
   });
 
   it('com o Regem fora do ar: 502, as fichas de antes ficam e a tela mostra que a busca falhou — até a busca seguinte dar certo', async () => {
@@ -430,6 +436,7 @@ describe('fichas: as rotas da tela', { skip: !URL_DO_BANCO && 'sem DATABASE_URL'
       regemLojaNome: null,
       leitura: null,
       totais: null,
+      mudouEm: null,
       produtos: [],
     });
     assert.deepEqual(await baseDe(minha.barra), { produtos: 4, com_ficha: 1 });

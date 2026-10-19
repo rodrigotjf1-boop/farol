@@ -1577,6 +1577,11 @@ export type FichasDaLoja = {
   regemLojaNome: string | null;
   leitura: LeituraDasFichas | null;
   totais: { produtos: number; comFicha: number } | null;
+  /**
+   * A última vez que as fichas MUDARAM — não a última busca (uma busca que não traz nada não mexe nela). Nulo = a
+   * loja não tem fichas guardadas.
+   */
+  mudouEm: string | null;
   produtos: ProdutoNaLista[];
 };
 
@@ -1622,14 +1627,19 @@ export type ModeloDaPlanilha = {
   unidades: string[];
 };
 
+export type ResultadoDaBusca = { resultado: 'atualizada' | 'nada_mudou'; produtos: number; comFicha: number; mudouEm: string | null };
+
 export const fichasApi = {
   obter: (lojaId: string) => pedir<FichasDaLoja>(`/lojas/${lojaId}/fichas`),
 
   produto: (lojaId: string, produtoId: string) => pedir<ProdutoDaFicha>(`/lojas/${lojaId}/fichas/produtos/${produtoId}`),
 
-  /** Pede uma leitura na hora. `nada_mudou`: o que a loja tinha continua valendo. */
+  /**
+   * Pede uma leitura na hora. `nada_mudou`: ESTA busca não trouxe nada — a mudança pode ter chegado antes, sozinha
+   * (o aviso do Regem, a busca do dia): `mudouEm` diz quando as fichas mudaram pela última vez.
+   */
   buscar: (lojaId: string) =>
-    pedir<{ resultado: 'atualizada' | 'nada_mudou'; produtos: number; comFicha: number }>(`/lojas/${lojaId}/fichas/buscar`, { method: 'POST' }),
+    pedir<ResultadoDaBusca>(`/lojas/${lojaId}/fichas/buscar`, { method: 'POST' }),
 
   /** O modelo da planilha (as abas, os títulos, as unidades e um exemplo). */
   modelo: () => pedir<ModeloDaPlanilha>('/fichas/modelo'),

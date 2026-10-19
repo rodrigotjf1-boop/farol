@@ -38,6 +38,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { useConsole } from '@/componentes/console';
+import { avisoDaBusca } from '@/componentes/fichas/aviso-da-busca';
 import { GavetaDeFora } from '@/componentes/fichas/de-fora';
 import { BotaoDasFotos, chaveDoIngrediente, GavetaDoIngrediente, type AlvoDaGaveta } from '@/componentes/fichas/gaveta-do-ingrediente';
 import { ImportarPlanilha } from '@/componentes/fichas/importar-planilha';
@@ -491,12 +492,12 @@ export default function Fichas() {
   async function buscarAgora() {
     setBuscando(true);
     setErroDaBusca(null);
+    // a última mudança que a tela mostrava: a que chegou sozinha depois (o aviso do Regem) também é novidade (ERR-136)
+    const antes = d?.mudouEm;
     try {
       const r = await fichasApi.buscar(id);
       await carregar();
-      if (r.resultado === 'atualizada') avisar('Fichas atualizadas agora.');
-      else if (r.comFicha === 0) avisar('Busquei agora: o Regem desta loja continua sem fichas técnicas.');
-      else avisar('Busquei agora: nada mudou desde a última busca.');
+      avisar(avisoDaBusca(r, antes, fuso));
     } catch (e) {
       // O que mudou de estado (o acesso foi tirado, a loja foi desconectada) a tela mostra ao recarregar.
       await carregar();
