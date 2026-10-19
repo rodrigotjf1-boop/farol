@@ -26,7 +26,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type pg from 'pg';
 
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
-import { chaveDoIngrediente } from '../ingredientes.js';
+import { lerBase } from '../fichas.js';
+import { chaveDoIngrediente, ingredientesDaBase } from '../ingredientes.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -72,10 +73,24 @@ export function rotasDaBaseNaLoja(app: FastifyInstance, pool: pg.Pool): void {
         order by lower(btrim(b.nome))`,
       [agente.lojaId],
     );
+    // O mesmo ingrediente escrito de dois jeitos ("Pão de Brioche" na conferência, "Pão Brioche" na ficha) desce como
+    // UM, com o nome da ficha e os quadros dos dois: a loja aprende o ingrediente que a ficha conhece (o dono,
+    // 19/10/2026). Um deles "não se vê de cima": o ingrediente não se vê.
+    const fichas = await pool.query<{ conteudo: unknown }>(`select conteudo from fichas_da_loja where loja_id = $1`, [agente.lojaId]);
+    const nomeDaFicha = new Map(ingredientesDaBase(lerBase(fichas.rows[0]?.conteudo ?? null)).map((i) => [chaveDoIngrediente(i.nome), i.nome]));
+    const porChave = new Map<string, ItemDaBase>();
+    for (const i of r.rows) {
+      const k = chaveDoIngrediente(i.nome);
+      const ja = porChave.get(k);
+      porChave.set(
+        k,
+        ja
+          ? { ...ja, visivel: ja.visivel && i.visivel, quadros: [...ja.quadros, ...(i.quadros ?? [])] }
+          : { nome: nomeDaFicha.get(k) ?? i.nome, visivel: i.visivel, quadros: i.quadros ?? [] },
+      );
+    }
     // o ingrediente sem nada a ensinar (sem quadro e visível) não desce: a loja não teria o que fazer com ele
-    const itens: ItemDaBase[] = r.rows
-      .map((i) => ({ nome: i.nome, visivel: i.visivel, quadros: i.quadros ?? [] }))
-      .filter((i) => i.quadros.length > 0 || !i.visivel);
+    const itens: ItemDaBase[] = [...porChave.values()].filter((i) => i.quadros.length > 0 || !i.visivel);
     return resposta.header('cache-control', 'no-store').send({ impressao: impressaoDaBaseDaLoja(itens), itens });
   });
 

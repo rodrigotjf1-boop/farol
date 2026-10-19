@@ -17,7 +17,7 @@ import pg from 'pg';
 import { criarApp } from '../src/app.js';
 import { contarBase, impressaoDaBase, type Base } from '../src/fichas.js';
 import type { ConferenciaPorEtapa, ConferenciaPorFoto, EtapaLida } from '../src/treino.js';
-import { chaveDaSugestao, LIMITES, sugestoesDoTreino, type Conferido } from '../src/treino-sugestoes.js';
+import { chaveDaSugestao, chaveDeHoje, LIMITES, sugestoesDoTreino, type Conferido } from '../src/treino-sugestoes.js';
 
 const BASE = (JSON.parse(readFileSync(new URL('../../contratos/fichas-da-loja.json', import.meta.url), 'utf8')) as { resposta: { base: Base } }).resposta.base;
 const LANCHE = JSON.parse(readFileSync(new URL('../../contratos/lanche-de-treino.json', import.meta.url), 'utf8')) as {
@@ -80,6 +80,26 @@ describe('as sugestões para as fichas (sem banco)', () => {
     assert.match(s[0]!.viu, /^Em 2 lanches conferidos \(X-Burger\), quem conferiu chamou um ingrediente de “Picles”/);
     assert.equal(s[0]!.chave, chaveDaSugestao('nome-fora', null, 'picles'));
     assert.deepEqual([s[0]!.sim, s[0]!.nao], ['Vou cadastrar', 'Foi engano']);
+  });
+
+  it('o mesmo ingrediente escrito de outro jeito NÃO é "nome fora das fichas" (o dono, 19/10/2026)', () => {
+    // a ficha do X-Burger tem "Pão brioche": "Pão de Brioche", "PAO BRIOCHE" e "pães brioche" são ele
+    const s = sugestoesDoTreino(
+      [
+        conferido('X-Burger', [outro('Pão de Brioche'), outro('PAO BRIOCHE'), outro('pães brioche'), certo('Blend da casa')]),
+        porFoto('X-Burger', [{ leu: null, marcados: ['Pão de Brioche'] }]),
+      ],
+      BASE,
+    );
+    assert.deepEqual(s.map((x) => x.titulo), []);
+  });
+
+  it('a resposta guardada antes da regra do nome parecido continua presa à sua sugestão', () => {
+    // a chave guardada em 19/10 de manhã: as partes só sem maiúscula
+    assert.equal(chaveDeHoje('nome-fora||pão de brioche'), chaveDaSugestao('nome-fora', null, 'Pão Brioche'));
+    const hoje = chaveDaSugestao('falta-na-ficha', 'X-Burger', 'Alface');
+    assert.equal(chaveDeHoje(hoje), hoje, 'a de hoje relida não muda');
+    assert.equal(chaveDeHoje('ficha-diferente|número 11|carne 56gr'), chaveDaSugestao('ficha-diferente', 'Numero 11', 'Carne 56 g'));
   });
 
   it('falta na ficha: a mais sem pedido em pelo menos 3 lanches e na metade dos conferidos do produto', () => {

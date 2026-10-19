@@ -140,7 +140,21 @@ export function rotasDeIngredientes(app: FastifyInstance, pool: pg.Pool): void {
     const ingredientes = await ingredientesDaLoja(pool, s, id);
     if (!ingredientes) return naoAchei(resposta, 'não existe essa loja');
     const itens = (await pool.query<ItemDoBanco>(ITENS_DA_LOJA, [id])).rows;
-    const porChave = new Map(itens.map((i) => [chaveDoIngrediente(i.nome), i]));
+    // O mesmo ingrediente escrito de dois jeitos ("Pão de Brioche" na conferência, "Pão Brioche" na ficha) são dois
+    // registros com a mesma chave: na lista é um só, com as fotos e os exemplos somados. Quem manda (o id, o "não se vê
+    // de cima") é o registro com o nome da ficha; sem ele, o que tem mais fotos e exemplos.
+    const porChave = new Map<string, ItemDoBanco[]>();
+    for (const i of itens) {
+      const k = chaveDoIngrediente(i.nome);
+      porChave.set(k, [...(porChave.get(k) ?? []), i]);
+    }
+    const juntos = (nome: string) => {
+      const grupo = porChave.get(chaveDoIngrediente(nome));
+      if (!grupo) return null;
+      const exato = grupo.find((i) => i.nome.trim().toLowerCase() === nome.trim().toLowerCase());
+      const principal = exato ?? [...grupo].sort((a, b) => b.fotos.length + b.exemplos - (a.fotos.length + a.exemplos))[0]!;
+      return { id: principal.id, visivel: principal.visivel, fotos: grupo.flatMap((i) => i.fotos), exemplos: grupo.reduce((s, i) => s + i.exemplos, 0) };
+    };
     const nasFichas = new Set(ingredientes.map((i) => chaveDoIngrediente(i.nome)));
 
     return {
@@ -148,7 +162,7 @@ export function rotasDeIngredientes(app: FastifyInstance, pool: pg.Pool): void {
       /** Tirar foto, "não se vê de cima", juntar e apagar órfão: a tela mostra o botão ou a frase. */
       podeConfigurar: podeConfigurar(s),
       ingredientes: ingredientes.map((i) => {
-        const item = porChave.get(chaveDoIngrediente(i.nome));
+        const item = juntos(i.nome);
         return {
           nome: i.nome,
           produtos: i.produtos,

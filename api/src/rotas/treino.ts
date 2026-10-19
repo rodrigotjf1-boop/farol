@@ -39,7 +39,7 @@ import type pg from 'pg';
 
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import { lerBase, type Base } from '../fichas.js';
-import { ingredientesDaBase } from '../ingredientes.js';
+import { chaveDoIngrediente, ingredientesDaBase } from '../ingredientes.js';
 import { podeAcompanhar, podeConfigurar } from '../rbac.js';
 import { estudarFichas } from '../estudo-das-fichas.js';
 import {
@@ -61,7 +61,7 @@ import {
   type EtapaLida,
 } from '../treino.js';
 import { aindaEDaLoja, GRAVACAO, lerAndamento, lerNovaGravacao, SQL_DO_QUE_A_LOJA_APAGA } from '../treino-gravacao.js';
-import { DECISOES, sugestoesDoTreino, type DecisaoDaSugestao, type Sugestao } from '../treino-sugestoes.js';
+import { chaveDeHoje, DECISOES, sugestoesDoTreino, type DecisaoDaSugestao, type Sugestao } from '../treino-sugestoes.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -168,13 +168,20 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
       conferidos.rows.map((c) => ({ produto: c.produto, etapas: c.leitura?.etapas ?? [], conferencia: c.resposta })),
       base,
     );
-    const respondidas = new Map(respostas.rows.map((r) => [r.chave, r]));
+    // A chave guardada pode ser de antes da regra do nome parecido (19/10/2026: "Pão de Brioche" = "Pão Brioche"):
+    // relida pela regra de hoje, a resposta continua presa à sua sugestão, e a sugestão não aparece duas vezes.
+    const respondidas = new Map(respostas.rows.map((r) => [chaveDeHoje(r.chave), r]));
     const comResposta = (s: Sugestao) => {
-      const r = respondidas.get(s.chave);
+      const r = respondidas.get(chaveDeHoje(s.chave));
       return { ...s, decisao: r?.decisao ?? null, decididoEm: r?.decidido_em ?? null, decididoPor: r?.decidido_por_nome ?? null };
     };
-    // a respondida que as conferências de agora já não mostram continua na tela, como foi respondida
-    const deAntes = respostas.rows.filter((r) => !agora.some((s) => s.chave === r.chave)).map((r) => comResposta(r.resumo));
+    // a respondida que as conferências de agora já não mostram continua na tela, como foi respondida — menos o "nome
+    // fora das fichas" cujo nome hoje ESTÁ nas fichas (escrito de outro jeito): essa já não diz nada
+    const nasFichas = new Set(ingredientesDaBase(base).map((i) => chaveDoIngrediente(i.nome)));
+    const deAntes = respostas.rows
+      .filter((r) => !agora.some((s) => s.chave === chaveDeHoje(r.chave)))
+      .filter((r) => !(r.resumo?.tipo === 'nome-fora' && nasFichas.has(chaveDoIngrediente(r.resumo.ingrediente ?? ''))))
+      .map((r) => comResposta({ ...r.resumo, chave: chaveDeHoje(r.chave) }));
     return { agora, lista: [...agora.map(comResposta), ...deAntes] };
   }
 

@@ -15,6 +15,7 @@ import { describe, it } from 'node:test';
 
 import { estudarFichas, ESTRANHO, faixaDoIngrediente, mesmaFamilia, pesoDoIngrediente } from '../src/estudo-das-fichas.js';
 import type { Base, Produto } from '../src/fichas.js';
+import { chaveDoIngrediente } from '../src/ingredientes.js';
 import { acertouOPalpite, palpitesDoLanche, PLAUSIVEL, umPorFamilia, type EtapaLida } from '../src/treino.js';
 
 type Linha = [nome: string, quantidade: number | null, unidade: string | null];
@@ -137,13 +138,13 @@ describe('o estudo das fichas', () => {
 
   it('o peso: quanto mais raro, mais diz; as faixas raro, intermediário e comum', () => {
     const e = estudarFichas(cardapio());
-    const peso = (n: string) => pesoDoIngrediente(e, n.toLowerCase());
+    const peso = (n: string) => pesoDoIngrediente(e, chaveDoIngrediente(n));
     assert.ok(peso('Cheddar cremoso') > peso('Cebola caramelizada'));
     assert.ok(peso('Cebola caramelizada') > peso('Alface'));
     assert.ok(peso('Alface') > peso('Queijo'));
     assert.ok(peso('Queijo') > peso('Pão de hambúrguer'));
     assert.equal(peso('Picles'), peso('Cheddar cremoso'), 'o que nenhuma ficha usa pesa como o mais raro');
-    const faixa = (n: string) => faixaDoIngrediente(e, n.toLowerCase());
+    const faixa = (n: string) => faixaDoIngrediente(e, chaveDoIngrediente(n));
     assert.deepEqual(
       ['Cheddar cremoso', 'Bacon', 'Alface', 'Queijo', 'Pão de hambúrguer'].map(faixa),
       ['raro', 'raro', 'intermediario', 'comum', 'comum'],

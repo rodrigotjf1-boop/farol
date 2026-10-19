@@ -3,8 +3,15 @@
 // =====================================================================
 // A21, fatia T1 (migration 047). A ficha não tem número de ingrediente —
 // só o Regem manda o `insumoId`; a planilha e outro sistema, não —, e é
-// trocada inteira a cada importação: o ingrediente é o NOME, sem olhar
-// maiúscula nem espaço nas pontas (a mesma chave do índice único da 047).
+// trocada inteira a cada importação: o ingrediente é o NOME.
+//
+// O MESMO ingrediente escrito de outro jeito é um só (o dono, 19/10/2026:
+// "o sistema tem que entender que 'Pão de Brioche' e 'Pão Brioche' são a
+// mesma coisa"): a chave não olha maiúscula, acento, as palavras que só
+// ligam ("de", "com"…), o plural, nem o espaço entre o número e o peso
+// ("56gr" = "56 g"). O índice único da 047 continua o de antes (maiúscula
+// e espaço nas pontas): dois registros que viram a mesma chave aqui são
+// SOMADOS por quem os lê, nunca um esconde o outro.
 //
 // Entram os ingredientes das fichas e o que um adicional ACRESCENTA (um
 // insumo, ou um preparo da casa): é o que a bancada pode mostrar. Não
@@ -19,8 +26,28 @@ import type { Base } from './fichas.js';
 export const MAX_FOTOS_POR_INGREDIENTE = 6;
 export const MAX_LEGENDA = 120;
 
-/** A chave do ingrediente: o nome sem maiúscula e sem espaço nas pontas. */
-export const chaveDoIngrediente = (nome: string): string => nome.trim().toLowerCase();
+/** As palavras que só ligam as partes do nome: "Pão DE Brioche", "Brioche COM gergelim", "c/ cheddar". */
+const LIGACAO = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'com', 'c', 'a', 'o', 'as', 'os']);
+/** O plural que não é só tirar o "s" (depois de tirar o acento). */
+const PLURAL_IRREGULAR: Record<string, string> = { paes: 'pao', aneis: 'anel', graos: 'grao', limoes: 'limao', mamoes: 'mamao' };
+
+/**
+ * A chave do ingrediente: o mesmo ingrediente escrito de jeitos diferentes tem a mesma chave. Sem maiúscula e sem
+ * acento; sem as palavras que só ligam (de, da, do, com…); no singular; o peso junto do número ("56 gr", "56gr",
+ * "56 gramas" → "56g"); o resto dos sinais vira espaço. "Pão de Brioche" = "Pão Brioche" = "pao brioche"; "Pão
+ * Brioche com gergelim mesclado" continua outro ingrediente (o gergelim muda o pão).
+ */
+export function chaveDoIngrediente(nome: string): string {
+  const simples = nome.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const comPeso = simples.replace(/(\d+(?:[.,]\d+)?)\s*(gramas?|grs?|g)(?![a-z])/g, (_, n: string) => `${n.replace(',', '.')}g`);
+  const palavras = comPeso
+    .split(/[^a-z0-9.]+/)
+    .map((p) => p.replace(/^\.+|\.+$/g, ''))
+    .filter((p) => p && !LIGACAO.has(p))
+    .map((p) => PLURAL_IRREGULAR[p] ?? (p.length > 3 && p.endsWith('s') && !/\d/.test(p) ? p.slice(0, -1) : p));
+  // um nome feito só de palavras de ligação ("Do") não some: fica como estava, sem maiúscula e sem espaço nas pontas
+  return palavras.length ? palavras.join(' ') : nome.trim().toLowerCase();
+}
 
 /** Onde o ingrediente entra: o produto, e se é pela ficha ou por um adicional. */
 export type OndeEntra = { produtoId: string; produto: string; adicional: boolean };

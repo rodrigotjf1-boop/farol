@@ -18,6 +18,7 @@ import pg from 'pg';
 
 import { criarApp } from '../src/app.js';
 import { contarBase, impressaoDaBase, type Base } from '../src/fichas.js';
+import { chaveDoIngrediente } from '../src/ingredientes.js';
 import { apagarQuadrosVencidos } from '../src/rotas/treino.js';
 import {
   aprendizado,
@@ -312,8 +313,8 @@ describe('a conferência por foto (sem banco)', () => {
     const corpo = POR_FOTO();
     corpo.fotos[3]!.marcados.push('Blend da casa');
     const v = vistosDaConferencia(ETAPAS_DUPLA, lerPorFoto(corpo));
-    assert.deepEqual(v.get('blend da casa'), { nome: 'Blend da casa', vezes: 1 });
-    assert.deepEqual(v.get('queijo prato'), { nome: 'Queijo prato', vezes: 2 });
+    assert.deepEqual(v.get(chaveDoIngrediente('Blend da casa')), { nome: 'Blend da casa', vezes: 1 });
+    assert.deepEqual(v.get(chaveDoIngrediente('Queijo prato')), { nome: 'Queijo prato', vezes: 2 });
     assert.equal(v.has('ovo frito'), false);
   });
 

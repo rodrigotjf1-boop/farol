@@ -63,6 +63,15 @@ export type Conferido = { produto: string | null; etapas: EtapaLida[]; conferenc
 export const chaveDaSugestao = (tipo: TipoDeSugestao, produto: string | null, ingrediente: string): string =>
   [tipo, chaveDoIngrediente(produto ?? ''), chaveDoIngrediente(ingrediente)].join('|');
 
+/**
+ * A chave de uma sugestão GUARDADA (a resposta de quem configura), relida pela regra de hoje: as guardadas antes da
+ * regra do nome parecido (19/10/2026) têm as partes só sem maiúscula; relidas, continuam presas à sua sugestão.
+ */
+export function chaveDeHoje(chave: string): string {
+  const [tipo = '', produto = '', ingrediente = ''] = chave.split('|');
+  return [tipo, chaveDoIngrediente(produto), chaveDoIngrediente(ingrediente)].join('|');
+}
+
 const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
 const lista = (nomes: string[]): string => (nomes.length <= 1 ? (nomes[0] ?? '') : `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`);
 
