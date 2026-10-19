@@ -32,6 +32,7 @@ from farol_agent import cli, treino_servico
 from farol_agent import treino_lanches as tl
 from farol_agent.modelos import Janela, Zona
 
+from .test_lugar_do_lanche import cena_do_embrulho, cena_que_nao_confirma
 from .test_repasse_leitor import config as config_de_teste
 from .test_treino_lanches import AO_LONGO, PERFIL, T0, DetectorDaCor, cena, montar_densa, quadro
 from .test_treino_servico import _ClienteDeMentira
@@ -81,7 +82,7 @@ def sem_fuso(texto: str) -> datetime:
 def test_ao_vivo_e_a_mesma_leitura_da_gravacao_de_treino(tmp_path):
     le = leitura(tmp_path, cena())
     ler_tudo(le, 80)
-    ao_vivo = [e for e in linha_do_tempo(le.pasta) if e["evento"] == "lanche"]
+    ao_vivo = [e for e in linha_do_tempo(le.pasta) if e["evento"] == "trilha"]
     gravado = tl.lanches_da_densa(montar_densa(tmp_path, cena()), tmp_path / "lanches", DetectorDaCor(), PERFIL)
 
     assert len(ao_vivo) == 1 and [r["eLanche"] for r in gravado] == [True, False]
@@ -102,13 +103,14 @@ def test_a_linha_do_tempo_conta_o_pao_o_estado_e_o_lanche_e_a_bandeja_curta_nao_
 
     eventos = linha_do_tempo(le.pasta)
     assert [(e["evento"], e.get("estado") or e.get("trilha")) for e in eventos] == [
-        ("pao", 1), ("estado", "lanche"), ("pao", 2), ("lanche", 1), ("estado", "vazia"),
+        ("pao", 1), ("estado", "lanche"), ("pao", 2), ("trilha", 1), ("estado", "vazia"),
     ]
     assert sem_fuso(eventos[2]["t"]) == T0 + timedelta(seconds=60)
     assert sem_fuso(eventos[4]["t"]) == T0 + timedelta(seconds=78), (
         "a bandeja some aos 65 s e o perfil espera 12 s: a bancada fica vazia aos 78"
     )
-    assert le.contas.curtas == 1 and le.contas.lanches == 1
+    assert le.contas.curtas == 1 and le.contas.trilhas == 1
+    assert le.contas.lanches == 0, "pão sem papel (desenhado direto na bancada) não é lugar de lanche"
     assert [p.name for p in (le.pasta / "2026-10-15").iterdir()] == ["lanche-21h00m00-1"]
 
 
@@ -134,8 +136,49 @@ def test_ao_vivo_usa_o_ao_longo_da_bancada_do_perfil(tmp_path):
         le = bav.LeituraDoCanal(4, ZONA, FluxoDeMentira(lado_a_lado[:50]), DetectorDaCor(), perfil, tmp_path / nome)
         ler_tudo(le, 50)
         le.encerrar("o agente parou")
-        contagem[nome] = len([e for e in linha_do_tempo(le.pasta) if e["evento"] == "lanche"])
+        contagem[nome] = len([e for e in linha_do_tempo(le.pasta) if e["evento"] == "trilha"])
     assert contagem == {"comum": 1, "ao longo": 2}
+
+
+def test_o_lanche_da_linha_do_tempo_e_o_do_lugar_e_vai_ate_o_embrulho(tmp_path):
+    # o papel, as metades aos 10 s, os ingredientes cobrindo o pão aos 40 s, o embrulho aos 70 s (A23.2e)
+    le = bav.LeituraDoCanal(4, ZONA, FluxoDeMentira(cena_do_embrulho()), DetectorDaCor(), AO_LONGO, tmp_path / "canal-04")
+    ler_tudo(le, 95)
+
+    eventos = linha_do_tempo(le.pasta)
+    lanches = [e for e in eventos if e["evento"] == "lanche"]
+    assert len(lanches) == 1
+    l = lanches[0]
+    assert (sem_fuso(l["inicio"]), sem_fuso(l["fim"]), l["porque"]) == (T0 + timedelta(seconds=10), T0 + timedelta(seconds=70), "embrulho")
+    assert (l["lugar"], l["duracaoS"], l["comPao"], l["movido"]) == (1, 60.0, 30, []) and abs(l["x"] - 300) <= 2
+    assert sem_fuso(l["t"]) == T0 + timedelta(seconds=70), "anotado na hora do embrulho"
+    trilha = next(e for e in eventos if e["evento"] == "trilha")
+    assert sem_fuso(trilha["fim"]) == T0 + timedelta(seconds=52), (
+        "a trilha do pão termina 12 s (o sumiu_s do perfil) depois de os ingredientes o cobrirem: 18 s antes do embrulho"
+    )
+    assert (le.contas.lanches, le.contas.trilhas) == (1, 1)
+
+
+def test_o_lugar_que_nao_confirma_nao_vai_para_a_linha_do_tempo_e_entra_no_resumo(tmp_path):
+    le = bav.LeituraDoCanal(4, ZONA, FluxoDeMentira(cena_que_nao_confirma()), DetectorDaCor(), AO_LONGO, tmp_path / "canal-04")
+    ler_tudo(le, 90)
+    le.encerrar("o agente parou")
+
+    eventos = linha_do_tempo(le.pasta)
+    assert "lanche" not in [e["evento"] for e in eventos], "pão em 3 quadros só: não é lanche"
+    resumo = next(e for e in eventos if e["evento"] == "resumo")
+    assert (resumo["lanches"], resumo["lugaresSemLanche"]) == (0, 1)
+
+
+def test_o_fim_da_leitura_encerra_o_lanche_do_lugar_que_estava_na_bancada(tmp_path):
+    le = bav.LeituraDoCanal(4, ZONA, FluxoDeMentira(cena_do_embrulho()), DetectorDaCor(), AO_LONGO, tmp_path / "canal-04")
+    ler_tudo(le, 50)
+    le.encerrar("a loja está fechada")
+
+    l = next(e for e in linha_do_tempo(le.pasta) if e["evento"] == "lanche")
+    assert (l["porque"], l["encerrado"], sem_fuso(l["fim"])) == ("encerrado", "a loja está fechada", T0 + timedelta(seconds=49))
+    resumo = next(e for e in linha_do_tempo(le.pasta) if e["evento"] == "resumo")
+    assert (resumo["lanches"], resumo["lugaresSemLanche"], resumo["trilhas"]) == (1, 0, 0)
 
 
 def test_a_bancada_vazia_desde_o_comeco_diz_vazia_e_nada_mais(tmp_path):
@@ -175,7 +218,7 @@ def test_o_fim_da_leitura_termina_o_lanche_que_estava_na_bancada_marcado_como_en
     le.encerrar("a loja está fechada")
 
     eventos = linha_do_tempo(le.pasta)
-    assert [e["evento"] for e in eventos] == ["pao", "estado", "lanche", "estado", "resumo", "desligada"]
+    assert [e["evento"] for e in eventos] == ["pao", "estado", "trilha", "estado", "resumo", "desligada"]
     lanche = eventos[2]
     assert lanche["encerrado"] == "a loja está fechada" and lanche["duracaoS"] == 49.0
     assert eventos[3]["estado"] == "vazia" and eventos[5]["motivo"] == "a loja está fechada"
@@ -187,7 +230,7 @@ def test_o_lanche_curto_que_estava_na_bancada_no_fim_nao_vira_lanche(tmp_path):
     ler_tudo(le, 20)
     le.encerrar("o agente parou")
 
-    assert "lanche" not in [e["evento"] for e in linha_do_tempo(le.pasta)]
+    assert not {"lanche", "trilha"} & {e["evento"] for e in linha_do_tempo(le.pasta)}
 
 
 def test_o_mesmo_quadro_nao_conta_duas_vezes_e_sem_quadro_segue(tmp_path):
@@ -213,7 +256,7 @@ def test_com_a_chave_a_sessao_inteira_fica_guardada_e_a_releitura_da_o_mesmo(tmp
     assert [int(l["indice"]) for l in linhas] == list(range(80)) and linhas[0]["na_loja"] == "2026-10-15 21:00:00.000"
     # A releitura da sessão guardada, pela leitura da gravação de treino, dá o lanche que o ao vivo deu.
     releitura = tl.lanches_da_densa(sessao, tmp_path / "releitura", DetectorDaCor(), PERFIL)
-    ao_vivo = next(e for e in linha_do_tempo(le.pasta) if e["evento"] == "lanche")
+    ao_vivo = next(e for e in linha_do_tempo(le.pasta) if e["evento"] == "trilha")
     r = next(r for r in releitura if r["eLanche"])
     assert (sem_fuso(ao_vivo["inicio"]), sem_fuso(ao_vivo["fim"])) == (
         datetime.fromisoformat(r["inicio"]), datetime.fromisoformat(r["fim"]),
@@ -433,7 +476,7 @@ def test_o_laco_abre_o_fluxo_le_a_bancada_e_ao_fechar_encerra(tmp_path):
 
     assert [(c, h) for c, h, _ in sv.abertos] == [(4, "10.0.0.8")], "um fluxo, aberto uma vez"
     eventos = linha_do_tempo(sv.pasta)
-    assert eventos[0]["evento"] == "ligada" and [e["trilha"] for e in eventos if e["evento"] == "lanche"] == [1]
+    assert eventos[0]["evento"] == "ligada" and [e["trilha"] for e in eventos if e["evento"] == "trilha"] == [1]
     assert (eventos[-1]["evento"], eventos[-1]["motivo"]) == ("desligada", "o agente parou")
     assert fluxo.parado and sv.c.leitura is None
 
@@ -493,8 +536,8 @@ def test_a_loja_que_fecha_para_a_leitura_e_fecha_o_fluxo(tmp_path):
 
     assert fluxo.parado and sv.c.leitura is None
     eventos = linha_do_tempo(sv.pasta)
-    lanche = next(e for e in eventos if e["evento"] == "lanche")
-    assert lanche["encerrado"] == "a loja está fechada"
+    trilha = next(e for e in eventos if e["evento"] == "trilha")
+    assert trilha["encerrado"] == "a loja está fechada"
     assert (eventos[-1]["evento"], eventos[-1]["motivo"]) == ("desligada", "a loja está fechada")
 
 
@@ -546,7 +589,7 @@ def test_a_linha_de_execucao_le_e_para(tmp_path):
 
     assert fluxo.parado
     eventos = linha_do_tempo(sv.pasta)
-    assert [e["trilha"] for e in eventos if e["evento"] == "lanche"] == [1]
+    assert [e["trilha"] for e in eventos if e["evento"] == "trilha"] == [1]
     assert (eventos[-1]["evento"], eventos[-1]["motivo"]) == ("desligada", "o agente parou")
 
 

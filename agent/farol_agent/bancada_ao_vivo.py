@@ -6,21 +6,28 @@ embalagem"; "a mão sair não significa nenhum tipo de conclusão". Em 17/10, co
 "pode começar".
 
 **A leitura.** Um quadro por segundo do fluxo PRINCIPAL do canal, na resolução da câmera, recortado na área de montagem
-como na gravação de treino (`gravacao_lida.guardar_recorte`); o detector acha os pães abertos e o
-`treino_lanches.Seguidor` segue cada lanche. É a leitura da gravação de treino, com os mesmos números da câmera
-(`perfil_da_bancada.json`) — só que agora, e não depois.
+como na gravação de treino (`gravacao_lida.guardar_recorte`); o detector acha os pães abertos e duas leituras andam
+juntas, com os mesmos grupos de pão:
+
+- o LUGAR do lanche (`lugar_do_lanche`, A23.2e): o papel ou a caixa é o lugar do lanche, e o lanche só termina no
+  embrulho — é o lanche da linha do tempo;
+- a TRILHA do pão (`treino_lanches.Seguidor`, a leitura da gravação de treino, com os mesmos números da câmera,
+  `perfil_da_bancada.json`): segue o pão enquanto ele está à vista; fica para comparar, e é dela a pasta com os
+  recortes que a identificação dos ingredientes lê.
 
 **O que sai**, ao lado da configuração, em `bancada/canal-NN/`:
 
 - `AAAA-MM-DD.jsonl`, a linha do tempo do dia, cada linha com a hora e o fuso:
-  - `estado`: a bancada mudou — `vazia` (nada a analisar) ou `lanche` (um ou mais lanches em montagem);
-  - `pao`: apareceu um pão aberto (o começo de um lanche, ou de algo curto que não chega a ser um);
-  - `lanche`: um lanche terminou (fechado e embrulhado, ou saiu da bancada), com o começo, o fim, as ETAPAS (a hora de
-    cada passo que assentou diferente) e a pasta; `encerrado` diz quando quem terminou foi a leitura (a loja fechou, o
-    agente parou), e não o lanche;
+  - `estado`: a bancada mudou — `vazia` (nada a analisar) ou `lanche` (pão sendo seguido na bancada);
+  - `pao`: apareceu um pão aberto (o começo de uma trilha);
+  - `lanche`: um lanche terminou, pelo LUGAR: o começo (o primeiro pão no papel), o fim (o papel dobrado ou a caixa
+    fechada e levada — `porque`: embrulho, parado, teto), quantos quadros com pão, onde nasceu (`x`, no recorte) e as
+    vezes em que foi movido; `encerrado` diz quando quem terminou foi a leitura (a loja fechou, o agente parou). Os
+    quadros dele ficam na sessão guardada (`FAROL_BANCADA_GUARDAR_QUADROS`);
+  - `trilha`: uma trilha do pão terminou (o que antes era o `lanche`), com o começo, o fim, as ETAPAS e a pasta;
   - `resumo`: de dez em dez minutos, quantos quadros, quanto tempo cada um levou e o que ficou de fora;
   - `ligada` e `desligada`, com o motivo;
-- `AAAA-MM-DD/lanche-HHhMMmSS-N/`, cada lanche: os recortes na caixa fixa, as etapas e o `metades.csv`, como os da
+- `AAAA-MM-DD/lanche-HHhMMmSS-N/`, cada trilha: os recortes na caixa fixa, as etapas e o `metades.csv`, como os da
   gravação de treino (é o que a identificação dos ingredientes lê, A23.3).
 
 Os quadros que nenhum lanche usa saem do disco logo; as pastas dos lanches ficam `GUARDA_DIAS` dias, e a linha do tempo,
@@ -51,6 +58,7 @@ from typing import Any, Callable, Protocol
 from farol_agent import treino_lanches, treino_quadros
 from farol_agent.configuracao import de_json, ler_do_disco
 from farol_agent.gravacao_lida import guardar_recorte, quadro_do_canal
+from farol_agent.lugar_do_lanche import LeitorDeLugares, Lugar
 from farol_agent.modelos import Janela, Zona
 from farol_agent.treino_servico import _detector_da_auditoria, janelas_da_loja, perfil_da_bancada
 
@@ -174,7 +182,11 @@ class _Contas:
     quadros: int = 0
     sem_quadro: int = 0
     repetidos: int = 0
+    # os lanches pelo lugar, e os lugares que não chegaram a lanche (o detector achou pão no que não era)
     lanches: int = 0
+    lugares_sem_lanche: int = 0
+    # as trilhas do pão que viraram pasta, e as curtas demais
+    trilhas: int = 0
     curtas: int = 0
     erros: int = 0
     ms: float = 0.0
@@ -212,6 +224,7 @@ class LeituraDoCanal:
                 if arquivo.is_file() and _QUADRO.match(arquivo.name):
                     arquivo.unlink(missing_ok=True)
         self.seguidor = treino_lanches.Seguidor(perfil, guardar_todos=False)
+        self.lugares = LeitorDeLugares(perfil)
         self.estado: str | None = None
         self.contas = _Contas()
         self._guardados: deque[tuple[datetime, Path]] = deque()
@@ -231,8 +244,8 @@ class LeituraDoCanal:
         c = self.contas
         self.anotar(
             quando, "resumo", quadros=c.quadros, msPorQuadro=round(c.ms / c.quadros) if c.quadros else None,
-            semQuadro=c.sem_quadro, repetidos=c.repetidos, lanches=c.lanches, curtas=c.curtas, erros=c.erros,
-            estado=self.estado,
+            semQuadro=c.sem_quadro, repetidos=c.repetidos, lanches=c.lanches, lugaresSemLanche=c.lugares_sem_lanche,
+            trilhas=c.trilhas, curtas=c.curtas, erros=c.erros, estado=self.estado,
         )
         self.contas = _Contas()
         self._proximo_resumo = quando + timedelta(seconds=RESUMO_A_CADA_S)
@@ -278,6 +291,8 @@ class LeituraDoCanal:
                 self.anotar(quando, "pao", trilha=a.id)
         for a in terminaram:
             self._terminou(a)
+        for lugar in self.lugares.quadro(img, quando, regioes):
+            self._lugar_terminou(lugar)
         self._mudar_estado(quando)
         self._soltar_quadros(quando)
         self.contas.quadros += 1
@@ -287,13 +302,14 @@ class LeituraDoCanal:
         return True
 
     def _terminou(self, a: treino_lanches.Trilha, encerrado: str | None = None) -> None:
+        """Uma trilha do pão terminou: a pasta dos recortes (o que a identificação lê) e o evento `trilha`."""
         if a.duracao_s < self.perfil.duracao_minima_s:
             self.contas.curtas += 1
             return
         dia = self.pasta / f"{a.inicio:%Y-%m-%d}"
         nome = f"lanche-{a.inicio:%Hh%Mm%S}-{a.id}"
         treino_lanches.escrever_lanche(a, self.quadros, dia, self._largura, self._altura, self.perfil, nome=nome)
-        self.contas.lanches += 1
+        self.contas.trilhas += 1
         campos: dict[str, Any] = {
             "trilha": a.id, "inicio": _iso(a.inicio), "fim": _iso(a.fim or a.visto), "duracaoS": round(a.duracao_s, 1),
             "mudouDeLugar": a.mudou_de_lugar, "quadros": len(a.quadros),
@@ -301,7 +317,22 @@ class LeituraDoCanal:
         }
         if encerrado:
             campos["encerrado"] = encerrado
-        self.anotar(a.fim or a.visto, "lanche", **campos)
+        self.anotar(a.fim or a.visto, "trilha", **campos)
+
+    def _lugar_terminou(self, l: Lugar, encerrado: str | None = None) -> None:
+        """Um lugar terminou: se chegou a lanche, o evento `lanche` (o começo, o fim no embrulho, por que terminou)."""
+        if not self.lugares.e_lanche(l):
+            self.contas.lugares_sem_lanche += 1
+            return
+        self.contas.lanches += 1
+        campos: dict[str, Any] = {
+            "lugar": l.n, "inicio": _iso(l.inicio), "fim": _iso(l.fim or l.inicio), "duracaoS": round(l.duracao_s, 1),
+            "porque": l.porque, "comPao": l.com_pao, "x": round(l.nasceu_cx),
+            "movido": [{"t": _iso(q), "de": de, "para": para} for q, de, para in l.movido],
+        }
+        if encerrado and l.porque == "encerrado":
+            campos["encerrado"] = encerrado
+        self.anotar(l.fim or l.inicio, "lanche", **campos)
 
     def _mudar_estado(self, quando: datetime) -> None:
         estado = LANCHE if self.seguidor.ativos else VAZIA
@@ -329,6 +360,8 @@ class LeituraDoCanal:
             quando = self._anterior or self._relogio()
             for a in self.seguidor.encerrar(self._anterior):
                 self._terminou(a, encerrado=motivo)
+            for lugar in self.lugares.encerrar(quando):
+                self._lugar_terminou(lugar, encerrado=motivo)
             if self.estado == LANCHE:
                 self.estado = VAZIA
                 self.anotar(quando, "estado", estado=VAZIA, lanches=0)
