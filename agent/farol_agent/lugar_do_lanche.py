@@ -9,9 +9,9 @@ vão ser embalados ou colocados para consumo local". A caixa de isopor faz o pap
 dela, e ela fecha.
 
 A regra do pão (`treino_lanches.Seguidor`) termina o lanche quando o pão some do detector por `sumiu_s` — e o pão
-some debaixo da carne, do queijo e da alface muito antes do embrulho. Medido na noite de 18/10 (21h04–21h14, 9
-lanches contados à mão, de 10 em 10 s): ela terminava os lanches até 52 s ANTES do embrulho, e perdia o lanche fechado
-rápido. Esta leitura segue o LUGAR:
+some debaixo da carne, do queijo e da alface muito antes do embrulho. Medido na noite de 18/10 (21h04–21h14, 8
+lanches contados à mão, de 10 em 10 s): ela terminava os lanches até 52 s ANTES do embrulho. Esta leitura segue o
+LUGAR:
 
 1. **A bancada vazia** (`BancadaVazia`): a bancada (abaixo das cubas) cortada em faixas verticais; cada faixa guarda
    até `estados` aparências vazias, porque o vazio muda — a bandeja do consumo local entra e sai do lado direito, um
@@ -25,8 +25,8 @@ rápido. Esta leitura segue o LUGAR:
    vizinho vivo (a caixa é mais estreita que o papel, e elas ficam lado a lado).
 3. **O fim é o embrulho**: o papel dobrado (ou a caixa fechada e levada) deixa a faixa do lugar quase vazia — o pacote
    ocupa pouco dela. O lanche termina quando a ocupação da faixa fica abaixo do limite por `fim_s` segundos seguidos; o
-   limite é a metade da ocupação típica DO PRÓPRIO lugar (o papel pequeno do lanche fechado rápido também termina); a
-   hora do fim é a do primeiro quadro baixo.
+   limite é a metade da ocupação típica DO PRÓPRIO lugar (um papel pequeno também termina); a hora do fim é a do
+   primeiro quadro baixo.
 4. **Só é lanche** o lugar com pão em pelo menos `confirma` quadros no primeiro minuto; o resto sai na hora (e libera
    a faixa).
 5. **O lanche movido** (empurrado ou levado aberto para o lado): quando um lanche cheio esvazia de uma vez e, no mesmo
@@ -36,11 +36,12 @@ rápido. Esta leitura segue o LUGAR:
 6. **A rede**: o lugar parado (nada mexe na faixa) e sem pão há `rede_s` termina no último movimento; e nada vive mais
    que `vida_max_s`.
 
-Medido (19/10, a leitura de cada quadro guardado da noite de 18/10, contra a régua contada à mão): 21h04–21h14, 9 de 9
-lanches, nenhum a mais, o fim a 6 s do embrulho na mediana (o maior, 25 s DEPOIS; nenhum mais que 2 s antes); 00h00–
-00h10 (caixas de isopor e papel), 14 de 15 (a caixa que o detector nunca viu com pão não tem como), 3 a mais (2 dos
-movidos que não ligaram, 1 lanche com as metades lado a lado no papel), o fim a 8 s na mediana. A regra do pão, na
-mesma janela, juntou 3 lanches em 1 e 2 em 1, e terminou as caixas até 50 s antes de fecharem.
+Medido (19/10, a leitura de cada quadro guardado da noite de 18/10, contra a régua contada à mão): 21h04–21h14, 8 de 8
+lanches, 1 a mais (o pão do lanche seguinte, deixado 18 s direto no inox antes do papel: as metades empilhadas enchem
+a região do grupo, e a regra "em cima de algo novo" passa), o fim a 8 s do embrulho na mediana (o maior, 25 s DEPOIS;
+nenhum antes); 00h00–00h10 (caixas de isopor e papel), 14 de 15 (a caixa que o detector nunca viu com pão não tem
+como), 3 a mais (2 dos movidos que não ligaram, 1 lanche com as metades lado a lado no papel), o fim a 8 s na mediana.
+A regra do pão, na mesma janela, juntou 3 lanches em 1 e 2 em 1, e terminou as caixas até 50 s antes de fecharem.
 
 **O que é da loja** vem do perfil da bancada (`PerfilDaBancada`): a largura do papel sai do tamanho do pão
 (`PAPEL_EM_PAES` pães). O resto é da conta e fica em `Parametros`.

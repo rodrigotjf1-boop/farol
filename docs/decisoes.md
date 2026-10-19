@@ -8750,7 +8750,7 @@ Depois de ver a primeira noite guardada, o dono explicou como o lanche se forma:
 A leitura ao vivo seguia o PÃO: o lanche terminava quando o detector ficava `sumiu_s` sem ver o pão. Só que o pão
 some debaixo da carne, do queijo e da alface muito antes do embrulho. Medido na noite de 18/10 contra a contagem à
 mão:
-- **21h04–21h14** (9 lanches): terminava até 52 s ANTES do embrulho e perdia o lanche fechado rápido;
+- **21h04–21h14** (8 lanches): terminava até 52 s ANTES do embrulho;
 - **00h00–00h10** (caixas e papel, 15 lanches): juntou 3 lanches num só e outros 2 num só, e terminou as caixas até
   50 s antes de fecharem.
 
@@ -8789,11 +8789,18 @@ em 10 s (as caixas, de 5 em 5 s).
 
 | Janela | Achados | A mais | Fim (mediana, maior) | Antes do embrulho |
 |---|---|---|---|---|
-| 21h04–21h14 | 9 de 9 | nenhum | 6 s, 25 s depois | só o fechado rápido, 2 s |
+| 21h04–21h14 | 8 de 8 | 1 | 8 s, 25 s depois | nenhum |
 | 00h00–00h10 | 14 de 15 | 3 | 8 s | 5 lanches, até 10 s (a régua é de 10 em 10 s; a caixa B2 foi levada aberta) |
 
-Os 3 a mais da segunda janela: 2 são lanches movidos que não se ligaram e 1 é um lanche com as metades lado a lado
-no papel. O que faltou é uma caixa que o detector nunca viu com pão.
+O a mais da primeira janela é o pão do lanche seguinte (P6), deixado 18 s direto no inox antes de o papel chegar: as
+metades empilhadas enchem a região do grupo, e a regra "em cima de algo novo" passa. Os 3 a mais da segunda janela: 2
+são lanches movidos que não se ligaram e 1 é um lanche com as metades lado a lado no papel. O que faltou é uma caixa
+que o detector nunca viu com pão.
+
+**Correção (19/10, 18h20):** a primeira versão desta entrada (e do PR #188) dizia "9 de 9" na primeira janela, e que
+a regra do pão "perdia o lanche fechado rápido". Olhando os quadros do exemplo para o relatório do dono, esse "lanche
+rápido" (21h08m11–31) era o pão do P6 esperando no inox, sem papel: errei na contagem à mão. A janela tem 8 lanches; a
+regra do pão estava certa em não contá-lo, e a do lugar conta um a mais.
 
 ### O que ainda não se resolve
 
