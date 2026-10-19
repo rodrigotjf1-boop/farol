@@ -196,7 +196,12 @@ export default function Treinamento() {
   }, [d, ingredientes, listas.conferidos]);
   const aprendido = useMemo(() => {
     const m = new Map<string, { presente: number; reconheceu: number }>();
-    for (const [nome, a] of Object.entries(d?.aprendizado ?? {})) m.set(chaveDoIngrediente(nome), a);
+    // dois nomes do mesmo ingrediente (escrito de outro jeito) somam
+    for (const [nome, a] of Object.entries(d?.aprendizado ?? {})) {
+      const k = chaveDoIngrediente(nome);
+      const ja = m.get(k);
+      m.set(k, ja ? { presente: ja.presente + a.presente, reconheceu: ja.reconheceu + a.reconheceu } : a);
+    }
     return m;
   }, [d]);
 

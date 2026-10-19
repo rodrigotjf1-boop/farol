@@ -16,6 +16,7 @@ import pg from 'pg';
 
 import { criarApp } from '../src/app.js';
 import { contarBase, impressaoDaBase, type Base } from '../src/fichas.js';
+import { chaveDoIngrediente } from '../src/ingredientes.js';
 import { impressaoDaBaseDaLoja, type ItemDaBase } from '../src/rotas/base-na-loja.js';
 
 const CONTRATO = JSON.parse(readFileSync(new URL('../../contratos/base-de-conhecimento.json', import.meta.url), 'utf8')) as {
@@ -177,5 +178,22 @@ describe('a base desce para a loja (Postgres real)', { skip: !URL_DO_BANCO && 's
     const m4 = (await base()).json().impressao;
     assert.notEqual(m4, m3, 'saiu uma foto');
     assert.equal((await quadro(fotoId)).statusCode, 404, 'o quadro tirado não desce mais');
+  });
+
+  it('o mesmo ingrediente escrito de outro jeito desce como UM, com o nome da ficha e os quadros dos dois (o dono, 19/10/2026)', async () => {
+    // a ficha diz "Pão brioche"; as conferências ensinaram "Pão de Brioche" e "PAO BRIOCHE": dois registros, um ingrediente
+    const bytes = Buffer.from(JPEG, 'base64');
+    for (const nome of ['Pão de Brioche', 'PAO BRIOCHE']) {
+      const item = await pool.query(`insert into base_conhecimento (loja_id, tipo, nome) values ($1, 'item', $2) returning id`, [lojaId, nome]);
+      await pool.query(
+        `insert into base_frame (base_id, origem, imagem, tipo, largura, altura, sha256) values ($1, 'bancada', $2, 'image/jpeg', 320, 320, $3)`,
+        [item.rows[0].id, bytes, createHash('sha256').update(bytes).digest('hex')],
+      );
+    }
+    const itens = ((await base()).json() as { itens: ItemDaBase[] }).itens;
+    const brioche = itens.filter((i) => chaveDoIngrediente(i.nome) === 'pao brioche');
+    assert.equal(brioche.length, 1, JSON.stringify(itens.map((i) => i.nome)));
+    assert.equal(brioche[0]!.nome, 'Pão brioche', 'o nome da ficha');
+    assert.equal(brioche[0]!.quadros.length, 2, 'os quadros dos dois registros');
   });
 });

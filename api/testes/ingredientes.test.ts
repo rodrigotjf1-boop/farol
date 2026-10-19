@@ -69,7 +69,7 @@ describe('os ingredientes da loja, tirados das fichas (sem banco)', () => {
     const outro = { ...copia(BASE).produtos.find((p) => p.id === XBURGER.id)!, id: randomUUID(), nome: 'X-Salada', adicionais: [] };
     outro.ficha!.ingredientes = [{ ...outro.ficha!.ingredientes[0]!, nome: 'PÃO BRIOCHE' }, { ...outro.ficha!.ingredientes[0]!, nome: '   ' }];
     b.produtos.push(outro);
-    const pao = ingredientesDaBase(b).filter((i) => chaveDoIngrediente(i.nome) === 'pão brioche');
+    const pao = ingredientesDaBase(b).filter((i) => chaveDoIngrediente(i.nome) === 'pao brioche');
     assert.equal(pao.length, 1);
     assert.deepEqual(pao[0]!.produtos.map((o) => o.produto), ['X-Burger', 'X-Salada']);
     assert.equal(ingredientesDaBase(b).length, DO_CONTRATO.length, 'o nome em branco não virou ingrediente');
@@ -77,6 +77,42 @@ describe('os ingredientes da loja, tirados das fichas (sem banco)', () => {
 
   it('sem base, nenhum ingrediente', () => {
     assert.deepEqual(ingredientesDaBase(null), []);
+  });
+
+  it('o mesmo ingrediente escrito de outro jeito tem a mesma chave (o dono, 19/10/2026: "Pão de Brioche" = "Pão Brioche")', () => {
+    const iguais: [string, string][] = [
+      ['Pão de Brioche', 'Pão Brioche'],
+      ['PÃO BRIOCHE', ' pao brioche '],
+      ['Fatias de queijo cheddar', 'Fatia de queijo cheddar'],
+      ['Carne 56gr', 'Carne 56 g'],
+      ['Carne 56 gramas', 'carne 56G'],
+      ['Pães de hambúrguer', 'pão hamburguer'],
+      ['Anéis de cebola', 'Anel de cebola'],
+      ['Bacon c/ cheddar', 'Bacon com cheddar'],
+      ['X-Burg', 'x burg'],
+      ['Ovos', 'ovo'],
+    ];
+    for (const [a, b] of iguais) assert.equal(chaveDoIngrediente(a), chaveDoIngrediente(b), `${a} = ${b}`);
+    const diferentes: [string, string][] = [
+      ['Pão Brioche', 'Pão Brioche com gergelim mesclado'],
+      ['Carne 56gr', 'Carne 120gr'],
+      ['Pao de dois cortes', 'Pao gergelim de 1 corte'],
+      ['Fatia de queijo cheddar', 'Cheddar cremoso'],
+    ];
+    for (const [a, b] of diferentes) assert.notEqual(chaveDoIngrediente(a), chaveDoIngrediente(b), `${a} ≠ ${b}`);
+    assert.equal(chaveDoIngrediente('Pão de Brioche'), 'pao brioche');
+    assert.equal(chaveDoIngrediente('  De  '), 'de', 'um nome feito só de palavra de ligação não some');
+  });
+
+  it('nas fichas, os dois jeitos de escrever são UM ingrediente, com o nome da primeira vez', () => {
+    const b = copia(BASE);
+    const outro = { ...copia(BASE).produtos.find((p) => p.id === XBURGER.id)!, id: randomUUID(), nome: 'Número 09', adicionais: [] };
+    outro.ficha!.ingredientes = [{ ...outro.ficha!.ingredientes[0]!, nome: 'Pão de Brioche' }];
+    b.produtos.push(outro);
+    const brioche = ingredientesDaBase(b).filter((i) => chaveDoIngrediente(i.nome) === 'pao brioche');
+    assert.equal(brioche.length, 1);
+    assert.equal(brioche[0]!.nome, 'Pão brioche', 'o da ficha que veio primeiro');
+    assert.deepEqual(brioche[0]!.produtos.map((o) => o.produto), ['X-Burger', 'Número 09']);
   });
 
   it('o grupo de "tirar" não acrescenta ingrediente, nem com um efeito de insumo por engano da fonte', () => {

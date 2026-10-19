@@ -8809,3 +8809,37 @@ regra do pão estava certa em não contá-lo, e a do lugar conta um a mais.
 - **O lanche montado onde a bandeja estava na abertura** só se solta quando a faixa aprende a bancada sem ela. Se o
   agente abrir com a bandeja ali e o lote começar logo, a rede (45 s parado) fecha o lanche.
 - **A largura do papel** é a da loja piloto (2,65 pães). Outra loja, com outro papel, mede a sua.
+
+## 19/10/2026 · O nome parecido: o mesmo ingrediente escrito de outro jeito é um só (sem migration; vale com o deploy da API e do console)
+
+### O que o dono disse
+
+Na tela Treinamento → Sugestões para as fichas apareceu "'Pão de Brioche' não está em nenhuma ficha", e a ficha do
+Número 09 tem "Pão Brioche". O dono: "o sistema tem que entender que 'Pão de Brioche' e 'Pão Brioche' são a mesma
+coisa… quando um usuário do monitor não colocar no treinamento o termo idêntico". E, em seguida, a outra camada: na
+conferência, quem confere escolhe o ingrediente numa lista tirada das fichas e só cadastra um nome novo quando não
+acha; depois o sistema confere se o nome novo bate com algo das fichas.
+
+### O que mudou
+
+A chave do ingrediente (`chaveDoIngrediente`, na API e a cópia no console) deixou de ser só "sem maiúscula e sem
+espaço nas pontas". Agora ela também desconsidera:
+- o acento;
+- as palavras que só ligam o nome (de, da, do, das, dos, e, com, c/);
+- o plural;
+- o espaço entre o número e o peso ("56gr" = "56 g" = "56 gramas").
+
+"Pão de Brioche" = "Pão Brioche". "Pão Brioche com gergelim mesclado" continua outro ingrediente.
+
+O índice único da migration 047 continua o de antes, então pode haver dois registros do mesmo ingrediente. Quem lê
+os soma, e nenhum esconde o outro:
+- **a lista de ingredientes** mostra um só, com as fotos e os exemplos dos dois;
+- **a base que desce para a loja** manda um só, com o nome da ficha e os quadros dos dois;
+- **as sugestões** comparam pela chave nova. A resposta guardada antes da mudança é relida pela regra nova
+  (`chaveDeHoje`) e continua presa à sua sugestão. O "nome fora das fichas" cujo nome hoje está nas fichas sai da tela.
+
+### O que falta
+
+A segunda camada é visual e espera o protótipo aprovado (a regra do console): quando quem confere escreve um nome
+novo, a gaveta pergunta "é o 'Pão Brioche' das fichas?" antes de guardar. A tela já oferece a lista das fichas e o
+"Um ingrediente que não está nas fichas…"; falta só essa pergunta.
