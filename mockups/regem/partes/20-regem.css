@@ -309,6 +309,22 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
 .foto-v2.ruim { border-style: dashed; }
 .foto-v2.ruim .ver-foto .quadro { opacity: 0.55; filter: grayscale(1); }
 .bloco > .linha-acoes > .nota { flex: 1 1 220px; }
+/* o nome escrito à mão (19/10/2026): o que as fichas têm com ele, embaixo do campo, muda enquanto se escreve */
+.nome-novo { display: grid; gap: 8px; min-width: 0; }
+.nome-novo .aviso { font-size: 13.5px; }
+.nome-novo .aviso small { display: block; margin-top: 2px; font-size: 12.5px; color: var(--suave); }
+.nome-novo .aviso .btn.mini { white-space: normal; text-align: left; overflow-wrap: anywhere; }
+.aviso.ok { border-color: var(--ok); background: var(--ok-fundo); }
+.aviso.ok .ic { color: var(--ok); }
+.parecidos { margin-top: 8px; }
+.parecidos button { flex-direction: column; align-items: flex-start; gap: 0; border-radius: 10px; color: var(--tinta); text-align: left; }
+.parecidos button small { margin: 0; font-size: 11.5px; color: var(--suave); }
+.chips-v2 button .fora-das-fichas { font-size: 11px; color: var(--suave); }
+.chips-v2 button .fora-das-fichas::before { content: '· '; }
+/* a escolha do ingrediente das fichas, no cartão do nome fora delas */
+.campo.junto { margin-top: 4px; }
+.linha-campo { display: flex; flex-wrap: wrap; gap: 8px; }
+.linha-campo .entrada { flex: 1 1 200px; min-width: 0; }
 @media (max-width: 420px) {
   .etapa.foto-v2 { grid-template-columns: minmax(0, 1fr); }
   .etapa.foto-v2 .ver-foto { max-width: 160px; }

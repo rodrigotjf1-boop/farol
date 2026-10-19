@@ -639,6 +639,22 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
 .foto-v2.ruim { border-style: dashed; }
 .foto-v2.ruim .ver-foto .quadro { opacity: 0.55; filter: grayscale(1); }
 .bloco > .linha-acoes > .nota { flex: 1 1 220px; }
+/* o nome escrito à mão (19/10/2026): o que as fichas têm com ele, embaixo do campo, muda enquanto se escreve */
+.nome-novo { display: grid; gap: 8px; min-width: 0; }
+.nome-novo .aviso { font-size: 13.5px; }
+.nome-novo .aviso small { display: block; margin-top: 2px; font-size: 12.5px; color: var(--suave); }
+.nome-novo .aviso .btn.mini { white-space: normal; text-align: left; overflow-wrap: anywhere; }
+.aviso.ok { border-color: var(--ok); background: var(--ok-fundo); }
+.aviso.ok .ic { color: var(--ok); }
+.parecidos { margin-top: 8px; }
+.parecidos button { flex-direction: column; align-items: flex-start; gap: 0; border-radius: 10px; color: var(--tinta); text-align: left; }
+.parecidos button small { margin: 0; font-size: 11.5px; color: var(--suave); }
+.chips-v2 button .fora-das-fichas { font-size: 11px; color: var(--suave); }
+.chips-v2 button .fora-das-fichas::before { content: '· '; }
+/* a escolha do ingrediente das fichas, no cartão do nome fora delas */
+.campo.junto { margin-top: 4px; }
+.linha-campo { display: flex; flex-wrap: wrap; gap: 8px; }
+.linha-campo .entrada { flex: 1 1 200px; min-width: 0; }
 @media (max-width: 420px) {
   .etapa.foto-v2 { grid-template-columns: minmax(0, 1fr); }
   .etapa.foto-v2 .ver-foto { max-width: 160px; }
@@ -1109,6 +1125,15 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
   var NAO_SE_VE = { 'Sal': true };
   // as sugestões para as fichas: só nascem do que alguém CONFERIU, nunca de uma leitura sem conferência
   var SUGESTOES = [
+    // o nome fora das fichas (19/10/2026): quem configura diz o que ele é — um das fichas com outro nome, ou um que vai
+    // entrar numa ficha nova (o dono: "verificar se associa a algo já nas fichas ou ainda vai implementar em uma ficha
+    // que não existe")
+    { id: 's4', tipo: 'nome fora das fichas', ingrediente: 'Hambúrguer',
+      titulo: '“Hambúrguer” não está em nenhuma ficha',
+      viu: 'Em 4 lanches conferidos (X-Burger e X-Salada), quem conferiu chamou um ingrediente de “Hambúrguer”.' },
+    { id: 's5', tipo: 'nome fora das fichas', ingrediente: 'Frango empanado',
+      titulo: '“Frango empanado” não está em nenhuma ficha',
+      viu: 'Em 2 lanches conferidos, quem conferiu chamou um ingrediente de “Frango empanado”. O lanche não estava entre os do cardápio.' },
     { id: 's1', tipo: 'um nome para duas coisas', ingrediente: 'Molho da casa',
       titulo: '“Molho da casa” parece ser dois molhos',
       viu: 'Nos lanches conferidos, o Molho da casa apareceu de dois jeitos: laranja nos 7 X-Burger e branco nos 4 X-Salada.',
@@ -1912,7 +1937,37 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
     lista.forEach(function (i) { s += linhaDoIngrediente(i); });
     return s + '</div><p class="nota">Os ingredientes dos lanches que já passaram por esta bancada. Outro ingrediente da loja entra aqui quando um lanche que o leva for conferido nela.</p>';
   }
+  // O NOME FORA DAS FICHAS (19/10/2026): três respostas — é um ingrediente das fichas (qual: os parecidos primeiro; ele
+  // vira um outro nome do ingrediente), vai entrar numa ficha nova (os exemplos esperam por ela) ou foi engano
+  function cartaoDoNomeFora(g) {
+    var d = est.treino.decisoes[g.id] || '', junto = d.indexOf('junto:') === 0 ? d.slice(6) : '', nome = g.ingrediente;
+    var s = '<section class="cartao sugestao" aria-labelledby="sg-' + g.id + '"><header><span class="chip">' + esc(g.tipo) + '</span>' +
+      (junto ? '<span class="chip ok empurra">é o “' + esc(junto) + '”</span>' : d === 'nova' ? '<span class="chip facho empurra">espera a ficha nova</span>' : d === 'nao' ? '<span class="chip empurra">foi engano</span>' : '') +
+      '</header><div class="miolo"><h3 id="sg-' + g.id + '">' + esc(g.titulo) + '</h3><p><b>O que a bancada mostrou.</b> ' + esc(g.viu) + '</p>';
+    if (junto) return s + '<p class="nota">Os exemplos de “' + esc(nome) + '” foram para o “' + esc(junto) + '”. Quando alguém escrever “' + esc(nome) + '” na conferência, entra o “' + esc(junto) + '”.</p></div></section>';
+    if (d === 'nova') return s + '<p class="nota">Os exemplos ficam guardados com o nome “' + esc(nome) + '”. Quando a ficha chegar com ele — ou com o nome escrito de outro jeito —, eles se juntam sozinhos ao ingrediente dela.</p></div></section>';
+    if (d === 'nao') return s + '<p class="nota">Fica como está.</p></div></section>';
+    s += '<p><b>A sugestão.</b> Diga o que ele é: um ingrediente que já está nas fichas com outro nome, ou um que vai entrar numa ficha que ainda não existe.</p>';
+    if (!configura()) return s + '<p class="nota">Quem configura a loja responde às sugestões.</p></div></section>';
+    var abre = est.treino.juntando === g.id;
+    s += '<div class="linha-acoes"><button class="btn" type="button" data-nome-fora-juntar="' + g.id + '" id="sg-' + g.id + '-junto" aria-expanded="' + abre + '">É um ingrediente das fichas</button>' +
+      '<button class="btn" type="button" data-sugestao="' + g.id + '" data-v="nova" id="sg-' + g.id + '-nova">Vai entrar numa ficha nova</button>' +
+      '<button class="btn fantasma" type="button" data-sugestao="' + g.id + '" data-v="nao" id="sg-' + g.id + '-nao">Foi engano</button></div>';
+    if (abre) {
+      var achado = nasFichas(nome, true), primeiros = achado.mesmo ? [achado.mesmo.nome] : achado.parecidos.map(function (p) { return p.nome; });
+      var resto = ingredientesV2().filter(function (n) { return primeiros.indexOf(n) < 0; });
+      var op = function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; };
+      s += '<div class="campo junto"><label for="sj-' + g.id + '">Qual ingrediente das fichas é o “' + esc(nome) + '”?</label><div class="linha-campo">' +
+        '<select class="entrada" id="sj-' + g.id + '" data-nome-fora-qual="' + g.id + '"><option value="">Escolha o ingrediente</option>' +
+        (primeiros.length ? '<optgroup label="Parecidos">' + primeiros.map(op).join('') + '</optgroup><optgroup label="Os outros">' + resto.map(op).join('') + '</optgroup>' : resto.map(op).join('')) +
+        '</select><button class="btn cheio" type="button" data-nome-fora-confirmar="' + g.id + '" id="sc-' + g.id + '">Juntar</button></div>' +
+        (est.treino.erroJunto === g.id ? '<p class="erro-do-campo" role="alert">Escolha o ingrediente das fichas.</p>' : '') +
+        '<small>Os exemplos de “' + esc(nome) + '” vão para ele, e da próxima vez que alguém escrever “' + esc(nome) + '” na conferência, o Farol já entende.</small></div>';
+    }
+    return s + '</div></section>';
+  }
   function cartaoDaSugestao(g) {
+    if (g.tipo === 'nome fora das fichas') return cartaoDoNomeFora(g);
     var d = est.treino.decisoes[g.id];
     var s = '<section class="cartao sugestao" aria-labelledby="sg-' + g.id + '"><header><span class="chip">' + esc(g.tipo) + '</span>' +
       (d ? '<span class="chip ' + (d === 'sim' ? 'facho' : 'ok') + ' empurra">' + (d === 'sim' ? 'a mudar na ficha' : 'fica como está') + '</span>' : '') + '</header><div class="miolo">' +
@@ -2064,6 +2119,120 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
     CARDAPIO_V2.forEach(function (p) { p.ficha.ingredientes.forEach(function (i) { if (!NAO_SE_VE[i[0]] && n.indexOf(i[0]) < 0) n.push(i[0]); }); });
     return n.sort(function (a, b) { return a.localeCompare(b, 'pt-BR'); });
   }
+
+  /* ─────────── o nome escrito à mão e o que as fichas têm com ele (19/10/2026) ─────────── */
+  // A mesma chave da API (`chaveDoIngrediente`, #190): sem acento, sem as palavras que só ligam (de, da, do, com…), sem
+  // plural e com o peso junto do número — "Pão de Brioche" = "Pão Brioche", "56gr" = "56 g".
+  var LIGACAO = { de: 1, da: 1, 'do': 1, das: 1, dos: 1, e: 1, com: 1, c: 1, a: 1, o: 1, as: 1, os: 1 };
+  var PLURAL_IRREGULAR = { paes: 'pao', aneis: 'anel', graos: 'grao', limoes: 'limao', mamoes: 'mamao' };
+  function chaveDoIngrediente(nome) {
+    var comPeso = semAcento(nome).replace(/(\d+(?:[.,]\d+)?)\s*(gramas?|grs?|g)(?![a-z])/g, function (_, n) { return n.replace(',', '.') + 'g'; });
+    var palavras = comPeso.split(/[^a-z0-9.]+/).map(function (p) { return p.replace(/^\.+|\.+$/g, ''); })
+      .filter(function (p) { return p && !LIGACAO[p]; })
+      .map(function (p) { return PLURAL_IRREGULAR[p] || (p.length > 3 && /s$/.test(p) && !/\d/.test(p) ? p.slice(0, -1) : p); });
+    return palavras.length ? palavras.join(' ') : String(nome).trim().toLowerCase();
+  }
+  // Os OUTROS NOMES: o nome fora das fichas que quem configura juntou a um ingrediente delas (aba Sugestões). Da próxima
+  // vez que alguém o escrever na conferência, entra o ingrediente da ficha.
+  var OUTROS_NOMES = {};
+  // quantas letras trocar, pôr ou tirar para ir de uma palavra à outra
+  function distancia(a, b) {
+    var antes = [], i, j;
+    for (j = 0; j <= b.length; j++) antes[j] = j;
+    for (i = 1; i <= a.length; i++) {
+      var agora = [i];
+      for (j = 1; j <= b.length; j++) agora[j] = Math.min(antes[j] + 1, agora[j - 1] + 1, antes[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      antes = agora;
+    }
+    return antes[b.length];
+  }
+  // duas palavras batem: iguais, ou quase — uma letra de diferença nas de 5 letras ou mais ("shoyu", "shoyo"), duas nas
+  // de 8 ou mais. As curtas ("pão") não bastam: senão todo pão pareceria com todo pão.
+  function palavrasBatem(a, b) {
+    if (a.length < 4 || b.length < 4) return false;
+    if (a === b) return true;
+    var menor = Math.min(a.length, b.length);
+    return menor >= 5 && distancia(a, b) <= (menor >= 8 ? 2 : 1);
+  }
+  // Os nomes escritos à mão que ainda esperam uma ficha (as sugestões sem resposta ou com "vai entrar numa ficha nova",
+  // e os deste lanche, ainda sem salvar): quem escreve "Pickles" depois de alguém ter escrito "Picles" acha o primeiro.
+  function nomesForaDasFichas() {
+    var n = [], r = est.treino.aberto ? respDe(lanchePorId(est.treino.aberto)) : null;
+    var por = function (x) { if (n.indexOf(x) < 0) n.push(x); };
+    sugestoes().forEach(function (g) { var d = est.treino.decisoes[g.id] || ''; if (g.tipo === 'nome fora das fichas' && (!d || d === 'nova')) por(g.ingrediente); });
+    if (r) Object.keys(r.fotos).forEach(function (c) { Object.keys(r.fotos[c].fora || {}).forEach(por); });
+    return n;
+  }
+  // O que as fichas têm com o nome escrito: o MESMO (a mesma chave, um outro nome já juntado, ou um nome que alguém já
+  // escreveu e espera ficha — `fora`) ou até 3 PARECIDOS: só os que têm MAIS palavras batendo — em "Cebola caramelizada
+  // no shoyu da casa", o "Cebola ao shoyo" (duas) e não o "Blend da casa" (uma, a palavra de qualquer coisa da casa) —,
+  // os das fichas antes. `soFichas`: só os ingredientes das fichas (a escolha da aba Sugestões).
+  function nasFichas(nome, soFichas) {
+    var k = chaveDoIngrediente(nome), mesmo = null, parecidos = [];
+    if (OUTROS_NOMES[k]) return { mesmo: { nome: OUTROS_NOMES[k], fora: false }, outroNome: true, parecidos: [] };
+    var vocab = ingredientesV2().map(function (n) { return { nome: n, fora: false }; });
+    if (!soFichas) nomesForaDasFichas().forEach(function (n) { vocab.push({ nome: n, fora: true }); });
+    var minhas = k.split(' ');
+    vocab.forEach(function (v) {
+      var kn = chaveDoIngrediente(v.nome);
+      if (kn === k) { if (!mesmo) mesmo = v; return; }
+      var delas = kn.split(' ');
+      var batem = minhas.filter(function (w) { return delas.some(function (d) { return palavrasBatem(w, d); }); }).length;
+      if (batem) parecidos.push({ nome: v.nome, fora: v.fora, batem: batem });
+    });
+    parecidos.sort(function (a, b) { return b.batem - a.batem || a.fora - b.fora || a.nome.localeCompare(b.nome, 'pt-BR'); });
+    var mais = parecidos.length ? parecidos[0].batem : 0;
+    return { mesmo: mesmo, outroNome: false, parecidos: parecidos.filter(function (p) { return p.batem === mais; }).slice(0, 3) };
+  }
+  // os lanches cuja ficha leva o ingrediente: "X-Burger e X-Salada", "X-Burger, X-Salada e mais 4"
+  function lanchesCom(n) {
+    var ps = CARDAPIO_V2.filter(function (p) { return p.ficha.ingredientes.some(function (i) { return i[0] === n; }); }).map(function (p) { return p.nome; });
+    return ps.length <= 2 ? ps.join(' e ') : ps.slice(0, 2).join(', ') + ' e mais ' + (ps.length - 2);
+  }
+  // "Um ingrediente que não está nas fichas…": o campo do nome e, embaixo, o que as fichas têm com ele (muda enquanto se escreve)
+  function campoDoNomeNovo(k, rf) {
+    return '<div class="nome-novo"><label class="so-leitor" for="fn-' + k + '">Nome do ingrediente</label>' +
+      '<input class="entrada" id="fn-' + k + '" type="text" maxlength="120" autocomplete="off" data-foto-novo="' + k + '" placeholder="Nome do ingrediente" value="' + esc(rf.novo || '') + '">' +
+      '<div id="fa-' + k + '" aria-live="polite">' + oQueAsFichasTem(k, rf.novo || '') + '</div></div>';
+  }
+  function oQueAsFichasTem(k, escrito) {
+    var nome = escrito.trim();
+    if (!nome) return '<p class="nota">Escreva o nome: o Farol procura nas fichas o mesmo ingrediente, mesmo escrito de outro jeito.</p>';
+    var achado = nasFichas(nome), m = achado.mesmo, s;
+    var usar = function (v, id, classe, texto) { return '<button class="' + classe + '" type="button" data-foto-usar="' + k + '" data-ing="' + esc(v.nome) + '"' + (v.fora ? ' data-fora' : '') + ' id="' + id + '">' + texto + '</button>'; };
+    if (m && m.fora) {
+      return '<div class="aviso">' + ic('info') + '<div><b>“' + esc(m.nome) + '” já foi escrito na conferência.</b> Ainda não está nas fichas e espera a resposta de quem configura a loja. Entra com esse nome, e os exemplos ficam juntos.' +
+        usar(m, 'fu-' + k, 'btn mini cheio', 'Marcar “' + esc(m.nome) + '”') + '</div></div>';
+    }
+    if (m) {
+      return '<div class="aviso ok">' + ic('certo') + '<div><b>É o “' + esc(m.nome) + '” das fichas.</b> ' +
+        (achado.outroNome ? 'Quem configura a loja disse que “' + esc(nome) + '” é ele.' : 'O mesmo ingrediente, escrito de outro jeito.') +
+        ' Ele entra com o nome da ficha, e os exemplos vão para ele.<small>Nas fichas de ' + esc(lanchesCom(m.nome)) + '</small>' +
+        usar(m, 'fu-' + k, 'btn mini cheio', 'Marcar “' + esc(m.nome) + '”') + '</div></div>';
+    }
+    if (achado.parecidos.length) {
+      var um = achado.parecidos.length === 1, dasFichas = achado.parecidos.every(function (p) { return !p.fora; });
+      s = '<div class="aviso facho">' + ic('info') + '<div><b>Parece com ' + (dasFichas ? (um ? 'um ingrediente das fichas. É este?' : 'ingredientes das fichas. É um destes?') : (um ? 'um nome que já existe. É este?' : 'nomes que já existem. É um destes?')) + '</b>' +
+        '<div class="seg chips-v2 parecidos" role="group" aria-label="Parecidos">';
+      achado.parecidos.forEach(function (p) {
+        s += usar(p, 'fp-' + k + '-' + slug(p.nome), '', esc(p.nome) + '<small>' + (p.fora ? 'escrito na conferência, fora das fichas' : 'nas fichas de ' + esc(lanchesCom(p.nome))) + '</small>');
+      });
+      return s + '</div><button class="btn mini" type="button" data-foto-acrescentar="' + k + '" id="fx-' + k + '">Não, é outro: acrescentar “' + esc(nome) + '”</button></div></div>';
+    }
+    return '<div class="aviso">' + ic('info') + '<div><b>Não está em nenhuma ficha.</b> Ele entra com este nome e vira uma sugestão para as fichas: quem configura a loja diz se é um ingrediente das fichas com outro nome ou se vai entrar numa ficha nova.' +
+      '<button class="btn mini" type="button" data-foto-acrescentar="' + k + '" id="fx-' + k + '">Acrescentar “' + esc(nome) + '”</button></div></div>';
+  }
+  // marca o nome na foto — o da ficha, ou o escrito à mão (`fora`: vira sugestão ao salvar) — e fecha o "Outro ingrediente"
+  function usarNaFoto(k, nome, fora) {
+    if (!nome) return;
+    var rf = fotoDe(respDe(lanchePorId(est.treino.aberto)), k);
+    rf.marcados[nome] = true;
+    if (fora) (rf.fora || (rf.fora = {}))[nome] = true;
+    rf.mais = false;
+    rf.escrevendo = false;
+    rf.novo = '';
+    redesenhar(folhaDoLanche(est.treino.aberto), 'fi-' + k + '-' + slug(nome));
+  }
   function nomeDaFamilia(p) { return esc(p.nome) + (p.familia.length ? ' <small>(ou ' + esc(p.familia.join(', ')) + ')</small>' : ''); }
   function fotoDe(r, chave) { return r.fotos[chave] || (r.fotos[chave] = { marcados: {}, ruim: false, obs: '', mais: false }); }
   function marcadosDe(rf) { return rf ? Object.keys(rf.marcados).filter(function (k) { return rf.marcados[k]; }) : []; }
@@ -2189,14 +2358,17 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
           s += '<div class="seg chips-v2" role="group" aria-label="O que aparece na foto das ' + f.hora + '">';
           oferta.forEach(function (n) {
             var lido = sugeridosNaFoto(f).indexOf(n) >= 0;
-            s += '<button type="button"' + (lido ? ' class="do-farol"' : '') + ' data-foto-ing="' + k + '" data-ing="' + esc(n) + '" id="fi-' + k + '-' + slug(n) + '" aria-pressed="' + !!rf.marcados[n] + '">' + esc(n) + (lido ? '<span class="so-leitor"> (o Farol acha que pode ser)</span>' : '') + '</button>';
+            // o nome escrito à mão que não está nas fichas leva a marca: vira sugestão para as fichas ao salvar
+            var foraDasFichas = !!(rf.fora && rf.fora[n]);
+            s += '<button type="button"' + (lido ? ' class="do-farol"' : '') + ' data-foto-ing="' + k + '" data-ing="' + esc(n) + '" id="fi-' + k + '-' + slug(n) + '" aria-pressed="' + !!rf.marcados[n] + '">' + esc(n) + (lido ? '<span class="so-leitor"> (o Farol acha que pode ser)</span>' : '') + (foraDasFichas ? '<small class="fora-das-fichas">fora das fichas</small>' : '') + '</button>';
           });
           s += '</div>';
         }
         if (rf.mais) {
           s += '<div class="campo"><label for="fs-' + k + '">Outro ingrediente</label><select class="entrada" id="fs-' + k + '" data-foto-outro="' + k + '"><option value="">Escolha o ingrediente</option>';
           todos.forEach(function (n) { if (oferta.indexOf(n) < 0) s += '<option>' + esc(n) + '</option>'; });
-          s += '</select></div>';
+          s += '<option value="__novo"' + (rf.escrevendo ? ' selected' : '') + '>Um ingrediente que não está nas fichas…</option></select></div>';
+          if (rf.escrevendo) s += campoDoNomeNovo(k, rf);
         }
       } else {
         s += '<div class="campo"><label for="fo-' + k + '">O que houve <small>(opcional)</small></label><input class="entrada" id="fo-' + k + '" type="text" maxlength="120" autocomplete="off" data-foto-obs="' + k + '" placeholder="Ex.: só o papel do delivery, borrada, pegou as duas metades" value="' + esc(rf.obs) + '"></div>';
@@ -2239,6 +2411,7 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
         a.exemplos += f.parecidas;
         novos += f.parecidas;
         if (!presentes[n]) { presentes[n] = true; a.presente++; if (sugeridosNaFoto(f).length === 1 && sugeridosNaFoto(f)[0] === n) a.reconheceu++; }
+        if (rf.fora && rf.fora[n]) novaSugestao(n, l);
       });
     });
     est.treino.feitos.unshift({ id: l.id, hora: l.hora, grav: l.grav, achou: achou, era: era, por: 'você', mesmaFamilia: !!achou && p0.familia.indexOf(era) >= 0 });
@@ -2292,7 +2465,7 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
     return novos;
   }
   function novaSugestao(nome, l) {
-    if (est.treino.novas.some(function (g) { return g.ingrediente === nome; })) return;
+    if (est.treino.novas.concat(SUGESTOES).some(function (g) { return g.tipo === 'nome fora das fichas' && chaveDoIngrediente(g.ingrediente) === chaveDoIngrediente(nome); })) return;
     est.treino.novas.unshift({ id: 'n-' + slug(nome), tipo: 'nome fora das fichas', ingrediente: nome,
       titulo: '“' + nome + '” não está em nenhuma ficha',
       viu: 'Ao conferir o lanche das ' + l.hora + ', você chamou um ingrediente de “' + nome + '”.',
@@ -3089,6 +3262,14 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
       redesenhar(folhaDoLanche(est.treino.aberto), el.id);
       return;
     }
+    // o nome escrito era um das fichas (o mesmo, ou o parecido que a pessoa escolheu): entra marcado com o nome da ficha
+    if ((el = t.closest('[data-foto-usar]'))) { usarNaFoto(el.getAttribute('data-foto-usar'), el.getAttribute('data-ing'), el.hasAttribute('data-fora')); return; }
+    // não é nenhum das fichas: entra o nome escrito, que vira sugestão para as fichas ao salvar
+    if ((el = t.closest('[data-foto-acrescentar]'))) {
+      var kA = el.getAttribute('data-foto-acrescentar');
+      usarNaFoto(kA, (fotoDe(respDe(lanchePorId(est.treino.aberto)), kA).novo || '').trim(), true);
+      return;
+    }
     if ((el = t.closest('[data-foto-ruim]'))) {
       var rfR = fotoDe(respDe(lanchePorId(est.treino.aberto)), el.getAttribute('data-foto-ruim'));
       // as marcas ficam guardadas: voltando atrás, estão lá; ao salvar, a foto ruim não vira exemplo
@@ -3100,6 +3281,8 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
     if ((el = t.closest('[data-foto-mais]'))) {
       var kM = el.getAttribute('data-foto-mais'), rfM = fotoDe(respDe(lanchePorId(est.treino.aberto)), kM);
       rfM.mais = !rfM.mais;
+      rfM.escrevendo = false;
+      rfM.novo = '';
       redesenhar(folhaDoLanche(est.treino.aberto), rfM.mais ? 'fs-' + kM : el.id);
       return;
     }
@@ -3201,11 +3384,37 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
       return;
     }
     // as sugestões para as fichas
-    if ((el = t.closest('[data-sugestao]'))) {
-      est.treino.decisoes[el.getAttribute('data-sugestao')] = el.getAttribute('data-v');
+    // o nome fora das fichas: "É um ingrediente das fichas" abre a escolha de qual; "Juntar" faz dele um outro nome
+    if ((el = t.closest('[data-nome-fora-juntar]'))) {
+      var idJ = el.getAttribute('data-nome-fora-juntar');
+      est.treino.juntando = est.treino.juntando === idJ ? null : idJ;
+      est.treino.erroJunto = null;
+      pintar();
+      focar(est.treino.juntando ? '#sj-' + idJ : '#sg-' + idJ + '-junto');
+      return;
+    }
+    if ((el = t.closest('[data-nome-fora-confirmar]'))) {
+      var idC = el.getAttribute('data-nome-fora-confirmar'), qual = document.getElementById('sj-' + idC), gC = sugestoes().filter(function (g) { return g.id === idC; })[0];
+      if (!gC) return;
+      if (!qual || !qual.value) { est.treino.erroJunto = idC; pintar(); focar('#sj-' + idC); return; }
+      est.treino.decisoes[idC] = 'junto:' + qual.value;
+      OUTROS_NOMES[chaveDoIngrediente(gC.ingrediente)] = qual.value;
+      est.treino.juntando = null;
+      est.treino.erroJunto = null;
       pintar();
       focar('#aba-sugestoes');
-      avisar(el.getAttribute('data-v') === 'sim' ? 'Anotado. Quando a ficha chegar com a mudança, o Farol leva junto as fotos e os exemplos.' : 'Anotado: fica como está. O Farol só volta ao assunto se lanches novos mostrarem outra coisa.');
+      avisar('Juntado: “' + gC.ingrediente + '” é o “' + qual.value + '”. Os exemplos foram para ele.');
+      return;
+    }
+    if ((el = t.closest('[data-sugestao]'))) {
+      var vS = el.getAttribute('data-v');
+      est.treino.decisoes[el.getAttribute('data-sugestao')] = vS;
+      est.treino.juntando = null;
+      pintar();
+      focar('#aba-sugestoes');
+      avisar(vS === 'sim' ? 'Anotado. Quando a ficha chegar com a mudança, o Farol leva junto as fotos e os exemplos.'
+        : vS === 'nova' ? 'Anotado. Os exemplos esperam a ficha nova e se juntam a ela quando ela chegar.'
+        : 'Anotado: fica como está. O Farol só volta ao assunto se lanches novos mostrarem outra coisa.');
       return;
     }
     // as gravações de treino
@@ -3296,6 +3505,12 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
     }
     // a conferência nova: o que houve com a foto ruim e a observação do lanche (guardam enquanto digita)
     if (t.hasAttribute('data-foto-obs')) fotoDe(respDe(lanchePorId(est.treino.aberto)), t.getAttribute('data-foto-obs')).obs = t.value;
+    // o nome escrito à mão: guarda e refaz SÓ o que as fichas têm com ele (o campo não é redesenhado: o cursor fica onde está)
+    if (t.hasAttribute('data-foto-novo')) {
+      var kN = t.getAttribute('data-foto-novo'), caixa = document.getElementById('fa-' + kN);
+      fotoDe(respDe(lanchePorId(est.treino.aberto)), kN).novo = t.value;
+      if (caixa) caixa.innerHTML = oQueAsFichasTem(kN, t.value);
+    }
     if (t.hasAttribute('data-lanche-obs')) respDe(lanchePorId(est.treino.aberto)).obs = t.value;
   });
   document.addEventListener('change', function (ev) {
@@ -3317,9 +3532,9 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
     if (t.hasAttribute('data-foto-outro')) {
       var kO = t.getAttribute('data-foto-outro'), rfO = fotoDe(respDe(lanchePorId(est.treino.aberto)), kO);
       if (!t.value) return;
-      rfO.marcados[t.value] = true;
-      rfO.mais = false;
-      redesenhar(folhaDoLanche(est.treino.aberto), 'fi-' + kO + '-' + slug(t.value));
+      // "Um ingrediente que não está nas fichas…": abre o campo do nome
+      if (t.value === '__novo') { rfO.escrevendo = true; redesenhar(folhaDoLanche(est.treino.aberto), 'fn-' + kO); return; }
+      usarNaFoto(kO, t.value, false);
       return;
     }
     if (t.hasAttribute('data-outro-produto')) { respDe(lanchePorId(est.treino.aberto)).outroProduto = t.value; redesenhar(folhaDoLanche(est.treino.aberto), 'ql-qual'); return; }
@@ -3378,6 +3593,16 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
       if (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') { ev.preventDefault(); passarFoto(ev.key === 'ArrowRight' ? 1 : -1); return; }
     }
     if (ev.key === 'Escape' && sobre.innerHTML) { ev.preventDefault(); fechar(); return; }
+    // Enter no nome escrito à mão: o mesmo das fichas entra; com parecidos, o foco vai para o primeiro; sem nada, acrescenta
+    if (ev.key === 'Enter' && ev.target instanceof Element && ev.target.hasAttribute('data-foto-novo')) {
+      ev.preventDefault();
+      var kE = ev.target.getAttribute('data-foto-novo'), nE = ev.target.value.trim(), aE = nE ? nasFichas(nE) : null;
+      if (!aE) return;
+      if (aE.mesmo) usarNaFoto(kE, aE.mesmo.nome, aE.mesmo.fora);
+      else if (aE.parecidos.length) { var p1 = document.getElementById('fp-' + kE + '-' + slug(aE.parecidos[0].nome)); if (p1) p1.focus(); }
+      else usarNaFoto(kE, nE, true);
+      return;
+    }
     // as abas do treinamento: setas, Home e End trocam de aba (o padrão de abas do leitor de tela)
     var aba = ev.target instanceof Element ? ev.target.closest('[role="tab"][data-aba-treino]') : null;
     if (aba && ['ArrowRight', 'ArrowLeft', 'Home', 'End'].indexOf(ev.key) >= 0) {
