@@ -8732,3 +8732,73 @@ A medida foi feita na densa das 22h00 às 22h15 de 17/10, canal 4, com 924 quadr
 
 O perfil da loja piloto leva `junta` 0,9 e `alonga` 3,0, de uma medida só. A medida da noite inteira, na sessão
 guardada (A23.2c), dirá se ficam.
+
+## 19/10/2026 · A23.2e: o lugar do lanche — o papel ou a caixa é o lugar, e o lanche só termina no embrulho (sem migration; vale com o pacote novo)
+
+### O que o dono disse
+
+Depois de ver a primeira noite guardada, o dono explicou como o lanche se forma:
+- "o pão não some quando se coloca molho e alface em cima — na verdade se somam nas etapas: papel → topo pão [molho,
+  alface], base pão [carne, queijo]; o lanche só se conclui depois do embrulho";
+- as duas metades no mesmo papel são UM grupo; às vezes o colaborador empurra o lanche para o lado;
+- o fluxo vai da esquerda para a direita, e o embrulhado vai para a direita da cena (para a sacola ou para a bandeja
+  do consumo local);
+- a caixa de isopor faz o papel do papel: o lanche é montado dentro dela, e ela fecha.
+
+### O que estava errado
+
+A leitura ao vivo seguia o PÃO: o lanche terminava quando o detector ficava `sumiu_s` sem ver o pão. Só que o pão
+some debaixo da carne, do queijo e da alface muito antes do embrulho. Medido na noite de 18/10 contra a contagem à
+mão:
+- **21h04–21h14** (9 lanches): terminava até 52 s ANTES do embrulho e perdia o lanche fechado rápido;
+- **00h00–00h10** (caixas e papel, 15 lanches): juntou 3 lanches num só e outros 2 num só, e terminou as caixas até
+  50 s antes de fecharem.
+
+Um lanche que termina antes do embrulho perde os últimos ingredientes da soma.
+
+### O que mudou
+
+A leitura segue o LUGAR do lanche (`lugar_do_lanche.py`):
+- **A bancada vazia é aprendida, faixa por faixa.** Cada faixa vertical da bancada guarda até 3 aparências vazias,
+  porque o vazio muda: a bandeja do consumo local entra e sai, e o pacote fica parado. A faixa só aprende quando nenhum
+  lanche está em cima, sem pão e quieta há algum tempo. Com um quadro só de bancada vazia, o lanche montado onde estava
+  a bandeja nunca terminava: ela saiu 4 s antes de o papel chegar.
+- **O lugar nasce do pão em cima do papel ou da caixa.** O pão sem papel, o pão no que já é da bancada vazia e o pão
+  cortado pela borda do recorte não começam lanche. Na loja piloto, o detector acha que os copos bege da borda,
+  vistos de cima, são pão.
+- **O lugar tem a largura do papel.** Ela sai do tamanho do pão no perfil da loja (2,65 pães), e vai só até a metade
+  do caminho para o vizinho (a caixa é mais estreita que o papel, e elas ficam lado a lado).
+- **O fim é o embrulho.** O papel dobrado, ou a caixa fechada e levada, deixa a faixa do lugar quase vazia. O lanche
+  termina quando a faixa fica abaixo da metade da ocupação típica do próprio lugar por 3 s. A hora do fim é a do
+  primeiro quadro baixo.
+- **Só é lanche** o lugar com pão em 5 quadros no primeiro minuto.
+- **O lanche movido** segue no lugar novo, com a regra rígida de propósito: ele tem de esvaziar de uma vez cheio,
+  outro lugar tem de nascer no mesmo segundo com a faixa enchendo de uma vez, e os dois têm de ter a mesma cara (0,9,
+  a do puxão da regra do pão). Ligar errado faz um lanche sumir e mistura duas somas; deixar de ligar só faz o movido
+  virar dois lanches.
+- **A rede e o teto:** o lugar parado e sem pão há 45 s termina no último movimento; nenhum lugar vive mais de 8 min.
+
+Na linha do tempo do dia, o evento `lanche` agora é o do lugar: começo, fim, `porque` (embrulho, parado, teto),
+quantos quadros com pão, onde nasceu e as vezes em que foi movido. A leitura pelo pão continua ao lado, para comparar,
+como `trilha`. É dela a pasta de recortes que a identificação dos ingredientes lê.
+
+### O que foi medido
+
+A medida usou cada quadro guardado da noite de 18/10, os pães do detector da loja e a contagem à mão como régua, de 10
+em 10 s (as caixas, de 5 em 5 s).
+
+| Janela | Achados | A mais | Fim (mediana, maior) | Antes do embrulho |
+|---|---|---|---|---|
+| 21h04–21h14 | 9 de 9 | nenhum | 6 s, 25 s depois | só o fechado rápido, 2 s |
+| 00h00–00h10 | 14 de 15 | 3 | 8 s | 5 lanches, até 10 s (a régua é de 10 em 10 s; a caixa B2 foi levada aberta) |
+
+Os 3 a mais da segunda janela: 2 são lanches movidos que não se ligaram e 1 é um lanche com as metades lado a lado
+no papel. O que faltou é uma caixa que o detector nunca viu com pão.
+
+### O que ainda não se resolve
+
+- **O movido de verdade quase nunca se liga.** Na caixa levada aberta (00h01m38), a cara deu 0,25, com as mãos por
+  cima e a luz diferente. Quem vai ligar o movido é a soma dos ingredientes: o que entrou antes e depois.
+- **O lanche montado onde a bandeja estava na abertura** só se solta quando a faixa aprende a bancada sem ela. Se o
+  agente abrir com a bandeja ali e o lote começar logo, a rede (45 s parado) fecha o lanche.
+- **A largura do papel** é a da loja piloto (2,65 pães). Outra loja, com outro papel, mede a sua.
