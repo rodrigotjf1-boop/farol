@@ -209,6 +209,8 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
       regemLojaNome: l.regem_loja_nome,
       leitura: l.conexao_id ? leituraParaTela(l) : null,
       totais: base ? { produtos: l.produtos ?? 0, comFicha: l.com_ficha ?? 0 } : null,
+      /** A última vez que as fichas MUDARAM — a busca que não traz nada não mexe nela (ERR-136). */
+      mudouEm: base ? l.atualizada_em : null,
       produtos: base ? base.produtos.map(resumoDoProduto) : [],
     };
   });
@@ -287,6 +289,11 @@ export function rotasDeFichas(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDo
       resultado: r.desfecho,
       produtos: depois?.produtos ?? 0,
       comFicha: depois?.com_ficha ?? 0,
+      /**
+       * Quando as fichas mudaram pela última vez. `nada_mudou` é só desta busca: a mudança pode ter chegado antes,
+       * sozinha (o aviso do Regem, a busca do dia) — com a tela já aberta, para quem clicou ela é novidade (ERR-136).
+       */
+      mudouEm: depois?.atualizada_em ?? null,
     };
   });
 

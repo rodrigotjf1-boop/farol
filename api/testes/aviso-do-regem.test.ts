@@ -487,6 +487,24 @@ describe('aviso: registrar e receber', { skip: !URL_DO_BANCO && 'sem DATABASE_UR
     assert.equal((await lerAsLojasDaVez(pool, cfg, quieto, { contas: contas() })).lidas, 0, 'atendida, não volta à fila');
   });
 
+  it('ERR-136: o aviso trouxe a mudança antes do clique — o "Buscar agora" não traz nada, e `mudouEm` diz quando ela chegou', async () => {
+    // O dono, 19/10/2026: ligou o produto do Número 13 à ficha no Regem, o Regem avisou, e o Farol buscou sozinho.
+    // O clique veio depois, com a tela já aberta: "nada mudou", e a ficha nova logo abaixo.
+    const c = await ligada(minha.centro, 'Centro de lá');
+    const tela = await fichas(minha.centro);
+    assert.ok(tela.mudouEm, 'a tela aberta sabe quando as fichas mudaram');
+
+    falso.cardapio(c.id, semFichas());
+    assert.equal((await entregar(falso.avisos.montar(c.id)!)).statusCode, 204);
+    await semLeituraEmCurso();
+    assert.deepEqual((await lerAsLojasDaVez(pool, cfg, quieto, { contas: contas() })).desfechos, { atualizada: 1 }, 'a rotina leu sozinha');
+
+    const r = (await buscar(minha.centro)).json();
+    assert.equal(r.resultado, 'nada_mudou', 'o clique não trouxe nada: a mudança já tinha chegado');
+    assert.ok(Date.parse(r.mudouEm) > Date.parse(tela.mudouEm), `mas a hora da última mudança andou: ${tela.mudouEm} → ${r.mudouEm}`);
+    assert.equal(r.mudouEm, (await fichas(minha.centro)).mudouEm, 'a mesma hora que a tela recebe');
+  });
+
   it('o aviso que chega no MEIO de uma leitura não se perde: a loja é lida de novo', async () => {
     const c = await ligada(minha.centro, 'Centro de lá');
     await envelhecer(c.conexaoId, { leituraS: 60 });
