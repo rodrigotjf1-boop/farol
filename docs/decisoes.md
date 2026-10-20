@@ -8843,3 +8843,39 @@ os soma, e nenhum esconde o outro:
 A segunda camada é visual e espera o protótipo aprovado (a regra do console): quando quem confere escreve um nome
 novo, a gaveta pergunta "é o 'Pão Brioche' das fichas?" antes de guardar. A tela já oferece a lista das fichas e o
 "Um ingrediente que não está nas fichas…"; falta só essa pergunta.
+
+## 19/10/2026 · O nome escrito à mão na conferência: o mesmo, os parecidos ou nenhum (parte 1; sem migration)
+
+### O que o dono aprovou
+
+O protótipo de 19/10 (`mockups/farol-conexoes-e-fichas.html`, PR #191): "prototipo aprovado". O pedido dele: "ter uma
+lista com os ingredientes puxados na ficha… caso não tenha, uma opção de cadastrar e colocar o nome, e depois verificar
+se associa a algo já nas fichas ou ainda vai implementar em uma ficha que não existe".
+
+### O que entrou (parte 1: a conferência)
+
+Em "Outro ingrediente" → "Um ingrediente que não está nas fichas…", enquanto a pessoa escreve, a gaveta mostra embaixo
+do campo o que as fichas têm com o nome (`web/componentes/treino/nome-nas-fichas.ts`):
+- **o mesmo** (a chave do #190: "Pão de Brioche" = "Pão brioche"), com os lanches em que ele entra e "Marcar": entra o
+  nome da ficha;
+- **o nome que alguém já escreveu e espera ficha** (as sugestões "nome fora das fichas" sem resposta ou com "vou
+  cadastrar", e o que já foi acrescentado neste lanche): entra esse nome, e os exemplos ficam juntos;
+- **até 3 parecidos**, com os lanches em que entram, e "Não, é outro";
+- **nenhum**: "Não está em nenhuma ficha" — o nome entra marcado "fora das fichas" e vira sugestão ao salvar.
+
+O Enter faz o óbvio: o mesmo entra; com parecidos, o foco vai para o primeiro; sem nada, acrescenta. A pílula de um
+nome que não está nas fichas leva "· fora das fichas". A API manda, com o lanche, onde cada ingrediente entra
+(`lanchesDoIngrediente`: os lanches cuja ficha o leva e os de que é adicional).
+
+### Onde difere do aprovado
+
+- **O número conta, e só igual.** No protótipo, só palavras de 4 letras ou mais. Com os nomes reais das fichas da loja,
+  "pão de 1 corte" trazia o "Pão de dois cortes" na frente do "Pao gergelim de 1 corte" (o "1" não contava). Agora um
+  número igual bate ("1" e "1", "56g" e "56g"), e número diferente não bate. O protótipo foi acertado junto.
+- **A frase do "nenhum".** Até a parte 2, ela diz só que o nome "vira uma sugestão para as fichas", sem as respostas
+  novas ("é um ingrediente das fichas" / "vai entrar numa ficha nova"), que chegam com a parte 2.
+
+### O que falta (parte 2)
+
+O "outro nome" (migration): na aba Sugestões, o "nome fora das fichas" com as três respostas do protótipo; "É um
+ingrediente das fichas" junta o nome a ele (os exemplos vão para ele, e a conferência passa a entendê-lo sozinha).

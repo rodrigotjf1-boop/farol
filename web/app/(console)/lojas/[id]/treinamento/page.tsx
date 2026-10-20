@@ -291,6 +291,9 @@ export default function Treinamento() {
     sugestoes: (d?.sugestoes ?? []).filter((s) => s.decisao === null).length,
     gravacoes: d?.gravacoes.length ?? 0,
   };
+  // os nomes escritos à mão que esperam uma ficha (sem resposta, ou "vou cadastrar"): na conferência, quem escreve
+  // "Pickles" acha o "Picles" que alguém já escreveu
+  const foraDasFichas = (d?.sugestoes ?? []).filter((s) => s.tipo === 'nome-fora' && s.decisao !== 'nao').map((s) => s.ingrediente);
   // a gravação nova: quem configura, com fichas e com uma câmera do gravador (a API decide; a tela só não oferece)
   const podeGravar = !!d && d.podeConfigurar && !semFichas && d.canais.length > 0;
   const botaoNova = (
@@ -525,6 +528,7 @@ export default function Treinamento() {
           lancheId={aberto.id}
           fuso={fuso}
           posicao={posicao >= 0 ? `${posicao + 1} de ${lista.length} para conferir` : null}
+          foraDasFichas={foraDasFichas}
           aoSalvar={(texto) => void depoisDaGaveta(texto, aberto.de, aberto.id, aberto.de === 'conferidos')}
           aoPular={(texto) => void depoisDaGaveta(texto, aberto.de, aberto.id, false)}
           aoFechar={() => setAberto(null)}
