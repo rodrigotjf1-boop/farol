@@ -8914,3 +8914,54 @@ ingrediente das fichas" junta o nome a ele (os exemplos vão para ele, e a confe
 - **Não há "desfazer" do outro nome na tela.** O protótipo também não tem.
 - **"Os exemplos foram para" virou "vão para".** A frase fala da regra, que vale para os exemplos guardados daqui em
   diante.
+
+## 20/10/2026 · Os passos do lanche: o que chegou em cada metade, e quando (A23.3, parte 1; sem migration)
+
+O dono, ao ver a conferência nova no ar (19/10): "qual próxima etapa" → a A23.3 (qual lanche é); "pode prosseguir".
+
+### O que entrou
+
+- **O módulo `agent/farol_agent/passos_do_lanche.py`**, que dorme (nada o chama ainda). Para cada lugar de lanche
+  (A23.2e), ele junta os pães vistos na faixa dele (os discos do Hough e as caixas do detector) e, no fim, relê os
+  quadros e devolve as METADES e os PASSOS de cada uma:
+  - **as metades** são os grupos fortes de discos e caixas: vistos em 3 quadros ou mais, com caixa do detector (o papel
+    tem logos redondos) e com 30% dos pontos do maior grupo (o lugar de antes do empurrão do papel tem poucos);
+  - **a janela de cada metade fica fixa** no lugar dela, desde o primeiro quadro em que a peça já está lá. O encaixe
+    alinha cada quadro dentro de uma folga de 24 px e não move a janela (a janela que andava saiu 130 px da peça no P7);
+  - **um passo** é o que difere do último estado parado em dois quadros parados seguidos e não mudou entre eles; a luz se
+    corrige pelo papel em volta do pão; o braço apoiado que sai desfaz o próprio passo (passagem);
+  - **o fechamento** é o primeiro passo cujo conteúdo novo é o papel: a tampa saiu de cima da metade dela. Depois dele,
+    nada conta. O último pendente de cada outra metade antes dele vira passo PROVISÓRIO quando cobre metade do disco e
+    não é papel: a carne que entra no fim fica parada um quadro só.
+- **O que ele entrega:** a hora, a metade, a parte do disco, quanto do que chegou é papel, o quadro e a máscara. É o
+  recorte que o nome pelos exemplos vai ler. O nome não é deste módulo.
+
+### O que foi medido (os quadros guardados da noite de 18/10)
+
+- **P7 (gabarito do dono: Numero 11 com ovo):** carnes às 21:09:26, nas duas pilhas (70% e 46% do disco); cheddar às
+  21:10:01, 21:10:07 e 21:10:12; ovo às 21:10:23; molho às 21:10:24; alface às 21:10:30; fechado às 21:10:45. É a ordem
+  do gabarito.
+- **L9 (gabarito do dono: Numero 13):** cream cheese às 21:12:32; alface às 21:12:36; frango às 21:12:46 (provisório);
+  fechado às 21:12:48.
+- **P1, P2 e P8:** os passos conferem com o que eu vi nos painéis (queijo, carne, alface e molho na ordem em que entram).
+- **O nome, ainda sem os exemplos do dono:** o recorte de cada passo pelo DINOv2-small (int8, o mesmo da loja),
+  comparado com os passos de outros lanches que eu rotulei nos painéis, deu 29 de 34 com o primeiro nome certo. Os 11
+  começos saíram como pão. Três passos não podiam acertar, porque o nome deles só tem um exemplo: ovo, cream cheese e
+  frango.
+- O módulo repete o protótipo do rascunho nos 9 lugares de 21:04–21:14 e nos 20 de 00:00–00:10.
+
+### Os limites
+
+- **Caixa de isopor:** o fechamento pelo papel não vale para ela (é a tampa da caixa que fecha). Os lanches de caixa da
+  noite de 18/10 saem sem fechamento.
+- **Papel movido no meio da montagem:** a metade vira a bancada vazia, e não papel. O lanche sai sem fechamento.
+- **Contagem:** duas carnes postas de uma vez são um passo. A contagem fica como evidência para depois.
+- **Junção das peças (pão de dois cortes):** depois que as peças se juntam, o que sobra em cada janela vira passo até o
+  fechamento (no P7, de 21:10:34 a 21:10:39). O nome desses passos repete o que já entrou.
+
+### O que vem
+
+1. O nome de cada passo pelos exemplos que o dono conferiu, medido nos gabaritos. Os exemplos estão no computador da
+   loja, sem internet desde 00:20 de 20/10.
+2. A conta nas fichas pelo ingrediente mais raro (`ferramentas/repasse/ingredientes.pelo_mais_raro`).
+3. Ligar na leitura ao vivo: no fim do lugar, os passos lidos dos quadros guardados (pacote novo).
