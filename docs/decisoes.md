@@ -8879,3 +8879,38 @@ nome que não está nas fichas leva "· fora das fichas". A API manda, com o lan
 
 O "outro nome" (migration): na aba Sugestões, o "nome fora das fichas" com as três respostas do protótipo; "É um
 ingrediente das fichas" junta o nome a ele (os exemplos vão para ele, e a conferência passa a entendê-lo sozinha).
+
+## 19/10/2026 · O outro nome e o exemplo do nome fora das fichas (parte 2; migration 053)
+
+### O que entrou
+
+- **As três respostas.** Na aba Sugestões, o "nome fora das fichas" tem as respostas do protótipo aprovado:
+  - "É um ingrediente das fichas": qual, com os parecidos primeiro, e "Juntar";
+  - "Vai entrar numa ficha nova", que é o "sim" sozinho;
+  - "Foi engano".
+- **O outro nome.** "É um ingrediente das fichas" guarda um OUTRO NOME (`ingrediente_outro_nome`, migration 053, uma
+  chave por loja). Quem lê conta o nome como o ingrediente das fichas:
+  - as sugestões, que não o acusam mais;
+  - o aprendizado;
+  - os exemplos de uma conferência nova;
+  - a lista dos ingredientes;
+  - a base que desce para a loja.
+
+  O lanche manda os outros nomes à gaveta: quem escrever "hamburguer" ouve "é o 'Blend da casa' das fichas". A
+  conferência guardada fica como a pessoa escreveu; quem troca é quem lê (`api/src/outros-nomes.ts`).
+- **O exemplo do nome escrito à mão fora das fichas.** Até aqui ele ficava só na resposta, sem exemplo (decisão minha
+  na T4, 15/10). Agora o exemplo é guardado à parte, com tipo `fora` na `base_conhecimento` (a mesma migration acerta a
+  trava do tipo). Ele não desce para a loja nem entra na lista enquanto o nome não vale. Passa a valer quando vira outro
+  nome de um ingrediente das fichas, ou quando a ficha chega com ele (escrito igual ou de outro jeito, pela chave). É o
+  que torna verdade as frases do protótipo: "os exemplos vão para o 'Blend da casa'" e "eles se juntam sozinhos quando a
+  ficha chegar". A imagem do treino sai em 30 dias; a do exemplo fica.
+
+### Onde difere do aprovado, e os limites
+
+- **As conferências salvas antes desta mudança** não guardaram o exemplo do nome escrito à mão, e nada delas vai para o
+  ingrediente. Conferir de novo ("Salvar de novo") refaz os exemplos daquele lanche enquanto os quadros do treino
+  existem (30 dias).
+- **"Foi engano" não apaga nada:** o exemplo fica à parte e não desce.
+- **Não há "desfazer" do outro nome na tela.** O protótipo também não tem.
+- **"Os exemplos foram para" virou "vão para".** A frase fala da regra, que vale para os exemplos guardados daqui em
+  diante.

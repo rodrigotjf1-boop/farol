@@ -27,6 +27,8 @@ import { AJUDA } from '@/componentes/ui/campo';
 import { CARTAO, Chip, Vazio } from '@/componentes/ui/pecas';
 import { ErroDaApi, treinoApi, type SugestaoParaAFicha, type TreinoDaLoja } from '@/lib/api';
 
+import { CartaoDoNomeFora } from './cartao-do-nome-fora';
+
 /** Onde mudar, pela origem das fichas (o protótipo: `ondeMudar`). */
 export function ondeMudar(onde: string, fichasDe: TreinoDaLoja['fichasDe']): string {
   if (fichasDe === 'planilha') return `Na planilha, ${onde}, e importe de novo.`;
@@ -41,6 +43,7 @@ export function PainelDasSugestoes({
   sugestoes,
   fichasDe,
   podeConfigurar,
+  ingredientesDasFichas,
   aoResponder,
 }: {
   lojaId: string;
@@ -48,6 +51,8 @@ export function PainelDasSugestoes({
   sugestoes: SugestaoParaAFicha[];
   fichasDe: TreinoDaLoja['fichasDe'];
   podeConfigurar: boolean;
+  /** Os ingredientes das fichas: no "nome fora das fichas", a lista de "qual é". */
+  ingredientesDasFichas: string[];
   /** Depois de responder: a tela recarrega. */
   aoResponder: () => Promise<void>;
 }) {
@@ -56,11 +61,13 @@ export function PainelDasSugestoes({
   const abertas = sugestoes.filter((s) => s.decisao === null);
   const feitas = sugestoes.filter((s) => s.decisao !== null);
 
-  async function responder(s: SugestaoParaAFicha, decisao: 'sim' | 'nao') {
+  async function responder(s: SugestaoParaAFicha, decisao: 'sim' | 'nao', junto?: string) {
     setRespondendo(`${s.chave}|${decisao}`);
     try {
-      await treinoApi.responderSugestao(lojaId, s.chave, decisao);
-      avisar(decisao === 'sim' ? `Anotado: “${s.sim}”.` : `Anotado: “${s.nao}”.`);
+      const r = await treinoApi.responderSugestao(lojaId, s.chave, decisao, junto);
+      if (r.junto) avisar(`Juntado: “${s.ingrediente}” é o “${r.junto}”. Os exemplos vão para ele.`);
+      else if (s.tipo === 'nome-fora' && decisao === 'sim') avisar('Anotado. Os exemplos esperam a ficha nova e se juntam a ela quando ela chegar.');
+      else avisar(decisao === 'sim' ? `Anotado: “${s.sim}”.` : `Anotado: “${s.nao}”.`);
       await aoResponder();
     } catch (e) {
       avisar(frase(e instanceof ErroDaApi ? e.message : 'não consegui guardar a resposta'));
@@ -81,7 +88,19 @@ export function PainelDasSugestoes({
         </Vazio>
       ) : (
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2" data-sugestoes>
-          {[...abertas, ...feitas].map((s) => (
+          {[...abertas, ...feitas].map((s) =>
+            // o "nome fora das fichas" tem as três respostas do protótipo aprovado em 19/10/2026
+            s.tipo === 'nome-fora' ? (
+              <CartaoDoNomeFora
+                key={s.chave}
+                s={s}
+                fuso={fuso}
+                podeConfigurar={podeConfigurar}
+                ingredientesDasFichas={ingredientesDasFichas}
+                respondendo={respondendo}
+                aoResponder={responder}
+              />
+            ) : (
             <section key={s.chave} className={`${CARTAO} flex min-w-0 flex-col gap-2.5 px-4 py-3.5`} aria-labelledby={`sg-${s.chave}`} data-sugestao={s.chave}>
               <header className="flex flex-wrap items-center gap-1.5">
                 <Chip>{s.rotulo}</Chip>
@@ -125,7 +144,8 @@ export function PainelDasSugestoes({
                 </p>
               )}
             </section>
-          ))}
+            ),
+          )}
         </div>
       )}
     </>

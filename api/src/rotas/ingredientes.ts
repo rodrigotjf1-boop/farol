@@ -31,6 +31,7 @@ import type pg from 'pg';
 
 import { lerBase } from '../fichas.js';
 import { chaveDoIngrediente, ingredientesDaBase, MAX_FOTOS_POR_INGREDIENTE, MAX_LEGENDA, type IngredienteDaLoja } from '../ingredientes.js';
+import { chaveQueConta, outrosNomesDaLoja } from '../outros-nomes.js';
 import { podeAcompanhar, podeConfigurar } from '../rbac.js';
 import { MAX_BYTES_DA_FOTO, tamanhoDoJpeg } from './inventario.js';
 import { sessaoDe, type Sessao } from './sessao.js';
@@ -38,11 +39,12 @@ import { sessaoDe, type Sessao } from './sessao.js';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type FotoNaLista = { id: string; largura: number | null; altura: number | null; legenda: string | null; criadoEm: string };
-type ItemDoBanco = { id: string; nome: string; visivel: boolean; fotos: FotoNaLista[]; exemplos: number };
+type ItemDoBanco = { id: string; nome: string; tipo: 'item' | 'fora'; visivel: boolean; fotos: FotoNaLista[]; exemplos: number };
 
-// Os itens da loja, com as fotos (sem os bytes) e quantos exemplos da bancada cada um tem.
+// Os itens da loja, com as fotos (sem os bytes) e quantos exemplos da bancada cada um tem — e os exemplos dos nomes
+// escritos à mão fora das fichas (tipo 'fora', migration 053), que só contam quando o nome vale.
 const ITENS_DA_LOJA = `
-  select b.id, b.nome, b.visivel,
+  select b.id, b.nome, b.tipo, b.visivel,
          coalesce((
            select jsonb_agg(jsonb_build_object('id', f.id, 'largura', f.largura, 'altura', f.altura,
                                                'legenda', f.legenda, 'criadoEm', f.criado_em)
@@ -52,7 +54,7 @@ const ITENS_DA_LOJA = `
          ), '[]'::jsonb) as fotos,
          (select count(*)::int from base_frame f where f.base_id = b.id and f.origem = 'bancada') as exemplos
     from base_conhecimento b
-   where b.loja_id = $1 and b.tipo = 'item'`;
+   where b.loja_id = $1 and b.tipo in ('item', 'fora')`;
 
 export function rotasDeIngredientes(app: FastifyInstance, pool: pg.Pool): void {
   /** Quem vê os ingredientes: quem acompanha a loja. `paraMexer` = tirar, esconder, juntar, apagar. */
@@ -139,23 +141,32 @@ export function rotasDeIngredientes(app: FastifyInstance, pool: pg.Pool): void {
 
     const ingredientes = await ingredientesDaLoja(pool, s, id);
     if (!ingredientes) return naoAchei(resposta, 'não existe essa loja');
-    const itens = (await pool.query<ItemDoBanco>(ITENS_DA_LOJA, [id])).rows;
+    const [itens, outros] = await Promise.all([pool.query<ItemDoBanco>(ITENS_DA_LOJA, [id]).then((r) => r.rows), outrosNomesDaLoja(pool, id)]);
     // O mesmo ingrediente escrito de dois jeitos ("Pão de Brioche" na conferência, "Pão Brioche" na ficha) são dois
     // registros com a mesma chave: na lista é um só, com as fotos e os exemplos somados. Quem manda (o id, o "não se vê
-    // de cima") é o registro com o nome da ficha; sem ele, o que tem mais fotos e exemplos.
+    // de cima") é o registro com o nome da ficha; sem ele, o que tem mais fotos e exemplos. O OUTRO NOME (migration
+    // 053: "Hambúrguer", juntado ao "Blend da casa") soma no ingrediente das fichas do mesmo jeito. O exemplo do nome
+    // escrito à mão (tipo 'fora') só entra quando o nome vale — e nunca vira órfão nem manda no ingrediente.
+    const nasFichas = new Set(ingredientes.map((i) => chaveDoIngrediente(i.nome)));
     const porChave = new Map<string, ItemDoBanco[]>();
     for (const i of itens) {
-      const k = chaveDoIngrediente(i.nome);
+      const k = chaveQueConta(i.nome, outros);
+      if (i.tipo === 'fora' && !nasFichas.has(k)) continue;
       porChave.set(k, [...(porChave.get(k) ?? []), i]);
     }
     const juntos = (nome: string) => {
       const grupo = porChave.get(chaveDoIngrediente(nome));
       if (!grupo) return null;
-      const exato = grupo.find((i) => i.nome.trim().toLowerCase() === nome.trim().toLowerCase());
-      const principal = exato ?? [...grupo].sort((a, b) => b.fotos.length + b.exemplos - (a.fotos.length + a.exemplos))[0]!;
-      return { id: principal.id, visivel: principal.visivel, fotos: grupo.flatMap((i) => i.fotos), exemplos: grupo.reduce((s, i) => s + i.exemplos, 0) };
+      const doIngrediente = grupo.filter((i) => i.tipo === 'item');
+      const exato = doIngrediente.find((i) => i.nome.trim().toLowerCase() === nome.trim().toLowerCase());
+      const principal = exato ?? [...doIngrediente].sort((a, b) => b.fotos.length + b.exemplos - (a.fotos.length + a.exemplos))[0];
+      return {
+        id: principal?.id ?? null,
+        visivel: principal?.visivel ?? true,
+        fotos: grupo.flatMap((i) => i.fotos),
+        exemplos: grupo.reduce((s, i) => s + i.exemplos, 0),
+      };
     };
-    const nasFichas = new Set(ingredientes.map((i) => chaveDoIngrediente(i.nome)));
 
     return {
       limiteDeFotos: MAX_FOTOS_POR_INGREDIENTE,
@@ -174,7 +185,7 @@ export function rotasDeIngredientes(app: FastifyInstance, pool: pg.Pool): void {
       }),
       /** O que saiu das fichas e ainda tem foto ou exemplo: espera alguém juntar ao nome novo, ou apagar. */
       orfaos: itens
-        .filter((i) => !nasFichas.has(chaveDoIngrediente(i.nome)) && (i.fotos.length > 0 || i.exemplos > 0))
+        .filter((i) => i.tipo === 'item' && !nasFichas.has(chaveQueConta(i.nome, outros)) && (i.fotos.length > 0 || i.exemplos > 0))
         .map((i) => ({ itemId: i.id, nome: i.nome, fotos: i.fotos, exemplos: i.exemplos }))
         .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
     };

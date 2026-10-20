@@ -531,8 +531,8 @@ export function nomeEnsinado(etapa: EtapaLida, r: RespostaDaEtapa): string | nul
 /**
  * O que vira exemplo na base de conhecimento: cada nome que a etapa ensina (o confirmado ou corrigido; na conferência
  * nova, tudo o que foi marcado na foto dela), com o quadro da etapa, e com nome das fichas. O nome que não está nas
- * fichas fica na resposta — vira sugestão. O mesmo quadro com o mesmo nome entra uma vez só (as etapas que dividem a
- * foto).
+ * fichas fica na resposta — vira sugestão —, e o exemplo dele vai à parte (`exemplosForaDasFichas`). O mesmo quadro com
+ * o mesmo nome entra uma vez só (as etapas que dividem a foto).
  */
 export function exemplosDaConferencia(etapas: EtapaLida[], conferencia: Conferencia, nomesNasFichas: string[]): Array<{ etapa: number; nome: string; quadro: number }> {
   const porChave = new Map(nomesNasFichas.map((n) => [chaveDoIngrediente(n), n]));
@@ -548,6 +548,30 @@ export function exemplosDaConferencia(etapas: EtapaLida[], conferencia: Conferen
       if (ja.has(k)) continue;
       ja.add(k);
       saida.push({ etapa: i, nome: daFicha, quadro: e.quadro });
+    }
+  });
+  return saida;
+}
+
+/**
+ * O exemplo do nome escrito à mão que NÃO está nas fichas (migration 053): guardado à parte, com tipo `fora`, como foi
+ * escrito. Ele não desce para a loja nem entra na lista dos ingredientes até o nome valer — virar outro nome de um
+ * ingrediente das fichas, ou a ficha chegar com ele. O mesmo quadro com o mesmo nome entra uma vez só.
+ */
+export function exemplosForaDasFichas(etapas: EtapaLida[], conferencia: Conferencia, nomesNasFichas: string[]): Array<{ etapa: number; nome: string; quadro: number }> {
+  const nasFichas = new Set(nomesNasFichas.map(chaveDoIngrediente));
+  const ensino = ensinoDasEtapas(etapas, conferencia);
+  const saida: Array<{ etapa: number; nome: string; quadro: number }> = [];
+  const ja = new Set<string>();
+  etapas.forEach((e, i) => {
+    if (e.quadro === null) return;
+    for (const nome of ensino[i]!.nomes) {
+      const k = chaveDoIngrediente(nome);
+      if (!nome.trim() || nasFichas.has(k)) continue;
+      const kq = `${e.quadro}|${k}`;
+      if (ja.has(kq)) continue;
+      ja.add(kq);
+      saida.push({ etapa: i, nome: nome.trim(), quadro: e.quadro });
     }
   });
   return saida;

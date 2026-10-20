@@ -291,9 +291,10 @@ export default function Treinamento() {
     sugestoes: (d?.sugestoes ?? []).filter((s) => s.decisao === null).length,
     gravacoes: d?.gravacoes.length ?? 0,
   };
-  // os nomes escritos à mão que esperam uma ficha (sem resposta, ou "vou cadastrar"): na conferência, quem escreve
-  // "Pickles" acha o "Picles" que alguém já escreveu
-  const foraDasFichas = (d?.sugestoes ?? []).filter((s) => s.tipo === 'nome-fora' && s.decisao !== 'nao').map((s) => s.ingrediente);
+  // os nomes escritos à mão que esperam uma ficha (sem resposta, ou "vai entrar numa ficha nova"): na conferência, quem
+  // escreve "Pickles" acha o "Picles" que alguém já escreveu. O juntado a um ingrediente das fichas é outro nome dele:
+  // a gaveta o recebe com o lanche
+  const foraDasFichas = (d?.sugestoes ?? []).filter((s) => s.tipo === 'nome-fora' && s.decisao !== 'nao' && !s.juntoA).map((s) => s.ingrediente);
   // a gravação nova: quem configura, com fichas e com uma câmera do gravador (a API decide; a tela só não oferece)
   const podeGravar = !!d && d.podeConfigurar && !semFichas && d.canais.length > 0;
   const botaoNova = (
@@ -477,6 +478,7 @@ export default function Treinamento() {
                 sugestoes={d.sugestoes}
                 fichasDe={d.fichasDe}
                 podeConfigurar={d.podeConfigurar}
+                ingredientesDasFichas={(ingredientes?.ingredientes ?? []).map((i) => i.nome)}
                 aoResponder={async () => {
                   await carregar();
                 }}
