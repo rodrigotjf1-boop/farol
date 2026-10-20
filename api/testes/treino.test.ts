@@ -486,6 +486,10 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     assert.equal(d.palpites[0].produto, 'X-Burger');
     assert.deepEqual(d.produtos.map((p: { nome: string }) => p.nome), ['X-Burger'], 'só o que tem ficha e vai para a cozinha');
     assert.deepEqual(d.ingredientes, NOMES);
+    // para o nome escrito à mão (o protótipo aprovado em 19/10): onde cada um entra — na ficha, ou como adicional
+    assert.deepEqual(Object.keys(d.lanchesDoIngrediente), NOMES, 'um por ingrediente das fichas');
+    assert.deepEqual(d.lanchesDoIngrediente['Pão brioche'], { fichas: ['X-Burger'], adicional: [] });
+    assert.deepEqual(d.lanchesDoIngrediente['Bacon fatiado'], { fichas: [], adicional: ['X-Burger'] }, 'o que só entra pelo adicional');
     assert.equal((await umLanche(lancheId, cookieVizinho)).statusCode, 404);
 
     const img = await app.inject({ method: 'GET', url: `/v1/treino/quadros/${d.etapas[0].quadroId}/imagem`, headers: { cookie } });

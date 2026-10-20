@@ -438,6 +438,7 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
     const quadroDe = new Map((l.quadros ?? []).map((q) => [q.n, q.id]));
     const etapas = l.leitura?.etapas ?? [];
     const palpites = palpitesDoLanche(etapas, loja.base, loja.invisiveis);
+    const daBase = ingredientesDaBase(loja.base);
     return {
       ...paraTela(l, loja.base, loja.invisiveis),
       gravacao: { id: l.gravacao_id, inicio: l.gravacao_inicio, fim: l.gravacao_fim, origem: l.gravacao_origem },
@@ -456,7 +457,20 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
       /** Para "Outro produto": os produtos da loja que têm ficha. */
       produtos: (loja.base?.produtos ?? []).filter((p) => p.ficha && p.cozinha).map((p) => ({ id: p.id, nome: p.nome })),
       /** Para "Era outro": os ingredientes das fichas. */
-      ingredientes: ingredientesDaBase(loja.base).map((i) => i.nome),
+      ingredientes: daBase.map((i) => i.nome),
+      /**
+       * Para o nome escrito à mão (o protótipo aprovado em 19/10/2026): onde cada ingrediente entra — os lanches cuja
+       * ficha o leva e os de que ele é adicional —, para quem confere escolher entre os parecidos.
+       */
+      lanchesDoIngrediente: Object.fromEntries(
+        daBase.map((i) => [
+          i.nome,
+          {
+            fichas: [...new Set(i.produtos.filter((p) => !p.adicional).map((p) => p.produto))],
+            adicional: [...new Set(i.produtos.filter((p) => p.adicional).map((p) => p.produto))],
+          },
+        ]),
+      ),
       naoSeVe: [...loja.invisiveis],
     };
   });

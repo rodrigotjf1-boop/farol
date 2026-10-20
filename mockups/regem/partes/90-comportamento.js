@@ -1274,8 +1274,10 @@
     return antes[b.length];
   }
   // duas palavras batem: iguais, ou quase — uma letra de diferença nas de 5 letras ou mais ("shoyu", "shoyo"), duas nas
-  // de 8 ou mais. As curtas ("pão") não bastam: senão todo pão pareceria com todo pão.
+  // de 8 ou mais. As curtas ("pão") não bastam: senão todo pão pareceria com todo pão. Número só igual, de qualquer
+  // tamanho ("1 corte" acha o "de 1 corte", e não o "de dois cortes" — acerto da implantação, 19/10).
   function palavrasBatem(a, b) {
+    if (/\d/.test(a) || /\d/.test(b)) return a === b;
     if (a.length < 4 || b.length < 4) return false;
     if (a === b) return true;
     var menor = Math.min(a.length, b.length);

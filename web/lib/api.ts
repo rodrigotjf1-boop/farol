@@ -1887,6 +1887,8 @@ export type LancheParaConferir = Omit<LancheNaFila, 'etapas'> & {
   resposta: ConferenciaDoLanche | null;
   produtos: Array<{ id: string; nome: string }>;
   ingredientes: string[];
+  /** Onde cada ingrediente das fichas entra: os lanches cuja ficha o leva e os de que é adicional. */
+  lanchesDoIngrediente: Record<string, { fichas: string[]; adicional: string[] }>;
   /** As chaves (nome sem maiúscula) do que "não se vê de cima". */
   naoSeVe: string[];
 };

@@ -24,8 +24,9 @@
 // =====================================================================
 
 import { Check, ImageOff, Info, Lock, Minus, Plus, TriangleAlert, ZoomIn } from 'lucide-react';
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 
+import { chaveDoIngrediente } from '@/componentes/fichas/chave-do-ingrediente';
 import { diaFaladoNaLoja, frase, horaNaLoja, plural, quantidadeDaFicha } from '@/componentes/formatos';
 import { Botao } from '@/componentes/ui/botao';
 import { AJUDA, ROTULO } from '@/componentes/ui/campo';
@@ -53,6 +54,7 @@ import {
   sugeridosNaFoto,
   vistosNaConferencia,
 } from './conferencia-por-foto';
+import { nasFichas, ondeEntra, type VocabularioDoNome } from './nome-nas-fichas';
 import { QuadroDaFoto, type FotoNoQuadro } from './quadro-da-foto';
 
 const mensagemDe = (e: unknown, padrao: string) => frase(e instanceof ErroDaApi ? e.message : padrao);
@@ -94,6 +96,7 @@ export function GavetaDoLanche({
   lancheId,
   fuso,
   posicao,
+  foraDasFichas,
   aoSalvar,
   aoPular,
   aoFechar,
@@ -103,6 +106,11 @@ export function GavetaDoLanche({
   fuso: string;
   /** "2 de 5 para conferir", quando o lanche está na fila. */
   posicao: string | null;
+  /**
+   * Os nomes escritos à mão em conferências que ainda esperam uma ficha (as sugestões "nome fora das fichas" sem
+   * resposta ou com "vou cadastrar"): quem escreve "Pickles" acha o "Picles" que alguém já escreveu.
+   */
+  foraDasFichas: string[];
   /** Depois de salvar: a tela recarrega e abre o próximo. */
   aoSalvar: (texto: string) => void;
   aoPular: (texto: string) => void;
@@ -186,6 +194,14 @@ export function GavetaDoLanche({
   }, [lojaId, produtoId]);
 
   const naoSeVe = useMemo(() => new Set(d?.naoSeVe ?? []), [d]);
+  // o nome escrito à mão é comparado com os ingredientes das fichas e com os nomes que esperam uma ficha: as sugestões
+  // "nome fora das fichas" e o que já foi acrescentado neste lanche (em outra foto)
+  const dasFichas = useMemo(() => new Set((d?.ingredientes ?? []).map(chaveDoIngrediente)), [d]);
+  const ehForaDasFichas = useCallback((nome: string) => !dasFichas.has(chaveDoIngrediente(nome)), [dasFichas]);
+  const vocab = useMemo<VocabularioDoNome>(
+    () => ({ fichas: d?.ingredientes ?? [], fora: [...foraDasFichas, ...fotos.flatMap((r) => r.acrescentados)].filter(ehForaDasFichas) }),
+    [d, foraDasFichas, fotos, ehForaDasFichas],
+  );
   // os nomes da ficha do lanche escolhido (o que se vê de cima): na hora, pelo palpite da família; senão, pela ficha
   const daFicha = useMemo(() => {
     if (!produtoNome) return [];
@@ -508,6 +524,9 @@ export function GavetaDoLanche({
                   noQuadro={fotosNoQuadro[j]!}
                   daFicha={daFicha}
                   ingredientes={d.ingredientes.filter((n) => !naoSeVe.has(chave(n)))}
+                  vocab={vocab}
+                  lanchesDoIngrediente={d.lanchesDoIngrediente ?? {}}
+                  ehForaDasFichas={ehForaDasFichas}
                   aoMarcar={(nome) => marcar(j, nome)}
                   aoAcrescentar={(nome) => acrescentar(j, nome)}
                   aoMudar={(muda) => mudarFoto(j, muda)}
@@ -750,6 +769,9 @@ function CartaoDaFoto({
   noQuadro,
   daFicha,
   ingredientes,
+  vocab,
+  lanchesDoIngrediente,
+  ehForaDasFichas,
   aoMarcar,
   aoAcrescentar,
   aoMudar,
@@ -767,12 +789,20 @@ function CartaoDaFoto({
   daFicha: string[];
   /** Os ingredientes das fichas (sem o que não se vê de cima), para "Outro ingrediente". */
   ingredientes: string[];
+  /** Com o que comparar o nome escrito à mão: os ingredientes das fichas e os nomes que esperam uma ficha. */
+  vocab: VocabularioDoNome;
+  /** Onde cada ingrediente das fichas entra, para quem escolhe entre os parecidos. */
+  lanchesDoIngrediente: LancheParaConferir['lanchesDoIngrediente'];
+  /** O nome não está nas fichas: a pílula leva a marca "fora das fichas". */
+  ehForaDasFichas: (nome: string) => boolean;
   aoMarcar: (nome: string) => void;
   aoAcrescentar: (nome: string) => void;
   aoMudar: (muda: (r: RespostaNaTela) => RespostaNaTela) => void;
   aoPedirFoco: (id: string) => void;
   aoAbrirQuadro: () => void;
 }) {
+  const escrito = r.novo.trim();
+  const achado = r.escrevendo && escrito ? nasFichas(escrito, vocab) : null;
   const sugeridos = sugeridosNaFoto(foto, etapas);
   // o que se oferece: o que a leitura acha possível, o da ficha do lanche, e o que a pessoa acrescentou ou marcou
   // (desmarcado, o acrescentado continua ali: o botão não some debaixo do dedo)
@@ -866,6 +896,15 @@ function CartaoDaFoto({
                 <Pilula key={n} id={`${id}-${idDe(n)}`} marcada={ehFeita(r.marcados, n)} ponto={lido} aoClicar={() => aoMarcar(n)}>
                   {n}
                   {lido && <span className="sr-only"> (o Farol acha que pode ser)</span>}
+                  {/* o nome escrito à mão que não está nas fichas: vira sugestão para as fichas ao salvar */}
+                  {ehForaDasFichas(n) && (
+                    <>
+                      {' '}
+                      <small className="font-normal opacity-80" data-fora-das-fichas>
+                        · fora das fichas
+                      </small>
+                    </>
+                  )}
                 </Pilula>
               );
             })}
@@ -899,13 +938,13 @@ function CartaoDaFoto({
               <option value={NOVO}>Um ingrediente que não está nas fichas…</option>
             </select>
             {r.escrevendo && (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex min-w-0 flex-col gap-2">
                 <label htmlFor={`${id}-novo`} className="sr-only">
                   Nome do ingrediente
                 </label>
                 <input
                   id={`${id}-novo`}
-                  className="entrada min-w-0 flex-[1_1_180px]"
+                  className="entrada min-w-0"
                   maxLength={120}
                   autoComplete="off"
                   placeholder="Nome do ingrediente"
@@ -915,19 +954,84 @@ function CartaoDaFoto({
                     aoMudar((x) => ({ ...x, novo: v }));
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      aoAcrescentar(r.novo);
-                    }
+                    if (e.key !== 'Enter') return;
+                    e.preventDefault();
+                    // o Enter faz o óbvio: o mesmo entra; com parecidos, o foco vai para o primeiro; sem nada, acrescenta
+                    if (!achado) return;
+                    if (achado.mesmo) aoAcrescentar(achado.mesmo.nome);
+                    else if (achado.parecidos[0]) document.getElementById(`${id}-parecido-${idDe(achado.parecidos[0].nome)}`)?.focus();
+                    else aoAcrescentar(escrito);
                   }}
                   data-nome-novo
                 />
-                <Botao mini onClick={() => aoAcrescentar(r.novo)} disabled={!r.novo.trim()}>
-                  Acrescentar
-                </Botao>
+                {/* o que as fichas têm com o nome, enquanto se escreve (o protótipo aprovado em 19/10/2026) */}
+                <div aria-live="polite" className="min-w-0" data-o-que-as-fichas-tem>
+                  {!achado ? (
+                    <p className={AJUDA}>Escreva o nome: o Farol procura nas fichas o mesmo ingrediente, mesmo escrito de outro jeito.</p>
+                  ) : achado.mesmo && !achado.mesmo.fora ? (
+                    <Alerta tom="ok" icone={Check}>
+                      <b className="font-semibold">É o “{achado.mesmo.nome}” das fichas.</b>{' '}
+                      {achado.outroNome ? `Quem configura a loja disse que “${escrito}” é ele.` : 'O mesmo ingrediente, escrito de outro jeito.'} Ele entra com o
+                      nome da ficha, e os exemplos vão para ele.{' '}
+                      <small className="mt-0.5 block text-farol-suave">{frase(ondeEntra(lanchesDoIngrediente[achado.mesmo.nome]))}</small>
+                      <AcaoDoNome principal id={`${id}-usar`} aoClicar={() => aoAcrescentar(achado.mesmo!.nome)} dado="usar">
+                        Marcar “{achado.mesmo.nome}”
+                      </AcaoDoNome>
+                    </Alerta>
+                  ) : achado.mesmo ? (
+                    <Alerta icone={Info}>
+                      <b className="font-semibold">“{achado.mesmo.nome}” já foi escrito na conferência.</b> Ainda não está nas fichas e espera a resposta de
+                      quem configura a loja. Entra com esse nome, e os exemplos ficam juntos.
+                      <AcaoDoNome principal id={`${id}-usar`} aoClicar={() => aoAcrescentar(achado.mesmo!.nome)} dado="usar">
+                        Marcar “{achado.mesmo.nome}”
+                      </AcaoDoNome>
+                    </Alerta>
+                  ) : achado.parecidos.length > 0 ? (
+                    <Alerta tom="atencao" icone={Info}>
+                      <b className="font-semibold">
+                        {achado.parecidos.every((c) => !c.fora)
+                          ? achado.parecidos.length === 1
+                            ? 'Parece com um ingrediente das fichas. É este?'
+                            : 'Parece com ingredientes das fichas. É um destes?'
+                          : achado.parecidos.length === 1
+                            ? 'Parece com um nome que já existe. É este?'
+                            : 'Parece com nomes que já existem. É um destes?'}
+                      </b>
+                      <span role="group" aria-label="Os parecidos" className="mt-2 flex flex-wrap gap-1.5">
+                        {achado.parecidos.map((c) => (
+                          <button
+                            key={c.nome}
+                            type="button"
+                            id={`${id}-parecido-${idDe(c.nome)}`}
+                            onClick={() => aoAcrescentar(c.nome)}
+                            className="flex min-h-8 max-w-full flex-col items-start rounded-[10px] border border-farol-borda-forte bg-farol-painel px-3 py-1.5 text-left text-xs font-medium text-farol-tinta transition-colors hover:border-farol-marca"
+                            data-parecido
+                          >
+                            <span className="min-w-0 break-words">{c.nome}</span>
+                            {/* a vírgula é para o leitor de tela: sem ela, o nome e a linha de baixo viram uma palavra só */}
+                            <span className="sr-only">, </span>
+                            <small className="min-w-0 break-words text-[11.5px] font-normal text-farol-suave">
+                              {c.fora ? 'escrito na conferência, fora das fichas' : ondeEntra(lanchesDoIngrediente[c.nome])}
+                            </small>
+                          </button>
+                        ))}
+                      </span>
+                      <AcaoDoNome id={`${id}-outro-nome`} aoClicar={() => aoAcrescentar(escrito)} dado="e-outro">
+                        Não, é outro: acrescentar “{escrito}”
+                      </AcaoDoNome>
+                    </Alerta>
+                  ) : (
+                    <Alerta icone={Info}>
+                      <b className="font-semibold">Não está em nenhuma ficha.</b> Ele entra com este nome, marcado “fora das fichas”, e vira uma sugestão
+                      para as fichas.
+                      <AcaoDoNome id={`${id}-acrescentar`} aoClicar={() => aoAcrescentar(escrito)} dado="acrescentar">
+                        Acrescentar “{escrito}”
+                      </AcaoDoNome>
+                    </Alerta>
+                  )}
+                </div>
               </div>
             )}
-            {r.escrevendo && <small className={AJUDA}>O nome fica guardado na conferência; a sugestão para as fichas vem depois.</small>}
           </div>
         )}
 
@@ -1079,6 +1183,23 @@ function Opcao({ marcada, aoMarcar, titulo, sobre }: { marcada: boolean; aoMarca
 }
 
 /** Um botão de escolha, que fica aceso quando escolhido. `ponto`: o que o Farol acha que pode ser. */
+/** Uma ação do nome escrito à mão. Quebra a linha (o nome pode ser longo), ao contrário do `Botao`, que não quebra. */
+function AcaoDoNome({ id, principal = false, dado, aoClicar, children }: { id: string; principal?: boolean; dado: string; aoClicar: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      id={id}
+      onClick={aoClicar}
+      className={`mt-2 flex min-h-8 max-w-full items-center rounded-[10px] border px-2.5 py-1.5 text-left text-[13px] font-semibold leading-snug transition max-md:min-h-9 ${
+        principal ? 'border-transparent bg-farol-marca text-farol-sobre-marca hover:opacity-90' : 'border-farol-borda-forte bg-farol-painel text-farol-tinta hover:border-farol-marca'
+      }`}
+      data-acao-do-nome={dado}
+    >
+      <span className="min-w-0 break-words">{children}</span>
+    </button>
+  );
+}
+
 function Pilula({ id, marcada, ponto = false, aoClicar, children }: { id?: string; marcada: boolean; ponto?: boolean; aoClicar: () => void; children: ReactNode }) {
   return (
     <button
