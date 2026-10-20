@@ -194,13 +194,21 @@ export function GavetaDoLanche({
   }, [lojaId, produtoId]);
 
   const naoSeVe = useMemo(() => new Set(d?.naoSeVe ?? []), [d]);
-  // o nome escrito à mão é comparado com os ingredientes das fichas e com os nomes que esperam uma ficha: as sugestões
-  // "nome fora das fichas" e o que já foi acrescentado neste lanche (em outra foto)
+  // o nome escrito à mão é comparado com os ingredientes das fichas, com os OUTROS NOMES que quem configura juntou a
+  // eles ("hamburguer" → "Blend da casa"), e com os nomes que esperam uma ficha: as sugestões "nome fora das fichas" e
+  // o que já foi acrescentado neste lanche (em outra foto)
   const dasFichas = useMemo(() => new Set((d?.ingredientes ?? []).map(chaveDoIngrediente)), [d]);
-  const ehForaDasFichas = useCallback((nome: string) => !dasFichas.has(chaveDoIngrediente(nome)), [dasFichas]);
+  const outrosNomes = useMemo(() => d?.outrosNomes ?? {}, [d]);
+  const ehForaDasFichas = useCallback(
+    (nome: string) => {
+      const k = chaveDoIngrediente(nome);
+      return !dasFichas.has(k) && !outrosNomes[k];
+    },
+    [dasFichas, outrosNomes],
+  );
   const vocab = useMemo<VocabularioDoNome>(
-    () => ({ fichas: d?.ingredientes ?? [], fora: [...foraDasFichas, ...fotos.flatMap((r) => r.acrescentados)].filter(ehForaDasFichas) }),
-    [d, foraDasFichas, fotos, ehForaDasFichas],
+    () => ({ fichas: d?.ingredientes ?? [], fora: [...foraDasFichas, ...fotos.flatMap((r) => r.acrescentados)].filter(ehForaDasFichas), outrosNomes }),
+    [d, foraDasFichas, fotos, ehForaDasFichas, outrosNomes],
   );
   // os nomes da ficha do lanche escolhido (o que se vê de cima): na hora, pelo palpite da família; senão, pela ficha
   const daFicha = useMemo(() => {
@@ -1023,7 +1031,7 @@ function CartaoDaFoto({
                   ) : (
                     <Alerta icone={Info}>
                       <b className="font-semibold">Não está em nenhuma ficha.</b> Ele entra com este nome, marcado “fora das fichas”, e vira uma sugestão
-                      para as fichas.
+                      para as fichas: quem configura a loja diz se é um ingrediente das fichas com outro nome ou se vai entrar numa ficha nova.
                       <AcaoDoNome id={`${id}-acrescentar`} aoClicar={() => aoAcrescentar(escrito)} dado="acrescentar">
                         Acrescentar “{escrito}”
                       </AcaoDoNome>

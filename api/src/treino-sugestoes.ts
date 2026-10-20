@@ -7,8 +7,9 @@
 // quem configura responde. Quatro tipos:
 //
 //   • NOME FORA DAS FICHAS — alguém escreveu, na conferência, um nome que
-//     não está em ficha nenhuma: cadastre, para os exemplos irem para o
-//     ingrediente certo;
+//     não está em ficha nenhuma: quem configura diz se é um ingrediente das
+//     fichas com outro nome (vira outro nome dele), se vai entrar numa ficha
+//     nova, ou se foi engano;
 //   • FALTA NA FICHA — num produto, quem conferiu disse várias vezes que um
 //     ingrediente veio "a mais, sem pedido";
 //   • FICHA DIFERENTE DA BANCADA — num produto, quem conferiu disse várias
@@ -121,9 +122,11 @@ export function sugestoesDoTreino(conferidos: Conferido[], base: Base | null): S
       ingrediente: f.nome,
       titulo: `“${f.nome}” não está em nenhuma ficha`,
       viu: `Em ${plural(f.lanches, 'lanche conferido', 'lanches conferidos')}${f.produtos.size ? ` (${lista([...f.produtos])})` : ''}, quem conferiu chamou um ingrediente de “${f.nome}”.`,
-      propoe: 'Se ele entra em algum lanche, cadastre-o na ficha com este nome: assim o Farol junta os exemplos dele ao ingrediente certo.',
+      // as três respostas do protótipo aprovado em 19/10/2026: "É um ingrediente das fichas" é o sim com o ingrediente
+      // escolhido (vira outro nome dele, migration 053); o sim sozinho, "Vai entrar numa ficha nova"; o não, "Foi engano"
+      propoe: 'Diga o que ele é: um ingrediente que já está nas fichas com outro nome, ou um que vai entrar numa ficha que ainda não existe.',
       onde: 'na ficha do lanche em que ele entra',
-      sim: 'Vou cadastrar',
+      sim: 'Vai entrar numa ficha nova',
       nao: 'Foi engano',
     });
   }

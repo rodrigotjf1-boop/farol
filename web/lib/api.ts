@@ -1826,6 +1826,8 @@ export type SugestaoParaAFicha = {
   decisao: 'sim' | 'nao' | null;
   decididoEm: string | null;
   decididoPor: string | null;
+  /** O "nome fora das fichas" juntado a um ingrediente das fichas ("É um ingrediente das fichas"): qual. Nulo = não foi. */
+  juntoA: string | null;
 };
 
 export type TreinoDaLoja = {
@@ -1889,6 +1891,8 @@ export type LancheParaConferir = Omit<LancheNaFila, 'etapas'> & {
   ingredientes: string[];
   /** Onde cada ingrediente das fichas entra: os lanches cuja ficha o leva e os de que é adicional. */
   lanchesDoIngrediente: Record<string, { fichas: string[]; adicional: string[] }>;
+  /** Os outros nomes: a chave do nome juntado a um ingrediente das fichas → o ingrediente ("hamburguer" → "Blend da casa"). */
+  outrosNomes: Record<string, string>;
   /** As chaves (nome sem maiúscula) do que "não se vê de cima". */
   naoSeVe: string[];
 };
@@ -1921,11 +1925,14 @@ export const treinoApi = {
   /** Os quadros da gravação conferida saem da nuvem agora; o que foi aprendido fica. */
   apagarImagens: (id: string) => pedir<{ apagada: true; quadros: number }>(`/treino/gravacoes/${id}/apagar-imagens`, { method: 'POST' }),
 
-  /** A resposta de quem configura a uma sugestão: "vou mudar a ficha" (sim) ou "fica como está" (não). */
-  responderSugestao: (lojaId: string, chave: string, decisao: 'sim' | 'nao') =>
-    pedir<{ chave: string; decisao: 'sim' | 'nao' }>(`/lojas/${lojaId}/treino/sugestoes`, {
+  /**
+   * A resposta de quem configura a uma sugestão: "vou mudar a ficha" (sim) ou "fica como está" (não). No "nome fora das
+   * fichas", `junto` (com o sim) é "É um ingrediente das fichas": o nome vira um outro nome do ingrediente.
+   */
+  responderSugestao: (lojaId: string, chave: string, decisao: 'sim' | 'nao', junto?: string) =>
+    pedir<{ chave: string; decisao: 'sim' | 'nao'; junto: string | null }>(`/lojas/${lojaId}/treino/sugestoes`, {
       method: 'POST',
-      body: JSON.stringify({ chave, decisao }),
+      body: JSON.stringify(junto ? { chave, decisao, junto } : { chave, decisao }),
     }),
 };
 

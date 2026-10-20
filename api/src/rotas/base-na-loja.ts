@@ -28,6 +28,7 @@ import type pg from 'pg';
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import { lerBase } from '../fichas.js';
 import { chaveDoIngrediente, ingredientesDaBase } from '../ingredientes.js';
+import { chaveQueConta, outrosNomesDaLoja } from '../outros-nomes.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -62,25 +63,32 @@ export function rotasDaBaseNaLoja(app: FastifyInstance, pool: pg.Pool): void {
   app.get('/v1/agentes/base', async (req, resposta) => {
     const agente = await doAgente(req, resposta);
     if (!agente) return;
-    const r = await pool.query<{ nome: string; visivel: boolean; quadros: QuadroDaBase[] | null }>(
-      `select b.nome, b.visivel,
+    const r = await pool.query<{ nome: string; tipo: 'item' | 'fora'; visivel: boolean; quadros: QuadroDaBase[] | null }>(
+      `select b.nome, b.tipo, b.visivel,
               (select jsonb_agg(jsonb_build_object('id', f.id, 'origem', f.origem, 'sha256', f.sha256, 'largura', f.largura, 'altura', f.altura)
                                 order by f.criado_em, f.id)
                  from base_frame f
                 where f.base_id = b.id and f.imagem is not null and f.origem in ('foto', 'bancada')) as quadros
          from base_conhecimento b
-        where b.loja_id = $1 and b.tipo = 'item'
-        order by lower(btrim(b.nome))`,
+        where b.loja_id = $1 and b.tipo in ('item', 'fora')
+        order by lower(btrim(b.nome)), b.tipo`,
       [agente.lojaId],
     );
     // O mesmo ingrediente escrito de dois jeitos ("Pão de Brioche" na conferência, "Pão Brioche" na ficha) desce como
     // UM, com o nome da ficha e os quadros dos dois: a loja aprende o ingrediente que a ficha conhece (o dono,
-    // 19/10/2026). Um deles "não se vê de cima": o ingrediente não se vê.
-    const fichas = await pool.query<{ conteudo: unknown }>(`select conteudo from fichas_da_loja where loja_id = $1`, [agente.lojaId]);
+    // 19/10/2026). Um deles "não se vê de cima": o ingrediente não se vê. O OUTRO NOME (migration 053: "Hambúrguer",
+    // juntado ao "Blend da casa") desce do mesmo jeito, dentro do ingrediente das fichas.
+    const [fichas, outros] = await Promise.all([
+      pool.query<{ conteudo: unknown }>(`select conteudo from fichas_da_loja where loja_id = $1`, [agente.lojaId]),
+      outrosNomesDaLoja(pool, agente.lojaId),
+    ]);
     const nomeDaFicha = new Map(ingredientesDaBase(lerBase(fichas.rows[0]?.conteudo ?? null)).map((i) => [chaveDoIngrediente(i.nome), i.nome]));
     const porChave = new Map<string, ItemDaBase>();
     for (const i of r.rows) {
-      const k = chaveDoIngrediente(i.nome);
+      const k = chaveQueConta(i.nome, outros);
+      // o exemplo do nome escrito à mão (tipo 'fora') só desce quando o nome vale: é outro nome de um ingrediente das
+      // fichas, ou a ficha chegou com ele
+      if (i.tipo === 'fora' && !nomeDaFicha.has(k)) continue;
       const ja = porChave.get(k);
       porChave.set(
         k,

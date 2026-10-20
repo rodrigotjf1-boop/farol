@@ -40,6 +40,7 @@ import type pg from 'pg';
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import { lerBase, type Base } from '../fichas.js';
 import { chaveDoIngrediente, ingredientesDaBase } from '../ingredientes.js';
+import { conferenciaQueConta, outrosNomesDaLoja } from '../outros-nomes.js';
 import { podeAcompanhar, podeConfigurar } from '../rbac.js';
 import { estudarFichas } from '../estudo-das-fichas.js';
 import {
@@ -47,6 +48,7 @@ import {
   aprendizado,
   DIAS_DOS_QUADROS,
   exemplosDaConferencia,
+  exemplosForaDasFichas,
   fotosDoLanche,
   lerConferencia,
   lerLancheDeTreino,
@@ -149,7 +151,7 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
 
   /** As sugestões para as fichas (fatia T6): calculadas das conferências, com a resposta de quem configura. */
   async function sugestoesDaLoja(lojaId: string, base: Base | null) {
-    const [conferidos, respostas] = await Promise.all([
+    const [conferidos, respostas, outros] = await Promise.all([
       pool.query<{ produto: string | null; leitura: { etapas: EtapaLida[] }; resposta: Conferencia }>(
         `select produto, leitura, resposta from treino_lanche
           where loja_id = $1 and situacao = 'conferido' and resposta is not null
@@ -163,17 +165,25 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
           where s.loja_id = $1`,
         [lojaId],
       ),
+      outrosNomesDaLoja(pool, lojaId),
     ]);
-    const agora = sugestoesDoTreino(
-      conferidos.rows.map((c) => ({ produto: c.produto, etapas: c.leitura?.etapas ?? [], conferencia: c.resposta })),
-      base,
-    );
+    // o outro nome conta como o ingrediente das fichas (migration 053): ele não é mais "nome fora das fichas", e o que
+    // a bancada mostrou com ele vale para o ingrediente
+    const conferencias = conferidos.rows.map((c) => ({ produto: c.produto, etapas: c.leitura?.etapas ?? [], conferencia: conferenciaQueConta(c.resposta, outros) }));
+    const agora = sugestoesDoTreino(conferencias, base);
     // A chave guardada pode ser de antes da regra do nome parecido (19/10/2026: "Pão de Brioche" = "Pão Brioche"):
     // relida pela regra de hoje, a resposta continua presa à sua sugestão, e a sugestão não aparece duas vezes.
     const respondidas = new Map(respostas.rows.map((r) => [chaveDeHoje(r.chave), r]));
     const comResposta = (s: Sugestao) => {
       const r = respondidas.get(chaveDeHoje(s.chave));
-      return { ...s, decisao: r?.decisao ?? null, decididoEm: r?.decidido_em ?? null, decididoPor: r?.decidido_por_nome ?? null };
+      return {
+        ...s,
+        decisao: r?.decisao ?? null,
+        decididoEm: r?.decidido_em ?? null,
+        decididoPor: r?.decidido_por_nome ?? null,
+        /** O "nome fora das fichas" que quem configura juntou a um ingrediente delas: qual. Nulo = não foi juntado. */
+        juntoA: s.tipo === 'nome-fora' ? (outros.get(chaveDoIngrediente(s.ingrediente)) ?? null) : null,
+      };
     };
     // a respondida que as conferências de agora já não mostram continua na tela, como foi respondida — menos o "nome
     // fora das fichas" cujo nome hoje ESTÁ nas fichas (escrito de outro jeito): essa já não diz nada
@@ -182,7 +192,7 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
       .filter((r) => !agora.some((s) => s.chave === chaveDeHoje(r.chave)))
       .filter((r) => !(r.resumo?.tipo === 'nome-fora' && nasFichas.has(chaveDoIngrediente(r.resumo.ingrediente ?? ''))))
       .map((r) => comResposta({ ...r.resumo, chave: chaveDeHoje(r.chave) }));
-    return { agora, lista: [...agora.map(comResposta), ...deAntes] };
+    return { agora, lista: [...agora.map(comResposta), ...deAntes], conferencias, outros };
   }
 
   /** O lanche como a tela o vê: o palpite com as fichas de hoje, o motivo na fila e as miniaturas das duas metades. */
@@ -412,7 +422,8 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
       })),
       lanches: naTela,
       contas: { conferidos: contas.rows[0].conferidos as number, acertou: contas.rows[0].acertou as number },
-      aprendizado: aprendizado(conferidos.rows.map((c) => ({ etapas: c.leitura?.etapas ?? [], conferencia: c.resposta }))),
+      // o outro nome conta como o ingrediente das fichas a que foi juntado (migration 053)
+      aprendizado: aprendizado(conferidos.rows.map((c) => ({ etapas: c.leitura?.etapas ?? [], conferencia: conferenciaQueConta(c.resposta, sugestoes.outros) }))),
     };
   });
 
@@ -471,6 +482,11 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
           },
         ]),
       ),
+      /**
+       * Os outros nomes (migration 053): a chave do nome que quem configura juntou a um ingrediente das fichas → o
+       * ingrediente. Quem escrever o outro nome de novo na conferência ouve "é o 'Blend da casa' das fichas".
+       */
+      outrosNomes: Object.fromEntries(await outrosNomesDaLoja(pool, l.loja_id)),
       naoSeVe: [...loja.invisiveis],
     };
   });
@@ -544,15 +560,24 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
           where id = $1`,
         [id, JSON.stringify(conferencia), conferencia.produto, palpite, acertou, s.usuarioId],
       );
-      // os exemplos: conferir de novo troca os deste lanche
+      // os exemplos: conferir de novo troca os deste lanche. O outro nome ensina o ingrediente das fichas a que foi
+      // juntado (migration 053); a conferência guardada fica como a pessoa escreveu
       await cliente.query(`delete from base_frame where lanche_id = $1 and origem = 'bancada'`, [id]);
       let exemplos = 0;
-      for (const ex of exemplosDaConferencia(etapas, conferencia, ingredientesDaBase(loja.base).map((i) => i.nome))) {
+      const queConta = conferenciaQueConta(conferencia, await outrosNomesDaLoja(cliente, l.loja_id));
+      const nasFichas = ingredientesDaBase(loja.base).map((i) => i.nome);
+      // o nome escrito à mão que não está nas fichas guarda o exemplo à parte, com tipo 'fora' (migration 053): ele só
+      // desce para a loja quando o nome vale (vira outro nome de um ingrediente das fichas, ou a ficha chega com ele)
+      const paraGuardar = [
+        ...exemplosDaConferencia(etapas, queConta, nasFichas).map((ex) => ({ ...ex, tipo: 'item' as const })),
+        ...exemplosForaDasFichas(etapas, queConta, nasFichas).map((ex) => ({ ...ex, tipo: 'fora' as const })),
+      ];
+      for (const ex of paraGuardar) {
         const item = await cliente.query(
-          `insert into base_conhecimento (loja_id, tipo, nome) values ($1, 'item', $2)
+          `insert into base_conhecimento (loja_id, tipo, nome) values ($1, $3, $2)
            on conflict (loja_id, tipo, lower(btrim(nome))) do update set atualizado_em = now()
            returning id`,
-          [l.loja_id, ex.nome],
+          [l.loja_id, ex.nome, ex.tipo],
         );
         // a mesma imagem (outro quadro com os mesmos bytes) para o mesmo ingrediente, do mesmo lanche: uma vez só
         const novo = await cliente.query(
@@ -839,22 +864,53 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
     if (!podeConfigurar(s)) return resposta.status(403).send({ erro: 'sem_permissao', mensagem: 'quem responde às sugestões é quem configura a loja' });
     const { id } = req.params as { id: string };
     if (!UUID.test(id)) return naoAchei(resposta, 'não existe essa loja');
-    const corpo = (req.body ?? {}) as { chave?: unknown; decisao?: unknown };
+    const corpo = (req.body ?? {}) as { chave?: unknown; decisao?: unknown; junto?: unknown };
     if (typeof corpo.chave !== 'string' || !corpo.chave || corpo.chave.length > 300) return invalido(resposta, 'chave: a sugestão respondida');
     if (!DECISOES.includes(corpo.decisao as DecisaoDaSugestao)) return invalido(resposta, `decisao: ${DECISOES.join(' ou ')}`);
+    if (corpo.junto !== undefined && corpo.junto !== null && (typeof corpo.junto !== 'string' || !corpo.junto.trim() || corpo.junto.length > 200)) {
+      return invalido(resposta, 'junto: o ingrediente das fichas');
+    }
     const loja = await daLoja(pool, s.tenantId, id);
     if (!loja) return naoAchei(resposta, 'não existe essa loja');
     // a sugestão tem de existir AGORA, das conferências desta loja: não se responde ao que o Farol não sugeriu
     const sugestao = (await sugestoesDaLoja(id, loja.base)).agora.find((x) => x.chave === corpo.chave);
     if (!sugestao) return naoAchei(resposta, 'esta sugestão não existe mais: as conferências mudaram');
-    await pool.query(
-      `insert into treino_sugestao (loja_id, chave, decisao, resumo, decidido_por)
-       values ($1, $2, $3, $4, $5)
-       on conflict (loja_id, chave) do update
-          set decisao = excluded.decisao, resumo = excluded.resumo, decidido_por = excluded.decidido_por, decidido_em = now()`,
-      [id, sugestao.chave, corpo.decisao, JSON.stringify(sugestao), s.usuarioId],
-    );
-    req.log.info({ loja: id, sugestao: sugestao.chave, decisao: corpo.decisao, por: s.usuarioId }, 'sugestão para as fichas RESPONDIDA');
-    return { chave: sugestao.chave, decisao: corpo.decisao };
+    // "É um ingrediente das fichas" (o protótipo aprovado em 19/10/2026): só para o nome fora das fichas, com o "sim".
+    // O nome escrito vira um OUTRO NOME do ingrediente escolhido — que tem de estar nas fichas de hoje.
+    let junto: string | null = null;
+    if (typeof corpo.junto === 'string') {
+      if (sugestao.tipo !== 'nome-fora' || corpo.decisao !== 'sim') return invalido(resposta, 'junto: só no "nome fora das fichas", com a resposta sim');
+      const daFicha = ingredientesDaBase(loja.base).find((i) => chaveDoIngrediente(i.nome) === chaveDoIngrediente(corpo.junto as string));
+      if (!daFicha) return invalido(resposta, 'junto: esse ingrediente não está nas fichas da loja');
+      junto = daFicha.nome;
+    }
+    const cliente = await pool.connect();
+    try {
+      await cliente.query('begin');
+      await cliente.query(
+        `insert into treino_sugestao (loja_id, chave, decisao, resumo, decidido_por)
+         values ($1, $2, $3, $4, $5)
+         on conflict (loja_id, chave) do update
+            set decisao = excluded.decisao, resumo = excluded.resumo, decidido_por = excluded.decidido_por, decidido_em = now()`,
+        [id, sugestao.chave, corpo.decisao, JSON.stringify(sugestao), s.usuarioId],
+      );
+      if (junto) {
+        await cliente.query(
+          `insert into ingrediente_outro_nome (loja_id, chave, nome, ingrediente, criado_por)
+           values ($1, $2, $3, $4, $5)
+           on conflict (loja_id, chave) do update
+              set nome = excluded.nome, ingrediente = excluded.ingrediente, criado_por = excluded.criado_por, criado_em = now()`,
+          [id, chaveDoIngrediente(sugestao.ingrediente), sugestao.ingrediente, junto, s.usuarioId],
+        );
+      }
+      await cliente.query('commit');
+    } catch (e) {
+      await cliente.query('rollback').catch(() => {});
+      throw e;
+    } finally {
+      cliente.release();
+    }
+    req.log.info({ loja: id, sugestao: sugestao.chave, decisao: corpo.decisao, junto, por: s.usuarioId }, 'sugestão para as fichas RESPONDIDA');
+    return { chave: sugestao.chave, decisao: corpo.decisao, junto };
   });
 }

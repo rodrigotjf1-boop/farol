@@ -79,7 +79,9 @@ describe('as sugestões para as fichas (sem banco)', () => {
     assert.equal(s[0]!.ingrediente, 'Picles');
     assert.match(s[0]!.viu, /^Em 2 lanches conferidos \(X-Burger\), quem conferiu chamou um ingrediente de “Picles”/);
     assert.equal(s[0]!.chave, chaveDaSugestao('nome-fora', null, 'picles'));
-    assert.deepEqual([s[0]!.sim, s[0]!.nao], ['Vou cadastrar', 'Foi engano']);
+    // o protótipo aprovado em 19/10/2026: o sim sozinho é "Vai entrar numa ficha nova" (com o ingrediente, "É um
+    // ingrediente das fichas")
+    assert.deepEqual([s[0]!.sim, s[0]!.nao], ['Vai entrar numa ficha nova', 'Foi engano']);
   });
 
   it('o mesmo ingrediente escrito de outro jeito NÃO é "nome fora das fichas" (o dono, 19/10/2026)', () => {
@@ -228,9 +230,32 @@ describe('as sugestões para as fichas (Postgres real)', { skip: !URL_DO_BANCO &
     });
     assert.equal(c.statusCode, 200, c.body);
   }
+  /** Um lanche lido (o do contrato) conferido pela conferência NOVA como X-Burger, com `marcados` na primeira foto com quadro. */
+  async function conferidoPorFoto(marcados: string[]): Promise<string> {
+    lanches += 1;
+    const corpo = JSON.parse(JSON.stringify(LANCHE.corpo));
+    corpo.lanche.chave = `lanche-${lanches}`;
+    const r = await app.inject({ method: 'POST', url: '/v1/agentes/treino/lanches', headers: { authorization: `Bearer ${token}` }, payload: corpo });
+    assert.equal(r.statusCode < 300, true, r.body);
+    const id = r.json().lancheId as string;
+    const fotos = (await app.inject({ method: 'GET', url: `/v1/treino/lanches/${id}`, headers: { cookie } })).json().fotos as Array<{ etapas: number[]; quadroId: string | null }>;
+    const alvo = fotos.findIndex((f) => f.quadroId);
+    assert.ok(alvo >= 0, 'o lanche do contrato tem foto com quadro');
+    const c = await app.inject({
+      method: 'POST',
+      url: `/v1/treino/lanches/${id}/conferencia`,
+      headers: { cookie },
+      payload: { versao: 2, produto: 'X-Burger', fotos: fotos.map((f, j) => ({ etapas: f.etapas, marcados: j === alvo ? marcados : [], ruim: false, obs: null })), perguntas: {}, obs: null, faltas: {}, aMais: {} },
+    });
+    assert.equal(c.statusCode, 200, c.body);
+    return id;
+  }
   const lista = async (comCookie = cookie) => (await app.inject({ method: 'GET', url: `/v1/lojas/${lojaId}/treino`, headers: { cookie: comCookie } })).json();
   const responder = (corpo: unknown, comCookie = cookie, loja = lojaId) =>
     app.inject({ method: 'POST', url: `/v1/lojas/${loja}/treino/sugestoes`, headers: { cookie: comCookie }, payload: corpo as object });
+  /** A base que desce para a loja (o que o agente baixa) e a lista dos ingredientes (a tela). */
+  const baseDaLoja = async () => (await app.inject({ method: 'GET', url: '/v1/agentes/base', headers: { authorization: `Bearer ${token}` } })).json();
+  const ingredientes = async () => (await app.inject({ method: 'GET', url: `/v1/lojas/${lojaId}/ingredientes`, headers: { cookie } })).json();
 
   before(async () => {
     adminAntes = process.env.FAROL_ADMIN_TOKEN;
@@ -282,7 +307,7 @@ describe('as sugestões para as fichas (Postgres real)', { skip: !URL_DO_BANCO &
 
     const r = await responder({ chave, decisao: 'sim' });
     assert.equal(r.statusCode, 200, r.body);
-    assert.deepEqual(r.json(), { chave, decisao: 'sim' });
+    assert.deepEqual(r.json(), { chave, decisao: 'sim', junto: null });
     let s = (await lista()).sugestoes[0];
     assert.deepEqual([s.decisao, s.decididoPor], ['sim', 'Gil Prado']);
     assert.ok(s.decididoEm);
@@ -304,5 +329,82 @@ describe('as sugestões para as fichas (Postgres real)', { skip: !URL_DO_BANCO &
     assert.equal(l.sugestoes[0].viu, 'Em 4 dos 4 X-Burger conferidos, a bancada pôs Alface sem pedido do cliente.', 'o retrato de quando foi respondida');
     const de = await responder({ chave: l.sugestoes[0].chave, decisao: 'sim' });
     assert.equal(de.statusCode, 404, 'a que não está mais nas conferências não se responde de novo');
+  });
+
+  it('"É um ingrediente das fichas" (19/10/2026): o nome vira outro nome do ingrediente — a base da loja, a lista e a conferência o contam como ele', async () => {
+    type Item = { nome: string; quadros: unknown[] };
+    type Ingrediente = { nome: string; exemplos: number };
+    // dois lanches com "Hambúrguer" escrito à mão (de dois jeitos): o nome fora das fichas
+    const l1 = await conferidoPorFoto(['Hambúrguer']);
+    await conferidoPorFoto(['hamburguer']);
+    const chave = chaveDaSugestao('nome-fora', null, 'Hambúrguer');
+    let s = (await lista()).sugestoes.find((x: { chave: string }) => x.chave === chave);
+    assert.ok(s, 'a sugestão do nome fora das fichas');
+    assert.deepEqual([s.decisao, s.juntoA, s.sim, s.nao], [null, null, 'Vai entrar numa ficha nova', 'Foi engano']);
+
+    // o exemplo do nome fora das fichas fica guardado à parte (tipo 'fora'): não desce para a loja nem entra na lista
+    const fora = await pool.query(
+      `select count(*)::int as n from base_frame f join base_conhecimento b on b.id = f.base_id where b.loja_id = $1 and b.tipo = 'fora'`,
+      [lojaId],
+    );
+    assert.equal(fora.rows[0].n, 2, 'um exemplo por lanche, guardado à parte');
+    const antes = (await baseDaLoja()) as { itens: Item[] };
+    assert.ok(!antes.itens.some((i) => /hamb/i.test(i.nome)), 'o nome fora das fichas não desce para a loja');
+    const blendAntes = antes.itens.find((i) => i.nome === 'Blend da casa')?.quadros.length ?? 0;
+    const listaAntes = (await ingredientes()) as { ingredientes: Ingrediente[]; orfaos: Ingrediente[] };
+    const exemplosAntes = listaAntes.ingredientes.find((i) => i.nome === 'Blend da casa')!.exemplos;
+    assert.ok(!listaAntes.orfaos.some((o) => /hamb/i.test(o.nome)), 'nem vira órfão');
+
+    // o que a rota recusa
+    assert.equal((await responder({ chave, decisao: 'nao', junto: 'Blend da casa' })).statusCode, 422, 'o ingrediente só com o sim');
+    assert.equal((await responder({ chave, decisao: 'sim', junto: 'Picanha' })).statusCode, 422, 'só ingrediente das fichas');
+    assert.equal((await responder({ chave, decisao: 'sim', junto: 7 })).statusCode, 422);
+    assert.equal((await responder({ chave: chaveDaSugestao('falta-na-ficha', 'X-Burger', 'Alface'), decisao: 'sim', junto: 'Blend da casa' })).statusCode, 404, 'a que não está mais nas conferências');
+    assert.equal((await responder({ chave, decisao: 'sim', junto: 'Blend da casa' }, cookieSupervisao)).statusCode, 403);
+    assert.equal((await pool.query('select count(*)::int as n from ingrediente_outro_nome where loja_id = $1', [lojaId])).rows[0].n, 0, 'nada guardado com as recusas');
+
+    // juntar: com o nome escrito de outro jeito, guarda o da ficha
+    const r = await responder({ chave, decisao: 'sim', junto: 'blend da casa' });
+    assert.equal(r.statusCode, 200, r.body);
+    assert.deepEqual(r.json(), { chave, decisao: 'sim', junto: 'Blend da casa' });
+    s = (await lista()).sugestoes.find((x: { chave: string }) => x.chave === chave);
+    assert.deepEqual([s.decisao, s.juntoA], ['sim', 'Blend da casa'], 'continua na tela, respondida, com o ingrediente');
+
+    // a base que desce para a loja e a lista: os exemplos do "Hambúrguer" estão no "Blend da casa"
+    const depois = (await baseDaLoja()) as { itens: Item[] };
+    assert.ok(!depois.itens.some((i) => /hamb/i.test(i.nome)));
+    assert.equal(depois.itens.find((i) => i.nome === 'Blend da casa')!.quadros.length, blendAntes + 2, 'os dois exemplos, no ingrediente das fichas');
+    const listaDepois = (await ingredientes()) as { ingredientes: Ingrediente[]; orfaos: Ingrediente[] };
+    assert.equal(listaDepois.ingredientes.find((i) => i.nome === 'Blend da casa')!.exemplos, exemplosAntes + 2);
+
+    // a conferência: o lanche manda o outro nome para a gaveta
+    const lanche = (await app.inject({ method: 'GET', url: `/v1/treino/lanches/${l1}`, headers: { cookie } })).json();
+    assert.deepEqual(lanche.outrosNomes, { hamburguer: 'Blend da casa' });
+
+    // conferido de novo com o outro nome: o exemplo vai direto para o "Blend da casa", e o nome não volta a ser "fora"
+    const l3 = await conferidoPorFoto(['Hambúrguer']);
+    const doL3 = await pool.query(`select b.tipo, b.nome from base_frame f join base_conhecimento b on b.id = f.base_id where f.lanche_id = $1`, [l3]);
+    assert.ok(doL3.rows.length > 0 && doL3.rows.every((x) => x.tipo === 'item' && x.nome === 'Blend da casa'), JSON.stringify(doL3.rows));
+    const abertas = (await lista()).sugestoes.filter((x: { tipo: string; decisao: string | null; ingrediente: string }) => x.tipo === 'nome-fora' && x.decisao === null && /hamb/i.test(x.ingrediente));
+    assert.equal(abertas.length, 0, 'nenhum "nome fora das fichas" novo para ele');
+  });
+
+  it('"Vai entrar numa ficha nova": o exemplo fica à parte; quando a ficha chega com o nome, ele desce sozinho', async () => {
+    await conferidoPorFoto(['Frango empanado']);
+    const chave = chaveDaSugestao('nome-fora', null, 'Frango empanado');
+    const r = await responder({ chave, decisao: 'sim' });
+    assert.deepEqual([r.statusCode, r.json().junto], [200, null]);
+    const s = (await lista()).sugestoes.find((x: { chave: string }) => x.chave === chave);
+    assert.deepEqual([s.decisao, s.juntoA], ['sim', null]);
+    assert.ok(!((await baseDaLoja()).itens as Array<{ nome: string }>).some((i) => /frango/i.test(i.nome)), 'antes da ficha, não desce');
+
+    // a ficha chega com o nome escrito de outro jeito ("Frangos Empanados"): o exemplo guardado entra nela
+    const comFrango = JSON.parse(JSON.stringify(BASE)) as Base;
+    const xb = comFrango.produtos.find((p) => p.nome === 'X-Burger')!;
+    xb.ficha!.ingredientes.push({ ...xb.ficha!.ingredientes[0]!, nome: 'Frangos Empanados' });
+    await pool.query(`update fichas_da_loja set conteudo = $2, impressao = $3 where loja_id = $1`, [lojaId, JSON.stringify(comFrango), impressaoDaBase(comFrango)]);
+    const item = ((await baseDaLoja()).itens as Array<{ nome: string; quadros: unknown[] }>).find((i) => /frango/i.test(i.nome));
+    assert.deepEqual([item?.nome, item?.quadros.length], ['Frangos Empanados', 1], 'desce com o nome da ficha e o exemplo de antes');
+    await pool.query(`update fichas_da_loja set conteudo = $2, impressao = $3 where loja_id = $1`, [lojaId, JSON.stringify(BASE), impressaoDaBase(BASE)]);
   });
 });
