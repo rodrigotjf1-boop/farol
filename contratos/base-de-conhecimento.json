@@ -18,12 +18,18 @@
           ]
         },
         { "nome": "Sal", "visivel": false, "quadros": [] }
-      ]
+      ],
+      "nada": {
+        "quadros": [
+          { "id": "4d5e6f70-8192-4a34-bc5d-6e7f80910213", "origem": "bancada", "sha256": "2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a", "largura": 320, "altura": 320 }
+        ]
+      }
     },
     "regras": [
       "O ingrediente sem quadro e visível não desce: não há o que ensinar.",
       "O ingrediente 'não se vê de cima' desce mesmo sem quadro: a leitura para de esperar vê-lo.",
-      "A impressão muda quando entra ou sai um quadro, quando um quadro muda de imagem, ou quando um ingrediente muda de 'se vê' para 'não se vê' (ou volta). A ordem não muda a impressão."
+      "A impressão muda quando entra ou sai um quadro, quando um quadro muda de imagem, ou quando um ingrediente muda de 'se vê' para 'não se vê' (ou volta). A ordem não muda a impressão.",
+      "O 'não era ingrediente' (migration 054) desce em 'nada.quadros', À PARTE dos itens: o recorte de passo que a pessoa marcou 'não era ingrediente' na conferência por passo (o inox, o alumínio, a tampa da caixa, a mão). Os quadros dele descem pela mesma rota, pelo id. Ele entra na impressão só quando há algum. O agente que ainda não sabe dele lê só os itens."
     ]
   },
   "quadro": {

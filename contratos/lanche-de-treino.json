@@ -100,6 +100,106 @@
       }
     ]
   },
+  "porPassos": {
+    "sobre": "O lanche lido POR PASSOS (A23.3, migration 054): a leitura ao vivo de uma bancada manda, depois do fechamento, cada lanche da noite com os passos de cada metade do pão e o recorte de cada passo (a janela da metade). A noite é uma gravação de origem 'ao-vivo' (até 14 horas). Os campos novos são opcionais: sem eles, a etapa é como sempre foi. 'tipo': comeco (a peça no primeiro instante parado), passo, provisorio (parado um quadro só antes do fechamento), transitorio (a passagem: não conta), fechou, vazio (o juiz de ingrediente achou que não era ingrediente) e saiu (a peça saiu da janela). Só comeco, passo e provisorio são evidência do que entrou (o palpite e a fila); o vazio e o passo com nota abaixo de 0,55 põem o lanche na dúvida. 'metade': de 1 a 8; 'parte' e 'nota': de 0 a 1; 'contorno': o que chegou, em pixels do quadro da etapa (até 8 pedaços de 3 a 64 pontos). 'lanche.pecas': quantas metades do pão a leitura achou. Na conferência, o passo marcado 'nada' (não era ingrediente) vira exemplo do que NÃO é ingrediente — só o passo, cujo quadro é a janela da metade.",
+    "corpo": {
+      "gravacao": {
+        "chave": "ao-vivo-canal-04-2026-10-21",
+        "pontoId": null,
+        "inicio": "2026-10-21T19:00:00-03:00",
+        "fim": "2026-10-22T03:00:00-03:00",
+        "origem": "ao-vivo"
+      },
+      "lanche": {
+        "chave": "passos-20h12m37-5",
+        "abertoEm": "2026-10-21T20:12:37-03:00",
+        "fechouEm": "2026-10-21T20:15:47-03:00",
+        "pecas": 2,
+        "etapas": [
+          {
+            "hora": "2026-10-21T20:12:42-03:00",
+            "lado": "pao",
+            "inicio": true,
+            "leu": "Pão brioche",
+            "candidatos": ["Pão brioche"],
+            "vezes": 1,
+            "quadro": 0,
+            "tipo": "comeco",
+            "metade": 1,
+            "nota": 0.64
+          },
+          {
+            "hora": "2026-10-21T20:15:15-03:00",
+            "lado": "outro",
+            "inicio": false,
+            "leu": "Blend da casa",
+            "candidatos": ["Blend da casa"],
+            "vezes": 1,
+            "quadro": 1,
+            "tipo": "passo",
+            "metade": 2,
+            "parte": 0.24,
+            "nota": 0.66,
+            "contorno": [[[12, 10], [140, 18], [96, 150]]]
+          },
+          {
+            "hora": "2026-10-21T20:15:30-03:00",
+            "lado": "outro",
+            "inicio": false,
+            "leu": null,
+            "candidatos": [],
+            "vezes": 1,
+            "quadro": 2,
+            "tipo": "vazio",
+            "metade": 1,
+            "parte": 0.22,
+            "nota": 0.45
+          },
+          {
+            "hora": "2026-10-21T20:15:40-03:00",
+            "lado": "outro",
+            "inicio": false,
+            "leu": null,
+            "candidatos": [],
+            "vezes": 1,
+            "quadro": null,
+            "tipo": "saiu",
+            "metade": 2,
+            "parte": 0.84,
+            "nota": 0.26
+          },
+          {
+            "hora": "2026-10-21T20:15:47-03:00",
+            "lado": "outro",
+            "inicio": false,
+            "leu": null,
+            "candidatos": [],
+            "vezes": 1,
+            "quadro": null,
+            "tipo": "fechou",
+            "metade": 1,
+            "parte": 0.8
+          }
+        ]
+      },
+      "quadros": [
+        {
+          "imagemBase64": "/9j/4AAQSkZJRgABAQAAAQABAAD/wAARCAFAAUADASIAAhEBAxEB/9oACAEBAAA/AAH/2Q=="
+        },
+        {
+          "imagemBase64": "/9j/4AAQSkZJRgABAQAAAQABAAD/wAARCAFAAUADASIAAhEBAxEB/9oACAEBAAA/AAL/2Q=="
+        },
+        {
+          "imagemBase64": "/9j/4AAQSkZJRgABAQAAAQABAAD/wAARCAFAAUADASIAAhEBAxEB/9oACAEBAAA/AAP/2Q=="
+        }
+      ]
+    },
+    "conferencia": {
+      "produto": "X-Burger",
+      "etapas": [{ "v": "certo" }, { "v": "certo" }, { "v": "nada" }, null, null]
+    },
+    "tipos": ["comeco", "passo", "provisorio", "transitorio", "fechou", "vazio", "saiu"]
+  },
   "resposta": {
     "status": 201,
     "corpo": {
@@ -142,7 +242,20 @@
       1,
       6
     ],
-    "duracaoMaxima": "2 horas"
+    "duracaoMaxima": "2 horas",
+    "duracaoMaximaAoVivo": "14 horas",
+    "pecas": [
+      1,
+      8
+    ],
+    "contorno": {
+      "pedacos": 8,
+      "pontosPorPedaco": [
+        3,
+        64
+      ],
+      "coordenadaMaxima": 4096
+    }
   },
   "lados": [
     "pao",
@@ -153,6 +266,7 @@
   "origens": [
     "gravador",
     "programada",
-    "carga"
+    "carga",
+    "ao-vivo"
   ]
 }

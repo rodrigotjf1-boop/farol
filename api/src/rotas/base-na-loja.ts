@@ -37,12 +37,15 @@ export type ItemDaBase = { nome: string; visivel: boolean; quadros: QuadroDaBase
 
 /**
  * A marca da base: muda quando entra ou sai um quadro, quando um quadro muda de imagem ou quando um ingrediente passa
- * a "não se vê de cima" (ou volta). A ordem dos itens e dos quadros não muda a marca.
+ * a "não se vê de cima" (ou volta). A ordem dos itens e dos quadros não muda a marca. Os quadros do "não era
+ * ingrediente" (migration 054) entram na marca só quando há algum: a marca das lojas sem eles fica a mesma.
  */
-export function impressaoDaBaseDaLoja(itens: ItemDaBase[]): string {
-  const canonica = [...itens]
-    .map((i) => [chaveDoIngrediente(i.nome), i.visivel, [...i.quadros].map((q) => [q.id, q.sha256 ?? '']).sort((a, b) => a[0]!.localeCompare(b[0]!))] as const)
+export function impressaoDaBaseDaLoja(itens: ItemDaBase[], nada: QuadroDaBase[] = []): string {
+  const ordenados = (qs: QuadroDaBase[]) => [...qs].map((q) => [q.id, q.sha256 ?? '']).sort((a, b) => a[0]!.localeCompare(b[0]!));
+  const canonica: unknown[] = [...itens]
+    .map((i) => [chaveDoIngrediente(i.nome), i.visivel, ordenados(i.quadros)] as const)
     .sort((a, b) => a[0].localeCompare(b[0]));
+  if (nada.length) canonica.push(['__nada__', ordenados(nada)]);
   return createHash('sha256').update(JSON.stringify(canonica), 'utf8').digest('hex');
 }
 
@@ -99,7 +102,19 @@ export function rotasDaBaseNaLoja(app: FastifyInstance, pool: pg.Pool): void {
     }
     // o ingrediente sem nada a ensinar (sem quadro e visível) não desce: a loja não teria o que fazer com ele
     const itens: ItemDaBase[] = [...porChave.values()].filter((i) => i.quadros.length > 0 || !i.visivel);
-    return resposta.header('cache-control', 'no-store').send({ impressao: impressaoDaBaseDaLoja(itens), itens });
+    // o "não era ingrediente" (migration 054) desce À PARTE dos ingredientes: o juiz da loja aprende o que NÃO é
+    // comida, e o agente que ainda não sabe dele lê só os itens
+    const nada = await pool.query<{ quadros: QuadroDaBase[] | null }>(
+      `select (select jsonb_agg(jsonb_build_object('id', f.id, 'origem', f.origem, 'sha256', f.sha256, 'largura', f.largura, 'altura', f.altura)
+                                order by f.criado_em, f.id)
+                 from base_frame f join base_conhecimento b on b.id = f.base_id
+                where b.loja_id = $1 and b.tipo = 'nada' and f.imagem is not null) as quadros`,
+      [agente.lojaId],
+    );
+    const quadrosDoNada = nada.rows[0]?.quadros ?? [];
+    return resposta
+      .header('cache-control', 'no-store')
+      .send({ impressao: impressaoDaBaseDaLoja(itens, quadrosDoNada), itens, nada: { quadros: quadrosDoNada } });
   });
 
   app.get('/v1/agentes/base/quadros/:id', async (req, resposta) => {
