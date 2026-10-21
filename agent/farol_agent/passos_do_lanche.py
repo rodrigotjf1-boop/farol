@@ -25,18 +25,26 @@ e o L9 (Numero 13: cream cheese 21:12:32, alface 21:12:36, frango 21:12:46, fech
 6. **O FECHAMENTO**: o primeiro passo cujo conteúdo novo é o PAPEL em volta — a tampa saiu de cima da metade dela. Depois
    dele, nada conta (o embrulho). Antes dele, o último pendente não confirmado de cada outra metade vira um passo
    PROVISÓRIO: a carne que entra no fim fica parada um quadro só (o frango do L9).
+7. **O JUIZ DE INGREDIENTE** (quando há: `juizes.ingrediente`, a base da loja). O dono, 21/10/2026: "o recorte tem
+   sempre que ser focado em ingredientes, de preferência os cadastrados". Na primeira noite ao vivo, 35 de 112 passos
+   eram de janela SEM ingrediente — quase todos a peça indo embora (embrulhada, fechada na caixa ou levada: a janela
+   fixa passa a ver o inox, o alumínio, a tampa) e alguns de peça que não era pão. Então:
+   - a metade cujo COMEÇO não parece comida nenhuma (nem pão: nota abaixo de `comeco_min`) não é peça do lanche — sai
+     (o pano escuro do L33: 0,24; o queijo da metade que já chegou carregada fica: 0,42);
+   - o passo que não parece ingrediente não conta (`vazio`); se ele tomou `saiu_parte` da janela ou mais, com a nota
+     bem abaixo da de comida (`saiu_nota`), a peça SAIU dela, e nada depois conta (`saiu`: o fim da metade — é também o
+     fechamento no alumínio e na caixa, que a cor do papel não pega).
+   Cada passo leva o nome do ingrediente mais parecido que não é pão (o pão sai das peças) e a nota do juiz.
 
-O nome do que chegou não é deste módulo: ele entrega a hora, a metade, a parte do disco, quanto do que chegou é papel, o
-quadro e a máscara — o recorte que a comparação com os exemplos lê.
-
-**Dorme:** nada no agente chama este módulo ainda.
+O que este módulo entrega: a hora, a metade, a parte do disco, quanto do que chegou é papel, o quadro e a máscara — e,
+com o juiz, o nome e a nota.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable
+from typing import Callable, Protocol
 
 import cv2
 import numpy as np
@@ -80,6 +88,27 @@ class Parametros:
     vistos_min: int = 3
     forte: float = 0.30
     perto: float = 0.25
+    # O juiz de ingrediente (o 7 do cabeçalho): a menor nota do começo de uma peça do lanche; a parte da janela e a nota
+    # abaixo da qual o passo sem ingrediente quer dizer que a peça saiu dela. A margem até a nota de comida (0,48) é de
+    # propósito: o "saiu" corta o resto da metade. Medido: nos passos grandes da noite de 20-21/10, os sem ingrediente de
+    # 0,28 a 0,45 (um em 0,451) e os com comida de 0,51 para cima; em 18/10, a base do P7 com ovo, queijo e alface em
+    # 0,477 (fica vazio, e o resto da metade é julgado passo a passo).
+    comeco_min: float = 0.35
+    saiu_parte: float = 0.50
+    saiu_nota: float = 0.45
+
+
+class Julgado(Protocol):
+    """O que o juiz de ingrediente diz de um recorte (`juizes.ingrediente.Nota`)."""
+
+    nome: str | None
+    nota: float
+    ingrediente: str | None
+
+    def comida(self) -> bool: ...
+
+
+Juiz = Callable[[np.ndarray], Julgado]
 
 
 @dataclass(frozen=True)
@@ -96,10 +125,12 @@ class Ponto:
 @dataclass
 class Passo:
     """O que aconteceu numa metade. `tipo`: comeco (o primeiro estado parado: o pão, ou o pão que já chegou carregado),
-    passo, provisorio, transitorio (a passagem: não conta) ou fechou. `parte`: do disco da JANELA (`raio` do diâmetro do
-    pão, que pega o que passa da borda — a fatia de queijo inteira no pão é ~0,4 dele); `papel`: do que chegou, quanto é
-    papel; `quadro`: onde o que chegou aparece (o recorte); `mascara`: o que chegou, na janela da metade, na escala da
-    conta."""
+    passo, provisorio, transitorio (a passagem: não conta), fechou, e — com o juiz de ingrediente — vazio (a janela sem
+    ingrediente: não conta) e saiu (a peça saiu da janela: o fim da metade). `parte`: do disco da JANELA (`raio` do
+    diâmetro do pão, que pega o que passa da borda — a fatia de queijo inteira no pão é ~0,4 dele); `papel`: do que
+    chegou, quanto é papel; `quadro`: onde o que chegou aparece (o recorte); `mascara`: o que chegou, na janela da
+    metade, na escala da conta; `nome` e `nota`: o que o juiz viu na janela (o ingrediente mais parecido que não é pão —
+    no começo, o mais parecido de todos — e a nota da comida)."""
 
     hora: datetime
     metade: int
@@ -108,6 +139,8 @@ class Passo:
     papel: float | None
     quadro: str
     mascara: np.ndarray | None = None
+    nome: str | None = None
+    nota: float | None = None
 
 
 @dataclass(frozen=True)
@@ -301,6 +334,59 @@ class _Metade:
         self.pendente = (quadro, hora, lab, difere) if float(difere.sum()) / self.area >= p.minimo else None
 
 
+class _Olhar:
+    """O juiz de ingrediente sobre a janela das metades (o 7 do cabeçalho). O quadro aberto por último fica à mão: as
+    metades de um mesmo passo olham o mesmo quadro."""
+
+    def __init__(self, abrir: Callable[[str], np.ndarray | None], juiz: Juiz, p: Parametros) -> None:
+        self.abrir, self.juiz, self.p = abrir, juiz, p
+        self._quadro: str | None = None
+        self._img: np.ndarray | None = None
+
+    def _julgar(self, s: Passo, m: _Metade) -> Julgado | None:
+        if s.quadro != self._quadro:
+            self._quadro, self._img = s.quadro, self.abrir(s.quadro)
+        if self._img is None:
+            return None
+        corte = recorte(self._img, MetadeVista(m.k, m.cx, m.cy, m.d, m.desde), self.p)
+        if corte.shape[0] < 8 or corte.shape[1] < 8:
+            return None
+        return self.juiz(corte)
+
+    def peca(self, m: _Metade) -> bool:
+        """A metade é peça do lanche? O começo dela parece comida: o pão, ou o pão que já chegou carregado. Sem começo
+        (a metade nunca parou) ou sem o quadro, fica como está."""
+        comeco = next((s for s in m.passos if s.tipo == "comeco"), None)
+        if comeco is None:
+            return True
+        j = self._julgar(comeco, m)
+        if j is None:
+            return True
+        comeco.nome, comeco.nota = j.nome, j.nota
+        return j.nota >= self.p.comeco_min
+
+    def passos(self, m: _Metade) -> None:
+        """Os passos e os provisórios da metade, na ordem: o que não parece ingrediente não conta; o que tomou a janela
+        sem ingrediente é a peça saindo dela, e o que vem depois sai da lista."""
+        saiu: datetime | None = None
+        for s in sorted(m.passos, key=lambda s: s.hora):
+            if s.tipo not in ("passo", "provisorio"):
+                continue
+            j = self._julgar(s, m)
+            if j is None:
+                continue
+            s.nome, s.nota = j.ingrediente, j.nota
+            if j.comida():
+                continue
+            if s.parte >= self.p.saiu_parte and j.nota < self.p.saiu_nota:
+                s.tipo, saiu = "saiu", s.hora
+                break
+            s.tipo = "vazio"
+        if saiu is not None:
+            # o fechamento fica: é o do lanche (`Leitura.fechou`), mesmo quando a peça desta metade já tinha saído
+            m.passos = [s for s in m.passos if s.tipo in ("comeco", "fechou") or s.hora <= saiu]
+
+
 @dataclass
 class PassosDoLanche:
     """Os passos de UM lanche. Enquanto o lugar vive, `ver` a cada quadro (o que se viu de pão na faixa dele); no fim,
@@ -322,7 +408,9 @@ class PassosDoLanche:
         for cx, cy, d in (discos(img, x0, x1, self.p) if achados is None else achados):
             self.pontos.append(Ponto(quadro, cx, cy, d, False))
 
-    def ler(self, abrir: Callable[[str], np.ndarray | None]) -> Leitura:
+    def ler(self, abrir: Callable[[str], np.ndarray | None], juiz: Juiz | None = None) -> Leitura:
+        """As metades e os passos. Com o `juiz` de ingrediente, o 7 do cabeçalho: a peça que não é comida sai antes do
+        fechamento (o passo dela não fecha o lanche), e os passos sem ingrediente saem depois dele."""
         p = self.p
         metades = [_Metade(k + 1, g, p) for k, g in enumerate(metades_fortes(agrupar(self.pontos, p), p))]
         nomes = [q for q, _ in self.quadros]
@@ -342,7 +430,13 @@ class PassosDoLanche:
                     m.olhar(quadro, hora, img)
         for m in metades:
             m.descartar()  # o pendente do fim, que ficou sem o quadro seguinte
+        olhar = _Olhar(abrir, juiz, p) if juiz is not None else None
+        if olhar is not None:
+            metades = [m for m in metades if olhar.peca(m)]
         fechou = self._fechar(metades)
+        if olhar is not None:
+            for m in metades:
+                olhar.passos(m)
         passos = sorted((ps for m in metades for ps in m.passos), key=lambda s: (s.hora, s.metade))
         return Leitura([MetadeVista(m.k, m.cx, m.cy, m.d, m.desde) for m in metades], passos, fechou)
 

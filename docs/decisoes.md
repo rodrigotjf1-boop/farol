@@ -8990,3 +8990,68 @@ passos (a leitura de um quadro por segundo não espera), grava `AAAA-MM-DD/passo
 e anota o evento `passos` na linha do tempo. O resumo de dez minutos conta os lanches com passos e os erros. Um
 defeito nos passos não para a leitura e é dito uma vez por hora. Nada da leitura de antes muda: o lugar, a trilha e
 os eventos de sempre saem iguais (teste). As pastas saem com as do lanche (3 dias).
+
+## 21/10/2026 · O juiz de ingrediente nos passos e a base da loja no computador dela (A23.3, parte 3; A21-T5, a parte da loja; sem migration)
+
+### O que a primeira noite ao vivo mostrou
+
+O dono, 21/10, vendo os recortes dos passos: "tem momentos que não é eficaz, marca quando não tem ingredientes, tem
+cortes sem nada na imagem"; "o recorte tem sempre que ser focado em ingredientes, de preferência os cadastrados"; "só o
+corte de um tampo não identifica produto, geralmente são pares (…); somente o pão de dois cortes é a exceção e cria 3
+fatias". Na noite de 20 para 21/10 (20 lanches, 112 passos), li cada recorte: 35 sem ingrediente. A maioria é a PEÇA
+SAINDO — o lanche embrulhado, fechado na caixa ou levado: a janela da metade é fixa (ERR-137) e passa a ver o inox, o
+alumínio, a tampa da caixa. Os outros: peça que não era pão (o pano escuro, a metade no papel entre papéis), o pegador,
+a mão, o alumínio do embrulho de entrega.
+
+### O juiz
+
+- O vetor do DINOv2-small (int8, o CLS) da JANELA inteira da metade contra o protótipo de cada ingrediente cadastrado
+  da loja: a média dos exemplos de UM nome só, dos ingredientes que se veem de cima. A nota é o cosseno com o mais
+  parecido. Nada do piloto no motor: os protótipos são da base de cada loja.
+- Medido nos 112: com comida, 0,50 a 0,74; sem ingrediente, 0,21 a 0,55. Com 0,48: 110 de 112 certos e nenhum passo
+  com comida cortado (os 2 que passam têm bacon na borda). A janela inteira ganhou do recorte só do que chegou (105 de
+  112) e do recorte da máscara (59).
+- As regras no motor (`passos_do_lanche`, o 7 do cabeçalho):
+  - a metade cujo COMEÇO tem nota abaixo de 0,35 sai (não é peça do lanche). O pano escuro do L33 deu 0,24; o queijo
+    da metade que já chegou carregada, 0,42 — por isso o limite do começo é mais baixo que o da comida;
+  - o passo abaixo de 0,48 não conta (`vazio`). Se ele tomou metade da janela ou mais, com nota abaixo de 0,45, a peça
+    SAIU dela (`saiu`): o fim da metade, e nada depois conta — é também o fechamento no alumínio e na caixa, que a cor
+    do papel não pega. A margem de 0,45 a 0,48 é de propósito, porque o "saiu" corta o resto da metade: nos passos
+    grandes de 20-21/10, os sem ingrediente foram até 0,451 e os com comida começaram em 0,51; em 18/10, a base do P7
+    (ovo, queijo e alface) deu 0,477 — fica vazio, e o resto da metade é julgado passo a passo;
+  - cada passo leva o nome mais parecido que não é pão (o pão sai das peças) e a nota; o começo, o mais parecido de
+    todos.
+- Os gabaritos do dono de 18/10 continuam inteiros: o P7 (Numero 11 com ovo) e o L9 (Numero 13) com todos os passos e o
+  fechamento. Naquela noite o juiz tira 12 passos: 10 sem ingrediente (o saco da alface, o sanduíche já embrulhado, o
+  papel pardo, o inox), o pegador sobre o ovo e a base do P7 na junção das peças (0,477, vazio).
+- O nome ainda erra (a alface do L9 sai "Bacon"): ele é o palpite que a conferência por passo vai corrigir.
+
+### A base da loja no computador dela (A21, T5 — a parte da loja)
+
+- `base_da_loja`: a lista (`GET /v1/agentes/base`) e só os quadros que faltam (`/v1/agentes/base/quadros/:id`),
+  guardados pelo sha256. O que chega com outro resumo não fica; o 404 é o quadro que saiu da base no caminho; o que saiu
+  da lista sai do disco. Desce com a loja FECHADA, a cada 6 horas (a internet da loja é a dos pedidos); sem horário
+  cadastrado não desce, e o registro diz uma vez. À mão: `farol-agent ingredientes base --nuvem …`. O teste confere
+  contra `contratos/base-de-conhecimento.json`.
+- O juiz da loja se monta da base em disco e se refaz quando a impressão dela muda. Os vetores dos quadros ficam
+  guardados ao lado: o modelo só olha o quadro novo.
+
+### Como liga
+
+- `FAROL_BANCADA_INGREDIENTES=1`, junto com os passos e os quadros guardados. Precisa do modelo na pasta dos modelos
+  (`FAROL_MODELOS`): `farol-agent ingredientes instalar` baixa o `onnx/model_int8.onnx` do `onnx-community/dinov2-small`
+  no commit `8b1f705`, conferido pelo sha256 (`dfce54a8…`, 24 MB; o `facebook/dinov2-small` é Apache-2.0). Precisa
+  também da base, que desce na primeira volta com a loja fechada. Sem um dos dois, os passos seguem como antes, e o
+  registro diz por quê, uma vez.
+- O modelo roda em 2 linhas do processador (o computador é também o servidor do Regem): ~10 recortes por lanche, a
+  ~61 ms cada (A23.1), numa linha à parte depois do embrulho.
+- O `passos.json` e o evento `passos` ganham `juiz`; o evento diz quantos passos ficaram `vazios` e quantas peças
+  `saiu`. Sem o juiz, nada muda (teste).
+
+### O que fica para depois
+
+- os PARES do dono: lanche = 2 peças (3 só no pão de dois cortes), 4 peças = dois lanches, 1 = incompleto — medidos com
+  o canal 7 sincronizado (a vista de lado da montagem; a noite de 21/10 desce depois do fechamento: a de 20/10 o canal
+  7 gravou tela preta);
+- a peça que sai inteira para outro lugar (a caixa empurrada do lanche 7 de 21/10) seguida, em vez de terminar;
+- a conferência por passo no console (protótipo aprovado em 20/10).

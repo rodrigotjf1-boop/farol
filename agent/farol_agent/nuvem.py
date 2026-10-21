@@ -146,6 +146,14 @@ class ClienteNuvem:
         """A imagem de uma foto de equipamento desta loja, para a análise única dela."""
         return self._buscar("GET", f"/v1/agentes/inventario/fotos/{foto_id}", None, aceita="image/*")
 
+    def base_da_loja(self) -> dict[str, Any]:
+        """A lista da base de conhecimento desta loja: `{impressao, itens}` (A21, T5; `contratos/base-de-conhecimento.json`)."""
+        return self._pedir("GET", "/v1/agentes/base")
+
+    def quadro_da_base(self, quadro_id: str) -> bytes:
+        """A imagem de um quadro da base desta loja (o quadro de um id nunca muda de imagem). 404 = saiu da base."""
+        return self._buscar("GET", f"/v1/agentes/base/quadros/{quadro_id}", None, aceita="image/*")
+
     def gravacoes_de_treino(self) -> dict[str, Any]:
         """O que a loja tem de ler e o que ela já pode apagar: `{gravacoes, apagar}` (A21, T3)."""
         return self._pedir("GET", "/v1/agentes/treino/gravacoes")
