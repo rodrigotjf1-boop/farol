@@ -9055,3 +9055,34 @@ a mão, o alumínio do embrulho de entrega.
   7 gravou tela preta);
 - a peça que sai inteira para outro lugar (a caixa empurrada do lanche 7 de 21/10) seguida, em vez de terminar;
 - a conferência por passo no console (protótipo aprovado em 20/10).
+
+## 21/10/2026 · A conferência por passo, parte 1: a nuvem recebe o lanche por passos e aprende o "não era ingrediente" (A23.3; migration 054)
+
+O dono, 21/10, sobre os erros do juiz de ingrediente: "esses erros estão saindo como aprendizado para o agente?" — e,
+quando eu disse que começaria no dia seguinte, "por que não começa hoje?". Até aqui o aprendizado ia num sentido só:
+o que se confirma no console desce para a loja; os passos que o juiz lê ao vivo ficavam no computador da loja, sem
+ninguém conferir. O protótipo "conferência por passo" (aprovado em 20/10) fecha o ciclo em três partes: a nuvem
+(esta), a tela, e o agente mandando a noite. Esta parte não muda nada do que já existe:
+
+- **A noite ao vivo é uma gravação de treino de origem `ao-vivo`** (até 14 horas: a noite mais longa da loja piloto,
+  de sexta e sábado, tem 10 h 45 min). Nasce `pronta`: não há nada a buscar no gravador, e a loja não a recebe na lista
+  do que ler. Os lanches dela chegam pelo MESMO caminho dos da gravação de treino (`POST /v1/agentes/treino/lanches`),
+  e a conferência é a mesma — a por etapa (Certo / Era outro / Não era ingrediente), que já existia.
+- **A etapa ganha campos opcionais**, todos conferidos quando vêm: `tipo` do passo (começo, passo, provisório,
+  passagem, fechou, vazio, saiu), `metade`, `parte`, `nota` do juiz e `contorno` do que chegou; o lanche, `pecas`. Sem
+  eles, a etapa é como sempre foi (teste). A tela sabe que é um lanche por passos (`porPassos`).
+- **Só o que entrou é evidência**: o palpite da ficha, a fila e o "sem leitura" contam o começo, o passo e o
+  provisório; o vazio, a peça saindo, a passagem e o fechamento não somam nem tiram (teste: o palpite é o mesmo sem
+  eles). O passo vazio, e o passo com nota do juiz abaixo de 0,55, põem o lanche na DÚVIDA — o começo da fila: é onde a
+  conferência mais ensina, e quem confere vê primeiro o que o juiz não tem certeza.
+- **"Não era ingrediente" vira exemplo** do que NÃO é ingrediente (`base_conhecimento` tipo `nada`, um item por loja,
+  "Não é ingrediente"): só no PASSO, cujo quadro é a janela da metade — o mesmo recorte que o juiz da loja compara. Na
+  conferência de sempre, o quadro é o lanche inteiro, e "não era" ali não é exemplo de nada (o teste antigo continua).
+  Conferir de novo troca esses exemplos com os outros. O "nada" não aparece entre os ingredientes da loja.
+- **A base que desce para a loja ganha `nada.quadros`**, À PARTE dos itens: o agente de hoje lê só os itens e não é
+  afetado; o próximo pacote monta com eles o protótipo do "nada", e o juiz passa a separar o inox, o alumínio do
+  delivery e a tampa da caixa (os erros da faixa 0,45–0,48). A marca da base só muda quando há algum "nada": a das
+  lojas sem ele fica a mesma (teste).
+
+Os contratos `lanche-de-treino.json` (o exemplo `porPassos`, os limites novos) e `base-de-conhecimento.json` (o
+`nada`) dizem tudo isso; os testes da API leem os dois.

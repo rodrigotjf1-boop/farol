@@ -24,6 +24,7 @@ import {
   aprendizado,
   ensinoDasEtapas,
   exemplosDaConferencia,
+  exemplosDeNada,
   fotosDoLanche,
   lerConferencia,
   lerLancheDeTreino,
@@ -31,7 +32,9 @@ import {
   motivoDoLanche,
   palpiteQueVale,
   palpitesDoLanche,
+  passoDeDuvida,
   semLeitura,
+  TIPOS_DO_PASSO,
   vezesNaFicha,
   vistosDaConferencia,
   type ConferenciaPorFoto,
@@ -44,6 +47,15 @@ const CONTRATO = JSON.parse(readFileSync(new URL('../../contratos/lanche-de-trei
 const BASE = (JSON.parse(readFileSync(new URL('../../contratos/fichas-da-loja.json', import.meta.url), 'utf8')) as { resposta: { base: Base } }).resposta.base;
 const copia = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 const CORPO = () => copia(CONTRATO.corpo);
+/** O lanche lido POR PASSOS (A23.3, migration 054): a noite ao vivo, os passos com a metade, a nota e o contorno. */
+const POR_PASSOS = (JSON.parse(readFileSync(new URL('../../contratos/lanche-de-treino.json', import.meta.url), 'utf8')) as {
+  porPassos: {
+    corpo: { gravacao: Record<string, unknown>; lanche: { chave: string; etapas: EtapaLida[] } & Record<string, unknown>; quadros: { imagemBase64: string }[] };
+    conferencia: { produto: string; etapas: Array<{ v: string } | null> };
+    tipos: string[];
+  };
+}).porPassos;
+const CORPO_POR_PASSOS = () => copia(POR_PASSOS.corpo);
 const ETAPAS = CONTRATO.corpo.lanche.etapas;
 const NOMES = ['Pão brioche', 'Blend da casa', 'Queijo prato', 'Cebola roxa', 'Sal', 'Bacon fatiado', 'Ovo frito'];
 
@@ -328,6 +340,85 @@ describe('a conferência por foto (sem banco)', () => {
     const estranho = nada.map((e, i) => (i === 1 ? { ...e, leu: 'molho verde' } : e));
     assert.equal(semLeitura(estranho), false);
     assert.equal(palpiteQueVale(palpitesDoLanche(estranho, BASE)), null);
+  });
+});
+
+describe('o lanche lido por passos (sem banco)', () => {
+  const lido = () => {
+    const l = lerLancheDeTreino(CORPO_POR_PASSOS());
+    assert.ok(!('problema' in l), JSON.stringify(l));
+    return l;
+  };
+
+  it('os campos novos entram, conferidos; a leitura de sempre fica como era', () => {
+    const l = lido();
+    assert.equal(l.gravacao.origem, 'ao-vivo');
+    assert.equal(l.lanche.pecas, 2);
+    const [comeco, passo, vazio, saiu, fechou] = l.lanche.etapas;
+    assert.deepEqual([comeco!.tipo, comeco!.metade, comeco!.nota], ['comeco', 1, 0.64]);
+    assert.deepEqual([passo!.tipo, passo!.metade, passo!.parte, passo!.nota], ['passo', 2, 0.24, 0.66]);
+    assert.deepEqual(passo!.contorno, [[[12, 10], [140, 18], [96, 150]]]);
+    assert.deepEqual([vazio!.tipo, saiu!.tipo, fechou!.tipo], ['vazio', 'saiu', 'fechou']);
+    assert.deepEqual(POR_PASSOS.tipos, [...TIPOS_DO_PASSO], 'o contrato e a API dizem os mesmos tipos');
+    const antiga = lerLancheDeTreino(CORPO());
+    assert.ok(!('problema' in antiga));
+    assert.equal(antiga.lanche.pecas, null);
+    assert.ok(antiga.lanche.etapas.every((e) => !('tipo' in e) && !('metade' in e) && !('nota' in e)), 'nada novo na leitura de sempre');
+  });
+
+  it('recusa o passo torto, dizendo onde; a noite ao vivo vai até 14 horas, a de treino até 2', () => {
+    const passo = (c: ReturnType<typeof CORPO_POR_PASSOS>) => c.lanche.etapas[1] as unknown as Record<string, unknown>;
+    const casos: Array<[(c: ReturnType<typeof CORPO_POR_PASSOS>) => void, RegExp]> = [
+      [(c) => (passo(c).tipo = 'pulou'), /etapas\[1\]\.tipo/],
+      [(c) => (passo(c).metade = 0), /etapas\[1\]\.metade/],
+      [(c) => (passo(c).metade = 9), /etapas\[1\]\.metade/],
+      [(c) => (passo(c).nota = 1.2), /etapas\[1\]\.nota/],
+      [(c) => (passo(c).parte = -0.1), /etapas\[1\]\.parte/],
+      [(c) => (passo(c).contorno = [[[1, 2], [3, 4]]]), /etapas\[1\]\.contorno/],
+      [(c) => (passo(c).contorno = [[[1, 2], [3, 4], [5000, 6]]]), /etapas\[1\]\.contorno/],
+      [(c) => (passo(c).contorno = [[[1.5, 2], [3, 4], [5, 6]]]), /etapas\[1\]\.contorno/],
+      [(c) => ((c.lanche as Record<string, unknown>).pecas = 9), /lanche\.pecas/],
+      [(c) => (c.gravacao.fim = '2026-10-22T09:30:00-03:00'), /no máximo 14 horas/],
+      [(c) => (c.gravacao.origem = 'carga'), /no máximo 2 horas/],
+    ];
+    for (const [estraga, onde] of casos) {
+      const c = CORPO_POR_PASSOS();
+      estraga(c);
+      const r = lerLancheDeTreino(c);
+      assert.ok('problema' in r, `devia recusar: ${onde}`);
+      assert.match(r.problema, onde);
+    }
+  });
+
+  it('só o que entrou conta no palpite; o vazio e a nota baixa põem o lanche na dúvida', () => {
+    const etapas = lido().lanche.etapas;
+    const p = palpitesDoLanche(etapas, BASE);
+    // o vazio, a peça saindo e o fechamento não somam nem tiram: o palpite é o mesmo só com o começo e o passo
+    const soOQueEntrou = palpitesDoLanche(etapas.slice(0, 2), BASE);
+    assert.deepEqual(p.map((x) => [x.produto, x.nota, x.batem, x.fora]), soOQueEntrou.map((x) => [x.produto, x.nota, x.batem, x.fora]));
+    assert.equal(motivoDoLanche(etapas, p[0]), 'duvida');
+    assert.equal(passoDeDuvida(etapas[2]!), true);
+    const semVazio = etapas.filter((e) => e.tipo !== 'vazio');
+    assert.notEqual(motivoDoLanche(semVazio, palpitesDoLanche(semVazio, BASE)[0]), 'duvida', 'sem o vazio e com nota boa, não é dúvida');
+    const notaBaixa = copia(semVazio);
+    notaBaixa[1]!.nota = 0.5;
+    assert.equal(motivoDoLanche(notaBaixa, palpitesDoLanche(notaBaixa, BASE)[0]), 'duvida', 'o passo com nota abaixo de 0,55 também');
+    const comecoBaixo = copia(semVazio);
+    comecoBaixo[0]!.nota = 0.4;
+    assert.notEqual(motivoDoLanche(comecoBaixo, palpitesDoLanche(comecoBaixo, BASE)[0]), 'duvida', 'o começo (o pão) não entra na dúvida pela nota');
+    assert.equal(semLeitura(etapas), false);
+  });
+
+  it('o "não era ingrediente" vira exemplo só no passo (o quadro é a janela da metade); na leitura de sempre, não', () => {
+    const etapas = lido().lanche.etapas;
+    const c = lerConferencia(POR_PASSOS.conferencia, etapas, BASE);
+    assert.ok(!('problema' in c), JSON.stringify(c));
+    assert.deepEqual(exemplosDeNada(etapas, c), [{ etapa: 2, quadro: 2 }]);
+    assert.deepEqual(exemplosDaConferencia(etapas, c, NOMES).map((e) => [e.nome, e.quadro]), [['Pão brioche', 0], ['Blend da casa', 1]]);
+    // a mesma conta na leitura de sempre: "nada" na etapa 1 (o quadro é o lanche inteiro) não é exemplo
+    const antiga = lerConferencia({ produto: 'X-Burger', etapas: [null, { v: 'nada' }, null, null, null, null] }, ETAPAS, BASE);
+    assert.ok(!('problema' in antiga), JSON.stringify(antiga));
+    assert.deepEqual(exemplosDeNada(ETAPAS, antiga), []);
   });
 });
 
@@ -669,5 +760,40 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     const r = await conferir(id, { versao: 2, produto: 'X-Burger', fotos: d.fotos.map(() => ({ marcados: [], ruim: false, obs: null })) });
     assert.equal(r.statusCode, 200, r.body);
     assert.deepEqual([r.json().palpite, r.json().acertou, r.json().exemplos], [null, false, 0]);
+  });
+
+  it('a noite ao vivo: o lanche por passos entra; a conferência por passo ensina, e o "não era ingrediente" vira exemplo de nada', async () => {
+    const r = await mandar(CORPO_POR_PASSOS());
+    assert.equal(r.statusCode, 201, r.body);
+    const id = r.json().lancheId as string;
+    const g = (await pool.query('select origem, situacao from treino_gravacao where id = $1', [r.json().gravacaoId])).rows[0];
+    assert.deepEqual([g.origem, g.situacao], ['ao-vivo', 'pronta'], 'a noite ao vivo nasce pronta: nada a buscar no gravador');
+    // a loja não tem o que ler dela no gravador
+    const aLer = (await app.inject({ method: 'GET', url: '/v1/agentes/treino/gravacoes', headers: { authorization: `Bearer ${token}` } })).json();
+    assert.ok(!aLer.gravacoes.some((x: { id: string }) => x.id === r.json().gravacaoId));
+
+    const d = (await umLanche(id)).json();
+    assert.deepEqual([d.porPassos, d.pecas, d.motivo], [true, 2, 'duvida'], 'o vazio põe o lanche na dúvida');
+    assert.deepEqual(d.etapas.map((e: EtapaLida) => e.tipo), ['comeco', 'passo', 'vazio', 'saiu', 'fechou']);
+    assert.deepEqual(d.etapas[1].contorno, [[[12, 10], [140, 18], [96, 150]]]);
+    assert.ok(d.etapas[2].quadroId, 'o recorte do vazio sobe, para conferir');
+    const naLista = (await lista()).json().lanches.find((y: { id: string }) => y.id === id);
+    assert.deepEqual([naLista.porPassos, naLista.pecas], [true, 2]);
+
+    const c = await conferir(id, POR_PASSOS.conferencia, cookieSupervisao);
+    assert.equal(c.statusCode, 200, c.body);
+    assert.deepEqual([c.json().exemplos, c.json().nada], [2, 1]);
+    const ex = await pool.query(
+      `select b.nome, b.tipo, f.etapa from base_frame f join base_conhecimento b on b.id = f.base_id where f.lanche_id = $1 order by f.etapa`,
+      [id],
+    );
+    assert.deepEqual(ex.rows.map((x) => [x.nome, x.tipo, x.etapa]), [['Pão brioche', 'item', 0], ['Blend da casa', 'item', 1], ['Não é ingrediente', 'nada', 2]]);
+    // conferir de novo troca os exemplos, o de "nada" junto
+    const deNovo = await conferir(id, { ...POR_PASSOS.conferencia, etapas: [{ v: 'certo' }, { v: 'certo' }, null, null, null] }, cookieSupervisao);
+    assert.deepEqual([deNovo.json().exemplos, deNovo.json().nada], [2, 0]);
+    assert.equal((await pool.query(`select count(*)::int as n from base_frame where lanche_id = $1`, [id])).rows[0].n, 2);
+    // o "nada" não é um ingrediente da loja
+    const ing = (await app.inject({ method: 'GET', url: `/v1/lojas/${lojaId}/ingredientes`, headers: { cookie } })).json();
+    assert.ok(!ing.ingredientes.some((i: { nome: string }) => i.nome === 'Não é ingrediente'));
   });
 });

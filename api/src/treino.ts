@@ -28,7 +28,8 @@ export { vezesNaFicha } from './estudo-das-fichas.js';
 
 export const LADOS = ['pao', 'tampo', 'base', 'outro'] as const;
 export type Lado = (typeof LADOS)[number];
-export const ORIGENS = ['gravador', 'programada', 'carga'] as const;
+/** `ao-vivo` (migration 054): a noite da leitura ao vivo de uma bancada — os lanches com os passos (A23.3). */
+export const ORIGENS = ['gravador', 'programada', 'carga', 'ao-vivo'] as const;
 
 export const MAX_ETAPAS = 60;
 export const MAX_QUADROS = 40;
@@ -36,6 +37,27 @@ export const MAX_BYTES_DO_QUADRO = 300_000;
 export const MAX_CANDIDATOS = 12;
 /** Uma gravação de treino vai de 15 minutos a 1 hora; a conta aceita até 2 horas, para a carga das leituras antigas. */
 export const MAX_DURACAO_MS = 2 * 3600_000;
+/** A noite ao vivo vai da abertura ao fechamento: a mais longa da loja piloto, de sexta e sábado, tem 10 h 45 min. */
+export const MAX_DURACAO_AO_VIVO_MS = 14 * 3600_000;
+
+/**
+ * O passo de uma metade do pão, como a leitura ao vivo o leu (A23.3, `agent/farol_agent/passos_do_lanche.py`): o
+ * começo (a peça no primeiro instante parado), o passo, o provisório (parado um quadro só antes do fechamento), a
+ * passagem (a mão que pousou e saiu), o fechamento, e — com o juiz de ingrediente — o vazio (a janela sem ingrediente)
+ * e o "saiu" (a peça saiu da janela: embrulhada, fechada na caixa ou levada).
+ */
+export const TIPOS_DO_PASSO = ['comeco', 'passo', 'provisorio', 'transitorio', 'fechou', 'vazio', 'saiu'] as const;
+export type TipoDoPasso = (typeof TIPOS_DO_PASSO)[number];
+/** Os passos que são evidência do que entrou no lanche (o palpite, a fila); o resto é movimento ou o fim da peça. */
+const EVIDENCIA: ReadonlySet<string> = new Set(['comeco', 'passo', 'provisorio']);
+/** A nota do juiz abaixo da qual o passo é de dúvida: o lanche vai para o começo da fila. */
+export const NOTA_DE_DUVIDA = 0.55;
+/** O contorno do que chegou: até 8 pedaços, de 3 a 64 pontos, em pixels do quadro (até 4096). */
+export const MAX_PEDACOS_DO_CONTORNO = 8;
+export const MAX_PONTOS_DO_PEDACO = 64;
+export const MAX_PECAS = 8;
+/** O nome do item da base que guarda o "não era ingrediente" (migration 054: tipo `nada`). */
+export const NOME_DO_NADA = 'Não é ingrediente';
 /** Decisão do dono (15/10/2026): o quadro da etapa sai 30 dias depois da conferência. */
 export const DIAS_DOS_QUADROS = 30;
 /** A meta proposta e aprovada (15/10/2026): o lanche certo em 9 de cada 10, com pelo menos 30 conferidos. */
@@ -54,13 +76,46 @@ export type EtapaLida = {
   vezes: number;
   /** O índice do quadro da etapa em `quadros`. Nulo = sem quadro. */
   quadro: number | null;
+  // ── o lanche lido por passos (A23.3), opcional: a leitura da gravação de treino não manda ──
+  /** O tipo do passo (`TIPOS_DO_PASSO`). Sem ele, a etapa é como sempre foi. */
+  tipo?: TipoDoPasso;
+  /** A metade do pão em que o passo aconteceu (1, 2, 3…): o quadro da etapa é a janela dela. */
+  metade?: number;
+  /** Quanto da janela da metade mudou (0 a 1). */
+  parte?: number;
+  /** A nota do juiz de ingrediente (0 a 1): o quanto o recorte parece o ingrediente lido. */
+  nota?: number;
+  /** O contorno do que chegou, em pixels do quadro da etapa: o tracejado da conferência. */
+  contorno?: number[][][];
 };
 
 export type LancheLido = {
   gravacao: { chave: string; pontoId: string | null; inicio: string; fim: string; origem: (typeof ORIGENS)[number] };
-  lanche: { chave: string; abertoEm: string | null; fechouEm: string | null; etapas: EtapaLida[] };
+  /** `pecas` (A23.3): quantas metades do pão a leitura achou — o pão pelas peças (3 = o pão de dois cortes). */
+  lanche: { chave: string; abertoEm: string | null; fechouEm: string | null; etapas: EtapaLida[]; pecas: number | null };
   quadros: Array<{ bytes: Buffer; largura: number; altura: number }>;
 };
+
+/** A etapa é evidência do que entrou no lanche? A sem tipo (a leitura de sempre) é; o passo, o começo e o provisório
+ * também; o vazio, o "saiu", a passagem e o fechamento, não. */
+export const contaComoEvidencia = (e: EtapaLida): boolean => e.tipo === undefined || EVIDENCIA.has(e.tipo);
+
+function lerContorno(v: unknown): number[][][] | null {
+  if (!Array.isArray(v) || v.length > MAX_PEDACOS_DO_CONTORNO) return null;
+  const saida: number[][][] = [];
+  for (const pedaco of v) {
+    if (!Array.isArray(pedaco) || pedaco.length < 3 || pedaco.length > MAX_PONTOS_DO_PEDACO) return null;
+    const pontos: number[][] = [];
+    for (const p of pedaco) {
+      if (!Array.isArray(p) || p.length !== 2 || !p.every((x) => Number.isInteger(x) && x >= 0 && x <= 4096)) return null;
+      pontos.push([p[0] as number, p[1] as number]);
+    }
+    saida.push(pontos);
+  }
+  return saida;
+}
+
+const fracao = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ehData = (v: unknown): v is string => typeof v === 'string' && v.length <= 40 && !Number.isNaN(Date.parse(v));
@@ -75,14 +130,20 @@ export function lerLancheDeTreino(corpo: unknown): LancheLido | { problema: stri
     return { problema: 'gravacao.pontoId: o id do canal, ou nulo' };
   }
   if (!ehData(g.inicio) || !ehData(g.fim)) return { problema: 'gravacao.inicio e gravacao.fim: data e hora com fuso' };
-  const duracao = Date.parse(g.fim) - Date.parse(g.inicio);
-  if (!(duracao > 0) || duracao > MAX_DURACAO_MS) return { problema: 'gravacao: o fim depois do início, e no máximo 2 horas' };
   if (!ORIGENS.includes(g.origem as (typeof ORIGENS)[number])) return { problema: `gravacao.origem: ${ORIGENS.join(', ')}` };
+  const duracao = Date.parse(g.fim) - Date.parse(g.inicio);
+  const aoVivo = g.origem === 'ao-vivo';
+  if (!(duracao > 0) || duracao > (aoVivo ? MAX_DURACAO_AO_VIVO_MS : MAX_DURACAO_MS)) {
+    return { problema: `gravacao: o fim depois do início, e no máximo ${aoVivo ? 14 : 2} horas` };
+  }
 
   const l = c.lanche ?? {};
   if (!texto(l.chave, 120)) return { problema: 'lanche.chave: um texto de até 120 letras' };
   for (const campo of ['abertoEm', 'fechouEm'] as const) {
     if (l[campo] !== undefined && l[campo] !== null && !ehData(l[campo])) return { problema: `lanche.${campo}: data e hora, ou nulo` };
+  }
+  if (l.pecas !== undefined && l.pecas !== null && !(Number.isInteger(l.pecas) && (l.pecas as number) >= 1 && (l.pecas as number) <= MAX_PECAS)) {
+    return { problema: `lanche.pecas: de 1 a ${MAX_PECAS}, ou nulo` };
   }
   if (!Array.isArray(l.etapas) || l.etapas.length === 0 || l.etapas.length > MAX_ETAPAS) {
     return { problema: `lanche.etapas: de 1 a ${MAX_ETAPAS}` };
@@ -115,7 +176,7 @@ export function lerLancheDeTreino(corpo: unknown): LancheLido | { problema: stri
     if (e.quadro !== null && !(Number.isInteger(e.quadro) && (e.quadro as number) >= 0 && (e.quadro as number) < quadros.length)) {
       return { problema: `etapas[${i}].quadro: o índice de um quadro mandado, ou nulo` };
     }
-    etapas.push({
+    const etapa: EtapaLida = {
       hora: e.hora,
       lado: e.lado as Lado,
       inicio: e.inicio,
@@ -123,11 +184,41 @@ export function lerLancheDeTreino(corpo: unknown): LancheLido | { problema: stri
       candidatos: [...new Set((e.candidatos as string[]).map((n) => n.trim()))],
       vezes: e.vezes as number,
       quadro: e.quadro as number | null,
-    });
+    };
+    // o lanche lido por passos (A23.3): tudo opcional, e conferido quando vem
+    if (e.tipo !== undefined) {
+      if (!TIPOS_DO_PASSO.includes(e.tipo as TipoDoPasso)) return { problema: `etapas[${i}].tipo: ${TIPOS_DO_PASSO.join(', ')}` };
+      etapa.tipo = e.tipo as TipoDoPasso;
+    }
+    if (e.metade !== undefined) {
+      if (!(Number.isInteger(e.metade) && (e.metade as number) >= 1 && (e.metade as number) <= MAX_PECAS)) {
+        return { problema: `etapas[${i}].metade: de 1 a ${MAX_PECAS}` };
+      }
+      etapa.metade = e.metade as number;
+    }
+    for (const campo of ['parte', 'nota'] as const) {
+      if (e[campo] === undefined || e[campo] === null) continue;
+      if (!fracao(e[campo])) return { problema: `etapas[${i}].${campo}: de 0 a 1, ou nulo` };
+      etapa[campo] = Math.round((e[campo] as number) * 1000) / 1000;
+    }
+    if (e.contorno !== undefined && e.contorno !== null) {
+      const contorno = lerContorno(e.contorno);
+      if (!contorno) {
+        return { problema: `etapas[${i}].contorno: até ${MAX_PEDACOS_DO_CONTORNO} pedaços de 3 a ${MAX_PONTOS_DO_PEDACO} pontos [x, y], em pixels do quadro` };
+      }
+      if (contorno.length) etapa.contorno = contorno;
+    }
+    etapas.push(etapa);
   }
   return {
     gravacao: { chave: g.chave.trim(), pontoId: (g.pontoId as string | null | undefined) ?? null, inicio: g.inicio, fim: g.fim, origem: g.origem as (typeof ORIGENS)[number] },
-    lanche: { chave: l.chave.trim(), abertoEm: (l.abertoEm as string | null | undefined) ?? null, fechouEm: (l.fechouEm as string | null | undefined) ?? null, etapas },
+    lanche: {
+      chave: l.chave.trim(),
+      abertoEm: (l.abertoEm as string | null | undefined) ?? null,
+      fechouEm: (l.fechouEm as string | null | undefined) ?? null,
+      etapas,
+      pecas: (l.pecas as number | null | undefined) ?? null,
+    },
     quadros,
   };
 }
@@ -182,12 +273,14 @@ export const PLAUSIVEL = { distancia: 2.5, maximo: 4, minimo: 2 } as const;
  * marcados "não se vê de cima" — não entram na conta. `estudo`: o das fichas de hoje, quando quem chama já o tem.
  */
 export function palpitesDoLanche(
-  etapas: EtapaLida[],
+  todas: EtapaLida[],
   base: Base | null,
   invisiveis: Set<string> = new Set(),
   estudo: Estudo = estudarFichas(base, invisiveis),
 ): Palpite[] {
   if (!base) return [];
+  // no lanche lido por passos, só o que entrou conta: a passagem, o vazio, a peça saindo e o fechamento não
+  const etapas = todas.filter(contaComoEvidencia);
   const visto = oQueFoiVisto(etapas);
   const palpites: Palpite[] = [];
   // o nome de cada família (o primeiro produto): "também vai no Shoyo"
@@ -258,7 +351,7 @@ export function palpiteQueVale(palpites: Palpite[]): Palpite | null {
 
 /** Nenhuma etapa do lanche tem leitura: é como a conferência chega antes da identificação dos ingredientes (T3c-3). */
 export function semLeitura(etapas: EtapaLida[]): boolean {
-  return etapas.every((e) => e.leu === null && e.candidatos.length === 0);
+  return etapas.filter(contaComoEvidencia).every((e) => e.leu === null && e.candidatos.length === 0);
 }
 
 /** Um palpite por família — o primeiro de cada (as opções de "Qual lanche era?" são lanches que a bancada separa). */
@@ -609,10 +702,35 @@ export function aprendizado(conferidos: Array<{ etapas: EtapaLida[]; conferencia
 export const MOTIVOS = ['coberto', 'duvida', 'diferenca', 'certo'] as const;
 export type Motivo = (typeof MOTIVOS)[number];
 
-/** Por que o lanche está na fila — e a ordem dela: o coberto e a dúvida primeiro. */
-export function motivoDoLanche(etapas: EtapaLida[], melhor: Palpite | undefined): Motivo {
+/**
+ * Por que o lanche está na fila — e a ordem dela: o coberto e a dúvida primeiro. No lanche lido por passos, também é
+ * dúvida o passo que o juiz de ingrediente tirou (vazio) ou leu com nota baixa: é onde a conferência mais ensina.
+ */
+export function motivoDoLanche(todas: EtapaLida[], melhor: Palpite | undefined): Motivo {
+  const etapas = todas.filter(contaComoEvidencia);
   if (etapas.some((e) => e.leu === null && e.candidatos.length === 0)) return 'coberto';
-  if (etapas.some((e) => e.candidatos.length > 1)) return 'duvida';
+  if (etapas.some((e) => e.candidatos.length > 1) || todas.some(passoDeDuvida)) return 'duvida';
   if (!melhor || melhor.batem < melhor.total || melhor.fora > 0) return 'diferenca';
   return 'certo';
+}
+
+/** O passo que o juiz tirou (vazio), ou o passo e o provisório lidos com nota abaixo de `NOTA_DE_DUVIDA`. */
+export const passoDeDuvida = (e: EtapaLida): boolean =>
+  e.tipo === 'vazio' || ((e.tipo === 'passo' || e.tipo === 'provisorio') && e.nota !== undefined && e.nota < NOTA_DE_DUVIDA);
+
+/**
+ * O "não era ingrediente" que vira exemplo (migration 054): o passo do lanche lido por passos (o quadro dele é a janela
+ * da metade, o mesmo recorte que o juiz da loja compara) que a pessoa marcou "não era ingrediente". A etapa da leitura
+ * de sempre não entra: o quadro dela é o lanche inteiro, e "não era" ali não é exemplo de nada. O mesmo quadro, uma vez.
+ */
+export function exemplosDeNada(etapas: EtapaLida[], conferencia: Conferencia): Array<{ etapa: number; quadro: number }> {
+  if (porFoto(conferencia)) return [];
+  const saida: Array<{ etapa: number; quadro: number }> = [];
+  const ja = new Set<number>();
+  etapas.forEach((e, i) => {
+    if (e.metade === undefined || e.quadro === null || conferencia.etapas[i]?.v !== 'nada' || ja.has(e.quadro)) return;
+    ja.add(e.quadro);
+    saida.push({ etapa: i, quadro: e.quadro });
+  });
+  return saida;
 }

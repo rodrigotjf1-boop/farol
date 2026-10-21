@@ -48,6 +48,7 @@ import {
   aprendizado,
   DIAS_DOS_QUADROS,
   exemplosDaConferencia,
+  exemplosDeNada,
   exemplosForaDasFichas,
   fotosDoLanche,
   lerConferencia,
@@ -55,6 +56,7 @@ import {
   META,
   motivoDoLanche,
   MOTIVOS,
+  NOME_DO_NADA,
   palpiteQueVale,
   palpitesDoLanche,
   semLeitura,
@@ -92,7 +94,8 @@ type LinhaDoLanche = {
   gravacao_id: string;
   aberto_em: Date | null;
   fechou_em: Date | null;
-  leitura: { etapas: EtapaLida[] };
+  /** `pecas`: no lanche lido por passos (A23.3), quantas metades do pão a leitura achou. */
+  leitura: { etapas: EtapaLida[]; pecas?: number };
   situacao: 'conferir' | 'conferido' | 'pulado';
   resposta: Conferencia | null;
   produto: string | null;
@@ -226,6 +229,10 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
       conferidoPor: l.conferido_por_nome,
       miniaturas: { tampo: miniatura('tampo'), base: miniatura('base') },
       etapas: etapas.length,
+      /** O lanche lido por passos (A23.3): a conferência é um cartão por passo, e não por foto. */
+      porPassos: etapas.some((e) => e.metade !== undefined),
+      /** Quantas metades do pão a leitura achou (o pão pelas peças). Nulo = a leitura não disse. */
+      pecas: l.leitura?.pecas ?? null,
     };
   }
 
@@ -285,7 +292,7 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
         await cliente.query('commit');
         return { lancheId: antes.rows[0].id as string, gravacaoId, novo: false, conferido: true, quadros: 0 };
       }
-      const leitura = { etapas: lido.lanche.etapas };
+      const leitura = { etapas: lido.lanche.etapas, ...(lido.lanche.pecas !== null ? { pecas: lido.lanche.pecas } : {}) };
       let lancheId: string;
       if (antes.rows[0]) {
         lancheId = antes.rows[0].id as string;
@@ -590,9 +597,32 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
         );
         exemplos += novo.rowCount ?? 0;
       }
+      // o "não era ingrediente" do lanche lido por passos vira exemplo do que NÃO é ingrediente (migration 054): o
+      // juiz da loja aprende a separar o inox, o alumínio, a tampa da caixa e a mão
+      let nada = 0;
+      const deNada = exemplosDeNada(etapas, conferencia);
+      if (deNada.length) {
+        const item = await cliente.query(
+          `insert into base_conhecimento (loja_id, tipo, nome) values ($1, 'nada', $2)
+           on conflict (loja_id, tipo, lower(btrim(nome))) do update set atualizado_em = now()
+           returning id`,
+          [l.loja_id, NOME_DO_NADA],
+        );
+        for (const ex of deNada) {
+          const novo = await cliente.query(
+            `insert into base_frame (base_id, origem, imagem, tipo, largura, altura, sha256, lanche_id, etapa, ponto_id, criado_por)
+             select $1, 'bancada', q.imagem, q.tipo, q.largura, q.altura, q.sha256, $2, $3, $4, $5
+               from treino_quadro q
+              where q.lanche_id = $2 and q.n = $6
+                and not exists (select 1 from base_frame b where b.base_id = $1 and b.lanche_id = $2 and b.sha256 = q.sha256)`,
+            [item.rows[0].id, id, ex.etapa, l.ponto_id, s.usuarioId, ex.quadro],
+          );
+          nada += novo.rowCount ?? 0;
+        }
+      }
       await cliente.query('commit');
-      req.log.info({ lanche: id, produto: conferencia.produto, acertou, exemplos, por: s.usuarioId }, 'lanche de treino CONFERIDO');
-      return { conferido: true, produto: conferencia.produto, palpite, acertou, exemplos };
+      req.log.info({ lanche: id, produto: conferencia.produto, acertou, exemplos, nada, por: s.usuarioId }, 'lanche de treino CONFERIDO');
+      return { conferido: true, produto: conferencia.produto, palpite, acertou, exemplos, nada };
     } catch (e) {
       await cliente.query('rollback').catch(() => {});
       throw e;

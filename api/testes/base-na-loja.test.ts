@@ -45,6 +45,14 @@ describe('a marca da base (sem banco)', () => {
     assert.notEqual(impressaoDaBaseDaLoja([{ ...itens[0]!, quadros: [q('a'), q('b', 'outra')] }, itens[1]!]), m, 'outra imagem');
     assert.notEqual(impressaoDaBaseDaLoja([itens[0]!, { ...itens[1]!, visivel: true }]), m, 'o sal passou a se ver');
   });
+  it('o "não era ingrediente" (migration 054) muda a marca só quando há algum, e a ordem dele não conta', () => {
+    const m = impressaoDaBaseDaLoja(itens);
+    assert.equal(impressaoDaBaseDaLoja(itens, []), m, 'a loja sem "nada" fica com a marca de antes');
+    const comNada = impressaoDaBaseDaLoja(itens, [q('n1')]);
+    assert.notEqual(comNada, m);
+    assert.notEqual(impressaoDaBaseDaLoja(itens, [q('n1'), q('n2')]), comNada, 'entrou outro');
+    assert.equal(impressaoDaBaseDaLoja(itens, [q('n2'), q('n1')]), impressaoDaBaseDaLoja(itens, [q('n1'), q('n2')]));
+  });
 });
 
 const URL_DO_BANCO = process.env.DATABASE_URL;
@@ -195,5 +203,25 @@ describe('a base desce para a loja (Postgres real)', { skip: !URL_DO_BANCO && 's
     assert.equal(brioche.length, 1, JSON.stringify(itens.map((i) => i.nome)));
     assert.equal(brioche[0]!.nome, 'Pão brioche', 'o nome da ficha');
     assert.equal(brioche[0]!.quadros.length, 2, 'os quadros dos dois registros');
+  });
+
+  it('o "não era ingrediente" (migration 054) desce À PARTE dos ingredientes, muda a marca e o quadro dele desce', async () => {
+    const antes = (await base()).json() as { impressao: string; nada: { quadros: unknown[] } };
+    assert.deepEqual(antes.nada, { quadros: [] });
+    const bytes = Buffer.from(JPEG, 'base64');
+    const item = await pool.query(`insert into base_conhecimento (loja_id, tipo, nome) values ($1, 'nada', 'Não é ingrediente') returning id`, [lojaId]);
+    await pool.query(
+      `insert into base_frame (base_id, origem, imagem, tipo, largura, altura, sha256) values ($1, 'bancada', $2, 'image/jpeg', 320, 320, $3)`,
+      [item.rows[0].id, bytes, createHash('sha256').update(bytes).digest('hex')],
+    );
+    const depois = (await base()).json() as { impressao: string; itens: ItemDaBase[]; nada: { quadros: Array<{ id: string; sha256: string }> } };
+    assert.equal(depois.nada.quadros.length, 1);
+    assert.deepEqual(Object.keys(depois.nada.quadros[0]!).sort(), [...CONTRATO.lista.chavesDoQuadro].sort());
+    assert.ok(!depois.itens.some((i) => chaveDoIngrediente(i.nome) === chaveDoIngrediente('Não é ingrediente')), 'não é um ingrediente');
+    assert.notEqual(depois.impressao, antes.impressao);
+    const q = await quadro(depois.nada.quadros[0]!.id);
+    assert.equal(q.statusCode, 200);
+    assert.equal(createHash('sha256').update(q.rawPayload).digest('hex'), depois.nada.quadros[0]!.sha256);
+    assert.deepEqual((await base(tokenVizinho)).json().nada, { quadros: [] }, 'a vizinha não vê o da loja');
   });
 });
