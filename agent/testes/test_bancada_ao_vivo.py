@@ -599,8 +599,10 @@ def test_a_linha_de_execucao_le_e_para(tmp_path):
 class _BancadaDeMentira:
     vistos: list[str] = []
 
-    def __init__(self, caminho_config, canais, *, guardar_quadros=False):
-        _BancadaDeMentira.vistos.append(f"criada:{Path(caminho_config).name}:{canais}:guardar={guardar_quadros}")
+    def __init__(self, caminho_config, canais, *, guardar_quadros=False, passos=False):
+        _BancadaDeMentira.vistos.append(
+            f"criada:{Path(caminho_config).name}:{canais}:guardar={guardar_quadros}" + (":passos" if passos else ""),
+        )
 
     def iniciar(self):
         _BancadaDeMentira.vistos.append("iniciada")
@@ -610,19 +612,21 @@ class _BancadaDeMentira:
 
 
 @pytest.mark.parametrize(
-    "valor, guardar, vistos",
+    "valor, guardar, passos, vistos",
     [
-        (None, "1", []),
-        ("4", None, ["criada:configuracao.json:[4]:guardar=False", "iniciada", "parada"]),
-        ("4", "1", ["criada:configuracao.json:[4]:guardar=True", "iniciada", "parada"]),
+        (None, "1", "1", []),
+        ("4", None, None, ["criada:configuracao.json:[4]:guardar=False", "iniciada", "parada"]),
+        ("4", "1", None, ["criada:configuracao.json:[4]:guardar=True", "iniciada", "parada"]),
+        ("4", "1", "1", ["criada:configuracao.json:[4]:guardar=True:passos", "iniciada", "parada"]),
+        ("4", None, "1", ["criada:configuracao.json:[4]:guardar=False:passos", "iniciada", "parada"]),
     ],
 )
-def test_o_agente_so_liga_a_bancada_ao_vivo_com_a_variavel(tmp_path, monkeypatch, capsys, valor, guardar, vistos):
+def test_o_agente_so_liga_a_bancada_ao_vivo_com_a_variavel(tmp_path, monkeypatch, capsys, valor, guardar, passos, vistos):
     from farol_agent import nuvem
 
     _BancadaDeMentira.vistos.clear()
     monkeypatch.setenv("FAROL_AGENTE_TOKEN", "token-de-teste")
-    for nome, v in ((bav.VARIAVEL, valor), (bav.GUARDAR, guardar)):
+    for nome, v in ((bav.VARIAVEL, valor), (bav.GUARDAR, guardar), (bav.PASSOS, passos)):
         if v is None:
             monkeypatch.delenv(nome, raising=False)
         else:
@@ -639,3 +643,86 @@ def test_o_agente_so_liga_a_bancada_ao_vivo_com_a_variavel(tmp_path, monkeypatch
     saida = capsys.readouterr().out
     assert ("bancada ao vivo LIGADA (FAROL_BANCADA_AO_VIVO): canal 4" in saida) is bool(vistos)
     assert ("guardando TODOS os quadros (FAROL_BANCADA_GUARDAR_QUADROS)" in saida) is (bool(vistos) and guardar == "1")
+    assert ("com os PASSOS de cada lanche (FAROL_BANCADA_PASSOS)" in saida) is (bool(vistos) and guardar == "1" and passos == "1")
+    assert ("pedem também FAROL_BANCADA_GUARDAR_QUADROS" in saida) is (bool(vistos) and guardar != "1" and passos == "1")
+
+
+# ───────────────────────────── os passos do lanche (A23.3) ─────────────────────────────
+
+
+def _com_passos(tmp_path, guardar=True):
+    return bav.LeituraDoCanal(
+        4, ZONA, FluxoDeMentira(cena_do_embrulho()), DetectorDaCor(), AO_LONGO, tmp_path / "canal-04",
+        relogio=lambda: T0, guardar_quadros=guardar, passos=True,
+    )
+
+
+def test_com_os_passos_ligados_o_lanche_ganha_a_pasta_dos_passos(tmp_path):
+    # o lanche do embrulho: as metades aos 10 s, os ingredientes cobrindo o pão aos 40 s, o embrulho aos 70 s
+    le = _com_passos(tmp_path)
+    ler_tudo(le, 95)
+    le.encerrar("o agente parou")
+
+    eventos = linha_do_tempo(le.pasta)
+    passos = [e for e in eventos if e["evento"] == "passos"]
+    assert len(passos) == 1
+    p = passos[0]
+    assert (p["lugar"], p["metades"], p["pasta"]) == (1, 2, "2026-10-15/passos-21h00m10-1")
+    assert sem_fuso(p["t"]) == T0 + timedelta(seconds=70), "anotado na hora do embrulho, como o lanche"
+    lido = json.loads((le.pasta / p["pasta"] / "passos.json").read_text(encoding="utf-8"))
+    assert [(m["k"], abs(m["x"] - 300) <= 3) for m in lido["metades"]] == [(1, True), (2, True)]
+    chegou = [s for s in lido["passos"] if s["tipo"] == "passo"]
+    assert {s["metade"] for s in chegou if 40 <= (sem_fuso(s["hora"]) - T0).total_seconds() <= 43} == {1, 2}, (
+        "o que cobriu as duas metades aos 40 s é um passo em cada uma"
+    )
+    for s in lido["passos"]:
+        assert s["recorte"] and (le.pasta / p["pasta"] / s["recorte"]).is_file()
+    assert any(s["contorno"] for s in chegou), "o contorno do que chegou vai junto, para a conferência desenhar"
+    resumo = [e for e in eventos if e["evento"] == "resumo"][-1]
+    assert (resumo["passos"], resumo["errosPassos"]) == (1, 0)
+
+
+def test_sem_os_quadros_guardados_os_passos_nao_ligam(tmp_path, caplog):
+    with caplog.at_level(logging.WARNING, logger="farol_agent.bancada_ao_vivo"):
+        le = _com_passos(tmp_path, guardar=False)
+    ler_tudo(le, 95)
+    le.encerrar("o agente parou")
+
+    assert not le.ler_passos
+    assert [e for e in linha_do_tempo(le.pasta) if e["evento"] == "passos"] == []
+    assert "releem os quadros guardados" in caplog.text
+    assert "passos" not in [e for e in linha_do_tempo(le.pasta) if e["evento"] == "resumo"][-1]
+
+
+def test_sem_a_chave_dos_passos_nada_muda_na_leitura(tmp_path):
+    le = bav.LeituraDoCanal(
+        4, ZONA, FluxoDeMentira(cena_do_embrulho()), DetectorDaCor(), AO_LONGO, tmp_path / "canal-04",
+        relogio=lambda: T0, guardar_quadros=True,
+    )
+    ler_tudo(le, 95)
+    le.encerrar("o agente parou")
+
+    eventos = linha_do_tempo(le.pasta)
+    assert [e for e in eventos if e["evento"] == "passos"] == [] and le.passos == {}
+    assert not list((le.pasta / "2026-10-15").glob("passos-*"))
+
+
+def test_um_defeito_nos_passos_nao_para_a_leitura(tmp_path, monkeypatch, caplog):
+    def quebra(self, *a, **k):
+        raise RuntimeError("o hough caiu")
+
+    monkeypatch.setattr(bav.PassosDoLanche, "ver", quebra)
+    le = _com_passos(tmp_path)
+    with caplog.at_level(logging.WARNING, logger="farol_agent.bancada_ao_vivo"):
+        ler_tudo(le, 95)
+        le.encerrar("o agente parou")
+
+    eventos = linha_do_tempo(le.pasta)
+    assert len([e for e in eventos if e["evento"] == "lanche"]) == 1, "o lanche do lugar sai como sempre"
+    assert caplog.text.count("os passos do lanche deram erro (RuntimeError: o hough caiu)") == 1, "dito uma vez"
+    assert [e for e in eventos if e["evento"] == "resumo"][-1]["errosPassos"] >= 1
+
+
+@pytest.mark.parametrize("valor, liga", [(None, False), ("0", False), ("1", True), ("ligado", True)])
+def test_a_chave_dos_passos(valor, liga):
+    assert bav.passos_ligados(valor) is liga

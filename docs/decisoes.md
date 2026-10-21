@@ -8965,3 +8965,28 @@ O dono, ao ver a conferência nova no ar (19/10): "qual próxima etapa" → a A2
    loja, sem internet desde 00:20 de 20/10.
 2. A conta nas fichas pelo ingrediente mais raro (`ferramentas/repasse/ingredientes.pelo_mais_raro`).
 3. Ligar na leitura ao vivo: no fim do lugar, os passos lidos dos quadros guardados (pacote novo).
+
+## 20/10/2026 · O nome contra a base do dono e os passos na leitura ao vivo (A23.3, parte 2; sem migration)
+
+### O nome, medido contra os exemplos do dono (no rascunho, não no agente)
+
+A base da loja (18 ingredientes, 105 imagens, 153 marcações) contra os passos de 18/10 que eu rotulei pelos painéis:
+26 de 34 com o primeiro nome no grupo certo (26 de 32 possíveis: cream cheese e frango empanado não têm exemplo). O que
+deu o resultado: o protótipo de cada nome só com os exemplos de UM nome (a cena larga com vários puxa tudo para o
+meio); a nota é a média do recorte do que chegou com a máscara dele; o PÃO sai das peças (3 peças = pão de dois
+cortes; 2 peças não decide entre 1 corte e brioche); passo do meio da montagem nunca é pão. Carne 6 de 6, cheddar 8
+de 9, pão 10 de 11; erram o molho e o ovo (um exemplo sozinho de cada), a alface do L9 e o fundo tostado do L9. A conta
+pelo mais raro deixa o P7 em "Numero 01 ou Numero 11" (a verdade está; a ficha só muda a quantidade, 2+2 × 4+4) e
+não acerta o L9 (sem os exemplos dos ingredientes dele). Fica no rascunho até a conferência por passo dar os
+exemplos do jeito certo (protótipo aprovado pelo dono em 20/10).
+
+### Os passos na leitura ao vivo
+
+O dono, 20/10: "e porque não ligamos ainda?". A leitura ao vivo ganha a chave `FAROL_BANCADA_PASSOS` (só com
+`FAROL_BANCADA_GUARDAR_QUADROS`, porque os passos releem os quadros do lanche depois do embrulho): cada lugar vivo
+anota os pães da faixa dele a cada quadro; quando o lugar vira lanche e termina, uma linha de execução à parte lê os
+passos (a leitura de um quadro por segundo não espera), grava `AAAA-MM-DD/passos-HHhMMmSS-N/` com o `passos.json`
+(metades, passos com hora, metade, tipo, parte, papel, recorte e o CONTORNO do que chegou) e o recorte de cada passo,
+e anota o evento `passos` na linha do tempo. O resumo de dez minutos conta os lanches com passos e os erros. Um
+defeito nos passos não para a leitura e é dito uma vez por hora. Nada da leitura de antes muda: o lugar, a trilha e
+os eventos de sempre saem iguais (teste). As pastas saem com as do lanche (3 dias).

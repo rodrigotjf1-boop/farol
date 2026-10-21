@@ -1076,19 +1076,24 @@ def cmd_servir(args: argparse.Namespace) -> int:
         treino_em_fundo.iniciar()
         print("gravação de treino ligada: lê o que o console pedir, com a loja fechada")
 
-    from farol_agent.bancada_ao_vivo import GUARDAR, VARIAVEL, BancadaAoVivo, canais_ligados, guardar_quadros_ligado
+    from farol_agent.bancada_ao_vivo import (
+        GUARDAR, PASSOS, VARIAVEL, BancadaAoVivo, canais_ligados, guardar_quadros_ligado, passos_ligados,
+    )
 
     bancada_ao_vivo = None
     canais_ao_vivo = canais_ligados(os.environ.get(VARIAVEL))
     if canais_ao_vivo:
         # Uma linha de execução por canal, como a auditoria: um quadro por segundo do fluxo principal (A23.2).
         guardar = guardar_quadros_ligado(os.environ.get(GUARDAR))
-        bancada_ao_vivo = BancadaAoVivo(args.config, canais_ao_vivo, guardar_quadros=guardar)
+        passos = passos_ligados(os.environ.get(PASSOS))
+        bancada_ao_vivo = BancadaAoVivo(args.config, canais_ao_vivo, guardar_quadros=guardar, passos=passos)
         bancada_ao_vivo.iniciar()
         print(
             f"bancada ao vivo LIGADA ({VARIAVEL}): canal {', '.join(map(str, canais_ao_vivo))} — "
             "um quadro por segundo, com a loja aberta"
             + (f"; guardando TODOS os quadros ({GUARDAR})" if guardar else "")
+            + (f"; com os PASSOS de cada lanche ({PASSOS})" if passos and guardar else "")
+            + (f"; os passos ({PASSOS}) pedem também {GUARDAR}: ficam desligados" if passos and not guardar else "")
         )
 
     from farol_agent.pipeline.recorte import borrao_ligado

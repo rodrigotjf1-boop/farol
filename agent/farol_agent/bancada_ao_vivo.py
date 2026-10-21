@@ -45,6 +45,7 @@ from __future__ import annotations
 import csv
 import json
 import logging
+import queue
 import re
 import shutil
 import threading
@@ -55,11 +56,15 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from farol_agent import treino_lanches, treino_quadros
+import cv2
+import numpy as np
+
+from farol_agent import imagens, treino_lanches, treino_quadros
 from farol_agent.configuracao import de_json, ler_do_disco
 from farol_agent.gravacao_lida import guardar_recorte, quadro_do_canal
 from farol_agent.lugar_do_lanche import LeitorDeLugares, Lugar
 from farol_agent.modelos import Janela, Zona
+from farol_agent.passos_do_lanche import PassosDoLanche, recorte as recorte_da_metade
 from farol_agent.treino_servico import _detector_da_auditoria, janelas_da_loja, perfil_da_bancada
 
 _log = logging.getLogger(__name__)
@@ -69,6 +74,11 @@ VARIAVEL = "FAROL_BANCADA_AO_VIVO"
 # (`paradas.csv` + `recortes/`): a noite inteira pode ser lida de novo depois, por qualquer versão da leitura, e as
 # versões comparadas lado a lado. Sem ela, só ficam os quadros dos lanches (nas pastas deles).
 GUARDAR = "FAROL_BANCADA_GUARDAR_QUADROS"
+# Com esta chave (e a de guardar os quadros), cada lanche do lugar ganha os PASSOS (A23.3, `passos_do_lanche`): o que
+# chegou em cada metade do pão e quando, com o recorte e o contorno de cada passo, numa pasta ao lado das do lanche e
+# no evento `passos` da linha do tempo. Lidos depois do embrulho, dos quadros guardados, numa linha de execução à
+# parte: a leitura de um quadro por segundo não espera.
+PASSOS = "FAROL_BANCADA_PASSOS"
 PASTA = "bancada"
 QUADROS = "quadros"
 DENSA = "densa"
@@ -85,6 +95,8 @@ CONFIG_A_CADA_S = 300.0
 # O mesmo erro, de novo, só volta ao registro depois disto (um defeito a cada quadro afogaria o registro: ERR-014).
 REPETE_AVISO_S = 3600.0
 FOLGA_FECHAMENTO_MIN = 30
+# No fim da leitura, quanto se espera pelos passos que ainda estão sendo lidos (um lanche leva ~1–3 s no PC da loja).
+ESPERA_PASSOS_S = 60.0
 VAZIA, LANCHE = "vazia", "lanche"
 _DIA = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _LINHA = re.compile(r"^(\d{4}-\d{2}-\d{2})\.jsonl$")
@@ -95,6 +107,26 @@ _SESSAO = re.compile(r"^(\d{4}-\d{2}-\d{2})_\d{2}h\d{2}$")
 def guardar_quadros_ligado(valor: str | None) -> bool:
     """`FAROL_BANCADA_GUARDAR_QUADROS`: "1", "sim", "true" ou "ligado" liga; o resto, não."""
     return (valor or "").strip().lower() in ("1", "sim", "true", "ligado")
+
+
+def passos_ligados(valor: str | None) -> bool:
+    """`FAROL_BANCADA_PASSOS`: os mesmos valores da chave de guardar os quadros."""
+    return guardar_quadros_ligado(valor)
+
+
+def contorno(mascara: np.ndarray, tamanho: tuple[int, int]) -> list[list[list[int]]]:
+    """O contorno do que chegou, em pixels do recorte (`tamanho` = altura, largura): os pedaços com 2% do recorte ou
+    mais, simplificados — o que a conferência desenha por cima do recorte."""
+    h, w = tamanho
+    m = cv2.resize(mascara.astype(np.uint8), (w, h), interpolation=cv2.INTER_NEAREST)
+    achados, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    saida = []
+    for c in sorted(achados, key=cv2.contourArea, reverse=True):
+        if cv2.contourArea(c) < 0.02 * h * w:
+            break
+        c = cv2.approxPolyDP(c, 0.01 * cv2.arcLength(c, True), True)
+        saida.append([[int(p[0][0]), int(p[0][1])] for p in c])
+    return saida
 
 
 def canais_ligados(valor: str | None) -> list[int]:
@@ -189,6 +221,9 @@ class _Contas:
     trilhas: int = 0
     curtas: int = 0
     erros: int = 0
+    # os lanches que ganharam a pasta dos passos, e os que deram erro ao lê-los
+    passos: int = 0
+    erros_passos: int = 0
     ms: float = 0.0
 
 
@@ -198,12 +233,23 @@ class LeituraDoCanal:
     def __init__(
         self, canal: int, zona: Zona, fluxo: Fluxo, detector: treino_lanches.Detector,
         perfil: treino_lanches.PerfilDaBancada, pasta: Path, *, relogio: Callable[[], datetime] = datetime.now,
-        guardar_quadros: bool = False,
+        guardar_quadros: bool = False, passos: bool = False,
     ) -> None:
         self.canal, self.zona, self.fluxo, self.detector, self.perfil = canal, zona, fluxo, detector, perfil
         self.pasta = Path(pasta)
         self._relogio = relogio
         self.guardar = guardar_quadros
+        # Os passos releem os quadros do lanche depois do embrulho: só com a sessão guardada eles ainda estão no disco.
+        self.ler_passos = bool(passos and guardar_quadros)
+        if passos and not guardar_quadros:
+            _log.warning("bancada ao vivo, canal %d: os passos do lanche releem os quadros guardados — ligue também %s; "
+                         "sigo sem os passos", canal, GUARDAR)
+        self.passos: dict[int, PassosDoLanche] = {}
+        self._fila_passos: queue.Queue = queue.Queue()
+        self._trabalhador: threading.Thread | None = None
+        self._avisos_passos: dict[str, float] = {}
+        # A linha do tempo recebe da leitura e da linha dos passos: uma escrita por vez.
+        self._trava = threading.RLock()
         self._paradas: Path | None = None
         self._indice = 0
         if self.guardar:
@@ -236,18 +282,21 @@ class LeituraDoCanal:
 
     def anotar(self, quando: datetime, evento: str, **campos: Any) -> None:
         linha = {"t": _iso(quando), "canal": self.canal, "evento": evento, **campos}
-        self.pasta.mkdir(parents=True, exist_ok=True)
-        with (self.pasta / f"{quando:%Y-%m-%d}.jsonl").open("a", encoding="utf-8", newline="\n") as f:
-            f.write(json.dumps(linha, ensure_ascii=False) + "\n")
+        with self._trava:
+            self.pasta.mkdir(parents=True, exist_ok=True)
+            with (self.pasta / f"{quando:%Y-%m-%d}.jsonl").open("a", encoding="utf-8", newline="\n") as f:
+                f.write(json.dumps(linha, ensure_ascii=False) + "\n")
 
     def _resumir(self, quando: datetime) -> None:
-        c = self.contas
-        self.anotar(
-            quando, "resumo", quadros=c.quadros, msPorQuadro=round(c.ms / c.quadros) if c.quadros else None,
-            semQuadro=c.sem_quadro, repetidos=c.repetidos, lanches=c.lanches, lugaresSemLanche=c.lugares_sem_lanche,
-            trilhas=c.trilhas, curtas=c.curtas, erros=c.erros, estado=self.estado,
-        )
-        self.contas = _Contas()
+        with self._trava:
+            c = self.contas
+            extras = {"passos": c.passos, "errosPassos": c.erros_passos} if self.ler_passos else {}
+            self.anotar(
+                quando, "resumo", quadros=c.quadros, msPorQuadro=round(c.ms / c.quadros) if c.quadros else None,
+                semQuadro=c.sem_quadro, repetidos=c.repetidos, lanches=c.lanches, lugaresSemLanche=c.lugares_sem_lanche,
+                trilhas=c.trilhas, curtas=c.curtas, erros=c.erros, estado=self.estado, **extras,
+            )
+            self.contas = _Contas()
         self._proximo_resumo = quando + timedelta(seconds=RESUMO_A_CADA_S)
 
     # ───────────────────────────── um quadro ─────────────────────────────
@@ -282,9 +331,8 @@ class LeituraDoCanal:
             raise OSError(f"o recorte {nome} não abriu depois de gravado")
         self._altura, self._largura = img.shape[:2]
         antes = {a.id for a in self.seguidor.ativos}
-        regioes = treino_lanches.lanches_do_quadro(
-            treino_lanches.paes(self.detector, img, self.perfil), self.perfil, self._largura, self._altura,
-        )
+        caixas = treino_lanches.paes(self.detector, img, self.perfil)
+        regioes = treino_lanches.lanches_do_quadro(caixas, self.perfil, self._largura, self._altura)
         terminaram = self.seguidor.quadro(img, quando, nome, regioes)
         for a in self.seguidor.ativos:
             if a.id not in antes:
@@ -293,6 +341,8 @@ class LeituraDoCanal:
             self._terminou(a)
         for lugar in self.lugares.quadro(img, quando, regioes):
             self._lugar_terminou(lugar)
+        if self.ler_passos:
+            self._ver_passos(nome, quando, img, caixas)
         self._mudar_estado(quando)
         self._soltar_quadros(quando)
         self.contas.quadros += 1
@@ -320,7 +370,9 @@ class LeituraDoCanal:
         self.anotar(a.fim or a.visto, "trilha", **campos)
 
     def _lugar_terminou(self, l: Lugar, encerrado: str | None = None) -> None:
-        """Um lugar terminou: se chegou a lanche, o evento `lanche` (o começo, o fim no embrulho, por que terminou)."""
+        """Um lugar terminou: se chegou a lanche, o evento `lanche` (o começo, o fim no embrulho, por que terminou) e,
+        com os passos ligados, o pedido de ler os passos dele."""
+        passos = self.passos.pop(l.n, None)
         if not self.lugares.e_lanche(l):
             self.contas.lugares_sem_lanche += 1
             return
@@ -333,6 +385,95 @@ class LeituraDoCanal:
         if encerrado and l.porque == "encerrado":
             campos["encerrado"] = encerrado
         self.anotar(l.fim or l.inicio, "lanche", **campos)
+        if passos is not None and self.ler_passos:
+            self._pedir_passos(l, passos)
+
+    # ───────────────────────────── os passos do lanche (A23.3) ─────────────────────────────
+
+    def _avisar_passos(self, texto: str) -> None:
+        """Um defeito nos passos não para a leitura: conta, e o registro diz uma vez por hora (ERR-014)."""
+        with self._trava:
+            self.contas.erros_passos += 1
+        agora = time.monotonic()
+        if agora - self._avisos_passos.get(texto, agora - REPETE_AVISO_S) >= REPETE_AVISO_S:
+            self._avisos_passos[texto] = agora
+            _log.warning("bancada ao vivo, canal %d: os passos do lanche deram erro (%s); a leitura segue", self.canal, texto)
+
+    def _ver_passos(self, nome: str, quando: datetime, img: np.ndarray, caixas: list) -> None:
+        """Cada lugar vivo anota os pães que se viram na faixa dele neste quadro."""
+        try:
+            for l in self.lugares.ativos:
+                self.passos.setdefault(l.n, PassosDoLanche()).ver(
+                    nome, quando, img, caixas, l.cx - self.lugares.raio, l.cx + self.lugares.raio,
+                )
+        except Exception as e:  # noqa: BLE001
+            self._avisar_passos(f"{type(e).__name__}: {e}")
+
+    def _pedir_passos(self, l: Lugar, passos: PassosDoLanche) -> None:
+        if self._trabalhador is None or not self._trabalhador.is_alive():
+            self._trabalhador = threading.Thread(
+                target=self._trabalhar, name=f"farol-passos-{self.canal}", daemon=True,
+            )
+            self._trabalhador.start()
+        self._fila_passos.put((l, passos))
+
+    def _trabalhar(self) -> None:
+        while True:
+            trabalho = self._fila_passos.get()
+            try:
+                if trabalho is None:
+                    return
+                self._ler_passos(*trabalho)
+            except Exception as e:  # noqa: BLE001
+                self._avisar_passos(f"{type(e).__name__}: {e}")
+            finally:
+                self._fila_passos.task_done()
+
+    def _ler_passos(self, l: Lugar, passos: PassosDoLanche) -> None:
+        """Os passos de um lanche que terminou: relidos dos quadros guardados; o recorte e o contorno de cada passo, o
+        `passos.json` numa pasta ao lado das do lanche e o evento `passos` na linha do tempo."""
+        leitura = passos.ler(lambda q: treino_lanches.ler_imagem(self.quadros / q))
+        dia = self.pasta / f"{l.inicio:%Y-%m-%d}"
+        nome = f"passos-{l.inicio:%Hh%Mm%S}-{l.n}"
+        pasta = dia / nome
+        pasta.mkdir(parents=True, exist_ok=True)
+        metades = {m.k: m for m in leitura.metades}
+        registros = []
+        for s in leitura.passos:
+            arquivo, linhas = None, []
+            img = treino_lanches.ler_imagem(self.quadros / s.quadro) if s.quadro else None
+            if img is not None and s.metade in metades:
+                corte = recorte_da_metade(img, metades[s.metade])
+                arquivo = f"{s.hora:%Hh%Mm%S}-m{s.metade}-{s.tipo}.jpg"
+                if not imagens.escrever(pasta / arquivo, corte, [cv2.IMWRITE_JPEG_QUALITY, 90]):
+                    arquivo = None
+                elif s.mascara is not None and s.mascara.any():
+                    linhas = contorno(s.mascara, corte.shape[:2])
+            registros.append({"hora": _iso(s.hora), "metade": s.metade, "tipo": s.tipo, "parte": s.parte,
+                              "papel": s.papel, "recorte": arquivo, "contorno": linhas})
+        fechou = _iso(leitura.fechou) if leitura.fechou else None
+        resumo = {
+            "lugar": l.n, "inicio": _iso(l.inicio), "fim": _iso(l.fim or l.inicio), "fechou": fechou,
+            "metades": [{"k": m.k, "x": round(m.cx), "y": round(m.cy), "d": round(m.d),
+                         "desde": _iso(m.desde) if m.desde else None} for m in leitura.metades],
+            "passos": registros,
+        }
+        (pasta / "passos.json").write_text(json.dumps(resumo, ensure_ascii=False, indent=1), encoding="utf-8")
+        self.anotar(
+            l.fim or l.inicio, "passos", lugar=l.n, metades=len(leitura.metades),
+            passos=sum(1 for s in leitura.passos if s.tipo in ("passo", "provisorio")), fechou=fechou,
+            pasta=f"{dia.name}/{nome}",
+        )
+        with self._trava:
+            self.contas.passos += 1
+
+    def _esperar_passos(self, espera_s: float) -> None:
+        """Os passos pedidos terminam antes de a leitura fechar (até `espera_s`); a linha dos passos acaba."""
+        if self._trabalhador is None:
+            return
+        self._fila_passos.put(None)
+        self._trabalhador.join(espera_s)
+        self._trabalhador = None
 
     def _mudar_estado(self, quando: datetime) -> None:
         estado = LANCHE if self.seguidor.ativos else VAZIA
@@ -362,6 +503,8 @@ class LeituraDoCanal:
                 self._terminou(a, encerrado=motivo)
             for lugar in self.lugares.encerrar(quando):
                 self._lugar_terminou(lugar, encerrado=motivo)
+            # os passos pedidos (os dos lanches que acabaram de terminar também) saem antes do resumo
+            self._esperar_passos(ESPERA_PASSOS_S)
             if self.estado == LANCHE:
                 self.estado = VAZIA
                 self.anotar(quando, "estado", estado=VAZIA, lanches=0)
@@ -408,10 +551,12 @@ class BancadaAoVivo:
         config_a_cada_s: float = CONFIG_A_CADA_S,
         limpeza_a_cada_s: float = LIMPEZA_A_CADA_S,
         guardar_quadros: bool = False,
+        passos: bool = False,
     ) -> None:
         self.caminho_config = Path(caminho_config)
         self.canais = list(canais)
         self.guardar_quadros = guardar_quadros
+        self.passos = passos
         self.raiz = self.caminho_config.parent / PASTA
         self._detector_de, self._abrir_fluxo, self._relogio = detector_de, abrir_fluxo, relogio
         self.a_cada_s, self.config_a_cada_s, self.limpeza_a_cada_s = a_cada_s, config_a_cada_s, limpeza_a_cada_s
@@ -471,7 +616,7 @@ class BancadaAoVivo:
                     fluxo = self._abrir_fluxo(pecas["ponto"])
                     c.leitura = LeituraDoCanal(
                         c.canal, pecas["zona"], fluxo, pecas["detector"], pecas["perfil"], self.pasta_do_canal(c.canal),
-                        relogio=self._relogio, guardar_quadros=self.guardar_quadros,
+                        relogio=self._relogio, guardar_quadros=self.guardar_quadros, passos=self.passos,
                     )
                     c.chave, c.motivo_dito = nova, None
                     c.leitura.anotar(self._relogio(), "ligada")
