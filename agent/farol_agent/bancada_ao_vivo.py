@@ -64,7 +64,7 @@ from farol_agent.configuracao import de_json, ler_do_disco
 from farol_agent.gravacao_lida import guardar_recorte, quadro_do_canal
 from farol_agent.lugar_do_lanche import LeitorDeLugares, Lugar
 from farol_agent.modelos import Janela, Zona
-from farol_agent.passos_do_lanche import PassosDoLanche, recorte as recorte_da_metade
+from farol_agent.passos_do_lanche import Juiz, PassosDoLanche, recorte as recorte_da_metade
 from farol_agent.treino_servico import _detector_da_auditoria, janelas_da_loja, perfil_da_bancada
 
 _log = logging.getLogger(__name__)
@@ -79,6 +79,11 @@ GUARDAR = "FAROL_BANCADA_GUARDAR_QUADROS"
 # no evento `passos` da linha do tempo. Lidos depois do embrulho, dos quadros guardados, numa linha de execução à
 # parte: a leitura de um quadro por segundo não espera.
 PASSOS = "FAROL_BANCADA_PASSOS"
+# Com esta chave (e a dos passos), o JUIZ DE INGREDIENTE (`juizes.ingrediente`) olha a janela de cada passo: o que não
+# parece um ingrediente cadastrado da loja não conta, e a peça que sai da janela (embrulhada, fechada na caixa, levada)
+# termina ali. Precisa do modelo (`farol-agent ingredientes instalar`) e da base da loja, que desce com a loja fechada
+# (`base_da_loja`); sem um dos dois, os passos seguem sem o juiz, e o registro diz por quê.
+INGREDIENTES = "FAROL_BANCADA_INGREDIENTES"
 PASTA = "bancada"
 QUADROS = "quadros"
 DENSA = "densa"
@@ -111,6 +116,11 @@ def guardar_quadros_ligado(valor: str | None) -> bool:
 
 def passos_ligados(valor: str | None) -> bool:
     """`FAROL_BANCADA_PASSOS`: os mesmos valores da chave de guardar os quadros."""
+    return guardar_quadros_ligado(valor)
+
+
+def ingredientes_ligados(valor: str | None) -> bool:
+    """`FAROL_BANCADA_INGREDIENTES`: os mesmos valores da chave de guardar os quadros."""
     return guardar_quadros_ligado(valor)
 
 
@@ -233,7 +243,7 @@ class LeituraDoCanal:
     def __init__(
         self, canal: int, zona: Zona, fluxo: Fluxo, detector: treino_lanches.Detector,
         perfil: treino_lanches.PerfilDaBancada, pasta: Path, *, relogio: Callable[[], datetime] = datetime.now,
-        guardar_quadros: bool = False, passos: bool = False,
+        guardar_quadros: bool = False, passos: bool = False, juiz_de: Callable[[], Juiz | None] | None = None,
     ) -> None:
         self.canal, self.zona, self.fluxo, self.detector, self.perfil = canal, zona, fluxo, detector, perfil
         self.pasta = Path(pasta)
@@ -244,6 +254,8 @@ class LeituraDoCanal:
         if passos and not guardar_quadros:
             _log.warning("bancada ao vivo, canal %d: os passos do lanche releem os quadros guardados — ligue também %s; "
                          "sigo sem os passos", canal, GUARDAR)
+        # O juiz de ingrediente é pedido a cada lanche: ele fica pronto quando a base da loja desce, e muda com ela.
+        self._juiz_de = juiz_de if self.ler_passos else None
         self.passos: dict[int, PassosDoLanche] = {}
         self._fila_passos: queue.Queue = queue.Queue()
         self._trabalhador: threading.Thread | None = None
@@ -431,8 +443,10 @@ class LeituraDoCanal:
 
     def _ler_passos(self, l: Lugar, passos: PassosDoLanche) -> None:
         """Os passos de um lanche que terminou: relidos dos quadros guardados; o recorte e o contorno de cada passo, o
-        `passos.json` numa pasta ao lado das do lanche e o evento `passos` na linha do tempo."""
-        leitura = passos.ler(lambda q: treino_lanches.ler_imagem(self.quadros / q))
+        `passos.json` numa pasta ao lado das do lanche e o evento `passos` na linha do tempo. Com o juiz de ingrediente,
+        cada passo leva o nome e a nota, e o evento diz quantos ficaram de fora por não ter ingrediente."""
+        juiz = self._juiz_de() if self._juiz_de is not None else None
+        leitura = passos.ler(lambda q: treino_lanches.ler_imagem(self.quadros / q), juiz=juiz)
         dia = self.pasta / f"{l.inicio:%Y-%m-%d}"
         nome = f"passos-{l.inicio:%Hh%Mm%S}-{l.n}"
         pasta = dia / nome
@@ -449,8 +463,11 @@ class LeituraDoCanal:
                     arquivo = None
                 elif s.mascara is not None and s.mascara.any():
                     linhas = contorno(s.mascara, corte.shape[:2])
-            registros.append({"hora": _iso(s.hora), "metade": s.metade, "tipo": s.tipo, "parte": s.parte,
-                              "papel": s.papel, "recorte": arquivo, "contorno": linhas})
+            registro = {"hora": _iso(s.hora), "metade": s.metade, "tipo": s.tipo, "parte": s.parte,
+                        "papel": s.papel, "recorte": arquivo, "contorno": linhas}
+            if s.nota is not None:
+                registro.update(nome=s.nome, nota=s.nota)
+            registros.append(registro)
         fechou = _iso(leitura.fechou) if leitura.fechou else None
         resumo = {
             "lugar": l.n, "inicio": _iso(l.inicio), "fim": _iso(l.fim or l.inicio), "fechou": fechou,
@@ -458,11 +475,16 @@ class LeituraDoCanal:
                          "desde": _iso(m.desde) if m.desde else None} for m in leitura.metades],
             "passos": registros,
         }
+        extras: dict[str, Any] = {}
+        if juiz is not None:
+            resumo["juiz"] = True
+            extras = {"juiz": True, "vazios": sum(1 for s in leitura.passos if s.tipo == "vazio"),
+                      "saiu": sum(1 for s in leitura.passos if s.tipo == "saiu")}
         (pasta / "passos.json").write_text(json.dumps(resumo, ensure_ascii=False, indent=1), encoding="utf-8")
         self.anotar(
             l.fim or l.inicio, "passos", lugar=l.n, metades=len(leitura.metades),
             passos=sum(1 for s in leitura.passos if s.tipo in ("passo", "provisorio")), fechou=fechou,
-            pasta=f"{dia.name}/{nome}",
+            pasta=f"{dia.name}/{nome}", **extras,
         )
         with self._trava:
             self.contas.passos += 1
@@ -552,11 +574,13 @@ class BancadaAoVivo:
         limpeza_a_cada_s: float = LIMPEZA_A_CADA_S,
         guardar_quadros: bool = False,
         passos: bool = False,
+        juiz_de: Callable[[], Juiz | None] | None = None,
     ) -> None:
         self.caminho_config = Path(caminho_config)
         self.canais = list(canais)
         self.guardar_quadros = guardar_quadros
         self.passos = passos
+        self.juiz_de = juiz_de
         self.raiz = self.caminho_config.parent / PASTA
         self._detector_de, self._abrir_fluxo, self._relogio = detector_de, abrir_fluxo, relogio
         self.a_cada_s, self.config_a_cada_s, self.limpeza_a_cada_s = a_cada_s, config_a_cada_s, limpeza_a_cada_s
@@ -617,6 +641,7 @@ class BancadaAoVivo:
                     c.leitura = LeituraDoCanal(
                         c.canal, pecas["zona"], fluxo, pecas["detector"], pecas["perfil"], self.pasta_do_canal(c.canal),
                         relogio=self._relogio, guardar_quadros=self.guardar_quadros, passos=self.passos,
+                        juiz_de=self.juiz_de,
                     )
                     c.chave, c.motivo_dito = nova, None
                     c.leitura.anotar(self._relogio(), "ligada")

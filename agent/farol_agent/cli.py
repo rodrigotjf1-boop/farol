@@ -937,6 +937,70 @@ def cmd_detector(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_ingredientes(args: argparse.Namespace) -> int:
+    """O juiz de ingrediente dos passos do lanche (A23.3): instalar o modelo, descer a base da loja agora, olhar uma
+    imagem com ele."""
+    import os
+
+    from farol_agent.bancada_ao_vivo import INGREDIENTES
+    from farol_agent.base_da_loja import BaseDaLoja
+    from farol_agent.juizes.base import ErroDoJuiz
+    from farol_agent.juizes.ingrediente import MODELO_NOME, JuizDaLoja, MotorDino, instalar_modelo
+
+    logging.basicConfig(level=logging.INFO, format="  %(message)s")
+    pasta = Path(args.pasta or os.environ.get("FAROL_MODELOS") or "modelos")
+    base = BaseDaLoja.ao_lado(args.config)
+    try:
+        if args.acao == "instalar":
+            # Passo de INSTALAÇÃO, de propósito. O agente em serviço nunca baixa modelo sozinho.
+            print(f"instalando {MODELO_NOME} em {pasta.resolve()} (24 MB na primeira vez)…")
+            caminho = instalar_modelo(pasta)
+            MotorDino(caminho)
+            print(f"\n  pronto: {caminho}")
+            print("  conferido pelo sha256 · roda no processador")
+            print(f"  nos passos do lanche, liga com {INGREDIENTES}=1 no ambiente do agente (e reinicie o agente).\n")
+            return 0
+        if args.acao == "base":
+            # À mão, quando quem instala quiser; em serviço, a base desce sozinha com a loja fechada.
+            from farol_agent.nuvem import ClienteNuvem, ErroDaNuvem
+
+            token = os.environ.get("FAROL_AGENTE_TOKEN", "")
+            if not token or not args.nuvem:
+                print("\n  ERRO: a base desce com o endereço da API (--nuvem) e o token do agente (FAROL_AGENTE_TOKEN)\n",
+                      file=sys.stderr)
+                return 2
+            try:
+                d = base.descer(ClienteNuvem(args.nuvem, token, timeout=60))
+            except ErroDaNuvem as e:
+                print(f"\n  a base não desceu: {e}\n", file=sys.stderr)
+                return 1
+            print(f"\n  base da loja: {d.itens} ingrediente(s), {d.quadros} quadro(s); desceram {d.baixados}, saíram "
+                  f"{d.apagados}" + (f"; {d.recusados} com o resumo errado (não ficaram)" if d.recusados else "")
+                  + (f"; {d.sumiram} já não estavam na nuvem" if d.sumiram else "") + f"\n  em {base.raiz.resolve()}\n")
+            return 0
+        # olhar
+        if not args.imagem:
+            print("\n  ERRO: diga a imagem com --imagem\n", file=sys.stderr)
+            return 2
+        from farol_agent import imagens
+
+        img = imagens.ler(args.imagem)
+        if img is None:
+            print("\n  ERRO: a imagem não abriu\n", file=sys.stderr)
+            return 2
+        juiz = JuizDaLoja(pasta, base)()
+        if juiz is None:
+            print("\n  sem o juiz de ingrediente agora (o motivo está na linha acima)\n", file=sys.stderr)
+            return 1
+        n = juiz.julgar(img)
+        print(f"\n  {'comida' if n.comida() else 'sem ingrediente'}: o mais parecido é {n.nome} ({n.nota:.2f}); "
+              f"sem contar o pão, {n.ingrediente} ({n.nota_ingrediente:.2f})\n")
+        return 0
+    except ErroDoJuiz as e:
+        print(f"\n  ERRO: {e}\n", file=sys.stderr)
+        return 1
+
+
 def cmd_servir(args: argparse.Namespace) -> int:
     """Roda o agente contra a nuvem: configuração desce, comandos chegam.
 
@@ -1077,16 +1141,29 @@ def cmd_servir(args: argparse.Namespace) -> int:
         print("gravação de treino ligada: lê o que o console pedir, com a loja fechada")
 
     from farol_agent.bancada_ao_vivo import (
-        GUARDAR, PASSOS, VARIAVEL, BancadaAoVivo, canais_ligados, guardar_quadros_ligado, passos_ligados,
+        GUARDAR, INGREDIENTES, PASSOS, VARIAVEL, BancadaAoVivo, canais_ligados, guardar_quadros_ligado,
+        ingredientes_ligados, passos_ligados,
     )
 
     bancada_ao_vivo = None
+    base_em_fundo = None
     canais_ao_vivo = canais_ligados(os.environ.get(VARIAVEL))
     if canais_ao_vivo:
         # Uma linha de execução por canal, como a auditoria: um quadro por segundo do fluxo principal (A23.2).
         guardar = guardar_quadros_ligado(os.environ.get(GUARDAR))
         passos = passos_ligados(os.environ.get(PASSOS))
-        bancada_ao_vivo = BancadaAoVivo(args.config, canais_ao_vivo, guardar_quadros=guardar, passos=passos)
+        juiz_de = None
+        if passos and guardar and ingredientes_ligados(os.environ.get(INGREDIENTES)):
+            from farol_agent.base_da_loja import BaseEmFundo
+            from farol_agent.juizes.ingrediente import JuizDaLoja
+
+            # A base da loja desce numa linha própria, com a loja fechada; o juiz se monta dela quando os passos pedem.
+            base_em_fundo = BaseEmFundo(cliente, args.config)
+            base_em_fundo.iniciar()
+            juiz_de = JuizDaLoja(Path(os.environ.get("FAROL_MODELOS") or "modelos"), base_em_fundo.base)
+        bancada_ao_vivo = BancadaAoVivo(
+            args.config, canais_ao_vivo, guardar_quadros=guardar, passos=passos, juiz_de=juiz_de,
+        )
         bancada_ao_vivo.iniciar()
         print(
             f"bancada ao vivo LIGADA ({VARIAVEL}): canal {', '.join(map(str, canais_ao_vivo))} — "
@@ -1094,6 +1171,8 @@ def cmd_servir(args: argparse.Namespace) -> int:
             + (f"; guardando TODOS os quadros ({GUARDAR})" if guardar else "")
             + (f"; com os PASSOS de cada lanche ({PASSOS})" if passos and guardar else "")
             + (f"; os passos ({PASSOS}) pedem também {GUARDAR}: ficam desligados" if passos and not guardar else "")
+            + (f"; com o JUIZ DE INGREDIENTE ({INGREDIENTES}): a base da loja desce com a loja fechada"
+               if juiz_de is not None else "")
         )
 
     from farol_agent.pipeline.recorte import borrao_ligado
@@ -1114,6 +1193,8 @@ def cmd_servir(args: argparse.Namespace) -> int:
     finally:
         if bancada_ao_vivo is not None:
             bancada_ao_vivo.parar()
+        if base_em_fundo is not None:
+            base_em_fundo.parar()
         if treino_em_fundo is not None:
             treino_em_fundo.parar()
         if visor is not None:
@@ -1253,6 +1334,17 @@ def main(argv: list[str] | None = None) -> int:
     dt.add_argument("--minimo", type=int, default=1, help="pelo menos quantos (padrão 1)")
     dt.add_argument("--maximo", type=int, help="no máximo quantos")
     dt.set_defaults(func=cmd_detector)
+
+    ig = sub.add_parser("ingredientes",
+                        help="o juiz de ingrediente dos passos do lanche: instala o modelo, desce a base da loja, "
+                             "olha uma imagem")
+    ig.add_argument("acao", choices=["instalar", "base", "olhar"])
+    ig.add_argument("--pasta", help="onde fica o modelo (padrão: FAROL_MODELOS ou ./modelos)")
+    ig.add_argument("--config", default="./configuracao.json",
+                    help="a configuração do agente: a base da loja fica ao lado (padrão ./configuracao.json)")
+    ig.add_argument("--nuvem", help="endereço da API, ex. https://api.monitorfarol.com.br (ação base)")
+    ig.add_argument("--imagem", help="imagem para o juiz olhar (ação olhar)")
+    ig.set_defaults(func=cmd_ingredientes)
 
     sv = sub.add_parser("servir",
                         help="roda o agente contra a nuvem: config desce, comandos chegam")

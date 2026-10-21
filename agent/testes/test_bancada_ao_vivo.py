@@ -22,9 +22,11 @@ import csv
 import json
 import logging
 import time
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from farol_agent import bancada_ao_vivo as bav
@@ -599,9 +601,10 @@ def test_a_linha_de_execucao_le_e_para(tmp_path):
 class _BancadaDeMentira:
     vistos: list[str] = []
 
-    def __init__(self, caminho_config, canais, *, guardar_quadros=False, passos=False):
+    def __init__(self, caminho_config, canais, *, guardar_quadros=False, passos=False, juiz_de=None):
         _BancadaDeMentira.vistos.append(
-            f"criada:{Path(caminho_config).name}:{canais}:guardar={guardar_quadros}" + (":passos" if passos else ""),
+            f"criada:{Path(caminho_config).name}:{canais}:guardar={guardar_quadros}" + (":passos" if passos else "")
+            + (":juiz" if juiz_de is not None else ""),
         )
 
     def iniciar(self):
@@ -611,28 +614,48 @@ class _BancadaDeMentira:
         _BancadaDeMentira.vistos.append("parada")
 
 
+class _BaseEmFundoDeMentira:
+    def __init__(self, cliente, caminho_config):
+        self.base = object()
+        _BancadaDeMentira.vistos.append(f"base:{Path(caminho_config).name}")
+
+    def iniciar(self):
+        _BancadaDeMentira.vistos.append("base iniciada")
+
+    def parar(self):
+        _BancadaDeMentira.vistos.append("base parada")
+
+
 @pytest.mark.parametrize(
-    "valor, guardar, passos, vistos",
+    "valor, guardar, passos, ingredientes, vistos",
     [
-        (None, "1", "1", []),
-        ("4", None, None, ["criada:configuracao.json:[4]:guardar=False", "iniciada", "parada"]),
-        ("4", "1", None, ["criada:configuracao.json:[4]:guardar=True", "iniciada", "parada"]),
-        ("4", "1", "1", ["criada:configuracao.json:[4]:guardar=True:passos", "iniciada", "parada"]),
-        ("4", None, "1", ["criada:configuracao.json:[4]:guardar=False:passos", "iniciada", "parada"]),
+        (None, "1", "1", "1", []),
+        ("4", None, None, None, ["criada:configuracao.json:[4]:guardar=False", "iniciada", "parada"]),
+        ("4", "1", None, None, ["criada:configuracao.json:[4]:guardar=True", "iniciada", "parada"]),
+        ("4", "1", "1", None, ["criada:configuracao.json:[4]:guardar=True:passos", "iniciada", "parada"]),
+        ("4", None, "1", None, ["criada:configuracao.json:[4]:guardar=False:passos", "iniciada", "parada"]),
+        ("4", "1", "1", "1", ["base:configuracao.json", "base iniciada", "criada:configuracao.json:[4]:guardar=True:passos:juiz",
+                              "iniciada", "parada", "base parada"]),
+        # o juiz só olha passos: sem os passos (ou sem os quadros guardados), nem a base desce
+        ("4", "1", None, "1", ["criada:configuracao.json:[4]:guardar=True", "iniciada", "parada"]),
+        ("4", None, "1", "1", ["criada:configuracao.json:[4]:guardar=False:passos", "iniciada", "parada"]),
     ],
 )
-def test_o_agente_so_liga_a_bancada_ao_vivo_com_a_variavel(tmp_path, monkeypatch, capsys, valor, guardar, passos, vistos):
-    from farol_agent import nuvem
+def test_o_agente_so_liga_a_bancada_ao_vivo_com_a_variavel(
+    tmp_path, monkeypatch, capsys, valor, guardar, passos, ingredientes, vistos,
+):
+    from farol_agent import base_da_loja, nuvem
 
     _BancadaDeMentira.vistos.clear()
     monkeypatch.setenv("FAROL_AGENTE_TOKEN", "token-de-teste")
-    for nome, v in ((bav.VARIAVEL, valor), (bav.GUARDAR, guardar), (bav.PASSOS, passos)):
+    for nome, v in ((bav.VARIAVEL, valor), (bav.GUARDAR, guardar), (bav.PASSOS, passos), (bav.INGREDIENTES, ingredientes)):
         if v is None:
             monkeypatch.delenv(nome, raising=False)
         else:
             monkeypatch.setenv(nome, v)
     monkeypatch.setattr(nuvem, "ClienteNuvem", _ClienteDeMentira)
     monkeypatch.setattr(bav, "BancadaAoVivo", _BancadaDeMentira)
+    monkeypatch.setattr(base_da_loja, "BaseEmFundo", _BaseEmFundoDeMentira)
     monkeypatch.setattr(treino_servico, "TreinoEmFundo", lambda *a, **k: None)
     argv = ["servir", "--nuvem", "https://api.exemplo", "--config", str(tmp_path / "configuracao.json"),
             "--fila", str(tmp_path / "fila.db"), "--sem-auditoria", "--sem-treino", "--voltas", "0"]
@@ -645,6 +668,7 @@ def test_o_agente_so_liga_a_bancada_ao_vivo_com_a_variavel(tmp_path, monkeypatch
     assert ("guardando TODOS os quadros (FAROL_BANCADA_GUARDAR_QUADROS)" in saida) is (bool(vistos) and guardar == "1")
     assert ("com os PASSOS de cada lanche (FAROL_BANCADA_PASSOS)" in saida) is (bool(vistos) and guardar == "1" and passos == "1")
     assert ("pedem também FAROL_BANCADA_GUARDAR_QUADROS" in saida) is (bool(vistos) and guardar != "1" and passos == "1")
+    assert ("com o JUIZ DE INGREDIENTE (FAROL_BANCADA_INGREDIENTES)" in saida) is ("base iniciada" in vistos)
 
 
 # ───────────────────────────── os passos do lanche (A23.3) ─────────────────────────────
@@ -726,3 +750,77 @@ def test_um_defeito_nos_passos_nao_para_a_leitura(tmp_path, monkeypatch, caplog)
 @pytest.mark.parametrize("valor, liga", [(None, False), ("0", False), ("1", True), ("ligado", True)])
 def test_a_chave_dos_passos(valor, liga):
     assert bav.passos_ligados(valor) is liga
+    assert bav.ingredientes_ligados(valor) is liga
+
+
+# ───────────────────────── o juiz de ingrediente nos passos ─────────────────────────
+
+
+@dataclass(frozen=True)
+class _Visto:
+    nome: str | None
+    nota: float
+    ingrediente: str | None
+
+    def comida(self) -> bool:
+        return self.nota >= 0.48
+
+
+def _juiz_da_cor(corte: np.ndarray) -> _Visto:
+    """O juiz de mentira: o miolo escuro (o que cobre as metades aos 40 s na cena do embrulho) não é ingrediente."""
+    h, w = corte.shape[:2]
+    if float(corte[h // 2 - 5:h // 2 + 5, w // 2 - 5:w // 2 + 5].mean()) < 50:
+        return _Visto(None, 0.20, None)
+    return _Visto("Pão de dois cortes", 0.70, "Queijo")
+
+
+def _com_juiz(tmp_path, juiz_de):
+    return bav.LeituraDoCanal(
+        4, ZONA, FluxoDeMentira(cena_do_embrulho()), DetectorDaCor(), AO_LONGO, tmp_path / "canal-04",
+        relogio=lambda: T0, guardar_quadros=True, passos=True, juiz_de=juiz_de,
+    )
+
+
+def test_com_o_juiz_os_passos_levam_o_nome_e_a_nota_e_o_evento_conta_os_que_sairam(tmp_path):
+    pedidos = []
+
+    def juiz_de():
+        pedidos.append(1)
+        return _juiz_da_cor
+
+    le = _com_juiz(tmp_path, juiz_de)
+    ler_tudo(le, 95)
+    le.encerrar("o agente parou")
+
+    p = [e for e in linha_do_tempo(le.pasta) if e["evento"] == "passos"][0]
+    # o escuro que cobriu as duas metades aos 40 s tomou a janela sem ingrediente: as duas peças "saíram"
+    assert (p["juiz"], p["passos"], p["saiu"], p["vazios"], p["metades"]) == (True, 0, 2, 0, 2)
+    lido = json.loads((le.pasta / p["pasta"] / "passos.json").read_text(encoding="utf-8"))
+    assert lido["juiz"] is True
+    assert {(s["nome"], s["nota"]) for s in lido["passos"] if s["tipo"] == "comeco"} == {("Pão de dois cortes", 0.70)}
+    saiu = [s for s in lido["passos"] if s["tipo"] == "saiu"]
+    assert {s["metade"] for s in saiu} == {1, 2} and all(s["nome"] is None and s["nota"] == 0.20 for s in saiu)
+    assert all(s["recorte"] for s in saiu), "o recorte do que o juiz tirou fica, para a conferência"
+    assert pedidos == [1], "o juiz é pedido uma vez por lanche"
+
+
+def test_com_o_juiz_fora_por_enquanto_os_passos_seguem_como_antes(tmp_path):
+    le = _com_juiz(tmp_path, lambda: None)
+    ler_tudo(le, 95)
+    le.encerrar("o agente parou")
+
+    p = [e for e in linha_do_tempo(le.pasta) if e["evento"] == "passos"][0]
+    assert "juiz" not in p and "saiu" not in p and p["passos"] >= 2
+    lido = json.loads((le.pasta / p["pasta"] / "passos.json").read_text(encoding="utf-8"))
+    assert "juiz" not in lido and all("nome" not in s and "nota" not in s for s in lido["passos"])
+
+
+def test_sem_os_passos_o_juiz_nem_e_pedido(tmp_path):
+    pedidos = []
+    le = bav.LeituraDoCanal(
+        4, ZONA, FluxoDeMentira(cena_do_embrulho()), DetectorDaCor(), AO_LONGO, tmp_path / "canal-04",
+        relogio=lambda: T0, guardar_quadros=False, passos=True, juiz_de=lambda: pedidos.append(1),
+    )
+    ler_tudo(le, 95)
+    le.encerrar("o agente parou")
+    assert pedidos == []

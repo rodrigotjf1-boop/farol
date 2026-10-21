@@ -13,11 +13,16 @@ são passados prontos (o Hough tem o teste dele). O que se protege:
   quadro só antes da tampa é o passo PROVISÓRIO — e a sobra pequena, não;
 - as metades: o grupo de poucos pontos, o sem caixa do detector e o do lugar de antes do empurrão não são metade; a
   metade só é olhada depois de estar no lugar dela;
-- os discos do Hough só abaixo do topo da bancada; o recorte da metade.
+- os discos do Hough só abaixo do topo da bancada; o recorte da metade;
+- com o JUIZ DE INGREDIENTE (aqui, um de mentira que olha a cor do miolo da janela): a peça que sai da janela (o lanche
+  levado: a janela vê o inox) termina ali, e nada depois dela conta — nem o pão do lanche seguinte no mesmo lugar; o
+  passo sem ingrediente que não toma a janela é vazio; a metade que não começa em comida sai; o começo e os passos levam
+  o nome e a nota.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 import cv2
@@ -46,14 +51,17 @@ FUNDO = _desenho(1, ALTURA, LARGURA, 10)
 MANCHAS = _desenho(2, ALTURA, LARGURA, 30)
 
 
-def mesa(paes=(TAMPA, BASE), queijos=(), carnes=(), maos=(), coroas=(), luz=0, empurrao=(0, 0)) -> np.ndarray:
+def mesa(paes=(TAMPA, BASE), queijos=(), carnes=(), maos=(), coroas=(), luz=0, empurrao=(0, 0), papel_na_mesa=True,
+         inox=(95, 95, 95)) -> np.ndarray:
     """A bancada num quadro: `paes` (cx, cy); `queijos` (cx, cy, lado); `carnes` (cx, cy, raio); `maos` (x0, y0, x1, y1);
     `coroas` (cx, cy): a tampa já virada em cima; `luz`: somada ao quadro todo; `empurrao`: o papel e tudo em cima dele
-    andam (dx, dy)."""
-    img = np.full((ALTURA, LARGURA, 3), 95, np.int16)
+    andam (dx, dy); sem `papel_na_mesa`, só o inox (o lanche foi levado com o papel); `inox`: a cor do tampo."""
+    img = np.empty((ALTURA, LARGURA, 3), np.int16)
+    img[:] = inox
     x0, y0, x1, y1 = PAPEL
     papel = np.zeros((ALTURA, LARGURA), np.uint8)
-    cv2.rectangle(papel, (x0, y0), (x1, y1), 1, -1)
+    if papel_na_mesa:
+        cv2.rectangle(papel, (x0, y0), (x1, y1), 1, -1)
     img[papel.astype(bool)] = (200, 215, 225)
     # o desenho impresso no papel (fixo): manchas fortes onde o papel está
     img = np.where(papel[..., None].astype(bool), img + MANCHAS, img + FUNDO)
@@ -82,7 +90,7 @@ def caixas_de(paes) -> list[tuple]:
     return [(cx - D / 2, cy - D / 2, cx + D / 2, cy + D / 2, 0.9) for cx, cy in paes]
 
 
-def ler(cena: list[np.ndarray], paes=(TAMPA, BASE), p: pdl.Parametros | None = None, pontos_de=None) -> pdl.Leitura:
+def ler(cena: list[np.ndarray], paes=(TAMPA, BASE), p: pdl.Parametros | None = None, pontos_de=None, juiz=None) -> pdl.Leitura:
     """Lê a cena (um quadro por segundo desde T0). `pontos_de(i)`: os pães vistos no quadro i (padrão: os dois no lugar)."""
     passos = pdl.PassosDoLanche(p or pdl.Parametros())
     quadros = {}
@@ -92,7 +100,7 @@ def ler(cena: list[np.ndarray], paes=(TAMPA, BASE), p: pdl.Parametros | None = N
         vistos = pontos_de(i) if pontos_de else paes
         passos.ver(nome, T0 + timedelta(seconds=i), img, caixas_de(vistos), 0, LARGURA,
                    achados=[(float(cx), float(cy), float(D)) for cx, cy in vistos])
-    return passos.ler(lambda nome: quadros.get(nome))
+    return passos.ler(lambda nome: quadros.get(nome), juiz=juiz)
 
 
 def seg(s: pdl.Passo) -> int:
@@ -241,3 +249,112 @@ def test_o_recorte_da_metade_e_a_janela_dela_no_quadro_cheio():
     lado = 2 * int(0.62 * D)
     assert r.shape[:2] == (lado, lado)
     assert np.array_equal(r, img[250 - lado // 2:250 + lado // 2, 300 - lado // 2:300 + lado // 2])
+
+
+# ───────────────────────── o juiz de ingrediente ─────────────────────────
+
+@dataclass(frozen=True)
+class _Visto:
+    nome: str | None
+    nota: float
+    ingrediente: str | None
+
+    def comida(self) -> bool:
+        return self.nota >= 0.48
+
+
+# O inox frio: o tampo da loja, sob a luz dela, não tem o matiz do papel (nos passos de saída da primeira noite, o que
+# chegou era papel em 0 a 60%). O cinza neutro do desenho, com a correção de luz pelo anel de papel, vira "papel".
+INOX_FRIO = (140, 105, 75)
+CORES = {"Pão": CINZA_PAO, "Queijo": QUEIJO, "Carne": CARNE, "Coroa": COROA, "inox": INOX_FRIO,
+         "papel": (200, 215, 225), "mão": MAO}
+COMIDA = {"Pão", "Queijo", "Carne", "Coroa"}
+
+
+class JuizDeMentira:
+    """O juiz pela cor do MIOLO da janela: comida (0,70) se é pão, queijo, carne ou a tampa; o resto, `nada` (0,20)."""
+
+    def __init__(self, nada: float = 0.20) -> None:
+        self.olhados: list[tuple[int, int]] = []
+        self.nada = nada
+
+    def __call__(self, corte: np.ndarray) -> _Visto:
+        h, w = corte.shape[:2]
+        self.olhados.append((h, w))
+        miolo = corte[h // 2 - 10:h // 2 + 10, w // 2 - 10:w // 2 + 10].reshape(-1, 3).mean(axis=0)
+        nome = min(CORES, key=lambda n: float(np.linalg.norm(miolo - np.array(CORES[n], np.float64))))
+        if nome in COMIDA:
+            return _Visto(nome, 0.70, None if nome == "Pão" else nome)
+        return _Visto(nome, self.nada, None)
+
+
+def _levado() -> list[np.ndarray]:
+    """O queijo na tampa (parado no segundo 6); o lanche levado com o papel no 8 (a janela passa a ver o inox, parada já
+    no 9: a mão do desenho é lisa, e a correção de luz pelo anel em volta tira a troca de uma cor lisa pela outra); o pão
+    do lanche seguinte no lugar da tampa no 12 (parado no 13)."""
+    return [mesa(inox=INOX_FRIO)] * 4 + [mesa(maos=[(250, 180, 420, 240)], inox=INOX_FRIO)] \
+        + [mesa(queijos=[(300, 250, 96)], inox=INOX_FRIO)] * 3 \
+        + [mesa(paes=[], papel_na_mesa=False, maos=[(200, 150, 450, 520)], inox=INOX_FRIO)] \
+        + [mesa(paes=[], papel_na_mesa=False, inox=INOX_FRIO)] * 3 + [mesa(paes=[TAMPA], papel_na_mesa=False, inox=INOX_FRIO)] * 3
+
+
+def test_sem_o_juiz_o_lanche_levado_vira_passo():
+    # o que a primeira noite ao vivo mostrou (20 para 21/10): a janela fixa vê o inox quando o lanche sai, e isso contava
+    assert contados(ler(_levado())) == [(1, "passo", 6), (1, "passo", 9), (2, "passo", 9), (1, "passo", 13)]
+
+
+def test_com_o_juiz_a_peca_que_sai_da_janela_termina_ali_e_nada_depois_conta():
+    juiz = JuizDeMentira()
+    leitura = ler(_levado(), juiz=juiz)
+    # o queijo fica; o inox na tampa e na base é a peça saindo (toma a janela inteira); o pão do lanche seguinte, no lugar
+    # da tampa, não é deste lanche
+    assert contados(leitura) == [(1, "passo", 6), (1, "saiu", 9), (2, "saiu", 9)]
+    queijo = next(s for s in leitura.passos if s.tipo == "passo")
+    assert (queijo.nome, queijo.nota) == ("Queijo", 0.70)
+    assert all(s.nome is None and s.nota == 0.20 for s in leitura.passos if s.tipo == "saiu")
+    # o começo leva o nome mais parecido de todos (o pão) e a nota
+    assert {(s.metade, s.nome, s.nota) for s in leitura.passos if s.tipo == "comeco"} == {(1, "Pão", 0.70), (2, "Pão", 0.70)}
+    # o juiz olhou a JANELA da metade, no quadro cheio
+    lado = 2 * int(0.62 * D)
+    assert set(juiz.olhados) == {(lado, lado)}
+    assert leitura.fechou is None
+
+
+def test_com_o_juiz_o_grande_sem_ingrediente_mas_perto_da_nota_de_comida_e_vazio_e_nao_corta_a_metade():
+    # a base do P7 em 18/10 (ovo, queijo e alface: 0,477) — abaixo da nota de comida, mas na margem do "saiu": o passo não
+    # conta, e o que vem depois na metade é julgado um a um (aqui, o pão do lanche seguinte, que é comida)
+    leitura = ler(_levado(), juiz=JuizDeMentira(nada=0.46))
+    assert contados(leitura) == [(1, "passo", 6), (1, "vazio", 9), (2, "vazio", 9), (1, "passo", 13)]
+
+
+def test_com_o_juiz_o_que_nao_e_ingrediente_e_nao_toma_a_janela_e_vazio():
+    # um pegador largado em cima da tampa e esquecido ali: muda o miolo, mas é menos da metade da janela
+    pegador = (250, 200, 350, 300)
+    cena = [mesa()] * 4 + [mesa(maos=[(250, 180, 420, 240)])] + [mesa(maos=[pegador])] * 4
+    sem = ler(cena)
+    assert contados(sem) == [(1, "passo", 6)]
+    assert next(s for s in sem.passos if s.tipo == "passo").parte < pdl.Parametros().saiu_parte
+    com = ler(cena, juiz=JuizDeMentira())
+    assert contados(com) == [(1, "vazio", 6)]
+    assert next(s for s in com.passos if s.tipo == "vazio").nome is None
+
+
+def test_com_o_juiz_a_metade_que_nao_comeca_em_comida_sai():
+    # um terceiro "pão" visto no inox ao lado do papel (o detector e o Hough acharam): não é peça do lanche
+    fora = (600, 300)
+    cena = [mesa()] * 4 + [mesa(maos=[(250, 180, 420, 240)])] + [mesa(queijos=[(300, 250, 96)])] * 3
+    sem = ler(cena, pontos_de=lambda i: [TAMPA, BASE, fora])
+    assert [(round(m.cx), round(m.cy)) for m in sem.metades] == [(300, 250), (600, 300), (300, 420)]
+    com = ler(cena, pontos_de=lambda i: [TAMPA, BASE, fora], juiz=JuizDeMentira())
+    assert [(round(m.cx), round(m.cy)) for m in com.metades] == [(300, 250), (300, 420)]
+    assert {s.metade for s in com.passos} == {1, 3}
+    assert contados(com) == [(1, "passo", 6)]
+
+
+def test_o_juiz_nao_olha_a_passagem_nem_o_fechamento():
+    juiz = JuizDeMentira()
+    cena = [mesa()] * 4 + [mesa(maos=[(300, 222, 430, 278)])] * 5 + [mesa(maos=[(330, 240, 440, 300)])] + [mesa()] * 4
+    leitura = ler(cena, juiz=juiz)
+    assert contados(leitura) == [(1, "transitorio", 5), (1, "transitorio", 11)]
+    # só os dois começos foram olhados
+    assert len(juiz.olhados) == 2
