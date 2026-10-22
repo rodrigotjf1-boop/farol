@@ -112,6 +112,7 @@ const ORIGEM: Record<GravacaoDeTreino['origem'], string> = {
   gravador: 'do que o gravador guardou',
   programada: 'programada',
   carga: 'leitura de teste da bancada',
+  'ao-vivo': 'leitura ao vivo da bancada',
 };
 
 export default function Treinamento() {
@@ -690,7 +691,8 @@ function PainelDosLanches({
   const lista = listas[filtro];
   const deQual = (l: LancheNaFila) => {
     const g = gravacaoDe.get(l.gravacaoId);
-    return g ? `gravação de ${quandoDaGravacao(g.inicio, g.fim, fuso)}` : 'gravação de treino';
+    if (!g) return 'gravação de treino';
+    return `${g.origem === 'ao-vivo' ? 'leitura ao vivo' : 'gravação'} de ${quandoDaGravacao(g.inicio, g.fim, fuso)}`;
   };
   const hora = (l: LancheNaFila) => new Intl.DateTimeFormat('pt-BR', { timeZone: fuso, hour: '2-digit', minute: '2-digit' }).format(new Date(l.abertoEm ?? l.fechouEm ?? 0));
 

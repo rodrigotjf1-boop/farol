@@ -1735,6 +1735,17 @@ export type EtapaDoLanche = {
   vezes: number;
   quadro: number | null;
   quadroId: string | null;
+  // ── o lanche lido POR PASSOS (A23.3, migration 054): só nele ──
+  /** O tipo do passo: começo, passo, provisório, passagem, fechou, vazio (o juiz tirou) ou saiu (a peça saiu da janela). */
+  tipo?: 'comeco' | 'passo' | 'provisorio' | 'transitorio' | 'fechou' | 'vazio' | 'saiu';
+  /** A metade do pão (a peça) em que o passo aconteceu: o quadro é a janela dela. */
+  metade?: number;
+  /** Quanto da janela mudou (0 a 1). */
+  parte?: number;
+  /** A nota do juiz de ingrediente (0 a 1). */
+  nota?: number;
+  /** O que chegou, em pixels do quadro: o tracejado. */
+  contorno?: number[][][];
 };
 
 export type PalpiteDaFicha = { produtoId: string; produto: string; batem: number; total: number; fora: number };
@@ -1781,6 +1792,10 @@ export type LancheNaFila = {
   conferidoPor: string | null;
   miniaturas: { tampo: string | null; base: string | null };
   etapas: number;
+  /** O lanche lido por passos (A23.3): a conferência é um cartão por passo. */
+  porPassos: boolean;
+  /** Quantas metades do pão a leitura achou (o pão pelas peças). Nulo = a leitura não disse. */
+  pecas: number | null;
 };
 
 export type GravacaoDeTreino = {
@@ -1788,7 +1803,8 @@ export type GravacaoDeTreino = {
   chave: string;
   inicio: string;
   fim: string;
-  origem: 'gravador' | 'programada' | 'carga';
+  /** `ao-vivo` (migration 054): a noite da leitura ao vivo de uma bancada. */
+  origem: 'gravador' | 'programada' | 'carga' | 'ao-vivo';
   situacao: 'programada' | 'fila' | 'lendo' | 'pronta' | 'apagada' | 'cancelada' | 'falhou';
   progresso: number | null;
   /** Por que a leitura não deu certo, como a loja contou (só na situação `falhou`). */
@@ -1905,8 +1921,9 @@ export const treinoApi = {
   /** O quadro de uma etapa. O id nunca muda de imagem: o navegador guarda. */
   urlDoQuadro: (quadroId: string) => `/api/treino/quadros/${quadroId}/imagem`,
 
-  conferir: (id: string, conferencia: ConferenciaPorFoto) =>
-    pedir<{ conferido: true; produto: string | null; palpite: string | null; acertou: boolean; exemplos: number }>(`/treino/lanches/${id}/conferencia`, {
+  /** A conferência por foto, ou — no lanche lido por passos — a por etapa. `nada`: os exemplos de "não era ingrediente". */
+  conferir: (id: string, conferencia: ConferenciaDoLanche) =>
+    pedir<{ conferido: true; produto: string | null; palpite: string | null; acertou: boolean; exemplos: number; nada?: number }>(`/treino/lanches/${id}/conferencia`, {
       method: 'POST',
       body: JSON.stringify(conferencia),
     }),

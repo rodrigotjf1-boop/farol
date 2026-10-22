@@ -9086,3 +9086,33 @@ ninguém conferir. O protótipo "conferência por passo" (aprovado em 20/10) fec
 
 Os contratos `lanche-de-treino.json` (o exemplo `porPassos`, os limites novos) e `base-de-conhecimento.json` (o
 `nada`) dizem tudo isso; os testes da API leem os dois.
+
+## 21/10/2026 · A conferência por passo, parte 2: a tela (A23.3; sem migration)
+
+O protótipo aprovado pelo dono em 20/10 entra na gaveta do lanche do Treinamento, para o lanche lido POR PASSOS
+(`porPassos`); o lanche da gravação de treino segue com a conferência por foto, como estava. "Qual lanche era?" (o
+palpite, as perguntas que separam as fichas) e a comparação com a ficha são os mesmos; no meio:
+
+- **O pão pelas peças** (`componentes/treino/conferencia-por-passo.tsx`): 3 peças é o pão de dois cortes — quando a
+  loja tem um pão com "dois cortes" no nome (o único com a fatia do meio) —, com "pelas peças", Certo / Era outro; com
+  outro número de peças, "diga qual": por cima, o Farol ainda não separa o de 1 corte do brioche (medido em 17/10).
+- **Um cartão por passo** (o passo, o provisório e o vazio): o recorte da peça em que o ingrediente chegou, com o
+  TRACEJADO do que chegou (o contorno do agente, desenhado por cima do recorte), a hora, a peça, a leitura com a
+  certeza pela nota do juiz (alta de 0,60 para cima, média de 0,52, pouca abaixo) — Certo / Era outro / Não era
+  ingrediente; sem leitura, "Eu digo o que era". O vazio (o juiz achou que não era ingrediente) pergunta ao contrário:
+  "Certo, não era" / "Era um ingrediente". A borda amarela marca a dúvida (o vazio, a pouca certeza, a falta de
+  leitura), e o atalho marca como certos os de certeza alta ou média — o que fica é o que a pessoa precisa ver.
+- **O fim**: a peça que saiu (embrulhada, fechada na caixa ou levada), o fechamento e os movimentos ignorados (a
+  passagem), com "Ver/Esconder". O recorte abre maior no mesmo quadro das fotos.
+- **Salvar** manda a conferência POR ETAPA (uma resposta por etapa, na ordem): cada começo ensina o pão; o "certo"
+  vai como "outro" quando a leitura não disse um nome só; "Não era ingrediente" é `nada` — e vira exemplo do que NÃO é
+  ingrediente (parte 1). O aviso conta os dois: "Guardado: 8 exemplos novos de ingrediente e 1 exemplo de “não era
+  ingrediente”". A conferência por etapa não guarda observação: a caixa dela sai no lanche por passos.
+- **A lista**: a linha diz "leitura ao vivo de…"; as duas miniaturas são o último recorte que CONTA da peça 1 e da
+  peça 2 (nunca o da peça saindo, que é o inox).
+
+Conferido no console local (banco de teste, lanches por passos com quadros DESENHADOS, nada da loja), com cliques de
+verdade: o pão pelas peças e o "diga qual", os seis cartões e os tracejados, o atalho (4 de certeza alta ou média), o
+"Era outro" com a lista, o vazio nos dois sentidos, salvar e a resposta por etapa guardada na ordem, o próximo lanche
+abrindo sozinho, reabrir o conferido com as respostas; 48 medidas (3 estados × 16 larguras, 320 a 1920): nada passa da
+borda nem rola para o lado, todo controle com nome, nenhum id repetido.

@@ -779,6 +779,9 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     assert.ok(d.etapas[2].quadroId, 'o recorte do vazio sobe, para conferir');
     const naLista = (await lista()).json().lanches.find((y: { id: string }) => y.id === id);
     assert.deepEqual([naLista.porPassos, naLista.pecas], [true, 2]);
+    const quadros = (await pool.query('select id, n from treino_quadro where lanche_id = $1', [id])).rows;
+    const idDo = (n: number) => quadros.find((q) => q.n === n)!.id;
+    assert.deepEqual(naLista.miniaturas, { tampo: idDo(0), base: idDo(1) }, 'a peça 1 e a peça 2: o último recorte que conta (o do vazio, não)');
 
     const c = await conferir(id, POR_PASSOS.conferencia, cookieSupervisao);
     assert.equal(c.statusCode, 200, c.body);
