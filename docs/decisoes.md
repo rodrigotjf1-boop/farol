@@ -9259,3 +9259,47 @@ Conferido sem banco, num cardápio inventado:
 
 Com Postgres, pela rota: o lanche do contrato, 5 passos lidos e o X-Burger desde o pão; o "não era um lanche" fica fora.
 Mutação: 12 de 12 estragos na conta derrubam algum teste.
+
+## 22/10/2026 · F4 medida: o modelo de visão e linguagem local na placa NÃO serve ao passo (A24; sem código no produto)
+
+O que entrou na loja, fora do agente (`C:\Farol\ferramentas`, sha256 conferido de cada arquivo):
+- o llama.cpp b11514 para CUDA 13.4;
+- o Qwen3-VL-4B-Instruct em Q8_0, com o projetor de imagem em F16 (Apache-2.0).
+
+O servidor só subiu durante a medida, em 127.0.0.1, com a loja fechada. Com ele carregado, a placa ficou em ~7 GB dos
+16 GB.
+
+Medido nos mesmos 112 passos rotulados da noite de 20-21/10 (os do juiz de ingrediente: 35 falsos passos), com a lista
+fechada dos 20 ingredientes da base da loja:
+
+| a pergunta ao modelo | acerto | tempo mediano |
+|---|---|---|
+| "qual ingrediente acabou de chegar?" — uma imagem, o recorte como é (176–282 px) | 57/112 | 616 ms |
+| a mesma, com o recorte ampliado a 448 / 672 px | 50/112 · 49/112 | 670 · 798 ms |
+| "o que foi posto entre a imagem 1 e a 2?" — o recorte de antes da mesma metade e o do passo | 39/112 | 758 ms |
+| "há comida (pão incluído) ou só inox, papel, alumínio, caixa, mão?" | 102/110 (2 respostas cortadas) | 1.259 ms |
+| o juiz de hoje (DINOv2, no processador; limiar escolhido NESSES 112 — número dentro da amostra) | 109/112 | — |
+
+- **O passo (é ingrediente de verdade? qual?):** o modelo diz "nada" quase sempre — 73 de 77 passos de verdade na
+  pergunta com antes e depois. Não serve à decisão do passo, nem como segunda opinião da dúvida do juiz.
+- **"Há comida?":** 102 de 110, com dois tipos de erro: o pão sem nada em cima chamado de "sem comida" (escrevendo "pão
+  de hambúrguer vazio" na observação) e a peça saindo da janela, que tem comida à vista.
+- **Os quadros inteiros (contexto):** 6 quadros da bancada de 20:09 a 22:02, conferidos por mim pela imagem.
+  - Certos: a bancada vazia (3 de 3) e o lanche em montagem das 21:39 (com "barbecue" no lugar da cebola).
+  - Errados: contou 3 lanches onde eram 2, e não viu um lanche sendo embrulhado.
+  - Tempo: 1,3 s por quadro (3,1 s o primeiro).
+
+**O que isso decide.** O juiz de ingrediente fica: melhor e mais rápido no recorte. O caminho do ingrediente segue pela
+conferência (F3), não pelo modelo de linguagem. A F4 continua só como contexto (o estado da bancada, o fim do lanche), e só
+depois de um modelo maior medido do mesmo jeito: o Qwen3-VL-8B ou o Gemma 4. Esse download, de 5 a 9 GB pela internet 4G
+da loja, é decisão do dono, assim como parar aqui.
+
+**O defeito da minha medida, corrigido no mesmo trabalho (ERR-141).** A 1ª rodada fez ao modelo uma pergunta que não era
+a do rótulo, e o 57/112 quase virou "o modelo não serve".
+- Os rótulos marcam o FALSO PASSO (a peça saindo, a caixa, o pão empurrado), não "sem comida": o recorte 63 mostra pão
+  com queijo e o 64 pão com bacon, os dois rotulados "sem ingrediente".
+- A 4ª rodada (antes e depois) é a única com a pergunta do rótulo.
+- O 109/112 do juiz é dentro da amostra.
+
+Os roteiros estão no rascunho (`f4_medir.py`, `f4_ampliar.py`, `f4_comida.py`, `f4_antes_depois.py`). Os resultados, só
+números e texto, estão na loja em `C:\Farol\guardado\f4-medidas-2026-10-22\`.
