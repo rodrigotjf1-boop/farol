@@ -1198,7 +1198,7 @@ gravador atende (1,5 s, fora da trava), e o OpenCV passa a desistir em 5 s
 
 ---
 
-## A24 · O Farol especialista: a placa de vídeo na loja (plano de 22/10/2026) — 🟡 F0 feita, F1 em andamento
+## A24 · O Farol especialista: a placa de vídeo na loja (plano de 22/10/2026) — 🟡 F0 feita, F1 e F2 em andamento
 
 O dono instalou uma RTX 5060 Ti 16 GB no PC do Farol (22/10, driver 621.01) e pediu, numa pesquisa sem achismo, como
 análise ao vivo, aprendizado e contexto se fazem nos campos que já são especialistas (pessoas, rostos, placas), quais
@@ -1211,7 +1211,7 @@ ficha → contexto local (modelo de visão e linguagem) → conferência → exe
 |---|---|---|
 | **F0** | provar a placa com quadros reais, sem mexer no ao vivo | ✅ 22/10: detector na placa (DirectML) **128 ms por quadro × 411 ms no OpenVINO**, os mesmos pães em 150 de 150 quadros; o juiz de ingrediente fica no processador (na placa, só 1,6× e o nome muda em 30 de 300) |
 | **F1** | ao vivo na placa, mais quadros por segundo, marcações novas | 🟡 o detector já roda na placa (a prova do agente aprovou às 04:18 de 22/10); o CÍRCULO no editor de áreas; 3 q/s ao vivo ADIADO pelo disco (a densa a 1 q/s já ocupa 8–10 GB por noite; 54 GB livres) — o estudo de mais quadros sai da gravação do gravador |
-| F2 | a ficha como roteiro, na loja (lista fechada, próximo passo esperado, palpite a cada passo) | a fazer — medir primeiro com os lanches conferidos |
+| **F2** | a ficha como roteiro, na loja (lista fechada, próximo passo esperado, palpite a cada passo) | 🟡 a MEDIDA na API (22/10): a curva do palpite — em que passo o palpite acerta, só nos conferidos (certo, certo entre os plausíveis, certo de vez; `curvaDoPalpite`, campo `curva` de `/v1/lojas/:id/treino`); o protótipo do painel ("Em que passo o Farol acerta o lanche", na tela Treinamento) espera o dono; os números esperam as conferências por passo; o roteiro na loja vem depois dos números |
 | F3 | aprender com a conferência (vetores normalizados, camada treinada, fila por dúvida e casos típicos) | a fazer — pede ≥ 30 lanches conferidos |
 | F4 | contexto local: modelo de visão e linguagem na placa (Qwen3-VL ou Gemma 4, Apache-2.0) | 🟡 medindo (22/10) |
 | F5 | fichas propostas a partir das montagens conferidas | a fazer |

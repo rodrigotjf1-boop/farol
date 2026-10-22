@@ -9224,3 +9224,38 @@ polígono; os pontos continuam ajustáveis um a um. Conferido: a geometria (20 p
 exato do polígono de 20 lados —, sem cruzar, dentro da imagem e aceito pelas recusas do servidor) e, no console local
 com um quadro DESENHADO, o gesto de verdade: "Novo quadro" → "Círculo" → arrastar → 20 pontos → "Salvar quadro" → o
 banco guardou 20 pontos; 16 larguras sem nada passar da borda.
+
+## 22/10/2026 · A curva do palpite: em que passo a ficha aponta o lanche (A24, F2; sem migration)
+
+A F2 do plano (a ficha como roteiro na loja) começa pela medida que o próprio plano pede: em que passo o palpite acerta,
+nos lanches conferidos. A conta é da API (`curvaDoPalpite` em `api/src/treino.ts`) e usa só o que já existe:
+
+- para cada lanche conferido com o produto dito, o palpite é refeito depois de 1, 2, 3… passos, com as fichas de hoje e
+  pela mesma conta da conferência (`palpitesDoLanche` e `palpiteQueVale`), e comparado ao produto conferido pela
+  família (`acertouOPalpite`: o "Trio 16" vale o "Número 16"). Os passos são o que entrou e a loja leu, na ordem
+  (`passosDoPalpite`: começo, passo e provisório com leitura); o pão sem nome, o vazio, a peça saindo e o fechamento não
+  são passo;
+- três números por passo: **certos** (o palpite certo naquele passo), **entre** (o certo entre os plausíveis, a lista
+  curta das perguntas, contado só quando há palpite) e **de vez** (certo naquele passo e sem mudar até o fim). O lanche
+  que acabou antes fica com o palpite do fim dele, então o último ponto é o acerto com todos os passos. A curva vai até o
+  12º passo; o `noFim` conta todos;
+- ficam fora: "não era um lanche" (produto nulo), o lanche sem nenhum passo lido, e a loja sem fichas.
+
+A curva vai na resposta de `GET /v1/lojas/:id/treino` (campo `curva`), ao lado de `contas` e `aprendizado`. A tela que
+a mostra espera a aprovação do protótipo (regra do console: tela nova passa por protótipo aprovado). O protótipo está na
+tela Treinamento de `mockups/farol-conexoes-e-fichas.html`, painel "Em que passo o Farol acerta o lanche", logo abaixo
+de "O lanche certo, gravação por gravação". Uma linha por passo, com três camadas na mesma trilha: certo e não mudou
+mais, certo mas ainda mudou, e o certo entre os candidatos. Os números só existem com as conferências: a primeira amostra
+por passo (20 lanches da noite de 21/10) subiu às 04:19 de 22/10 e espera o dono.
+
+O que a curva vai decidir: se o "de vez" sobe nos primeiros passos, a ficha aponta o lanche cedo, e o roteiro na loja
+(lista fechada, próximo passo esperado, palpite a cada passo) vale o trabalho. Se o certo fica muitos passos só "entre"
+os plausíveis, sem virar palpite, a imagem sozinha não separa aquelas fichas, e quem desempata é a fila do KDS (A23.4).
+
+Conferido sem banco, num cardápio inventado:
+- três lanches: o raro que decide no 5º passo, o combo da mesma família e o certo desde o pão;
+- o certo que vira errado no fim, e o lanche sem palpite (só um nome fora das fichas);
+- as exclusões e o teto de 12 passos.
+
+Com Postgres, pela rota: o lanche do contrato, 5 passos lidos e o X-Burger desde o pão; o "não era um lanche" fica fora.
+Mutação: 12 de 12 estragos na conta derrubam algum teste.
