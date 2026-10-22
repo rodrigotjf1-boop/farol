@@ -46,6 +46,7 @@ import { estudarFichas } from '../estudo-das-fichas.js';
 import {
   acertouOPalpite,
   aprendizado,
+  contaComoEvidencia,
   DIAS_DOS_QUADROS,
   exemplosDaConferencia,
   exemplosDeNada,
@@ -205,11 +206,15 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
     // sem nada visto da ficha, o Farol não tem palpite (o lanche sem leitura, antes da identificação)
     const vale = palpiteQueVale(palpites);
     const quadroDe = new Map((l.quadros ?? []).map((q) => [q.n, q.id]));
-    // a miniatura de cada metade: o último quadro dela (como ficou)
+    const porPassos = etapas.some((e) => e.metade !== undefined);
+    // a miniatura de cada metade: o último quadro dela (como ficou). No lanche por passos, o da peça 1 e o da peça 2 —
+    // o último que conta (nunca o da peça saindo, que é o inox)
     const miniatura = (lado: string) => {
+      const metade = lado === 'tampo' ? 1 : 2;
       for (let i = etapas.length - 1; i >= 0; i -= 1) {
         const e = etapas[i]!;
-        if (e.lado === lado && e.quadro !== null && quadroDe.has(e.quadro)) return quadroDe.get(e.quadro)!;
+        const dela = porPassos ? e.metade === metade && contaComoEvidencia(e) : e.lado === lado;
+        if (dela && e.quadro !== null && quadroDe.has(e.quadro)) return quadroDe.get(e.quadro)!;
       }
       return null;
     };
@@ -230,7 +235,7 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
       miniaturas: { tampo: miniatura('tampo'), base: miniatura('base') },
       etapas: etapas.length,
       /** O lanche lido por passos (A23.3): a conferência é um cartão por passo, e não por foto. */
-      porPassos: etapas.some((e) => e.metade !== undefined),
+      porPassos,
       /** Quantas metades do pão a leitura achou (o pão pelas peças). Nulo = a leitura não disse. */
       pecas: l.leitura?.pecas ?? null,
     };

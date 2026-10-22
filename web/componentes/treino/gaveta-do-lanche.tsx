@@ -54,6 +54,18 @@ import {
   sugeridosNaFoto,
   vistosNaConferencia,
 } from './conferencia-por-foto';
+import {
+  conferiveis,
+  corpoPorPasso,
+  ehPao,
+  faltamPorPasso,
+  paoPelasPecas,
+  PassosDoLanche,
+  respostasGuardadas,
+  semRespostas,
+  vistosPorPasso,
+  type RespostasPorPasso,
+} from './conferencia-por-passo';
 import { nasFichas, ondeEntra, type VocabularioDoNome } from './nome-nas-fichas';
 import { QuadroDaFoto, type FotoNoQuadro } from './quadro-da-foto';
 
@@ -129,6 +141,8 @@ export function GavetaDoLanche({
   const [obs, setObs] = useState('');
   const [faltas, setFaltas] = useState<ConferenciaPorFoto['faltas']>({});
   const [aMais, setAMais] = useState<ConferenciaPorFoto['aMais']>({});
+  // o lanche lido POR PASSOS (A23.3): o pão e uma resposta por passo
+  const [porPasso, setPorPasso] = useState<RespostasPorPasso>(semRespostas);
   const [ficha, setFicha] = useState<ProdutoDaFicha | null>(null);
   // a foto aberta no quadro maior; e, ao fechar, a foto cuja miniatura recebe o foco
   const [quadro, setQuadro] = useState<number | null>(null);
@@ -166,6 +180,7 @@ export function GavetaDoLanche({
         }
         setFaltas(ja?.faltas ?? {});
         setAMais(ja?.aMais ?? {});
+        setPorPasso(r.porPassos ? respostasGuardadas(r.etapas, ja, paoPelasPecas(r.pecas, r.ingredientes.filter(ehPao))) : semRespostas());
       })
       .catch((e) => vivo && setErro(mensagemDe(e, 'não consegui abrir o lanche')));
     return () => {
@@ -218,7 +233,14 @@ export function GavetaDoLanche({
     return (ficha?.ficha?.ingredientes ?? []).map((i) => i.nome).filter((n) => !naoSeVe.has(chave(n)));
   }, [produtoNome, palpites, ficha, naoSeVe]);
 
-  const vistos = useMemo(() => (d ? vistosNaConferencia(d.fotos, d.etapas, fotos) : new Map<string, { nome: string; vezes: number }>()), [d, fotos]);
+  // o lanche por passos: os pães das fichas (o "Era outro" do pão), o pão pelas peças, e os ingredientes de um passo
+  const paes = useMemo(() => (d?.ingredientes ?? []).filter(ehPao), [d]);
+  const paoLido = useMemo(() => paoPelasPecas(d?.pecas ?? null, paes), [d, paes]);
+  const ingredientesDoPasso = useMemo(() => (d?.ingredientes ?? []).filter((n) => !ehPao(n) && !naoSeVe.has(chave(n))), [d, naoSeVe]);
+  const vistos = useMemo(() => {
+    if (!d) return new Map<string, { nome: string; vezes: number }>();
+    return d.porPassos ? vistosPorPasso(d.etapas, porPasso, paoLido) : vistosNaConferencia(d.fotos, d.etapas, fotos);
+  }, [d, fotos, porPasso, paoLido]);
   const conta = useMemo(() => {
     if (!d || !ficha?.ficha) return null;
     const naFicha = new Set(ficha.ficha.ingredientes.map((i) => chave(i.nome)));
@@ -268,6 +290,25 @@ export function GavetaDoLanche({
         };
       }),
     [d, fotos, fuso],
+  );
+
+  // no lanche por passos, o quadro maior mostra os recortes dos passos, na mesma ordem dos cartões
+  const passosDoQuadro = useMemo(() => (d?.porPassos ? conferiveis(d.etapas) : []), [d]);
+  const passosNoQuadro = useMemo<FotoNoQuadro[]>(
+    () =>
+      passosDoQuadro.map((i) => {
+        const e = d!.etapas[i]!;
+        const x = porPasso.passos[i];
+        return {
+          quadroId: e.quadroId,
+          hora: horaComSegundos(e.hora, fuso),
+          lado: `peça ${e.metade ?? '?'}`,
+          leu: e.tipo === 'vazio' ? 'não era ingrediente (o Farol acha)' : (e.leu ?? 'nada'),
+          podeSer: null,
+          disse: x?.v === 'nada' ? 'não era ingrediente' : x?.v === 'certo' ? e.leu : x?.v === 'outro' ? x.nome || null : null,
+        };
+      }),
+    [d, passosDoQuadro, porPasso, fuso],
   );
 
   // Fechado o quadro maior, o foco volta para a miniatura da foto que estava à vista nele (não a que o abriu): é ao
@@ -353,17 +394,32 @@ export function GavetaDoLanche({
     // só vai o que a conta de agora mostra: trocar de lanche no meio não leva a resposta do outro
     const faltando = new Set((conta?.linhas ?? []).filter((l) => !l.invisivel && l.viu < l.quer).map((l) => l.nome));
     const aMaisAgora = new Set((conta?.fora ?? []).map((f) => f.nome));
-    const conferencia: ConferenciaPorFoto = {
-      versao: 2,
-      produto: escolha === '__nao' ? null : escolha === '__outro' ? outroProduto : (escolha as string),
-      fotos: fotos.map((r) => ({ marcados: r.marcados, ruim: r.ruim, obs: r.ruim ? r.obs.trim() || null : null })),
-      perguntas: respostas,
-      obs: obs.trim() || null,
-      faltas: Object.fromEntries(Object.entries(faltas).filter(([k]) => faltando.has(k))),
-      aMais: Object.fromEntries(Object.entries(aMais).filter(([k]) => aMaisAgora.has(k))),
-    };
+    const produto = escolha === '__nao' ? null : escolha === '__outro' ? outroProduto : (escolha as string);
+    const faltasAgora = Object.fromEntries(Object.entries(faltas).filter(([k]) => faltando.has(k)));
+    const aMaisDeAgora = Object.fromEntries(Object.entries(aMais).filter(([k]) => aMaisAgora.has(k)));
+    // o lanche por passos vai como a conferência POR ETAPA: o "não era ingrediente" de um passo também ensina
+    const conferencia = d.porPassos
+      ? corpoPorPasso(d.etapas, porPasso, paoLido, produto, faltasAgora, aMaisDeAgora)
+      : ({
+          versao: 2,
+          produto,
+          fotos: fotos.map((r) => ({ marcados: r.marcados, ruim: r.ruim, obs: r.ruim ? r.obs.trim() || null : null })),
+          perguntas: respostas,
+          obs: obs.trim() || null,
+          faltas: faltasAgora,
+          aMais: aMaisDeAgora,
+        } satisfies ConferenciaPorFoto);
     try {
       const r = await treinoApi.conferir(lancheId, conferencia);
+      if (d.porPassos) {
+        const nada = r.nada ?? 0;
+        const partes = [
+          r.exemplos > 0 ? plural(r.exemplos, 'exemplo novo de ingrediente', 'exemplos novos de ingrediente') : null,
+          nada > 0 ? plural(nada, 'exemplo de “não era ingrediente”', 'exemplos de “não era ingrediente”') : null,
+        ].filter(Boolean);
+        aoSalvar(partes.length ? `Guardado: ${partes.join(' e ')} para a base da bancada.` : 'Guardado. Sem passo respondido, o lanche conta só para o acerto.');
+        return;
+      }
       const deFora = ruins ? ` ${ruins === 1 ? 'A foto que não dava para analisar ficou de fora.' : `As ${ruins} fotos que não davam para analisar ficaram de fora.`}` : '';
       aoSalvar(
         r.exemplos > 0
@@ -391,7 +447,9 @@ export function GavetaDoLanche({
   const titulo = d ? `Lanche das ${horaNaLoja(d.abertoEm ?? d.fechouEm, fuso)}` : 'Lanche';
   const descricao = d
     ? [
-        `gravação de ${quandoDaGravacao(d.gravacao.inicio, d.gravacao.fim, fuso)}`,
+        d.gravacao.origem === 'ao-vivo'
+          ? `leitura ao vivo de ${quandoDaGravacao(d.gravacao.inicio, d.gravacao.fim, fuso)}`
+          : `gravação de ${quandoDaGravacao(d.gravacao.inicio, d.gravacao.fim, fuso)}`,
         d.fechouEm ? `fechou às ${horaComSegundos(d.fechouEm, fuso)}` : null,
         posicao,
         d.situacao === 'conferido' && d.conferidoPor ? `conferido por ${d.conferidoPor}` : null,
@@ -399,9 +457,14 @@ export function GavetaDoLanche({
         .filter(Boolean)
         .join(' · ')
     : undefined;
+  const faltamPassos = d?.porPassos ? faltamPorPasso(d.etapas, porPasso) : 0;
   const pe = !produtoEscolhido
     ? 'Escolha qual lanche era para salvar.'
-    : `${conferidas} de ${plural(d?.fotos.length ?? 0, 'foto conferida', 'fotos conferidas')}${conferidas ? ': cada ingrediente marcado vira exemplo.' : '.'}`;
+    : d?.porPassos
+      ? faltamPassos
+        ? `Faltam ${plural(faltamPassos, 'resposta', 'respostas')}. Pode salvar assim: o que ficar sem resposta não vira exemplo.`
+        : 'Tudo respondido: cada nome confirmado vira um exemplo.'
+      : `${conferidas} de ${plural(d?.fotos.length ?? 0, 'foto conferida', 'fotos conferidas')}${conferidas ? ': cada ingrediente marcado vira exemplo.' : '.'}`;
   const comPonto = d ? d.fotos.some((f) => sugeridosNaFoto(f, d.etapas).length > 0) : false;
 
   return (
@@ -435,7 +498,14 @@ export function GavetaDoLanche({
       {!d && !erro && <Ossos alturas={[90, 140, 140]} />}
       {d && (
         <div className="flex flex-col gap-5" data-lanche={d.id}>
+          {d.situacao !== 'conferido' && d.porPassos && d.motivo === 'duvida' && (
+            <Alerta tom="atencao" icone={Info}>
+              <b className="font-semibold">Em algum passo o Farol ficou com pouca certeza, ou achou que não era ingrediente.</b> Os cartões com a borda
+              amarela são esses: é onde a sua resposta mais ensina.
+            </Alerta>
+          )}
           {d.situacao !== 'conferido' &&
+            !d.porPassos &&
             (d.semLeitura ? (
               <Alerta icone={Info}>
                 <b className="font-semibold text-farol-tinta">O Farol ainda não reconhece os ingredientes desta bancada.</b> Escolha o lanche e marque o
@@ -494,7 +564,27 @@ export function GavetaDoLanche({
             )}
           </section>
 
-          {/* ───────────── foto por foto ───────────── */}
+          {/* ───────────── passo por passo (o lanche lido por passos, A23.3) ───────────── */}
+          {d.porPassos ? (
+            <>
+              <PassosDoLanche
+                id={p}
+                etapas={d.etapas}
+                pecas={d.pecas}
+                paes={paes}
+                paoLido={paoLido}
+                ingredientes={ingredientesDoPasso}
+                r={porPasso}
+                aoMudar={setPorPasso}
+                horaDe={(iso) => horaComSegundos(iso, fuso)}
+                aoAbrirRecorte={(i) => setQuadro(passosDoQuadro.indexOf(i))}
+              />
+              {quadro !== null && passosNoQuadro[quadro] && (
+                <QuadroDaFoto fotos={passosNoQuadro} indice={quadro} aoIr={setQuadro} aoFechar={() => setQuadro(null)} />
+              )}
+            </>
+          ) : (
+          /* ───────────── foto por foto ───────────── */
           <section className="flex flex-col gap-2" aria-labelledby={`${p}-fotos`}>
             <h3 id={`${p}-fotos`} className={ROTULO}>
               O que aparece em cada foto
@@ -555,6 +645,7 @@ export function GavetaDoLanche({
               />
             )}
           </section>
+          )}
 
           {/* ───────────── a conta da ficha ───────────── */}
           {produtoNome && conta && (
@@ -570,24 +661,29 @@ export function GavetaDoLanche({
             />
           )}
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor={`${p}-obs`} className={ROTULO}>
-              Observação sobre este lanche <span className="font-normal text-farol-suave">(opcional)</span>
-            </label>
-            <textarea
-              id={`${p}-obs`}
-              className="entrada min-h-[64px]"
-              rows={2}
-              maxLength={300}
-              placeholder="Ex.: o ovo foi pedido como adicional"
-              value={obs}
-              onChange={(e) => setObs(e.target.value)}
-              data-obs-do-lanche
-            />
-          </div>
+          {/* a conferência por etapa (a do lanche por passos) não guarda observação */}
+          {!d.porPassos && (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={`${p}-obs`} className={ROTULO}>
+                Observação sobre este lanche <span className="font-normal text-farol-suave">(opcional)</span>
+              </label>
+              <textarea
+                id={`${p}-obs`}
+                className="entrada min-h-[64px]"
+                rows={2}
+                maxLength={300}
+                placeholder="Ex.: o ovo foi pedido como adicional"
+                value={obs}
+                onChange={(e) => setObs(e.target.value)}
+                data-obs-do-lanche
+              />
+            </div>
+          )}
           <p className={`${AJUDA} flex items-start gap-1.5`}>
-            <Lock className="mt-px h-[13px] w-[13px] shrink-0" aria-hidden />A gravação inteira fica no computador da loja. As fotos sobem reduzidas, só
-            para a conferência, e saem 30 dias depois dela.
+            <Lock className="mt-px h-[13px] w-[13px] shrink-0" aria-hidden />
+            {d.porPassos
+              ? 'Os quadros da noite ficam no computador da loja. Os recortes dos passos sobem reduzidos, só para a conferência, e saem 30 dias depois dela.'
+              : 'A gravação inteira fica no computador da loja. As fotos sobem reduzidas, só para a conferência, e saem 30 dias depois dela.'}
           </p>
         </div>
       )}
