@@ -15,6 +15,13 @@ sem, de 0,21 a 0,55. Com 0,48: 110 de 112 certos e NENHUM passo com comida corta
 bacon na borda). O recorte da janela inteira ganhou do recorte só do que chegou (105 de 112) e do da máscara (59).
 Tempo medido do modelo na loja: 61 ms por imagem no processador (A23.1, 17/10).
 
+**O "não era ingrediente" da conferência NÃO entra na nota** (medido em 21/10, nos mesmos 112 passos, com os recortes sem
+ingrediente de OUTROS lanches no papel dos exemplos de "nada"): o "nada" mais parecido ganhando da nota de ingrediente
+cortaria 7 passos com comida e não salvaria nenhum dos 2 que passam — a janela inteira traz o fundo junto, e um recorte
+com comida chega a se parecer mais com o inox de outro lanche (0,74) do que com o protótipo do ingrediente; com margem
+(0,10 acima da nota) ou com um separador linear comida × nada, empata com o juiz de hoje (110 de 112). Os exemplos de
+"nada" ficam na base da nuvem, à parte (`nada`), e se medem de novo quando houver os que o dono marcar.
+
 O modelo é o `facebook/dinov2-small` (Apache-2.0), no ONNX do `onnx-community`, fixado no commit e conferido pelo
 sha256. Como o detector, só se instala de propósito (`farol-agent ingredientes instalar`): o agente em serviço nunca
 baixa modelo sozinho.

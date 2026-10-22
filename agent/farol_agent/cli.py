@@ -1147,6 +1147,7 @@ def cmd_servir(args: argparse.Namespace) -> int:
 
     bancada_ao_vivo = None
     base_em_fundo = None
+    conferencia_em_fundo = None
     canais_ao_vivo = canais_ligados(os.environ.get(VARIAVEL))
     if canais_ao_vivo:
         # Uma linha de execução por canal, como a auditoria: um quadro por segundo do fluxo principal (A23.2).
@@ -1161,6 +1162,13 @@ def cmd_servir(args: argparse.Namespace) -> int:
             base_em_fundo = BaseEmFundo(cliente, args.config)
             base_em_fundo.iniciar()
             juiz_de = JuizDaLoja(Path(os.environ.get("FAROL_MODELOS") or "modelos"), base_em_fundo.base)
+            from farol_agent.passos_na_nuvem import VARIAVEL_POR_NOITE, ConferenciaEmFundo, por_noite
+
+            # A noite lida por passos sobe para a conferência (uma amostra por noite), também com a loja fechada.
+            n_por_noite = por_noite(os.environ.get(VARIAVEL_POR_NOITE))
+            if n_por_noite:
+                conferencia_em_fundo = ConferenciaEmFundo(cliente, args.config, canais_ao_vivo, por_noite=n_por_noite)
+                conferencia_em_fundo.iniciar()
         bancada_ao_vivo = BancadaAoVivo(
             args.config, canais_ao_vivo, guardar_quadros=guardar, passos=passos, juiz_de=juiz_de,
         )
@@ -1173,6 +1181,8 @@ def cmd_servir(args: argparse.Namespace) -> int:
             + (f"; os passos ({PASSOS}) pedem também {GUARDAR}: ficam desligados" if passos and not guardar else "")
             + (f"; com o JUIZ DE INGREDIENTE ({INGREDIENTES}): a base da loja desce com a loja fechada"
                if juiz_de is not None else "")
+            + (f"; até {conferencia_em_fundo.por_noite} lanches de cada noite sobem para a conferência, com a loja "
+               "fechada" if conferencia_em_fundo is not None else "")
         )
 
     from farol_agent.pipeline.recorte import borrao_ligado
@@ -1193,6 +1203,8 @@ def cmd_servir(args: argparse.Namespace) -> int:
     finally:
         if bancada_ao_vivo is not None:
             bancada_ao_vivo.parar()
+        if conferencia_em_fundo is not None:
+            conferencia_em_fundo.parar()
         if base_em_fundo is not None:
             base_em_fundo.parar()
         if treino_em_fundo is not None:

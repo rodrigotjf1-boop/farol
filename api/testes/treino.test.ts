@@ -407,6 +407,16 @@ describe('o lanche lido por passos (sem banco)', () => {
     comecoBaixo[0]!.nota = 0.4;
     assert.notEqual(motivoDoLanche(comecoBaixo, palpitesDoLanche(comecoBaixo, BASE)[0]), 'duvida', 'o começo (o pão) não entra na dúvida pela nota');
     assert.equal(semLeitura(etapas), false);
+    // o começo vai sem o nome do pão quando o Farol não o diz pelas peças (o agente, 2 peças): não é "coberto"
+    const paoSemNome = copia(etapas);
+    Object.assign(paoSemNome[0]!, { leu: null, candidatos: [] });
+    assert.equal(motivoDoLanche(paoSemNome, palpitesDoLanche(paoSemNome, BASE)[0]), 'duvida', 'com o vazio, segue na dúvida');
+    const paoSemNomeSemVazio = paoSemNome.filter((e) => e.tipo !== 'vazio');
+    assert.notEqual(motivoDoLanche(paoSemNomeSemVazio, palpitesDoLanche(paoSemNomeSemVazio, BASE)[0]), 'coberto', 'o pão sem nome não é coberto');
+    // o passo sem leitura (o juiz desligado) segue "coberto"
+    const passoSemNome = copia(paoSemNomeSemVazio);
+    Object.assign(passoSemNome[1]!, { leu: null, candidatos: [] });
+    assert.equal(motivoDoLanche(passoSemNome, palpitesDoLanche(passoSemNome, BASE)[0]), 'coberto');
   });
 
   it('o "não era ingrediente" vira exemplo só no passo (o quadro é a janela da metade); na leitura de sempre, não', () => {
