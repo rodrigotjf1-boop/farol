@@ -9116,3 +9116,62 @@ verdade: o pão pelas peças e o "diga qual", os seis cartões e os tracejados, 
 "Era outro" com a lista, o vazio nos dois sentidos, salvar e a resposta por etapa guardada na ordem, o próximo lanche
 abrindo sozinho, reabrir o conferido com as respostas; 48 medidas (3 estados × 16 larguras, 320 a 1920): nada passa da
 borda nem rola para o lado, todo controle com nome, nenhum id repetido.
+
+## 21/10/2026 · A conferência por passo, parte 3: a noite sobe do agente (A23.3; sem migration)
+
+O dono, perguntando se os erros do juiz já viravam aprendizado: "pq não começa hoje ao invés de amanhã?". Com esta parte
+o laço fecha: a leitura ao vivo lê os passos com o juiz → a noite sobe para a conferência → a pessoa diz o que era (e o
+que não era ingrediente) → os exemplos entram na base da loja → a base desce para o juiz.
+
+- **A noite é uma gravação `ao-vivo`** (`agent/farol_agent/passos_na_nuvem.py`): a janela do horário da loja em que o
+  lanche começou (a madrugada é da noite em que a loja abriu), com a folga da leitura depois de fechar; chave
+  `ao-vivo-canal-NN-AAAA-MM-DD` (com a hora da abertura quando a loja abre mais de uma vez no dia; a janela de mais de
+  14 horas se divide em pedaços de 14).
+- **Uma amostra por noite: 20 lanches por canal** (`FAROL_CONFERENCIA_POR_NOITE`; 0 desliga). A nuvem guarda os
+  recortes do lanche que ninguém conferiu, e a fila da conferência traz todos os que esperam: a noite inteira (uns 150
+  lanches) afogaria a fila e o banco. Primeiro os lanches em que o juiz teve DÚVIDA, pela mesma regra da fila da nuvem
+  (o vazio; o passo e o provisório com nota abaixo de 0,55) — os erros a corrigir —, os com mais dúvidas antes; as vagas
+  que sobram, espalhadas pela noite (o acerto confirmado também ensina: vira exemplo do ingrediente). A escolha só se faz
+  com a noite terminada, e é a mesma para a mesma noite.
+- **O lanche**: as etapas são os passos, na ordem da hora. O começo de cada peça é o pão; o agente só diz qual quando são
+  3 peças e a base tem UM pão de dois cortes (a regra da tela) — nunca o nome que o juiz deu ao começo, que por cima não
+  separa os pães. O passo e o provisório levam o ingrediente do juiz; o vazio leva o "parece", sem candidato (não é
+  evidência). Sobem com recorte (reduzido a 360 px, o contorno na mesma escala) só o começo, o passo, o provisório e o
+  vazio: o que a conferência pergunta.
+- **Com a loja fechada**, a cada 5 minutos, como a base e a gravação de treino. O lanche que subiu não sobe de novo
+  (`enviado.json` na pasta dele, com o resumo do `passos.json`: a leitura refeita sobe de novo). 409 (a gravação foi
+  cancelada ou apagada no console) para a noite; 422 não se repete; rede, 5xx, 401, 403 e 429 param a volta, que tenta de
+  novo na seguinte (e a mesma frase não volta ao registro, ERR-014).
+- **Liga com o juiz** (`FAROL_BANCADA_INGREDIENTES`, com os passos e a guarda dos quadros).
+- **Na nuvem, o motivo da fila** (`motivoDoLanche`): o começo sem leitura não é "coberto" — o pão vai sem nome de
+  propósito, e senão todo lanche de 2 peças caía em "coberto" e a dúvida do juiz nunca subia na fila (ERR-139, achado
+  na prova ponta a ponta abaixo, antes do merge). O passo sem leitura (o juiz desligado) segue "coberto".
+
+Provado de ponta a ponta na máquina local: o agente de verdade mandou as 24 pastas de passos reais (as 4 lidas pelo juiz
+em 21/10 e as 20 de 20-21/10; a estrutura real, com os recortes trocados por desenhos do mesmo tamanho — nenhuma imagem
+da loja no banco de teste) para a API local. As duas noites viraram gravações `ao-vivo`, os 24 lanches entraram (a
+amostra de 20 numa noite, 4 na outra), nenhum recusado, e a volta seguinte não mandou nada de novo. No console local, um
+cartão por passo com o recorte e o tracejado, os nomes do juiz, o pão "diga qual" nos de 2 peças e "pelas peças" nos de
+3; 32 medidas (2 lanches × 16 larguras), nada passa da borda nem rola para o lado. Com a correção do motivo, os 2 lanches
+com dúvida do juiz aparecem como "dúvida" — os mesmos 2 que a regra do agente aponta.
+
+### O "não era ingrediente" NÃO entra no juiz — medido
+
+O plano era o juiz deixar de contar como comida o recorte mais parecido com um "nada" conhecido do que com qualquer
+ingrediente. Medido antes, nos 112 passos de 20-21/10 (35 sem ingrediente, pela minha leitura), com os recortes sem
+ingrediente de OUTROS lanches no papel dos exemplos de "nada" (deixando o lanche testado de fora):
+
+| regra | certos | comida cortada | sem ingrediente que passou |
+|---|---|---|---|
+| o juiz de hoje (nota abaixo de 0,48) | 110 de 112 | 0 | 2 |
+| + o "nada" mais parecido passa a nota | 103 | 7 | 2 |
+| + o "nada" passa a nota por 0,10 | 110 | 0 | 2 |
+| + a média dos "nada" passa a nota | 110 | 0 | 2 |
+| + um separador linear comida × nada | 110 | 0 | 2 |
+| o "nada" mais parecido, com 3 a 20 exemplos sorteados (o começo real; média de 200 sorteios) | 108,9 a 105,1 | 1,1 a 4,9 | 2 |
+
+A janela inteira traz o fundo junto: um recorte com comida chega a se parecer mais com o inox de outro lanche (0,74) do
+que com o protótipo do ingrediente. Nenhuma forma salvou os 2 que passam (um pedaço de bacon na borda). Então o juiz
+fica como está; os exemplos de "nada" ficam na base da nuvem, à parte, e se medem de novo quando houver os que o dono
+marcar. O que a conferência ensina ao juiz já é o resto: cada "certo" e cada "era outro" vira exemplo do ingrediente, e
+o protótipo dele melhora quando a base desce.

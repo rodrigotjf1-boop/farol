@@ -82,7 +82,8 @@ PASSOS = "FAROL_BANCADA_PASSOS"
 # Com esta chave (e a dos passos), o JUIZ DE INGREDIENTE (`juizes.ingrediente`) olha a janela de cada passo: o que não
 # parece um ingrediente cadastrado da loja não conta, e a peça que sai da janela (embrulhada, fechada na caixa, levada)
 # termina ali. Precisa do modelo (`farol-agent ingredientes instalar`) e da base da loja, que desce com a loja fechada
-# (`base_da_loja`); sem um dos dois, os passos seguem sem o juiz, e o registro diz por quê.
+# (`base_da_loja`); sem um dos dois, os passos seguem sem o juiz, e o registro diz por quê. Com ela, uma amostra dos
+# lanches de cada noite sobe para a conferência por passo, também com a loja fechada (`passos_na_nuvem`).
 INGREDIENTES = "FAROL_BANCADA_INGREDIENTES"
 PASTA = "bancada"
 QUADROS = "quadros"

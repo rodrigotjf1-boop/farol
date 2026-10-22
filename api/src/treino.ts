@@ -704,11 +704,13 @@ export type Motivo = (typeof MOTIVOS)[number];
 
 /**
  * Por que o lanche está na fila — e a ordem dela: o coberto e a dúvida primeiro. No lanche lido por passos, também é
- * dúvida o passo que o juiz de ingrediente tirou (vazio) ou leu com nota baixa: é onde a conferência mais ensina.
+ * dúvida o passo que o juiz de ingrediente tirou (vazio) ou leu com nota baixa: é onde a conferência mais ensina. E o
+ * COMEÇO sem leitura não é "coberto": o pão de cada peça vai sem nome de propósito (o Farol só diz o pão pelas peças, e
+ * a conferência pergunta) — senão todo lanche de 2 peças cairia em "coberto", e a dúvida do juiz não subiria na fila.
  */
 export function motivoDoLanche(todas: EtapaLida[], melhor: Palpite | undefined): Motivo {
   const etapas = todas.filter(contaComoEvidencia);
-  if (etapas.some((e) => e.leu === null && e.candidatos.length === 0)) return 'coberto';
+  if (etapas.some((e) => e.leu === null && e.candidatos.length === 0 && e.tipo !== 'comeco')) return 'coberto';
   if (etapas.some((e) => e.candidatos.length > 1) || todas.some(passoDeDuvida)) return 'duvida';
   if (!melhor || melhor.batem < melhor.total || melhor.fora > 0) return 'diferenca';
   return 'certo';
