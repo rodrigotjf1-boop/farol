@@ -339,6 +339,16 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
 .trilho a.ir.conta { font-size: 14px; }
 .so-estreito { display: none; }
 .so-largo { display: inline-flex; }
+/* em que passo o Farol acerta (Treinamento, A24 F2): três camadas na mesma trilha — o "entre os candidatos" atrás, o
+   "certo" no meio e o "de vez" na frente; zero é zero (sem o fiapo de 2 px das outras trilhas) */
+.curva-sobre { margin: 0 0 10px; max-width: 68ch; font-size: 14px; }
+.curva-legenda { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--suave); }
+.curva-legenda li { display: inline-flex; align-items: center; gap: 6px; }
+.curva-legenda i { display: inline-block; flex: none; width: 14px; height: 10px; border-radius: 2px; }
+.funil-linha.curva-linha .trilha i { min-width: 0; }
+.curva-devez, .funil-linha .trilha i.curva-devez { background: var(--ok); }
+.curva-certo, .funil-linha .trilha i.curva-certo { background: color-mix(in srgb, var(--ok) 45%, var(--bg-2)); }
+.curva-entre, .funil-linha .trilha i.curva-entre { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--dado) 60%, transparent) 0 3px, transparent 3px 6px); }
 /* o que só existe na barra do celular (o "Mais") e o que só existe na coluna (o que foi para dentro dele) */
 .trilho .so-barra { display: none; }
 .trilho button.ir { appearance: none; font: inherit; font-weight: 500; cursor: pointer; background: none; border: 1px solid transparent; border-radius: 8px; color: var(--suave); align-items: center; gap: 10px; padding: 9px 10px; }
@@ -1857,13 +1867,38 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
       var cs = conferidos().filter(function (x) { return x.grav === g.id; });
       return { g: g, total: cs.length, certo: cs.filter(acertou).length };
     }).filter(function (x) { return x.total > 0; });
-    if (!linhas.length) return s;
+    if (!linhas.length) return s + curvaDoTreino();
     s += '<section class="cartao" aria-labelledby="t-acerto"><header><h2 id="t-acerto">O lanche certo, gravação por gravação</h2><span class="chip empurra">meta proposta: 9 em 10</span></header><div class="miolo"><div class="funil">';
     linhas.forEach(function (x) {
       var pct = Math.round(100 * x.certo / x.total);
       s += '<div class="funil-linha"><span>' + esc(x.g.quando) + '</span><span class="trilha" role="img" aria-label="' + pct + '%"><i style="width:' + pct + '%"></i></span><span class="v">' + x.certo + ' de ' + x.total + '</span></div>';
     });
-    return s + '</div><p class="nota">Contado só nos lanches que alguém conferiu: antes da conferência, o Farol não sabe se acertou. A meta ainda é proposta: o lanche certo em 9 de cada 10, com pelo menos 30 conferidos.</p></div></section>';
+    return s + '</div><p class="nota">Contado só nos lanches que alguém conferiu: antes da conferência, o Farol não sabe se acertou. A meta ainda é proposta: o lanche certo em 9 de cada 10, com pelo menos 30 conferidos.</p></div></section>' + curvaDoTreino();
+  }
+  // Em que passo o Farol acerta (A24, F2; proposta de 22/10/2026). No console, os números vêm de `curva` em
+  // GET /v1/lojas/:id/treino: os lanches conferidos com o produto (`treino_lanche`: `produto` e `leitura.etapas`), com o
+  // palpite refeito depois de cada passo pelas fichas de hoje (`curvaDoPalpite`). AQUI, as proporções são EXEMPLO,
+  // aplicadas aos conferidos deste protótipo: [de vez, certo, entre os candidatos], do 1º ao 6º passo.
+  var CURVA_DE_EXEMPLO = [[0.1, 0.15, 0.5], [0.2, 0.3, 0.6], [0.45, 0.6, 0.85], [0.7, 0.8, 0.9], [0.85, 0.9, 0.95], [1, 1, 1]];
+  function curvaDoTreino() {
+    var cs = conferidos().filter(function (x) { return !!x.era; });
+    var n = cs.length, fim = cs.filter(acertou).length;
+    if (!n) return '';
+    var pontos = CURVA_DE_EXEMPLO.map(function (r, i) {
+      var certos = Math.round(fim * r[1]);
+      return { passos: i + 1, deVez: Math.min(certos, Math.round(fim * r[0])), certos: certos, entre: Math.max(certos, Math.min(n, Math.round(n * r[2]))) };
+    });
+    var pct = function (v) { return Math.round(100 * v / n); };
+    var s = '<section class="cartao" aria-labelledby="t-curva"><header><h2 id="t-curva">Em que passo o Farol acerta o lanche</h2><span class="chip empurra">' + n + (n === 1 ? ' lanche conferido' : ' lanches conferidos') + '</span></header><div class="miolo">' +
+      '<p class="suave curva-sobre">A cada ingrediente que entra, o Farol refaz o palpite pelas fichas. Cada linha mostra, depois daquele passo, em quantos lanches ele já estava certo.</p>' +
+      '<ul class="curva-legenda" aria-label="O que cada cor quer dizer"><li><i class="curva-devez" aria-hidden="true"></i>certo e não mudou mais</li><li><i class="curva-certo" aria-hidden="true"></i>certo, mas ainda mudou</li><li><i class="curva-entre" aria-hidden="true"></i>o certo estava entre os candidatos</li></ul><div class="funil">';
+    pontos.forEach(function (p) {
+      var rotulo = p.passos + 'º passo: certo em ' + p.certos + ' de ' + n + ', sem mudar mais em ' + p.deVez + ', entre os candidatos em ' + p.entre;
+      s += '<div class="funil-linha curva-linha"><span>' + p.passos + 'º passo</span><span class="trilha" role="img" aria-label="' + rotulo + '">' +
+        '<i class="curva-entre" style="width:' + pct(p.entre) + '%"></i><i class="curva-certo" style="width:' + pct(p.certos) + '%"></i><i class="curva-devez" style="width:' + pct(p.deVez) + '%"></i></span>' +
+        '<span class="v">' + p.certos + ' de ' + n + '</span></div>';
+    });
+    return s + '</div><p class="nota">Contado só nos lanches conferidos com o lanche dito. O passo é o que entrou e a loja leu; o lanche que acaba antes fica com o palpite do fim dele. No fim, com todos os passos: certo em ' + fim + ' de ' + n + '.</p></div></section>';
   }
   // a linha de um lanche na fila
   var MOTIVOS = { duvida: ['facho', 'leitura com pouca certeza'], coberto: ['facho', 'uma etapa ficou coberta'], diferenca: ['dado', 'diferente da ficha'], certo: ['', 'o Farol acha que acertou'], semleitura: ['', 'sem leitura dos ingredientes'] };

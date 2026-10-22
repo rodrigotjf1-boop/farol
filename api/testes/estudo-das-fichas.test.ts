@@ -6,7 +6,9 @@
 //   - o PALPITE: o raro visto decide mesmo quando os comuns batem mais com outra ficha (a conta de antes errava aí);
 //     o que o cliente mandou tirar não derruba; o adicional fora da ficha não muda o lanche; a quantidade desempata;
 //     o grupo "pode ser A ou B" divide o peso; a leitura sem nome nas fichas tira de todas igual;
-//   - as opções de "Qual lanche era?" são de famílias diferentes, e o acerto conta a família.
+//   - as opções de "Qual lanche era?" são de famílias diferentes, e o acerto conta a família;
+//   - a CURVA DO PALPITE (A24, F2): em que passo o palpite acerta, só nos conferidos — certo, certo entre os
+//     plausíveis e certo de vez; quem acaba antes fica com o palpite do fim.
 //
 // O cardápio daqui é INVENTADO: nada de uma loja de verdade.
 
@@ -16,7 +18,16 @@ import { describe, it } from 'node:test';
 import { estudarFichas, ESTRANHO, faixaDoIngrediente, mesmaFamilia, pesoDoIngrediente } from '../src/estudo-das-fichas.js';
 import type { Base, Produto } from '../src/fichas.js';
 import { chaveDoIngrediente } from '../src/ingredientes.js';
-import { acertouOPalpite, palpitesDoLanche, PLAUSIVEL, umPorFamilia, type EtapaLida } from '../src/treino.js';
+import {
+  acertouOPalpite,
+  curvaDoPalpite,
+  palpitesDoLanche,
+  PASSOS_DA_CURVA,
+  passosDoPalpite,
+  PLAUSIVEL,
+  umPorFamilia,
+  type EtapaLida,
+} from '../src/treino.js';
 
 type Linha = [nome: string, quantidade: number | null, unidade: string | null];
 
@@ -284,5 +295,90 @@ describe('o estudo das fichas', () => {
         assert.equal(p.plausivel, irmao.plausivel, `${p.produto} acompanha a família`);
       }
     }
+  });
+});
+
+describe('a curva do palpite (A24, F2)', () => {
+  const conferido = (produto: string | null, etapas: EtapaLida[]) => ({ produto, etapas });
+  const SEM_CURVA = { lanches: 0, pontos: [], noFim: 0 };
+
+  it('em que passo o palpite acerta: certo, certo entre os plausíveis e certo de vez; quem acaba antes fica com o fim', () => {
+    const c = curvaDoPalpite(
+      [
+        // os comuns e a alface apontam o Smash 1; o bacon decide no 5º passo — antes, o Bacon 5 já está entre os plausíveis
+        conferido('Bacon 5', leitura('Pão de hambúrguer', 'Carne', 'Queijo', 'Alface', 'Bacon')),
+        // o anel decide no 3º passo (o palpite é o combo: a mesma família); acaba no 4º e fica certo no 5º
+        conferido('Onion 3', leitura('Pão de hambúrguer', 'Carne', 'Anel de cebola', 'Ovo')),
+        // certo desde o pão
+        conferido('Smash 1', leitura('Pão de hambúrguer', 'Carne', 'Queijo', 'Alface')),
+      ],
+      cardapio(),
+    );
+    assert.deepEqual(c, {
+      lanches: 3,
+      pontos: [
+        { passos: 1, certos: 1, entre: 2, deVez: 1 },
+        { passos: 2, certos: 1, entre: 2, deVez: 1 },
+        { passos: 3, certos: 2, entre: 3, deVez: 2 },
+        { passos: 4, certos: 2, entre: 3, deVez: 2 },
+        { passos: 5, certos: 3, entre: 3, deVez: 3 },
+      ],
+      noFim: 3,
+    });
+  });
+
+  it('o certo que vira errado no fim não é de vez; sem produto, sem passo lido ou sem fichas, fora da conta', () => {
+    // o Smash 1 com bacon (pedido do cliente ou leitura errada): certo até o 4º passo, e o 5º troca o palpite
+    const virou = curvaDoPalpite([conferido('Smash 1', leitura('Pão de hambúrguer', 'Carne', 'Queijo', 'Alface', 'Bacon'))], cardapio());
+    assert.deepEqual(
+      virou.pontos.map((p) => [p.certos, p.entre, p.deVez]),
+      [
+        [1, 1, 0],
+        [1, 1, 0],
+        [1, 1, 0],
+        [1, 1, 0],
+        [0, 0, 0],
+      ],
+    );
+    assert.equal(virou.noFim, 0);
+
+    // só um nome fora das fichas: o lanche entra (a loja leu um passo), mas sem palpite não há certo, nem na lista curta
+    // (o Smash 1 está entre os "plausíveis" da conta, que sem nada visto são só as fichas menores)
+    const semPalpite = curvaDoPalpite([conferido('Smash 1', [etapa([], 1, 'Molho')])], cardapio());
+    assert.deepEqual(semPalpite, { lanches: 1, pontos: [{ passos: 1, certos: 0, entre: 0, deVez: 0 }], noFim: 0 });
+
+    const fora = curvaDoPalpite(
+      [
+        conferido(null, leitura('Pão de hambúrguer', 'Carne')),
+        conferido('Smash 1', [etapa([], 1, null)]),
+        conferido('Smash 1', [{ ...etapa([], 1, null), tipo: 'comeco' }, { ...etapa(['Carne']), tipo: 'vazio' }, { ...etapa(['Queijo']), tipo: 'saiu' }]),
+      ],
+      cardapio(),
+    );
+    assert.deepEqual(fora, SEM_CURVA, '"não era um lanche", nada lido, e só o pão sem nome com o vazio e a peça saindo');
+    assert.deepEqual(curvaDoPalpite([conferido('Smash 1', leitura('Pão de hambúrguer'))], null), SEM_CURVA, 'sem fichas, sem curva');
+    assert.deepEqual(curvaDoPalpite([], cardapio()), SEM_CURVA);
+  });
+
+  it('os passos: o que entrou e a loja leu, na ordem; a curva vai até o 12º passo, e o fim conta todos', () => {
+    const etapas: EtapaLida[] = [
+      { ...etapa([], 1, null), tipo: 'comeco' },
+      { ...etapa(['Pão de hambúrguer']), tipo: 'comeco' },
+      { ...etapa(['Carne']), tipo: 'passo' },
+      { ...etapa(['Bacon']), tipo: 'vazio' },
+      { ...etapa([], 1, 'Molho'), tipo: 'provisorio' },
+      { ...etapa(['Alface']), tipo: 'transitorio' },
+      { ...etapa(['Queijo']), tipo: 'saiu' },
+      { ...etapa([], 1, null), tipo: 'fechou' },
+      etapa(['Queijo']),
+    ];
+    assert.deepEqual(passosDoPalpite(etapas).map((e) => e.leu), ['Pão de hambúrguer', 'Carne', 'Molho', 'Queijo']);
+
+    // o bacon só no 13º passo: até o 12º o palpite é o Smash 1, e o fim (com todos) é o Bacon 5
+    const longo = [...leitura('Pão de hambúrguer', 'Carne', 'Queijo', 'Alface'), ...Array.from({ length: 8 }, () => etapa([], 1, 'Molho')), ...leitura('Bacon')];
+    const c = curvaDoPalpite([conferido('Bacon 5', longo)], cardapio());
+    assert.equal(c.pontos.length, PASSOS_DA_CURVA);
+    assert.ok(c.pontos.every((p) => p.certos === 0 && p.entre === 1 && p.deVez === 0));
+    assert.equal(c.noFim, 1);
   });
 });

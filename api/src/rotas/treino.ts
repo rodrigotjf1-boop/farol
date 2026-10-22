@@ -47,6 +47,7 @@ import {
   acertouOPalpite,
   aprendizado,
   contaComoEvidencia,
+  curvaDoPalpite,
   DIAS_DOS_QUADROS,
   exemplosDaConferencia,
   exemplosDeNada,
@@ -376,8 +377,8 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
            from treino_lanche where loja_id = $1`,
         [id],
       ),
-      pool.query<{ leitura: { etapas: EtapaLida[] }; resposta: Conferencia }>(
-        `select leitura, resposta from treino_lanche where loja_id = $1 and situacao = 'conferido' and resposta is not null`,
+      pool.query<{ leitura: { etapas: EtapaLida[] }; resposta: Conferencia; produto: string | null }>(
+        `select leitura, resposta, produto from treino_lanche where loja_id = $1 and situacao = 'conferido' and resposta is not null`,
         [id],
       ),
       // as bancadas que se gravam: os canais do gravador desta loja (A21, fatia T3)
@@ -436,6 +437,8 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
       contas: { conferidos: contas.rows[0].conferidos as number, acertou: contas.rows[0].acertou as number },
       // o outro nome conta como o ingrediente das fichas a que foi juntado (migration 053)
       aprendizado: aprendizado(conferidos.rows.map((c) => ({ etapas: c.leitura?.etapas ?? [], conferencia: conferenciaQueConta(c.resposta, sugestoes.outros) }))),
+      // em que passo o palpite acerta (A24, fase F2): o palpite refeito passo a passo, com as fichas de hoje
+      curva: curvaDoPalpite(conferidos.rows.map((c) => ({ etapas: c.leitura?.etapas ?? [], produto: c.produto })), loja.base, loja.invisiveis),
     };
   });
 

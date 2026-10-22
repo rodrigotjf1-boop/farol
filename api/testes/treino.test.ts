@@ -569,6 +569,7 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     const idDo = (n: number) => quadros.find((q) => q.n === n)!.id;
     assert.deepEqual(x.miniaturas, { tampo: idDo(1), base: idDo(4) }, 'o último quadro de cada metade');
     assert.deepEqual(l.contas, { conferidos: 0, acertou: 0 });
+    assert.deepEqual(l.curva, { lanches: 0, pontos: [], noFim: 0 }, 'a curva do palpite só conta o conferido');
 
     const sup = await lista(cookieSupervisao);
     assert.equal(sup.statusCode, 200);
@@ -628,6 +629,12 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     assert.deepEqual(depois.contas, { conferidos: 1, acertou: 1 });
     assert.deepEqual(depois.aprendizado['Bacon fatiado'], { presente: 1, reconheceu: 0 });
     assert.deepEqual(depois.aprendizado['Pão brioche'], { presente: 1, reconheceu: 1 });
+    // em que passo o palpite acerta (A24, F2): os 5 passos lidos (o 6º ficou sem leitura), o X-Burger desde o pão
+    assert.deepEqual(depois.curva, {
+      lanches: 1,
+      pontos: [1, 2, 3, 4, 5].map((passos) => ({ passos, certos: 1, entre: 1, deVez: 1 })),
+      noFim: 1,
+    });
   });
 
   it('conferir de novo troca os exemplos; mandar de novo o lanche conferido não muda nada', async () => {
@@ -657,7 +664,9 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     const naoEra = await conferir(novo, { ...CONFERENCIA, produto: null });
     assert.equal(naoEra.statusCode, 200, 'o pulado se confere depois');
     assert.deepEqual([naoEra.json().produto, naoEra.json().acertou], [null, false]);
-    assert.deepEqual((await lista()).json().contas, { conferidos: 2, acertou: 1 });
+    const comONaoEra = (await lista()).json();
+    assert.deepEqual(comONaoEra.contas, { conferidos: 2, acertou: 1 });
+    assert.equal(comONaoEra.curva.lanches, 1, '"não era um lanche" fica fora da curva do palpite');
     const j = await pular(novo);
     assert.equal(j.statusCode, 409);
     assert.equal(j.json().erro, 'ja_conferido');

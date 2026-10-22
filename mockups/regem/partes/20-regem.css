@@ -9,6 +9,16 @@
 .trilho a.ir.conta { font-size: 14px; }
 .so-estreito { display: none; }
 .so-largo { display: inline-flex; }
+/* em que passo o Farol acerta (Treinamento, A24 F2): três camadas na mesma trilha — o "entre os candidatos" atrás, o
+   "certo" no meio e o "de vez" na frente; zero é zero (sem o fiapo de 2 px das outras trilhas) */
+.curva-sobre { margin: 0 0 10px; max-width: 68ch; font-size: 14px; }
+.curva-legenda { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--suave); }
+.curva-legenda li { display: inline-flex; align-items: center; gap: 6px; }
+.curva-legenda i { display: inline-block; flex: none; width: 14px; height: 10px; border-radius: 2px; }
+.funil-linha.curva-linha .trilha i { min-width: 0; }
+.curva-devez, .funil-linha .trilha i.curva-devez { background: var(--ok); }
+.curva-certo, .funil-linha .trilha i.curva-certo { background: color-mix(in srgb, var(--ok) 45%, var(--bg-2)); }
+.curva-entre, .funil-linha .trilha i.curva-entre { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--dado) 60%, transparent) 0 3px, transparent 3px 6px); }
 /* o que só existe na barra do celular (o "Mais") e o que só existe na coluna (o que foi para dentro dele) */
 .trilho .so-barra { display: none; }
 .trilho button.ir { appearance: none; font: inherit; font-weight: 500; cursor: pointer; background: none; border: 1px solid transparent; border-radius: 8px; color: var(--suave); align-items: center; gap: 10px; padding: 9px 10px; }

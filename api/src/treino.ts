@@ -699,6 +699,73 @@ export function aprendizado(conferidos: Array<{ etapas: EtapaLida[]; conferencia
   return Object.fromEntries(Object.values(conta).map((c) => [c.nome, { presente: c.presente, reconheceu: c.reconheceu }]));
 }
 
+/** Até que passo vai a curva do palpite. Um lanche da casa tem até uns 10 passos; o que passa disso conta no `noFim`. */
+export const PASSOS_DA_CURVA = 12;
+
+export type PontoDaCurva = {
+  /** Depois de quantos passos lidos. */
+  passos: number;
+  /** Os lanches com o palpite certo nesse passo (o lanche que acabou antes fica com o palpite do fim dele). */
+  certos: number;
+  /** Os lanches com o certo entre os plausíveis (os das perguntas que separam as fichas): a lista curta do roteiro. */
+  entre: number;
+  /** Os lanches que já estavam certos nesse passo e não mudaram mais até o fim. */
+  deVez: number;
+};
+
+export type CurvaDoPalpite = {
+  /** Os lanches que entram: conferidos, com o produto dito e ao menos um passo lido pela loja. */
+  lanches: number;
+  pontos: PontoDaCurva[];
+  /** Com todos os passos lidos: os lanches com o palpite certo. */
+  noFim: number;
+};
+
+/** Os passos do palpite: o que entrou no lanche (`contaComoEvidencia`) e a loja leu, na ordem da leitura. */
+export const passosDoPalpite = (etapas: EtapaLida[]): EtapaLida[] =>
+  etapas.filter((e) => contaComoEvidencia(e) && (e.leu !== null || e.candidatos.length > 0));
+
+/**
+ * A curva do palpite (A24, fase F2: "em que passo o palpite acerta"), contada SÓ nos lanches conferidos: o palpite
+ * refeito depois de 1, 2, 3… passos lidos pela loja, com as fichas de hoje, contra o produto que a pessoa disse. Diz se
+ * a ficha, usada como roteiro, aponta o lanche cedo, e em que passo; e se o certo já está na lista curta antes disso.
+ */
+export function curvaDoPalpite(
+  conferidos: Array<{ etapas: EtapaLida[]; produto: string | null }>,
+  base: Base | null,
+  invisiveis: Set<string> = new Set(),
+  estudo: Estudo = estudarFichas(base, invisiveis),
+): CurvaDoPalpite {
+  const lanches: Array<{ certo: boolean[]; entre: boolean[] }> = [];
+  for (const { etapas, produto } of base ? conferidos : []) {
+    const passos = passosDoPalpite(etapas);
+    if (produto === null || passos.length === 0) continue;
+    const certo: boolean[] = [];
+    const entre: boolean[] = [];
+    for (let k = 1; k <= passos.length; k += 1) {
+      const palpites = palpitesDoLanche(passos.slice(0, k), base, invisiveis, estudo);
+      const vale = palpiteQueVale(palpites);
+      certo.push(acertouOPalpite(estudo, produto, vale?.produto ?? null));
+      entre.push(vale !== null && palpites.some((p) => p.plausivel && acertouOPalpite(estudo, produto, p.produto)));
+    }
+    lanches.push({ certo, entre });
+  }
+  let ate = 0;
+  for (const l of lanches) ate = Math.max(ate, Math.min(PASSOS_DA_CURVA, l.certo.length));
+  const pontos: PontoDaCurva[] = [];
+  for (let k = 1; k <= ate; k += 1) {
+    const ponto = { passos: k, certos: 0, entre: 0, deVez: 0 };
+    for (const l of lanches) {
+      const i = Math.min(k, l.certo.length) - 1;
+      if (l.certo[i]) ponto.certos += 1;
+      if (l.entre[i]) ponto.entre += 1;
+      if (l.certo.slice(i).every(Boolean)) ponto.deVez += 1;
+    }
+    pontos.push(ponto);
+  }
+  return { lanches: lanches.length, pontos, noFim: lanches.filter((l) => l.certo.at(-1) === true).length };
+}
+
 export const MOTIVOS = ['coberto', 'duvida', 'diferenca', 'certo'] as const;
 export type Motivo = (typeof MOTIVOS)[number];
 
