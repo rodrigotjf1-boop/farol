@@ -1198,7 +1198,7 @@ gravador atende (1,5 s, fora da trava), e o OpenCV passa a desistir em 5 s
 
 ---
 
-## A24 · O Farol especialista: a placa de vídeo na loja (plano de 22/10/2026) — 🟡 F0 feita, F1 e F2 em andamento
+## A24 · O Farol especialista: a placa de vídeo na loja (plano de 22/10/2026) — 🟡 F0 feita, F1 e F2 em andamento, F4 medida
 
 O dono instalou uma RTX 5060 Ti 16 GB no PC do Farol (22/10, driver 621.01) e pediu, numa pesquisa sem achismo, como
 análise ao vivo, aprendizado e contexto se fazem nos campos que já são especialistas (pessoas, rostos, placas), quais
@@ -1213,7 +1213,7 @@ ficha → contexto local (modelo de visão e linguagem) → conferência → exe
 | **F1** | ao vivo na placa, mais quadros por segundo, marcações novas | 🟡 o detector já roda na placa (a prova do agente aprovou às 04:18 de 22/10); o CÍRCULO no editor de áreas; 3 q/s ao vivo ADIADO pelo disco (a densa a 1 q/s já ocupa 8–10 GB por noite; 54 GB livres) — o estudo de mais quadros sai da gravação do gravador |
 | **F2** | a ficha como roteiro, na loja (lista fechada, próximo passo esperado, palpite a cada passo) | 🟡 a MEDIDA na API (22/10): a curva do palpite — em que passo o palpite acerta, só nos conferidos (certo, certo entre os plausíveis, certo de vez; `curvaDoPalpite`, campo `curva` de `/v1/lojas/:id/treino`); o protótipo do painel ("Em que passo o Farol acerta o lanche", na tela Treinamento) espera o dono; os números esperam as conferências por passo; o roteiro na loja vem depois dos números |
 | F3 | aprender com a conferência (vetores normalizados, camada treinada, fila por dúvida e casos típicos) | a fazer — pede ≥ 30 lanches conferidos |
-| F4 | contexto local: modelo de visão e linguagem na placa (Qwen3-VL ou Gemma 4, Apache-2.0) | 🟡 medindo (22/10) |
+| **F4** | contexto local: modelo de visão e linguagem na placa (Qwen3-VL ou Gemma 4, Apache-2.0) | 🟡 1ª medida (22/10, Qwen3-VL-4B pelo llama.cpp, ~7 GB na placa): rápido (0,6–1,3 s por recorte, 1,3 s por quadro inteiro), mas NÃO serve ao passo: "o que acabou de chegar" 57/112 com uma imagem e 39/112 com antes e depois (diz "nada" quase sempre); "há comida?" 102/110; quadros inteiros 4 de 6 (errou a conta e não viu um embrulho). O juiz de ingrediente fica. Próximo, com o dono: um modelo maior (8B, 5–9 GB pelo 4G da loja) ou parar aqui |
 | F5 | fichas propostas a partir das montagens conferidas | a fazer |
 | F6 | seguir pela marcação (SAM 2.1 / EfficientTAM / Cutie) | a fazer |
 | F7 | 3D da bancada: canal 4 + canal 7 calibrados (altura pela lateral) | estudo: a noite de 21/10 sincronizada (20:37–20:57, 1.200 pares) mostra o canal 7 vendo o que o braço tapa por cima e a altura da pilha |
