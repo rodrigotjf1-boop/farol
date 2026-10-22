@@ -1198,6 +1198,30 @@ gravador atende (1,5 s, fora da trava), e o OpenCV passa a desistir em 5 s
 
 ---
 
+## A24 · O Farol especialista: a placa de vídeo na loja (plano de 22/10/2026) — 🟡 F0 feita, F1 em andamento
+
+O dono instalou uma RTX 5060 Ti 16 GB no PC do Farol (22/10, driver 621.01) e pediu, numa pesquisa sem achismo, como
+análise ao vivo, aprendizado e contexto se fazem nos campos que já são especialistas (pessoas, rostos, placas), quais
+modelos abertos cabem na placa e o plano para o Farol. O plano, com as fontes de cada afirmação e as licenças
+conferidas, está publicado à parte; a cascata: leitura rápida na placa → especialista do ingrediente → roteiro da
+ficha → contexto local (modelo de visão e linguagem) → conferência → exemplos e fichas propostas; e o 3D da bancada
+(canal 4 de cima + canal 7 de lado).
+
+| Fase | O quê | Situação |
+|---|---|---|
+| **F0** | provar a placa com quadros reais, sem mexer no ao vivo | ✅ 22/10: detector na placa (DirectML) **128 ms por quadro × 411 ms no OpenVINO**, os mesmos pães em 150 de 150 quadros; o juiz de ingrediente fica no processador (na placa, só 1,6× e o nome muda em 30 de 300) |
+| **F1** | ao vivo na placa, mais quadros por segundo, marcações novas | 🟡 o detector já roda na placa (a prova do agente aprovou às 04:18 de 22/10); o CÍRCULO no editor de áreas; 3 q/s ao vivo ADIADO pelo disco (a densa a 1 q/s já ocupa 8–10 GB por noite; 54 GB livres) — o estudo de mais quadros sai da gravação do gravador |
+| F2 | a ficha como roteiro, na loja (lista fechada, próximo passo esperado, palpite a cada passo) | a fazer — medir primeiro com os lanches conferidos |
+| F3 | aprender com a conferência (vetores normalizados, camada treinada, fila por dúvida e casos típicos) | a fazer — pede ≥ 30 lanches conferidos |
+| F4 | contexto local: modelo de visão e linguagem na placa (Qwen3-VL ou Gemma 4, Apache-2.0) | 🟡 medindo (22/10) |
+| F5 | fichas propostas a partir das montagens conferidas | a fazer |
+| F6 | seguir pela marcação (SAM 2.1 / EfficientTAM / Cutie) | a fazer |
+| F7 | 3D da bancada: canal 4 + canal 7 calibrados (altura pela lateral) | estudo: a noite de 21/10 sincronizada (20:37–20:57, 1.200 pares) mostra o canal 7 vendo o que o braço tapa por cima e a altura da pilha |
+| F8 | outros objetos e pessoas (posto, fila, touca, luva), sem reconhecer rostos | a fazer |
+| F9 | a biblioteca do Farol (catálogo do ramo + modelo geral com dados autorizados) | depende do dono |
+
+---
+
 ## A23 · A bancada ao vivo: o lanche lido como vídeo, a nuvem só para o ingrediente — 🟡 em construção (16/10/2026)
 
 O pedido do dono (16/10): a montagem é acompanhada como um vídeo. Com a bancada vazia, não há o que analisar, e isso não

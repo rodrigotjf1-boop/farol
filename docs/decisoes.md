@@ -9180,3 +9180,47 @@ que com o protótipo do ingrediente. Nenhuma forma salvou os 2 que passam (um pe
 fica como está; os exemplos de "nada" ficam na base da nuvem, à parte, e se medem de novo quando houver os que o dono
 marcar. O que a conferência ensina ao juiz já é o resto: cada "certo" e cada "era outro" vira exemplo do ingrediente, e
 o protótipo dele melhora quando a base desce.
+
+## 22/10/2026 · A placa de vídeo na loja: F0 provada e o círculo no editor de áreas (A24; sem migration)
+
+O dono instalou a RTX 5060 Ti 16 GB no PC do Farol e mandou seguir o plano "Farol especialista" (A24) sem pausa.
+
+### F0 — a placa provada com quadros reais (medido na loja, loja fechada)
+
+Roteiro à parte (não é o agente), com os modelos do agente e quadros da noite de 21/10 (a densa das 20:09 e das 22:24,
+150 quadros nos 7 pedaços da bancada) e 300 recortes de passos:
+
+| | tempo por quadro (mediana · p90) | os mesmos pães que o processador |
+|---|---|---|
+| **detector na placa (DirectML)** | **128 ms · 246 ms** | 150 de 150 (diferença máxima 0,006; a régua da prova é 0,05) |
+| detector no processador, OpenVINO (o de antes) | 411 ms · 429 ms | 150 de 150 |
+| detector no processador, ONNX Runtime | 750 ms · 760 ms | (referência) |
+
+- O detector fica na PLACA: 3,2× mais rápido que o OpenVINO e as mesmas respostas. Já estava assim desde 04:18 de 22/10:
+  a prova da partida do agente (`MotorOnnx._conferir_a_placa`) aprovou o DirectML na RTX assim que o driver entrou.
+- O juiz de ingrediente FICA NO PROCESSADOR: o modelo int8 na placa ganhou só 1,6× (54 × 87 ms por recorte), com a
+  decisão "comida ou não" igual em 298 de 300, mas o NOME mudou em 30 de 300 (cosseno mínimo 0,982). O juiz foi
+  calibrado no processador (110 de 112); a versão na placa entra na F3, com o modelo sem compressão e calibrada de novo.
+- Mais quadros por segundo ao vivo (3 a 5) ficam ADIADOS pelo disco: a densa a 1 q/s já ocupa 8 a 10 GB por noite
+  (19,6 GB na pasta da bancada, 54 GB livres no C:); a 3 q/s seria ~30 GB por noite. O estudo de mais quadros sai da
+  GRAVAÇÃO do gravador (15 q/s, guarda ~7 dias), como a gravação sincronizada da noite (canal 4 + 7).
+
+### O agente caiu na instalação do driver (ERR-140)
+
+A instalação do driver (02:26–02:34) descarregou o `dxcore.dll` por baixo do agente, que tinha o DirectML aberto: o
+agente caiu às 02:31 e ficou parado até 04:18 — a tarefa agendada tinha "reiniciar se falhar", mas o Agendador do
+Windows não religa programa que cai depois de iniciado. Perdeu o fim da leitura da noite e a subida da conferência (que
+saiu às 04:19, na volta). Na loja entrou a tarefa "Farol - vigia do agente" (`C:\Farol\vigia-do-agente.ps1`, a cada 5
+min): religa quando a tarefa do agente não roda e não há processo `farol-agent.exe servir`, em duas voltas seguidas;
+`C:\Farol\agent\nao-religar` o segura. Provado: agente morto às 04:22:18, religado pelo vigia às 04:27:19.
+
+### F1 — o círculo no editor de áreas
+
+O editor de áreas do canal (`web/componentes/areas/quadro-das-areas.tsx`) ganhou a escolha "Retângulo / Círculo"
+(`aria-pressed`): arrastar sobre a imagem desenha o retângulo de sempre ou o CÍRCULO inscrito no retângulo arrastado
+(arrastar um quadrado na tela dá um círculo na tela, em qualquer proporção de imagem). O círculo é um contorno de 20
+pontos (`elipse` em `poligono.ts`), então nada muda na API nem no agente: o recorte e o "apagar fora" já tratam qualquer
+polígono; os pontos continuam ajustáveis um a um. Conferido: a geometria (20 pontos, área a 98,4% da elipse — o valor
+exato do polígono de 20 lados —, sem cruzar, dentro da imagem e aceito pelas recusas do servidor) e, no console local
+com um quadro DESENHADO, o gesto de verdade: "Novo quadro" → "Círculo" → arrastar → 20 pontos → "Salvar quadro" → o
+banco guardou 20 pontos; 16 larguras sem nada passar da borda.

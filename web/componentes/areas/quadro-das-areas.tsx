@@ -7,7 +7,8 @@
 //
 //   arrastar um PONTO            ajusta o contorno
 //   arrastar o ponto do MEIO     cria um ponto novo naquele lado
-//   arrastar sobre a IMAGEM      redesenha a área como um retângulo
+//   arrastar sobre a IMAGEM      redesenha a área na forma escolhida: retângulo,
+//                                ou o círculo inscrito no retângulo arrastado
 //
 // CLIQUE (sem arrastar) seleciona a área que está ali. Toda loja nova tem a
 // área "Quadro inteiro" cobrindo a imagem toda: se apertar sobre ela já
@@ -25,11 +26,13 @@ import {
   comPontoEm,
   comPontoNovo,
   contem,
+  elipse,
   MAX_PONTOS,
   meioDoLado,
   prender,
   retangulo,
   semPonto,
+  type Forma,
   type Ponto,
 } from './poligono';
 
@@ -51,6 +54,8 @@ type Props = {
   /** O nome que vai na etiqueta da área selecionada; `null` = sem etiqueta. */
   etiqueta: string | null;
   editavel: boolean;
+  /** O que o arrasto sobre a imagem desenha. Sem ela, o retângulo de sempre. */
+  forma?: Forma;
   /** Antes da PRIMEIRA mudança de um gesto: é o que o "desfazer" devolve. */
   aoComecar: () => void;
   aoMudar: (pontos: Ponto[]) => void;
@@ -85,6 +90,7 @@ export function QuadroDasAreas({
   comProblema,
   etiqueta,
   editavel,
+  forma = 'retangulo',
   aoComecar,
   aoMudar,
   aoDesistir,
@@ -161,7 +167,8 @@ export function QuadroDasAreas({
       return;
     }
     aoAtivar(null);
-    aoMudar(retangulo({ x1: Math.min(g.x, p[0]), y1: Math.min(g.y, p[1]), x2: Math.max(g.x, p[0]), y2: Math.max(g.y, p[1]) }));
+    const arrastada = { x1: Math.min(g.x, p[0]), y1: Math.min(g.y, p[1]), x2: Math.max(g.x, p[0]), y2: Math.max(g.y, p[1]) };
+    aoMudar(forma === 'circulo' ? elipse(arrastada) : retangulo(arrastada));
   }
 
   function aoSoltar(ev: React.PointerEvent) {

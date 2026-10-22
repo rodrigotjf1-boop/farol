@@ -32,6 +32,26 @@ export const retangulo = (c: Caixa): Ponto[] => [
 
 export const QUADRO_INTEIRO: Ponto[] = retangulo({ x1: 0, y1: 0, x2: 1, y2: 1 });
 
+/** A forma que o arrasto sobre a imagem desenha. Os dois viram contorno de pontos: o agente recorta qualquer um. */
+export type Forma = 'retangulo' | 'circulo';
+/** Pontos do círculo: redondo na tela e com folga até o limite da tela (`MAX_PONTOS`) para ajustar à mão. */
+export const PONTOS_DO_CIRCULO = 20;
+
+/**
+ * O círculo (a elipse) inscrito na caixa arrastada, como contorno de `n` pontos, do alto e no sentido do relógio.
+ * Em fração do quadro: arrastar um quadrado na tela dá um círculo na tela, em qualquer proporção de imagem.
+ */
+export function elipse(c: Caixa, n: number = PONTOS_DO_CIRCULO): Ponto[] {
+  const cx = (c.x1 + c.x2) / 2;
+  const cy = (c.y1 + c.y2) / 2;
+  const rx = (c.x2 - c.x1) / 2;
+  const ry = (c.y2 - c.y1) / 2;
+  return Array.from({ length: n }, (_, k) => {
+    const a = -Math.PI / 2 + (2 * Math.PI * k) / n;
+    return [prender(cx + rx * Math.cos(a)), prender(cy + ry * Math.sin(a))] as Ponto;
+  });
+}
+
 /** O retângulo que envolve o desenho. É o que o agente recorta. */
 export function caixaDe(pontos: Ponto[]): Caixa {
   if (pontos.length === 0) return { x1: 0, y1: 0, x2: 1, y2: 1 };

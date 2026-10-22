@@ -26,7 +26,7 @@
  * errado em produção.
  */
 
-import { ArrowLeft, Columns2, Crop, Image as Imagem, Plus, RefreshCw, Trash2, TriangleAlert, Undo2 } from 'lucide-react';
+import { ArrowLeft, Circle, Columns2, Crop, Image as Imagem, Plus, RefreshCw, Square, Trash2, TriangleAlert, Undo2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -44,6 +44,7 @@ import {
   QUADRO_INTEIRO,
   semPonto,
   sobreposicao,
+  type Forma,
   type Ponto,
 } from '@/componentes/areas/poligono';
 import { FotosPadrao } from '@/componentes/areas/fotos-padrao';
@@ -131,6 +132,8 @@ export default function AreaDoCanal() {
   const [desfazer, setDesfazer] = useState<Ponto[][]>([]);
   /** O ponto em que se está mexendo. */
   const [ativo, setAtivo] = useState<number | null>(null);
+  /** O que o arrasto sobre a imagem desenha: o retângulo de sempre, ou o círculo inscrito nele. */
+  const [forma, setForma] = useState<Forma>('retangulo');
   /** Tentou salvar com o desenho torto: o motivo aparece ao lado do botão até o desenho ficar certo. */
   const [recusado, setRecusado] = useState(false);
   const [larguraCm, setLarguraCm] = useState<string>('');
@@ -601,6 +604,7 @@ export default function AreaDoCanal() {
                 comProblema={problema !== null}
                 etiqueta={naInteira ? null : zona?.numero != null ? `Quadro ${zona.numero} · ${nomeZona.trim() || 'quadro'}` : nomeZona.trim() || 'quadro'}
                 editavel={desenha}
+                forma={forma}
                 aoComecar={guardar}
                 aoMudar={setPontos}
                 aoDesistir={voltar}
@@ -625,6 +629,15 @@ export default function AreaDoCanal() {
 
             {estado?.temPreview && desenha && vistaDeFato === 'agora' && (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2" data-barra-do-desenho>
+                <Segmentado<Forma>
+                  rotulo="O que arrastar sobre a imagem desenha"
+                  opcoes={[
+                    { valor: 'retangulo', rotulo: 'Retângulo', icone: Square },
+                    { valor: 'circulo', rotulo: 'Círculo', icone: Circle },
+                  ]}
+                  valor={forma}
+                  aoMudar={setForma}
+                />
                 <span className="font-mono text-[12.5px] text-farol-suave">
                   {ativo !== null && ativo < pontos.length ? `ponto ${ativo + 1} de ${pontos.length}` : `${pontos.length} pontos`}
                 </span>
@@ -666,7 +679,7 @@ export default function AreaDoCanal() {
                 {naInteira
                   ? 'A imagem completa é o canal inteiro: não se redesenha. Para conferir só uma parte, crie um quadro.'
                   : (desenha
-                      ? 'Arraste um ponto para ajustar o contorno. O ponto menor, no meio de cada lado, cria um ponto novo. Arrastar sobre a imagem redesenha o quadro como um retângulo. '
+                      ? `Arraste um ponto para ajustar o contorno. O ponto menor, no meio de cada lado, cria um ponto novo. Arrastar sobre a imagem redesenha o quadro como ${forma === 'circulo' ? 'um círculo, dentro do retângulo arrastado' : 'um retângulo'}. `
                       : '') + 'O que fica escuro está fora do quadro: o agente apaga antes de analisar.'}
                 {quadros.length > (naInteira ? 0 : 1) && ' Clique num quadro, sem arrastar, para passar a mexer nele.'}
               </p>
