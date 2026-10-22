@@ -9142,7 +9142,10 @@ que não era ingrediente) → os exemplos entram na base da loja → a base desc
   (`enviado.json` na pasta dele, com o resumo do `passos.json`: a leitura refeita sobe de novo). 409 (a gravação foi
   cancelada ou apagada no console) para a noite; 422 não se repete; rede, 5xx, 401, 403 e 429 param a volta, que tenta de
   novo na seguinte (e a mesma frase não volta ao registro, ERR-014).
-- **Liga com o juiz** (`FAROL_BANCADA_INGREDIENTES`, com os passos e a guarda dos quadros).
+- **Liga com o juiz** (`FAROL_BANCADA_INGREDIENTES`, com os passos e a guarda dos quadros), e **só sobe o lanche lido
+  COM o juiz** (`"juiz": true` no `passos.json`): sem ele, um terço dos passos era o inox ou o alumínio (ERR-138), cada
+  cartão perguntaria "o que era?", e a fila poria esses lanches primeiro ("coberto"), acima das dúvidas do juiz. As
+  pastas da noite de 20/10 na loja (lidas antes do juiz) ficam lá.
 - **Na nuvem, o motivo da fila** (`motivoDoLanche`): o começo sem leitura não é "coberto" — o pão vai sem nome de
   propósito, e senão todo lanche de 2 peças caía em "coberto" e a dúvida do juiz nunca subia na fila (ERR-139, achado
   na prova ponta a ponta abaixo, antes do merge). O passo sem leitura (o juiz desligado) segue "coberto".
@@ -9153,7 +9156,9 @@ da loja no banco de teste) para a API local. As duas noites viraram gravações 
 amostra de 20 numa noite, 4 na outra), nenhum recusado, e a volta seguinte não mandou nada de novo. No console local, um
 cartão por passo com o recorte e o tracejado, os nomes do juiz, o pão "diga qual" nos de 2 peças e "pelas peças" nos de
 3; 32 medidas (2 lanches × 16 larguras), nada passa da borda nem rola para o lado. Com a correção do motivo, os 2 lanches
-com dúvida do juiz aparecem como "dúvida" — os mesmos 2 que a regra do agente aponta.
+com dúvida do juiz aparecem como "dúvida" — os mesmos 2 que a regra do agente aponta. Essa rodada mostrou também os 20
+lanches lidos sem o juiz no topo da fila, em "coberto": daí o filtro do juiz. Na segunda rodada, com ele, subiram só as
+4 pastas lidas com o juiz (1 noite, 2 em dúvida), e as outras 20 nem foram marcadas; 16 medidas sem problema.
 
 ### O "não era ingrediente" NÃO entra no juiz — medido
 

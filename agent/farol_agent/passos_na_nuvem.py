@@ -18,6 +18,10 @@ o provisório com nota abaixo de `NOTA_DE_DUVIDA` —, que são os erros a corri
 sobram, espalhadas pela noite (o acerto confirmado também ensina: vira exemplo do ingrediente). A escolha se faz com a
 noite terminada, e é sempre a mesma para a mesma noite.
 
+**Só o lanche lido COM o juiz** (`"juiz": true` no `passos.json`): sem ele, um terço dos passos era o inox ou o alumínio
+(ERR-138), cada cartão perguntaria "o que era?", e a fila poria esses lanches primeiro ("coberto"), acima das dúvidas do
+juiz.
+
 **O lanche** é a pasta `passos-HHhMMmSS-N`, e as etapas são os passos, na ordem da hora:
 
 - o COMEÇO de cada peça é o pão (lado `pao`): o Farol só diz qual quando são 3 peças e a base da loja tem UM pão de dois
@@ -399,7 +403,8 @@ class ConferenciaEmFundo:
     # ── a leitura das pastas ──
 
     def _lanche(self, pasta: Path) -> LancheLido | None:
-        """O lanche de uma pasta `passos-…` (guardado pela data do arquivo: a volta seguinte não relê o que não mudou)."""
+        """O lanche de uma pasta `passos-…`, se foi lido com o juiz (guardado pela data do arquivo: a volta seguinte não
+        relê o que não mudou)."""
         arquivo = pasta / "passos.json"
         try:
             quando = arquivo.stat().st_mtime
@@ -411,7 +416,8 @@ class ConferenciaEmFundo:
         leitura, resumo = _ler_json(arquivo), _resumo_do_arquivo(arquivo)
         inicio = _local(leitura.get("inicio")) if isinstance(leitura, dict) else None
         lanche = None
-        if inicio is not None and resumo is not None and isinstance(leitura.get("passos"), list) and leitura["passos"]:
+        if inicio is not None and resumo is not None and leitura.get("juiz") is True \
+                and isinstance(leitura.get("passos"), list) and leitura["passos"]:
             lanche = LancheLido(pasta, inicio, duvidas([p for p in leitura["passos"] if isinstance(p, dict)]), resumo)
         self._lidos[pasta] = (quando, lanche)
         return lanche

@@ -10,9 +10,9 @@ contrato `contratos/lanche-de-treino.json` (o `porPassos`). O que se protege:
 - o corpo: as etapas na ordem da hora; o pão só pelas 3 peças com UM pão de dois cortes na base; o passo com o nome do
   juiz; o vazio com o "parece" e sem candidato; recorte só no que se confere, reduzido, com o contorno na escala dele;
   tudo dentro do contrato (as chaves, os tipos, os limites);
-- a linha: com a loja aberta não manda; sem horário não manda (e diz uma vez); a noite que não terminou espera; o que
-  subiu não sobe de novo, a não ser que a leitura mude; 409 para a noite; 422 não repete; rede para a volta e repete na
-  seguinte, sem repetir a frase no registro.
+- a linha: com a loja aberta não manda; sem horário não manda (e diz uma vez); a noite que não terminou espera; só o
+  lanche lido com o juiz sobe; o que subiu não sobe de novo, a não ser que a leitura mude; 409 para a noite; 422 não
+  repete; rede para a volta e repete na seguinte, sem repetir a frase no registro.
 """
 
 from __future__ import annotations
@@ -66,7 +66,8 @@ def passo(t: datetime, metade: int, tipo: str, *, nome=None, nota=None, parte=0.
     return p
 
 
-def lanche(raiz: Path, inicio: datetime, n: int, passos: list[dict], *, metades: int = 2, canal: int = 4) -> Path:
+def lanche(raiz: Path, inicio: datetime, n: int, passos: list[dict], *, metades: int = 2, canal: int = 4,
+           juiz: bool = True) -> Path:
     """Uma pasta de lanche como a bancada ao vivo grava: `bancada/canal-NN/AAAA-MM-DD/passos-HHhMMmSS-N/`."""
     pasta = raiz / "bancada" / f"canal-{canal:02d}" / f"{inicio:%Y-%m-%d}" / f"passos-{inicio:%Hh%Mm%S}-{n}"
     pasta.mkdir(parents=True)
@@ -76,7 +77,9 @@ def lanche(raiz: Path, inicio: datetime, n: int, passos: list[dict], *, metades:
     fim = max((datetime.fromisoformat(p["hora"]).astimezone().replace(tzinfo=None) for p in passos), default=inicio)
     leitura = {"lugar": n, "inicio": iso(inicio), "fim": iso(fim + timedelta(seconds=5)), "fechou": None,
                "metades": [{"k": k, "x": 100 * k, "y": 50, "d": 180, "desde": iso(inicio)} for k in range(1, metades + 1)],
-               "passos": passos, "juiz": True}
+               "passos": passos}
+    if juiz:
+        leitura["juiz"] = True
     (pasta / "passos.json").write_text(json.dumps(leitura, ensure_ascii=False, indent=1), encoding="utf-8")
     return pasta
 
@@ -368,6 +371,16 @@ def test_rede_para_a_volta_e_repete_na_seguinte(tmp_path: Path, caplog: pytest.L
     assert nuvem.corpos == [] and not (a / ENVIADO).exists()
     assert sum("não subiram agora" in r.getMessage() for r in caplog.records) == 1
     assert c.volta().subiram == 2
+
+
+def test_so_o_lanche_lido_com_o_juiz_sobe(tmp_path: Path):
+    nuvem, _, c = montar(tmp_path, por_noite=5)
+    t = datetime(2026, 10, 21, 20, 0)
+    sem_juiz = lanche(tmp_path, t, 1, [passo(t, 1, "comeco", parte=1.0), passo(t + timedelta(seconds=30), 1, "passo")],
+                      juiz=False)
+    com_juiz = simples(tmp_path, t + timedelta(minutes=5), 2)
+    assert c.volta().subiram == 1 and [x["lanche"]["chave"] for x in nuvem.corpos] == [com_juiz.name]
+    assert not (sem_juiz / ENVIADO).exists()
 
 
 def test_o_lanche_sem_etapa_nao_sobe_e_fica_marcado(tmp_path: Path):
