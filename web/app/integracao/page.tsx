@@ -282,6 +282,10 @@ export default function Integracao() {
           <p className={P}>Toda chamada leva o código no cabeçalho:</p>
           <Bloco rotulo="Os cabeçalhos de toda chamada">{'Authorization: Bearer dms_ap_farol_...\nContent-Type: application/json'}</Bloco>
           <p className={P}>A loja é a do código. Nada no corpo do envio escolhe a loja.</p>
+          <p className={P}>
+            Para ferramentas de integração: esta porta está descrita no formato do Padrão DMS (OpenAPI 3.1, com as rotas, os limites, os exemplos e a credencial) em{' '}
+            <Cod>https://api.monitorfarol.com.br/.well-known/dms-manifesto</Cod>, que responde sem o código.
+          </p>
         </Secao>
 
         <Secao id="enviar" titulo="Enviar as fichas — PUT">

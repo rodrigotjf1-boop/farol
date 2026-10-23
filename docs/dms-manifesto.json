@@ -1,0 +1,214 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Porta das fichas do Farol",
+    "version": "1.0.0",
+    "description": "O sistema da loja (o PDV, o ERP) envia as fichas técnicas do cardápio e consulta o que o Farol tem dele. A credencial é o código de acesso que a diretoria cria no console, para uma loja; ele não abre câmeras, alertas, análises nem outra loja.",
+    "x-dms-produto": "farol",
+    "x-dms-pacote": "0.7.2"
+  },
+  "servers": [
+    {
+      "url": "https://api.monitorfarol.com.br"
+    }
+  ],
+  "security": [
+    {
+      "acessoProprio": []
+    }
+  ],
+  "paths": {
+    "/v1/integracao/fichas": {
+      "put": {
+        "operationId": "put_v1_integracao_fichas",
+        "summary": "Envia as fichas da loja do código: o envio é o cardápio inteiro e substitui o que o Farol tinha. Com ?somente_validar=true, só confere (cota própria: 60 por hora, por código).",
+        "x-dms-permissao": null,
+        "x-dms-escrita": "substituicao",
+        "x-dms-limite": [
+          {
+            "porHora": 12,
+            "por": "chave"
+          },
+          {
+            "porHora": 60,
+            "por": "empresa"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "produtos": [
+                  {
+                    "nome": "X-Burger",
+                    "codigo": "1042",
+                    "categoria": "Burgers",
+                    "cozinha": true,
+                    "ingredientes": [
+                      {
+                        "nome": "Pão brioche",
+                        "quantidade": 1,
+                        "unidade": "unidade"
+                      },
+                      {
+                        "nome": "Blend da casa",
+                        "quantidade": 120,
+                        "unidade": "g"
+                      },
+                      {
+                        "nome": "Queijo prato",
+                        "quantidade": 2,
+                        "unidade": "fatia"
+                      }
+                    ],
+                    "variacoes": [
+                      {
+                        "nome": "Simples",
+                        "fator": 1
+                      },
+                      {
+                        "nome": "Duplo",
+                        "fator": 2
+                      }
+                    ],
+                    "adicionais": [
+                      {
+                        "nome": "Bacon",
+                        "faz": "acrescenta",
+                        "ingrediente": "Bacon fatiado",
+                        "quantidade": 20,
+                        "unidade": "g"
+                      },
+                      {
+                        "nome": "Ponto da carne",
+                        "faz": "observacao"
+                      }
+                    ]
+                  },
+                  {
+                    "nome": "Refrigerante lata",
+                    "cozinha": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "example": {
+                  "resultado": "atualizada",
+                  "produtos": 2,
+                  "com_ficha": 1,
+                  "sem_ficha": [
+                    "Refrigerante lata"
+                  ],
+                  "de_fora": [],
+                  "soltos": [],
+                  "problemas": 0
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erro no formato do Padrão (§7)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problema"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "get_v1_integracao_fichas",
+        "summary": "Confere o código e o último envio: o sistema, a loja, quando chegou, quantos produtos e até quando o código vale.",
+        "x-dms-permissao": null,
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "example": {
+                  "sistema": "PDV da Casa",
+                  "loja": "Loja Centro",
+                  "recebido_em": "2026-10-11T17:02:11.000Z",
+                  "produtos": 2,
+                  "com_ficha": 1,
+                  "vence_em": "2027-10-11T17:02:11.000Z"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erro no formato do Padrão (§7)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problema"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "acessoProprio": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "A chave dms_ap_ do acesso próprio (Padrão §2.2)"
+      }
+    },
+    "schemas": {
+      "Problema": {
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "x-dms-permissoes": {},
+  "x-dms-limite": [
+    {
+      "porMinuto": 60,
+      "por": "chave"
+    },
+    {
+      "porMinuto": 240,
+      "por": "empresa"
+    }
+  ],
+  "x-dms-ferramentas": [],
+  "x-dms-avisos": []
+}
