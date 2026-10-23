@@ -7,6 +7,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
 import { instalarTratamentoDeErros } from './erros.js';
+import { rotaDoManifesto } from './manifesto.js';
 import { dolarDoAmbiente, transporteHttp, type Transporte } from './balcao/plataforma.js';
 import type { Subida } from './guarda.js';
 import { acharMigrations, conferirEsquema } from './preflight.js';
@@ -210,6 +211,8 @@ export function criarApp(
     dolar: opcoes.balcao?.dolar ?? dolarDoAmbiente(process.env),
   });
   rotasDeAcessos(app, pool);
+  // o manifesto da porta das fichas (Padrão DMS §13), sem credencial
+  rotaDoManifesto(app);
   rotasDePadroes(app, pool);
   rotasDeInventario(app, pool);
   rotasDePlanta(app, pool);

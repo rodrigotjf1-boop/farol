@@ -9367,3 +9367,34 @@ Console e API locais (banco de teste), num Chrome sem janela:
 - **A busca** traz o que trazia (as telas, os canais e os critérios da loja; fora dela, as lojas). No protótipo havia
   ainda os grupos "Agora" (alertas novos, lanches a conferir, canal sem imagem), "Entendi" (frases como "canal 4" e
   "nº 08"), fichas e alertas. Ficam para as próximas partes.
+
+## 23/10/2026 · O manifesto da porta das fichas (Hub DMS, F4 parte A; sem migration)
+
+### O pedido
+
+A F4 do Hub DMS (o portal de parceiros) pede que cada produto publique o **manifesto** da própria porta de integração
+(Padrão DMS §13; decisões F4-1 e F4-2 do dono, de 23/10/2026): a documentação pública da porta, montada do código, que
+o portal e o simulador vão ler. O do Regem já está no ar (Regem #717).
+
+### O que entrou
+
+- **`GET /.well-known/dms-manifesto`**, sem o código de acesso e fora da guarda de partida (não usa o banco): o OpenAPI
+  3.1 com os campos `x-dms`, montado por `src/manifesto.ts` com o pacote comum 0.7.2. As duas rotas da porta (o `PUT`
+  por substituição, com o `?somente_validar=true` no resumo, e o `GET`), os limites tirados das constantes da própria
+  porta (60 consultas por minuto por código e 240 pela conta; 12 envios por hora por código e 60 pela conta), os
+  exemplos da documentação e a credencial, que é só o acesso próprio (`dms_ap_farol_`). Sem permissões nomeadas: o
+  código tem um uso só, dito no termo que a diretoria aceita ao criar.
+- **`docs/dms-manifesto.json`** é o que o código monta: o teste confere e, com `ATUALIZAR_MANIFESTO=1`, regrava.
+- **A cópia do pacote comum** sobe de 0.1.1 para 0.7.2, igual à do hub (nada foi removido; os símbolos que o Farol usa
+  têm a mesma assinatura), e a **do kit**, para a do hub, que passa a ter o modo do manifesto.
+- `docs/integracao-fichas.md` e a página de integração dizem onde o manifesto fica.
+- Para isso, o pacote ganhou o limite em lista e por hora (hub #33, pacote 0.7.2): o formato antes só dizia um limite,
+  por minuto.
+
+### Como foi conferido
+
+- `testes/manifesto.test.ts`, 8 testes sem banco: a conferência do pacote, o arquivo do repositório contra o código, as
+  rotas e os limites, a credencial, a rota sem código (em JSON, com cache de 5 minutos), a rota com a guarda recusando o
+  resto (503 no resto, 200 no manifesto) e o kit do Padrão no modo do manifesto, pela porta e pelo arquivo.
+- Mutação: 10 trocas, as 10 pegas, com o controle verde antes e depois.
+- A suíte da API sem banco (810 testes; as 64 suítes de banco ficam para o CI, que tem o Postgres) e o `npm run build`.

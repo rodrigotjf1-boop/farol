@@ -50,6 +50,10 @@ Content-Type: application/json
 
 A loja é a do código. Nada no corpo do envio escolhe a loja.
 
+Para ferramentas de integração: esta porta está descrita no formato do Padrão DMS (OpenAPI 3.1, com as rotas, os
+limites, os exemplos e a credencial) em `https://api.monitorfarol.com.br/.well-known/dms-manifesto`, que responde sem o
+código.
+
 ## Enviar as fichas — `PUT /v1/integracao/fichas`
 
 O corpo é um objeto com a lista `produtos`. **O envio é o cardápio inteiro da loja**: ele

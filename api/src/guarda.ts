@@ -42,6 +42,7 @@
 
 import type { FastifyInstance } from 'fastify';
 
+import { CAMINHO_MANIFESTO } from './dms/integracao-dms.js';
 import type { Conferencia } from './preflight.js';
 
 /** O que a aplicação automática fez na subida. É o que a saúde mostra. */
@@ -72,7 +73,8 @@ export interface OpcoesDaGuarda {
 }
 
 const INALCANCAVEL = 'banco inalcançável na partida';
-const FORA_DA_GUARDA = new Set(['/saude', '/']);
+// O manifesto da porta (Padrão DMS §13) também: é documentação, não usa o banco.
+const FORA_DA_GUARDA = new Set(['/saude', '/', CAMINHO_MANIFESTO]);
 
 export async function instalarGuarda(app: FastifyInstance, o: OpcoesDaGuarda): Promise<{ porta: Porta }> {
   const agora = o.agora ?? Date.now;
