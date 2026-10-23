@@ -9398,3 +9398,26 @@ o portal e o simulador vão ler. O do Regem já está no ar (Regem #717).
   resto (503 no resto, 200 no manifesto) e o kit do Padrão no modo do manifesto, pela porta e pelo arquivo.
 - Mutação: 10 trocas, as 10 pegas, com o controle verde antes e depois.
 - A suíte da API sem banco (810 testes; as 64 suítes de banco ficam para o CI, que tem o Postgres) e o `npm run build`.
+
+## 23/10/2026 · Node 22.23.4 exato: o boletim de segurança do Node de 21/10 (Brotli e eMudhra; sem migration)
+
+O boletim do Node.js de 21/10/2026 corrige a escrita fora da memória no decodificador Brotli (CVE-2026-111497, execução
+remota pelo `fetch`) e deixa de confiar em 8 chaves de autoridades intermediárias da eMudhra, entre outras correções. A
+linha 22 recebeu a correção na 22.23.4 (nodejs.org, 20/10/2026, marcada como de segurança).
+
+- **O que mudou:** os quatro `FROM` (api e web, montagem e imagem final) de `node:22-alpine` (flutuante) para
+  `node:22.23.4-alpine`, e os dois `node-version` do CI de `'22'` para `'22.23.4'`. O Farol fica na linha 22.
+- **A prova está no CI:**
+  - cada trabalho de Node confere o `node -v`;
+  - a montagem das imagens roda `node -v` dentro de cada uma e exige `v22.23.4`, dizendo também se a biblioteca Brotli
+    do sistema (`brotli-libs`) está nelas (o Dockerfile não instala pacote nenhum);
+  - o trabalho do agente diz se `Brotli` ou `brotlicffi` entraram no ambiente.
+- **A exposição medida no código:**
+  - nenhum caminho de classe alta: nenhum endereço vindo de usuário ou parceiro é buscado; nenhum `zlib`/Brotli sobre
+    dado de fora; o Fastify não descompacta corpo (o aviso do Regem é lido cru);
+  - classe média: o balcão chama a plataforma da Anthropic (`api/src/balcao/plataforma.ts`);
+  - classe baixa: o Regem e o Hub DMS (DMS ID, hub, a porta do Regem), endereços nossos vindos do ambiente;
+  - sem `rejectUnauthorized: false`, sem CA própria, sem `NODE_EXTRA_CA_CERTS`: a troca de autoridades do Node vale
+    inteira aqui.
+- **O agente da loja (Python)** não pede `Brotli` nem `brotlicffi` (`agent/pyproject.toml`). O que está instalado no
+  PC da loja não foi conferido: o PC estava sem internet em 23/10. Fica para conferir quando ele voltar.
