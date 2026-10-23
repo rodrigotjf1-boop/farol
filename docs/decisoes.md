@@ -9471,3 +9471,56 @@ estudo (`docs/estudo-planta-viva.md`): a planta com volume e a câmera simulada.
   - o quadrinho da câmera abre (sem imagem do canal no banco de teste);
   - na edição, a faixa Inclinação anda pelo teclado (30° → 40°), e o 3D acompanha;
   - os botões de desenhar ficam apagados no 3D.
+
+## 23/10/2026 · O juiz treinado: o nome do ingrediente por um classificador que aprende com a conferência (A24 F3; sem migration)
+
+O dono, 23/10: "vamos treinar o juiz logo sem demora" e "sempre com opção de aprendizado no que vai se descobrindo". O
+juiz de ingrediente de hoje compara o recorte de cada passo com a MÉDIA das fotos de cada ingrediente (o protótipo) e não
+aprende além dela. Agora o agente pode treinar um classificador nos exemplos da base da loja — os que o dono marca nas
+fichas e os que a conferência por passo devolve (`exemplosDaConferencia`, origem "bancada") — e refazê-lo quando a base
+muda: cada conferência entra no treino seguinte.
+
+### O que entrou
+
+- `agent/farol_agent/juizes/treinado.py`:
+  - as **8 vistas** de cada exemplo (0, 90, 180 e 270 graus, com e sem espelho): a bancada é vista de cima, e girar o
+    lanche não muda o ingrediente;
+  - uma **regressão logística** (softmax com L2, C = 2, classes equilibradas), só com numpy — sem pacote novo;
+    determinística;
+  - os vetores das vistas guardados por sha256 em `base-da-loja/vetores-vistas.npz`, com o modelo e a versão: o modelo
+    só olha o exemplo novo;
+  - **uma imagem por chamada** ao modelo: o int8 dinâmico devolve outro vetor em lote (ERR-148).
+- `JuizTreinado`: o **nome** do ingrediente é o mais provável do classificador que não é pão; o mais parecido de todos
+  (o "é comida?", `COMIDA_MIN`) e as notas seguem pelo protótipo — a mesma escala que os passos e a conferência usam (a
+  nota do ingrediente é a do protótipo DELE). Na consulta, 1 vista (o custo de hoje) ou as 8
+  (`FAROL_BANCADA_JUIZ_TREINADO_VISTAS=8`: 8 chamadas por recorte).
+- `JuizDaLoja(treinado=...)` e a chave **`FAROL_BANCADA_JUIZ_TREINADO`**, **desligada por padrão** (o dono liga). Sem o
+  que treinar (menos de 2 ingredientes com exemplo), fica o juiz de protótipo; o registro do agente diz qual juiz montou.
+
+### O que foi medido antes (banco de provas, no notebook)
+
+Nas 111 marcações do dono da noite de 21/10 (o ingrediente de cima da pilha, pela família), cada lanche testado SEM as
+marcações dele, com o modelo int8 do agente:
+
+| juiz | o de cima certo |
+|---|---|
+| protótipo (o de hoje) | 50% |
+| o exemplo mais parecido, com as marcações | 67% |
+| o mesmo, com as 8 vistas | 71% |
+| **treinado** (biblioteca + marcações, 8 vistas) | **83%** (81% pelo nome; 91% nos 3 primeiros) |
+| treinado só na biblioteca (o que a base da loja tem hoje) | 57% |
+| treinado só nas marcações, testado nas fotos da biblioteca (outra noite) | 73% |
+
+- O C de 0,5 a 8 dá 81 a 83%; o classificador só com numpy dá o mesmo do scikit-learn (83%, com 200 ou 400 voltas).
+- Sem vazamento: as únicas fotos da base iguais a recortes das noites são as 12 de "teste", fora do treino.
+- O que mais pesa são exemplos que são **recortes de passo de verdade** (as marcações): a conferência traz isso, ~100
+  por noite de 20 lanches. Para uma noite nova, a estimativa é de 73 a 83%; a conferência da noite de 22/10 dá o número.
+
+### Como foi conferido
+
+- `agent/testes/test_juiz_treinado.py` (13 testes): as vistas; o classificador (separa, é determinístico, a classe rara
+  não some); a guarda dos vetores; o nome pelo classificador e as notas pelo protótipo; o pão nunca é o ingrediente; 1 ou
+  8 chamadas; o juiz da loja com e sem a chave e sem o que treinar; as chaves. Os testes do juiz de ingrediente seguem.
+- Mutação: 9 de 9 trocas pegas (sem classes equilibradas; pão como ingrediente; nome fora do classificador; sempre 8
+  vistas; vetor de outro modelo aceito; treino com um nome só; nota virando probabilidade; a chave não desliga; a chave
+  sempre ligada).
