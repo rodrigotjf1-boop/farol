@@ -85,6 +85,11 @@ PASSOS = "FAROL_BANCADA_PASSOS"
 # (`base_da_loja`); sem um dos dois, os passos seguem sem o juiz, e o registro diz por quê. Com ela, uma amostra dos
 # lanches de cada noite sobe para a conferência por passo, também com a loja fechada (`passos_na_nuvem`).
 INGREDIENTES = "FAROL_BANCADA_INGREDIENTES"
+# Com esta chave (e a dos ingredientes), o NOME do ingrediente de cada passo vem do JUIZ TREINADO (`juizes.treinado`): um
+# classificador aprendido nos exemplos da base da loja — os que a conferência por passo devolve entram no treino seguinte.
+# Desligada por padrão (o dono liga). A de vistas: "8" consulta as 8 vistas do recorte (8 chamadas ao modelo); sem ela, 1.
+JUIZ_TREINADO = "FAROL_BANCADA_JUIZ_TREINADO"
+JUIZ_TREINADO_VISTAS = "FAROL_BANCADA_JUIZ_TREINADO_VISTAS"
 PASTA = "bancada"
 QUADROS = "quadros"
 DENSA = "densa"
@@ -122,6 +127,11 @@ def passos_ligados(valor: str | None) -> bool:
 
 def ingredientes_ligados(valor: str | None) -> bool:
     """`FAROL_BANCADA_INGREDIENTES`: os mesmos valores da chave de guardar os quadros."""
+    return guardar_quadros_ligado(valor)
+
+
+def juiz_treinado_ligado(valor: str | None) -> bool:
+    """`FAROL_BANCADA_JUIZ_TREINADO`: os mesmos valores da chave de guardar os quadros (sem ela, o juiz de protótipo)."""
     return guardar_quadros_ligado(valor)
 
 

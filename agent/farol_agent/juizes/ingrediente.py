@@ -239,12 +239,16 @@ def prototipos(
 class JuizDaLoja:
     """O juiz de ingrediente DESTA loja: montado na primeira vez que os passos pedem e refeito quando a base da loja muda
     (a impressão). Sem o modelo ou sem a base, nulo — os passos seguem sem o juiz — e o registro diz por quê, uma vez por
-    motivo."""
+    motivo. Com `treinado` (a chave `FAROL_BANCADA_JUIZ_TREINADO`, desligada por padrão), o nome do ingrediente vem do
+    classificador treinado nos exemplos da base (`juizes.treinado`); sem o que treinar, fica o de protótipo."""
 
     def __init__(self, pasta_modelos: str | Path, base: "BaseDaLoja", *,
-                 motor_de: Callable[[Path], Any] = MotorDino) -> None:
+                 motor_de: Callable[[Path], Any] = MotorDino, treinado: bool = False,
+                 vistas_na_consulta: int = 1) -> None:
         self.pasta_modelos = Path(pasta_modelos)
         self.base = base
+        self.treinado = treinado
+        self.vistas_na_consulta = vistas_na_consulta
         self._motor_de = motor_de
         self._motor: Any = None
         self._juiz: JuizDeIngrediente | None = None
@@ -263,13 +267,20 @@ class JuizDaLoja:
             try:
                 if self._motor is None:
                     self._motor = self._motor_de(self.pasta_modelos / MODELO_ARQUIVO)
-                prot = prototipos(self._motor.vetor, exemplos_de_um_nome(lista), self.base.abrir,
-                                  guardados=self.base.vetores)
-                juiz = JuizDeIngrediente(self._motor.vetor, prot)
+                exemplos = exemplos_de_um_nome(lista)
+                prot = prototipos(self._motor.vetor, exemplos, self.base.abrir, guardados=self.base.vetores)
+                if self.treinado and prot:
+                    from farol_agent.juizes import treinado as jt
+
+                    juiz, como = jt.montar(self._motor.vetor, prot, exemplos, self.base.abrir,
+                                           guardados=self.base.vetores.with_name("vetores-vistas.npz"),
+                                           vistas_na_consulta=self.vistas_na_consulta)
+                else:
+                    juiz, como = JuizDeIngrediente(self._motor.vetor, prot), "juiz de protótipo"
             except ErroDoJuiz as e:
                 return self._sem(str(e))
             self._juiz, self._impressao, self._motivo_dito = juiz, impressao, None
-            _log.info("juiz de ingrediente pronto: %d ingrediente(s) da base da loja", len(prot))
+            _log.info("juiz de ingrediente pronto: %d ingrediente(s) da base da loja (%s)", len(prot), como)
             return juiz
 
     def _sem(self, motivo: str) -> None:

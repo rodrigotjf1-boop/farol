@@ -1141,8 +1141,8 @@ def cmd_servir(args: argparse.Namespace) -> int:
         print("gravação de treino ligada: lê o que o console pedir, com a loja fechada")
 
     from farol_agent.bancada_ao_vivo import (
-        GUARDAR, INGREDIENTES, PASSOS, VARIAVEL, BancadaAoVivo, canais_ligados, guardar_quadros_ligado,
-        ingredientes_ligados, passos_ligados,
+        GUARDAR, INGREDIENTES, JUIZ_TREINADO, JUIZ_TREINADO_VISTAS, PASSOS, VARIAVEL, BancadaAoVivo, canais_ligados,
+        guardar_quadros_ligado, ingredientes_ligados, juiz_treinado_ligado, passos_ligados,
     )
 
     bancada_ao_vivo = None
@@ -1154,14 +1154,19 @@ def cmd_servir(args: argparse.Namespace) -> int:
         guardar = guardar_quadros_ligado(os.environ.get(GUARDAR))
         passos = passos_ligados(os.environ.get(PASSOS))
         juiz_de = None
+        treinado = False
         if passos and guardar and ingredientes_ligados(os.environ.get(INGREDIENTES)):
             from farol_agent.base_da_loja import BaseEmFundo
             from farol_agent.juizes.ingrediente import JuizDaLoja
+            from farol_agent.juizes.treinado import vistas_da_consulta
 
             # A base da loja desce numa linha própria, com a loja fechada; o juiz se monta dela quando os passos pedem.
             base_em_fundo = BaseEmFundo(cliente, args.config)
             base_em_fundo.iniciar()
-            juiz_de = JuizDaLoja(Path(os.environ.get("FAROL_MODELOS") or "modelos"), base_em_fundo.base)
+            treinado = juiz_treinado_ligado(os.environ.get(JUIZ_TREINADO))
+            juiz_de = JuizDaLoja(Path(os.environ.get("FAROL_MODELOS") or "modelos"), base_em_fundo.base,
+                                 treinado=treinado,
+                                 vistas_na_consulta=vistas_da_consulta(os.environ.get(JUIZ_TREINADO_VISTAS)))
             from farol_agent.passos_na_nuvem import VARIAVEL_POR_NOITE, ConferenciaEmFundo, por_noite
 
             # A noite lida por passos sobe para a conferência (uma amostra por noite), também com a loja fechada.
@@ -1181,6 +1186,7 @@ def cmd_servir(args: argparse.Namespace) -> int:
             + (f"; os passos ({PASSOS}) pedem também {GUARDAR}: ficam desligados" if passos and not guardar else "")
             + (f"; com o JUIZ DE INGREDIENTE ({INGREDIENTES}): a base da loja desce com a loja fechada"
                if juiz_de is not None else "")
+            + (f"; o nome do ingrediente pelo JUIZ TREINADO ({JUIZ_TREINADO})" if treinado else "")
             + (f"; até {conferencia_em_fundo.por_noite} lanches de cada noite sobem para a conferência, com a loja "
                "fechada" if conferencia_em_fundo is not None else "")
         )
