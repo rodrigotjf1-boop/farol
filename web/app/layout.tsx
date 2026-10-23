@@ -3,8 +3,8 @@ import type { Metadata, Viewport } from 'next';
 // As fontes vêm do pacote, não do Google em tempo de execução: o console
 // não faz pedido a terceiro para desenhar a própria tela, e a montagem da
 // imagem não depende de mais uma rede estar de pé.
-import '@fontsource-variable/bricolage-grotesque';
-import '@fontsource-variable/figtree';
+import '@fontsource-variable/big-shoulders-display';
+import '@fontsource-variable/hanken-grotesk';
 import '@fontsource-variable/jetbrains-mono';
 
 import './globals.css';
@@ -28,8 +28,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#F2F5F9' },
-    { media: '(prefers-color-scheme: dark)', color: '#0A111B' },
+    { media: '(prefers-color-scheme: light)', color: '#F3F1EA' },
+    { media: '(prefers-color-scheme: dark)', color: '#151412' },
   ],
 };
 

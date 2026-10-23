@@ -1198,6 +1198,31 @@ gravador atende (1,5 s, fora da trava), e o OpenCV passa a desistir em 5 s
 
 ---
 
+## A25 · O console com cara nova: o caminho "Comanda" (pedido do dono em 23/10/2026) — 🟡 parte 1 (a moldura) feita
+
+O pedido do dono (23/10): modernizar o console com movimento, animações e menus inteligentes, livre das cores da logo e
+dos padrões de hoje. A primeira proposta, no padrão dos SaaS, voltou como "parece o mesmo produto". Dos três caminhos
+mostrados em seguida (vidro, comanda e radar), o dono escolheu a **comanda** e mandou começar. O protótipo das 14 telas
+está publicado à parte.
+
+**A linguagem:**
+- as telas são comandas penduradas num trilho de metal: a de agora desce e escurece, as outras balançam;
+- o que não cabe no trilho vai para o **espeto**;
+- os temas viram papel (claro) e chapa (escuro);
+- ketchup, mostarda, picles e pão são as cores de estado;
+- a letra dos títulos é de placa de cardápio (Big Shoulders Display), o texto vai em Hanken Grotesk e os números em
+  JetBrains Mono;
+- o movimento é com mola.
+
+| Parte | O quê | Situação |
+|---|---|---|
+| **1** | a moldura: cores dos dois temas, letras, o trilho que mede quantas comandas cabem e manda o resto ao espeto, a loja e a saúde do agente no topo, a busca (Ctrl K) como recibo e as peças comuns (botão, título, filtro, vazio, gaveta, diálogo) | ✅ 23/10/2026 |
+| 2 | o botão de ações de cada tela (o vermelho, embaixo à direita) | a fazer. Cada tela entrega as próprias ações ao topo. "Silenciar alertas por 1 h" e "simular um alerta", que estão no protótipo, não existem no servidor: são funcionalidade nova e esperam decisão |
+| 3 | a tela "Agora" (o painel) | a fazer. "Lanches hoje", "pela ficha" e "o Farol aprendeu", do protótipo, são números que a API ainda não entrega (V44) |
+| 4 | as outras telas, uma a uma, conforme o protótipo | a fazer |
+
+---
+
 ## A24 · O Farol especialista: a placa de vídeo na loja (plano de 22/10/2026) — 🟡 F0 feita, F1 e F2 em andamento, F4 medida
 
 O dono instalou uma RTX 5060 Ti 16 GB no PC do Farol (22/10, driver 621.01) e pediu, numa pesquisa sem achismo, como

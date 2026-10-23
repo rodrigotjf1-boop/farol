@@ -43,11 +43,18 @@ export default {
           palco: cor('palco'),
           'palco-tinta': cor('palco-tinta'),
           'palco-suave': cor('palco-suave'),
+          // As cores do lanche, cheias: os blocos grandes de número do caminho "Comanda".
+          ketchup: cor('ketchup'),
+          mostarda: cor('mostarda'),
+          'sobre-mostarda': cor('sobre-mostarda'),
+          picles: cor('picles'),
+          pao: cor('pao'),
         },
       },
       fontFamily: {
-        sans: ['"Figtree Variable"', 'Figtree', 'system-ui', '-apple-system', '"Segoe UI"', 'Roboto', 'sans-serif'],
-        display: ['"Bricolage Grotesque Variable"', '"Bricolage Grotesque"', '"Figtree Variable"', 'system-ui', 'sans-serif'],
+        sans: ['"Hanken Grotesk Variable"', '"Hanken Grotesk"', 'system-ui', '-apple-system', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        // A letra da placa de cardápio: alta e estreita. Os títulos vão em maiúsculas (ver `Cabecalho` e `Titulo`).
+        display: ['"Big Shoulders Display Variable"', '"Big Shoulders Display"', '"Arial Narrow"', 'Impact', 'system-ui', 'sans-serif'],
         mono: ['"JetBrains Mono Variable"', '"JetBrains Mono"', 'ui-monospace', '"Cascadia Mono"', 'Consolas', 'monospace'],
       },
       boxShadow: {
@@ -56,6 +63,8 @@ export default {
       },
       transitionTimingFunction: {
         farol: 'cubic-bezier(.2, .8, .2, 1)',
+        // A mola do caminho "Comanda": passa um pouco do ponto e volta.
+        mola: 'cubic-bezier(.34, 1.56, .64, 1)',
       },
       keyframes: {
         sobe: { from: { opacity: '0', transform: 'translateY(10px)' }, to: { opacity: '1', transform: 'none' } },

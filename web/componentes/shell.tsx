@@ -1,12 +1,17 @@
 'use client';
 
 // =====================================================================
-// A moldura do console
+// A moldura do console: o caminho "Comanda" (23/10/2026)
 // =====================================================================
-// Uma navegação só, que muda de forma: coluna à esquerda no computador,
-// trilho no tablet, barra embaixo no celular. A LOJA é o contexto — fica
-// no topo, e as seções são dela: Painel, Canais, Critérios, Alertas e
-// Orçamento.
+// O dono escolheu, entre três caminhos, o da cozinha. As seções da loja
+// são COMANDAS penduradas num trilho, no topo: a de agora desce e
+// escurece; as outras balançam quando se troca de tela. O trilho mede
+// quantas cabem — o que não cabe vai para o ESPETO, ao lado (o mesmo
+// espeto onde a cozinha espeta a comanda pronta). Não há mais coluna à
+// esquerda nem barra embaixo: a mesma moldura serve do celular ao monitor.
+//
+// A LOJA é o contexto: o nome dela, grande, é o botão de trocar de loja; a
+// linha de baixo diz como vai o computador da loja e leva à tela dele.
 //
 // A moldura não rola; quem rola é o conteúdo. Assim a navegação e o
 // estado do agente ficam sempre à vista.
@@ -22,15 +27,14 @@ import {
   Building2,
   Calculator,
   Cctv,
-  ChevronRight,
-  ChevronsUpDown,
+  ChevronDown,
   ChartColumn,
   ClipboardList,
-  Ellipsis,
   GraduationCap,
   LayoutDashboard,
   ListChecks,
   LogOut,
+  Monitor,
   Moon,
   Plug,
   Search,
@@ -41,7 +45,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { api, consoleApi, ErroDaApi, resultadosApi, type Eu, type LojaResumo } from '@/lib/api';
 
@@ -57,35 +61,25 @@ import {
   type Saude,
 } from './console';
 import { IrPara } from './ir-para';
-import { Palavra, Selo } from './marca';
-import { Botao } from './ui/botao';
+import { Selo } from './marca';
 import { Alerta, Ossos, Ponto } from './ui/pecas';
-import { DivisorDeMenu, Gaveta, ITEM_DE_MENU, Menu, RotuloDeMenu } from './ui/sobreposto';
+import { DivisorDeMenu, ITEM_DE_MENU, Menu, RotuloDeMenu } from './ui/sobreposto';
 
 const UUID_DA_LOJA = /^\/lojas\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
-const SECOES = ['analises', 'canais', 'regras', 'fichas', 'treinamento', 'alertas', 'orcamento'] as const;
+const SECOES = ['analises', 'canais', 'regras', 'fichas', 'treinamento', 'alertas', 'orcamento', 'computador'] as const;
 /** De quanto em quanto tempo a moldura pergunta como vai o agente. */
 const BATIDA_MS = 30_000;
+/** O espaço entre duas comandas no trilho, em px (o `gap-2.5` da fila). */
+const VAO = 10;
 
 type Item = {
   href: string;
   rotulo: string;
+  /** A linha pequena da comanda: o que se resolve naquela tela, em poucas letras. */
+  sobre: string;
   icone: LucideIcon;
   conta?: number | null;
-  /**
-   * Fica só na coluna (computador e tablet). A barra de baixo do celular
-   * comporta seis itens: com o sétimo, em telas de 320 a 375 px, os rótulos
-   * "Alertas" e "Orçamento" se encostam (medido em 11/10/2026). No celular,
-   * o que não cabe na barra mora no "Mais", o último item dela.
-   */
-  soNaColuna?: boolean;
 };
-
-/** Um item do "Mais" da barra do celular: a tela, e uma linha dizendo o que ela é. */
-type ItemDoMais = { href: string; rotulo: string; icone: LucideIcon; sobre: string };
-
-/** O "Mais" da barra do celular, visto pela barra: está aberto? a tela de agora mora nele? */
-type BotaoMais = { aberto: boolean; aqui: boolean; aoAbrir: () => void };
 
 // ───────────────────────── o tema ─────────────────────────
 
@@ -120,156 +114,184 @@ function useTema() {
   return { escuro, trocar };
 }
 
-// ───────────────────────── a navegação ─────────────────────────
+// ───────────────────────── uma comanda ─────────────────────────
+
+/** Quantos sinais pedem atenção: bolinha vermelha com o algarismo em letra mono — na letra estreita do título o "1"
+ *  parecia um "I", e o vermelho solto sobre a comanda escura ficava com contraste de 2,85:1 (na bolinha: 5,6 e 6,6:1). */
+function Sinais({ n, className = '' }: { n: number; className?: string }) {
+  return (
+    <span
+      className={`grid h-[18px] min-w-[18px] place-items-center rounded-full bg-farol-critico px-1 font-mono text-[11px] font-bold leading-none text-farol-sobre-critico ${className}`}
+    >
+      <span className="sr-only">sinais de atenção: </span>
+      {n}
+    </span>
+  );
+}
+
+function Comanda({ item, aqui, medida }: { item: Item; aqui: boolean; medida?: boolean }) {
+  const conteudo = (
+    <>
+      {!!item.conta && <Sinais n={item.conta} className="absolute right-[6px] top-[6px]" />}
+      <b
+        className={`block whitespace-nowrap font-display text-[18px] font-extrabold uppercase leading-none tracking-[.02em] ${item.conta ? 'pr-6' : 'pr-3'}`}
+      >
+        {item.rotulo}
+      </b>
+      {/* Na comanda de agora o fundo é a cor da marca, que é clara na chapa: o subtítulo usa o texto da própria marca,
+          apagado (7,6:1 no papel, 6,4:1 na chapa). O cinza do palco dava 1,9:1 na chapa. */}
+      <small className={`mt-1 block whitespace-nowrap font-mono text-[10px] leading-tight ${aqui ? 'text-farol-sobre-marca/70' : 'text-farol-suave'}`}>
+        {item.sobre}
+      </small>
+    </>
+  );
+  // A cópia que só serve para MEDIR a largura (o trilho decide quantas cabem) não é link nem leva foco.
+  if (medida) {
+    return (
+      <span className="cmd-pendurada">
+        <span className="cmd-comanda">{conteudo}</span>
+      </span>
+    );
+  }
+  return (
+    <span className="cmd-pendurada">
+      <span className="cmd-grampo" aria-hidden />
+      <Link href={item.href} aria-current={aqui ? 'page' : undefined} data-comanda={item.href} className="cmd-comanda">
+        {conteudo}
+      </Link>
+    </span>
+  );
+}
+
+// ───────────────────────── o trilho e o espeto ─────────────────────────
 
 /**
- * Os itens, com um realce que DESLIZA até o item atual. O movimento
- * mostra de onde se veio e para onde se foi — não é enfeite.
+ * As comandas que cabem no trilho, na ordem; a de agora sempre fica (se não coube, toma o lugar da última). O resto
+ * vai para o espeto. A conta é feita com cópias invisíveis de TODAS as comandas, medidas a cada mudança de largura
+ * e quando a fonte chega (ela muda o tamanho das letras).
  */
-function Navegacao({ itens, atual, deitada, mais }: { itens: Item[]; atual: string | null; deitada: boolean; mais?: BotaoMais }) {
-  const caixa = useRef<HTMLElement>(null);
-  const [realce, setRealce] = useState<CSSProperties>({ opacity: 0 });
+function useQuantasCabem(itens: Item[], atual: string | null, pronto: boolean) {
+  const trilho = useRef<HTMLElement>(null);
+  const medidas = useRef<HTMLDivElement>(null);
+  const [cabem, setCabem] = useState(itens.length);
 
   const medir = useCallback(() => {
-    // O item atual — ou o "Mais", quando a tela de agora mora dentro dele.
-    const el = caixa.current?.querySelector<HTMLElement>('[aria-current="page"]');
-    if (!el || el.offsetParent === null) {
-      setRealce((r) => ({ ...r, opacity: 0 }));
-      return;
+    const caixa = trilho.current;
+    const copias = medidas.current ? [...medidas.current.children] : [];
+    if (!caixa || copias.length !== itens.length) return;
+    const livre = caixa.clientWidth - 8;
+    let usado = 0;
+    let n = 0;
+    for (const c of copias) {
+      const w = (c as HTMLElement).offsetWidth;
+      if (usado + w > livre) break;
+      usado += w + VAO;
+      n += 1;
     }
-    setRealce(
-      deitada
-        ? { opacity: 1, width: el.offsetWidth, transform: `translateX(${el.offsetLeft}px)` }
-        : { opacity: 1, height: el.offsetHeight, transform: `translateY(${el.offsetTop}px)` },
-    );
-  }, [deitada]);
+    setCabem(Math.max(1, n));
+  }, [itens.length]);
 
-  useLayoutEffect(medir, [medir, atual, itens.length, mais?.aqui]);
+  // `pronto`: o trilho só existe depois que se sabe quem está logado — a conta e o observador esperam por ele.
+  useLayoutEffect(medir, [medir, itens, pronto]);
 
   useEffect(() => {
-    if (!caixa.current) return;
-    // A fonte chega depois do primeiro desenho e muda o tamanho dos itens.
+    if (!pronto || !trilho.current) return;
     const o = new ResizeObserver(medir);
-    o.observe(caixa.current);
+    o.observe(trilho.current);
+    document.fonts?.ready.then(medir).catch(() => {});
     return () => o.disconnect();
-  }, [medir]);
+  }, [medir, pronto]);
 
+  const visiveis = useMemo(() => {
+    const primeiras = itens.slice(0, cabem);
+    if (!atual || primeiras.some((i) => i.href === atual)) return primeiras;
+    const daVez = itens.find((i) => i.href === atual);
+    return daVez ? [...primeiras.slice(0, Math.max(0, cabem - 1)), daVez] : primeiras;
+  }, [itens, cabem, atual]);
+  const sobra = useMemo(() => itens.filter((i) => !visiveis.includes(i)), [itens, visiveis]);
+
+  return { trilho, medidas, visiveis, sobra };
+}
+
+function Espeto({ sobra, extras }: { sobra: Item[]; extras: Item[] }) {
+  const tudo = [...sobra, ...extras];
+  if (tudo.length === 0) return null;
   return (
-    <nav
-      ref={caixa}
-      aria-label="Seções"
-      className={
-        deitada
-          ? 'relative grid auto-cols-fr grid-flow-col border-t border-farol-borda bg-farol-painel px-1.5 pb-[calc(6px+env(safe-area-inset-bottom,0px))] pt-1.5 md:hidden'
-          : 'relative flex flex-col gap-0.5'
-      }
-    >
-      <span
-        aria-hidden
-        style={realce}
-        className={
-          'pointer-events-none absolute transition-[transform,width,height,opacity] duration-300 ease-farol ' +
-          (deitada
-            ? 'left-0 top-1.5 h-[50px] rounded-xl bg-farol-realce'
-            : 'inset-x-0 top-0 rounded-[10px] border border-farol-borda bg-farol-painel shadow-farol-1')
-        }
-      />
-      {itens.map((i) => {
-        const aqui = i.href === atual;
-        const Icone = i.icone;
-        return (
-          <Link
-            key={i.href}
-            href={i.href}
-            aria-current={aqui ? 'page' : undefined}
-            className={
-              'relative flex items-center no-underline transition-colors ' +
-              (aqui ? 'font-semibold text-farol-tinta ' : 'font-medium text-farol-suave hover:text-farol-tinta ') +
-              (deitada
-                ? 'min-h-[50px] flex-col justify-center gap-0.5 rounded-xl text-[11px]'
-                : 'h-14 flex-col justify-center gap-[3px] rounded-[10px] px-0.5 text-center text-[11px] ' +
-                  'lg:h-10 lg:flex-row lg:justify-start lg:gap-[11px] lg:px-[11px] lg:text-left lg:text-sm')
-            }
-          >
-            <Icone
-              className={`shrink-0 ${deitada ? 'h-[22px] w-[22px]' : 'h-[18px] w-[18px]'} ${aqui ? 'text-farol-facho-icone' : ''}`}
+    <Menu
+      alinhar="fim"
+      gatilho={(p) => (
+        <button type="button" {...p} className="cmd-espeto mt-1 shrink-0" aria-label={`Mais telas (${tudo.length})`}>
+          <span className="cmd-haste" aria-hidden />
+          {/* Um papel espetado para cada tela que mora aqui (até seis), um pouco tortos, como na cozinha. */}
+          {tudo.slice(0, 6).map((i, k) => (
+            <span
+              key={i.href}
               aria-hidden
+              className="cmd-papel"
+              style={{ bottom: 14 + k * 5, transform: `translateX(-50%) rotate(${(k % 2 ? 6 : -5) + k}deg)` }}
             />
-            <span>{i.rotulo}</span>
-            {!!i.conta && (
-              <span
-                className={
-                  'rounded-full text-center font-semibold ' +
-                  (deitada
-                    ? 'absolute left-[calc(50%+6px)] top-1 min-w-4 bg-farol-critico px-1 text-[10.5px] leading-4 text-farol-sobre-critico'
-                    : 'absolute right-2.5 top-[5px] min-w-4 bg-farol-critico-leve px-1 text-[10.5px] leading-4 text-farol-critico ' +
-                      'lg:static lg:ml-auto lg:min-w-5 lg:px-1.5 lg:text-[11.5px] lg:leading-5')
-                }
-              >
-                <span className="sr-only">sinais de atenção: </span>
-                {i.conta}
-              </span>
-            )}
-          </Link>
-        );
-      })}
-      {deitada && mais && (
-        // O que não cabe na barra (Fichas, Orçamento, Conexões) mora aqui. É um botão, e não um endereço: abre a
-        // folha com os itens. Fica marcado quando a tela de agora é uma delas.
-        <button
-          type="button"
-          data-mais
-          aria-haspopup="dialog"
-          aria-expanded={mais.aberto}
-          aria-current={mais.aqui ? 'page' : undefined}
-          onClick={mais.aoAbrir}
-          className={
-            'relative flex min-h-[50px] flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] transition-colors ' +
-            (mais.aqui ? 'font-semibold text-farol-tinta' : 'font-medium text-farol-suave hover:text-farol-tinta')
-          }
-        >
-          <Ellipsis className={`h-[22px] w-[22px] shrink-0 ${mais.aqui ? 'text-farol-facho-icone' : ''}`} aria-hidden />
-          <span>Mais</span>
+          ))}
+          <span className="cmd-base" aria-hidden />
+          <span className="absolute -bottom-3.5 font-mono text-[9.5px] font-semibold tracking-[.08em] text-farol-suave">MAIS</span>
         </button>
       )}
-    </nav>
+    >
+      {(fechar) => (
+        <>
+          <RotuloDeMenu>No espeto</RotuloDeMenu>
+          {sobra.map((i) => {
+            const Icone = i.icone;
+            return (
+              <Link key={i.href} href={i.href} role="menuitem" onClick={fechar} className={ITEM_DE_MENU}>
+                <Icone className="h-[18px] w-[18px] shrink-0" aria-hidden />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-display text-[16px] font-extrabold uppercase leading-tight tracking-[.03em]">{i.rotulo}</span>
+                  <small className="block text-xs text-farol-suave">{i.sobre}</small>
+                </span>
+                {/* `relative`: o texto só para leitor de tela fica preso à bolinha, dentro do menu (V36). */}
+                {!!i.conta && <Sinais n={i.conta} className="relative" />}
+              </Link>
+            );
+          })}
+          {sobra.length > 0 && extras.length > 0 && <DivisorDeMenu />}
+          {extras.map((i) => {
+            const Icone = i.icone;
+            return (
+              <Link key={i.href} href={i.href} role="menuitem" onClick={fechar} className={ITEM_DE_MENU}>
+                <Icone className="h-[18px] w-[18px] shrink-0" aria-hidden />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold">{i.rotulo}</span>
+                  <small className="block text-xs text-farol-suave">{i.sobre}</small>
+                </span>
+              </Link>
+            );
+          })}
+        </>
+      )}
+    </Menu>
   );
 }
 
 // ───────────────────────── trocar de loja ─────────────────────────
 
-function TrocaDeLoja({
-  lojas,
-  loja,
-  compacta,
-}: {
-  lojas: LojaResumo[] | null;
-  loja: LojaResumo | null;
-  /** No topo do celular: só o nome, sem a segunda linha. */
-  compacta?: boolean;
-}) {
+function TrocaDeLoja({ lojas, loja }: { lojas: LojaResumo[] | null; loja: LojaResumo | null }) {
   return (
     <Menu
       gatilho={(p) => (
         <button
           type="button"
           {...p}
-          className={
-            'flex min-w-0 items-center gap-2.5 rounded-[10px] border border-farol-borda bg-farol-painel text-left ' +
-            'transition-colors hover:border-farol-borda-forte ' +
-            (compacta ? 'flex-1 px-2.5 py-1.5' : 'w-full justify-center px-0 py-[9px] lg:justify-start lg:px-2.5 lg:py-2')
-          }
+          className="group flex min-w-0 max-w-full items-end gap-1.5 text-left"
+          title={loja ? 'Trocar de loja' : 'Escolher uma loja'}
         >
-          <Store className="h-[18px] w-[18px] shrink-0 text-farol-suave" aria-hidden />
-          <span className={`min-w-0 flex-1 ${compacta ? '' : 'hidden lg:block'}`}>
-            <b className="block truncate font-semibold">{loja?.nome ?? 'Todas as lojas'}</b>
-            {!compacta && (
-              <small className="block text-xs leading-tight text-farol-suave">
-                {loja ? 'trocar de loja' : 'escolha uma para entrar'}
-              </small>
-            )}
-          </span>
-          <ChevronsUpDown className={`h-[15px] w-[15px] shrink-0 text-farol-suave ${compacta ? '' : 'hidden lg:block'}`} aria-hidden />
+          {/* O nome da loja, grande: é o contexto de todas as telas. */}
+          <b className="min-w-0 truncate font-display text-[30px] font-black uppercase leading-[.86] tracking-[.005em] xl:text-[36px]">
+            {loja?.nome ?? 'Todas as lojas'}
+          </b>
+          <ChevronDown
+            className="mb-0.5 h-[18px] w-[18px] shrink-0 text-farol-suave transition-transform duration-300 ease-mola group-aria-expanded:rotate-180"
+            aria-hidden
+          />
           <span className="sr-only">Trocar de loja</span>
         </button>
       )}
@@ -306,7 +328,7 @@ function Conta({
 }: {
   eu: Eu;
   escuro: boolean;
-  /** Quem configura a conta vê as conexões dela. No celular chega-se lá por aqui e pelo "Mais" da barra de baixo. */
+  /** Quem configura a conta vê as conexões dela (também no espeto). */
   conexoes: boolean;
   trocarTema: () => void;
   sair: () => void;
@@ -319,7 +341,7 @@ function Conta({
           type="button"
           {...p}
           aria-label={`Conta de ${eu.nome}`}
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-farol-marca text-[12.5px] font-semibold text-farol-sobre-marca"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-farol-mostarda font-display text-[16px] font-extrabold text-farol-sobre-mostarda shadow-farol-1 transition-transform duration-300 ease-mola hover:scale-105"
         >
           {iniciais(eu.nome)}
         </button>
@@ -346,7 +368,7 @@ function Conta({
             }}
           >
             {escuro ? <Sun className="h-[18px] w-[18px]" aria-hidden /> : <Moon className="h-[18px] w-[18px]" aria-hidden />}
-            {escuro ? 'Usar o tema claro' : 'Usar o tema escuro'}
+            {escuro ? 'Usar o papel (tema claro)' : 'Usar a chapa (tema escuro)'}
           </button>
           <DivisorDeMenu />
           <button
@@ -372,6 +394,11 @@ function tomDaSaude(s: Saude | null): 'ok' | 'critico' | 'neutro' {
   return s.estado === 'ativo' ? 'ok' : s.estado === 'fora' ? 'critico' : 'neutro';
 }
 
+/** Os botões redondos da direita do topo: buscar e trocar o tema. */
+const REDONDO =
+  'grid h-11 w-11 shrink-0 place-items-center rounded-full bg-farol-painel text-farol-tinta shadow-farol-1 ' +
+  'transition-transform duration-300 ease-mola hover:scale-105';
+
 // ───────────────────────── a moldura ─────────────────────────
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -386,7 +413,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [erro, setErro] = useState<string | null>(null);
   /** A paleta "Ir para…" está aberta. */
   const [paleta, setPaleta] = useState(false);
-  const [mais, setMais] = useState(false);
 
   // Ctrl K (ou ⌘ K) abre a paleta de qualquer tela — e fecha, se ela já está aberta. Com uma gaveta ou um
   // diálogo aberto o atalho não faz nada: a tela de baixo está inerte, e a paleta não se empilha por cima.
@@ -451,7 +477,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     };
   }, [eu, buscarLojas]);
 
-  // Quantos sinais de defeito a loja tem: o número ao lado de "Painel".
+  // Quantos sinais de defeito a loja tem: o número na comanda do Painel.
   // O mesmo pedido serve ao painel (ver `resultadosApi`).
   useEffect(() => {
     setSinais(null);
@@ -476,38 +502,34 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   const itens: Item[] = useMemo(() => {
-    if (!lojaId) return [{ href: '/lojas', rotulo: 'Lojas', icone: Building2 }];
+    if (!lojaId) return [{ href: '/lojas', rotulo: 'Lojas', sobre: 'todas, ao vivo', icone: Building2 }];
     const base = `/lojas/${lojaId}`;
     return [
-      { href: base, rotulo: 'Painel', icone: LayoutDashboard, conta: sinais },
-      // As análises são números de gestão: só para quem vê os resultados.
-      ...(veResultados ? [{ href: `${base}/analises`, rotulo: 'Análises', icone: ChartColumn }] : []),
-      { href: `${base}/canais`, rotulo: 'Canais', icone: Cctv },
-      { href: `${base}/regras`, rotulo: 'Critérios', icone: ListChecks },
+      { href: base, rotulo: 'Painel', sobre: 'o que o Farol viu', icone: LayoutDashboard, conta: sinais },
+      { href: `${base}/alertas`, rotulo: 'Alertas', sobre: 'fora da regra', icone: BellRing },
+      // O treinamento da bancada (A21): conferem a diretoria, a gerência e a supervisão — o mesmo grupo das fichas.
+      ...(veResultados ? [{ href: `${base}/treinamento`, rotulo: 'Treinamento', sobre: 'conferir lanches', icone: GraduationCap }] : []),
+      { href: `${base}/canais`, rotulo: 'Canais', sobre: 'as câmeras', icone: Cctv },
+      { href: `${base}/regras`, rotulo: 'Critérios', sobre: 'o que observar', icone: ListChecks },
       // As fichas são de quem acompanha a loja — supervisão para cima e o suporte, o mesmo grupo
       // que vê os resultados (a API responde 403 aos outros).
-      ...(veResultados ? [{ href: `${base}/fichas`, rotulo: 'Fichas', icone: ClipboardList, soNaColuna: true }] : []),
-      // O treinamento da bancada (A21): conferem a diretoria, a gerência e a supervisão — o mesmo grupo das fichas.
-      ...(veResultados ? [{ href: `${base}/treinamento`, rotulo: 'Treinamento', icone: GraduationCap, soNaColuna: true }] : []),
-      { href: `${base}/alertas`, rotulo: 'Alertas', icone: BellRing },
+      ...(veResultados ? [{ href: `${base}/fichas`, rotulo: 'Fichas', sobre: 'o cardápio', icone: ClipboardList }] : []),
+      // As análises são números de gestão: só para quem vê os resultados.
+      ...(veResultados ? [{ href: `${base}/analises`, rotulo: 'Análises', sobre: 'hora a hora', icone: ChartColumn }] : []),
       // Orçamento é decisão de compra: só para quem configura.
-      ...(configura ? [{ href: `${base}/orcamento`, rotulo: 'Orçamento', icone: Calculator, soNaColuna: true }] : []),
+      ...(configura ? [{ href: `${base}/orcamento`, rotulo: 'Orçamento', sobre: 'o que falta', icone: Calculator }] : []),
     ];
   }, [lojaId, sinais, configura, veResultados]);
 
-  // O "Mais" da barra do celular (protótipo aprovado em 11/10/2026): o que não cabe na barra. Fichas é de quem
-  // acompanha a loja; Orçamento e Conexões, de quem configura. Para quem não vê nenhuma delas, o "Mais" nem existe.
-  const doMais: ItemDoMais[] = useMemo(() => {
-    const daConta: ItemDoMais[] = configura ? [{ href: '/conexoes', rotulo: 'Conexões', icone: Plug, sobre: 'de onde vêm as fichas das lojas' }] : [];
-    if (!lojaId) return daConta;
-    const base = `/lojas/${lojaId}`;
-    return [
-      ...(veResultados ? [{ href: `${base}/fichas`, rotulo: 'Fichas', icone: ClipboardList, sobre: 'o que a loja vende e do que é feito' }] : []),
-      ...(veResultados ? [{ href: `${base}/treinamento`, rotulo: 'Treinamento', icone: GraduationCap, sobre: 'a bancada aprende com o que você confere' }] : []),
-      ...(configura ? [{ href: `${base}/orcamento`, rotulo: 'Orçamento', icone: Calculator, sobre: 'o que falta para a loja ficar coberta' }] : []),
-      ...daConta,
-    ];
-  }, [lojaId, configura, veResultados]);
+  // O que é da CONTA ou do computador, e não uma seção da loja: mora sempre no espeto, abaixo das comandas que
+  // não couberam no trilho.
+  const extras: Item[] = useMemo(
+    () => [
+      ...(lojaId && saude ? [{ href: `/lojas/${lojaId}/computador`, rotulo: 'Computador da loja', sobre: 'saúde e horário', icone: Monitor }] : []),
+      ...(configura ? [{ href: '/conexoes', rotulo: 'Conexões', sobre: 'de onde vêm as fichas das lojas', icone: Plug }] : []),
+    ],
+    [lojaId, saude, configura],
+  );
 
   const atual = useMemo(() => {
     if (!lojaId) return caminho.startsWith('/lojas') ? '/lojas' : null;
@@ -517,10 +539,20 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return caminho === base ? base : null;
   }, [caminho, lojaId, noCanal]);
 
-  // A tela de agora, quando ela é uma das que moram no "Mais" (Conexões é da conta: não está entre as seções).
-  const noMais = caminho === '/conexoes' ? '/conexoes' : doMais.some((i) => i.href === atual) ? atual : null;
-  // Chegou a outra tela: a folha do "Mais" não fica aberta por cima dela.
-  useEffect(() => setMais(false), [caminho]);
+  const { trilho, medidas, visiveis, sobra } = useQuantasCabem(itens, atual, eu !== null);
+
+  // Trocou de tela: as outras comandas balançam no trilho (a de agora desce — ver `.cmd-comanda[aria-current]`).
+  const antes = useRef(atual);
+  useEffect(() => {
+    if (antes.current === atual) return;
+    antes.current = atual;
+    trilho.current?.querySelectorAll<HTMLElement>('[data-comanda]').forEach((c) => {
+      if (c.getAttribute('aria-current') === 'page') return;
+      c.classList.remove('cmd-balanca');
+      void c.offsetWidth;
+      c.classList.add('cmd-balanca');
+    });
+  }, [atual, trilho]);
 
   const contexto: Console | null = useMemo(
     () =>
@@ -556,7 +588,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const tom = tomDaSaude(saude);
 
   return (
-    <div className="grid h-dvh grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto] md:grid-cols-[78px_minmax(0,1fr)] md:grid-rows-1 lg:grid-cols-[248px_minmax(0,1fr)]">
+    <div className="grid h-dvh grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)]">
       <a
         href="#conteudo"
         className="absolute left-3 top-[-60px] z-[90] rounded-[10px] bg-farol-marca px-3 py-2 text-farol-sobre-marca transition-[top] focus:top-3"
@@ -564,128 +596,81 @@ export function Shell({ children }: { children: React.ReactNode }) {
         Pular para o conteúdo
       </a>
 
-      {/* ───────────── computador e tablet: a coluna ───────────── */}
-      <aside
-        aria-label="Navegação"
-        className="hidden min-h-0 flex-col gap-3 overflow-y-auto border-r border-farol-borda px-2 py-3.5 md:flex lg:gap-3.5 lg:px-3 lg:pb-3.5 lg:pt-[18px] [&>*]:shrink-0"
-      >
-        <Link href={lojaId ? `/lojas/${lojaId}` : '/lojas'} className="flex justify-center px-0 pb-1 pt-0.5 text-farol-marca lg:justify-start lg:px-2 lg:pb-1.5" aria-label="Farol — início">
-          <Palavra className="hidden h-7 w-auto lg:block" vivo={saude?.estado === 'ativo'} />
-          <Selo className="h-[30px] w-[30px] lg:hidden" vivo={saude?.estado === 'ativo'} />
-        </Link>
-
-        <TrocaDeLoja lojas={lojas} loja={loja} />
-
-        {/* "Ir para…": no protótipo mora na barra de cima, que o console de hoje não tem. */}
-        {eu && (
-          <button
-            type="button"
-            data-ir-para
-            aria-haspopup="dialog"
-            aria-keyshortcuts="Control+K"
-            onClick={() => setPaleta(true)}
-            className="flex h-10 w-full items-center justify-center gap-2.5 rounded-[10px] border border-farol-borda bg-farol-painel-2 text-farol-suave transition-colors hover:border-farol-borda-forte hover:text-farol-tinta lg:justify-start lg:px-2.5"
-          >
-            <Search className="h-[18px] w-[18px] shrink-0" aria-hidden />
-            <span className="sr-only lg:not-sr-only lg:min-w-0 lg:flex-1 lg:text-left lg:text-sm">Ir para…</span>
-            <kbd className="hidden shrink-0 rounded-md border border-farol-borda px-1.5 py-px font-mono text-[11px] leading-4 lg:block" aria-hidden>
-              Ctrl K
-            </kbd>
-          </button>
-        )}
-
-        {eu ? <Navegacao itens={itens} atual={atual} deitada={false} /> : <Ossos alturas={[40, 40, 40]} />}
-
-        <div className="!shrink min-h-3 flex-1" />
-
-        {/* Da CONTA, não da loja: fica no pé da coluna, fora das seções. */}
-        {eu && configura && (
-          <Link
-            href="/conexoes"
-            aria-current={caminho === '/conexoes' ? 'page' : undefined}
-            className={
-              'flex h-14 flex-col items-center justify-center gap-[3px] rounded-[10px] border px-0.5 text-center text-[11px] no-underline transition-colors ' +
-              'lg:h-10 lg:flex-row lg:justify-start lg:gap-[11px] lg:px-[11px] lg:text-left lg:text-sm ' +
-              (caminho === '/conexoes'
-                ? 'border-farol-borda bg-farol-painel font-semibold text-farol-tinta shadow-farol-1'
-                : 'border-transparent font-medium text-farol-suave hover:text-farol-tinta')
-            }
-          >
-            <Plug className={`h-[18px] w-[18px] shrink-0 ${caminho === '/conexoes' ? 'text-farol-facho-icone' : ''}`} aria-hidden />
-            <span>Conexões</span>
+      {/* ───────────── o topo: a loja, o trilho das comandas, o espeto e a conta ───────────── */}
+      {/* Até 1024 px o trilho tem a linha de baixo inteira (na mesma linha da loja cabia uma comanda só, a 768). */}
+      <header className="flex flex-wrap items-start gap-x-4 gap-y-2 bg-farol-fundo px-[max(14px,env(safe-area-inset-left,0px))] pt-3 md:px-[clamp(16px,2.6vw,32px)] md:pt-3.5 lg:flex-nowrap">
+        <div className="flex min-w-0 flex-1 items-start gap-2.5 lg:max-w-[26%] lg:flex-none">
+          <Link href={lojaId ? `/lojas/${lojaId}` : '/lojas'} className="mt-0.5 shrink-0 text-farol-tinta" aria-label="Farol — início">
+            <Selo className="h-9 w-9" vivo={saude?.estado === 'ativo'} />
           </Link>
-        )}
-
-        {/* O estado do computador da loja leva à tela dele (A22): o horário em que dorme e acorda. */}
-        {saude && lojaId && (
-          <Link
-            href={`/lojas/${lojaId}/computador`}
-            data-computador-da-loja
-            aria-current={caminho === `/lojas/${lojaId}/computador` ? 'page' : undefined}
-            className={
-              'flex items-start justify-center gap-2.5 rounded-[10px] border px-0 py-2.5 text-[12.5px] leading-snug no-underline transition-colors lg:justify-start lg:px-2.5 ' +
-              (caminho === `/lojas/${lojaId}/computador`
-                ? 'border-farol-borda-forte bg-farol-painel text-farol-tinta shadow-farol-1'
-                : 'border-farol-borda bg-farol-painel-2 text-farol-tinta hover:border-farol-borda-forte')
-            }
-            title={`${saude.titulo} — ${saude.detalhe}`}
-          >
-            <span className="lg:mt-[5px]">
-              <Ponto tom={tom} pulsa={saude.estado === 'ativo'} />
-            </span>
-            <span className="hidden min-w-0 lg:block">
-              <b className="block text-[13px] font-semibold">{saude.titulo}</b>
-              <span className="text-farol-suave">{saude.detalhe}</span>
-            </span>
-            <span className="sr-only lg:hidden">
-              Computador da loja: {saude.titulo}, {saude.detalhe}
-            </span>
-          </Link>
-        )}
+          <div className="min-w-0">
+            <TrocaDeLoja lojas={lojas} loja={loja} />
+            {/* O estado do computador da loja, numa linha de recibo: leva à tela dele (A22). */}
+            {saude && lojaId ? (
+              <Link
+                href={`/lojas/${lojaId}/computador`}
+                data-computador-da-loja
+                aria-current={caminho === `/lojas/${lojaId}/computador` ? 'page' : undefined}
+                title={`${saude.titulo} — ${saude.detalhe}`}
+                className="mt-1.5 inline-flex max-w-full items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[.08em] text-farol-suave no-underline transition-colors hover:text-farol-tinta"
+              >
+                <Ponto tom={tom} pulsa={saude.estado === 'ativo'} />
+                <span className="truncate">{saude.titulo}</span>
+                <span className="sr-only">: {saude.detalhe}</span>
+              </Link>
+            ) : (
+              <span className="mt-1.5 block font-mono text-[10.5px] uppercase tracking-[.08em] text-farol-suave">monitor da operação</span>
+            )}
+          </div>
+        </div>
 
         {eu && (
-          <div className="flex items-center justify-center gap-2.5 lg:justify-start lg:px-1.5 lg:py-1">
-            <Conta eu={eu} escuro={escuro} conexoes={configura} trocarTema={trocarTema} sair={sair} />
-            <span className="hidden min-w-0 flex-1 leading-tight lg:block">
-              <b className="block truncate font-semibold">{eu.nome}</b>
-              <small className="text-xs text-farol-suave">{nomeDoNivel(eu.nivel)}</small>
-            </span>
+          <div className="ml-auto flex shrink-0 items-start gap-2 pt-0.5 lg:order-last lg:ml-0">
             <button
               type="button"
-              onClick={trocarTema}
-              aria-label={escuro ? 'Usar o tema claro' : 'Usar o tema escuro'}
-              className="hidden h-8 w-8 place-items-center rounded-[10px] text-farol-suave transition-colors hover:bg-farol-realce hover:text-farol-tinta lg:grid"
+              data-ir-para
+              aria-haspopup="dialog"
+              aria-keyshortcuts="Control+K"
+              aria-label="Ir para… (Ctrl K)"
+              title="Ir para… (Ctrl K)"
+              onClick={() => setPaleta(true)}
+              className={REDONDO}
             >
-              {escuro ? <Sun className="h-[18px] w-[18px]" aria-hidden /> : <Moon className="h-[18px] w-[18px]" aria-hidden />}
+              <Search className="h-[19px] w-[19px]" aria-hidden />
             </button>
+            <button type="button" onClick={trocarTema} aria-label={escuro ? 'Usar o papel (tema claro)' : 'Usar a chapa (tema escuro)'} className={`${REDONDO} max-sm:hidden`}>
+              {escuro ? <Sun className="h-[19px] w-[19px]" aria-hidden /> : <Moon className="h-[19px] w-[19px]" aria-hidden />}
+            </button>
+            <Conta eu={eu} escuro={escuro} conexoes={configura} trocarTema={trocarTema} sair={sair} />
           </div>
         )}
-      </aside>
 
-      {/* ───────────── celular: o topo ───────────── */}
-      <header className="flex items-center gap-2.5 border-b border-farol-borda bg-farol-fundo px-3 py-2 md:hidden">
-        <Link href={lojaId ? `/lojas/${lojaId}` : '/lojas'} className="shrink-0 text-farol-marca" aria-label="Farol — início">
-          <Selo className="h-[30px] w-[30px]" vivo={saude?.estado === 'ativo'} />
-        </Link>
-        <TrocaDeLoja lojas={lojas} loja={loja} compacta />
-        {saude && (
-          <span role="img" aria-label={`${saude.titulo}, ${saude.detalhe}`} title={`${saude.titulo} — ${saude.detalhe}`}>
-            <Ponto tom={tom} pulsa={saude.estado === 'ativo'} />
-          </span>
-        )}
-        {eu && (
-          <button
-            type="button"
-            data-ir-para
-            aria-haspopup="dialog"
-            aria-label="Ir para…"
-            onClick={() => setPaleta(true)}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] text-farol-suave transition-colors hover:bg-farol-realce hover:text-farol-tinta"
-          >
-            <Search className="h-[18px] w-[18px]" aria-hidden />
-          </button>
-        )}
-        {eu && <Conta eu={eu} escuro={escuro} conexoes={configura} trocarTema={trocarTema} sair={sair} />}
+        {/* O trilho ocupa o meio no computador e a linha de baixo inteira no tablet e no celular. */}
+        <div className="flex min-w-0 basis-full items-start gap-1.5 lg:basis-auto lg:flex-1">
+          {eu ? (
+            <nav aria-label="Seções" ref={trilho} className="cmd-trilho relative min-w-0 flex-1">
+              <div className="flex items-start gap-2.5 px-1 pb-4">
+                {visiveis.map((i) => (
+                  <Comanda key={i.href} item={i} aqui={i.href === atual} />
+                ))}
+              </div>
+              {/* As cópias que medem: todas as comandas, fora de vista, para o trilho saber quantas cabem. Ficam numa
+                  caixa de tamanho zero — soltas, a fila inteira passava da tela e a página rolava para o lado. */}
+              <div aria-hidden className="pointer-events-none invisible absolute left-0 top-0 h-0 w-0 overflow-hidden">
+                <div ref={medidas} className="flex w-max gap-2.5">
+                  {itens.map((i) => (
+                    <Comanda key={i.href} item={i} aqui={false} medida />
+                  ))}
+                </div>
+              </div>
+            </nav>
+          ) : (
+            <div className="flex-1 pt-3">
+              <Ossos alturas={[[56, 56, 56, 56]]} />
+            </div>
+          )}
+          {eu && <Espeto sobra={sobra} extras={extras} />}
+        </div>
       </header>
 
       {/* ───────────── o conteúdo: é ele que rola ───────────── */}
@@ -711,10 +696,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </Alerta>
           </div>
         )}
-        {/* A chave refaz a entrada a cada tela: os blocos sobem em sequência. */}
+        {/* A chave refaz a entrada a cada tela: os blocos caem no lugar em sequência. */}
         <div
           key={caminho}
-          className="entra mx-auto flex max-w-[1180px] flex-col gap-5 px-4 pb-10 pt-[18px] md:gap-6 md:px-[clamp(16px,3.2vw,36px)] md:pb-14 md:pt-7"
+          className="entra mx-auto flex max-w-[1180px] flex-col gap-5 px-4 pb-14 pt-[14px] md:gap-6 md:px-[clamp(16px,3.2vw,36px)] md:pb-16 md:pt-5"
         >
           {contexto ? (
             <ContextoDoConsole.Provider value={contexto}>{children}</ContextoDoConsole.Provider>
@@ -723,46 +708,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
           )}
         </div>
       </main>
-
-      {/* ───────────── celular: a barra de baixo ───────────── */}
-      {eu && (
-        <Navegacao
-          itens={itens.filter((i) => !i.soNaColuna)}
-          atual={atual}
-          deitada
-          mais={doMais.length > 0 ? { aberto: mais, aqui: noMais !== null, aoAbrir: () => setMais(true) } : undefined}
-        />
-      )}
-
-      {eu && mais && (
-        <Gaveta titulo="Mais" aoFechar={() => setMais(false)} rodape={<Botao onClick={() => setMais(false)}>Fechar</Botao>}>
-          <nav aria-label="Mais telas" className="flex flex-col gap-1" data-mais-itens>
-            {doMais.map((i) => {
-              const aqui = i.href === noMais;
-              const Icone = i.icone;
-              return (
-                <Link
-                  key={i.href}
-                  href={i.href}
-                  aria-current={aqui ? 'page' : undefined}
-                  onClick={() => setMais(false)}
-                  className={
-                    'grid grid-cols-[22px_minmax(0,1fr)_16px] items-center gap-3 rounded-[10px] px-2.5 py-3 no-underline transition-colors hover:bg-farol-painel-2 ' +
-                    (aqui ? 'bg-farol-painel-2' : '')
-                  }
-                >
-                  <Icone className={`h-[22px] w-[22px] ${aqui ? 'text-farol-facho-icone' : 'text-farol-suave'}`} aria-hidden />
-                  <span className="min-w-0">
-                    <span className="block font-semibold text-farol-tinta">{i.rotulo}</span>
-                    <small className="block text-[12.5px] text-farol-suave">{i.sobre}</small>
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-farol-suave" aria-hidden />
-                </Link>
-              );
-            })}
-          </nav>
-        </Gaveta>
-      )}
 
       {eu && paleta && <IrPara lojaId={lojaId} lojas={lojas} veResultados={veResultados} configura={configura} aoFechar={() => setPaleta(false)} />}
     </div>

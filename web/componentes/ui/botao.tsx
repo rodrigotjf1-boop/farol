@@ -1,7 +1,9 @@
 // O botão, igual em toda tela.
 //
-// Quem age é a cor do logotipo (`primario`). O âmbar NÃO é cor de botão:
-// ele fica para "olhe aqui". Vermelho só em ação que tira ou apaga.
+// Quem age é a chapa (`primario`: carvão no papel, papel na chapa). A
+// mostarda NÃO é cor de botão: ela fica para "olhe aqui". Vermelho
+// (ketchup) só em ação que tira ou apaga. Caminho "Comanda": pílula, letra
+// da placa de cardápio e uma mola no toque.
 
 import { LoaderCircle } from 'lucide-react';
 import type { ComponentProps } from 'react';
@@ -9,9 +11,10 @@ import type { ComponentProps } from 'react';
 export type Variante = 'primario' | 'secundario' | 'fantasma' | 'perigo' | 'perigo-leve';
 
 const BASE =
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[10px] border border-transparent ' +
-  'text-[13.5px] font-semibold leading-none no-underline transition active:scale-[.98] ' +
-  'disabled:cursor-not-allowed disabled:opacity-55';
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-transparent ' +
+  'font-display text-[15px] font-extrabold uppercase leading-none tracking-[.05em] no-underline ' +
+  'transition duration-300 ease-mola hover:scale-[1.03] active:scale-[.96] ' +
+  'disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:scale-100';
 
 const DA_VARIANTE: Record<Variante, string> = {
   primario: 'bg-farol-marca text-farol-sobre-marca hover:opacity-90',

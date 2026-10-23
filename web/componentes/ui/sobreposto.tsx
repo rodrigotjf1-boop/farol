@@ -92,7 +92,7 @@ export function Gaveta({
       <div className="flex h-full max-h-[inherit] flex-col max-md:max-h-[92dvh]">
         <header className="flex items-start gap-3 border-b border-farol-borda px-5 pb-3.5 pt-[18px]">
           <div className="min-w-0 flex-1">
-            <h2 id={`${id}-titulo`} className="break-words font-display text-xl font-semibold leading-tight tracking-tight">
+            <h2 id={`${id}-titulo`} className="text-balance break-words font-display text-[26px] font-black uppercase leading-[.95]">
               {titulo}
             </h2>
             {descricao && <p className="mt-0.5 text-[13px] text-farol-suave">{descricao}</p>}
@@ -166,7 +166,7 @@ export function Dialogo({
           if (!ocupado) aoConfirmar();
         }}
       >
-        <h2 id={`${id}-titulo`} className="break-words font-display text-[19px] font-semibold leading-snug tracking-tight">
+        <h2 id={`${id}-titulo`} className="text-balance break-words font-display text-[22px] font-extrabold uppercase leading-tight tracking-[.02em]">
           {titulo}
         </h2>
         <div id={`${id}-texto`} className="flex flex-col gap-2.5 text-farol-suave [&_strong]:font-semibold [&_strong]:text-farol-tinta">
@@ -256,8 +256,14 @@ export function Menu({
     const paraCima = top + altura > window.innerHeight - 8;
     if (paraCima) top = Math.max(8, b.top - altura - 6);
     setLugar({ left, top, origem: `${b.left + b.width / 2 - left}px ${paraCima ? '100%' : '0'}` });
-    caixa.current.querySelector<HTMLElement>('button, a')?.focus({ preventScroll: true });
   }, [aberto, alinhar]);
+
+  // O foco vai para o primeiro item só DEPOIS de o menu ficar visível. Enquanto a posição não está calculada, a caixa
+  // é desenhada com `visibility: hidden`, e o navegador recusa foco em elemento invisível: o foco ficava no botão,
+  // e o leitor de tela não anunciava o menu (ERR-143, medido em 23/10/2026).
+  useLayoutEffect(() => {
+    if (aberto && lugar) caixa.current?.querySelector<HTMLElement>('button, a')?.focus({ preventScroll: true });
+  }, [aberto, lugar]);
 
   useEffect(() => {
     if (!aberto) return;

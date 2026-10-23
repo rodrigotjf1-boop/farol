@@ -246,10 +246,11 @@ export function IrPara({ lojaId, lojas, veResultados, configura, aoFechar }: Pro
         // Clique no fundo escuro: o alvo é o próprio <dialog>.
         if (e.target === dialogo.current) aoFechar();
       }}
-      className="fixed inset-x-0 bottom-auto top-[12vh] mx-auto my-0 w-[min(560px,calc(100%-2rem))] animate-surge overflow-hidden rounded-[14px] border border-farol-borda-forte bg-farol-painel p-0 text-farol-tinta shadow-farol-2 max-md:top-[6vh]"
+      // Caminho "Comanda": a busca é um recibo que cai do trilho (`cmd-recibo`, em globals.css).
+      className="cmd-recibo fixed inset-x-0 bottom-auto top-[12vh] mx-auto my-0 w-[min(560px,calc(100%-2rem))] overflow-hidden bg-farol-painel p-0 text-farol-tinta shadow-farol-2 max-md:top-[6vh]"
     >
-      <div className="flex items-center gap-2.5 border-b border-farol-borda px-4">
-        <Search className="h-[18px] w-[18px] shrink-0 text-farol-suave" aria-hidden />
+      <div className="flex items-center gap-3 border-b-2 border-farol-tinta px-[18px] pt-2.5">
+        <Search className="h-5 w-5 shrink-0 text-farol-tinta" aria-hidden />
         <input
           ref={campo}
           type="text"
@@ -270,7 +271,7 @@ export function IrPara({ lojaId, lojas, veResultados, configura, aoFechar }: Pro
           onKeyDown={tecla}
           // Sem o anel de foco do console: o campo é o único lugar em que o foco fica na paleta (o cursor de
           // texto e a opção realçada já dizem onde se está), e o anel ficaria aceso o tempo todo.
-          className="h-[52px] min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-farol-suave/75 focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="h-14 min-w-0 flex-1 bg-transparent text-lg font-bold outline-none placeholder:font-medium placeholder:text-farol-suave/75 focus-visible:ring-0 focus-visible:ring-offset-0"
         />
       </div>
 
@@ -281,7 +282,7 @@ export function IrPara({ lojaId, lojas, veResultados, configura, aoFechar }: Pro
       )}
 
       {/* `relative`: a opção ativa é levada à vista por `scrollIntoView`, e a lista é quem rola. */}
-      <ul ref={lista} id={`${p}-lista`} role="listbox" aria-label="Destinos" className="relative flex max-h-[min(50vh,420px)] flex-col gap-0.5 overflow-y-auto p-1.5">
+      <ul ref={lista} id={`${p}-lista`} role="listbox" aria-label="Destinos" className="relative flex max-h-[min(50vh,420px)] flex-col overflow-y-auto px-3 py-2">
         {visiveis.map((d, n) => {
           const Icone = d.icone;
           const aqui = n === ativa;
@@ -295,13 +296,20 @@ export function IrPara({ lojaId, lojas, veResultados, configura, aoFechar }: Pro
               // Só o movimento do mouse muda a opção ativa: a lista que rola pelo teclado não troca de dono sozinha.
               onMouseMove={() => n !== ativa && setPos(n)}
               onClick={() => ir(d)}
-              className={`grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2.5 gap-y-0.5 rounded-lg px-2.5 py-2 sm:grid-cols-[auto_minmax(0,1fr)_auto] ${
-                aqui ? 'bg-farol-realce' : ''
+              // Linhas de recibo: separadas por um pontilhado; a escolhida fica na mostarda ("olhe aqui").
+              className={`grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2.5 gap-y-0.5 rounded-md border-t border-dashed px-2.5 py-2.5 first:border-t-transparent sm:grid-cols-[auto_minmax(0,1fr)_auto] ${
+                aqui ? 'border-t-transparent bg-farol-mostarda text-farol-sobre-mostarda' : 'border-farol-borda-forte'
               }`}
             >
-              <Icone className={`h-[17px] w-[17px] shrink-0 ${aqui ? 'text-farol-tinta' : 'text-farol-suave'}`} aria-hidden />
-              <span className="min-w-0 break-words font-medium">{d.titulo}</span>
-              <small className="col-start-2 min-w-0 break-words font-mono text-[12px] text-farol-suave sm:col-start-3 sm:max-w-[240px] sm:text-right">{d.detalhe}</small>
+              <Icone className={`h-[17px] w-[17px] shrink-0 ${aqui ? 'text-farol-sobre-mostarda' : 'text-farol-suave'}`} aria-hidden />
+              <span className="min-w-0 break-words font-semibold">{d.titulo}</span>
+              <small
+                className={`col-start-2 min-w-0 break-words font-mono text-[12px] sm:col-start-3 sm:max-w-[240px] sm:text-right ${
+                  aqui ? 'text-farol-sobre-mostarda/80' : 'text-farol-suave'
+                }`}
+              >
+                {d.detalhe}
+              </small>
             </li>
           );
         })}
