@@ -14,8 +14,12 @@
 
 export type Ambiente = { id: string; nome: string; setorId: string | null; x: number; y: number; w: number; h: number };
 export type Movel = { id: string; nome: string; itemId: string | null; x: number; y: number; w: number; h: number; alt: number };
-/** `dir` em graus: 0 = para a direita da planta, 90 = para baixo. */
-export type Camera = { pontoId: string; x: number; y: number; alt: number; dir: number; abertura: number; alcance: number };
+/**
+ * `dir` em graus: 0 = para a direita da planta, 90 = para baixo. `incl` em graus abaixo do horizonte: 0 = olhando
+ * reto, 90 = direto no chão. Opcional: a planta de antes não tinha (vale `INCLINACAO_PADRAO`); só a vista em 3D e a
+ * câmera simulada usam — o leque no chão e a frase do lugar continuam sem ela.
+ */
+export type Camera = { pontoId: string; x: number; y: number; alt: number; dir: number; abertura: number; alcance: number; incl?: number };
 export type Planta = { ambientes: Ambiente[]; moveis: Movel[]; cameras: Camera[] };
 
 export type Pt = [number, number];
@@ -33,11 +37,15 @@ export const LIMITES = {
   alturaDaCamera: [2, 4],
   abertura: [40, 120],
   alcance: [1, 12],
+  inclinacao: [0, 90],
 } as const;
 
 export const PLANTA_VAZIA: Planta = { ambientes: [], moveis: [], cameras: [] };
 /** A câmera que acaba de entrar na planta: no teto, lente comum, olhando para baixo no desenho. */
-export const CAMERA_NOVA = { alt: 2.6, dir: 90, abertura: 80, alcance: 3 } as const;
+export const CAMERA_NOVA = { alt: 2.6, dir: 90, abertura: 80, alcance: 3, incl: 35 } as const;
+/** A inclinação de quem não tem o campo (planta de antes dele): a de uma câmera de canto comum. */
+export const INCLINACAO_PADRAO = 30;
+export const inclinacaoDe = (cam: Pick<Camera, 'incl'>): number => cam.incl ?? INCLINACAO_PADRAO;
 
 export const rad = (g: number): number => (g * Math.PI) / 180;
 export const noLimite = (v: number, min: number, max: number): number => Math.min(max, Math.max(min, v));

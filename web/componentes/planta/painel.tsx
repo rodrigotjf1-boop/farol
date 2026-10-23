@@ -24,7 +24,7 @@ import { Botao } from '@/componentes/ui/botao';
 import { AJUDA, ROTULO } from '@/componentes/ui/campo';
 import { Chip } from '@/componentes/ui/pecas';
 import type { Equipamento, Ponto, Regra, Setor } from '@/lib/api';
-import { ambienteEm, camerasQueVeem, comVirgula, LIMITES, type Camera, type Planta } from '@/lib/planta';
+import { ambienteEm, camerasQueVeem, comVirgula, inclinacaoDe, LIMITES, type Camera, type Planta } from '@/lib/planta';
 
 export type CanalNaPlanta = { ponto: Ponto; situacao: Situacao; setorNome: string };
 
@@ -191,7 +191,12 @@ export function PainelDaPlanta({
             <Faixa rotulo="Abertura" valor={cam.abertura} faixa={LIMITES.abertura} passo={1} unidade="°" aoMudar={(v) => mudar('abertura', v)} />
             <Faixa rotulo="Alcance" valor={cam.alcance} faixa={LIMITES.alcance} passo={0.1} unidade=" m" aoMudar={(v) => mudar('alcance', v)} />
             <Faixa rotulo="Altura" valor={cam.alt} faixa={LIMITES.alturaDaCamera} passo={0.1} unidade=" m" aoMudar={(v) => mudar('alt', v)} />
+            <Faixa rotulo="Inclinação" valor={inclinacaoDe(cam)} faixa={LIMITES.inclinacao} passo={1} unidade="°" aoMudar={(v) => mudar('incl', v)} />
             <p className={NOTA}>A abertura é a da lente: uma lente de 2,8 mm abre perto de 100°; uma de 3,6 mm, perto de 80°.</p>
+            <p className={NOTA}>
+              A inclinação é quanto a câmera aponta para baixo: 0° olha reto; 90°, direto para o chão. Ela só muda a vista em
+              3D e o que a câmera simulada vê — confira lá, com a imagem do canal por baixo.
+            </p>
             <Botao variante="perigo-leve" mini className="self-start" onClick={() => aoTirar({ tipo: 'camera', id: cam.pontoId })}>
               <Trash2 className="h-[15px] w-[15px]" aria-hidden />
               Tirar da planta

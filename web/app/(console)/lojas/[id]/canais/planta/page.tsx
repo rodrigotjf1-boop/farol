@@ -14,7 +14,8 @@
 // salvou no meio, nada é gravado e a tela avisa.
 // =====================================================================
 
-import { Box, Check, Map as IconeDeMapa, Pencil, Plus, Square, Store } from 'lucide-react';
+import { Box, Check, Map as IconeDeMapa, Pencil, Plus, Rotate3d, Square, Store } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -42,7 +43,13 @@ import {
 } from '@/lib/api';
 import { CAMERA_NOVA, centroDe, coberturaDaPlanta, LIMITES, mesmaPlanta, PLANTA_VAZIA, type Planta } from '@/lib/planta';
 
-type Vista = 'perspectiva' | 'cima';
+type Vista = 'perspectiva' | 'cima' | '3d';
+
+// A vista em 3D (planta viva, degrau 1) traz a biblioteca 3D: só carrega quando alguém a escolhe, e só no navegador.
+const Vista3D = dynamic(() => import('@/componentes/planta/vista-3d').then((m) => m.Vista3D), {
+  ssr: false,
+  loading: () => <div className="osso aspect-[16/11] max-w-full rounded-xl max-md:aspect-[4/3.4]" aria-hidden />,
+});
 
 /** O que a legenda explica, em cada camada. */
 const BOLINHA = 'h-3 w-3 shrink-0 rounded-full';
@@ -147,9 +154,10 @@ export default function PlantaDaLoja() {
     return () => window.removeEventListener('beforeunload', perguntar);
   }, [mudou]);
 
-  /** Vai de uma vista para a outra girando a planta. */
+  /** Vai de uma vista para a outra girando a planta. O 3D é outro desenho: troca sem girar. */
   const girar = useCallback((para: Vista) => {
     setVista(para);
+    if (para === '3d') return;
     const alvo = para === 'perspectiva' ? 1 : 0;
     if (animacao.current !== null) cancelAnimationFrame(animacao.current);
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -368,9 +376,11 @@ export default function PlantaDaLoja() {
                 opcoes={[
                   { valor: 'perspectiva', rotulo: 'Em perspectiva', icone: Box, desativada: editando ? 'A planta é editada de cima.' : null },
                   { valor: 'cima', rotulo: 'De cima', icone: Square },
+                  // Vale também na edição: as faixas da câmera no painel mudam o 3D na hora (é onde se acerta a câmera).
+                  { valor: '3d', rotulo: '3D', icone: Rotate3d },
                 ]}
               />
-              {!editando && (
+              {!editando && vista !== '3d' && (
                 <Segmentado
                   rotulo="O que a planta mostra"
                   valor={camada}
@@ -390,8 +400,14 @@ export default function PlantaDaLoja() {
                         key={f}
                         mini
                         aria-pressed={ferramenta === f}
-                        disabled={cheio(lista)}
-                        title={cheio(lista) ? `A planta já tem ${LIMITES[lista]}: é o limite.` : undefined}
+                        disabled={cheio(lista) || vista === '3d'}
+                        title={
+                          vista === '3d'
+                            ? 'Desenhe na vista de cima.'
+                            : cheio(lista)
+                              ? `A planta já tem ${LIMITES[lista]}: é o limite.`
+                              : undefined
+                        }
                         className={ferramenta === f ? '!border-farol-facho !bg-farol-facho-leve' : ''}
                         onClick={() => setFerramenta(ferramenta === f ? '' : f)}
                       >
@@ -404,23 +420,32 @@ export default function PlantaDaLoja() {
               )}
             </div>
 
-            <DesenhoDaPlanta
-              planta={planta}
-              t={t}
-              camada={camada}
-              editando={editando}
-              ferramenta={ferramenta}
-              selecao={selecao}
-              canais={canais}
-              nomeDoMovel={(m) => m.nome}
-              movelToca={(m) => Boolean(m.itemId && itemDe.has(m.itemId))}
-              aoSelecionar={setSelecao}
-              aoMudar={setRascunho}
-              aoDesenhar={desenhou}
-            />
+            {vista === '3d' ? (
+              <Vista3D planta={planta} selecao={selecao} canais={canais} aoSelecionar={setSelecao} />
+            ) : (
+              <DesenhoDaPlanta
+                planta={planta}
+                t={t}
+                camada={camada}
+                editando={editando}
+                ferramenta={ferramenta}
+                selecao={selecao}
+                canais={canais}
+                nomeDoMovel={(m) => m.nome}
+                movelToca={(m) => Boolean(m.itemId && itemDe.has(m.itemId))}
+                aoSelecionar={setSelecao}
+                aoMudar={setRascunho}
+                aoDesenhar={desenhou}
+              />
+            )}
 
             <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[12.5px] text-farol-suave" data-legenda>
-              {editando ? (
+              {vista === '3d' ? (
+                <span>
+                  Arraste para girar, use a pinça ou a roda para aproximar e toque numa câmera para ver o que ela vê. A cor da
+                  câmera é a situação do canal; a escolhida fica em vermelho.
+                </span>
+              ) : editando ? (
                 <span>
                   Arraste uma câmera para movê-la; a bolinha âmbar gira a direção. Arraste um equipamento ou um ambiente para
                   mudá-lo de lugar.
@@ -461,7 +486,11 @@ export default function PlantaDaLoja() {
               )}
             </div>
             <p className="text-[13px] text-farol-suave" data-nota>
-              {editando
+              {vista === '3d'
+                ? editando
+                  ? 'Na edição, as faixas da câmera no painel mudam o 3D na hora. Para desenhar ambientes e equipamentos, use a vista de cima.'
+                  : 'A mesma planta, com volume. Para mudar alguma coisa, clique em Editar planta.'
+                : editando
                 ? ferramenta
                   ? `Arraste na planta para desenhar ${ferramenta === 'ambiente' ? 'o ambiente' : 'o equipamento'}. Não precisa de medida exata: dá para corrigir os números ao lado.`
                   : 'A planta é editada de cima. As medidas são em metros.'
