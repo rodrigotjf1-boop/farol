@@ -35,11 +35,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      # Versão EXATA (boletim do Node de 21/10/2026: Brotli e eMudhra): "22" pegaria a que estiver guardada no
+      # executor. A mesma das imagens (api/Dockerfile e web/Dockerfile).
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.23.4'
           cache: npm
           cache-dependency-path: api/package-lock.json
+      - run: test "$(node -v)" = "v22.23.4" && node -v
       - run: npm ci
       - run: npm run build
 
@@ -60,9 +63,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.23.4'
           cache: npm
           cache-dependency-path: web/package-lock.json
+      - run: test "$(node -v)" = "v22.23.4" && node -v
       - run: npm ci
       # `next build` ja roda o TypeScript e o lint: build verde significa
       # tipos certos e nenhuma pagina quebrada.
@@ -80,6 +84,9 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -e ".[dev]"
+      # Decodificador Brotli no Python (boletim de 21/10/2026): o agente não pede `Brotli` nem `brotlicffi`; com um
+      # deles instalado, httpx e urllib3 passariam a pedir e descompactar respostas `br`. Diz se algum entrou.
+      - run: pip list 2>/dev/null | grep -i -E "^(brotli|brotlicffi) " || echo "sem Brotli e sem brotlicffi no ambiente do agente"
       - run: python -m pytest
 
   imagem:
@@ -92,3 +99,13 @@ jobs:
       # antes do deploy, não depois — o EasyPanel faz auto-deploy da main.
       - run: docker build -f api/Dockerfile -t farol-api:ci .
       - run: docker build -f web/Dockerfile -t farol-web:ci .
+      # O Node de DENTRO das imagens, as mesmas que o deploy monta: exige a versão exata (boletim de 21/10/2026) e diz
+      # se a biblioteca Brotli do sistema está nelas (o Dockerfile não instala pacote nenhum).
+      - name: node -v das imagens (exige v22.23.4)
+        run: |
+          for imagem in farol-api:ci farol-web:ci; do
+            versao="$(docker run --rm "$imagem" node -v)"
+            echo "$imagem: $versao"
+            test "$versao" = "v22.23.4"
+            docker run --rm "$imagem" sh -c 'apk info -e brotli-libs || echo "sem brotli-libs"'
+          done

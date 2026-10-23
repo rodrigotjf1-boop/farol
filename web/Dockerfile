@@ -7,8 +7,12 @@
 # No EasyPanel: Dockerfile = web/Dockerfile, Build Path = .
 # =====================================================================
 
+# A versão do Node é EXATA, nas duas etapas (boletim de segurança do Node de 21/10/2026: Brotli, CVE-2026-111497, e
+# as chaves da eMudhra). Tag flutuante (`node:22-alpine`) deixa o construtor do deploy reaproveitar a camada antiga
+# do cache. Trocar de versão = trocar aqui E no CI (`node-version`), que confere o `node -v` da imagem.
+
 # ---- build ----
-FROM node:22-alpine AS build
+FROM node:22.23.4-alpine AS build
 WORKDIR /app
 COPY web/package*.json ./
 RUN npm ci
@@ -19,7 +23,7 @@ COPY web/ ./
 RUN npm run build
 
 # ---- runtime ----
-FROM node:22-alpine
+FROM node:22.23.4-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
