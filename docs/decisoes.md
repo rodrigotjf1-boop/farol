@@ -9303,3 +9303,67 @@ a do rótulo, e o 57/112 quase virou "o modelo não serve".
 
 Os roteiros estão no rascunho (`f4_medir.py`, `f4_ampliar.py`, `f4_comida.py`, `f4_antes_depois.py`). Os resultados, só
 números e texto, estão na loja em `C:\Farol\guardado\f4-medidas-2026-10-22\`.
+
+## 23/10/2026 · O console na cara "Comanda", parte 1: a moldura (A25; sem migration)
+
+Entre três caminhos, o dono escolheu a **comanda** (as telas como comandas penduradas num trilho) e mandou começar. Esta
+parte troca a moldura e as peças comuns. As telas mantêm o conteúdo de hoje e mudam uma a uma nas próximas partes.
+
+### O que entrou
+
+- **Cores** (`web/app/globals.css`):
+  - papel (claro) e chapa (escuro), com ketchup, mostarda, picles e pão como cores de estado e o metal do trilho;
+  - as variáveis antigas mantêm o nome (`--fundo`, `--painel`, `--marca`…), e as telas pegam as cores novas sem mudar;
+  - nova `--sobre-mostarda`, o texto sobre a mostarda, escuro nos dois temas (9,3:1 no papel, 10:1 na chapa). O avatar
+    da conta deixou a cor escrita à mão.
+- **Letras:** Big Shoulders Display (títulos, botões, comandas), Hanken Grotesk (texto) e JetBrains Mono (números).
+  Continuam servidas pelo app (`@fontsource-variable`). Saíram a Bricolage Grotesque e a Figtree.
+- **A moldura** (`web/componentes/shell.tsx`), sem coluna lateral nem barra embaixo:
+  - no topo, a loja em letra grande (clicar troca de loja), a saúde do agente (leva ao computador da loja), a busca, o
+    tema (papel ou chapa) e a conta;
+  - embaixo, o trilho com as telas como comandas. A de agora desce e escurece; as outras balançam quando se troca de tela.
+- **Quantas comandas cabem é medido, não fixo.** Cópias invisíveis de todas são medidas a cada mudança de largura e
+  quando a fonte chega.
+  - O que não cabe vai para o **espeto** ("Mais"), um menu que também leva o computador da loja e as conexões.
+  - A comanda da tela de agora fica sempre à vista.
+  - Medido com o gerente (8 comandas): 320 px → 1; 360 a 412 → 2; 480 e 540 → 3; 600 → 4; 768 → 5; 820 → 6; 1024 → 4
+    (daqui para cima o trilho divide a linha com a loja); 1180 → 5; 1280 e 1366 → 6; 1440 → 7; 1920 → 8.
+- **O número de sinais** na comanda do painel virou uma bolinha vermelha com o algarismo em letra mono. Na letra estreita
+  o "1" parecia um "I", e o vermelho solto sobre a comanda escura tinha contraste 2,85:1. Na bolinha: 5,6:1 no papel e
+  6,6:1 na chapa.
+- **Peças comuns:**
+  - botão em pílula, com mola no toque;
+  - título da tela alto e estreito, em maiúsculas; o contador ao lado do título de seção em letra mono;
+  - filtros (`Segmentado`) em pílulas soltas, a escolhida na cor da chapa; no estreito, quebram a linha;
+  - vazio, gaveta e diálogo com o título no mesmo padrão;
+  - a busca (Ctrl K) é um recibo picotado que cai com mola, com a linha escolhida na mostarda.
+- **Menu: um defeito antigo, achado na conferência (ERR-143).** Ao abrir um menu, pelo mouse ou pelo Enter, o foco não
+  entrava nele: o foco era pedido enquanto o menu ainda estava invisível, sendo medido. Agora vai para o primeiro item
+  depois de o menu aparecer, e o Esc fecha e devolve o foco ao botão.
+
+### Como foi conferido
+
+Console e API locais (banco de teste), num Chrome sem janela:
+- **14 telas × 16 larguras** (320 a 1920 px) no papel e 6 na chapa, 308 telas no total. Nada rola para o lado (a página,
+  o conteúdo e qualquer peça). Nenhuma comanda com o rótulo passando, nenhum filtro cortado, nenhum botão sem nome. Sem
+  erro de script e sem resposta 5xx, 401 ou 429.
+- **As gavetas e os diálogos** que abrem pelos botões de criar, informar, importar e editar de cada tela: 40 abertos com
+  clique de mouse (30 no papel a 320, 375 e 1440 px; 10 na chapa a 375). Nada passa da tela nem rola de lado, nenhum
+  botão fica fora da gaveta, e o Esc de tecla de verdade fecha.
+- **Os três menus do topo e a busca**, no papel a 320, 375 e 1440 px e na chapa a 375: ficam dentro da tela; o foco entra
+  ao abrir (mouse e Enter) e volta ao botão no Esc.
+- **O contraste de todo texto visível** contra o fundo atrás dele (4,5:1; 3:1 em letra grande), nos dois temas: 12.104
+  textos nas telas, mais os das gavetas, dos menus e da busca. A medida pegou o subtítulo da comanda de agora em 1,9:1 na
+  chapa, e ele foi corrigido antes do PR: o texto passou a usar o par da cor da marca (ERR-145).
+
+### Onde difere do protótipo
+
+- **O botão de ações** (o vermelho, embaixo à direita) fica para a parte 2. Cada tela precisa entregar as próprias ações
+  ao topo, e duas delas ("silenciar alertas por 1 h" e "simular um alerta") não existem no servidor.
+- **A tela "Agora"** segue a de hoje até a parte 3: "lanches hoje", "pela ficha" e "o Farol aprendeu" ainda não vêm da
+  API.
+- **O trilho:** no protótipo ele fica ao lado da loja em toda largura. No app, abaixo de 1024 px, ganha a linha inteira:
+  ao lado da loja, a 768 px, cabia uma comanda só.
+- **A busca** traz o que trazia (as telas, os canais e os critérios da loja; fora dela, as lojas). No protótipo havia
+  ainda os grupos "Agora" (alertas novos, lanches a conferir, canal sem imagem), "Entendi" (frases como "canal 4" e
+  "nº 08"), fichas e alertas. Ficam para as próximas partes.

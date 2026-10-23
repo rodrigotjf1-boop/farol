@@ -112,7 +112,9 @@ export function Segmentado<T extends string>({
   aoMudar: (novo: T) => void;
 }) {
   return (
-    <div role="group" aria-label={rotulo} className="inline-flex max-w-full gap-0.5 rounded-xl bg-farol-realce p-[3px]">
+    // Pílulas soltas (caminho "Comanda"): a escolhida desce um pouco e fica na cor da chapa. A borda segura o
+    // contorno quando o grupo está sobre um cartão da mesma cor; no estreito, as pílulas quebram a linha.
+    <div role="group" aria-label={rotulo} className="inline-flex max-w-full flex-wrap gap-1.5">
       {opcoes.map(({ icone: Icone, ...o }) => (
         <button
           key={o.valor}
@@ -121,8 +123,10 @@ export function Segmentado<T extends string>({
           disabled={Boolean(o.desativada)}
           title={o.desativada ?? undefined}
           onClick={() => aoMudar(o.valor)}
-          className={`inline-flex min-h-8 min-w-0 items-center justify-center gap-1.5 rounded-[9px] px-3 text-[13px] font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 max-md:min-h-9 ${
-            o.valor === valor ? 'bg-farol-painel text-farol-tinta shadow-farol-1' : 'text-farol-suave enabled:hover:text-farol-tinta'
+          className={`inline-flex min-h-9 min-w-0 items-center justify-center gap-1.5 rounded-full border px-3.5 font-display text-[15px] font-extrabold uppercase leading-none tracking-[.05em] transition duration-300 ease-mola disabled:cursor-not-allowed disabled:opacity-50 max-md:min-h-10 ${
+            o.valor === valor
+              ? 'translate-y-[2px] border-farol-marca bg-farol-marca text-farol-sobre-marca'
+              : 'border-farol-borda bg-farol-painel text-farol-tinta shadow-farol-1 enabled:hover:-translate-y-px'
           }`}
         >
           {Icone && <Icone className="h-[15px] w-[15px] shrink-0" aria-hidden />}
@@ -182,7 +186,7 @@ export function Vazio({
       <span className="mb-1 grid h-[52px] w-[52px] place-items-center rounded-2xl bg-farol-realce text-farol-marca">
         <Icone className="h-[22px] w-[22px]" aria-hidden />
       </span>
-      <h2 className="font-display text-lg font-semibold">{titulo}</h2>
+      <h2 className="text-balance font-display text-[28px] font-black uppercase leading-[.95] md:text-[34px]">{titulo}</h2>
       <p className="max-w-[52ch] text-farol-suave">{children}</p>
       {acao && <div className="mt-2">{acao}</div>}
     </div>
@@ -229,9 +233,13 @@ export function Cabecalho({
     <header className="flex flex-wrap items-end gap-x-5 gap-y-3.5">
       <div className="min-w-0 flex-[1_1_320px]">
         {sobre && (
-          <p className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-farol-suave">{sobre}</p>
+          // A linha de cima, em letra de recibo: de quem é esta tela.
+          <p className="inline-flex items-center gap-1.5 font-mono text-[11px] font-medium uppercase tracking-[.08em] text-farol-suave">
+            {sobre}
+          </p>
         )}
-        <h1 className="mt-0.5 text-balance font-display text-2xl font-semibold leading-tight tracking-tight md:text-[28px]">
+        {/* O título da placa de cardápio: alto, estreito e em maiúsculas (caminho "Comanda"). */}
+        <h1 className="mt-1 text-balance font-display text-[40px] font-black uppercase leading-[.9] tracking-[.005em] md:text-[56px]">
           {titulo}
         </h1>
         {children && <p className="mt-1 max-w-[62ch] text-farol-suave">{children}</p>}
@@ -241,16 +249,17 @@ export function Cabecalho({
   );
 }
 
-/** O cartão: superfície do painel com borda fina. */
-export const CARTAO = 'min-w-0 rounded-[14px] border border-farol-borda bg-farol-painel';
+/** O cartão: o papel sobre a bancada — sombra leve e a borda quase sumindo (ela segura o contorno no tema escuro). */
+export const CARTAO = 'min-w-0 rounded-[22px] border border-farol-borda/60 bg-farol-painel shadow-farol-1';
 
 /** Título de seção, com contador opcional. */
 export function Titulo({ id, children, conta }: { id?: string; children: ReactNode; conta?: number }) {
   return (
-    <h2 id={id} className="flex items-center gap-2 text-base font-semibold">
+    <h2 id={id} className="flex items-center gap-2 font-display text-[19px] font-extrabold uppercase leading-tight tracking-[.04em]">
       {children}
       {conta !== undefined && conta > 0 && (
-        <span className="min-w-5 rounded-full bg-farol-facho-leve px-1.5 text-center text-xs font-semibold leading-5 text-farol-facho-tinta">
+        // O número em letra mono: na letra do título, o "1" parece um "I".
+        <span className="min-w-5 rounded-full bg-farol-facho-leve px-1.5 text-center font-mono text-xs font-semibold leading-5 text-farol-facho-tinta">
           {conta}
         </span>
       )}

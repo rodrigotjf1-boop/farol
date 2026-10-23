@@ -3,10 +3,14 @@
 @tailwind utilities;
 
 /* =====================================================================
-   As cores do Farol, nos dois temas
+   As cores do Farol, nos dois temas: o caminho "Comanda" (23/10/2026)
    =====================================================================
-   Os valores vêm do kit de marca: azul-marinho #12365C, âmbar #F0A832
-   (#F2B03C sobre fundo escuro) e o claro #DCE8F5.
+   O dono escolheu, entre três caminhos, o da cozinha: o claro é PAPEL DE
+   COMANDA e o escuro é CHAPA. Quem age é a chapa (carvão) — no escuro,
+   o papel; a mostarda é o "olhe aqui" (item ativo, foco); o ketchup é o
+   que está fora da regra; o picles é o que deu certo. Os blocos grandes
+   de número usam as cores do lanche cheias (`--ketchup`, `--mostarda`,
+   `--picles`, `--pao`), e o trilho das comandas é de metal.
 
    Cada variável guarda os três canais, sem `rgb()`, para o Tailwind
    poder aplicar opacidade (`bg-farol-ok/15`).
@@ -14,103 +18,125 @@
    O tema segue o aparelho. Quem escolher um no botão grava a escolha em
    `data-tema` no <html>, e ela vence nos dois sentidos.
 
-   O contraste foi conferido: texto secundário (`suave`) dá 6,3:1 sobre o
-   painel claro e 6,7:1 sobre o escuro; os textos coloridos das pastilhas
-   ficam acima de 4,5:1 sobre o próprio fundo.
+   Contraste conferido (texto pequeno, 4,5:1): `suave` dá 6,4:1 sobre o
+   cartão e 5,7:1 sobre o papel; `ok` 5,3:1, `critico` 5,6:1 e
+   `facho-tinta` 6,6:1 sobre o cartão claro. No escuro: `suave` 7,3:1,
+   `ok` 7,5:1 e `critico` 5,6:1 sobre o cartão.
    ===================================================================== */
 
 :root {
-  --fundo: 242 245 249;
+  --fundo: 243 241 234;
   --painel: 255 255 255;
-  --painel-2: 247 249 252;
-  --realce: 233 238 245;
-  --borda: 221 229 238;
-  --borda-forte: 197 208 221;
-  --tinta: 15 37 64;
-  --suave: 82 97 116;
-  --marca: 18 54 92;
-  --sobre-marca: 255 255 255;
-  --facho: 240 168 50;
-  --facho-tinta: 138 90 0;
-  --facho-icone: 201 131 0;
-  --facho-leve: 252 241 217;
-  --ok: 21 115 71;
-  --ok-leve: 225 243 233;
-  --critico: 190 47 69;
-  --critico-leve: 251 230 233;
+  --painel-2: 234 230 219;
+  --realce: 227 222 209;
+  --borda: 216 210 196;
+  --borda-forte: 189 182 166;
+  --tinta: 27 26 23;
+  --suave: 98 94 86;
+  --marca: 36 34 31;
+  --sobre-marca: 243 241 234;
+  --facho: 242 179 0;
+  --facho-tinta: 122 86 0;
+  --facho-icone: 176 128 0;
+  --facho-leve: 252 239 196;
+  --ok: 47 122 44;
+  --ok-leve: 226 241 222;
+  --critico: 194 50 30;
+  --critico-leve: 251 228 222;
   --sobre-critico: 255 255 255;
-  --graf-ok: 159 212 183;
-  --graf-na: 195 206 218;
-  --palco: 18 54 92;
-  --palco-tinta: 255 255 255;
-  --palco-suave: 185 203 224;
-  --sombra-1: 0 1px 2px rgb(15 37 64 / 0.06);
-  --sombra-2: 0 18px 48px -12px rgb(15 37 64 / 0.28);
-  --veu: rgb(15 37 64 / 0.42);
+  --graf-ok: 158 205 150;
+  --graf-na: 210 204 190;
+  --palco: 36 34 31;
+  --palco-tinta: 243 241 234;
+  --palco-suave: 190 182 166;
+  --ketchup: 226 65 42;
+  --mostarda: 242 179 0;
+  --sobre-mostarda: 27 26 23;
+  --picles: 59 138 55;
+  --pao: 233 167 91;
+  --metal: 185 179 167;
+  --metal-escuro: 125 119 108;
+  --sombra-1: 0 1px 2px rgb(27 26 23 / 0.07), 0 6px 16px -10px rgb(27 26 23 / 0.25);
+  --sombra-2: 0 18px 40px -16px rgb(27 26 23 / 0.4);
+  --veu: rgb(20 18 16 / 0.45);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema='claro']) {
-    --fundo: 10 17 27;
-    --painel: 17 26 39;
-    --painel-2: 14 22 34;
-    --realce: 26 38 55;
-    --borda: 30 43 61;
-    --borda-forte: 45 61 84;
-    --tinta: 230 237 245;
-    --suave: 147 163 183;
-    --marca: 220 232 245;
-    --sobre-marca: 15 37 64;
-    --facho: 242 176 60;
-    --facho-tinta: 242 176 60;
-    --facho-icone: 242 176 60;
-    --facho-leve: 43 36 18;
-    --ok: 76 199 144;
-    --ok-leve: 18 41 31;
-    --critico: 244 124 140;
-    --critico-leve: 50 22 27;
-    --sobre-critico: 42 10 16;
-    --graf-ok: 34 98 74;
-    --graf-na: 51 68 90;
-    --palco: 14 42 73;
-    --palco-tinta: 255 255 255;
-    --palco-suave: 169 189 214;
-    --sombra-1: 0 1px 2px rgb(0 0 0 / 0.4);
-    --sombra-2: 0 18px 48px -12px rgb(0 0 0 / 0.7);
-    --veu: rgb(2 6 12 / 0.62);
+    --fundo: 21 20 18;
+    --painel: 35 33 29;
+    --painel-2: 29 27 24;
+    --realce: 46 43 38;
+    --borda: 53 50 44;
+    --borda-forte: 74 70 62;
+    --tinta: 243 239 230;
+    --suave: 181 174 159;
+    --marca: 243 239 230;
+    --sobre-marca: 21 20 18;
+    --facho: 245 188 26;
+    --facho-tinta: 245 188 26;
+    --facho-icone: 245 188 26;
+    --facho-leve: 51 42 14;
+    --ok: 110 196 102;
+    --ok-leve: 24 42 22;
+    --critico: 245 110 88;
+    --critico-leve: 56 24 20;
+    --sobre-critico: 30 8 4;
+    --graf-ok: 52 104 48;
+    --graf-na: 62 58 51;
+    --palco: 11 10 9;
+    --palco-tinta: 243 239 230;
+    --palco-suave: 181 174 159;
+    --ketchup: 240 86 61;
+    --mostarda: 245 188 26;
+    --sobre-mostarda: 27 26 23;
+    --picles: 76 163 71;
+    --pao: 233 167 91;
+    --metal: 92 87 78;
+    --metal-escuro: 138 132 120;
+    --sombra-1: 0 1px 2px rgb(0 0 0 / 0.45), 0 6px 16px -10px rgb(0 0 0 / 0.6);
+    --sombra-2: 0 18px 40px -16px rgb(0 0 0 / 0.8);
+    --veu: rgb(0 0 0 / 0.62);
     color-scheme: dark;
   }
 }
 
 :root[data-tema='escuro'] {
-  --fundo: 10 17 27;
-  --painel: 17 26 39;
-  --painel-2: 14 22 34;
-  --realce: 26 38 55;
-  --borda: 30 43 61;
-  --borda-forte: 45 61 84;
-  --tinta: 230 237 245;
-  --suave: 147 163 183;
-  --marca: 220 232 245;
-  --sobre-marca: 15 37 64;
-  --facho: 242 176 60;
-  --facho-tinta: 242 176 60;
-  --facho-icone: 242 176 60;
-  --facho-leve: 43 36 18;
-  --ok: 76 199 144;
-  --ok-leve: 18 41 31;
-  --critico: 244 124 140;
-  --critico-leve: 50 22 27;
-  --sobre-critico: 42 10 16;
-  --graf-ok: 34 98 74;
-  --graf-na: 51 68 90;
-  --palco: 14 42 73;
-  --palco-tinta: 255 255 255;
-  --palco-suave: 169 189 214;
-  --sombra-1: 0 1px 2px rgb(0 0 0 / 0.4);
-  --sombra-2: 0 18px 48px -12px rgb(0 0 0 / 0.7);
-  --veu: rgb(2 6 12 / 0.62);
+  --fundo: 21 20 18;
+  --painel: 35 33 29;
+  --painel-2: 29 27 24;
+  --realce: 46 43 38;
+  --borda: 53 50 44;
+  --borda-forte: 74 70 62;
+  --tinta: 243 239 230;
+  --suave: 181 174 159;
+  --marca: 243 239 230;
+  --sobre-marca: 21 20 18;
+  --facho: 245 188 26;
+  --facho-tinta: 245 188 26;
+  --facho-icone: 245 188 26;
+  --facho-leve: 51 42 14;
+  --ok: 110 196 102;
+  --ok-leve: 24 42 22;
+  --critico: 245 110 88;
+  --critico-leve: 56 24 20;
+  --sobre-critico: 30 8 4;
+  --graf-ok: 52 104 48;
+  --graf-na: 62 58 51;
+  --palco: 11 10 9;
+  --palco-tinta: 243 239 230;
+  --palco-suave: 181 174 159;
+  --ketchup: 240 86 61;
+  --mostarda: 245 188 26;
+  --sobre-mostarda: 27 26 23;
+  --picles: 76 163 71;
+  --pao: 233 167 91;
+  --metal: 92 87 78;
+  --metal-escuro: 138 132 120;
+  --sombra-1: 0 1px 2px rgb(0 0 0 / 0.45), 0 6px 16px -10px rgb(0 0 0 / 0.6);
+  --sombra-2: 0 18px 40px -16px rgb(0 0 0 / 0.8);
+  --veu: rgb(0 0 0 / 0.62);
   color-scheme: dark;
 }
 
@@ -539,6 +565,145 @@ dialog::backdrop {
   stroke: rgb(var(--critico));
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
+}
+
+/* =====================================================================
+   A moldura "Comanda": o trilho das telas e o espeto (23/10/2026)
+   =====================================================================
+   As telas da loja são comandas penduradas num trilho de metal; a tela
+   de agora desce e escurece (é a que está sendo feita). O que não cabe no
+   trilho vai para o espeto, ao lado — o mesmo espeto onde a cozinha
+   espeta a comanda pronta. Prefixo `cmd-` em tudo: nome curto e comum
+   empresta estilo de outra peça (V47 do registro do Farol).
+   ===================================================================== */
+.cmd-trilho {
+  position: relative;
+  padding-top: 8px;
+}
+.cmd-trilho::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 8px;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, rgb(var(--metal)), rgb(var(--metal-escuro)));
+}
+.cmd-pendurada {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+}
+.cmd-grampo {
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  z-index: 2;
+  width: 12px;
+  height: 16px;
+  margin-left: -6px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, rgb(var(--metal)), rgb(var(--metal-escuro)));
+  pointer-events: none;
+}
+.cmd-comanda {
+  position: relative;
+  margin-top: 10px;
+  min-width: 92px;
+  padding: 15px 12px 10px;
+  border-radius: 3px 3px 7px 7px;
+  background: rgb(var(--painel));
+  color: rgb(var(--tinta));
+  text-align: left;
+  text-decoration: none;
+  box-shadow: var(--sombra-1);
+  transform-origin: 50% -10px;
+  transition:
+    transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background-color 0.25s,
+    color 0.25s;
+  /* a borda de cima picotada, como papel destacado do bloco */
+  -webkit-mask: radial-gradient(circle 5px at 50% 0, transparent 98%, #000) top / 14px 100% repeat-x;
+  mask: radial-gradient(circle 5px at 50% 0, transparent 98%, #000) top / 14px 100% repeat-x;
+}
+.cmd-comanda:hover {
+  transform: rotate(-2.5deg);
+}
+.cmd-comanda[aria-current='page'] {
+  transform: translateY(10px);
+  background: rgb(var(--marca));
+  color: rgb(var(--sobre-marca));
+}
+.cmd-comanda.cmd-balanca {
+  animation: cmd-balanca 1.1s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes cmd-balanca {
+  20% {
+    transform: rotate(5deg);
+  }
+  45% {
+    transform: rotate(-3.5deg);
+  }
+  70% {
+    transform: rotate(1.6deg);
+  }
+}
+.cmd-espeto {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  width: 58px;
+  height: 74px;
+  color: rgb(var(--tinta));
+}
+.cmd-espeto .cmd-haste {
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  bottom: 12px;
+  width: 3px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgb(var(--metal-escuro)), rgb(var(--metal)));
+  transition: background-color 0.25s;
+}
+.cmd-espeto[aria-expanded='true'] .cmd-haste {
+  background: rgb(var(--ketchup));
+}
+.cmd-espeto .cmd-papel {
+  position: absolute;
+  left: 50%;
+  width: 44px;
+  height: 7px;
+  border-radius: 2px;
+  background: rgb(var(--painel));
+  box-shadow: 0 2px 3px rgb(0 0 0 / 0.18);
+}
+.cmd-espeto .cmd-base {
+  width: 50px;
+  height: 10px;
+  border-radius: 4px;
+  background: rgb(var(--marca));
+}
+/* A busca (Ctrl K): um recibo que cai do trilho com mola, com a borda de cima picotada como a das comandas.
+   `backwards`, não `both`: depois de entrar, a animação não segura o `transform` (V41). */
+.cmd-recibo {
+  border-radius: 4px 4px 14px 14px;
+  -webkit-mask: radial-gradient(circle 6px at 50% 0, transparent 98%, #000) top / 16px 100% repeat-x;
+  mask: radial-gradient(circle 6px at 50% 0, transparent 98%, #000) top / 16px 100% repeat-x;
+  animation: cmd-cai 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+@keyframes cmd-cai {
+  from {
+    opacity: 0;
+    transform: translateY(-36px) rotate(-2deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
