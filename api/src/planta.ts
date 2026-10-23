@@ -21,8 +21,12 @@
 
 export type Ambiente = { id: string; nome: string; setorId: string | null; x: number; y: number; w: number; h: number };
 export type Movel = { id: string; nome: string; itemId: string | null; x: number; y: number; w: number; h: number; alt: number };
-/** `dir` em graus: 0 = para a direita da planta, 90 = para baixo. */
-export type Camera = { pontoId: string; x: number; y: number; alt: number; dir: number; abertura: number; alcance: number };
+/**
+ * `dir` em graus: 0 = para a direita da planta, 90 = para baixo. `incl` em graus abaixo do horizonte (0 = reto, 90 =
+ * direto no chão): opcional — a planta de antes não tinha, e quem não manda continua sem. Só a vista em 3D e a câmera
+ * simulada do console usam; o leque no chão e a frase do lugar não mudam com ela.
+ */
+export type Camera = { pontoId: string; x: number; y: number; alt: number; dir: number; abertura: number; alcance: number; incl?: number };
 export type Planta = { ambientes: Ambiente[]; moveis: Movel[]; cameras: Camera[] };
 
 export const LIMITES_DA_PLANTA = {
@@ -38,6 +42,7 @@ export const LIMITES_DA_PLANTA = {
   alturaDaCamera: [0.5, 10],
   abertura: [20, 180],
   alcance: [0.5, 30],
+  inclinacao: [0, 90],
 } as const;
 
 /** Quantos nomes cabem na frase do lugar. É texto pago a cada análise. */
@@ -151,7 +156,14 @@ export function lerPlanta(corpo: unknown): { planta?: Planta; problema?: string 
     if (abertura === null) return { problema: `${onde}.abertura: ${faixa(L.abertura)} (graus)` };
     const alcance = medida(o.alcance, L.alcance);
     if (alcance === null) return { problema: `${onde}.alcance: ${faixa(L.alcance)} (metros)` };
-    cameras.push({ pontoId, x, y, alt, dir, abertura, alcance });
+    // Ausente (ou nulo) fica ausente: a planta de antes do campo não muda só por ser salva de novo.
+    if (o.incl === undefined || o.incl === null) {
+      cameras.push({ pontoId, x, y, alt, dir, abertura, alcance });
+      continue;
+    }
+    const incl = medida(o.incl, L.inclinacao);
+    if (incl === null) return { problema: `${onde}.incl: inclinação ${faixa(L.inclinacao)} (graus abaixo do horizonte)` };
+    cameras.push({ pontoId, x, y, alt, dir, abertura, alcance, incl: Math.round(incl) });
   }
 
   return { planta: { ambientes, moveis, cameras } };

@@ -9421,3 +9421,53 @@ linha 22 recebeu a correção na 22.23.4 (nodejs.org, 20/10/2026, marcada como d
     inteira aqui.
 - **O agente da loja (Python)** não pede `Brotli` nem `brotlicffi` (`agent/pyproject.toml`). O que está instalado no
   PC da loja não foi conferido: o PC estava sem internet em 23/10. Fica para conferir quando ele voltar.
+
+## 23/10/2026 · A planta em 3D: a planta viva, degrau 1 (sem migration)
+
+O dono decidiu, em 23/10, começar a planta viva já e **sem identificação** (só o movimento das pessoas), e aprovou o
+protótipo. Ele vai mandar fotos de todos os ângulos da cozinha para desenhar a planta da loja. Este é o degrau 1 do
+estudo (`docs/estudo-planta-viva.md`): a planta com volume e a câmera simulada. Não depende da loja.
+
+### O que entrou
+
+- **A inclinação da câmera** (`incl`, graus abaixo do horizonte: 0 = reto, 90 = direto no chão), opcional:
+  - a planta de antes não tem o campo e continua sem ele: a API não o acrescenta só por salvar de novo;
+  - o console usa 30° quando falta (`INCLINACAO_PADRAO`); câmera nova nasce com 35°;
+  - a API recusa fora de 0 a 90 e grava inteiro; a tela e a API usam a mesma faixa (o teste confere);
+  - só a vista 3D e a câmera simulada usam a inclinação. O leque no chão, a cobertura e a frase do lugar que vai ao
+    agente não mudam.
+- **A vista "3D"** (`web/componentes/planta/vista-3d.tsx`, three.js 0.165.0, MIT), a terceira opção ao lado de "Em
+  perspectiva" e "De cima":
+  - o chão de cada ambiente, paredes baixas para ver dentro, cada móvel na altura dele e cada câmera no lugar, com o
+    cone de visão na cor da situação do canal;
+  - só olha: desenhar continua na vista de cima (no 3D, os botões de desenhar ficam apagados);
+  - vale também na edição: as faixas da câmera no painel (direção, abertura, alcance, altura e a nova inclinação) mudam
+    o 3D na hora;
+  - a biblioteca 3D só carrega quando alguém escolhe a vista (`next/dynamic`); a página continua com 137 kB;
+  - desenha só quando algo muda (girar, a planta, o tema): nenhum laço parado gastando bateria.
+- **"O que a câmera vê"**: tocar numa câmera (no 3D ou nos botões com o número do canal) mostra a câmera simulada, com a
+  abertura da lente e a proporção da imagem do canal, por cima da imagem de verdade do canal (a mesma da tela do canal).
+  - A simulação mostra só os contornos (em mostarda) dos ambientes e dos móveis; uma faixa dosa a mistura com a imagem.
+  - Onde os contornos não caem em cima dos de verdade, a posição, a altura, a direção ou a inclinação da câmera na
+    planta está errada: é assim que se acerta a câmera a partir das fotos.
+  - Sem imagem do canal, a simulação aparece inteira, com o aviso.
+- **No 3D, a câmera escolhida mostra o chão que ela vê de fato** (os quatro cantos da imagem até o chão, com a
+  inclinação).
+
+### Onde difere do protótipo aprovado
+
+- O protótipo tinha as pessoas andando, o mapa de calor e "rever a noite". Isso são os degraus 2 e 3, que dependem da
+  prova na loja (quantas câmeras o PC acompanha a 3–5 quadros por segundo, e o erro de posição nesta cozinha).
+- A mistura da simulação com a imagem do canal não estava no protótipo: é a calibração da seção 3 do estudo.
+
+### Como foi conferido
+
+- Os testes da planta sem banco: 32 passam, com o novo da inclinação. Duas mutações (sem o arredondamento; faixa de 0 a
+  180) são pegas, e o original foi restaurado.
+- Os tipos do console (`tsc`) e o `npm run build`.
+- Na tela, contra o console e a API locais (banco de teste, uma cozinha de exemplo de 10,8 × 7,2 m, 10 móveis e 5
+  câmeras inclinadas gravadas pela API nova):
+  - o 3D desenha no papel e na chapa a 1440 px e a 390 px, sem rolagem lateral e sem erro de script;
+  - o quadrinho da câmera abre (sem imagem do canal no banco de teste);
+  - na edição, a faixa Inclinação anda pelo teclado (30° → 40°), e o 3D acompanha;
+  - os botões de desenhar ficam apagados no 3D.

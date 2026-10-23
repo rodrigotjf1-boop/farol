@@ -132,6 +132,18 @@ describe('o que entra na planta (sem banco)', () => {
     assert.deepEqual([dir(0), dir(359), dir(360), dir(-90), dir(725.4), dir(-0.4)], [0, 359, 0, 270, 5, 0]);
   });
 
+  it('a inclinação é opcional: ausente fica ausente; dada, de 0 a 90 graus, inteira', () => {
+    const cam = (mais: object) => lerPlanta(com({ cameras: [{ ...CAMERA, ...mais }] })).planta!.cameras[0]!;
+    assert.equal('incl' in cam({}), false, 'a planta de antes do campo sai sem ele (não muda só por ser salva)');
+    assert.equal('incl' in cam({ incl: null }), false, 'nulo é o mesmo que ausente');
+    assert.deepEqual([cam({ incl: 0 }).incl, cam({ incl: 90 }).incl, cam({ incl: 34.6 }).incl], [0, 90, 35]);
+    assert.match(problema(com({ cameras: [{ ...CAMERA, incl: -1 }] })), /cameras\[0\]\.incl: inclinação de 0 a 90/);
+    assert.match(problema(com({ cameras: [{ ...CAMERA, incl: 90.5 }] })), /cameras\[0\]\.incl/);
+    assert.match(problema(com({ cameras: [{ ...CAMERA, incl: 'para baixo' }] })), /cameras\[0\]\.incl/);
+    assert.deepEqual([web.LIMITES.inclinacao, LIMITES_DA_PLANTA.inclinacao], [[0, 90], [0, 90]], 'a tela e a API com a mesma faixa');
+    assert.equal(web.inclinacaoDe({}), web.INCLINACAO_PADRAO, 'sem o campo, o console usa o padrão');
+  });
+
   it('um canal e um equipamento estão num lugar só; identificador não se repete', () => {
     assert.match(problema(com({ cameras: [CAMERA, { ...CAMERA, x: 1 }] })), /cameras\[1\]\.pontoId: este canal já está na planta/);
     const comLetras = 'abcdef12-0000-4000-8000-00000000abcd';
