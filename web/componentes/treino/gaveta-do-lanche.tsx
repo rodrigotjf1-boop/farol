@@ -236,7 +236,12 @@ export function GavetaDoLanche({
   // o lanche por passos: os pães das fichas (o "Era outro" do pão), o pão pelas peças, e os ingredientes de um passo
   const paes = useMemo(() => (d?.ingredientes ?? []).filter(ehPao), [d]);
   const paoLido = useMemo(() => paoPelasPecas(d?.pecas ?? null, paes), [d, paes]);
-  const ingredientesDoPasso = useMemo(() => (d?.ingredientes ?? []).filter((n) => !ehPao(n) && !naoSeVe.has(chave(n))), [d, naoSeVe]);
+  // o passo PODE ser o pão: a tampa que chega por cima (na noite de 22/10, 104 de 588 passos). O dono, 23/10: "pergunta se
+  // é carne 56, porém é um pão de dois cortes e não tem na lista". Os pães vão no fim, depois dos ingredientes.
+  const ingredientesDoPasso = useMemo(() => {
+    const seVeem = (d?.ingredientes ?? []).filter((n) => !naoSeVe.has(chave(n)));
+    return [...seVeem.filter((n) => !ehPao(n)), ...seVeem.filter(ehPao)];
+  }, [d, naoSeVe]);
   const vistos = useMemo(() => {
     if (!d) return new Map<string, { nome: string; vezes: number }>();
     return d.porPassos ? vistosPorPasso(d.etapas, porPasso, paoLido) : vistosNaConferencia(d.fotos, d.etapas, fotos);
