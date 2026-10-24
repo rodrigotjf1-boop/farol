@@ -9539,3 +9539,55 @@ chegou em 104 de 588 passos.
   tampa, e a regra "o que chegou é pão" fica mais certa).
 
 Conferido: `tsc` e `npm run build` do console.
+
+## 24/10/2026 · Marcar ingredientes, parte 1: a nuvem guarda os recortes da noite e a pilha marcada (A24 F3; migration 055)
+
+O dono, 23/10: "para treinamento inicial, antes de associar com ficha, primeiro teríamos que treinar identificar
+ingrediente como no teste de 112 [...] ali é um bom treinamento de ingrediente". Ele marcou 109 recortes da noite de
+21/10 e 162 da de 22/10 numa página local (a pilha que a câmera vê, de cima para baixo) — e cada noite marcada subiu o
+juiz treinado (22/10: 61% → 77%). A conferência do console é por lanche, com a ficha, e só 20 lanches por noite sobem
+para ela. O protótipo "Marcar ingredientes" (uma aba no Treinamento, um recorte por vez) foi aprovado em 24/10
+("prototipo aprovado"). Três partes, um PR cada: a nuvem (esta), a tela, o agente.
+
+- **migration 055** — `treino_recorte`: o recorte de UM passo, na gravação `ao-vivo` da noite (a mesma dos lanches da
+  conferência), com a chave que a loja dá a ele, o lanche, a hora, a peça, o motivo (dúvida do juiz, cobertura de um
+  ingrediente, o começo da peça), o nome e a nota do juiz, o contorno do que chegou e a imagem; depois da marcação, a
+  resposta, o de cima e se o juiz acertou. `base_frame.recorte_id`: o exemplo que a marcação criou.
+- **`POST /v1/agentes/treino/recortes`** (token do agente; contrato `contratos/recorte-para-marcar.json`): até 25 recortes
+  por envio, 300 por noite; só a gravação `ao-vivo` (é nela que os passos têm o juiz). Mandar de novo troca o que
+  ninguém marcou; o marcado e o pulado ficam como estão. A linha da gravação fica travada até o fim do envio: dois
+  envios da mesma noite passam um depois do outro, e a conta do máximo não se perde. Noite cancelada ou apagada → 409,
+  como os lanches.
+- **`GET /v1/lojas/:id/treino/recortes`** (diretoria, gerência e supervisão — os mesmos da conferência): as noites com
+  recortes e os de UMA noite (a pedida em `?gravacao=`; senão a que espera marcação há mais tempo; senão a mais nova), a
+  dúvida primeiro e depois pela hora — a ordem não muda enquanto a pessoa marca; os ingredientes das fichas em grupos
+  (Pães, Carnes, Queijos, Molhos, Outros) com o "conta" (− e +) da carne e do que a ficha pede por unidade ou fatia (o
+  pão, não); e as contas da loja ("o Farol acertou antes" = dos marcados com um ingrediente em cima, em quantos o juiz
+  tinha dito esse nome). A certeza que a tela mostra sai da nota, pela regra da conferência por passo.
+- **`POST /v1/treino/recortes/:id/marcacao`**: a pilha de cima para baixo (de 1 a 12; o mesmo nome pode voltar mais
+  abaixo, como carne, queijo, carne), "não é ingrediente" ou "não dá para ver"; cada nome é das fichas (ou um outro nome
+  dele, que vira o das fichas, migration 053). **O de cima vira exemplo** (`base_frame`, origem `bancada`, desce para a
+  loja pelo caminho de sempre): é o que o recorte mostra por inteiro — o de baixo só aparece pela borda (nas marcações
+  do dono, o treino pelo de cima deu os 77–83%). "Não é ingrediente" vira exemplo do que não é comida (o mesmo da
+  conferência, migration 054); "não dá para ver" não ensina. A mesma imagem que a base já tem para o mesmo item entra
+  uma vez só. Marcar de novo troca o exemplo daquele recorte, na mesma transação. `…/pular` só o que espera.
+- **30 dias**: a imagem do marcado (ou pulado) sai 30 dias depois — a linha fica, para a conta do acerto; o exemplo da
+  base fica (tem a imagem dele). O recorte que ninguém marcou em 30 dias sai inteiro. A rotina é a dos quadros do
+  treinamento (uma vez por hora), e avisa uma vez se a migration 055 ainda não rodou.
+- O nome escrito à mão não entra aqui: só os ingredientes das fichas (a observação guarda o resto). O nome fora das
+  fichas segue pela conferência, que já sabe guardá-lo à parte.
+- A leitura da `gravacao` do corpo da loja virou uma função só (`lerGravacao`), usada pelos lanches e pelos recortes.
+
+### Como foi conferido
+
+- `api/testes/marcar.test.ts`: sem banco, o corpo do contrato, 12 recusas com o campo, a marcação (nomes das fichas,
+  outro nome, repetição mais abaixo, 10 recusas), o acerto e os grupos com o "conta"; no Postgres real, o envio (uma vez
+  só, troca do que ninguém marcou), as recusas (sem token, torto, canal de outra loja, noite cancelada, máximo da noite),
+  a lista (a noite, a dúvida primeiro, quem vê), a imagem, a marcação (o de cima vira exemplo, marcar de novo troca, a
+  mesma imagem uma vez só, "não é ingrediente", "não dá para ver"), o marcado que não muda por baixo, pular, as contas e
+  os 30 dias. A suíte inteira da API no banco de teste local: 1.621 de 1.622 (a que falta é a do vetor de dimensão
+  errada, que só vale com a pgvector — o banco local não tem; no CI tem).
+- Mutação: 15 de 15 trocas pegas (o marcado muda por baixo; a mesma imagem duas vezes; marcar de novo soma; a imagem
+  sem a conta; a execução marca; nome fora das fichas; o de baixo como o de cima; a noite passa do máximo; a imagem fica
+  mais tempo; pular o marcado; a noite cancelada recebe; o pão se conta; a dúvida não vem primeiro; o recorte que
+  ninguém marcou fica; outra conta marca).

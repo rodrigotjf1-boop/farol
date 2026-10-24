@@ -14,6 +14,7 @@ import { instalarGuarda, type Subida } from './guarda.js';
 import { voltaDaLeitura, type MemoriaDaRotina } from './leitura.js';
 import { migrarNaSubida } from './migracao.js';
 import { configDoRegem } from './regem.js';
+import { apagarRecortesVencidos } from './rotas/marcar.js';
 import { apagarQuadrosVencidos } from './rotas/treino.js';
 
 const PORTA = Number(process.env.PORT ?? 3000);
@@ -162,6 +163,7 @@ leitura.unref();
 // Enquanto a migration 049 não rodou, a tabela não existe: dizer UMA vez.
 const INTERVALO_DOS_QUADROS_MS = 3600_000;
 let avisouQuadrosSemTabela = false;
+let avisouRecortesSemTabela = false;
 const quadros = setInterval(() => {
   if (porta.recusando) return;
   void apagarQuadrosVencidos(pool)
@@ -178,6 +180,22 @@ const quadros = setInterval(() => {
         return;
       }
       app.log.error(e, 'a limpeza dos quadros do treinamento falhou');
+    });
+  // os recortes para marcar (migration 055): a imagem do marcado sai em 30 dias; o que ninguém marcou sai inteiro
+  void apagarRecortesVencidos(pool)
+    .then((n) => {
+      avisouRecortesSemTabela = false;
+      if (n.imagens > 0 || n.recortes > 0) app.log.info(n, 'recortes para marcar vencidos APAGADOS (30 dias)');
+    })
+    .catch((e) => {
+      if ((e as { code?: string }).code === '42P01') {
+        if (!avisouRecortesSemTabela) {
+          avisouRecortesSemTabela = true;
+          app.log.warn('a limpeza dos recortes para marcar está parada: falta a migration 055');
+        }
+        return;
+      }
+      app.log.error(e, 'a limpeza dos recortes para marcar falhou');
     });
 }, INTERVALO_DOS_QUADROS_MS);
 quadros.unref();

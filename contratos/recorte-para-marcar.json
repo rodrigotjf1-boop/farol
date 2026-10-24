@@ -1,0 +1,133 @@
+{
+  "sobre": "Os recortes da noite ao vivo que a loja escolheu para MARCAR (A24 F3, migration 055; protótipo \"Marcar ingredientes\" aprovado pelo dono em 24/10/2026). Com a loja fechada, o agente escolhe uns 100 recortes de passos da noite — os de dúvida do juiz, um pouco de cada ingrediente e o começo das peças — e manda em envios de até 25. Eles ficam na gravação `ao-vivo` da noite (a mesma dos lanches da conferência). Na tela, a pessoa marca a pilha que a câmera vê, de cima para baixo; o de cima vira exemplo da base da loja, que desce para o juiz pelo caminho de sempre (`base_frame`, origem `bancada`).",
+  "rota": "POST /v1/agentes/treino/recortes",
+  "autenticacao": "Authorization: Bearer <token do agente> — a loja é a do token, nunca a do corpo",
+  "corpo": {
+    "gravacao": {
+      "chave": "ao-vivo-canal-04-2026-10-22",
+      "pontoId": null,
+      "inicio": "2026-10-22T19:00:00-03:00",
+      "fim": "2026-10-23T04:15:00-03:00",
+      "origem": "ao-vivo"
+    },
+    "recortes": [
+      {
+        "chave": "passos-23h20m05-3/03",
+        "lanche": "passos-23h20m05-3",
+        "hora": "2026-10-22T23:20:41-03:00",
+        "peca": 1,
+        "motivo": "duvida",
+        "palpite": "Blend da casa",
+        "nota": 0.512,
+        "contorno": [
+          [
+            [
+              12,
+              10
+            ],
+            [
+              140,
+              18
+            ],
+            [
+              96,
+              150
+            ]
+          ]
+        ],
+        "imagemBase64": "/9j/4AAQSkZJRgABAQAAAQABAAD/wAARCAFAAUADASIAAhEBAxEB/9oACAEBAAA/AAH/2Q=="
+      },
+      {
+        "chave": "passos-22h12m30-1/00",
+        "lanche": "passos-22h12m30-1",
+        "hora": "2026-10-22T22:12:31-03:00",
+        "peca": 1,
+        "motivo": "comeco",
+        "palpite": null,
+        "nota": null,
+        "contorno": null,
+        "imagemBase64": "/9j/4AAQSkZJRgABAQAAAQABAAD/wAARCAFAAUADASIAAhEBAxEB/9oACAEBAAA/AAH/2Q=="
+      }
+    ]
+  },
+  "resposta": {
+    "status": 200,
+    "corpo": {
+      "gravacaoId": "<uuid da gravação da noite>",
+      "recortes": [
+        {
+          "chave": "passos-23h20m05-3/03",
+          "id": "<uuid>",
+          "situacao": "marcar",
+          "novo": true
+        },
+        {
+          "chave": "passos-22h12m30-1/00",
+          "id": "<uuid>",
+          "situacao": "marcar",
+          "novo": true
+        }
+      ]
+    },
+    "deNovo": "Mandar de novo o mesmo recorte (a mesma chave na mesma noite) troca a imagem e o palpite enquanto ninguém marcou: `novo: false`. O marcado e o pulado ficam como estão e voltam com a situação deles."
+  },
+  "recusas": [
+    {
+      "status": 401,
+      "quando": "sem token, ou token que não vale (a credencial do agente)"
+    },
+    {
+      "status": 409,
+      "erro": "gravacao_encerrada",
+      "quando": "a gravação da noite foi cancelada ou apagada no console: a loja para de mandar recortes dela"
+    },
+    {
+      "status": 422,
+      "erro": "validacao",
+      "quando": "o corpo não segue os limites, a gravação não é ao-vivo, o canal não é da loja, ou a noite passaria de 300 recortes"
+    }
+  ],
+  "limites": {
+    "recortesPorEnvio": 25,
+    "recortesPorNoite": 300,
+    "bytesDoRecorte": 300000,
+    "chave": 160,
+    "lanche": 120,
+    "palpite": 120,
+    "nota": "de 0 a 1, ou nulo",
+    "peca": "de 1 a 8, ou nulo",
+    "contorno": "até 8 pedaços de 3 a 64 pontos [x, y], em pixels do RECORTE (o tracejado do que chegou), ou nulo"
+  },
+  "motivos": [
+    "duvida",
+    "cobertura",
+    "comeco"
+  ],
+  "marcacao": {
+    "rota": "POST /v1/treino/recortes/:id/marcacao (sessão do console: diretoria, gerência e supervisão)",
+    "corpo": {
+      "estado": "pilha",
+      "pilha": [
+        {
+          "nome": "Queijo prato",
+          "vezes": 1
+        },
+        {
+          "nome": "Blend da casa",
+          "vezes": 2
+        },
+        {
+          "nome": "Pão brioche",
+          "vezes": 1
+        }
+      ],
+      "obs": null
+    },
+    "estados": [
+      "pilha",
+      "nada",
+      "nao-da"
+    ],
+    "regras": "A pilha vai de cima para baixo; cada nome é um ingrediente das fichas da loja (ou um outro nome dele, que vira o das fichas); `vezes` de 1 a 20. \"nada\" (não é ingrediente) e \"nao-da\" (não dá para ver) vão com a pilha vazia. O de cima vira exemplo do ingrediente; \"nada\" vira exemplo do que não é comida; \"nao-da\" não ensina. Marcar de novo troca o exemplo do recorte."
+  }
+}

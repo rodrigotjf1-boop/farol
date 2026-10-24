@@ -89,8 +89,11 @@ export type EtapaLida = {
   contorno?: number[][][];
 };
 
+/** A gravação de treino como a loja a manda: a dos lanches e a dos recortes para marcar (migration 055). */
+export type GravacaoLida = { chave: string; pontoId: string | null; inicio: string; fim: string; origem: (typeof ORIGENS)[number] };
+
 export type LancheLido = {
-  gravacao: { chave: string; pontoId: string | null; inicio: string; fim: string; origem: (typeof ORIGENS)[number] };
+  gravacao: GravacaoLida;
   /** `pecas` (A23.3): quantas metades do pão a leitura achou — o pão pelas peças (3 = o pão de dois cortes). */
   lanche: { chave: string; abertoEm: string | null; fechouEm: string | null; etapas: EtapaLida[]; pecas: number | null };
   quadros: Array<{ bytes: Buffer; largura: number; altura: number }>;
@@ -100,7 +103,8 @@ export type LancheLido = {
  * também; o vazio, o "saiu", a passagem e o fechamento, não. */
 export const contaComoEvidencia = (e: EtapaLida): boolean => e.tipo === undefined || EVIDENCIA.has(e.tipo);
 
-function lerContorno(v: unknown): number[][][] | null {
+/** O contorno do que chegou: até `MAX_PEDACOS_DO_CONTORNO` pedaços de 3 a `MAX_PONTOS_DO_PEDACO` pontos [x, y]. Nulo = torto. */
+export function lerContorno(v: unknown): number[][][] | null {
   if (!Array.isArray(v) || v.length > MAX_PEDACOS_DO_CONTORNO) return null;
   const saida: number[][][] = [];
   for (const pedaco of v) {
@@ -121,10 +125,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ehData = (v: unknown): v is string => typeof v === 'string' && v.length <= 40 && !Number.isNaN(Date.parse(v));
 const texto = (v: unknown, max: number): v is string => typeof v === 'string' && v.trim().length > 0 && v.length <= max;
 
-/** O corpo que a loja manda para `POST /v1/agentes/treino/lanches` — conferido inteiro antes de qualquer gravação. */
-export function lerLancheDeTreino(corpo: unknown): LancheLido | { problema: string } {
-  const c = (corpo ?? {}) as { gravacao?: Record<string, unknown>; lanche?: Record<string, unknown>; quadros?: unknown };
-  const g = c.gravacao ?? {};
+/** A `gravacao` do corpo que a loja manda (o lanche ou os recortes para marcar). */
+export function lerGravacao(bruto: unknown): GravacaoLida | { problema: string } {
+  const g = (bruto ?? {}) as Record<string, unknown>;
   if (!texto(g.chave, 120)) return { problema: 'gravacao.chave: um texto de até 120 letras' };
   if (g.pontoId !== undefined && g.pontoId !== null && !(typeof g.pontoId === 'string' && UUID.test(g.pontoId))) {
     return { problema: 'gravacao.pontoId: o id do canal, ou nulo' };
@@ -136,6 +139,14 @@ export function lerLancheDeTreino(corpo: unknown): LancheLido | { problema: stri
   if (!(duracao > 0) || duracao > (aoVivo ? MAX_DURACAO_AO_VIVO_MS : MAX_DURACAO_MS)) {
     return { problema: `gravacao: o fim depois do início, e no máximo ${aoVivo ? 14 : 2} horas` };
   }
+  return { chave: g.chave.trim(), pontoId: (g.pontoId as string | null | undefined) ?? null, inicio: g.inicio, fim: g.fim, origem: g.origem as (typeof ORIGENS)[number] };
+}
+
+/** O corpo que a loja manda para `POST /v1/agentes/treino/lanches` — conferido inteiro antes de qualquer gravação. */
+export function lerLancheDeTreino(corpo: unknown): LancheLido | { problema: string } {
+  const c = (corpo ?? {}) as { gravacao?: Record<string, unknown>; lanche?: Record<string, unknown>; quadros?: unknown };
+  const gravacao = lerGravacao(c.gravacao);
+  if ('problema' in gravacao) return gravacao;
 
   const l = c.lanche ?? {};
   if (!texto(l.chave, 120)) return { problema: 'lanche.chave: um texto de até 120 letras' };
@@ -211,7 +222,7 @@ export function lerLancheDeTreino(corpo: unknown): LancheLido | { problema: stri
     etapas.push(etapa);
   }
   return {
-    gravacao: { chave: g.chave.trim(), pontoId: (g.pontoId as string | null | undefined) ?? null, inicio: g.inicio, fim: g.fim, origem: g.origem as (typeof ORIGENS)[number] },
+    gravacao,
     lanche: {
       chave: l.chave.trim(),
       abertoEm: (l.abertoEm as string | null | undefined) ?? null,

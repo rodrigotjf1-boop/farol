@@ -35,6 +35,7 @@ import { rotasDeIngredientes } from './rotas/ingredientes.js';
 import { rotasDaBaseNaLoja } from './rotas/base-na-loja.js';
 import { rotasDaFilaDaCozinha } from './rotas/fila-da-cozinha.js';
 import { rotasDeLojas } from './rotas/lojas.js';
+import { rotasDeMarcar } from './rotas/marcar.js';
 import { rotasDoTreino } from './rotas/treino.js';
 import { rotasDeOrcamento } from './rotas/orcamento.js';
 import { rotasDeAnalises } from './rotas/analises.js';
@@ -203,6 +204,7 @@ export function criarApp(
   rotasDeIngredientes(app, pool);
   rotasDaBaseNaLoja(app, pool);
   rotasDoTreino(app, pool);
+  rotasDeMarcar(app, pool);
   const cofreDoBalcao = opcoes.balcao ? opcoes.balcao.cofre : regem.chave;
   rotasDoBalcao(app, pool, { cofre: cofreDoBalcao });
   rotasDeDuvidas(app, pool, {
