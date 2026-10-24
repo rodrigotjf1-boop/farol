@@ -46,24 +46,29 @@ import { Botao, classesDoBotao } from '@/componentes/ui/botao';
 import { AJUDA } from '@/componentes/ui/campo';
 import { Alerta, Cabecalho, CARTAO, Chip, Ossos, Segmentado, Vazio, type Tom } from '@/componentes/ui/pecas';
 import { Dialogo } from '@/componentes/ui/sobreposto';
+import { PainelDeMarcar } from '@/componentes/treino/painel-de-marcar';
 import {
   ErroDaApi,
   ingredientesApi,
+  marcarApi,
   treinoApi,
   type GravacaoDeTreino,
   type IngredienteDaLoja,
   type IngredientesDaLoja,
   type LancheNaFila,
   type MotivoNaFila,
+  type RecortesDaLoja,
   type TreinoDaLoja,
 } from '@/lib/api';
 
-type Aba = 'lanches' | 'ingredientes' | 'sugestoes' | 'gravacoes';
+type Aba = 'lanches' | 'marcar' | 'ingredientes' | 'sugestoes' | 'gravacoes';
 type FiltroDosLanches = 'conferir' | 'conferidos' | 'pulados';
 type FiltroDosIngredientes = 'todos' | 'semex' | 'semfoto';
 
-const ABAS: ReadonlyArray<{ id: Aba; rotulo: string }> = [
+// "Marcar ingredientes" (A24 F3, protótipo aprovado em 24/10/2026): a pilha de cada recorte da noite; leva o NOVO
+const ABAS: ReadonlyArray<{ id: Aba; rotulo: string; novo?: boolean }> = [
   { id: 'lanches', rotulo: 'Lanches' },
+  { id: 'marcar', rotulo: 'Marcar ingredientes', novo: true },
   { id: 'ingredientes', rotulo: 'Ingredientes' },
   { id: 'sugestoes', rotulo: 'Sugestões para as fichas' },
   { id: 'gravacoes', rotulo: 'Gravações' },
@@ -128,6 +133,8 @@ export default function Treinamento() {
   // continua e só a aba Ingredientes fica sem lista.
   const [ingredientes, setIngredientes] = useState<IngredientesDaLoja | null>(null);
   const [aba, setAba] = useState<Aba>('lanches');
+  const [recortes, setRecortes] = useState<RecortesDaLoja | null>(null);
+  const [falhaRecortes, setFalhaRecortes] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<FiltroDosLanches>('conferir');
   const [filtroIng, setFiltroIng] = useState<FiltroDosIngredientes>('todos');
   /** O lanche na gaveta, e de qual lista ele veio (o "próximo" é dessa lista). */
@@ -165,12 +172,33 @@ export default function Treinamento() {
     }
   }, [id]);
 
+  // Os recortes para marcar (A24 F3) vêm à parte, como os ingredientes: se não vierem, o resto do treinamento segue e
+  // só a aba deles diz que não carregou. Só a resposta da leitura mais nova vale (V64 do Regem: trocar de noite rápido).
+  const leituraDosRecortes = useRef(0);
+  const carregarRecortes = useCallback(
+    async (gravacaoId?: string) => {
+      const minha = ++leituraDosRecortes.current;
+      try {
+        const r = await marcarApi.daLoja(id, gravacaoId);
+        if (minha === leituraDosRecortes.current) {
+          setRecortes(r);
+          setFalhaRecortes(null);
+        }
+      } catch (e) {
+        if (minha === leituraDosRecortes.current) setFalhaRecortes(mensagemDe(e));
+      }
+    },
+    [id],
+  );
+
   useEffect(() => {
     setD(null);
     setIngredientes(null);
+    setRecortes(null);
     void carregar();
     void carregarIngredientes();
-  }, [carregar, carregarIngredientes]);
+    void carregarRecortes();
+  }, [carregar, carregarIngredientes, carregarRecortes]);
 
   // ───────────────────────── as listas ─────────────────────────
 
@@ -287,6 +315,8 @@ export default function Treinamento() {
   const semFichas = ingredientes !== null && ingredientes.ingredientes.length === 0 && ingredientes.orfaos.length === 0;
   const conta = {
     conferir: listas.conferir.length,
+    // os recortes que esperam marcação, em todas as noites da lista
+    marcar: (recortes?.noites ?? []).reduce((s, n) => s + n.marcar, 0),
     ingredientes: daBancada.length,
     // a aba conta as que esperam resposta
     sugestoes: (d?.sugestoes ?? []).filter((s) => s.decisao === null).length,
@@ -425,6 +455,9 @@ export default function Treinamento() {
                 >
                   {a.rotulo}
                   <span className="font-mono text-xs font-medium text-farol-suave">{numero(conta[a.id === 'lanches' ? 'conferir' : a.id])}</span>
+                  {a.novo && (
+                    <span className="rounded-full bg-farol-facho-leve px-1.5 py-px text-[10.5px] font-bold uppercase tracking-[.06em] text-farol-facho-tinta">novo</span>
+                  )}
                 </button>
               );
             })}
@@ -453,6 +486,28 @@ export default function Treinamento() {
                 fuso={fuso}
                 aoAbrir={(l) => setAberto({ id: l.id, de: filtro })}
               />
+            </div>
+          )}
+
+          {aba === 'marcar' && (
+            <div role="tabpanel" id="painel-marcar" aria-labelledby="aba-marcar" className="flex animate-sobe flex-col gap-3">
+              {recortes ? (
+                <PainelDeMarcar
+                  dados={recortes}
+                  fuso={fuso}
+                  aoAtualizar={setRecortes}
+                  aoTrocarNoite={(g) => void carregarRecortes(g)}
+                />
+              ) : falhaRecortes ? (
+                <Alerta tom="critico" icone={TriangleAlert} papel="alert">
+                  <b className="font-semibold">Os recortes para marcar não carregaram.</b> {frase(falhaRecortes)}{' '}
+                  <button type="button" className="font-semibold underline" onClick={() => void carregarRecortes()}>
+                    Tentar de novo
+                  </button>
+                </Alerta>
+              ) : (
+                <Ossos alturas={[[96, 96, 96], 420]} />
+              )}
             </div>
           )}
 

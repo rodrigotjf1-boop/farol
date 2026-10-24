@@ -1953,6 +1953,81 @@ export const treinoApi = {
     }),
 };
 
+// ───────────────────────── marcar ingredientes (A24 F3, migration 055) ─────────────────────────
+
+/** Por que a loja escolheu o recorte: o juiz teve dúvida, um pouco de cada ingrediente, ou o começo da peça (o pão). */
+export type MotivoDoRecorte = 'duvida' | 'cobertura' | 'comeco';
+/** A pilha, "não é ingrediente", ou "não dá para ver". */
+export type EstadoDaMarcacao = 'pilha' | 'nada' | 'nao-da';
+export type CamadaMarcada = { nome: string; vezes: number };
+/** A pilha vai de cima para baixo; "nada" e "nao-da" vão com a pilha vazia. */
+export type MarcacaoDoRecorte = { estado: EstadoDaMarcacao; pilha: CamadaMarcada[]; obs: string | null };
+
+export type RecorteParaMarcar = {
+  id: string;
+  /** A pasta do lanche no computador da loja: os recortes do mesmo lanche têm a mesma. */
+  lanche: string | null;
+  hora: string;
+  peca: number | null;
+  motivo: MotivoDoRecorte;
+  /** O nome que o juiz deu, e a nota (0 a 1). Nulo = ele não deu nome. */
+  palpite: string | null;
+  nota: number | null;
+  /** O tracejado do que chegou, em pixels do recorte. */
+  contorno: number[][][] | null;
+  largura: number | null;
+  altura: number | null;
+  situacao: 'marcar' | 'marcado' | 'pulado';
+  resposta: MarcacaoDoRecorte | null;
+  acertou: boolean | null;
+  marcadoEm: string | null;
+  marcadoPor: string | null;
+  /** Falso: a imagem já saiu (30 dias depois da marcação). */
+  temImagem: boolean;
+};
+
+export type NoiteDeRecortes = {
+  gravacaoId: string;
+  inicio: string;
+  fim: string;
+  canal: { nome: string; numero: number | null } | null;
+  total: number;
+  marcar: number;
+  marcados: number;
+  pulados: number;
+};
+
+export type NomesParaMarcar = Array<{ grupo: string; nomes: Array<{ nome: string; conta: boolean }> }>;
+
+export type RecortesDaLoja = {
+  noites: NoiteDeRecortes[];
+  /** A noite que veio: a pedida; senão a que espera marcação há mais tempo; senão a mais nova. Nula = nenhuma. */
+  noite: string | null;
+  /** A dúvida primeiro, depois pela hora. */
+  recortes: RecorteParaMarcar[];
+  nomes: NomesParaMarcar;
+  /** Da loja inteira: os marcados, os com um ingrediente em cima, e em quantos o juiz tinha dito esse nome. */
+  contas: { marcados: number; comNome: number; acertou: number };
+  diasDasImagens: number;
+};
+
+export const marcarApi = {
+  daLoja: (lojaId: string, gravacaoId?: string) =>
+    pedir<RecortesDaLoja>(`/lojas/${lojaId}/treino/recortes${gravacaoId ? `?gravacao=${encodeURIComponent(gravacaoId)}` : ''}`),
+
+  /** A imagem de um recorte (a loja pode trocar a do que ninguém marcou: o navegador guarda por 1 hora). */
+  urlDaImagem: (recorteId: string) => `/api/treino/recortes/${recorteId}/imagem`,
+
+  /** O de cima vira exemplo da base da loja; "nada" ensina o que não é comida; marcar de novo troca o exemplo. */
+  marcar: (recorteId: string, m: MarcacaoDoRecorte) =>
+    pedir<{ marcado: true; estado: EstadoDaMarcacao; cima: string | null; acertou: boolean | null; exemplos: number }>(`/treino/recortes/${recorteId}/marcacao`, {
+      method: 'POST',
+      body: JSON.stringify(m),
+    }),
+
+  pular: (recorteId: string) => pedir<{ pulado: true }>(`/treino/recortes/${recorteId}/pular`, { method: 'POST' }),
+};
+
 // ───────────────────────── o acesso de outro sistema ─────────────────────────
 
 /** De onde uma loja recebe as fichas: só a livre e a de planilha podem ganhar um acesso. */
