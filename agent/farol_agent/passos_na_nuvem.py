@@ -95,6 +95,9 @@ MAX_HORA = 40
 ENVIADO = "enviado.json"
 ENCERRADAS = "gravacoes-encerradas.json"
 GUARDA_ENCERRADAS = 60
+# A24 F3: o que já foi escolhido e mandado para marcar, por noite (na pasta do canal), e quantas noites ele guarda.
+RECORTES_ESTADO = "recortes-para-marcar.json"
+GUARDA_NOITES_DOS_RECORTES = 30
 # Os destinos de um lanche (os de `treino_corpo`, mais o que ficou para depois).
 SUBIU, RECUSADO, ENCERRADA, DEPOIS = "enviado", "recusado", "encerrada", "depois"
 _DIA = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -363,6 +366,11 @@ def _ler_json(caminho: Path) -> Any:
         return None
 
 
+def _chave_do_recorte(escolhido: dict) -> str:
+    """A chave que o recorte escolhido leva para a nuvem: a pasta do lanche e o arquivo (`recortes_na_nuvem.Candidato`)."""
+    return f"{Path(str(escolhido.get('pasta'))).name}/{escolhido.get('arquivo')}"[:160]
+
+
 def _gravar_json(caminho: Path, dados: Any) -> None:
     temporario = caminho.with_name(caminho.name + ".novo")
     temporario.write_text(json.dumps(dados, ensure_ascii=False), encoding="utf-8")
@@ -377,6 +385,8 @@ class Volta:
     recusados: int = 0
     encerradas: int = 0
     parou: str | None = None
+    # os recortes que subiram para marcar (A24 F3, `recortes_na_nuvem`)
+    recortes: int = 0
 
 
 class ConferenciaEmFundo:
@@ -385,9 +395,11 @@ class ConferenciaEmFundo:
     def __init__(
         self, cliente: ClienteDaConferencia, caminho_config: str | Path, canais: list[int], *,
         por_noite: int = POR_NOITE, relogio: Callable[[], datetime] = datetime.now, pausa_s: float = PAUSA_S,
-        folga: timedelta = timedelta(minutes=FOLGA_FECHAMENTO_MIN),
+        folga: timedelta = timedelta(minutes=FOLGA_FECHAMENTO_MIN), marcar_por_noite: int = 0,
     ) -> None:
         self.cliente = cliente
+        # A24 F3: os recortes de cada noite que sobem para marcar (`recortes_na_nuvem`); 0 desliga
+        self.marcar_por_noite = marcar_por_noite
         self.caminho_config = Path(caminho_config)
         self.raiz = self.caminho_config.parent / PASTA_DA_BANCADA
         self.base = BaseDaLoja.ao_lado(caminho_config)
@@ -547,7 +559,128 @@ class ConferenciaEmFundo:
                         "conferência: %d lanche(s) da noite %s subiram (%d escolhidos de %d; %d com dúvida do juiz)",
                         novos, noite.chave, len(escolhidos), len(lanches), sum(1 for l in escolhidos if l.duvidas),
                     )
+                # os recortes para marcar (A24 F3): da mesma noite, dos lanches que NÃO foram para a conferência
+                if self.marcar_por_noite > 0 and noite.chave not in set(self._encerradas(canal)):
+                    if self._recortes(canal, noite, lanches, escolhidos, ponto_id, v):
+                        return v
         return v
+
+    # ── os recortes para marcar (A24 F3) ──
+
+    def _estado_dos_recortes(self, canal: int) -> dict:
+        """O que já foi escolhido e mandado, por noite (`noites`), e desde qual noite a amostra vale (`desde`). Na
+        primeira volta depois do pacote novo (sem o arquivo), `desde` é a noite mais nova no disco (terminada ou não):
+        as de antes não sobem — o dono pode já ter marcado na página local (21 e 22/10)."""
+        estado = _ler_json(self.raiz / f"canal-{canal:02d}" / RECORTES_ESTADO)
+        if isinstance(estado, dict) and isinstance(estado.get("noites"), dict) and isinstance(estado.get("desde"), str):
+            return estado
+        config_json = ler_do_disco(self.caminho_config) or {}
+        agora = self._relogio()
+        desde = max((n.inicio for n in self.noites(canal, janelas_da_loja(config_json), agora.date())), default=agora)
+        estado = {"desde": _com_fuso(desde), "noites": {}}
+        self._guardar_recortes(canal, estado)
+        return estado
+
+    def _guardar_recortes(self, canal: int, estado: dict) -> None:
+        # só as noites mais novas: a leitura guarda os passos por poucos dias
+        noites = estado["noites"]
+        if len(noites) > GUARDA_NOITES_DOS_RECORTES:
+            for velha in sorted(noites)[: len(noites) - GUARDA_NOITES_DOS_RECORTES]:
+                del noites[velha]
+        try:
+            _gravar_json(self.raiz / f"canal-{canal:02d}" / RECORTES_ESTADO, estado)
+        except OSError as e:
+            _log.warning("marcar: não guardei o que subiu do canal %d (%s)", canal, e)
+
+    def _recortes(self, canal: int, noite: Noite, lanches: list[LancheLido], conferencia: list[LancheLido],
+                  ponto_id: str | None, v: Volta) -> bool:
+        """Sobe o que falta da amostra de recortes da noite, em envios de até 25. Verdadeiro: parou (por erro, ou porque
+        a linha está parando) — a volta para ali, como os lanches."""
+        from farol_agent.recortes_na_nuvem import POR_ENVIO, candidatos_do_lanche, recorte
+        from farol_agent.recortes_na_nuvem import amostra as amostra_de_recortes
+        from farol_agent.recortes_na_nuvem import mandar as mandar_recortes
+
+        pasta_canal = self.raiz / f"canal-{canal:02d}"
+        estado = self._estado_dos_recortes(canal)
+        desde = _local(estado["desde"])
+        if desde is not None and noite.inicio < desde:
+            return False
+        da_noite = estado["noites"].get(noite.chave)
+        if da_noite is None:
+            fora = {l.pasta for l in conferencia}
+            candidatos = []
+            for l in lanches:
+                leitura = _ler_json(l.pasta / "passos.json") if l.pasta not in fora else None
+                if isinstance(leitura, dict):
+                    candidatos += candidatos_do_lanche(l.pasta, leitura, _local)
+            escolha = amostra_de_recortes(candidatos, self.marcar_por_noite, NOTA_DE_DUVIDA)
+            da_noite = {
+                "escolhidos": [{"pasta": c.pasta.relative_to(pasta_canal).as_posix(), "arquivo": c.arquivo, "parte": parte}
+                               for c, parte in escolha],
+                "feitos": [], "recusados": [],
+            }
+            estado["noites"][noite.chave] = da_noite
+            self._guardar_recortes(canal, estado)
+            if escolha:
+                partes = [p for _, p in escolha]
+                _log.info("marcar: a noite %s escolheu %d recorte(s) de %d (%d de dúvida, %d começos, %d de cobertura)",
+                          noite.chave, len(escolha), len(candidatos), partes.count("duvida"), partes.count("comeco"),
+                          partes.count("cobertura"))
+        prontos = set(da_noite.get("feitos") or []) | set(da_noite.get("recusados") or [])
+        falta = [e for e in da_noite.get("escolhidos") or [] if isinstance(e, dict)
+                 and _chave_do_recorte(e) not in prontos]
+        leituras: dict[str, Any] = {}
+        subiram = 0
+        for i in range(0, len(falta), POR_ENVIO):
+            if self._parar.is_set():
+                return True
+            lote, chaves, sem_imagem = [], [], []
+            for e in falta[i : i + POR_ENVIO]:
+                pasta = pasta_canal / str(e.get("pasta"))
+                if str(pasta) not in leituras:
+                    leituras[str(pasta)] = _ler_json(pasta / "passos.json")
+                leitura = leituras[str(pasta)]
+                achado = next((c for c in candidatos_do_lanche(pasta, leitura, _local) if c.arquivo == e.get("arquivo")),
+                              None) if isinstance(leitura, dict) else None
+                corpo = recorte(achado, str(e.get("parte")), _contorno) if achado is not None else None
+                if corpo is None:
+                    # a pasta saiu (a leitura guarda poucos dias) ou a imagem não abre: não sobe, e não se tenta de novo
+                    sem_imagem.append(_chave_do_recorte(e))
+                    continue
+                lote.append(corpo)
+                chaves.append(_chave_do_recorte(e))
+            da_noite["recusados"] = list(da_noite.get("recusados") or []) + sem_imagem
+            if lote:
+                envio = {
+                    "gravacao": {"chave": noite.chave, "pontoId": ponto_id, "inicio": _com_fuso(noite.inicio),
+                                 "fim": _com_fuso(noite.fim), "origem": "ao-vivo"},
+                    "recortes": lote,
+                }
+                destino, motivo = mandar_recortes(self.cliente, envio)
+                if destino == DEPOIS:
+                    self._guardar_recortes(canal, estado)
+                    v.parou = motivo
+                    self._dizer_erro(motivo)
+                    return True
+                self._ultimo_erro = None
+                if destino == ENCERRADA:
+                    _log.info("marcar: a gravação %s foi encerrada no console; os recortes dela param de subir", noite.chave)
+                    self._encerrar(canal, noite.chave)
+                    v.encerradas += 1
+                    self._guardar_recortes(canal, estado)
+                    return False
+                if destino == RECUSADO:
+                    _log.warning("marcar: a nuvem recusou %d recorte(s) da noite %s (%s); não repito", len(lote),
+                                 noite.chave, motivo)
+                    da_noite["recusados"] = list(da_noite["recusados"]) + chaves
+                else:
+                    da_noite["feitos"] = list(da_noite.get("feitos") or []) + chaves
+                    subiram += len(chaves)
+                    v.recortes += len(chaves)
+            self._guardar_recortes(canal, estado)
+        if subiram:
+            _log.info("marcar: %d recorte(s) da noite %s subiram para marcar", subiram, noite.chave)
+        return False
 
     def _dizer_erro(self, motivo: str | None) -> None:
         # A mesma frase não volta ao registro a cada volta (ERR-014).
