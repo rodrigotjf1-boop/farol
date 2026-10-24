@@ -167,10 +167,16 @@ class BaseEmFundo:
     def __init__(
         self, cliente: ClienteDaBase, caminho_config: str | Path, *, relogio: Callable[[], datetime] = datetime.now,
         agora: Callable[[], float] = time.monotonic, pausa_s: float = PAUSA_S, a_cada_s: float = A_CADA_S,
+        depois_de_mudar: Callable[[], Any] | None = None,
     ) -> None:
         self.cliente = cliente
         self.caminho_config = Path(caminho_config)
         self.base = BaseDaLoja.ao_lado(caminho_config)
+        # A24 F3: quando a base muda (a marcação e a conferência do dono) — e na primeira descida depois que o agente
+        # sobe —, o juiz se monta AQUI, com a loja fechada, e não no primeiro lanche da noite (o juiz treinado calcula
+        # as 8 vistas de cada exemplo novo)
+        self.depois_de_mudar = depois_de_mudar
+        self._juiz_montado = False
         self._relogio, self._agora = relogio, agora
         self.pausa_s, self.a_cada_s = pausa_s, a_cada_s
         self._proxima: float | None = None
@@ -212,6 +218,12 @@ class BaseEmFundo:
                 d.baixados, d.apagados, f", {d.recusados} com o resumo errado (não ficaram)" if d.recusados else "",
                 f", {d.sumiram} já não estavam na nuvem" if d.sumiram else "",
             )
+        if self.depois_de_mudar is not None and (d.mudou or d.baixados or d.apagados or not self._juiz_montado):
+            try:
+                self.depois_de_mudar()
+                self._juiz_montado = True
+            except Exception:  # noqa: BLE001 — o juiz tenta de novo no primeiro lanche; a base já desceu
+                _log.exception("base da loja: o juiz não se refez agora; ele tenta de novo no primeiro lanche")
         return d
 
     def _rodar(self) -> None:

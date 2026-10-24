@@ -9624,3 +9624,44 @@ imagem e não se marca; (4) "o Farol acertou antes" conta os marcados da noite, 
   tracejado), voltar traz a pilha. 96 medidas (3 estados × 16 larguras × claro e escuro): nada rola para o lado, nome
   acessível em todo controle, nenhum id repetido, nenhum erro de script. No estreito, o recado do rodapé ocupa a linha e
   os botões descem (como no protótipo a 375 px).
+
+## 24/10/2026 · Marcar ingredientes, parte 3: o agente manda a amostra da noite e o juiz se refaz com a loja fechada (A24 F3; sem migration)
+
+O ciclo do protótipo aprovado: "a loja fecha: o agente escolhe uns 100 recortes da noite · você marca · cada resposta
+vira exemplo · o agente reaprende com a loja fechada; a noite seguinte já usa".
+
+- **`recortes_na_nuvem`** (a escolha e o corpo) e a volta da conferência (`passos_na_nuvem.ConferenciaEmFundo`, que já
+  roda com a loja fechada e sabe a noite de cada lanche): depois dos lanches da conferência de uma noite terminada, sobe
+  a amostra dos RECORTES dela (`POST /v1/agentes/treino/recortes`, até 25 por envio), na mesma gravação `ao-vivo`.
+  `FAROL_MARCAR_POR_NOITE` (padrão 100, máximo 300; 0 desliga). Liga junto com a conferência: o dono aprovou o modo
+  inteiro ("1 pode", 24/10, com o agente subindo a amostra da noite).
+- **A amostra** — só dos lanches lidos com o juiz que NÃO foram para a conferência (esses se conferem inteiros); os
+  candidatos são o começo da peça, o passo, o provisório e o vazio, com recorte. Dúvida até 40% (o vazio, e o passo e o
+  provisório abaixo da `NOTA_DE_DUVIDA` — a regra da nuvem), começo até 10%, o resto um pouco de CADA nome que o juiz
+  deu, um nome de cada vez (o lote que o dono marcou em 23/10 tinha 40 de dúvida, 114 de cobertura de 20 nomes e 12
+  começos). O que sobra numa parte vai para as outras; dentro de cada parte, espalhado pela noite; sempre a mesma
+  escolha. O vazio vai sem palpite (é o que o juiz tirou: o "parece" dele não é o nome que ele deu).
+- **O estado** fica na pasta do canal (`recortes-para-marcar.json`): a escolha de cada noite, o que subiu e o que foi
+  recusado — a volta seguinte só manda o que falta. A resposta decide como nos lanches: rede, 5xx, 401, 403 e 429
+  param a volta e repetem na seguinte; 422 não repete; 409 encerra a noite (a lista de encerradas da conferência: os
+  lanches dela param também). O recorte cuja imagem sumiu (a leitura guarda os passos por poucos dias) não sobe e não se
+  tenta de novo.
+- **A primeira vez** (sem o arquivo de estado), a amostra vale só da noite mais nova no disco em diante: as noites de
+  21 e 22/10 o dono já marcou na página local.
+- **O juiz se refaz com a loja fechada**: `BaseEmFundo(depois_de_mudar=...)` chama o juiz da loja logo depois que a base
+  desce com mudança (exemplos novos da marcação ou da conferência) — e na primeira descida depois que o agente sobe (a
+  troca de pacote durante o dia deixa o juiz pronto antes da abertura). O juiz treinado calcula ali as 8 vistas de cada
+  exemplo novo (~0,7 s cada no processador da loja) e treina — e não no primeiro lanche das 19:00. Um defeito nessa
+  hora vai para o registro e não derruba a descida; o juiz tenta de novo no primeiro lanche, como antes.
+
+### Como foi conferido
+
+- `agent/testes/test_recortes_na_nuvem.py` (14 testes): o ambiente; o motivo de cada passo; as partes da amostra (o
+  teto de 40% e de 10%), um nome de cada vez, espalhada e sempre a mesma; o que sobra; o recorte no contrato (as chaves,
+  a imagem reduzida, o contorno dentro dela, o vazio sem palpite); a noite mais nova em envios de 25, fora da
+  conferência, sem repetir, e a noite seguinte; rede no primeiro e no segundo envio (só o que falta); 422 e 409 (também
+  o 409 dos lanches na mesma volta); a imagem que sumiu; 0 desliga; a base que muda refaz o juiz, a que não muda não (só
+  na primeira descida depois de subir), e o defeito não derruba.
+- A suíte inteira do agente: ~2.180 testes, sem falha. Mutação: 15 de 15 trocas pegas (`mutar_marcar_agente.py`; na
+  primeira rodada escaparam o teto de 40% de dúvida e a noite encerrada pela conferência na mesma volta — os dois
+  testes entraram).

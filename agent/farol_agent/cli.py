@@ -1160,19 +1160,27 @@ def cmd_servir(args: argparse.Namespace) -> int:
             from farol_agent.juizes.ingrediente import JuizDaLoja
             from farol_agent.juizes.treinado import vistas_da_consulta
 
-            # A base da loja desce numa linha própria, com a loja fechada; o juiz se monta dela quando os passos pedem.
+            # A base da loja desce numa linha própria, com a loja fechada; o juiz se monta dela quando os passos pedem —
+            # e, quando a base muda (a marcação e a conferência do dono), logo depois que ela desce (A24 F3).
             base_em_fundo = BaseEmFundo(cliente, args.config)
-            base_em_fundo.iniciar()
             treinado = juiz_treinado_ligado(os.environ.get(JUIZ_TREINADO))
             juiz_de = JuizDaLoja(Path(os.environ.get("FAROL_MODELOS") or "modelos"), base_em_fundo.base,
                                  treinado=treinado,
                                  vistas_na_consulta=vistas_da_consulta(os.environ.get(JUIZ_TREINADO_VISTAS)))
+            base_em_fundo.depois_de_mudar = juiz_de
+            base_em_fundo.iniciar()
             from farol_agent.passos_na_nuvem import VARIAVEL_POR_NOITE, ConferenciaEmFundo, por_noite
+            from farol_agent.recortes_na_nuvem import VARIAVEL_POR_NOITE as MARCAR_POR_NOITE
+            from farol_agent.recortes_na_nuvem import por_noite as marcar_por_noite
 
-            # A noite lida por passos sobe para a conferência (uma amostra por noite), também com a loja fechada.
+            # A noite lida por passos sobe para a conferência (uma amostra por noite), também com a loja fechada; e,
+            # com ela, os recortes da noite para MARCAR (A24 F3; `FAROL_MARCAR_POR_NOITE`, 0 desliga).
             n_por_noite = por_noite(os.environ.get(VARIAVEL_POR_NOITE))
             if n_por_noite:
-                conferencia_em_fundo = ConferenciaEmFundo(cliente, args.config, canais_ao_vivo, por_noite=n_por_noite)
+                conferencia_em_fundo = ConferenciaEmFundo(
+                    cliente, args.config, canais_ao_vivo, por_noite=n_por_noite,
+                    marcar_por_noite=marcar_por_noite(os.environ.get(MARCAR_POR_NOITE)),
+                )
                 conferencia_em_fundo.iniciar()
         bancada_ao_vivo = BancadaAoVivo(
             args.config, canais_ao_vivo, guardar_quadros=guardar, passos=passos, juiz_de=juiz_de,
@@ -1189,6 +1197,8 @@ def cmd_servir(args: argparse.Namespace) -> int:
             + (f"; o nome do ingrediente pelo JUIZ TREINADO ({JUIZ_TREINADO})" if treinado else "")
             + (f"; até {conferencia_em_fundo.por_noite} lanches de cada noite sobem para a conferência, com a loja "
                "fechada" if conferencia_em_fundo is not None else "")
+            + (f"; e até {conferencia_em_fundo.marcar_por_noite} recortes de cada noite sobem para MARCAR"
+               if conferencia_em_fundo is not None and conferencia_em_fundo.marcar_por_noite else "")
         )
 
     from farol_agent.pipeline.recorte import borrao_ligado

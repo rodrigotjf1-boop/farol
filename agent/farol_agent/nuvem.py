@@ -166,6 +166,10 @@ class ClienteNuvem:
         """Manda um lanche lido numa gravação de treino, com os quadros reduzidos das etapas (A21, T3)."""
         return self._pedir("POST", "/v1/agentes/treino/lanches", corpo)
 
+    def recortes_para_marcar(self, corpo: dict[str, Any]) -> dict[str, Any]:
+        """Manda os recortes da noite que a loja escolheu para marcar, até 25 por envio (A24 F3, migration 055)."""
+        return self._pedir("POST", "/v1/agentes/treino/recortes", corpo)
+
     def responder(
         self,
         comando_id: str,
