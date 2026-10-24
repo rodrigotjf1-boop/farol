@@ -144,7 +144,13 @@ export function vistosPorPasso(etapas: EtapaDoLanche[], r: RespostasPorPasso, pa
   if (pao) soma(pao, 1);
   for (const i of conferiveis(etapas)) {
     const nome = nomeDoPasso(etapas[i]!, r.passos[i]);
-    if (nome) soma(nome, etapas[i]!.vezes);
+    if (!nome) continue;
+    // o passo que é o pão (a tampa que chega por cima) não soma outro pão: o pão do lanche conta uma vez só
+    if (ehPao(nome)) {
+      if (![...conta.keys()].some((k) => k.startsWith('pao'))) soma(nome, 1);
+      continue;
+    }
+    soma(nome, etapas[i]!.vezes);
   }
   return conta;
 }
@@ -180,7 +186,7 @@ export function PassosDoLanche({
   paes: string[];
   /** O pão pelas peças (nulo = o Farol pergunta). */
   paoLido: string | null;
-  /** Os ingredientes das fichas que se veem de cima, sem os pães (um passo nunca é pão). */
+  /** Os ingredientes das fichas que se veem de cima, com os pães no fim (a tampa que chega por cima é um passo). */
   ingredientes: string[];
   r: RespostasPorPasso;
   aoMudar: (r: RespostasPorPasso) => void;

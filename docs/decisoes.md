@@ -9524,3 +9524,18 @@ marcações dele, com o modelo int8 do agente:
 - Mutação: 9 de 9 trocas pegas (sem classes equilibradas; pão como ingrediente; nome fora do classificador; sempre 8
   vistas; vetor de outro modelo aceito; treino com um nome só; nota virando probabilidade; a chave não desliga; a chave
   sempre ligada).
+
+## 23/10/2026 · Conferência por passo: o passo pode ser o pão (sem migration)
+
+O dono, conferindo a noite de 22/10: "tem um exemplo que pergunta se é carne 56, porém é um pão de dois cortes e não tem
+na lista; a lista está incompleta". A lista do "O que era" de cada passo tirava os pães de propósito ("um passo nunca é
+pão", decisão de 21/10). Errado: a tampa que chega por cima é um passo — na noite de 22/10 a leitura achou pão no que
+chegou em 104 de 588 passos.
+
+- `gaveta-do-lanche.tsx`: os pães voltam à lista do passo, no FIM (depois dos ingredientes).
+- `conferencia-por-passo.tsx` (`vistosPorPasso`): o passo que é o pão não soma outro pão ao lanche — o pão conta uma vez
+  (senão a conta da ficha acusaria "pão a mais").
+- A API já aceitava: o nome do pão está nas fichas, então a resposta vira exemplo de pão (o juiz treinado aprende a
+  tampa, e a regra "o que chegou é pão" fica mais certa).
+
+Conferido: `tsc` e `npm run build` do console.
