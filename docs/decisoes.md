@@ -9591,3 +9591,36 @@ para ela. O protótipo "Marcar ingredientes" (uma aba no Treinamento, um recorte
   sem a conta; a execução marca; nome fora das fichas; o de baixo como o de cima; a noite passa do máximo; a imagem fica
   mais tempo; pular o marcado; a noite cancelada recebe; o pão se conta; a dúvida não vem primeiro; o recorte que
   ninguém marcou fica; outra conta marca).
+
+## 24/10/2026 · Marcar ingredientes, parte 2: a aba no Treinamento (A24 F3; sem migration)
+
+A tela do protótipo aprovado em 24/10: a aba **"Marcar ingredientes"** (com o NOVO e a conta do que espera marcação em
+todas as noites), logo depois de "Lanches" (`componentes/treino/painel-de-marcar.tsx`; os recortes vêm à parte, como os
+ingredientes — se não vierem, o resto do treinamento segue e a aba diz que não carregou, com "Tentar de novo"; só a
+resposta da leitura mais nova vale, para a troca rápida de noite).
+
+- Uma noite por vez (a que espera há mais tempo), um recorte por vez, a dúvida primeiro. O recorte inteiro, com o
+  tracejado do que chegou; "Lanche das HH:MM", a peça; "O Farol acha: X" com a certeza pela régua da conferência por
+  passo (alta de 0,60, média de 0,52); ← "n de N" →.
+- A pilha de cima para baixo: tocar nos nomes (em grupos), − e + no que se conta, ↑ ↓ ✕; "Não é ingrediente (inox,
+  papel, mão, caixa)" e "Não dá para ver"; a observação. O rodapé fica preso embaixo: o que está marcado, a barra do
+  andamento, Pular e "Salvar e próximo" (Enter, menos dentro da observação, de um botão ou de um seletor). Salvar grava
+  na hora e vai ao próximo sem resposta (dá a volta); no último, "Tudo marcado" (ERR-149 da página local).
+- As contas da noite: para marcar, marcados, e "o Farol acertou antes" (dos marcados com um ingrediente em cima).
+- Voltar a um recorte marcado traz a pilha guardada; salvar de novo troca o exemplo (a API já fazia).
+
+**Diferenças em relação ao protótipo:** (1) o SELETOR DE NOITE, quando há mais de uma noite com recortes (o protótipo
+mostrava uma só); (2) uma linha embaixo do recorte com o porquê ("o Farol teve dúvida", "um pouco de cada ingrediente",
+"o começo da peça") e, ao voltar a um marcado, quem marcou; (3) o recorte cuja imagem já saiu (30 dias) aparece sem
+imagem e não se marca; (4) "o Farol acertou antes" conta os marcados da noite, e não só os da visita.
+
+### Como foi conferido
+
+- `tsc` e `npm run build` do console.
+- Roteiro de tela num navegador sem janela (`marcar_tela_verificar.mjs`, API e console locais, banco de teste com 12 +
+  3 recortes da noite de 22/10 — as imagens só nesta máquina), com cliques de verdade: a aba (NOVO, conta 15), a noite
+  que espera há mais tempo, a pilha (dois nomes, o +, ↓), salvar (a resposta guardada na API), "não é ingrediente" com
+  Enter, Pular no último → "Tudo marcado" (a aba conta 12), a troca de noite (a dúvida primeiro, a imagem com o
+  tracejado), voltar traz a pilha. 96 medidas (3 estados × 16 larguras × claro e escuro): nada rola para o lado, nome
+  acessível em todo controle, nenhum id repetido, nenhum erro de script. No estreito, o recado do rodapé ocupa a linha e
+  os botões descem (como no protótipo a 375 px).
