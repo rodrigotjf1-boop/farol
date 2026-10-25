@@ -1220,6 +1220,18 @@ def cmd_servir(args: argparse.Namespace) -> int:
                if conferencia_em_fundo is not None and conferencia_em_fundo.marcar_por_noite else "")
         )
 
+    # A planta viva (A26, P2): as pessoas no mapa pelos canais calibrados, sem imagem e sem nome. Nasce desligada.
+    from farol_agent.planta_viva.pessoas import LIGAR as PLANTA_VIVA
+    from farol_agent.planta_viva.servico import ROTA as ROTA_DA_PLANTA
+    from farol_agent.planta_viva.servico import PlantaViva, ligada as planta_viva_ligada
+
+    planta_viva = None
+    if planta_viva_ligada(os.environ.get(PLANTA_VIVA)):
+        planta_viva = PlantaViva(args.config, lambda lote: cliente._pedir("POST", ROTA_DA_PLANTA, {"minutos": lote}))
+        planta_viva.iniciar()
+        print(f"planta viva LIGADA ({PLANTA_VIVA}): as pessoas no mapa pelos canais calibrados, com a loja aberta — "
+              "sem imagem e sem nome")
+
     from farol_agent.pipeline.recorte import borrao_ligado
 
     if not borrao_ligado():
@@ -1236,6 +1248,8 @@ def cmd_servir(args: argparse.Namespace) -> int:
     except KeyboardInterrupt:
         print("\n  parado\n")
     finally:
+        if planta_viva is not None:
+            planta_viva.parar()
         if bancada_ao_vivo is not None:
             bancada_ao_vivo.parar()
         if conferencia_em_fundo is not None:

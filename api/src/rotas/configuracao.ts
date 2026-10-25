@@ -29,6 +29,7 @@ import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import { SQL_NUMERO_DO_QUADRO } from '../cena.js';
 import { lerSabe, SABE_ESTADOS } from '../estado.js';
 import { estudoParaOAgente, SABE_ESTUDO } from '../estudo.js';
+import { calibracoesDaLoja } from './calibracao.js';
 import { lugaresDaLoja } from './planta.js';
 
 /**
@@ -210,6 +211,8 @@ export async function configuracaoDaLoja(pool: pg.Pool, lojaId: string, sabe: Re
   // Onde cada câmera fica e o que tem na frente dela, tirado da planta
   // da loja. É a mesma frase que a tela da planta mostra.
   const lugares = await lugaresDaLoja(pool, lojaId);
+  // A calibração de cada câmera pelos pontos do piso (A26, P1): a homografia que leva o pé de cada pessoa à planta.
+  const calibracoes = await calibracoesDaLoja(pool, lojaId);
 
   const zonasPorPonto = new Map<string, unknown[]>();
   for (const z of zonas.rows) {
@@ -303,6 +306,16 @@ export async function configuracaoDaLoja(pool: pg.Pool, lojaId: string, sabe: Re
       // As fotos padrão deste canal, da mais nova para a mais antiga.
       padroes: fotosPorPonto.get(p.id) ?? [],
       zonas: zonasPorPonto.get(p.id) ?? [],
+      // A calibração pelos pontos do piso (A26, P1): nula = o canal não foi calibrado. O agente antigo ignora.
+      calibracao: (() => {
+        const c = calibracoes.get(p.id);
+        if (!c) return null;
+        return {
+          homografia: c.homografia,
+          erroM: Number(c.erro_conferido_m ?? c.erro_medio_m),
+          versao: c.versao,
+        };
+      })(),
     })),
   };
 }

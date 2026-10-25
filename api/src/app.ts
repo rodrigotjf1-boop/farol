@@ -23,6 +23,8 @@ import { rotasDeDiagnostico } from './rotas/diagnostico.js';
 import { rotasDeDuvidas } from './rotas/duvidas.js';
 import { rotasDeInventario } from './rotas/inventario.js';
 import { rotasDePlanta } from './rotas/planta.js';
+import { rotasDeCalibracao } from './rotas/calibracao.js';
+import { rotasDaPlantaViva } from './rotas/planta-viva.js';
 import { rotasDoEspecialista } from './rotas/especialista.js';
 import { rotasDePadroes } from './rotas/padroes.js';
 import { rotasDePreview } from './rotas/preview.js';
@@ -219,6 +221,8 @@ export function criarApp(
   rotasDePadroes(app, pool);
   rotasDeInventario(app, pool);
   rotasDePlanta(app, pool);
+  rotasDeCalibracao(app, pool);
+  rotasDaPlantaViva(app, pool);
   rotasDoEspecialista(app, pool);
   rotasDeEventos(app, pool);
   rotasDeResumos(app, pool);
