@@ -1198,7 +1198,7 @@ gravador atende (1,5 s, fora da trava), e o OpenCV passa a desistir em 5 s
 
 ---
 
-## A26 · A saúde do computador do agente e o controle de movimento (pedido do dono em 25/10/2026) — 🟡 M1, P1, P2 e P3 feitas (as telas esperam protótipo)
+## A26 · A saúde do computador do agente e o controle de movimento (pedido do dono em 25/10/2026) — 🟡 M1, M2, P1, P2 e P3 feitas; protótipo aprovado (25/10)
 
 O pedido do dono (25/10, depois da queda de energia de 24/10 que deixou o PC desligado das 08h49 às 04h44):
 
@@ -1213,7 +1213,7 @@ onde cobre." O nobreak, o dono providencia.
 | Parte | O quê | Situação |
 |---|---|---|
 | **M1** | o agente lê os sensores do PC (placa de vídeo: uso, memória, temperatura, consumo, ventoinha, frequência e se segurou a frequência por calor ou energia; a frequência real do processador; a temperatura da placa-mãe; o disco: ocupado, leitura, escrita, temperatura e saúde; há quanto tempo está ligado), guarda por hora com soma, amostras e pico, e o pico de cada minuto; a última queda do PC (quando apagou, quando voltou e a causa, pelo registro do Windows). A nuvem guarda (migration 056) e o relatório sai em `GET /v1/lojas/:id/computador/saude` | ✅ 25/10/2026 |
-| M2 | a tela do relatório, no "Computador da loja": por hora, os picos, as temperaturas, as quedas e "sobrecarregado?" / "esquentando?" com o porquê | a fazer — **protótipo primeiro** |
+| **M2** | a tela do relatório, no "Computador da loja" (aba **Saúde**, a primeira; o horário passou para a aba **Horário**, `/computador/horario`): "sobrecarregado?" / "esquentando?" com o porquê, as medidas com média e pico, o gráfico hora a hora (num dia) ou dia a dia (7 e 31 dias) com a gaveta do pico de cada minuto, e as quedas. Protótipo `mockups/farol-planta-viva-e-saude.html`, **aprovado pelo dono em 25/10/2026** | ✅ 25/10/2026 |
 | M3 | o aviso de calor e de sobrecarga pelos destinos dos alertas | a fazer, depois da M2 |
 | **P1** | cada câmera no mapa: onde fica e o que cobre, pelos pontos marcados no piso — a homografia de cada canal (imagem → planta), o erro de cada ponto, o erro conferido (deixando um de fora por vez) e o pedaço do piso que a câmera vê. A mesma conta na nuvem (`api/src/calibracao.ts`) e no agente (`planta_viva/calibracao.py`), conferida contra uma câmera simulada (`contratos/calibracao-da-camera.json`). Migration 057 e as rotas `…/calibracoes` (conferir sem salvar, salvar com versão, tirar); a homografia desce ao agente na configuração | ✅ 25/10/2026 (servidor) — a tela de marcar os pontos espera o protótipo, e os pontos, as fotos |
 | **P2** | o agente: pessoa (o detector da auditoria) → pé → ponto no chão com a incerteza → as câmeras juntas → o caminho sem nome → o minuto (calor, pico, caminhos a 1 ponto por segundo), do fluxo reduzido dos canais calibrados, com a loja aberta. **Nasce desligado** (`FAROL_PLANTA_VIVA`) | ✅ 25/10/2026 (código) — liga depois da calibração |

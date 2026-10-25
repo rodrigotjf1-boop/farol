@@ -610,7 +610,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <Link
                 href={`/lojas/${lojaId}/computador`}
                 data-computador-da-loja
-                aria-current={caminho === `/lojas/${lojaId}/computador` ? 'page' : undefined}
+                aria-current={caminho === `/lojas/${lojaId}/computador` || caminho.startsWith(`/lojas/${lojaId}/computador/`) ? 'page' : undefined}
                 title={`${saude.titulo} — ${saude.detalhe}`}
                 className="mt-1.5 inline-flex max-w-full items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[.08em] text-farol-suave no-underline transition-colors hover:text-farol-tinta"
               >

@@ -1,210 +1,177 @@
 'use client';
 
 // =====================================================================
-// O computador da loja: quando ele dorme e acorda sozinho (A22, fatia P2)
+// O computador da loja: a SAÚDE (A26, parte M2)
 // =====================================================================
-// Do protótipo aprovado em 16/10/2026 (`mockups/farol-computador-da-loja.html`).
-// Chega-se aqui pelo estado do agente no pé da coluna. O que mostra:
+// Do protótipo aprovado em 25/10/2026 (`mockups/farol-planta-viva-e-saude.html`,
+// "Computador › Saúde"). O pedido do dono: o uso do processador, da memória e
+// da placa por hora, os picos, as temperaturas, e se o computador está
+// sobrecarregado ou esquentando. A conta é da API
+// (`GET /v1/lojas/:id/computador/saude`); aqui, o desenho — no relógio da loja.
 //
-//   - como ele está agora: acordado, dormindo no horário, ou "não acordou";
-//   - o horário da semana, desenhado (a conta é da API);
-//   - os cuidados antes de programar.
+//   - "Sobrecarregado?", "Esquentando?" e "Por quê";
+//   - as medidas do período (média e pico, com a hora do pico);
+//   - o gráfico hora a hora (num dia) ou dia a dia (7 e 31 dias), que abre a
+//     gaveta com o pico de cada minuto;
+//   - as quedas do computador.
 //
-// Ficam para a fatia P3 (o agente que sabe dormir): o teste "dormir 3
-// minutos" e "o que aconteceu" (dormiu, acordou e em quanto tempo).
+// A segunda aba é o Horário (A22), em `/computador/horario`.
 // =====================================================================
 
-import { Moon, Pencil, Power, TriangleAlert } from 'lucide-react';
+import { Activity } from 'lucide-react';
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { haQuanto, useConsole } from '@/componentes/console';
-import { GavetaDoHorarioDoComputador } from '@/componentes/computador/gaveta-do-horario-do-computador';
-import { SemanaDoComputador } from '@/componentes/computador/semana-do-computador';
-import { useAvisar } from '@/componentes/ui/avisos';
-import { Botao } from '@/componentes/ui/botao';
-import { Alerta, Cabecalho, CARTAO, Chip, Ossos } from '@/componentes/ui/pecas';
-import { consoleApi, ErroDaApi, type TelaDoComputador } from '@/lib/api';
+import { abasDoComputador } from '@/componentes/computador/abas-do-computador';
+import { GavetaDaBarra } from '@/componentes/computador/saude/gaveta-da-barra';
+import { GraficoDasHoras } from '@/componentes/computador/saude/grafico-das-horas';
+import { Medidas } from '@/componentes/computador/saude/medidas';
+import { Quedas } from '@/componentes/computador/saude/quedas';
+import { Vereditos } from '@/componentes/computador/saude/vereditos';
+import { useConsole } from '@/componentes/console';
+import { Abas } from '@/componentes/ui/abas';
+import { Alerta, Cabecalho, CARTAO, Chip, Ossos, Segmentado, Titulo, Vazio } from '@/componentes/ui/pecas';
+import { consoleApi, ErroDaApi, type DiaDesenhado } from '@/lib/api';
+import { barras, MEDIDAS, num, temSensores, type Barra, type Medida, type SaudeDaMaquina } from '@/lib/saude';
 
-/** O dia (1 = segunda) e o minuto de agora no relógio da loja, para a marca na barra de hoje. */
-function agoraNaLoja(fuso: string): { dia: number; minuto: number } | null {
-  try {
-    const partes = new Intl.DateTimeFormat('en-GB', { timeZone: fuso, weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-      .formatToParts(new Date());
-    const de = (t: string) => partes.find((x) => x.type === t)?.value ?? '';
-    const dia = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(de('weekday')) + 1;
-    return dia > 0 ? { dia, minuto: Number(de('hour')) * 60 + Number(de('minute')) } : null;
-  } catch {
-    return null;
-  }
-}
+type Periodo = '1' | '7' | '31';
+const PERIODOS: ReadonlyArray<{ valor: Periodo; rotulo: string }> = [
+  { valor: '1', rotulo: 'Últimas 24 h' },
+  { valor: '7', rotulo: '7 dias' },
+  { valor: '31', rotulo: '31 dias' },
+];
 
-export default function PaginaDoComputador() {
+export default function SaudeDoComputador() {
   const { id } = useParams<{ id: string }>();
-  const { loja, atualizar } = useConsole();
-  const avisar = useAvisar();
-  const [tela, setTela] = useState<TelaDoComputador | null>(null);
+  const { loja } = useConsole();
+  const [periodo, setPeriodo] = useState<Periodo>('1');
+  const [dados, setDados] = useState<SaudeDaMaquina | null>(null);
+  const [semana, setSemana] = useState<DiaDesenhado[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [editando, setEditando] = useState(false);
-  const [agora, setAgora] = useState<{ dia: number; minuto: number } | null>(null);
+  const [medida, setMedida] = useState<Medida>('cpu');
+  const [escolhida, setEscolhida] = useState<Barra | null>(null);
+  // Só a resposta do pedido mais novo vale: trocar de período rápido não deixa a de antes por cima.
+  const pedido = useRef(0);
 
   const carregar = useCallback(() => {
+    const meu = ++pedido.current;
+    setErro(null);
     consoleApi
-      .computador(id)
-      .then((t) => {
-        setTela(t);
-        setErro(null);
+      .saudeDoComputador(id, Number(periodo))
+      .then((d) => {
+        if (meu === pedido.current) setDados(d);
       })
-      .catch((e) => setErro(e instanceof ErroDaApi ? e.message : 'não deu para carregar o computador da loja'));
+      .catch((e) => {
+        if (meu === pedido.current) setErro(e instanceof ErroDaApi ? e.message : 'não deu para carregar a saúde do computador');
+      });
+  }, [id, periodo]);
+  useEffect(() => carregar(), [carregar]);
+  // A loja aberta (para pintar as barras) vem do horário do computador; sem ele, as barras ficam todas iguais.
+  useEffect(() => {
+    consoleApi.computador(id).then((t) => setSemana(t.semana)).catch(() => setSemana(null));
   }, [id]);
 
-  useEffect(() => carregar(), [carregar]);
-  // A marca de agora sai depois de montar (o relógio do navegador não entra no primeiro desenho).
-  useEffect(() => {
-    if (loja?.timezone) setAgora(agoraNaLoja(loja.timezone));
-  }, [loja?.timezone]);
+  const comSensores = useMemo(() => (dados ? temSensores(dados.horas) : false), [dados]);
+  const opcoes = useMemo(
+    () => (Object.entries(MEDIDAS) as Array<[Medida, (typeof MEDIDAS)[Medida]]>)
+      .filter(([, m]) => comSensores || !m.sensor)
+      .map(([valor, m]) => ({ valor, rotulo: m.nome })),
+    [comSensores],
+  );
+  const medidaVale = opcoes.some((o) => o.valor === medida) ? medida : 'cpu';
+  const porDia = periodo !== '1';
+  const lista = useMemo(() => (dados ? barras(dados.horas, medidaVale, dados.fuso, porDia, semana) : []), [dados, medidaVale, porDia, semana]);
+
+  const cabecalho = (
+    <>
+      <Cabecalho sobre={loja?.nome} titulo="Saúde do computador">
+        Por hora: o uso do processador, da memória e da placa, as temperaturas e o pico de cada minuto. Para saber se o
+        computador que lê as câmeras está sobrecarregado ou esquentando.
+      </Cabecalho>
+      <Abas rotulo="Vistas do computador" abas={abasDoComputador(id)} />
+    </>
+  );
 
   if (erro) {
     return (
-      <Alerta tom="critico" papel="alert">
-        {erro}
-      </Alerta>
+      <>
+        {cabecalho}
+        <Alerta tom="critico" papel="alert">{erro}</Alerta>
+      </>
     );
   }
-  if (!tela) return <Ossos alturas={[64, 220, 160]} />;
+  if (!dados) {
+    return (
+      <>
+        {cabecalho}
+        <Ossos alturas={[[180, 180, 180], 110, 300]} />
+      </>
+    );
+  }
 
-  const h = tela.horario;
-  const ligado = h?.ligado === true;
-  const ag = tela.agente;
-  const dormindo = ag?.dormindo === true;
-  const naoAcordou = ag?.nao_acordou === true;
-  const sabe = ag?.sabeDormir === true;
-  const abrir = () => setEditando(true);
-
-  const estado = dormindo
-    ? { tom: 'neutro' as const, texto: `dormindo até ${ag?.acorda_as ?? '…'}, como programado` }
-    : naoAcordou
-      ? { tom: 'critico' as const, texto: `não acordou às ${ag?.acorda_as ?? '…'}` }
-      : ag && ag.segundosSemBater !== null
-        ? { tom: 'ok' as const, texto: `acordado · bateu ${haQuanto(ag.segundosSemBater)}` }
-        : { tom: 'neutro' as const, texto: 'sem agente batendo' };
-
+  const m = dados.maquina;
+  const resumo = dados.periodo;
+  const med = MEDIDAS[medidaVale];
+  const limite = med.limite(dados.limites);
   return (
     <>
-      <Cabecalho
-        sobre={loja?.nome}
-        titulo="Computador da loja"
-        acoes={
-          tela.configura && (
-            <Botao variante="primario" onClick={abrir} data-editar-horario>
-              {h ? <Pencil className="h-4 w-4" aria-hidden /> : <Power className="h-4 w-4" aria-hidden />}
-              {h ? 'Editar o horário' : 'Programar o horário'}
-            </Botao>
-          )
-        }
-      >
-        O computador que lê as câmeras desta loja. Aqui fica o horário em que ele dorme e acorda sozinho, fora do
-        expediente.
-      </Cabecalho>
+      {cabecalho}
 
-      <div className="-mt-2 flex flex-wrap gap-2" data-estado-do-computador>
-        <Chip tom={estado.tom} quebra>
-          {estado.texto}
-        </Chip>
-        {ag?.versao && <Chip>agente {ag.versao}</Chip>}
-        {ligado && <Chip>dorme e acorda sozinho</Chip>}
+      <div className="flex flex-wrap items-center gap-2" data-maquina>
+        {m?.processador && <Chip>{m.processador.replace(/\(R\)|\(TM\)|CPU|@.*$/g, '').replace(/\s+/g, ' ').trim()}</Chip>}
+        {m?.placaDeVideo && <Chip>{m.placaDeVideo}</Chip>}
+        {m?.memoriaGb && <Chip>{num(m.memoriaGb)} GB de memória</Chip>}
+        {resumo.ligadoHaH != null && <Chip tom="ok">ligado há {num(resumo.ligadoHaH, 1)} h</Chip>}
+        <span className="ml-auto">
+          <Segmentado rotulo="Período" opcoes={PERIODOS} valor={periodo} aoMudar={(p) => { setPeriodo(p); setEscolhida(null); }} />
+        </span>
       </div>
 
-      {dormindo && (
-        <Alerta icone={Moon} papel="status">
-          <b className="font-semibold">Dormindo até {ag?.acorda_as}, como programado.</b> A loja está fechada: nada é
-          conferido até lá, e o Farol não avisa que o agente está sem sinal enquanto ele dorme no horário.
-        </Alerta>
-      )}
-      {naoAcordou && (
-        <Alerta tom="critico" icone={TriangleAlert} papel="alert">
-          <b className="font-semibold">O computador não acordou às {ag?.acorda_as}.</b> Ele dormiu como programado e não
-          voltou. Pode ter faltado energia enquanto ele dormia: aí ele só volta quando alguém apertar o botão de ligar. O
-          aviso de agente sem sinal voltou a ser enviado.
-        </Alerta>
-      )}
-      {h && !sabe && (
-        <Alerta tom="atencao" papel="status">
-          <b className="font-semibold">O computador da loja ainda não sabe dormir e acordar sozinho.</b> O horário fica
-          guardado e vale quando o pacote novo for instalado nele. Até lá, ele fica ligado o tempo todo.
-        </Alerta>
-      )}
+      {dados.horas.length === 0 ? (
+        <Vazio icone={Activity} titulo="Ainda sem medidas">
+          O agente manda as medidas do computador a cada poucos minutos. A primeira hora aparece aqui logo depois que ele
+          enviar.
+        </Vazio>
+      ) : (
+        <>
+          {!comSensores && (
+            <Alerta papel="status">
+              <b className="font-semibold">O pacote do agente desta loja ainda não lê as temperaturas.</b> Aqui aparecem o
+              processador, a memória e a placa; com o pacote novo entram as temperaturas, o consumo da placa, o disco e as
+              quedas.
+            </Alerta>
+          )}
 
-      <section className={`${CARTAO} flex flex-col gap-3.5 p-[18px]`} aria-labelledby="t-horario" data-cartao-do-horario>
-        <header className="flex flex-wrap items-center gap-2">
-          <h2 id="t-horario" className="font-display text-lg font-semibold">
-            O horário
-          </h2>
-          {ligado && <span className="ml-auto"><Chip>no relógio da loja</Chip></span>}
-        </header>
-        {!ligado ? (
-          <div className="flex flex-col items-center gap-2.5 py-6 text-center" data-sem-horario>
-            <Power className="h-7 w-7 text-farol-suave" aria-hidden />
-            <h3 className="font-display text-base font-semibold">Sem horário: o computador fica ligado o tempo todo</h3>
-            <p className="max-w-[56ch] text-farol-suave">
-              Fora do expediente ele pode dormir: gasta menos energia, esquenta menos e acorda sozinho antes de a loja
-              abrir.
-            </p>
-            {tela.configura ? (
-              <Botao variante="primario" onClick={abrir}>
-                <Power className="h-4 w-4" aria-hidden />
-                Programar o horário
-              </Botao>
-            ) : (
-              <p className="text-[12.5px] text-farol-suave">Quem configura a loja programa o horário.</p>
-            )}
+          <Vereditos resumo={resumo} limites={dados.limites} comSensores={comSensores} />
+          <Medidas resumo={resumo} horas={dados.horas} fuso={dados.fuso} comDia={porDia} limiteDaPlaca={dados.limites.gpuTempC} />
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <section className={`${CARTAO} flex flex-col gap-3 p-[18px]`} aria-labelledby="t-grafico">
+              <Titulo id="t-grafico">{med.nome}, {porDia ? 'dia a dia' : 'hora a hora'}</Titulo>
+              <Segmentado rotulo="O que mostrar" opcoes={opcoes} valor={medidaVale} aoMudar={(v) => { setMedida(v); setEscolhida(null); }} />
+              <GraficoDasHoras barras={lista} limite={limite} unidade={med.unidade} nome={med.nome} aoEscolher={setEscolhida} />
+              <p className="text-[12.5px] text-farol-suave">
+                A barra é a média {porDia ? 'do dia' : 'da hora'}; o traço em cima, o pico. A linha tracejada é o limite (
+                {limite}
+                {med.unidade}). Toque numa barra para ver {porDia ? 'as horas do dia' : 'o pico de cada minuto'}.
+              </p>
+            </section>
+            <Quedas quedas={dados.quedas} fuso={dados.fuso} comSensores={comSensores} />
           </div>
-        ) : (
-          <>
-            <SemanaDoComputador semana={tela.semana} dias={h?.dias ?? null} agora={agora} />
-            <p className="text-[12.5px] text-farol-suave">
-              Ele não desliga de vez: entra em espera e acorda sozinho no horário. A loja aberta (a faixa de cima) é a do
-              horário de funcionamento, em Critérios.
-            </p>
-          </>
-        )}
-      </section>
+        </>
+      )}
 
-      <section className={`${CARTAO} flex flex-col gap-2.5 p-[18px]`} aria-labelledby="t-cuidados">
-        <h2 id="t-cuidados" className="font-display text-lg font-semibold">
-          Antes de programar
-        </h2>
-        <ul className="flex list-disc flex-col gap-1.5 pl-5 text-[13.5px] text-farol-suave marker:text-farol-borda-forte">
-          <li>
-            <b className="font-semibold text-farol-tinta">Ele não desliga de vez:</b> entra em espera. Se a energia cair
-            enquanto ele dorme, ele só volta quando alguém apertar o botão de ligar.
-          </li>
-          <li>
-            <b className="font-semibold text-farol-tinta">Outro sistema no mesmo computador dorme junto.</b> Se ele também
-            atende o servidor do Regem ou o caixa, programe só fora do expediente.
-          </li>
-          <li>
-            <b className="font-semibold text-farol-tinta">Depois de acordar, o agente leva um pouco para voltar a conferir:</b>{' '}
-            acorde antes de abrir. “Sugerir pelo horário da loja” deixa 1 hora de folga.
-          </li>
-          <li>
-            <b className="font-semibold text-farol-tinta">Enquanto ele dorme no horário,</b> o console mostra “dormindo” e o
-            Farol não manda o aviso de agente sem sinal. Se ele não acordar, o aviso volta.
-          </li>
-        </ul>
-      </section>
-
-      {editando && (
-        <GavetaDoHorarioDoComputador
-          lojaId={id}
-          tela={tela}
-          aoFechar={() => setEditando(false)}
-          aoSalvar={(nova, mensagem) => {
-            setTela(nova);
-            setEditando(false);
-            avisar(mensagem);
-            atualizar();
-          }}
+      {escolhida && (
+        <GavetaDaBarra
+          barra={escolhida}
+          horas={dados.horas}
+          medida={medidaVale}
+          nome={med.nome}
+          unidade={med.unidade}
+          limite={limite}
+          fuso={dados.fuso}
+          porDia={porDia}
+          aoFechar={() => setEscolhida(null)}
         />
       )}
     </>

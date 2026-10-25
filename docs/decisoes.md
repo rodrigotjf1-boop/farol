@@ -9910,3 +9910,42 @@ protótipo; da loja, as fotos e os pontos marcados no piso. A régua para ligar 
   o banco de teste deste notebook não tem).
 - O protótipo das telas (P4, e a M2 da saúde do PC) foi conferido num Chrome sem janela — 13 estados × 4 larguras × 2
   temas, sem rolagem para o lado nem erro de script — e espera o dono.
+
+## 25/10/2026 · A saúde do computador, a tela (A26 parte M2; sem migration)
+
+O protótipo "Planta viva e saúde do PC" (`mockups/farol-planta-viva-e-saude.html`) foi **aprovado pelo dono em
+25/10/2026** ("aprovado prototipo"). Esta é a parte da saúde; a planta viva (P4) vem no PR seguinte.
+
+**Onde fica:** "Computador da loja" passou a ter duas abas — **Saúde** (`/lojas/:id/computador`, a primeira: é o que o
+dono pediu acompanhar) e **Horário** (`/lojas/:id/computador/horario`, a tela do A22, sem mudar nada nela além do
+endereço e das abas). A linha do agente no topo continua levando a `/computador` e fica marcada nas duas abas.
+
+**O que mostra** (a conta é da API, `GET /v1/lojas/:id/computador/saude`; a da tela, em `web/lib/saude.ts`, no relógio
+da loja): a máquina (processador, placa, memória, ligado há quanto tempo), "Sobrecarregado?", "Esquentando?" e "Por
+quê" (os limites escritos embaixo), as medidas do período (média e pico com a hora), o gráfico com a medida escolhida
+(processador, memória, placa, temperatura da placa, placa-mãe — as de sensor só com o pacote que as manda) e as quedas.
+
+**Onde difere do aprovado:**
+- **A frase pequena dos blocos coloridos vai numa tira de papel**, com tinta normal. Medido: texto pequeno branco sobre o
+  picles dá 4,3:1 no tema claro e 3,2:1 no escuro, e sobre o ketchup do escuro 3,4:1 — abaixo de 4,5:1. A palavra
+  grande e o título (texto grande, ≥ 3:1) ficam sobre a cor, como no protótipo. A paleta não mudou.
+- **7 e 31 dias são dia a dia** (uma barra por dia, a média pesada pelas amostras e o maior pico); a gaveta do dia traz
+  as horas dele. O protótipo mostrava sempre 24 barras (os números eram os mesmos nos três períodos).
+- **Dois cartões a mais**: memória da placa e disco livre ("o máximo de dados possíveis", do pedido).
+- **O gráfico é desenhado na largura em que aparece** (como a planta): no celular, as letras ficam do tamanho delas.
+- **"Loja aberta" nas barras vem do horário de funcionamento** (a semana que a tela do Horário já recebe); sem horário
+  cadastrado, todas as barras ficam iguais e a gaveta diz "sem horário cadastrado".
+
+**Defeito achado de carona (ERR-152):** as pílulas do `Segmentado` cortavam o acento das maiúsculas ("ÚLTIMAS" saía
+"ULTIMAS", "MEMÓRIA" saía "MEMORIA") — o rótulo com `truncate` e linha de altura 1. Corrigido na peça (vale para todas as
+telas).
+
+### Como foi conferido
+
+- `api/testes/saude-da-maquina.test.ts`: a conta da tela (`web/lib/saude.ts`) — o relógio da loja, a loja aberta pelos
+  trechos, as barras por hora e por dia (média pesada e maior pico), as medidas de sensor e o que falta, o pico de cada
+  minuto, o tempo fora —, e as barras calculadas da resposta DE VERDADE da rota no Postgres.
+- No navegador (`a26_verificar.mjs`, Chrome sem janela, API e console locais com uma loja de teste semeada por
+  `a26_servidores.mjs`: 24 horas com sensores e minutos, uma queda, horário de funcionamento): 7 estados (24 h, rolado
+  até o gráfico, 7 dias, temperatura da placa, a gaveta da hora, a gaveta do dia, o Horário) em 5 larguras (320 a 1440) e
+  nos dois temas — sem rolagem para o lado, sem botão sem nome, sem erro de script.
