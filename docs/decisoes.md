@@ -9995,3 +9995,60 @@ câmera cobre** (`/canais/planta/cobertura`), **Calibrar câmera** (`/canais/pla
   — sem rolagem para o lado, sem botão sem nome, sem erro de script. Como supervisão: Calibrar diz que é de quem
   configura e o Movimento não tem o replay. E o salvar de ponta a ponta: marcar 5 pontos no canal 2, salvar, o aviso, e
   "Cada câmera" com o canal 2 calibrado.
+
+## 25/10/2026 · O aviso da máquina: esquentando e sobrecarregado (A26 parte M3; migration 059)
+
+Fecha o pedido do dono de 25/10 ("para verificar se o pc está sobrecarregado, se sobreaquece"): a tela da Saúde (M2)
+mostra o relatório; agora a nuvem também **avisa**, pelos destinos dos alertas, quando o problema está acontecendo.
+
+**Onde roda:** no `POST /v1/uso` — o agente manda a hora em curso a cada 5 minutos, com o pico de cada minuto. Depois
+de gravar, `avisarDaMaquina` (`api/src/aviso-da-maquina.ts`) lê as últimas 13 horas daquele computador e confere. Se a
+conferência falhar, o erro vai para o log e o envio do agente segue aceito (ele mandaria a mesma hora de novo à toa).
+Sem rotina nova: o aviso nasce de quem traz o dado.
+
+**A régua** (os limites são os da tela, `LIMITES` em `saude-da-maquina.ts`):
+- **esquentando** — na última hora, a placa de vídeo ≥ 83 °C ou a placa-mãe ≥ 70 °C em pelo menos **10 minutos**; ou o
+  disco ≥ 60 °C no pico da hora em curso ou da anterior (o disco não vem por minuto). Um pico solto de um minuto não é
+  aviso: a tela mostra, o celular não toca.
+- **sobrecarregado** — nas últimas 12 horas, processador ou memória ≥ 90% ou placa ≥ 95% em pelo menos **30 minutos**
+  (a régua de "sobrecarregado" da tela) **e** um desses minutos nos últimos 15: o aviso é do que está acontecendo, não
+  da noite passada.
+- O minuto que ainda não chegou (relógio da loja adiantado) não conta.
+
+**Quantas vezes:** um de cada tipo a cada **12 horas por computador, contadas desde o último aviso** (V22: nunca por
+faixa do calendário). A marca fica em `computador_aviso` (migration 059) e troca **na mesma instrução** que cria os
+envios (`insert … on conflict do update … where ultimo_em <= agora − 12 h` num `with`): três envios do agente juntos
+avisam uma vez. A chave do envio leva a hora da marca em microssegundos — com segundos, um teste mostrou a marca
+trocando e o envio descartado como repetido.
+
+**Para quem:** pela política da loja (`resolverDestinos`). Esquentando é **crítico/urgente**; sobrecarregado,
+**atenção/urgente**. Os dois alcançam os destinos ativos da loja sem política nenhuma (o dono pediu para saber), e
+quem não quiser cala com uma linha de veto da combinação; a severidade diferente deixa vetar um sem o outro. Sem destino
+cadastrado não se marca: o aviso sai quando houver para quem.
+
+**O que vai no envio:** `motivo = 'computador'` e o `payload` `{ tipo, agente, loja, porque, desde, ate, consequencia,
+texto }` — o `texto` é a mensagem pronta em português, terminando em "No console: Computador da loja › Saúde."
+(`docs/transporte-dos-alertas.md`). No console, Alertas › "Chegou?" mostra "Computador esquentando" (termômetro) ou
+"Computador sobrecarregado" (medidor): a lista ganhou o campo `computador` (o tipo).
+
+**O que ainda não acontece:** ninguém entrega os avisos do Farol hoje — o lado do n8n/Regem que puxa
+`/v1/envios/reivindicar` está "a fazer" no roadmap. Até lá, o envio fica "na fila" em "Chegou?". Quando o transporte
+ligar, ele precisa conhecer o motivo novo (o contrato diz: motivo desconhecido volta como `entregue: false`).
+
+**Fora desta parte, de propósito:** aviso de queda do PC (o "agente sem sinal" já cobre a hora em que ele está
+desligado), aviso de disco com defeito e de disco cheio — dá para somar com a mesma régua se o dono pedir.
+
+### Como foi conferido
+
+- `api/testes/aviso-da-maquina.test.ts`: a régua sem banco (10 minutos quentes na última hora e não 9; o pico solto; a
+  borda da hora; o limite com o igual; a placa-mãe; o disco no limite, de 3 horas atrás e da hora que ainda não chegou;
+  a sobrecarga com 29 e 30 minutos, com o último há 14 e há 20; espalhada nas 12 horas; o minuto do futuro; o texto
+  pronto e a gravidade) e, com Postgres, o caminho inteiro pelo `POST /v1/uso`: sem destino não marca; um envio por
+  destino com o texto; reenviar não repete; 11 h 59 min não, 12 h 1 min sim; o outro tipo com a marca dele; o veto e a
+  política por severidade; a loja de outra conta; três subidas juntas avisam uma vez; o tipo em "Chegou?".
+- Mutação (V54): **26 de 26 trocas pegas** — as janelas, os mínimos, os limites com o igual, o minuto e a hora do
+  futuro, a gravidade, a marca que troca sempre, a marca sem destino, a chave sem a hora e só até o segundo, a hora do
+  pico, o texto, a política de outra loja, o uso que não avisa, o console sem o tipo. Ficam de fora, por serem
+  equivalentes: o filtro das marcas recentes antes da conta (é atalho: a instrução da marca é a trava), o filtro de
+  conta na leitura da loja (a loja e o agente vêm da credencial do próprio agente) e o `try` em volta do aviso no
+  `POST /v1/uso` (sem falha de banco a forçar no teste).

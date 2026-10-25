@@ -366,6 +366,8 @@ export function rotasDeAlertas(app: FastifyInstance, pool: pg.Pool): void {
     const { rows } = await pool.query(
       `select e.id, e.motivo, e.estado, e.tentativas, e.erro,
               e.criado_em, e.despachado_em, e.confirmado_em,
+              -- o aviso da máquina (migration 059): 'esquentando' ou 'sobrecarregado'
+              case when e.motivo = 'computador' then e.payload->>'tipo' end as computador,
               d.tipo as destino_tipo, d.nome as destino_nome,
               ev.ocorrido_em, r.nome as regra_nome
          from envio e

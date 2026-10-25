@@ -44,6 +44,27 @@ Resposta: `{ "envios": [ { id, motivo, payload, tentativas, loja_id, evento_id, 
 segredo_ref } ] }`. O `segredo_ref` é o **nome** da variável, no ambiente do transporte, que guarda o segredo do
 destino (o token do webhook, por exemplo) — nunca o valor.
 
+### Os motivos e o `payload` de cada um
+
+| `motivo` | O que é | `payload` |
+|---|---|---|
+| `evento` | um critério ficou fora do combinado | nulo — o envio aponta o `evento_id` |
+| `agente_caiu` | o agente parou de bater: a loja não está sendo auditada | `{ agente, desde, consequencia }` |
+| `computador` | o computador do agente **esquentando** ou **sobrecarregado** (desde 25/10/2026, migration 059) | `{ tipo, agente, loja, porque, desde, ate, consequencia, texto }` |
+
+No `computador`: `tipo` é `esquentando` ou `sobrecarregado`; `porque` são as frases curtas do motivo (a mais grave
+primeiro); `desde` e `ate`, o primeiro e o último minuto acima do limite (ISO, UTC); `texto` é a mensagem pronta, em
+português, para o transporte que só repassa texto — por exemplo:
+
+```
+Farol · Matriz: o computador do agente está esquentando. A placa de vídeo passou de 83 °C em 12 minutos da última
+hora (chegou a 87 °C às 21:14). Calor demais deixa a auditoria lenta e pode desligar o computador. No console:
+Computador da loja › Saúde.
+```
+
+Sai no máximo um de cada tipo a cada 12 horas por computador (`api/src/aviso-da-maquina.ts`). Um transporte que não
+conhece o motivo deve devolver `entregue: false` com o erro, nunca descartar calado.
+
 ## `POST /v1/envios/:id/resultado`
 
 ```

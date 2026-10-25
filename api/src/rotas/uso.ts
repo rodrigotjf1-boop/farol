@@ -22,6 +22,7 @@ import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
+import { avisarDaMaquina } from '../aviso-da-maquina.js';
 import type { Autor } from '../db.js';
 import { lerMinutos, lerQueda, lerSensores, type Queda } from '../saude-da-maquina.js';
 
@@ -244,6 +245,18 @@ export function rotasDeUso(app: FastifyInstance, pool: pg.Pool): void {
     const gravado = await gravarUso(pool, autor, corpo.horas as UsoEntrada[], lida.maquina ?? null);
     const quedaNova = queda.queda ? await gravarQueda(pool, autor, queda.queda) : false;
     if (quedaNova) req.log.warn({ loja: autor.lojaId, agente: autor.agenteId, queda: queda.queda }, 'o PC do agente DESLIGOU DE REPENTE');
+    // O aviso da máquina (A26, M3): esquentando ou no limite. O uso já está gravado: falha aqui fica no log e não recusa
+    // o envio do agente (que mandaria a mesma hora de novo à toa).
+    if (gravado.aceitos > 0) {
+      try {
+        const aviso = await avisarDaMaquina(pool, autor);
+        if (aviso.criados > 0) {
+          req.log.warn({ loja: autor.lojaId, agente: autor.agenteId, avisos: aviso.avisos, motivos: aviso.motivos }, 'aviso da máquina criado');
+        }
+      } catch (e) {
+        req.log.error({ err: e, loja: autor.lojaId, agente: autor.agenteId }, 'o aviso da máquina falhou (o uso ficou gravado)');
+      }
+    }
     return queda.queda ? { ...gravado, queda: quedaNova ? 'nova' : 'ja_tinha' } : gravado;
   });
 }
