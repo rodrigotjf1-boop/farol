@@ -9828,3 +9828,85 @@ achados pelo sha256 de cada bloco dos dois lados, mandados um por um, conferidos
   tentativas acabam, o que chegou fica e a próxima instalação continua; 404 não se repete; 416 com tudo confere; o
   emendado errado é apagado; os três instaladores retomam e não baixam de novo o que já está conferido.
 - Os testes de antes dos instaladores (o baixado errado não fica) seguem passando, agora pela mesma função.
+
+## 25/10/2026 · A planta viva, partes P1 a P3: cada câmera calibrada pelo piso e as pessoas no mapa, sem nome (A26; migrations 057 e 058)
+
+O dono, 25/10: "ainda falta as fotos para criar o ambiente 3d para implementarmos o controle de movimento dos
+colaboradores, deixe o codigo ja completo so aguardando as fotos para analises. e definir onde cada canal fica no mapa e
+onde cobre." O caminho é o do estudo (`docs/estudo-planta-viva.md`), nos degraus 2 e 3: por posto e as figuras ao vivo,
+**sem nome e sem rosto** (seção 7: o legítimo interesse não cobre biometria; medir o empregado é onde a ANPD vê excesso —
+por posto e agregado é o chão seguro).
+
+**P1 — onde cada câmera cobre, pelos pontos do piso.** Quem configura marca, na imagem do canal, pontos do CHÃO cuja
+posição na planta sabe (fita no piso medida com trena), de 4 para cima (o recomendado é de 8 a 15). Daí:
+
+- a **homografia** imagem → planta (DLT normalizado de Hartley, mínimos quadrados), com a imagem NORMALIZADA de 0 a 1 —
+  vale para o fluxo cheio e para o reduzido, que mostram o mesmo campo. A homografia fica com norma 1 e o sinal que põe o
+  chão marcado do lado positivo do horizonte. **Não** se divide pelo último número: ele é o horizonte no canto de cima da
+  imagem, e é negativo quando a câmera vê a parede acima do chão;
+- o **erro de cada ponto** e o **erro conferido**: cada ponto deixado de fora por vez, a conta refeita sem ele, e medido
+  onde ele cai. É a régua honesta (o erro contra a própria conta é otimista). Lente muito aberta curva a imagem nas bordas:
+  é pelo conferido que isso aparece;
+- o **pedaço do piso que a câmera vê**: a borda da imagem levada à planta, cortada no horizonte e a 15 m do chão marcado;
+- recusas com o motivo: menos de 4, mais de 40, ponto fora da imagem ou da planta, o mesmo ponto duas vezes, pontos
+  quase numa reta (o segundo menor autovalor perto de zero), um ponto do outro lado do horizonte.
+
+A mesma conta na nuvem (`api/src/calibracao.ts`, com a decomposição de Jacobi para os autovalores) e no agente
+(`planta_viva/calibracao.py`, com o NumPy), conferidas pelo mesmo contrato, gerado de uma **câmera simulada** (posição,
+direção e lente conhecidas — `agent/ferramentas/contrato_calibracao.py`): as duas contra a geometria de verdade, e não uma
+contra a outra. Com o ruído de quem marca com o mouse (±3 milésimos da imagem), 12 pontos dão erro médio de 1,9 cm e
+conferido de 2,6 cm (máximo 10 cm) na câmera simulada.
+
+A calibração fica FORA do documento da planta (migration 057, `camera_calibracao`, uma por canal): a planta é salva
+inteira pela tela que a desenha, e a calibração tem ritmo próprio (refaz-se quando a câmera é mexida). Rotas
+`/v1/lojas/:id/calibracoes[/:pontoId]`: a lista e a de um canal (quem vê a loja), **conferir sem salvar** (para a tela
+mostrar o erro enquanto se marca), salvar com a versão que leu (409 se outra pessoa salvou no meio) e tirar — as três
+últimas só para quem configura. A homografia desce ao agente na configuração do canal (`calibracao: {homografia, erroM,
+versao}`), e mudar a calibração sobe a versão da configuração, como a planta.
+
+**P2 — as pessoas no mapa, no agente** (`planta_viva/pessoas.py` e `servico.py`). A cada meio segundo, do fluxo REDUZIDO
+de cada canal calibrado: o detector da auditoria (o RF-DETR, já instalado) acha as pessoas; o pé é o meio da base da caixa
+(a caixa que encosta na borda de baixo tem o pé fora do quadro: fica de fora); a homografia leva o pé ao chão, com a
+**incerteza** dele — quanto 1% da altura da imagem vale no chão ali (longe da câmera, um pixel é muito chão) mais o erro
+conferido; **as câmeras juntas**: no mesmo instante, pontos de câmeras diferentes a menos de 60 cm viram uma pessoa, na
+média pesada pela incerteza (a câmera que vê de perto manda), e dois pontos da mesma câmera nunca se juntam; **o caminho,
+sem nome**: cada pessoa segue a mais perto do instante anterior dentro do que dá para andar (2,5 m/s), quem some por 3 s
+acaba, e o número do caminho recomeça a cada dia. Por minuto sobem o calor (segundos-pessoa por célula de 25 cm), o pico
+e o caminho de cada um a 1 ponto por segundo. Só com a loja aberta; nada de imagem sai. **Nasce desligado**
+(`FAROL_PLANTA_VIVA=1`); se a nuvem não aceita, os minutos ficam na memória (até 240) e sobem depois.
+
+A identidade, como o estudo mediu, é o que não se segura numa cozinha de uniforme igual: aqui ela nem é tentada pela
+aparência — só pela posição no chão e pelo tempo.
+
+**P3 — a nuvem** (migration 058, `planta_minuto`; `api/src/planta-viva.ts`). `POST /v1/planta-viva/minutos` (o agente; o
+mesmo minuto mandado de novo troca o de antes). `GET /v1/lojas/:id/planta-viva?de&ate` (supervisão para cima): o calor do
+período, **o tempo em cada posto** — contado do calor com os móveis da planta (o móvel com 70 cm de folga na frente),
+porque é a nuvem quem tem a planta —, a média e o pico de pessoas por hora e, num trecho de até 60 minutos, **os caminhos
+para o replay, só para quem configura a loja** (supervisão vê o calor e os postos, não o caminho de cada um). A guarda é
+curta: a cada envio, os caminhos com mais de 7 dias são apagados, e o minuto inteiro com mais de 90.
+
+**O que falta:** a tela (P4: marcar os pontos, o que cada câmera cobre na planta, o calor, os postos e o replay) vem com
+protótipo; da loja, as fotos e os pontos marcados no piso. A régua para ligar (estudo, seção 8): 95% das posições a até
+50 cm onde o pé aparece.
+
+### Como foi conferido
+
+- `agent/testes/test_planta_calibracao.py` (8) e `api/testes/calibracao.test.ts` (6 sem banco + 4 no Postgres): com os
+  pares exatos cada ponto cai onde a geometria diz (a 1 mm); 4 pares bastam; com ruído, os erros e o conferido são os
+  mesmos nos dois lados; a área vista é a mesma vértice a vértice e para no alcance; os degenerados não calibram; a
+  calibração desce na configuração (e a torta é dita e ignorada); as rotas — conferir sem salvar, salvar com versão e
+  409, quem pode o quê, outra conta, tirar, o canal excluído que leva a dele, a versão da configuração que sobe.
+- `agent/testes/test_planta_pessoas.py` (7) e `test_planta_servico.py` (4), com as caixas das pessoas geradas pela câmera
+  simulada: o pé, o ponto no chão e a incerteza que cresce com a distância, as câmeras juntas, o caminho que segue cada um
+  mesmo se cruzando e recomeça no dia, o minuto no formato do contrato (`contratos/planta-viva-minuto.json`); o serviço
+  só com canal calibrado e a loja aberta, os minutos que sobem e os que ficam guardados.
+- `api/testes/planta-viva.test.ts` (3 sem banco + 3 no Postgres): a conferência do minuto, o calor (a célula de 0,5 m em
+  4), os postos com a folga, a média por hora, o replay; no Postgres, o envio, a troca do mesmo minuto, a guarda curta, a
+  leitura e quem vê o quê.
+- Mutação: na API, 24 de 25 trocas pegas (`mutar_planta.mjs`). A que escapa — tirar o filtro da conta no `delete` da
+  calibração — é equivalente vista de fora: a rota já recusa a loja de outra conta antes (404); o filtro fica como
+  proteção em dobro. No agente, 21 de 21 (`mutar_planta_agente.py`; na primeira rodada escapou "a incerteza sem o erro
+  da calibração" — o teste entrou). As suítes inteiras: o agente sem falha; a API com 1644 de 1645 (a do pgvector, que
+  o banco de teste deste notebook não tem).
+- O protótipo das telas (P4, e a M2 da saúde do PC) foi conferido num Chrome sem janela — 13 estados × 4 larguras × 2
+  temas, sem rolagem para o lado nem erro de script — e espera o dono.

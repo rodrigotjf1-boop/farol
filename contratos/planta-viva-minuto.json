@@ -1,0 +1,20 @@
+{
+  "_": [
+    "Um minuto das pessoas na planta (A26, P2 → P3): o que o agente manda em POST /v1/planta-viva/minutos",
+    "(agent/farol_agent/planta_viva/pessoas.py, Minutos.fechados) e a nuvem confere (api/src/planta-viva.ts).",
+    "Lido por agent/testes/test_planta_pessoas.py e api/testes/planta-viva.test.ts.",
+    "calor: [i, j, segundos-pessoa] na célula de celulaM metros (a célula i vai de i*celulaM a (i+1)*celulaM em x).",
+    "caminhos: [número do caminho (do dia, sem nome), [[segundo do minuto, x, y], ...]], 1 ponto por segundo."
+  ],
+  "minuto": {
+    "minuto": "2026-10-25T22:10:00+00:00",
+    "celulaM": 0.25,
+    "calor": [[4, 5, 30.0], [5, 5, 29.5], [20, 20, 60.0]],
+    "pico": 2,
+    "caminhos": [
+      [1, [[0, 1.0, 1.4], [1, 1.05, 1.4], [2, 1.1, 1.38]]],
+      [2, [[0, 5.0, 5.0], [1, 5.0, 5.02]]]
+    ]
+  },
+  "chavesDoMinuto": ["minuto", "celulaM", "calor", "pico", "caminhos"]
+}

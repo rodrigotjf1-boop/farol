@@ -89,6 +89,11 @@ class PontoConfig:
     # O que esta câmera vê e de onde olha, escrito por quem configurou o
     # canal. Vazio = ainda não descrita (ou a nuvem é antiga).
     cena: str = ""
+    # A calibração pelos pontos do piso (A26, P1): a homografia imagem
+    # normalizada → planta (metros) e o erro conferido. Nula = o canal não foi
+    # calibrado (ou a nuvem é antiga): a planta viva não usa este canal.
+    homografia: list[float] | None = None
+    erro_da_calibracao_m: float | None = None
 
     @property
     def zona_principal(self) -> Zona | None:
@@ -412,6 +417,7 @@ def de_json(dados: dict[str, Any]) -> ConfigDaLoja:
                 # A cena, como a pessoa escreveu. Quem a põe no pedido (numa
                 # linha só, com teto) é `contexto.py`.
                 cena=str(p.get("cena") or "").strip(),
+                **_calibracao(p.get("calibracao")),
             )
         )
 
@@ -483,6 +489,23 @@ def _padroes(bruto: Any) -> list[PadraoRef]:
             continue
         saida.append(PadraoRef(id=foto_id, nome=str(f.get("nome") or "foto padrão"), sha256=resumo))
     return saida
+
+
+def _calibracao(bruto: Any) -> dict[str, Any]:
+    """A calibração do canal pelos pontos do piso (A26, P1). Nuvem antiga não manda; torta (sem os 9 números da
+    homografia) fica de fora com um aviso: sem ela, o canal só não entra na planta viva."""
+    if not isinstance(bruto, dict):
+        return {}
+    h = bruto.get("homografia")
+    if (not isinstance(h, list) or len(h) != 9
+            or not all(isinstance(x, (int, float)) and not isinstance(x, bool) and x == x and abs(x) != float("inf") for x in h)):
+        _log.warning("calibração do canal sem a homografia certa na configuração: ignorada")
+        return {}
+    erro = bruto.get("erroM")
+    return {
+        "homografia": [float(x) for x in h],
+        "erro_da_calibracao_m": float(erro) if isinstance(erro, (int, float)) and not isinstance(erro, bool) else None,
+    }
 
 
 # ───────────────────────────── disco ─────────────────────────────
