@@ -25,6 +25,7 @@ import {
   CheckCheck,
   CircleX,
   Clock,
+  Gauge,
   Info,
   LockKeyhole,
   Mail,
@@ -34,6 +35,7 @@ import {
   Send,
   SlidersHorizontal,
   Store,
+  Thermometer,
   Unplug,
   Webhook,
   type LucideIcon,
@@ -622,6 +624,18 @@ export default function Alertas() {
                                 <Unplug className="h-[15px] w-[15px] shrink-0 text-farol-critico" aria-hidden />
                                 Agente sem sinal
                               </>
+                            ) : e.motivo === 'computador' ? (
+                              e.computador === 'sobrecarregado' ? (
+                                <>
+                                  <Gauge className="h-[15px] w-[15px] shrink-0 text-farol-facho-icone" aria-hidden />
+                                  Computador sobrecarregado
+                                </>
+                              ) : (
+                                <>
+                                  <Thermometer className="h-[15px] w-[15px] shrink-0 text-farol-critico" aria-hidden />
+                                  Computador esquentando
+                                </>
+                              )
                             ) : (
                               (e.regra_nome ?? 'Critério excluído')
                             )}
