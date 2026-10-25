@@ -201,7 +201,7 @@ def test_o_modelo_baixado_que_nao_confere_nao_fica(tmp_path: Path, monkeypatch):
         def __exit__(self, *a):
             return False
 
-    monkeypatch.setattr(ji.urllib.request, "urlopen", lambda req, timeout: Resposta())
+    monkeypatch.setattr("urllib.request.urlopen", lambda req, timeout: Resposta())
     with pytest.raises(ErroDoJuiz, match="não é o modelo medido"):
         ji.instalar_modelo(tmp_path)
     assert list(tmp_path.iterdir()) == []

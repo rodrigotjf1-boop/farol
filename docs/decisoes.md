@@ -9800,3 +9800,31 @@ A tela (M2) vem depois, com protótipo; o aviso de calor e de sobrecarga pelos d
   (`mutar_sensores.py`; escapou "a queda não sobe" — o teste entrou). As suítes inteiras: o agente sem falha; a API com
   1628 de 1629 — a que falha é a do pgvector ("embedding de dimensão errada"), porque o banco de teste deste notebook não
   tem a extensão; no CI, com ela, passa.
+
+## 25/10/2026 · O modelo baixa retomando de onde parou (ERR-151; sem migration)
+
+Na loja, `farol-agent ingredientes instalar-olho-duplo` caiu com "The read operation timed out" e não aproveitou nada:
+os três instaladores de modelo (o detector, o DINOv2 e o SigLIP2) faziam um pedido só, gravando do zero. A internet da
+loja cai a cada poucos minutos (medido em 25/10: o Google levou 13,6 s para responder; o Hugging Face não conectou em
+25 s).
+
+**O que entrou:** `juizes/baixar.py` (`baixar_conferido`), usado pelos três. Até 8 tentativas, com espera crescente
+(5, 10, 15… até 60 s); cada uma pede só o que falta (`Range: bytes=N-`) e emenda. O servidor que não atende o pedaço
+(responde 200) manda o arquivo inteiro e ele é regravado do começo. Queda, tempo esgotado e resposta cortada no meio
+(`IncompleteRead`) são tentados de novo, e o 429/408 também; 404 e 403 não. 416 depois do que já chegou é "não há mais o
+que mandar": a conferência decide. Acabaram as tentativas: o que chegou fica em `<arquivo>.baixando` e a instalação
+seguinte continua dele. Como sempre, o arquivo só entra no lugar com o sha256 conferido; o que não confere é apagado.
+
+O agente em serviço continua sem baixar modelo sozinho: isto é o passo de instalação.
+
+**Na loja, desta vez:** o modelo foi mandado daqui pelo Tailscale, retomando a cada queda (23 tentativas). Chegou com o
+tamanho certo e o sha256 errado: 11 blocos de 4 MiB seguidos estragados (detalhe e regra em ERR-151 / V142). Foram
+achados pelo sha256 de cada bloco dos dois lados, mandados um por um, conferidos lá e gravados no lugar.
+
+### Como foi conferido
+
+- `agent/testes/test_baixar_modelo.py` (9 testes): a queda no meio continua do que chegou (os `Range` pedidos, as
+  esperas); o 200 que ignora o pedaço regrava; `IncompleteRead`, tempo esgotado, `URLError` e 429 são queda; as
+  tentativas acabam, o que chegou fica e a próxima instalação continua; 404 não se repete; 416 com tudo confere; o
+  emendado errado é apagado; os três instaladores retomam e não baixam de novo o que já está conferido.
+- Os testes de antes dos instaladores (o baixado errado não fica) seguem passando, agora pela mesma função.
