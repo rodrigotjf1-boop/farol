@@ -47,7 +47,6 @@ import hashlib
 import logging
 import threading
 import time
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -304,21 +303,11 @@ def instalar_modelo(pasta: str | Path) -> Path:
     destino = Path(pasta) / MODELO_ARQUIVO
     if destino.is_file() and sha256_de(destino) == MODELO_SHA256:
         return destino
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    provisorio = destino.with_suffix(".baixando")
-    req = urllib.request.Request(MODELO_URL, headers={"user-agent": "farol-agent"})
-    with urllib.request.urlopen(req, timeout=60) as r, open(provisorio, "wb") as f:
-        for bloco in iter(lambda: r.read(1 << 20), b""):
-            f.write(bloco)
-    obtido = sha256_de(provisorio)
-    if obtido != MODELO_SHA256:
-        provisorio.unlink(missing_ok=True)
-        raise ErroDoJuiz(
-            f"o arquivo baixado não é o modelo medido (sha256 {obtido[:16]}…): não usei",
-            recuperavel=False,
-        )
-    provisorio.replace(destino)
-    return destino
+    from farol_agent.juizes.baixar import baixar_conferido
+
+    # retomando de onde parou (ERR-151)
+    return baixar_conferido(MODELO_URL, destino, MODELO_SHA256,
+                            errado="o arquivo baixado não é o modelo medido (sha256 {}…): não usei")
 
 
 def interpretar_saida(logits: np.ndarray, classe: str) -> list[float]:

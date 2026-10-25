@@ -21,13 +21,13 @@ fica com o olho de sempre e o registro diz por quê, uma vez.
 from __future__ import annotations
 
 import logging
-import urllib.request
 from pathlib import Path
 
 import cv2
 import numpy as np
 
 from farol_agent.juizes.base import ErroDoJuiz
+from farol_agent.juizes.baixar import baixar_conferido
 from farol_agent.juizes.detector import sha256_de
 from farol_agent.juizes.ingrediente import LINHAS, normalizar
 
@@ -55,19 +55,9 @@ def instalar(pasta: str | Path) -> Path:
     destino = Path(pasta) / ARQUIVO
     if destino.is_file() and sha256_de(destino) == SHA256:
         return destino
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    provisorio = destino.with_suffix(".baixando")
-    req = urllib.request.Request(URL, headers={"user-agent": "farol-agent"})
-    with urllib.request.urlopen(req, timeout=60) as r, open(provisorio, "wb") as f:
-        for bloco in iter(lambda: r.read(1 << 20), b""):
-            f.write(bloco)
-    obtido = sha256_de(provisorio)
-    if obtido != SHA256:
-        provisorio.unlink(missing_ok=True)
-        raise ErroDoJuiz(f"o arquivo baixado não é o modelo do olho duplo medido (sha256 {obtido[:16]}…): não usei",
-                         recuperavel=False)
-    provisorio.replace(destino)
-    return destino
+    # retomando de onde parou: na loja, 372 MB de uma vez não passam (ERR-151)
+    return baixar_conferido(URL, destino, SHA256,
+                            errado="o arquivo baixado não é o modelo do olho duplo medido (sha256 {}…): não usei")
 
 
 class MotorSiglip:

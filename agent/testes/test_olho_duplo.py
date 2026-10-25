@@ -266,7 +266,7 @@ def test_o_modelo_so_entra_conferido_e_o_baixado_errado_nao_fica(tmp_path: Path,
         pedidos.append(req.full_url)
         return Resposta()
 
-    monkeypatch.setattr(oe.urllib.request, "urlopen", abrir)
+    monkeypatch.setattr("urllib.request.urlopen", abrir)
     with pytest.raises(ErroDoJuiz, match="não é o modelo do olho duplo medido"):
         oe.instalar(tmp_path)
     assert list(tmp_path.iterdir()) == []
