@@ -240,29 +240,41 @@ class JuizDaLoja:
     """O juiz de ingrediente DESTA loja: montado na primeira vez que os passos pedem e refeito quando a base da loja muda
     (a impressão). Sem o modelo ou sem a base, nulo — os passos seguem sem o juiz — e o registro diz por quê, uma vez por
     motivo. Com `treinado` (a chave `FAROL_BANCADA_JUIZ_TREINADO`, desligada por padrão), o nome do ingrediente vem do
-    classificador treinado nos exemplos da base (`juizes.treinado`); sem o que treinar, fica o de protótipo."""
+    classificador treinado nos exemplos da base (`juizes.treinado`); sem o que treinar, fica o de protótipo. Com
+    `olho_duplo` (a chave `FAROL_BANCADA_OLHO_DUPLO`, só com o treinado), o classificador vê também o SigLIP2
+    (`juizes.olho_extra`); sem o arquivo desse modelo, fica o olho de sempre e o registro diz por quê, uma vez."""
 
     def __init__(self, pasta_modelos: str | Path, base: "BaseDaLoja", *,
                  motor_de: Callable[[Path], Any] = MotorDino, treinado: bool = False,
-                 vistas_na_consulta: int = 1) -> None:
+                 vistas_na_consulta: int = 1, olho_duplo: bool = False,
+                 motor_extra_de: Callable[[Path], Any] | None = None) -> None:
         self.pasta_modelos = Path(pasta_modelos)
         self.base = base
         self.treinado = treinado
         self.vistas_na_consulta = vistas_na_consulta
+        self.olho_duplo = olho_duplo and treinado
+        self._motor_extra_de = motor_extra_de
+        self._motor_extra: Any = None
+        self._extra_dito: str | None = None
         self._motor_de = motor_de
         self._motor: Any = None
         self._juiz: JuizDeIngrediente | None = None
         self._impressao: str | None = None
         self._motivo_dito: str | None = None
+        # o olho duplo esperando a loja fechar para calcular os vetores dos exemplos novos (o juiz montado é o de sempre)
+        self._duplo_pendente = False
         self._trava = threading.Lock()
 
-    def __call__(self) -> JuizDeIngrediente | None:
+    def __call__(self, pode_demorar: bool = False) -> JuizDeIngrediente | None:
+        """O juiz da loja. `pode_demorar` (a descida da base, com a loja fechada) deixa o olho duplo calcular os vetores
+        dos exemplos novos — o SigLIP2 leva ~0,5 s por vista no processador da loja; os passos do lanche, com a loja
+        aberta, nunca esperam esse cálculo: até a loja fechar, o nome sai pelo olho de sempre."""
         with self._trava:
             lista = self.base.lista()
             if lista is None:
                 return self._sem("a base da loja ainda não desceu (ela desce com a loja fechada)")
             impressao = lista.get("impressao")
-            if self._juiz is not None and impressao == self._impressao:
+            if self._juiz is not None and impressao == self._impressao and not (self._duplo_pendente and pode_demorar):
                 return self._juiz
             try:
                 if self._motor is None:
@@ -272,9 +284,27 @@ class JuizDaLoja:
                 if self.treinado and prot:
                     from farol_agent.juizes import treinado as jt
 
-                    juiz, como = jt.montar(self._motor.vetor, prot, exemplos, self.base.abrir,
-                                           guardados=self.base.vetores.with_name("vetores-vistas.npz"),
-                                           vistas_na_consulta=self.vistas_na_consulta)
+                    extra = self._olho_extra()
+                    guarda_duplo = self.base.vetores.with_name("vetores-vistas-olho-duplo.npz")
+                    identidade_extra = getattr(extra, "identidade", "extra")
+                    self._duplo_pendente = False
+                    # os exemplos com o quadro no disco (o que não abre fica fora do treino de qualquer jeito)
+                    no_disco = [s for _, s in exemplos if self.base.caminho(s).is_file()] \
+                        if hasattr(self.base, "caminho") else [s for _, s in exemplos]
+                    if extra is not None and not pode_demorar and not jt.guarda_cobre(
+                            guarda_duplo, f"{MODELO_SHA256}+{identidade_extra}", no_disco):
+                        _log.info("olho duplo: os vetores dos exemplos novos se calculam com a loja fechada; até lá, o "
+                                  "nome sai pelo olho de sempre")
+                        self._duplo_pendente, extra = True, None
+                    if extra is not None:
+                        juiz, como = jt.montar(self._motor.vetor, prot, exemplos, self.base.abrir,
+                                               guardados=guarda_duplo,
+                                               vistas_na_consulta=self.vistas_na_consulta, vetor_extra=extra.vetor,
+                                               identidade_extra=identidade_extra)
+                    else:
+                        juiz, como = jt.montar(self._motor.vetor, prot, exemplos, self.base.abrir,
+                                               guardados=self.base.vetores.with_name("vetores-vistas.npz"),
+                                               vistas_na_consulta=self.vistas_na_consulta)
                 else:
                     juiz, como = JuizDeIngrediente(self._motor.vetor, prot), "juiz de protótipo"
             except ErroDoJuiz as e:
@@ -282,6 +312,23 @@ class JuizDaLoja:
             self._juiz, self._impressao, self._motivo_dito = juiz, impressao, None
             _log.info("juiz de ingrediente pronto: %d ingrediente(s) da base da loja (%s)", len(prot), como)
             return juiz
+
+    def _olho_extra(self) -> Any:
+        """O segundo olho, carregado uma vez; nulo sem a chave, ou sem o modelo (dito uma vez — fica o olho de sempre)."""
+        if not self.olho_duplo:
+            return None
+        if self._motor_extra is None:
+            from farol_agent.juizes import olho_extra
+
+            fabrica = self._motor_extra_de or olho_extra.MotorSiglip
+            try:
+                self._motor_extra = fabrica(self.pasta_modelos / olho_extra.ARQUIVO)
+            except ErroDoJuiz as e:
+                if str(e) != self._extra_dito:
+                    _log.info("olho duplo fora por enquanto — %s; o juiz segue com o olho de sempre", e)
+                    self._extra_dito = str(e)
+                return None
+        return self._motor_extra
 
     def _sem(self, motivo: str) -> None:
         if motivo != self._motivo_dito:

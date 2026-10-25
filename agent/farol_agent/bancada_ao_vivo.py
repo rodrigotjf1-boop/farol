@@ -90,6 +90,9 @@ INGREDIENTES = "FAROL_BANCADA_INGREDIENTES"
 # Desligada por padrão (o dono liga). A de vistas: "8" consulta as 8 vistas do recorte (8 chamadas ao modelo); sem ela, 1.
 JUIZ_TREINADO = "FAROL_BANCADA_JUIZ_TREINADO"
 JUIZ_TREINADO_VISTAS = "FAROL_BANCADA_JUIZ_TREINADO_VISTAS"
+# O OLHO DUPLO do juiz treinado (o SigLIP2 ao lado do DINOv2, só para o nome — `juizes.olho_extra`). Desligado por
+# padrão; só vale com o juiz treinado; pede o modelo instalado (`farol-agent ingredientes instalar-olho-duplo`).
+OLHO_DUPLO = "FAROL_BANCADA_OLHO_DUPLO"
 PASTA = "bancada"
 QUADROS = "quadros"
 DENSA = "densa"
@@ -132,6 +135,11 @@ def ingredientes_ligados(valor: str | None) -> bool:
 
 def juiz_treinado_ligado(valor: str | None) -> bool:
     """`FAROL_BANCADA_JUIZ_TREINADO`: os mesmos valores da chave de guardar os quadros (sem ela, o juiz de protótipo)."""
+    return guardar_quadros_ligado(valor)
+
+
+def olho_duplo_ligado(valor: str | None) -> bool:
+    """`FAROL_BANCADA_OLHO_DUPLO`: os mesmos valores das outras chaves (sem ela, o olho de sempre)."""
     return guardar_quadros_ligado(valor)
 
 

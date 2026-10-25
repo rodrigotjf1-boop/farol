@@ -960,6 +960,18 @@ def cmd_ingredientes(args: argparse.Namespace) -> int:
             print("  conferido pelo sha256 · roda no processador")
             print(f"  nos passos do lanche, liga com {INGREDIENTES}=1 no ambiente do agente (e reinicie o agente).\n")
             return 0
+        if args.acao == "instalar-olho-duplo":
+            # O segundo olho do juiz treinado (A24 F3): passo de INSTALAÇÃO, de propósito, com a loja fechada (372 MB).
+            from farol_agent.bancada_ao_vivo import OLHO_DUPLO
+            from farol_agent.juizes import olho_extra
+
+            print(f"instalando {olho_extra.NOME} em {pasta.resolve()} (372 MB na primeira vez)…")
+            caminho = olho_extra.instalar(pasta)
+            olho_extra.MotorSiglip(caminho)
+            print(f"\n  pronto: {caminho}")
+            print("  conferido pelo sha256 · roda no processador")
+            print(f"  liga com {OLHO_DUPLO}=1 no ambiente do agente, junto do juiz treinado (e reinicie o agente).\n")
+            return 0
         if args.acao == "base":
             # À mão, quando quem instala quiser; em serviço, a base desce sozinha com a loja fechada.
             from farol_agent.nuvem import ClienteNuvem, ErroDaNuvem
@@ -1141,8 +1153,9 @@ def cmd_servir(args: argparse.Namespace) -> int:
         print("gravação de treino ligada: lê o que o console pedir, com a loja fechada")
 
     from farol_agent.bancada_ao_vivo import (
-        GUARDAR, INGREDIENTES, JUIZ_TREINADO, JUIZ_TREINADO_VISTAS, PASSOS, VARIAVEL, BancadaAoVivo, canais_ligados,
-        guardar_quadros_ligado, ingredientes_ligados, juiz_treinado_ligado, passos_ligados,
+        GUARDAR, INGREDIENTES, JUIZ_TREINADO, JUIZ_TREINADO_VISTAS, OLHO_DUPLO, PASSOS, VARIAVEL, BancadaAoVivo,
+        canais_ligados, guardar_quadros_ligado, ingredientes_ligados, juiz_treinado_ligado, olho_duplo_ligado,
+        passos_ligados,
     )
 
     bancada_ao_vivo = None
@@ -1155,6 +1168,7 @@ def cmd_servir(args: argparse.Namespace) -> int:
         passos = passos_ligados(os.environ.get(PASSOS))
         juiz_de = None
         treinado = False
+        olho_duplo = False
         if passos and guardar and ingredientes_ligados(os.environ.get(INGREDIENTES)):
             from farol_agent.base_da_loja import BaseEmFundo
             from farol_agent.juizes.ingrediente import JuizDaLoja
@@ -1164,10 +1178,14 @@ def cmd_servir(args: argparse.Namespace) -> int:
             # e, quando a base muda (a marcação e a conferência do dono), logo depois que ela desce (A24 F3).
             base_em_fundo = BaseEmFundo(cliente, args.config)
             treinado = juiz_treinado_ligado(os.environ.get(JUIZ_TREINADO))
+            # o olho duplo (o SigLIP2 ao lado, só para o nome): só com o juiz treinado
+            olho_duplo = treinado and olho_duplo_ligado(os.environ.get(OLHO_DUPLO))
             juiz_de = JuizDaLoja(Path(os.environ.get("FAROL_MODELOS") or "modelos"), base_em_fundo.base,
                                  treinado=treinado,
-                                 vistas_na_consulta=vistas_da_consulta(os.environ.get(JUIZ_TREINADO_VISTAS)))
-            base_em_fundo.depois_de_mudar = juiz_de
+                                 vistas_na_consulta=vistas_da_consulta(os.environ.get(JUIZ_TREINADO_VISTAS)),
+                                 olho_duplo=olho_duplo)
+            # com a loja fechada, o juiz pode demorar: o olho duplo calcula ali os vetores dos exemplos novos
+            base_em_fundo.depois_de_mudar = lambda: juiz_de(pode_demorar=True)
             base_em_fundo.iniciar()
             from farol_agent.passos_na_nuvem import VARIAVEL_POR_NOITE, ConferenciaEmFundo, por_noite
             from farol_agent.recortes_na_nuvem import VARIAVEL_POR_NOITE as MARCAR_POR_NOITE
@@ -1195,6 +1213,7 @@ def cmd_servir(args: argparse.Namespace) -> int:
             + (f"; com o JUIZ DE INGREDIENTE ({INGREDIENTES}): a base da loja desce com a loja fechada"
                if juiz_de is not None else "")
             + (f"; o nome do ingrediente pelo JUIZ TREINADO ({JUIZ_TREINADO})" if treinado else "")
+            + (f", com o OLHO DUPLO ({OLHO_DUPLO})" if olho_duplo else "")
             + (f"; até {conferencia_em_fundo.por_noite} lanches de cada noite sobem para a conferência, com a loja "
                "fechada" if conferencia_em_fundo is not None else "")
             + (f"; e até {conferencia_em_fundo.marcar_por_noite} recortes de cada noite sobem para MARCAR"
@@ -1366,7 +1385,7 @@ def main(argv: list[str] | None = None) -> int:
     ig = sub.add_parser("ingredientes",
                         help="o juiz de ingrediente dos passos do lanche: instala o modelo, desce a base da loja, "
                              "olha uma imagem")
-    ig.add_argument("acao", choices=["instalar", "base", "olhar"])
+    ig.add_argument("acao", choices=["instalar", "instalar-olho-duplo", "base", "olhar"])
     ig.add_argument("--pasta", help="onde fica o modelo (padrão: FAROL_MODELOS ou ./modelos)")
     ig.add_argument("--config", default="./configuracao.json",
                     help="a configuração do agente: a base da loja fica ao lado (padrão ./configuracao.json)")
