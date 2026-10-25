@@ -18,6 +18,8 @@ import { after, before, describe, it } from 'node:test';
 import type { FastifyInstance } from 'fastify';
 import pg from 'pg';
 
+// A conta da tela (M2), importada pelo caminho: ela não importa nada (como `web/lib/planta.ts` em `planta.test.ts`).
+import * as tela from '../../web/lib/saude.ts';
 import { criarApp } from '../src/app.js';
 import { validarUso } from '../src/rotas/uso.js';
 import {
@@ -122,6 +124,58 @@ describe('o monitoramento da máquina (sem banco)', () => {
     assert.ok(quente.porque.some((p) => /placa chegou a 86 °C/.test(p)), quente.porque.join(' | '));
     assert.ok(quente.porque.some((p) => /segurou a frequência por temperatura em 3/.test(p)));
     assert.ok(quente.porque.some((p) => /disco pede atenção/.test(p)));
+  });
+});
+
+describe('a conta da tela da saúde (web/lib/saude.ts)', () => {
+  const FUSO = 'America/Sao_Paulo';
+  const h = (hora: string, cpu: number, cpuMax: number, amostras = 120, sensores: tela.HoraDaSaude['sensores'] = null, minutos: tela.HoraDaSaude['minutos'] = null): tela.HoraDaSaude => ({
+    hora, amostras, cpu: { media: cpu, max: cpuMax }, mem: { media: 40, max: 50 }, gpu: { media: null, max: null }, sensores, minutos,
+    discoLivreGb: null, discoTotalGb: null,
+  });
+
+  it('a hora no relógio da loja, e se a loja estava aberta pelos trechos do dia', () => {
+    // 24/10/2026 é sábado; 23:30 UTC = 20:30 em Brasília
+    assert.deepEqual(tela.noRelogioDaLoja('2026-10-24T23:30:00Z', FUSO), { dia: 6, data: '2026-10-24', hora: 20 });
+    assert.deepEqual(tela.noRelogioDaLoja('2026-10-25T03:10:00Z', FUSO), { dia: 7, data: '2026-10-25', hora: 0 });
+    const semana = [{ dia: 6, aberta: [[19 * 60, 24 * 60]] as Array<[number, number]> }];
+    assert.equal(tela.abertaNaHora(semana, 6, 20), true);
+    assert.equal(tela.abertaNaHora(semana, 6, 18), false);
+    assert.equal(tela.abertaNaHora(semana, 6, 18.5 as number), true, 'o trecho que começa dentro da hora conta');
+    assert.equal(tela.abertaNaHora(semana, 3, 20), null, 'dia sem trecho cadastrado: não se sabe');
+    assert.equal(tela.abertaNaHora([], 6, 20), null);
+    assert.equal(tela.quandoNaLoja('2026-10-24T23:30:00Z', FUSO, false), 'às 20h');
+    assert.equal(tela.quandoNaLoja('2026-10-24T23:30:00Z', FUSO, true), '24/10 às 20h');
+    assert.equal(tela.dataHoraNaLoja('2026-10-24T11:49:19Z', FUSO), '24/10 · 08:49');
+  });
+
+  it('as barras: uma por hora, ou por dia com a média pesada pelas amostras e o maior pico', () => {
+    const horas = [
+      h('2026-10-24T22:00:00Z', 10, 20, 120), // 19h do dia 24
+      h('2026-10-24T23:00:00Z', 50, 90, 40), // 20h do dia 24
+      h('2026-10-25T10:00:00Z', 30, 35, 120), // 7h do dia 25
+    ];
+    const semana = [{ dia: 6, aberta: [[19 * 60, 23 * 60]] as Array<[number, number]> }, { dia: 7, aberta: [[19 * 60, 23 * 60]] as Array<[number, number]> }];
+    const porHora = tela.barras(horas, 'cpu', FUSO, false, semana);
+    assert.deepEqual(porHora.map((b) => [b.rotulo, b.media, b.pico, b.aberta]), [['19h', 10, 20, true], ['20h', 50, 90, true], ['7h', 30, 35, false]]);
+    const porDia = tela.barras(horas, 'cpu', FUSO, true);
+    assert.deepEqual(porDia.map((b) => [b.rotulo, b.media, b.pico, b.horas, b.indices]), [['24/10', 20, 90, 2, [0, 1]], ['25/10', 30, 35, 1, [2]]]);
+  });
+
+  it('as medidas de sensor, o pico de cada minuto e o que falta', () => {
+    const comSensor = h('2026-10-24T22:00:00Z', 10, 20, 120, { gpuTempC: { soma: 120 * 61.5, amostras: 120, max: 70 }, discoSaude: 'ok', discoHorasLigado: 3248 },
+      [[0, { cpu: 40, gpuTempC: 60 }], [59, { cpu: 95 }]]);
+    assert.deepEqual(tela.daHora(comSensor, 'gpuTempC'), { media: 61.5, max: 70, amostras: 120 });
+    assert.deepEqual(tela.daHora(h('2026-10-24T23:00:00Z', 1, 2), 'gpuTempC'), { media: null, max: null, amostras: 0 }, 'agente antigo');
+    assert.equal(tela.temSensores([h('2026-10-24T23:00:00Z', 1, 2)]), false);
+    assert.equal(tela.temSensores([comSensor]), true);
+    const mins = tela.minutosDaHora(comSensor, 'cpu');
+    assert.deepEqual([mins.length, mins[0], mins[1], mins[59]], [60, 40, null, 95]);
+    assert.equal(tela.ultimoDosSensores([comSensor, h('2026-10-24T23:00:00Z', 1, 2)], 'discoHorasLigado'), 3248);
+    assert.deepEqual([tela.tempoFora(1195), tela.tempoFora(2), tela.tempoFora(3000), tela.tempoFora(null)], ['19 h 55 min', '2 min', '2 d 2 h', 'tempo não registrado']);
+    assert.equal(tela.causaDaQueda('energia'), 'falta de energia');
+    assert.deepEqual(Object.keys(tela.MEDIDAS), ['cpu', 'mem', 'gpu', 'gpuTempC', 'tempPlacaMaeC']);
+    assert.equal(tela.MEDIDAS.gpuTempC.limite(LIMITES), LIMITES.gpuTempC, 'o limite da tela é o da API');
   });
 });
 
@@ -238,6 +292,10 @@ describe('o monitoramento da máquina (Postgres real)', { skip: !URL_DO_BANCO &&
     assert.deepEqual(d.periodo.sensores.gpuTempC.pico, { valor: 75, quando: new Date(horaAtras(30)).toISOString() });
     assert.equal(d.ultimas24h.sensores.gpuTempC.pico.valor, 61);
     assert.equal(d.periodo.cpu.pico.valor, 64.25);
+    // a tela lê a resposta DE VERDADE: as barras da temperatura da placa, hora a hora
+    const doConsole = tela.barras(d.horas as tela.HoraDaSaude[], 'gpuTempC', d.fuso, false);
+    assert.deepEqual(doConsole.map((b) => b.pico), [75, 61, null]);
+    assert.equal(tela.minutosDaHora(d.horas[1], 'cpu')[1], 88.5, 'o pico do minuto 1 do contrato');
     assert.equal(d.ultimas24h.discoSaude, 'ok');
     assert.equal(d.ultimas24h.ligadoHaH, 15.2);
     assert.deepEqual(d.quedas.map((q: { causa: string; foraMin: number }) => [q.causa, q.foraMin]), [['energia', 1195]]);

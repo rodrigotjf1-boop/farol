@@ -7,6 +7,7 @@
  */
 
 import type { Planta } from '@/lib/planta';
+import type { SaudeDaMaquina } from '@/lib/saude';
 
 export class ErroDaApi extends Error {
   constructor(
@@ -429,6 +430,10 @@ export const consoleApi = {
 
   /** O computador da loja: o horário em que dorme e acorda, a semana desenhada e como ele está agora. */
   computador: (lojaId: string) => pedir<TelaDoComputador>(`/lojas/${lojaId}/computador`),
+
+  /** A saúde do computador do agente (A26): as horas, o resumo ("sobrecarregado?", "esquentando?") e as quedas. */
+  saudeDoComputador: (lojaId: string, dias: number) =>
+    pedir<SaudeDaMaquina>(`/lojas/${lojaId}/computador/saude?dias=${dias}`),
 
   /** A semana de um rascunho do horário, sem salvar: a gaveta redesenha pela API (a conta é uma só). */
   conferirHorarioDoComputador: (lojaId: string, horario: HorarioDoComputador) =>

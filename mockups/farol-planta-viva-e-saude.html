@@ -1,0 +1,659 @@
+<title>Planta viva e saúde do PC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Martian+Mono:wght@400;500;600&display=swap">
+<style>
+/* Protótipo A26 (25/10/2026): a saúde do computador do agente (M2) e a planta viva (P4: calibrar cada câmera pelos
+   pontos do piso, o que cada câmera cobre, e o movimento — calor, postos e replay), no padrão "Comanda" do console. */
+:root {
+  --papel: #F3F1EA; --papel-2: #EAE6DB; --cartao: #FFFFFF; --tinta: #1B1A17; --suave: #625E56; --linha: #D8D2C4; --linha-forte: #BDB6A6;
+  --ketchup: #E2412A; --mostarda: #F2B300; --picles: #3B8A37; --pao: #E9A75B; --chapa: #24221F; --sobre-chapa: #F3F1EA; --sobre-ketchup: #FFFFFF;
+  --tinta-mostarda: #1B1A17; --tinta-pao: #1B1A17; --metal: #B9B3A7; --metal-escuro: #7D776C; --sombra: 0 14px 28px -18px rgba(27, 26, 23, .45);
+  --piso: #F7F5EF; --parede: #8E877A; --movel: #D9D2C3; --grade: rgba(27, 26, 23, .09);
+  --cam1: #E2412A; --cam2: #2F6FB5; --cam4: #3B8A37;
+  --mola: cubic-bezier(.34, 1.56, .64, 1);
+  --titulo: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif; --texto: "Hanken Grotesk", "Segoe UI", system-ui, sans-serif; --mono: "Martian Mono", ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --papel: #151412; --papel-2: #1D1B18; --cartao: #23211D; --tinta: #F3EFE6; --suave: #B5AE9F; --linha: #35322C; --linha-forte: #4A463E;
+    --ketchup: #F0563D; --mostarda: #F5BC1A; --picles: #4CA347; --pao: #E9A75B; --chapa: #0B0A09; --sobre-chapa: #F3EFE6;
+    --metal: #5C574E; --metal-escuro: #8A8478; --sombra: 0 14px 28px -18px rgba(0, 0, 0, .8);
+    --piso: #1E1C19; --parede: #8A8478; --movel: #3A362F; --grade: rgba(243, 239, 230, .08);
+    --cam1: #F0563D; --cam2: #6FA6E8; --cam4: #5CB857; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --papel: #151412; --papel-2: #1D1B18; --cartao: #23211D; --tinta: #F3EFE6; --suave: #B5AE9F; --linha: #35322C; --linha-forte: #4A463E;
+  --ketchup: #F0563D; --mostarda: #F5BC1A; --picles: #4CA347; --pao: #E9A75B; --chapa: #0B0A09; --sobre-chapa: #F3EFE6;
+  --metal: #5C574E; --metal-escuro: #8A8478; --sombra: 0 14px 28px -18px rgba(0, 0, 0, .8);
+  --piso: #1E1C19; --parede: #8A8478; --movel: #3A362F; --grade: rgba(243, 239, 230, .08);
+  --cam1: #F0563D; --cam2: #6FA6E8; --cam4: #5CB857; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--papel); color: var(--tinta); font: 400 15px/1.5 var(--texto); -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--mostarda); outline-offset: 2px; border-radius: 6px; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+h1, h2, h3 { margin: 0; font-family: var(--titulo); text-transform: uppercase; letter-spacing: .01em; line-height: .95; text-wrap: balance; }
+
+/* topo: a loja e o trilho (simplificado: as comandas desta página) */
+.topo { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 40; display: flex; align-items: flex-start; gap: 16px; background: var(--papel); padding: 14px max(22px, env(safe-area-inset-right, 0px)) 0 max(22px, env(safe-area-inset-left, 0px)); }
+.loja { display: flex; flex-direction: column; gap: 6px; flex: none; }
+.loja b { font: 900 clamp(24px, 3vw, 38px)/.86 var(--titulo); text-transform: uppercase; display: block; }
+.loja small { font: 600 11px/1 var(--mono); letter-spacing: .08em; color: var(--suave); display: flex; gap: 7px; align-items: center; }
+.vivo { width: 8px; height: 8px; border-radius: 50%; background: var(--picles); flex: none; }
+.trilho { flex: 1; min-width: 0; position: relative; padding-top: 8px; }
+.trilho::before { content: ""; position: absolute; left: 0; right: 0; top: 8px; height: 6px; border-radius: 3px; background: linear-gradient(180deg, var(--metal), var(--metal-escuro)); }
+.comandas { display: flex; gap: 10px; padding: 0 4px 16px; align-items: flex-start; flex-wrap: wrap; }
+.comanda { position: relative; margin-top: 10px; background: var(--cartao); border: 0; color: var(--tinta); padding: 16px 13px 11px; min-width: 96px; text-align: left; border-radius: 3px 3px 7px 7px; box-shadow: var(--sombra); transform-origin: 50% -10px; transition: transform .6s var(--mola), background .3s, color .3s;
+  -webkit-mask: radial-gradient(circle 5px at 50% 0, transparent 98%, #000) top/14px 100% repeat-x; mask: radial-gradient(circle 5px at 50% 0, transparent 98%, #000) top/14px 100% repeat-x; }
+.comanda b { display: block; font: 800 19px/1 var(--titulo); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; }
+.comanda small { font: 500 10.5px/1.3 var(--mono); color: var(--suave); white-space: nowrap; }
+.comanda:hover { transform: rotate(-2.5deg); }
+.comanda[aria-current="page"] { transform: translateY(10px); background: var(--chapa); color: var(--sobre-chapa); }
+.comanda[aria-current="page"] small { color: var(--metal); }
+.redondo { width: 44px; height: 44px; border-radius: 50%; border: 0; display: grid; place-items: center; background: var(--cartao); color: var(--tinta); box-shadow: var(--sombra); flex: none; margin-top: 6px; }
+.redondo svg { width: 20px; height: 20px; }
+
+main:focus { outline: none; }
+.replay-planta { max-width: 820px; margin: 0 auto; }
+main { padding-block: 18px 140px; padding-left: max(22px, env(safe-area-inset-left, 0px)); padding-right: max(22px, env(safe-area-inset-right, 0px)); max-width: 1380px; margin: 0 auto; }
+.cabeca { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 24px; margin-bottom: 18px; }
+.cabeca .t { flex: 1; min-width: 240px; }
+.cabeca h1 { font-size: clamp(40px, 5.6vw, 76px); font-weight: 900; }
+.cabeca p { margin: 8px 0 0; color: var(--suave); max-width: 64ch; font-size: 16px; }
+.olho { font: 600 11px/1 var(--mono); letter-spacing: .1em; color: var(--suave); text-transform: uppercase; margin-bottom: 10px; }
+.abas { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+.aba { border: 0; background: var(--cartao); color: var(--tinta); padding: 10px 16px; border-radius: 99px; font: 800 16px/1 var(--titulo); letter-spacing: .05em; text-transform: uppercase; box-shadow: var(--sombra); transition: transform .35s var(--mola), background .25s; }
+.aba[aria-selected="true"] { background: var(--chapa); color: var(--sobre-chapa); transform: translateY(2px); }
+.grade { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+.bloco { border-radius: 26px; padding: 20px; position: relative; overflow: hidden; min-width: 0; }
+.bloco h2 { font-size: 19px; font-weight: 800; letter-spacing: .04em; margin-bottom: 10px; }
+.mostarda { background: var(--mostarda); color: var(--tinta-mostarda); } .ketchup { background: var(--ketchup); color: var(--sobre-ketchup); }
+.picles { background: var(--picles); color: #fff; } .pao { background: var(--pao); color: var(--tinta-pao); }
+.chapa { background: var(--chapa); color: var(--sobre-chapa); } .branco { background: var(--cartao); color: var(--tinta); box-shadow: var(--sombra); }
+.papel2 { background: var(--papel-2); color: var(--tinta); }
+.s3 { grid-column: span 3; } .s4 { grid-column: span 4; } .s5 { grid-column: span 5; } .s6 { grid-column: span 6; } .s7 { grid-column: span 7; } .s8 { grid-column: span 8; } .s12 { grid-column: span 12; }
+.medio { font: 900 clamp(40px, 4.6vw, 64px)/.86 var(--titulo); display: block; }
+.pequeno { font: 900 30px/.9 var(--titulo); display: block; }
+.rot { font: 600 11.5px/1.3 var(--mono); opacity: .85; }
+.cascata > * { animation: cai .7s var(--mola) backwards; animation-delay: calc(var(--i, 0) * 60ms); }
+@keyframes cai { from { opacity: 0; transform: translateY(40px) scale(.94) rotate(-1deg); } to { opacity: 1; transform: none; } }
+.botao { display: inline-flex; align-items: center; justify-content: center; gap: 9px; border: 0; border-radius: 99px; padding: 12px 18px; font: 800 15px/1 var(--titulo); letter-spacing: .06em; text-transform: uppercase; transition: transform .35s var(--mola); white-space: nowrap; }
+.botao:hover { transform: scale(1.04) rotate(-1deg); }
+.botao:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.botao.k { background: var(--ketchup); color: var(--sobre-ketchup); } .botao.c { background: var(--chapa); color: var(--sobre-chapa); }
+.botao.b { background: var(--cartao); color: var(--tinta); box-shadow: var(--sombra); } .botao.m { background: var(--mostarda); color: var(--tinta-mostarda); }
+.botao.contorno { background: none; box-shadow: inset 0 0 0 2px currentColor; }
+.acoes { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px/1 var(--mono); padding: 7px 10px; border-radius: 99px; background: rgba(0, 0, 0, .08); white-space: nowrap; }
+.chapa .chip, .ketchup .chip, .picles .chip { background: rgba(255, 255, 255, .16); }
+.chip.ok { background: var(--picles); color: #fff; } .chip.mal { background: var(--ketchup); color: #fff; } .chip.atento { background: var(--mostarda); color: var(--tinta-mostarda); }
+.segmentado { display: inline-flex; flex-wrap: wrap; background: var(--cartao); border-radius: 22px; padding: 4px; box-shadow: var(--sombra); gap: 2px; }
+.segmentado button { border: 0; background: none; padding: 9px 14px; border-radius: 99px; font: 800 14px/1 var(--titulo); letter-spacing: .05em; text-transform: uppercase; color: var(--suave); }
+.segmentado button[aria-pressed="true"] { background: var(--chapa); color: var(--sobre-chapa); }
+.nota { font-size: 13px; color: var(--suave); margin: 10px 0 0; }
+.vazio { text-align: center; padding: 40px 20px; display: grid; place-items: center; gap: 10px; color: var(--suave); }
+.vazio b { font: 900 30px/1 var(--titulo); text-transform: uppercase; color: var(--tinta); }
+
+/* recibo */
+.recibo { background: var(--cartao); color: var(--tinta); border-radius: 6px; padding: 18px 18px 26px; font-family: var(--mono); box-shadow: var(--sombra);
+  -webkit-mask: radial-gradient(circle 7px at 50% 100%, transparent 98%, #000) bottom/18px 100% repeat-x; mask: radial-gradient(circle 7px at 50% 100%, transparent 98%, #000) bottom/18px 100% repeat-x; }
+.recibo h2 { font-family: var(--titulo); font-size: 20px; margin-bottom: 6px; }
+.recibo .linha { display: flex; justify-content: space-between; gap: 14px; padding: 9px 0; border-top: 1px dashed var(--linha-forte); font-size: 12.5px; line-height: 1.5; }
+.recibo .linha span:last-child { text-align: right; font-weight: 600; }
+.recibo .linha.mal span:last-child { color: var(--ketchup); }
+.recibo .linha.ok span:last-child { color: var(--picles); }
+
+/* saúde: o gráfico das horas */
+.grafico { position: relative; }
+.grafico svg { width: 100%; height: auto; display: block; overflow: visible; }
+.grafico .barra { transition: opacity .2s; cursor: pointer; }
+.grafico .barra:hover, .grafico .barra:focus { opacity: .75; outline: none; }
+.grafico text { font: 500 10px var(--mono); fill: var(--suave); }
+.porque { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.porque li { display: flex; gap: 8px; align-items: baseline; font-weight: 600; }
+.porque li::before { content: "▸"; color: currentColor; }
+.medidas { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.medida { background: var(--cartao); border-radius: 18px; padding: 14px 16px; box-shadow: var(--sombra); display: grid; gap: 4px; align-content: start; }
+.medida b { font: 900 34px/1 var(--titulo); }
+.medida b small { font-size: 18px; }
+.medida .rot { color: var(--suave); }
+.medida .pico { font: 600 11.5px/1.3 var(--mono); }
+.medida.quente b { color: var(--ketchup); }
+.minutos { display: flex; align-items: flex-end; gap: 2px; height: 120px; }
+.minutos i { flex: 1; border-radius: 3px 3px 0 0; background: var(--chapa); min-width: 0; }
+.minutos i.acima { background: var(--ketchup); }
+
+/* planta e câmera */
+.duas { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.quadro-svg { background: var(--cartao); border-radius: 22px; padding: 14px; box-shadow: var(--sombra); }
+.quadro-svg h2 { font-size: 17px; margin-bottom: 8px; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.quadro-svg h2 small { font: 600 11px/1 var(--mono); color: var(--suave); text-transform: none; letter-spacing: 0; }
+.quadro-svg svg { width: 100%; height: auto; display: block; border-radius: 12px; touch-action: manipulation; }
+.alvo { cursor: crosshair; }
+.ponto-m circle { transition: r .3s var(--mola); }
+.ponto-m text { font: 800 12px var(--titulo); fill: #fff; pointer-events: none; }
+.pares { display: grid; gap: 6px; margin-top: 12px; max-height: 300px; overflow-y: auto; }
+.par { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; background: var(--papel-2); border-radius: 12px; padding: 8px 10px; font: 500 12px/1.3 var(--mono); }
+.par .n { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--chapa); color: var(--sobre-chapa); font: 800 13px/1 var(--titulo); }
+.par .erro { font-weight: 700; }
+.par .erro.mal { color: var(--ketchup); }
+.par button { border: 0; background: none; padding: 4px; color: var(--suave); }
+.par button svg { width: 16px; height: 16px; }
+.passo-a-passo { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
+.regua { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; align-items: baseline; }
+.regua b { font: 900 46px/.9 var(--titulo); }
+.legenda { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 13px; margin-top: 10px; font-weight: 600; align-items: center; }
+.legenda label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.legenda i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; }
+.calor-escala { height: 12px; border-radius: 6px; background: linear-gradient(90deg, rgba(242, 179, 0, .15), var(--mostarda), var(--pao), var(--ketchup)); width: min(220px, 100%); }
+.postos { display: grid; gap: 8px; }
+.posto { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; }
+.posto b { font: 800 17px/1 var(--titulo); text-transform: uppercase; }
+.posto .rot { text-align: right; }
+.posto .trilha { grid-column: 1 / -1; height: 10px; border-radius: 5px; background: var(--papel-2); overflow: hidden; }
+.posto .trilha i { display: block; height: 100%; background: var(--ketchup); border-radius: 5px; transform-origin: left; animation: estica .9s var(--mola) backwards; }
+@keyframes estica { from { transform: scaleX(0); } }
+.replay-barra { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.replay-barra input[type=range] { flex: 1; min-width: 180px; accent-color: var(--ketchup); }
+.cadeado { display: grid; gap: 8px; place-items: start; padding: 18px; border-radius: 18px; background: var(--papel-2); }
+
+/* gaveta e diálogo e avisos */
+.veu { position: fixed; inset: 0; z-index: 70; background: rgba(20, 18, 16, .45); }
+.gaveta { position: fixed; z-index: 71; top: 0; right: 0; bottom: 0; width: min(470px, 100vw); background: var(--cartao); color: var(--tinta); box-shadow: -20px 0 50px -20px rgba(0, 0, 0, .5);
+  display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); animation: entra .55s var(--mola); }
+@keyframes entra { from { transform: translateX(105%) rotate(2deg); } }
+.gaveta header { display: flex; align-items: center; gap: 12px; padding: 20px 20px 14px; border-bottom: 2px solid var(--tinta); }
+.gaveta header h2 { flex: 1; font-size: 26px; min-width: 0; }
+.gaveta .corpo { padding: 18px 20px 24px; overflow-y: auto; flex: 1; display: grid; gap: 14px; align-content: start; }
+.dialogo { position: fixed; z-index: 72; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(440px, calc(100vw - 32px)); background: var(--cartao); border-radius: 6px 6px 14px 14px; padding: 24px; box-shadow: 0 30px 60px -20px rgba(0, 0, 0, .5); display: grid; gap: 14px; animation: cai .45s var(--mola); }
+.avisos { position: fixed; z-index: 80; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; align-items: center; width: min(460px, calc(100vw - 32px)); pointer-events: none; }
+.aviso { pointer-events: auto; background: var(--chapa); color: var(--sobre-chapa); padding: 12px 16px; border-radius: 4px 4px 10px 10px; font-weight: 600; box-shadow: var(--sombra); animation: cai .45s var(--mola); }
+
+/* o controle do protótipo */
+.controle { position: fixed; z-index: 90; left: max(12px, env(safe-area-inset-left, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+.controle > button { border: 0; border-radius: 99px; padding: 10px 14px; background: var(--chapa); color: var(--sobre-chapa); font: 800 13px/1 var(--titulo); letter-spacing: .08em; text-transform: uppercase; box-shadow: var(--sombra); }
+.controle .painel { position: absolute; bottom: 48px; left: 0; width: min(330px, calc(100vw - 24px)); background: var(--cartao); color: var(--tinta); border-radius: 16px; padding: 14px; box-shadow: 0 20px 40px -18px rgba(0, 0, 0, .6); display: grid; gap: 10px; max-height: 70vh; overflow-y: auto; }
+.controle label { display: grid; gap: 4px; font: 700 12px/1.2 var(--texto); }
+.controle select { border: 2px solid var(--linha); border-radius: 10px; padding: 8px; background: var(--papel); }
+
+@media (max-width: 1100px) { .s3, .s4, .s5 { grid-column: span 6; } .s7, .s8 { grid-column: span 12; } }
+@media (max-width: 860px) { .duas { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) {
+  .topo { flex-wrap: wrap; gap: 10px 12px; padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
+  .trilho { order: 3; flex-basis: 100%; }
+  main { padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
+  .s3, .s4, .s5, .s6 { grid-column: span 12; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0ms !important; transition-duration: .01ms !important; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-fechar" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></g></symbol>
+  <symbol id="i-lua" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></g></symbol>
+  <symbol id="i-lixo" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></g></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z" fill="currentColor"/></symbol>
+  <symbol id="i-pausa" viewBox="0 0 24 24"><g fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></g></symbol>
+</defs></svg>
+
+<header class="topo">
+  <div class="loja"><b>Mister<br>Burguer</b><small><span class="vivo" aria-hidden="true"></span>AGENTE ATIVO · <span class="mono" id="relogio">20:41</span></small></div>
+  <nav class="trilho" aria-label="Telas"><div class="comandas" id="comandas"></div></nav>
+  <button class="redondo" type="button" id="tema" aria-label="Trocar papel ou chapa (claro ou escuro)"><svg aria-hidden="true"><use href="#i-lua"/></svg></button>
+</header>
+<main id="conteudo" tabindex="-1"></main>
+<div class="avisos" id="avisos" aria-live="polite"></div>
+<div id="camada"></div>
+<div class="controle">
+  <button type="button" id="abrir-controle" aria-expanded="false">Protótipo</button>
+  <div class="painel" id="painel-controle" hidden></div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (s, el = document) => el.querySelector(s);
+  const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const ic = (id) => `<svg aria-hidden="true" width="16" height="16"><use href="#i-${id}"/></svg>`;
+  const fmt = (n, c = 0) => n.toLocaleString('pt-BR', { minimumFractionDigits: c, maximumFractionDigits: c });
+
+  // ─────────────────── o estado do protótipo ───────────────────
+  const E = {
+    tela: 'saude', aba: 'cobertura', periodo: '24h', medida: 'cpu', situacao: 'normal', perfil: 'presidente', planta: 'calibrada',
+    canal: 'c1', replayT: 0, tocando: false, velocidade: 4, camerasVisiveis: new Set(['c1', 'c2', 'c4']), pendente: null,
+  };
+  const podeConfigurar = () => E.perfil === 'presidente' || E.perfil === 'gerente';
+
+  // ─────────────────── a conta da calibração (a mesma do servidor, api/src/calibracao.ts) ───────────────────
+  function autoDecomposicao(m) {
+    const n = m.length, a = m.map((l) => l.slice()), v = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => (i === j ? 1 : 0)));
+    let escala = 0; for (const l of a) for (const x of l) escala += x * x;
+    for (let s = 0; s < 100; s++) {
+      let fora = 0; for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) fora += a[p][q] ** 2;
+      if (fora <= 1e-30 * Math.max(1e-300, escala)) break;
+      for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) {
+        const apq = a[p][q]; if (Math.abs(apq) < 1e-300) continue;
+        const th = (a[q][q] - a[p][p]) / (2 * apq), t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1)), c = 1 / Math.sqrt(t * t + 1), sn = t * c;
+        for (let k = 0; k < n; k++) { const x = a[k][p], y = a[k][q]; a[k][p] = c * x - sn * y; a[k][q] = sn * x + c * y; }
+        for (let k = 0; k < n; k++) { const x = a[p][k], y = a[q][k]; a[p][k] = c * x - sn * y; a[q][k] = sn * x + c * y; }
+        for (let k = 0; k < n; k++) { const x = v[k][p], y = v[k][q]; v[k][p] = c * x - sn * y; v[k][q] = sn * x + c * y; }
+      }
+    }
+    const o = [...Array(n).keys()].sort((i, j) => a[i][i] - a[j][j]);
+    return { valores: o.map((i) => a[i][i]), vetores: o.map((i) => v.map((l) => l[i])) };
+  }
+  const mult3 = (a, b) => { const r = Array(9).fill(0); for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) for (let k = 0; k < 3; k++) r[i * 3 + j] += a[i * 3 + k] * b[k * 3 + j]; return r; };
+  function normal(pts) {
+    const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+    const md = pts.reduce((s, p) => s + Math.hypot(p[0] - cx, p[1] - cy), 0) / pts.length; if (!(md > 1e-12)) return null;
+    const k = Math.SQRT2 / md; return { t: [k, 0, -k * cx, 0, k, -k * cy, 0, 0, 1], inv: [1 / k, 0, cx, 0, 1 / k, cy, 0, 0, 1] };
+  }
+  const projetar = (h, p) => { const w = h[6] * p[0] + h[7] * p[1] + h[8]; return w > 1e-9 ? [(h[0] * p[0] + h[1] * p[1] + h[2]) / w, (h[3] * p[0] + h[4] * p[1] + h[5]) / w] : null; };
+  function homografia(pares) {
+    if (pares.length < 4) return null;
+    const ni = normal(pares.map((p) => p.img)), np = normal(pares.map((p) => p.piso)); if (!ni || !np) return null;
+    const ata = Array.from({ length: 9 }, () => Array(9).fill(0));
+    const soma = (l) => { for (let i = 0; i < 9; i++) for (let j = 0; j < 9; j++) ata[i][j] += l[i] * l[j]; };
+    for (const { img, piso } of pares) {
+      const u = ni.t[0] * img[0] + ni.t[2], v = ni.t[4] * img[1] + ni.t[5], x = np.t[0] * piso[0] + np.t[2], y = np.t[4] * piso[1] + np.t[5];
+      soma([-u, -v, -1, 0, 0, 0, x * u, x * v, x]); soma([0, 0, 0, -u, -v, -1, y * u, y * v, y]);
+    }
+    const { valores, vetores } = autoDecomposicao(ata);
+    if (!(valores[1] > 1e-9 * Math.max(1, valores[8]))) return null;
+    let h = mult3(mult3(np.inv, vetores[0]), ni.t);
+    const c = [pares.reduce((s, p) => s + p.img[0], 0) / pares.length, pares.reduce((s, p) => s + p.img[1], 0) / pares.length];
+    if (h[6] * c[0] + h[7] * c[1] + h[8] < 0) h = h.map((x) => -x);
+    if (pares.some((p) => !(h[6] * p.img[0] + h[7] * p.img[1] + h[8] > 0))) return null;
+    const nn = Math.hypot(...h); return h.map((x) => x / nn);
+  }
+  function conferido(pares) {
+    if (pares.length < 5) return null;
+    return pares.map((p, i) => { const h = homografia(pares.filter((_, j) => j !== i)); const q = h && projetar(h, p.img); return q ? Math.hypot(q[0] - p.piso[0], q[1] - p.piso[1]) : null; });
+  }
+
+  // ─────────────────── a cozinha de exemplo e as câmeras simuladas ───────────────────
+  const COZ = { w: 7.5, h: 5.5 };
+  const MOVEIS = [
+    { id: 'chapa', nome: 'Chapa', x: 0.4, y: 0.3, w: 1.8, h: 0.8, alt: 0.9 },
+    { id: 'fritadeira', nome: 'Fritadeira', x: 2.6, y: 0.3, w: 1.0, h: 0.8, alt: 0.9 },
+    { id: 'pia', nome: 'Pia', x: 4.4, y: 0.3, w: 1.2, h: 0.6, alt: 0.9 },
+    { id: 'geladeira', nome: 'Geladeira', x: 6.5, y: 0.3, w: 0.8, h: 0.8, alt: 1.9 },
+    { id: 'montagem', nome: 'Montagem', x: 1.8, y: 4.3, w: 3.2, h: 0.7, alt: 0.9 },
+    { id: 'expedicao', nome: 'Expedição', x: 6.2, y: 3.4, w: 1.0, h: 1.6, alt: 1.0 },
+  ];
+  const CAMS = {
+    c1: { nome: 'Canal 1 · Chapa', curto: 'Canal 1', pos: [0.3, 5.2, 2.6], alvo: [2.6, 1.0], abertura: 92, cor: 'var(--cam1)' },
+    c2: { nome: 'Canal 2 · Pia e fritadeira', curto: 'Canal 2', pos: [7.2, 5.2, 2.6], alvo: [3.8, 1.2], abertura: 92, cor: 'var(--cam2)' },
+    c4: { nome: 'Canal 4 · Montagem', curto: 'Canal 4', pos: [3.4, 2.2, 2.7], alvo: [3.4, 4.6], abertura: 80, cor: 'var(--cam4)' },
+  };
+  function eixos(c) {
+    const f = [c.alvo[0] - c.pos[0], c.alvo[1] - c.pos[1], -c.pos[2]], nf = Math.hypot(...f), F = f.map((x) => x / nf);
+    let R = [F[1] * 1 - F[2] * 0, F[2] * 0 - F[0] * 1, 0]; const nr = Math.hypot(...R); R = R.map((x) => x / nr);
+    const B = [F[1] * R[2] - F[2] * R[1], F[2] * R[0] - F[0] * R[2], F[0] * R[1] - F[1] * R[0]];
+    const fx = 0.5 / Math.tan((c.abertura / 2) * Math.PI / 180); return { F, R, B, fx, fy: fx * 16 / 9 };
+  }
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  function imagemDe(c, x, y, z = 0) {
+    const e = eixos(c), d = [x - c.pos[0], y - c.pos[1], z - c.pos[2]], zc = dot(d, e.F); if (zc <= 0.05) return null;
+    return [0.5 + e.fx * dot(d, e.R) / zc, 0.5 + e.fy * dot(d, e.B) / zc];
+  }
+  function pisoDe(c, u, v) {
+    const e = eixos(c), r = [0, 1, 2].map((k) => e.F[k] + e.R[k] * (u - 0.5) / e.fx + e.B[k] * (v - 0.5) / e.fy); if (r[2] >= 0) return null;
+    const t = -c.pos[2] / r[2]; return [c.pos[0] + t * r[0], c.pos[1] + t * r[1]];
+  }
+  // o pedaço do piso que a câmera vê, recortado na cozinha (o que a calibração desenha na planta)
+  function areaDaCamera(h) {
+    const n = 24, borda = [];
+    for (let i = 0; i < n; i++) borda.push([i / n, 0]); for (let i = 0; i < n; i++) borda.push([1, i / n]);
+    for (let i = 0; i < n; i++) borda.push([1 - i / n, 1]); for (let i = 0; i < n; i++) borda.push([0, 1 - i / n]);
+    const ok = (p) => { const q = projetar(h, p); return !!q && q[0] > -20 && q[0] < 30 && q[1] > -20 && q[1] < 30; };
+    const corte = (a, b) => { for (let k = 0; k < 24; k++) { const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; if (ok(m)) a = m; else b = m; } return a; };
+    let pol = [];
+    for (let i = 0; i < borda.length; i++) { const p = borda[i], q = borda[(i + 1) % borda.length], vp = ok(p), vq = ok(q); if (vp) pol.push(projetar(h, p)); if (vp !== vq) pol.push(projetar(h, vp ? corte(p, q) : corte(q, p))); }
+    for (const [ax, lim, dentro] of [[0, 0, 1], [0, COZ.w, -1], [1, 0, 1], [1, COZ.h, -1]]) { // Sutherland–Hodgman na cozinha
+      const novo = []; for (let i = 0; i < pol.length; i++) {
+        const a = pol[i], b = pol[(i + 1) % pol.length], ia = (a[ax] - lim) * dentro >= 0, ib = (b[ax] - lim) * dentro >= 0;
+        if (ia) novo.push(a); if (ia !== ib) { const t = (lim - a[ax]) / (b[ax] - a[ax]); novo.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]); }
+      } pol = novo; }
+    return pol;
+  }
+  // os pontos marcados de cada canal: a imagem exata, e o piso "medido com trena" (com o erro de quem mede)
+  const desvio = (i) => [((i * 37) % 7 - 3) * 0.006, ((i * 53) % 5 - 2) * 0.007];
+  function paresDe(cid, lista) { const c = CAMS[cid]; return lista.map(([x, y], i) => { const d = desvio(i); const img = imagemDe(c, x, y); return { img, piso: [+(x + d[0]).toFixed(2), +(y + d[1]).toFixed(2)] }; }).filter((p) => p.img && p.img[0] > 0.02 && p.img[0] < 0.98 && p.img[1] > 0.02 && p.img[1] < 0.98); }
+  const MARCADOS = {
+    c1: paresDe('c1', [[0.6, 1.6], [1.6, 1.4], [2.8, 1.5], [3.9, 1.6], [0.8, 2.6], [2.2, 2.6], [3.5, 2.8], [1.2, 3.6], [2.9, 3.7]]),
+    c2: [],
+    c4: paresDe('c4', [[2.0, 3.6], [3.4, 3.5], [4.8, 3.7], [2.4, 4.1], [4.4, 4.1]]),
+  };
+  const calibradas = () => (E.planta === 'nenhuma' ? [] : Object.keys(CAMS).filter((k) => MARCADOS[k].length >= 4 && homografia(MARCADOS[k])));
+
+  // ─────────────────── a saúde do computador: dados de exemplo ───────────────────
+  const ABERTA = (h) => h >= 19 || h < 3;
+  function horas(sit) {
+    const agora = 20; const lista = [];
+    for (let k = 23; k >= 0; k--) {
+      const h = (agora - k + 24) % 24, ab = ABERTA(h), r = ((h * 7919) % 13) / 13;
+      const cpu = ab ? 48 + r * 18 : 9 + r * 6, gpu = ab ? 34 + r * 30 : 2 + r * 3, gt = ab ? 58 + r * 12 : 33 + r * 3;
+      lista.push({
+        h, ab,
+        cpu: { m: cpu, p: ab ? Math.min(99, cpu + 24 + r * 14) : cpu + 12 }, mem: { m: ab ? 58 + r * 6 : 41 + r * 3, p: ab ? 66 + r * 8 : 45 },
+        gpu: { m: gpu, p: Math.min(100, gpu + 30) }, gpuT: { m: gt, p: gt + 4 + r * 3 }, pm: { m: ab ? 33 + r * 3 : 28, p: ab ? 36 + r * 3 : 29 },
+        disco: { m: 29 + (ab ? 3 : 0), p: 31 + (ab ? 3 : 0) }, w: { m: ab ? 82 + r * 40 : 7, p: ab ? 150 + r * 20 : 9 },
+        acima: ab && r > .55 ? Math.round(3 + r * 8) : 0, segurou: 0,
+      });
+    }
+    if (sit === 'quente') for (const x of lista) if (x.ab) { x.gpuT.m += 15; x.gpuT.p = Math.min(91, x.gpuT.p + 18); x.segurou = x.h === 21 || x.h === 22 ? 14 : 0; }
+    if (sit === 'sobrecarga') for (const x of lista) if (x.ab) { x.cpu.m += 22; x.cpu.p = 100; x.acima = x.h === 20 ? 41 : 9; }
+    return lista;
+  }
+  const QUEDAS = { normal: [{ apagou: '24/10 · 08:49', voltou: '25/10 · 04:44', fora: '19 h 55 min', causa: 'falta de energia' }] };
+
+  // ─────────────────── a moldura ───────────────────
+  const TELAS = { saude: { t: 'Computador', s: 'saúde do PC' }, planta: { t: 'Planta', s: 'câmeras e movimento' } };
+  function moldura() {
+    $('#comandas').innerHTML = Object.entries(TELAS).map(([id, t]) =>
+      `<button class="comanda" type="button" data-tela="${id}" ${E.tela === id ? 'aria-current="page"' : ''}><b>${t.t}</b><small>${t.s}</small></button>`).join('');
+    $$('#comandas .comanda').forEach((b) => b.onclick = () => { E.tela = b.dataset.tela; desenhar(true); });
+  }
+  function aviso(texto) { const a = document.createElement('div'); a.className = 'aviso'; a.textContent = texto; $('#avisos').append(a); setTimeout(() => a.remove(), 3600); }
+  function fecharCamada() { $('#camada').innerHTML = ''; document.removeEventListener('keydown', escFecha); }
+  function escFecha(e) { if (e.key === 'Escape') fecharCamada(); }
+  function abrirGaveta(titulo, html) {
+    $('#camada').innerHTML = `<div class="veu" data-fechar></div><aside class="gaveta" role="dialog" aria-modal="true" aria-labelledby="g-t"><header><h2 id="g-t">${titulo}</h2><button class="redondo" type="button" data-fechar aria-label="Fechar">${ic('fechar')}</button></header><div class="corpo">${html}</div></aside>`;
+    $$('#camada [data-fechar]').forEach((b) => b.onclick = fecharCamada); document.addEventListener('keydown', escFecha); $('#camada .gaveta button').focus();
+  }
+  function confirmar(titulo, texto, rotulo, aoSim) {
+    $('#camada').innerHTML = `<div class="veu" data-fechar></div><div class="dialogo" role="alertdialog" aria-modal="true" aria-labelledby="d-t"><h2 id="d-t" style="font-size:26px">${titulo}</h2><p style="margin:0">${texto}</p><div class="acoes"><button class="botao k" type="button" id="d-sim">${rotulo}</button><button class="botao b" type="button" data-fechar>Cancelar</button></div></div>`;
+    $$('#camada [data-fechar]').forEach((b) => b.onclick = fecharCamada); $('#d-sim').onclick = () => { fecharCamada(); aoSim(); };
+    document.addEventListener('keydown', escFecha); $('#d-sim').focus();
+  }
+
+  // ─────────────────── tela: a saúde do computador ───────────────────
+  const MEDIDAS = {
+    cpu: { t: 'Processador', u: '%', lim: 90, de: (x) => x.cpu }, mem: { t: 'Memória', u: '%', lim: 90, de: (x) => x.mem },
+    gpu: { t: 'Placa de vídeo', u: '%', lim: 95, de: (x) => x.gpu }, gpuT: { t: 'Temperatura da placa', u: '°C', lim: 83, de: (x) => x.gpuT },
+    pm: { t: 'Placa-mãe', u: '°C', lim: 70, de: (x) => x.pm },
+  };
+  function telaSaude() {
+    if (E.situacao === 'carregando') return `<div class="cabeca"><div class="t"><div class="olho">Computador da loja · i7 + RTX 5060 Ti</div><h1>Saúde do computador</h1></div></div><div class="vazio" aria-busy="true"><b>Lendo as horas…</b><span>o agente manda as medidas a cada 5 minutos</span></div>`;
+    const sem = E.situacao === 'antigo', H = horas(E.situacao), sobre = E.situacao === 'sobrecarga', quente = E.situacao === 'quente';
+    const pico = (k) => H.reduce((m, x) => (MEDIDAS[k].de(x).p > m.v ? { v: MEDIDAS[k].de(x).p, h: x.h } : m), { v: -1, h: 0 });
+    const media = (k) => H.reduce((s, x) => s + MEDIDAS[k].de(x).m, 0) / H.length;
+    const acima = H.reduce((s, x) => s + x.acima, 0), segurou = H.reduce((s, x) => s + x.segurou, 0);
+    const porque = [];
+    if (acima) porque.push(`processador acima de 90% em ${acima} minuto(s)`);
+    if (quente) { porque.push(`placa chegou a ${fmt(pico('gpuT').v)} °C às ${pico('gpuT').h}h`); porque.push(`a placa segurou a frequência por temperatura em ${segurou} amostra(s)`); }
+    const med = MEDIDAS[E.medida];
+    const opcoes = Object.entries(MEDIDAS).filter(([k]) => !sem || ['cpu', 'mem', 'gpu'].includes(k));
+    if (sem && !['cpu', 'mem', 'gpu'].includes(E.medida)) E.medida = 'cpu';
+    const quedas = E.situacao === 'quedas' ? [...QUEDAS.normal, { apagou: '19/10 · 22:12', voltou: '19/10 · 22:14', fora: '2 min', causa: 'falta de energia' }, { apagou: '11/10 · 15:03', voltou: '11/10 · 15:40', fora: '37 min', causa: 'falta de energia' }] : QUEDAS.normal;
+    return `
+      <div class="cabeca"><div class="t"><div class="olho">Computador da loja · Intel i7-10700F · RTX 5060 Ti 16 GB · ligado há 15,2 h</div><h1>Saúde do computador</h1>
+        <p>Por hora: o uso do processador, da memória e da placa, as temperaturas e o pico de cada minuto. Para saber se o computador está sobrecarregado ou esquentando.</p></div>
+        <div class="segmentado" role="group" aria-label="Período">${[['24h', 'Últimas 24 h'], ['7d', '7 dias'], ['31d', '31 dias']].map(([k, t]) => `<button type="button" data-periodo="${k}" aria-pressed="${E.periodo === k}">${t}</button>`).join('')}</div></div>
+      ${sem ? `<div class="bloco papel2" style="margin-bottom:16px"><b>O pacote do agente desta loja ainda não lê as temperaturas.</b> <span class="nota" style="display:block;margin:4px 0 0">Aqui aparecem só o processador, a memória e a placa. Com o pacote novo, entram as temperaturas, o consumo da placa, o disco e as quedas.</span></div>` : ''}
+      <div class="grade cascata">
+        <div class="bloco ${sobre ? 'ketchup' : 'picles'} s4" style="--i:0"><h2>Sobrecarregado?</h2><span class="medio">${sobre ? 'Sim' : 'Não'}</span>
+          <div class="rot" style="margin-top:8px">${sobre ? 'mais de 30 minutos por dia acima do limite' : 'nenhuma peça passou 30 min acima do limite'}</div></div>
+        <div class="bloco ${quente ? 'ketchup' : sem ? 'papel2' : 'picles'} s4" style="--i:1"><h2>Esquentando?</h2><span class="medio">${sem ? '—' : quente ? 'Sim' : 'Não'}</span>
+          <div class="rot" style="margin-top:8px">${sem ? 'sem as temperaturas neste pacote' : quente ? 'a placa passou de 83 °C' : `placa até ${fmt(pico('gpuT').v)} °C · placa-mãe até ${fmt(pico('pm').v)} °C`}</div></div>
+        <div class="bloco chapa s4" style="--i:2"><h2>Por quê</h2>${porque.length ? `<ul class="porque">${porque.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : '<p style="margin:0">Tudo dentro do normal no período.</p>'}
+          <div class="rot" style="margin-top:10px">limites: 90% (processador e memória), 95% (placa), 83 °C (placa), 70 °C (placa-mãe), 60 °C (disco)</div></div>
+        <div class="s12" style="--i:3"><div class="medidas">
+          ${[['cpu', '%'], ['mem', '%'], ['gpu', '%']].map(([k]) => { const p = pico(k); return `<div class="medida"><span class="rot">${MEDIDAS[k].t}</span><b>${fmt(media(k))}<small>%</small></b><span class="pico">pico ${fmt(p.v)}% às ${p.h}h</span></div>`; }).join('')}
+          ${sem ? '' : `<div class="medida ${quente ? 'quente' : ''}"><span class="rot">Temperatura da placa</span><b>${fmt(media('gpuT'))}<small>°C</small></b><span class="pico">pico ${fmt(pico('gpuT').v)} °C às ${pico('gpuT').h}h</span></div>
+          <div class="medida"><span class="rot">Consumo da placa</span><b>${fmt(H.reduce((s, x) => s + x.w.m, 0) / H.length)}<small>W</small></b><span class="pico">pico ${fmt(Math.max(...H.map((x) => x.w.p)))} W</span></div>
+          <div class="medida"><span class="rot">Placa-mãe</span><b>${fmt(media('pm'))}<small>°C</small></b><span class="pico">pico ${fmt(pico('pm').v)} °C</span></div>
+          <div class="medida"><span class="rot">Disco (SSD)</span><b>31<small>°C</small></b><span class="pico">saúde ok · 3.248 h ligado</span></div>
+          <div class="medida"><span class="rot">Frequência real</span><b>157<small>%</small></b><span class="pico">acima de 100% = turbo; cai quando esquenta</span></div>`}
+        </div></div>
+        <div class="bloco branco s8" style="--i:4"><h2>${esc(med.t)}, hora a hora</h2>
+          <div class="segmentado" role="group" aria-label="O que mostrar" style="margin-bottom:12px">${opcoes.map(([k, m]) => `<button type="button" data-medida="${k}" aria-pressed="${E.medida === k}">${m.t}</button>`).join('')}</div>
+          ${grafico(H, med)}
+          <p class="nota">A barra é a média da hora; o traço em cima, o pico. A linha tracejada é o limite (${med.lim}${med.u}). Toque numa hora para ver o pico de cada minuto.</p></div>
+        <div class="s4" style="--i:5"><div class="recibo"><h2>Quedas do computador</h2>
+          ${sem ? '<div class="linha"><span>sem o registro do Windows neste pacote</span><span>—</span></div>' : quedas.map((q) => `<div class="linha mal"><span>apagou ${q.apagou}<br>voltou ${q.voltou}</span><span>${q.fora}<br>${q.causa}</span></div>`).join('')}
+          ${!sem && quedas.length > 1 ? `<div class="linha"><span>${quedas.length} quedas de energia em 30 dias</span><span>nobreak resolve</span></div>` : ''}
+          <div class="linha ok"><span>a causa sai do registro do Windows (eventos 41 e 6008)</span><span></span></div></div></div>
+      </div>`;
+  }
+  function grafico(H, med) {
+    const W = 720, A = 230, base = A - 24, max = 100, esq = 34, larg = (W - esq) / H.length;
+    const y = (v) => base - (v / max) * (base - 14);
+    const marcas = [0, 25, 50, 75, 100].map((v) => `<line x1="${esq}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--linha)" stroke-width="1"/><text x="${esq - 6}" y="${y(v) + 3}" text-anchor="end">${v}${med.u === '%' ? '%' : '°'}</text>`).join('');
+    return `<div class="grafico"><svg viewBox="0 0 ${W} ${A}" role="img" aria-label="${esc(med.t)} por hora nas últimas 24 horas">
+      ${marcas}
+      <line x1="${esq}" x2="${W}" y1="${y(med.lim)}" y2="${y(med.lim)}" stroke="var(--ketchup)" stroke-dasharray="6 5" stroke-width="2"/>
+      <text x="${esq + 4}" y="${y(med.lim) - 6}" style="fill:var(--ketchup);font-weight:600">limite ${med.lim}${med.u}</text>
+      ${H.map((x, i) => { const v = med.de(x), mx = Math.min(max, v.m), px = esq + i * larg + 3, w = larg - 6, passou = v.p >= med.lim;
+        return `<g class="barra" tabindex="0" role="button" aria-label="${x.h}h: média ${fmt(v.m)}${med.u}, pico ${fmt(v.p)}${med.u}" data-hora="${i}">
+          <rect x="${px}" y="${y(mx)}" width="${w}" height="${base - y(mx)}" rx="4" fill="${x.ab ? 'var(--chapa)' : 'var(--linha-forte)'}"/>
+          <rect x="${px}" y="${y(Math.min(max, v.p)) - 2}" width="${w}" height="4" rx="2" fill="${passou ? 'var(--ketchup)' : 'var(--mostarda)'}"/>
+          ${i % 3 === 0 ? `<text x="${px + w / 2}" y="${A - 6}" text-anchor="middle">${x.h}h</text>` : ''}</g>`; }).join('')}
+      <line x1="${esq}" x2="${W}" y1="${base}" y2="${base}" stroke="var(--linha-forte)"/>
+    </svg></div>
+    <div class="legenda"><span><i style="background:var(--chapa)"></i>loja aberta</span><span><i style="background:var(--linha-forte)"></i>loja fechada</span><span><i style="background:var(--mostarda)"></i>pico</span><span><i style="background:var(--ketchup)"></i>pico acima do limite</span></div>`;
+  }
+  function detalheDaHora(i) {
+    const H = horas(E.situacao), x = H[i], med = MEDIDAS[E.medida], v = med.de(x);
+    const mins = Array.from({ length: 60 }, (_, m) => { const r = ((m * 131 + x.h * 17) % 29) / 29; return Math.max(0, Math.min(100, v.m + (r - 0.45) * (v.p - v.m) * 2.1)); });
+    abrirGaveta(`${x.h}h às ${x.h}h59`, `
+      <div class="medidas"><div class="medida"><span class="rot">${esc(med.t)} · média</span><b>${fmt(v.m)}<small>${med.u}</small></b></div><div class="medida"><span class="rot">pico</span><b>${fmt(v.p)}<small>${med.u}</small></b></div></div>
+      <div><h3 style="font-size:17px;margin-bottom:8px">O pico de cada minuto</h3><div class="minutos" role="img" aria-label="pico de cada minuto da hora">${mins.map((m) => `<i style="height:${Math.max(3, m)}%" class="${m >= med.lim ? 'acima' : ''}"></i>`).join('')}</div>
+      <div class="legenda"><span>:00</span><span style="margin-left:auto">:59</span></div></div>
+      <div class="recibo"><div class="linha"><span>minutos acima de ${med.lim}${med.u}</span><span>${mins.filter((m) => m >= med.lim).length}</span></div>
+      <div class="linha"><span>a placa segurou a frequência</span><span>${x.segurou ? `${x.segurou} amostra(s)` : 'não'}</span></div>
+      <div class="linha"><span>a loja estava</span><span>${x.ab ? 'aberta' : 'fechada'}</span></div></div>`);
+  }
+
+  // ─────────────────── tela: a planta ───────────────────
+  const ESC = 72; // pixels por metro no desenho da planta
+  const px = (m) => (m * ESC).toFixed(1);
+  function plantaBase(extra = '', { alvo = false, rotulos = true } = {}) {
+    let grade = ''; for (let x = 1; x < COZ.w; x++) grade += `<line x1="${px(x)}" y1="0" x2="${px(x)}" y2="${px(COZ.h)}" stroke="var(--grade)"/>`;
+    for (let y = 1; y < COZ.h; y++) grade += `<line x1="0" y1="${px(y)}" x2="${px(COZ.w)}" y2="${px(y)}" stroke="var(--grade)"/>`;
+    const moveis = MOVEIS.map((m) => `<rect x="${px(m.x)}" y="${px(m.y)}" width="${px(m.w)}" height="${px(m.h)}" rx="6" fill="var(--movel)"/>${rotulos ? `<text x="${px(m.x + m.w / 2)}" y="${px(m.y + m.h / 2) * 1 + 4}" text-anchor="middle" style="font:800 12px var(--titulo);letter-spacing:.05em;text-transform:uppercase" fill="var(--tinta)">${m.nome}</text>` : ''}`).join('');
+    return `<svg viewBox="-8 -8 ${COZ.w * ESC + 16} ${COZ.h * ESC + 16}" ${alvo ? 'class="alvo" id="svg-planta"' : ''} role="img" aria-label="A planta da cozinha, ${fmt(COZ.w, 1)} por ${fmt(COZ.h, 1)} metros">
+      <rect x="0" y="0" width="${px(COZ.w)}" height="${px(COZ.h)}" fill="var(--piso)" stroke="var(--parede)" stroke-width="4"/>${grade}${moveis}${extra}
+      <text x="${px(COZ.w) - 6}" y="${px(COZ.h) - 8}" text-anchor="end" style="font:500 10px var(--mono)" fill="var(--suave)">1 quadrado = 1 m</text></svg>`;
+  }
+  const camSimbolo = (k) => { const c = CAMS[k], a = Math.atan2(c.alvo[1] - c.pos[1], c.alvo[0] - c.pos[0]) * 180 / Math.PI;
+    return `<g transform="translate(${px(c.pos[0])} ${px(c.pos[1])}) rotate(${a})"><rect x="-11" y="-8" width="22" height="16" rx="4" fill="${c.cor}"/><path d="M11 -5 L19 -9 L19 9 L11 5 Z" fill="${c.cor}"/></g>
+      <text x="${px(c.pos[0]) * 1 + (c.pos[0] < 1 ? 14 : c.pos[0] > COZ.w - 1 ? -14 : 0)}" y="${px(c.pos[1]) * 1 + (c.pos[1] > 4 ? -26 : 30)}" text-anchor="${c.pos[0] < 1 ? 'start' : c.pos[0] > COZ.w - 1 ? 'end' : 'middle'}" style="font:800 12px var(--titulo);paint-order:stroke;stroke:var(--cartao);stroke-width:3px" fill="${c.cor}">${c.curto.toUpperCase()}</text>`; };
+  const poligono = (pts, cor, extra = '') => `<polygon points="${pts.map((p) => `${px(p[0])},${px(p[1])}`).join(' ')}" fill="${cor}" fill-opacity=".16" stroke="${cor}" stroke-width="2.5" stroke-linejoin="round" ${extra}/>`;
+
+  function telaPlanta() {
+    const abas = [['cobertura', 'O que cada câmera cobre'], ['calibrar', 'Calibrar câmera'], ['movimento', 'Movimento']];
+    return `<div class="cabeca"><div class="t"><div class="olho">Canais › Planta · cozinha 7,5 × 5,5 m</div><h1>Planta viva</h1>
+      <p>Cada câmera no mapa pelos pontos marcados no chão: o que ela cobre de verdade, e as pessoas no mapa — sem nome e sem rosto.</p></div></div>
+      <div class="abas" role="tablist" aria-label="Partes da planta">${abas.map(([k, t]) => `<button class="aba" role="tab" type="button" data-aba="${k}" aria-selected="${E.aba === k}">${t}</button>`).join('')}</div>
+      <div id="corpo-planta" role="tabpanel">${E.aba === 'cobertura' ? abaCobertura() : E.aba === 'calibrar' ? abaCalibrar() : abaMovimento()}</div>`;
+  }
+
+  function abaCobertura() {
+    const cal = calibradas();
+    if (!cal.length) return `<div class="bloco papel2"><div class="vazio"><b>Nenhuma câmera calibrada ainda</b><span>Marque de 8 a 15 pontos do chão em cada câmera (aba "Calibrar câmera"). Até lá, a planta mostra só o cone estimado de cada uma.</span><button class="botao c" type="button" data-ir-aba="calibrar">Calibrar a primeira câmera</button></div></div>`;
+    const areas = cal.filter((k) => E.camerasVisiveis.has(k)).map((k) => ({ k, pol: areaDaCamera(homografia(MARCADOS[k])) }));
+    // o que nenhuma câmera vê: a grade de 25 cm testada contra as áreas
+    const dentro = (p, pol) => { let d = false; for (let i = 0, j = pol.length - 1; i < pol.length; j = i++) { const [xi, yi] = pol[i], [xj, yj] = pol[j]; if ((yi > p[1]) !== (yj > p[1]) && p[0] < (xj - xi) * (p[1] - yi) / (yj - yi) + xi) d = !d; } return d; };
+    let semVer = '', total = 0, vistos = 0;
+    for (let x = 0.125; x < COZ.w; x += 0.25) for (let y = 0.125; y < COZ.h; y += 0.25) { total++; if (areas.some((a) => dentro([x, y], a.pol))) vistos++; else semVer += `<rect x="${px(x - .125)}" y="${px(y - .125)}" width="${px(.25)}" height="${px(.25)}" fill="url(#hachura)"/>`; }
+    const extra = `<defs><pattern id="hachura" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="3" height="8" fill="var(--ketchup)" fill-opacity=".22"/></pattern></defs>${semVer}${areas.map((a) => poligono(a.pol, CAMS[a.k].cor)).join('')}${Object.keys(CAMS).map(camSimbolo).join('')}`;
+    const semCal = Object.keys(CAMS).filter((k) => !cal.includes(k));
+    return `<div class="grade cascata">
+      <div class="s8" style="--i:0"><div class="quadro-svg"><h2>O piso que cada câmera vê <small>pelos pontos marcados · hachurado = nenhuma câmera vê</small></h2>${plantaBase(extra)}
+        <div class="legenda">${cal.map((k) => `<label><input type="checkbox" data-cam="${k}" ${E.camerasVisiveis.has(k) ? 'checked' : ''}> <i style="background:${CAMS[k].cor}"></i>${CAMS[k].nome}</label>`).join('')}</div></div></div>
+      <div class="s4" style="--i:1;display:grid;gap:16px;align-content:start">
+        <div class="bloco ${vistos / total > .8 ? 'picles' : 'mostarda'}"><h2>O piso coberto</h2><span class="medio">${Math.round(100 * vistos / total)}%</span><div class="rot" style="margin-top:6px">da cozinha, por pelo menos uma câmera calibrada</div></div>
+        <div class="recibo"><h2>Cada câmera</h2>${Object.keys(CAMS).map((k) => { const p = MARCADOS[k], ok = cal.includes(k), cf = ok && conferido(p);
+          const med = cf ? cf.filter((e) => e != null).sort((a, b) => a - b)[Math.floor(cf.length / 2)] : null;
+          return `<div class="linha ${ok ? 'ok' : 'mal'}"><span>${CAMS[k].nome}<br>${p.length} ponto(s) marcados</span><span>${ok ? (med != null ? `acerta a ~${fmt(med * 100)} cm` : 'calibrada') : 'sem calibração'}</span></div>`; }).join('')}</div>
+        ${semCal.length ? `<button class="botao c" type="button" data-ir-aba="calibrar" data-canal="${semCal[0]}">Calibrar ${CAMS[semCal[0]].curto.toLowerCase()}</button>` : ''}
+      </div></div>`;
+  }
+
+  function vistaDaCamera(k, pares, pendente) {
+    const c = CAMS[k], W = 640, A = 360, P = (uv) => [uv[0] * W, uv[1] * A];
+    const linha = (a, b, cor, larg = 1.2, op = 1) => { const pts = []; for (let t = 0; t <= 1.0001; t += 1 / 40) { const q = imagemDe(c, a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, (a[2] || 0) + ((b[2] || 0) - (a[2] || 0)) * t); if (q) pts.push(P(q)); }
+      return pts.length > 1 ? `<polyline points="${pts.map((p) => p.map((v) => v.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="${cor}" stroke-width="${larg}" stroke-opacity="${op}"/>` : ''; };
+    let g = ''; for (let x = 0; x <= COZ.w; x += 0.5) g += linha([x, 0], [x, COZ.h], 'var(--parede)', x % 1 ? .6 : 1.1, .55);
+    for (let y = 0; y <= COZ.h; y += 0.5) g += linha([0, y], [COZ.w, y], 'var(--parede)', y % 1 ? .6 : 1.1, .55);
+    const paredes = [[[0, 0, 0], [0, 0, 2.6]], [[COZ.w, 0, 0], [COZ.w, 0, 2.6]], [[0, 0, 2.6], [COZ.w, 0, 2.6]]].map(([a, b]) => linha(a, b, 'var(--parede)', 2)).join('');
+    // os móveis como caixas: as faces de longe para perto (a de perto cobre a de longe)
+    const faces = [];
+    for (const m of MOVEIS) {
+      const x0 = m.x, x1 = m.x + m.w, y0 = m.y, y1 = m.y + m.h, z = m.alt;
+      const lista = [
+        [[[x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z]], 'var(--movel)'],
+        [[[x0, y1, 0], [x1, y1, 0], [x1, y1, z], [x0, y1, z]], 'var(--linha-forte)'],
+        [[[x0, y0, 0], [x1, y0, 0], [x1, y0, z], [x0, y0, z]], 'var(--linha-forte)'],
+        [[[x0, y0, 0], [x0, y1, 0], [x0, y1, z], [x0, y0, z]], 'var(--linha)'],
+        [[[x1, y0, 0], [x1, y1, 0], [x1, y1, z], [x1, y0, z]], 'var(--linha)'],
+      ];
+      for (const [vs, cor] of lista) {
+        const qs = vs.map(([x, y, zz]) => imagemDe(c, x, y, zz)); if (!qs.every(Boolean)) continue;
+        const cx = vs.reduce((s, v) => s + v[0], 0) / 4, cy = vs.reduce((s, v) => s + v[1], 0) / 4, cz = vs.reduce((s, v) => s + v[2], 0) / 4;
+        faces.push({ d: Math.hypot(cx - c.pos[0], cy - c.pos[1], cz - c.pos[2]), pts: qs.map((q) => P(q).map((v) => v.toFixed(1)).join(',')).join(' '), cor });
+      }
+    }
+    const caixas = faces.sort((a, b) => b.d - a.d).map((f) => `<polygon points="${f.pts}" fill="${f.cor}" stroke="var(--parede)" stroke-width="1"/>`).join('');
+    const pts = pares.map((p, i) => { const [x, y] = P(p.img); return `<g class="ponto-m"><circle cx="${x}" cy="${y}" r="11" fill="${c.cor}"/><text x="${x}" y="${y + 4}" text-anchor="middle">${i + 1}</text></g>`; }).join('');
+    const pend = pendente ? (() => { const [x, y] = P(pendente); return `<g class="ponto-m"><circle cx="${x}" cy="${y}" r="14" fill="none" stroke="var(--mostarda)" stroke-width="4"><animate attributeName="r" values="10;16;10" dur="1.2s" repeatCount="indefinite"/></circle><text x="${x}" y="${y + 4}" text-anchor="middle" style="fill:var(--tinta)">${pares.length + 1}</text></g>`; })() : '';
+    return `<svg viewBox="0 0 ${W} ${A}" class="alvo" id="svg-camera" role="img" aria-label="A imagem de ${esc(c.nome)}: clique num ponto do chão"><rect width="${W}" height="${A}" fill="var(--piso)"/>${g}${paredes}${caixas}${pts}${pend}
+      <rect width="${W}" height="${A}" fill="none" stroke="var(--linha-forte)"/></svg>`;
+  }
+  function abaCalibrar() {
+    if (!podeConfigurar()) return `<div class="cadeado"><b>Calibrar as câmeras é de quem configura a loja (gerente para cima).</b><span class="nota" style="margin:0">Você vê o que cada câmera cobre e o movimento.</span></div>`;
+    const k = E.canal, c = CAMS[k], pares = MARCADOS[k], h = homografia(pares), cf = conferido(pares) || [];
+    const med = cf.filter((e) => e != null).sort((a, b) => a - b), mediana = med.length ? med[Math.floor(med.length / 2)] : null;
+    const area = h ? areaDaCamera(h) : null, prev = E.pendente && h ? projetar(h, E.pendente) : null;
+    const pontosPlanta = pares.map((p, i) => `<g class="ponto-m"><circle cx="${px(p.piso[0])}" cy="${px(p.piso[1])}" r="11" fill="${c.cor}"/><text x="${px(p.piso[0])}" y="${px(p.piso[1]) * 1 + 4}" text-anchor="middle">${i + 1}</text></g>`).join('');
+    const fantasma = prev ? `<g><circle cx="${px(prev[0])}" cy="${px(prev[1])}" r="13" fill="none" stroke="var(--mostarda)" stroke-width="3" stroke-dasharray="4 3"/><text x="${px(prev[0])}" y="${px(prev[1]) - 18}" text-anchor="middle" style="font:600 10px var(--mono)" fill="var(--tinta)">a conta acha que é aqui</text></g>` : '';
+    const extra = `${area ? poligono(area, c.cor) : ''}${camSimbolo(k)}${pontosPlanta}${fantasma}`;
+    const estado = pares.length < 4 ? `faltam ${4 - pares.length} ponto(s) para a conta começar` : !h ? 'os pontos estão quase numa reta: espalhe mais' : pares.length < 8 ? `calibrada · marque mais ${8 - pares.length} para a régua ficar boa` : 'calibrada';
+    return `<div class="acoes" style="margin-bottom:14px">${Object.keys(CAMS).map((id) => `<button class="aba" type="button" data-canal="${id}" aria-pressed="${E.canal === id}" style="${E.canal === id ? 'background:var(--chapa);color:var(--sobre-chapa)' : ''}">${CAMS[id].curto}</button>`).join('')}</div>
+      <div class="duas">
+        <div class="quadro-svg"><h2>${E.pendente ? `2 · agora o mesmo ponto na planta` : '1 · clique num ponto do chão na imagem'} <small>${esc(c.nome)}</small></h2>${vistaDaCamera(k, pares, E.pendente)}</div>
+        <div class="quadro-svg"><h2>Planta <small>${E.pendente ? 'onde esse ponto fica, medido com trena' : 'os pontos marcados e o piso que a câmera vê'}</small></h2>${plantaBase(extra, { alvo: true })}</div>
+      </div>
+      <div class="grade" style="margin-top:16px">
+        <div class="bloco branco s5"><h2>A régua</h2><div class="regua"><b>${mediana != null ? fmt(mediana * 100) : '—'}</b><span>cm: quanto a posição de um ponto do chão erra, deixando cada ponto de fora por vez e vendo onde ele cai${pares.length < 5 ? ' (aparece com 5 pontos ou mais)' : ''}</span></div>
+          <p class="nota">${estado}. ${pares.length} de 8 a 15 pontos. Erro de um ponto acima de 15 cm costuma ser trena ou clique no lugar errado: tire-o e marque de novo.</p>
+          <div class="acoes" style="margin-top:12px"><button class="botao k" type="button" id="salvar-cal" ${h ? '' : 'disabled'}>Salvar calibração</button><button class="botao b" type="button" id="desfazer" ${pares.length || E.pendente ? '' : 'disabled'}>Desfazer</button><button class="botao contorno" type="button" id="tirar-cal" ${pares.length ? '' : 'disabled'}>Tirar calibração</button></div></div>
+        <div class="bloco papel2 s7"><h2>Os pontos</h2>${pares.length ? `<div class="pares">${pares.map((p, i) => `<div class="par"><span class="n">${i + 1}</span><span>imagem ${fmt(p.img[0] * 100)}% · ${fmt(p.img[1] * 100)}%<br>planta x ${fmt(p.piso[0], 2)} m · y ${fmt(p.piso[1], 2)} m</span><span class="erro ${cf[i] > .15 ? 'mal' : ''}">${cf[i] != null ? `${fmt(cf[i] * 100)} cm` : '—'}</span><button type="button" data-tirar="${i}" aria-label="Tirar o ponto ${i + 1}">${ic('lixo')}</button></div>`).join('')}</div>` :
+          `<ol class="passo-a-passo"><li>Na loja, marque de 8 a 15 pontos no chão com fita, espalhados (inclusive atrás das bancadas), e meça cada um com trena a partir de duas paredes.</li><li>Aqui, clique no ponto na imagem da câmera; depois, no mesmo ponto na planta.</li><li>Com 4 pontos a conta começa; com 5, aparece a régua; a partir daí, a planta mostra onde a conta acha que o próximo ponto fica.</li></ol>`}</div>
+      </div>`;
+  }
+
+  // movimento: o calor, os postos e o replay (dados de exemplo das pessoas)
+  const TRAJ = [
+    { n: 1, f: (t) => [1.3 + 0.5 * Math.sin(t / 50), 1.6 + 0.2 * Math.sin(t / 23)] },
+    { n: 2, f: (t) => [3.0 + 1.6 * Math.sin(t / 90), 3.75 + 0.15 * Math.cos(t / 31)] },
+    { n: 3, f: (t) => { const s = (t % 400) / 400; return s < .5 ? [3.2 + 3.2 * s * 2, 2.6 + 0.6 * Math.sin(s * 9)] : [6.4 - 3.2 * (s - .5) * 2, 2.6 - 0.6 * Math.sin(s * 9)]; } },
+  ];
+  function calorExemplo() {
+    const cel = new Map(); for (let t = 0; t < 3600; t += 2) for (const p of TRAJ) { const [x, y] = p.f(t * 1.7); const k = `${Math.floor(x / .25)},${Math.floor(y / .25)}`; cel.set(k, (cel.get(k) || 0) + 2); }
+    return cel;
+  }
+  function abaMovimento() {
+    if (!calibradas().length) return `<div class="bloco papel2"><div class="vazio"><b>A planta viva ainda não liga</b><span>Ela precisa de pelo menos uma câmera calibrada pelos pontos do piso. Depois de calibrar, o agente passa a pôr as pessoas no mapa — sem imagem, sem nome e sem rosto.</span><button class="botao c" type="button" data-ir-aba="calibrar">Calibrar câmera</button></div></div>`;
+    const cel = calorExemplo(), max = Math.max(...cel.values());
+    const calor = [...cel.entries()].map(([k, s]) => { const [i, j] = k.split(',').map(Number), a = Math.min(1, s / max);
+      return `<rect x="${px(i * .25)}" y="${px(j * .25)}" width="${px(.25)}" height="${px(.25)}" fill="${a > .6 ? 'var(--ketchup)' : a > .3 ? 'var(--pao)' : 'var(--mostarda)'}" fill-opacity="${(0.25 + a * 0.7).toFixed(2)}"/>`; }).join('');
+    const postos = MOVEIS.map((m) => { let s = 0; for (const [k, v] of cel) { const [i, j] = k.split(',').map(Number), cx = (i + .5) * .25, cy = (j + .5) * .25; if (cx >= m.x - .7 && cx <= m.x + m.w + .7 && cy >= m.y - .7 && cy <= m.y + m.h + .7) s += v; } return { ...m, s: s * 4.3 }; }).filter((m) => m.s > 0).sort((a, b) => b.s - a.s);
+    const hms = (s) => `${Math.floor(s / 3600)} h ${String(Math.round(s % 3600 / 60)).padStart(2, '0')} min`;
+    const porHora = [['19h', 1.8, 3], ['20h', 2.6, 4], ['21h', 3.1, 5], ['22h', 2.9, 4], ['23h', 2.2, 3], ['0h', 1.6, 3], ['1h', 1.2, 2], ['2h', 0.7, 2]];
+    const replay = podeConfigurar();
+    const t = E.replayT, figuras = TRAJ.map((p) => { const rastro = []; for (let k = Math.max(0, t - 30); k <= t; k += 2) rastro.push(p.f(k * 1.7));
+      const [x, y] = p.f(t * 1.7); return `<polyline points="${rastro.map((q) => `${px(q[0])},${px(q[1])}`).join(' ')}" fill="none" stroke="var(--chapa)" stroke-width="3" stroke-opacity=".35" stroke-linecap="round"/>
+        <g><circle cx="${px(x)}" cy="${px(y)}" r="13" fill="var(--chapa)"/><text x="${px(x)}" y="${px(y) * 1 + 5}" text-anchor="middle" style="font:800 14px var(--titulo)" fill="var(--sobre-chapa)">${p.n}</text></g>`; }).join('');
+    const hora = (s) => { const d = new Date(Date.UTC(2026, 9, 25, 21, 0, 0) + s * 1000); return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}:${String(d.getUTCSeconds()).padStart(2, '0')}`; };
+    return `<div class="acoes" style="margin-bottom:14px"><div class="segmentado" role="group" aria-label="Período"><button type="button" aria-pressed="true">Hoje, 19h–3h</button><button type="button" aria-pressed="false">Ontem</button><button type="button" aria-pressed="false">7 dias</button></div>
+      <span class="chip">sem nome · sem rosto · o caminho de cada um some em 7 dias</span></div>
+      <div class="grade cascata">
+        <div class="s8" style="--i:0"><div class="quadro-svg"><h2>Onde a loja trabalha <small>segundos-pessoa por quadrado de 25 cm</small></h2>${plantaBase(calor)}
+          <div class="legenda"><span>pouco</span><span class="calor-escala"></span><span>muito</span></div></div></div>
+        <div class="s4" style="--i:1;display:grid;gap:16px;align-content:start">
+          <div class="bloco branco"><h2>Tempo em cada posto</h2><div class="postos">${postos.map((m) => `<div class="posto"><b>${m.nome}</b><span class="rot">${hms(m.s)}</span><span class="trilha"><i style="width:${Math.round(100 * m.s / postos[0].s)}%"></i></span></div>`).join('')}</div>
+            <p class="nota">Pessoa-tempo na frente de cada móvel (com 70 cm de folga), somado no período.</p></div>
+          <div class="bloco chapa"><h2>Pessoas por hora</h2><div style="display:grid;grid-template-columns:repeat(${porHora.length},minmax(0,1fr));gap:6px;align-items:end">${porHora.map(([h, m, p]) => `<div style="display:grid;gap:4px;justify-items:stretch" title="${h}: média ${fmt(m, 1)}, pico ${p}"><span class="rot" style="text-align:center">${fmt(m, 1)}</span><i style="display:block;height:${Math.round((m / 5) * 96)}px;background:var(--mostarda);border-radius:6px 6px 0 0"></i><span class="rot" style="text-align:center">${h}</span></div>`).join('')}</div><div class="rot" style="margin-top:8px">a barra é a média; o pico da noite foi 5 pessoas às 21h</div></div>
+        </div>
+        <div class="s12" style="--i:2"><div class="quadro-svg"><h2>Replay <small>até 60 minutos de cada vez · só quem configura a loja</small></h2>
+          ${replay ? `<div class="replay-planta">${plantaBase(figuras)}</div><div class="replay-barra"><button class="botao c" type="button" id="tocar" aria-label="${E.tocando ? 'Pausar' : 'Tocar'}">${ic(E.tocando ? 'pausa' : 'play')}${E.tocando ? 'Pausar' : 'Tocar'}</button>
+            <input type="range" id="linha-replay" min="0" max="3600" step="1" value="${t}" aria-label="O instante do replay"><span class="mono" id="hora-replay">${hora(t)}</span>
+            <div class="segmentado" role="group" aria-label="Velocidade">${[1, 4, 16].map((v) => `<button type="button" data-vel="${v}" aria-pressed="${E.velocidade === v}">${v}×</button>`).join('')}</div></div>
+            <p class="nota">Cada número é um caminho do dia, não uma pessoa com nome: quem sai da câmera por mais de 3 s volta com outro número.</p>` :
+            `<div class="cadeado"><b>O replay mostra o caminho de cada um: só para quem configura a loja (gerente para cima).</b><span class="nota" style="margin:0">Você vê o calor, os postos e as pessoas por hora.</span></div>`}
+        </div></div>
+      </div>`;
+  }
+
+  // ─────────────────── desenhar e ligar ───────────────────
+  let animacao = null;
+  function desenhar(trocouTela = false) {
+    moldura();
+    $('#conteudo').innerHTML = E.tela === 'saude' ? telaSaude() : telaPlanta();
+    ligar();
+    if (trocouTela) $('#conteudo').focus({ preventScroll: true });
+  }
+  function soCorpoDaPlanta() { $('#corpo-planta').innerHTML = E.aba === 'cobertura' ? abaCobertura() : E.aba === 'calibrar' ? abaCalibrar() : abaMovimento(); $$('#conteudo .aba[data-aba]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.aba === E.aba))); ligar(); }
+  function pontoDoClique(svg, ev) { const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; return pt.matrixTransform(svg.getScreenCTM().inverse()); }
+  function ligar() {
+    $$('[data-periodo]').forEach((b) => b.onclick = () => { E.periodo = b.dataset.periodo; desenhar(); aviso(b.dataset.periodo === '24h' ? 'Últimas 24 horas' : `Período: ${b.textContent.toLowerCase()} (no protótipo, os números são os mesmos)`); });
+    $$('[data-medida]').forEach((b) => b.onclick = () => { E.medida = b.dataset.medida; desenhar(); });
+    $$('.grafico .barra').forEach((g) => { const abrir = () => detalheDaHora(+g.dataset.hora); g.onclick = abrir; g.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir(); } }; });
+    $$('[data-aba]').forEach((b) => b.onclick = () => { E.aba = b.dataset.aba; E.pendente = null; soCorpoDaPlanta(); });
+    $$('[data-ir-aba]').forEach((b) => b.onclick = () => { E.aba = b.dataset.irAba; if (b.dataset.canal) E.canal = b.dataset.canal; E.pendente = null; soCorpoDaPlanta(); });
+    $$('#corpo-planta [data-canal]').forEach((b) => { if (!b.dataset.irAba) b.onclick = () => { E.canal = b.dataset.canal; E.pendente = null; soCorpoDaPlanta(); }; });
+    $$('[data-cam]').forEach((c) => c.onchange = () => { c.checked ? E.camerasVisiveis.add(c.dataset.cam) : E.camerasVisiveis.delete(c.dataset.cam); soCorpoDaPlanta(); });
+    const cam = $('#svg-camera'), planta = $('#svg-planta');
+    if (cam) cam.onclick = (ev) => { const p = pontoDoClique(cam, ev), uv = [p.x / 640, p.y / 360]; if (!pisoDe(CAMS[E.canal], uv[0], uv[1])) { aviso('Esse ponto não está no chão: clique no piso.'); return; } E.pendente = uv; soCorpoDaPlanta(); };
+    if (planta && E.tela === 'planta' && E.aba === 'calibrar') planta.onclick = (ev) => {
+      if (!E.pendente) { aviso('Primeiro o ponto na imagem da câmera; depois o mesmo ponto aqui.'); return; }
+      const p = pontoDoClique(planta, ev), piso = [+(p.x / ESC).toFixed(2), +(p.y / ESC).toFixed(2)];
+      if (piso[0] < 0 || piso[1] < 0 || piso[0] > COZ.w || piso[1] > COZ.h) { aviso('Fora da cozinha: clique dentro da planta.'); return; }
+      const lista = MARCADOS[E.canal], perto = lista.findIndex((q) => Math.hypot(q.img[0] - E.pendente[0], q.img[1] - E.pendente[1]) < .01 || Math.hypot(q.piso[0] - piso[0], q.piso[1] - piso[1]) < .05);
+      if (perto >= 0) { aviso(`É o mesmo ponto que o ${perto + 1}.`); E.pendente = null; soCorpoDaPlanta(); return; }
+      lista.push({ img: E.pendente, piso }); E.pendente = null; soCorpoDaPlanta();
+      aviso(lista.length === 4 ? 'Com 4 pontos, a conta começou: a planta já mostra o piso que a câmera vê.' : `Ponto ${lista.length} marcado.`);
+    };
+    const salvar = $('#salvar-cal'); if (salvar) salvar.onclick = () => aviso(`Calibração do ${CAMS[E.canal].curto.toLowerCase()} salva. O agente recebe em até 1 minuto.`);
+    const desfazer = $('#desfazer'); if (desfazer) desfazer.onclick = () => { if (E.pendente) E.pendente = null; else MARCADOS[E.canal].pop(); soCorpoDaPlanta(); };
+    const tirar = $('#tirar-cal'); if (tirar) tirar.onclick = () => confirmar('Tirar a calibração?', `Os ${MARCADOS[E.canal].length} pontos do ${esc(CAMS[E.canal].curto.toLowerCase())} saem, e a planta viva deixa de usar esta câmera até ela ser calibrada de novo. Use quando a câmera foi mexida.`, 'Tirar calibração', () => { MARCADOS[E.canal].length = 0; soCorpoDaPlanta(); aviso('Calibração tirada.'); });
+    $$('#corpo-planta [data-tirar]').forEach((b) => b.onclick = () => { MARCADOS[E.canal].splice(+b.dataset.tirar, 1); soCorpoDaPlanta(); aviso('Ponto tirado.'); });
+    const tocar = $('#tocar'); if (tocar) tocar.onclick = () => { E.tocando = !E.tocando; if (E.tocando) rodar(); soCorpoDaPlanta(); };
+    const linhaR = $('#linha-replay'); if (linhaR) linhaR.oninput = () => { E.replayT = +linhaR.value; E.tocando = false; soCorpoDaPlanta(); $('#linha-replay').focus(); };
+    $$('[data-vel]').forEach((b) => b.onclick = () => { E.velocidade = +b.dataset.vel; soCorpoDaPlanta(); });
+  }
+  function rodar() {
+    cancelAnimationFrame(animacao); let antes = performance.now();
+    const passo = (agora) => { if (!E.tocando || E.tela !== 'planta' || E.aba !== 'movimento') return; E.replayT = Math.min(3600, E.replayT + (agora - antes) / 1000 * E.velocidade); antes = agora;
+      if (E.replayT >= 3600) E.tocando = false; soCorpoDaPlanta(); animacao = requestAnimationFrame(passo); };
+    animacao = requestAnimationFrame(passo);
+  }
+
+  // o controle do protótipo
+  function controle() {
+    $('#painel-controle').innerHTML = `
+      <label>Tela<select id="ct-tela"><option value="saude">Computador › Saúde</option><option value="planta">Planta viva</option></select></label>
+      <label>Saúde: a situação<select id="ct-sit"><option value="normal">tudo normal</option><option value="quente">a placa esquentando</option><option value="sobrecarga">sobrecarregado</option><option value="quedas">três quedas de energia</option><option value="antigo">pacote antigo (sem temperaturas)</option><option value="carregando">carregando</option></select></label>
+      <label>Planta: as câmeras<select id="ct-planta"><option value="calibrada">canal 1 e 4 calibrados</option><option value="nenhuma">nenhuma calibrada</option></select></label>
+      <label>Quem olha<select id="ct-perfil"><option value="presidente">diretoria</option><option value="gerente">gerente</option><option value="supervisao">supervisão</option></select></label>`;
+    $('#ct-tela').value = E.tela; $('#ct-sit').value = E.situacao; $('#ct-planta').value = E.planta; $('#ct-perfil').value = E.perfil;
+    $('#ct-tela').onchange = (e) => { E.tela = e.target.value; desenhar(true); };
+    $('#ct-sit').onchange = (e) => { E.situacao = e.target.value; E.tela = 'saude'; $('#ct-tela').value = 'saude'; desenhar(); };
+    $('#ct-planta').onchange = (e) => { E.planta = e.target.value; E.tela = 'planta'; $('#ct-tela').value = 'planta'; desenhar(); };
+    $('#ct-perfil').onchange = (e) => { E.perfil = e.target.value; desenhar(); };
+  }
+  $('#abrir-controle').onclick = () => { const p = $('#painel-controle'), abrir = p.hidden; p.hidden = !abrir; $('#abrir-controle').setAttribute('aria-expanded', String(abrir)); if (abrir) controle(); };
+  $('#tema').onclick = () => { const r = document.documentElement, escuro = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = escuro ? 'light' : 'dark'; };
+  try { const h = location.hash.slice(1); if (h === 'planta' || h === 'saude') E.tela = h; } catch (e) { /* sem endereço */ }
+  desenhar();
+})();
+</script>

@@ -8,8 +8,9 @@ import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-/** `conta`: um número ao lado do nome ("3 para rever"); `oQueConta` o diz a quem não vê a tela. */
-export type Aba = { href: string; rotulo: string; icone: LucideIcon; conta?: number; oQueConta?: string };
+/** `conta`: um número ao lado do nome ("3 para rever"); `oQueConta` o diz a quem não vê a tela. `incluiFilhas`: a aba
+ *  continua marcada nas páginas de baixo dela (Planta → Planta › Calibrar câmera). */
+export type Aba = { href: string; rotulo: string; icone: LucideIcon; conta?: number; oQueConta?: string; incluiFilhas?: boolean };
 
 export function Abas({ rotulo, abas }: { rotulo: string; abas: ReadonlyArray<Aba> }) {
   const caminho = usePathname();
@@ -17,8 +18,8 @@ export function Abas({ rotulo, abas }: { rotulo: string; abas: ReadonlyArray<Aba
     // Sem rolagem para o lado: em tela muito estreita as abas apertam e, se
     // ainda assim não couberem, quebram a linha (em 320 px sobravam 4 px).
     <nav aria-label={rotulo} className="-mb-1 flex flex-wrap gap-x-1 border-b border-farol-borda">
-      {abas.map(({ href, rotulo: nome, icone: Icone, conta, oQueConta }) => {
-        const atual = caminho === href;
+      {abas.map(({ href, rotulo: nome, icone: Icone, conta, oQueConta, incluiFilhas }) => {
+        const atual = caminho === href || (incluiFilhas === true && caminho.startsWith(`${href}/`));
         return (
           <Link
             key={href}

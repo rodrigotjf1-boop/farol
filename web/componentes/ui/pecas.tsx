@@ -130,7 +130,9 @@ export function Segmentado<T extends string>({
           }`}
         >
           {Icone && <Icone className="h-[15px] w-[15px] shrink-0" aria-hidden />}
-          <span className="truncate">{o.rotulo}</span>
+          {/* `truncate` corta o que sai da caixa da linha: com `leading-none`, o acento das MAIÚSCULAS ("ÚLTIMAS",
+              "MEMÓRIA") sumia. A linha de 1,25 dá lugar ao acento; a pílula tem altura mínima e não cresce. */}
+          <span className="truncate py-px leading-[1.25]">{o.rotulo}</span>
         </button>
       ))}
     </div>
