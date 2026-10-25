@@ -9949,3 +9949,49 @@ telas).
   `a26_servidores.mjs`: 24 horas com sensores e minutos, uma queda, horário de funcionamento): 7 estados (24 h, rolado
   até o gráfico, 7 dias, temperatura da placa, a gaveta da hora, a gaveta do dia, o Horário) em 5 larguras (320 a 1440) e
   nos dois temas — sem rolagem para o lado, sem botão sem nome, sem erro de script.
+
+## 25/10/2026 · A planta viva, as telas (A26 parte P4; sem migration)
+
+Do protótipo aprovado em 25/10/2026 (`mockups/farol-planta-viva-e-saude.html`). Fecha o pedido "definir onde cada canal
+fica no mapa e onde cobre" e o controle de movimento pronto à espera das fotos.
+
+**Onde fica:** Canais › Planta ganhou quatro abas — **Desenho** (o editor de sempre, `/canais/planta`), **O que cada
+câmera cobre** (`/canais/planta/cobertura`), **Calibrar câmera** (`/canais/planta/calibrar?canal=`) e **Movimento**
+(`/canais/planta/movimento`). A aba Planta, em cima, fica marcada nas quatro (`Aba.incluiFilhas`).
+
+**O que cada tela faz** (a conta é do servidor; a da tela, em `web/lib/planta-viva.ts`):
+- **O que cada câmera cobre:** o piso de cada câmera calibrada (a área que a calibração calculou, recortada no chão dos
+  ambientes), o que nenhuma vê (hachurado), o piso coberto em %, cada câmera com a régua ("acerta a ~2 cm") e o atalho
+  para calibrar a próxima. A câmera ainda não calibrada aparece com o cone estimado da planta, tracejado.
+- **Calibrar câmera** (só quem configura): toca-se o ponto do chão na IMAGEM DO CANAL (a última que o agente mandou; sem
+  imagem, "Pedir imagem do canal") e depois o mesmo ponto na planta. De 4 pontos para cima a tela pede a conta ao
+  servidor sem salvar (`…/conferir`) e mostra o piso que a câmera vê, a régua (o erro conferido) e, ao tocar o próximo
+  ponto na imagem, **onde a conta acha que ele fica** na planta. O erro de cada ponto acima de 15 cm aparece em vermelho.
+  Salvar grava com a versão que leu (409 com o motivo); tirar pede confirmação; trocar de canal com pontos não salvos
+  também. O mesmo ponto duas vezes (perto demais na imagem ou no chão) é recusado na hora, com a mesma régua do servidor.
+- **Movimento** (supervisão para cima): o calor por quadrado de 25 cm, o tempo em cada posto, as pessoas por hora e o
+  replay — os números do dia andando pela planta, com o rastro dos últimos 30 s, tocar/pausar, a linha do tempo e 1×, 4×
+  e 16×.
+
+**Onde difere do aprovado:**
+- **Os períodos do Movimento** são "Última hora", "12 horas", "24 horas" e "7 dias" (o protótipo tinha "Hoje, 19h–3h",
+  "Ontem" e "7 dias" — e não fazia nada com eles). **O replay só aparece na "Última hora"**: a API só manda o caminho de
+  cada um num trecho de até 60 minutos; nos outros períodos a tela diz para escolher a última hora.
+- **A imagem do canal é a última que o agente mandou**, com "Recarregar a imagem" e, sem imagem, "Pedir imagem do canal"
+  (o protótipo desenhava uma câmera simulada).
+- **O canal sem calibração aparece tracejado** em "O que cada câmera cobre" (o cone estimado do Desenho).
+- **Trocar de canal com pontos não salvos pergunta antes** (o protótipo trocava direto).
+- A planta é o desenho de cima feito na largura em que aparece (`PlantaDeCima`), com as mesmas classes do Desenho.
+
+### Como foi conferido
+
+- `api/testes/planta-viva.test.ts`: a conta das telas (`web/lib/planta-viva.ts`) — o ponto da imagem no chão igual ao
+  do servidor (pelo contrato da câmera simulada), o piso coberto, a cor do calor, a duração, a régua, o replay no
+  instante (o rastro de 30 s e quem sumiu há mais de 3 s) — e o replay lido da resposta DE VERDADE da rota.
+- No navegador (`a26_verificar.mjs`, API e console locais; a loja de teste com a planta, dois canais calibrados pela
+  câmera simulada, a imagem simulada de cada canal e 60 minutos de pessoas): Desenho, O que cada câmera cobre, Calibrar
+  (o canal calibrado; o canal 2 com 5 pontos marcados pela imagem e pela planta — a conta começou, a área apareceu, o
+  salvar ligou), Movimento (a última hora, o replay tocando a 16×, 24 horas) em 5 larguras e nos dois temas, como dono
+  — sem rolagem para o lado, sem botão sem nome, sem erro de script. Como supervisão: Calibrar diz que é de quem
+  configura e o Movimento não tem o replay. E o salvar de ponta a ponta: marcar 5 pontos no canal 2, salvar, o aviso, e
+  "Cada câmera" com o canal 2 calibrado.

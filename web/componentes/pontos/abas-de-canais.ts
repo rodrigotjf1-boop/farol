@@ -6,6 +6,7 @@ import type { Aba } from '@/componentes/ui/abas';
 
 export const abasDeCanais = (lojaId: string): Aba[] => [
   { href: `/lojas/${lojaId}/canais`, rotulo: 'Lista', icone: List },
-  { href: `/lojas/${lojaId}/canais/planta`, rotulo: 'Planta', icone: Map },
+  // a planta tem as vistas dela embaixo (a planta viva, A26): a aba fica marcada nelas também
+  { href: `/lojas/${lojaId}/canais/planta`, rotulo: 'Planta', icone: Map, incluiFilhas: true },
   { href: `/lojas/${lojaId}/canais/inventario`, rotulo: 'Inventário', icone: Package },
 ];

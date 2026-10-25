@@ -1198,7 +1198,7 @@ gravador atende (1,5 s, fora da trava), e o OpenCV passa a desistir em 5 s
 
 ---
 
-## A26 · A saúde do computador do agente e o controle de movimento (pedido do dono em 25/10/2026) — 🟡 M1, M2, P1, P2 e P3 feitas; protótipo aprovado (25/10)
+## A26 · A saúde do computador do agente e o controle de movimento (pedido do dono em 25/10/2026) — 🟡 M1, M2, P1, P2, P3 e P4 feitas; falta a M3 (aviso) e, da loja, as fotos e os pontos no piso
 
 O pedido do dono (25/10, depois da queda de energia de 24/10 que deixou o PC desligado das 08h49 às 04h44):
 
@@ -1218,7 +1218,7 @@ onde cobre." O nobreak, o dono providencia.
 | **P1** | cada câmera no mapa: onde fica e o que cobre, pelos pontos marcados no piso — a homografia de cada canal (imagem → planta), o erro de cada ponto, o erro conferido (deixando um de fora por vez) e o pedaço do piso que a câmera vê. A mesma conta na nuvem (`api/src/calibracao.ts`) e no agente (`planta_viva/calibracao.py`), conferida contra uma câmera simulada (`contratos/calibracao-da-camera.json`). Migration 057 e as rotas `…/calibracoes` (conferir sem salvar, salvar com versão, tirar); a homografia desce ao agente na configuração | ✅ 25/10/2026 (servidor) — a tela de marcar os pontos espera o protótipo, e os pontos, as fotos |
 | **P2** | o agente: pessoa (o detector da auditoria) → pé → ponto no chão com a incerteza → as câmeras juntas → o caminho sem nome → o minuto (calor, pico, caminhos a 1 ponto por segundo), do fluxo reduzido dos canais calibrados, com a loja aberta. **Nasce desligado** (`FAROL_PLANTA_VIVA`) | ✅ 25/10/2026 (código) — liga depois da calibração |
 | **P3** | a nuvem: os minutos (migration 058, `POST /v1/planta-viva/minutos`) e a leitura `GET /v1/lojas/:id/planta-viva` — o calor do período, o tempo em cada posto (do calor com os móveis da planta), a média e o pico por hora e, num trecho de até 60 min, os caminhos para o replay (só para quem configura a loja). A guarda é curta: o caminho some em 7 dias, o minuto em 90 | ✅ 25/10/2026 |
-| P4 | a tela: marcar os pontos da calibração, o que cada câmera cobre na planta, o mapa de calor, os postos e o replay | a fazer — **protótipo primeiro** |
+| **P4** | as telas, em Canais › Planta (abas **Desenho**, **O que cada câmera cobre**, **Calibrar câmera** e **Movimento**): marcar os pontos da calibração na imagem do canal e na planta, com a régua e o piso que a câmera vê; o piso coberto e o que nenhuma câmera vê; o calor, o tempo em cada posto, as pessoas por hora e o replay de até 60 min. Protótipo `mockups/farol-planta-viva-e-saude.html`, **aprovado pelo dono em 25/10/2026** | ✅ 25/10/2026 |
 
 **O que falta da loja para a planta viva ligar:** as fotos (para desenhar a planta de verdade) e, em cada câmera de
 canto, de 8 a 15 pontos do chão marcados com fita e medidos com trena a partir de duas paredes (o passo a passo está em
