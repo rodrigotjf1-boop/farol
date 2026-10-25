@@ -23,5 +23,52 @@
     "processoMemMaxMb": 355.2,
     "discoLivreGb": 64.12,
     "discoTotalGb": 223.0
+  },
+  "sobreOsSensores": "O monitoramento da máquina (25/10/2026, `agent/farol_agent/sensores.py`): a hora pode trazer também `sensores` (de cada campo somado, soma, amostras e pico; a saúde e as horas ligado do disco; há quanto tempo o PC está ligado; em quantas amostras a placa segurou a frequência por temperatura ou energia) e `minutos` ([minuto 0–59, {campo: pico}]). O corpo pode trazer `queda`: o último desligamento inesperado do PC, lido do registro do Windows (evento 41 e 6008) — quando apagou e ligou (UTC) e a causa. Os três são opcionais: agente antigo e máquina sem sensor não mandam.",
+  "sensoresDaHora": {
+    "sensores": {
+      "gpuMemPct": { "soma": 158.4, "amostras": 96, "max": 9.8 },
+      "gpuMemMb": { "soma": 25824.0, "amostras": 96, "max": 1598.0 },
+      "gpuTempC": { "soma": 4320.0, "amostras": 96, "max": 61.0 },
+      "gpuPotenciaW": { "soma": 1920.0, "amostras": 96, "max": 96.4 },
+      "gpuVentoinhaPct": { "soma": 1440.0, "amostras": 96, "max": 42.0 },
+      "gpuClockMhz": { "soma": 172800.0, "amostras": 96, "max": 2805.0 },
+      "cpuDesempenhoPct": { "soma": 10560.0, "amostras": 96, "max": 131.0 },
+      "tempPlacaMaeC": { "soma": 2736.0, "amostras": 96, "max": 31.0 },
+      "discoOcupadoPct": { "soma": 768.0, "amostras": 96, "max": 64.0 },
+      "discoLeituraMbs": { "soma": 96.0, "amostras": 96, "max": 22.5 },
+      "discoEscritaMbs": { "soma": 384.0, "amostras": 96, "max": 61.0 },
+      "discoTempC": { "soma": 124.0, "amostras": 4, "max": 33.0 },
+      "discoSaude": "ok",
+      "discoHorasLigado": 3248,
+      "ligadoHaH": 15.2,
+      "gpuLimitaTemperatura": 0,
+      "gpuLimitaEnergia": 2
+    },
+    "minutos": [
+      [0, { "cpu": 41.0, "mem": 52.0, "gpu": 30.0, "gpuTempC": 55.0, "gpuPotenciaW": 70.1, "tempPlacaMaeC": 29.0, "discoOcupadoPct": 12.0 }],
+      [1, { "cpu": 88.5, "mem": 53.1, "gpu": 92.0, "gpuTempC": 61.0, "gpuPotenciaW": 96.4, "tempPlacaMaeC": 31.0, "discoOcupadoPct": 64.0 }]
+    ]
+  },
+  "queda": {
+    "desligou": "2026-10-24T11:49:19+00:00",
+    "ligou": "2026-10-25T07:44:08+00:00",
+    "causa": "energia",
+    "bugcheck": null
+  },
+  "causasDaQueda": ["energia", "tela-azul", "botao", "suspensao"],
+  "camposDosSensores": {
+    "gpuMemPct": [0, 100],
+    "gpuMemMb": [0, 1000000],
+    "gpuTempC": [0, 130],
+    "gpuPotenciaW": [0, 2000],
+    "gpuVentoinhaPct": [0, 100],
+    "gpuClockMhz": [0, 10000],
+    "cpuDesempenhoPct": [0, 400],
+    "tempPlacaMaeC": [0, 130],
+    "discoOcupadoPct": [0, 100],
+    "discoLeituraMbs": [0, 100000],
+    "discoEscritaMbs": [0, 100000],
+    "discoTempC": [0, 130]
   }
 }

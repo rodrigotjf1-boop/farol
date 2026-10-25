@@ -23,6 +23,7 @@ import type pg from 'pg';
 
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import type { Autor } from '../db.js';
+import { lerMinutos, lerQueda, lerSensores, type Queda } from '../saude-da-maquina.js';
 
 const COM_FUSO = /(Z|[+-]\d{2}:?\d{2})$/i;
 const HORA_CHEIA = /T\d{2}:00:00(\.0+)?(Z|[+-]\d{2}:?\d{2})$/i;
@@ -43,6 +44,9 @@ export type UsoEntrada = {
   processoMemMaxMb: number | null;
   discoLivreGb: number | null;
   discoTotalGb: number | null;
+  /** O monitoramento (migration 056): os sensores da hora e o pico de cada minuto. Opcionais (agente antigo não manda). */
+  sensores?: unknown;
+  minutos?: unknown;
 } & Record<`${Peca}Soma`, number> &
   Record<`${Peca}Amostras`, number> &
   Record<`${Peca}Max`, number | null>;
@@ -89,6 +93,11 @@ export function validarUso(u: unknown, i: number): string | null {
   if (ehNumero(v.discoLivreGb) && ehNumero(v.discoTotalGb) && v.discoLivreGb > v.discoTotalGb + 0.01) {
     return `${onde}.discoLivreGb: maior que o disco inteiro`;
   }
+  // o monitoramento (migration 056)
+  const sensores = lerSensores(v.sensores, amostras, onde);
+  if (sensores.problema) return sensores.problema;
+  const minutos = lerMinutos(v.minutos, onde);
+  if (minutos.problema) return minutos.problema;
   return null;
 }
 
@@ -156,6 +165,9 @@ export async function gravarUso(
     proc_mem_max_mb: h.processoMemMaxMb ?? null,
     disco_livre_gb: h.discoLivreGb ?? null,
     disco_total_gb: h.discoTotalGb ?? null,
+    // só o que a conferência deixou passar (os campos conhecidos)
+    sensores: lerSensores(h.sensores, h.amostras, '').sensores ?? null,
+    minutos: lerMinutos(h.minutos, '').minutos ?? null,
   }));
 
   // UMA instrução para N horas. `distinct on` protege contra a mesma hora
@@ -166,19 +178,20 @@ export async function gravarUso(
         tenant_id, loja_id, agente_id, hora, amostras,
         cpu_soma, cpu_amostras, cpu_max, mem_soma, mem_amostras, mem_max,
         gpu_soma, gpu_amostras, gpu_max, proc_cpu_soma, proc_cpu_amostras, proc_cpu_max,
-        proc_mem_max_mb, disco_livre_gb, disco_total_gb)
+        proc_mem_max_mb, disco_livre_gb, disco_total_gb, sensores, minutos)
      select distinct on (e.hora)
             $1, $2, $3, e.hora, e.amostras,
             e.cpu_soma, e.cpu_amostras, e.cpu_max, e.mem_soma, e.mem_amostras, e.mem_max,
             e.gpu_soma, e.gpu_amostras, e.gpu_max, e.proc_cpu_soma, e.proc_cpu_amostras, e.proc_cpu_max,
-            e.proc_mem_max_mb, e.disco_livre_gb, e.disco_total_gb
+            e.proc_mem_max_mb, e.disco_livre_gb, e.disco_total_gb, e.sensores, e.minutos
        from jsonb_to_recordset($4::jsonb) as e(
             i integer, hora timestamptz, amostras integer,
             cpu_soma numeric, cpu_amostras integer, cpu_max numeric,
             mem_soma numeric, mem_amostras integer, mem_max numeric,
             gpu_soma numeric, gpu_amostras integer, gpu_max numeric,
             proc_cpu_soma numeric, proc_cpu_amostras integer, proc_cpu_max numeric,
-            proc_mem_max_mb numeric, disco_livre_gb numeric, disco_total_gb numeric)
+            proc_mem_max_mb numeric, disco_livre_gb numeric, disco_total_gb numeric,
+            sensores jsonb, minutos jsonb)
       order by e.hora, e.i desc
      on conflict (agente_id, hora) do update set
         amostras = excluded.amostras,
@@ -188,6 +201,7 @@ export async function gravarUso(
         proc_cpu_soma = excluded.proc_cpu_soma, proc_cpu_amostras = excluded.proc_cpu_amostras,
         proc_cpu_max = excluded.proc_cpu_max, proc_mem_max_mb = excluded.proc_mem_max_mb,
         disco_livre_gb = excluded.disco_livre_gb, disco_total_gb = excluded.disco_total_gb,
+        sensores = excluded.sensores, minutos = excluded.minutos,
         atualizado_em = now()
      returning hora`,
     [autor.tenantId, autor.lojaId, autor.agenteId, JSON.stringify(carga)],
@@ -208,7 +222,7 @@ export function rotasDeUso(app: FastifyInstance, pool: pg.Pool): void {
       throw e;
     }
 
-    const corpo = req.body as { horas?: unknown; maquina?: unknown };
+    const corpo = req.body as { horas?: unknown; maquina?: unknown; queda?: unknown };
     if (!Array.isArray(corpo?.horas)) {
       return resposta.status(400).send({ erro: 'corpo_invalido', mensagem: 'esperado { maquina, horas: [...] }' });
     }
@@ -217,14 +231,30 @@ export function rotasDeUso(app: FastifyInstance, pool: pg.Pool): void {
     }
 
     const lida = lerMaquina(corpo.maquina);
+    const queda = lerQueda(corpo.queda);
     const problemas = [
       ...(lida.problema ? [lida.problema] : []),
+      ...(queda.problema ? [queda.problema] : []),
       ...corpo.horas.map((h, i) => validarUso(h, i)).filter((p): p is string => p !== null),
     ];
     if (problemas.length > 0) {
       return resposta.status(422).send({ erro: 'validacao', problemas });
     }
 
-    return gravarUso(pool, autor, corpo.horas as UsoEntrada[], lida.maquina ?? null);
+    const gravado = await gravarUso(pool, autor, corpo.horas as UsoEntrada[], lida.maquina ?? null);
+    const quedaNova = queda.queda ? await gravarQueda(pool, autor, queda.queda) : false;
+    if (quedaNova) req.log.warn({ loja: autor.lojaId, agente: autor.agenteId, queda: queda.queda }, 'o PC do agente DESLIGOU DE REPENTE');
+    return queda.queda ? { ...gravado, queda: quedaNova ? 'nova' : 'ja_tinha' } : gravado;
   });
+}
+
+/** A queda do PC, uma vez por subida do Windows (o agente manda a mesma a cada envio). Verdadeiro: era nova. */
+export async function gravarQueda(pool: pg.Pool, autor: Autor, q: Queda): Promise<boolean> {
+  const r = await pool.query(
+    `insert into computador_queda (tenant_id, loja_id, agente_id, desligou, ligou, causa, bugcheck)
+     values ($1, $2, $3, $4, $5, $6, $7)
+     on conflict (agente_id, ligou) do nothing`,
+    [autor.tenantId, autor.lojaId, autor.agenteId, q.desligou, q.ligou, q.causa, q.bugcheck],
+  );
+  return (r.rowCount ?? 0) > 0;
 }

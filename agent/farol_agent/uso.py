@@ -38,7 +38,7 @@ import re
 import shutil
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
@@ -59,6 +59,8 @@ class Amostra:
     processo_mem_mb: float | None = None
     disco_livre_gb: float | None = None
     disco_total_gb: float | None = None
+    # O resto da máquina (25/10/2026, `sensores.py`): temperaturas, a placa NVIDIA, o disco, há quanto tempo ligado.
+    sensores: dict = field(default_factory=dict)
 
 
 def _prender(v: float) -> float:
@@ -353,6 +355,7 @@ class Medidor:
         relogio: Callable[[], float] = time.monotonic,
         tempo_do_processo: Callable[[], float] = time.process_time,
         nucleos: int | None = None,
+        sensores: Any = "detectar",
     ) -> None:
         self.pasta = Path(pasta_do_disco)
         self._relogio = relogio
@@ -365,6 +368,22 @@ class Medidor:
         except Exception as e:  # noqa: BLE001
             _log.warning("não vou medir o uso desta máquina: %s", e)
             self._sistema = None
+        # Os sensores (temperaturas, placa NVIDIA, disco): na máquina de verdade; o teste que injeta o sistema injeta
+        # também os sensores (ou nenhum).
+        self._sensores: Any = None
+        # A última queda do PC (o registro do Windows), lida uma vez ao subir: sobe junto com o uso.
+        self.queda: Any = None
+        if sensores == "detectar":
+            if sistema == "detectar":
+                try:
+                    from farol_agent.sensores import Sensores, ultima_queda
+
+                    self._sensores = Sensores()
+                    self.queda = ultima_queda()
+                except Exception as e:  # noqa: BLE001
+                    _log.warning("não vou ler os sensores desta máquina: %s", e)
+        else:
+            self._sensores = sensores
 
     def _ler(self, peca: str) -> float | None:
         """Uma peça, protegida: falhou três vezes seguidas, não tenta mais."""
@@ -405,7 +424,17 @@ class Medidor:
             processo_mem_mb=self._ler("processo_mem_mb"),
             disco_livre_gb=livre,
             disco_total_gb=total,
+            sensores=self._ler_sensores(),
         )
+
+    def _ler_sensores(self) -> dict:
+        if self._sensores is None:
+            return {}
+        try:
+            return dict(self._sensores.ler())
+        except Exception as e:  # noqa: BLE001 — medir nunca derruba a auditoria
+            _log.debug("os sensores não responderam: %s", e)
+            return {}
 
     def pecas(self) -> dict[str, Any]:
         """De que é feita a máquina, para a tela dizer do que está falando."""
@@ -420,8 +449,9 @@ class Medidor:
         return base
 
     def fechar(self) -> None:
-        if self._sistema is not None:
-            try:
-                self._sistema.fechar()
-            except Exception:  # noqa: BLE001
-                pass
+        for coisa in (self._sistema, self._sensores):
+            if coisa is not None:
+                try:
+                    coisa.fechar()
+                except Exception:  # noqa: BLE001
+                    pass

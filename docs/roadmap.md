@@ -1198,6 +1198,34 @@ gravador atende (1,5 s, fora da trava), e o OpenCV passa a desistir em 5 s
 
 ---
 
+## A26 · A saúde do computador do agente e o controle de movimento (pedido do dono em 25/10/2026) — 🟡 M1 feita
+
+O pedido do dono (25/10, depois da queda de energia de 24/10 que deixou o PC desligado das 08h49 às 04h44):
+
+> "um monitoramento de funcionamento do pc servidor do agente com relatorios de usos por horarios, picos de uso, quando
+> digo uso % de uso do processarod da memoria e da placa, temperaturas, para verificar se o pc esta sobrecarregado se
+> sobreaquece. o maximo de dados possiveis."
+
+E, no mesmo pedido: "ainda falta as fotos para criar o ambiente 3d para implementarmos o controle de movimento dos
+colaboradores, deixe o codigo ja completo so aguardando as fotos para analises. e definir onde cada canal fica no mapa e
+onde cobre." O nobreak, o dono providencia.
+
+| Parte | O quê | Situação |
+|---|---|---|
+| **M1** | o agente lê os sensores do PC (placa de vídeo: uso, memória, temperatura, consumo, ventoinha, frequência e se segurou a frequência por calor ou energia; a frequência real do processador; a temperatura da placa-mãe; o disco: ocupado, leitura, escrita, temperatura e saúde; há quanto tempo está ligado), guarda por hora com soma, amostras e pico, e o pico de cada minuto; a última queda do PC (quando apagou, quando voltou e a causa, pelo registro do Windows). A nuvem guarda (migration 056) e o relatório sai em `GET /v1/lojas/:id/computador/saude` | ✅ 25/10/2026 |
+| M2 | a tela do relatório, no "Computador da loja": por hora, os picos, as temperaturas, as quedas e "sobrecarregado?" / "esquentando?" com o porquê | a fazer — **protótipo primeiro** |
+| M3 | o aviso de calor e de sobrecarga pelos destinos dos alertas | a fazer, depois da M2 |
+| P1 | cada câmera no mapa: onde fica e o que cobre, pelos pontos marcados no piso (a homografia de cada canal) | a fazer — o código pronto à espera das fotos |
+| P2 | o agente: pessoa → pé → ponto no mapa, as câmeras juntas, o caminho sem nome; nasce desligado | a fazer |
+| P3 | a nuvem: as posições, o mapa de calor e os postos | a fazer |
+| P4 | a tela: o mapa ao vivo, o calor, os postos e o replay | a fazer — protótipo primeiro |
+
+**O que o PC da loja não deixa ler:** a temperatura dos núcleos do processador precisa de um driver de sensor (o
+Windows não entrega). O que entra no lugar: a temperatura da placa-mãe (zona térmica do ACPI) e a frequência real do
+processador — quando ele esquenta, a frequência cai.
+
+---
+
 ## A25 · O console com cara nova: o caminho "Comanda" (pedido do dono em 23/10/2026) — 🟡 parte 1 (a moldura) feita
 
 O pedido do dono (23/10): modernizar o console com movimento, animações e menus inteligentes, livre das cores da logo e

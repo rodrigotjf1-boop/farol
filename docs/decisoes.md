@@ -9725,3 +9725,78 @@ nova = treina numa noite e testa na outra; juntas = lanche a lanche):
   passo em 383 a 506 ms cada.
 - Mutação: 11 de 11 trocas pegas (`mutar_olho_duplo.py`; na primeira rodada escapou "a guarda sempre cobre" — o caso
   do exemplo novo entrou no teste). A suíte inteira do agente, sem falha.
+
+## 25/10/2026 · A saúde do computador do agente, parte M1: os sensores, o pico de cada minuto e as quedas (A26; migration 056)
+
+O dono, 25/10 (depois da queda de energia de 24/10, que deixou o PC da loja desligado das 08h49 às 04h44): "um
+monitoramento de funcionamento do pc servidor do agente com relatorios de usos por horarios, picos de uso, quando digo
+uso % de uso do processarod da memoria e da placa, temperaturas, para verificar se o pc esta sobrecarregado se
+sobreaquece. o maximo de dados possiveis."
+
+**O que o agente lê** (`agent/farol_agent/sensores.py`, a cada amostra do medidor de uso, que já existia):
+
+- a placa NVIDIA pelo `nvidia-smi` (uma linha CSV): memória usada (MB e %), temperatura, consumo (W), ventoinha,
+  frequência e os motivos de a placa ter segurado a frequência — por temperatura (bits 0x08, 0x20, 0x40) ou por energia
+  (0x04, 0x80);
+- os contadores do Windows (PDH, pelos nomes em inglês — o Windows da loja é em português): a zona térmica da
+  placa-mãe (vem em kelvin), a frequência real do processador (`% Processor Performance`: acima de 100% é turbo; quando
+  esquenta, cai), o disco ocupado e a leitura e escrita em MB/s;
+- o disco, a cada 15 minutos (PowerShell, `Get-StorageReliabilityCounter`): temperatura, horas ligado e a saúde
+  (`Healthy`/`Warning`/`Unhealthy` → ok/atenção/ruim). Medido na loja SEM administrador (a tarefa do agente roda
+  "Limited"): 29 °C, 3.246 horas, saúde ok;
+- há quanto tempo o PC está ligado (`GetTickCount64`);
+- **a última queda** (uma vez, ao subir): o evento 41 (Kernel-Power) do registro do Windows diz QUANDO voltou e a causa
+  — código de tela azul → `tela-azul`; botão apertado → `botao`; em suspensão → `suspensao`; senão `energia` — e o 6008
+  diz quando apagou (o binário traz duas horas, a local e a UTC: vale a UTC). Com o registro de verdade da loja: apagou
+  em 24/10 às 11:49:19 UTC (08:49 na loja), voltou em 25/10 às 07:44:08 UTC, causa energia.
+
+**O que a temperatura dos núcleos do processador NÃO tem:** o Windows não entrega sem um driver de sensor (como o do
+LibreHardwareMonitor), que é instalação à parte e com privilégio. No lugar: a placa-mãe e a frequência real.
+
+Cada peça é protegida: três falhas seguidas e ela para, com UM aviso no registro; o resto segue. Máquina sem NVIDIA, sem
+os contadores ou fora do Windows: o campo simplesmente não vai.
+
+**Como guarda e manda:** na fila do agente, a `uso_hora` ganhou `sensores` (de cada campo: soma, amostras e pico; o
+último valor da saúde do disco, das horas ligado e do "ligado há"; e em quantas amostras a placa segurou a frequência) e
+`minutos` (o pico de cada minuto: processador, memória e placa, e a temperatura e o consumo da placa, a placa-mãe e o
+disco ocupado). Sobem no mesmo `POST /v1/uso`, opcionais — agente antigo não manda, a nuvem antiga ignora. A queda vai
+no corpo, em todo envio; a nuvem guarda uma vez por subida do Windows (`unique (agente_id, ligou)`) e responde
+`queda: "nova"` ou `"ja_tinha"`.
+
+**A nuvem** (migration 056): `uso_hora.sensores` e `uso_hora.minutos` (jsonb) e a tabela `computador_queda`. A
+conferência (`api/src/saude-da-maquina.ts`) é de texto de fora: só os campos conhecidos (o desconhecido fica de fora,
+sem recusar a hora — agente mais novo que a nuvem), cada um na faixa do contrato, a soma entre o mínimo e o pico vezes
+as amostras, as amostras até as da hora, os minutos de 0 a 59 sem repetir, a queda com fuso, apagando antes de ligar e
+nada no futuro.
+
+**O relatório** `GET /v1/lojas/:id/computador/saude?dias=1..31` (padrão 7; vê quem vê a loja): as horas (média e pico
+do processador, da memória e da placa, os sensores, os minutos, o disco livre), as quedas dos últimos 30 dias com o tempo
+fora, e dois resumos — das últimas 24 h e do período — com a média e o pico de cada coisa (o pico com a hora em que
+aconteceu), os minutos acima do limite, as amostras em que a placa segurou a frequência, a saúde do disco e:
+
+- **sobrecarregado**: processador, memória ou placa acima do limite (90%, 90%, 95%) em 30 minutos ou mais por dia;
+- **esquentando**: a placa a 83 °C ou mais (onde a NVIDIA começa a segurar a frequência), a placa segurou por
+  temperatura, a placa-mãe a 70 °C ou o disco a 60 °C;
+- `porque`: as frases curtas que a tela vai mostrar ("placa chegou a 86 °C", "o disco pede atenção").
+
+A tela (M2) vem depois, com protótipo; o aviso de calor e de sobrecarga pelos destinos dos alertas (M3), depois dela.
+
+### Como foi conferido
+
+- `agent/testes/test_sensores.py` (7 testes) com a linha de verdade do `nvidia-smi` da loja e o XML de verdade dos
+  eventos 41 e 6008 da queda de 24/10 (o nome do computador trocado por `*`): a placa, os contadores (kelvin, MB/s, o
+  teto de 100%), a saúde do disco, a queda e as causas, a peça que falha três vezes e para, o disco a cada 15 minutos,
+  a hora que soma e o pico de cada minuto, o medidor com sensor quebrado que não cai. `test_uso.py`: a linha que sai da
+  fila de verdade tem tudo o que o contrato pede, e a queda sobe junto com o uso.
+- Os sensores DE VERDADE neste notebook pelo código do agente (`sensores_real.py`): a placa-mãe a 27,85 °C, a frequência
+  real, o disco; a leitura leva 1 ms (o `nvidia-smi` não existe aqui; na loja, a linha do teste é a dela).
+- `api/testes/saude-da-maquina.test.ts` (7 testes): o contrato e a API com os mesmos campos, faixas e causas; os
+  sensores, os minutos e a queda tortos recusados com o campo; o resumo (média pesada pelas amostras, os picos com a
+  hora, os minutos acima, "sobrecarregado" e "esquentando" com o porquê); no Postgres, o que entra, a hora reenviada que
+  troca os sensores, a queda uma vez só, o corpo antigo que segue valendo, o relatório (as 24 h × o período, as quedas, a
+  loja de outra conta que não aparece, 401 e 422).
+- Mutação: na API, 38 de 38 trocas pegas (`mutar_saude.mjs`; na primeira rodada escaparam a hora reenviada, o pico do
+  sensor ao contrário e as últimas 24 h com tudo — os três casos entraram no teste); no agente, 26 de 26
+  (`mutar_sensores.py`; escapou "a queda não sobe" — o teste entrou). As suítes inteiras: o agente sem falha; a API com
+  1628 de 1629 — a que falha é a do pgvector ("embedding de dimensão errada"), porque o banco de teste deste notebook não
+  tem a extensão; no CI, com ela, passa.
