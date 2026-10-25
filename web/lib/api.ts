@@ -7,6 +7,7 @@
  */
 
 import type { Planta } from '@/lib/planta';
+import type { Calibracao, ConferenciaDaCalibracao, ErrosDaCalibracao, LeituraDaPlantaViva, ParDaCalibracao } from '@/lib/planta-viva';
 import type { SaudeDaMaquina } from '@/lib/saude';
 
 export class ErroDaApi extends Error {
@@ -1302,6 +1303,30 @@ export const plantaApi = {
   /** Salva a planta INTEIRA. `versao` é a que veio no `obter` (nula na primeira vez). */
   salvar: (lojaId: string, planta: Planta, versao: number | null) =>
     pedir<PlantaDaLoja>(`/lojas/${lojaId}/planta`, { method: 'PUT', body: JSON.stringify({ versao, planta }) }),
+};
+
+// ───────────────────────── a planta viva (A26) ─────────────────────────
+// A calibração de cada câmera pelos pontos do piso e as pessoas na planta, por minuto e sem nome.
+
+export const calibracaoApi = {
+  /** A de cada canal da loja (sem os pares: `quantosPontos`). */
+  lista: (lojaId: string) => pedir<{ calibracoes: Calibracao[] }>(`/lojas/${lojaId}/calibracoes`),
+  /** A de um canal, com os pares. 404 = o canal ainda não foi calibrado. */
+  uma: (lojaId: string, pontoId: string) => pedir<Calibracao>(`/lojas/${lojaId}/calibracoes/${pontoId}`),
+  /** A conta SEM salvar, enquanto se marca: a homografia, os erros e o piso que a câmera vê. */
+  conferir: (lojaId: string, pontoId: string, pares: ParDaCalibracao[]) =>
+    pedir<ConferenciaDaCalibracao>(`/lojas/${lojaId}/calibracoes/${pontoId}/conferir`, { method: 'POST', body: JSON.stringify({ pares }) }),
+  /** Salva, com a versão que leu (nula na primeira vez). 409 = outra pessoa salvou no meio. */
+  salvar: (lojaId: string, pontoId: string, pares: ParDaCalibracao[], versao: number | null) =>
+    pedir<Calibracao & { erros: ErrosDaCalibracao }>(`/lojas/${lojaId}/calibracoes/${pontoId}`, { method: 'PUT', body: JSON.stringify({ versao, pares }) }),
+  /** Tira a calibração (a câmera foi mexida): a planta viva deixa de usar este canal. */
+  tirar: (lojaId: string, pontoId: string) => pedir<Record<string, never>>(`/lojas/${lojaId}/calibracoes/${pontoId}`, { method: 'DELETE' }),
+};
+
+export const plantaVivaApi = {
+  /** O calor, os postos e as pessoas por hora do período; os caminhos (replay) só em até 60 min e para quem configura. */
+  ler: (lojaId: string, de: string, ate: string) =>
+    pedir<LeituraDaPlantaViva>(`/lojas/${lojaId}/planta-viva?de=${encodeURIComponent(de)}&ate=${encodeURIComponent(ate)}`),
 };
 
 // ───────────────────────── análises ─────────────────────────

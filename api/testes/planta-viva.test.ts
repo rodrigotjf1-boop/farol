@@ -10,7 +10,10 @@ import { after, before, describe, it } from 'node:test';
 import type { FastifyInstance } from 'fastify';
 import pg from 'pg';
 
+// A conta das telas (P4), importada pelo caminho: ela não importa nada (como `web/lib/planta.ts` em `planta.test.ts`).
+import * as tela from '../../web/lib/planta-viva.ts';
 import { criarApp } from '../src/app.js';
+import { homografia, projetar as projetarNaApi } from '../src/calibracao.js';
 import { caminhosDoTrecho, calorDoPeriodo, lerMinutoDaPlanta, porHora, postosDoPeriodo, type MinutoGuardado } from '../src/planta-viva.js';
 
 const C = JSON.parse(readFileSync(new URL('../../contratos/planta-viva-minuto.json', import.meta.url), 'utf8')) as {
@@ -69,6 +72,61 @@ describe('a planta viva (sem banco)', () => {
       { numero: 1, pontos: [['2026-10-25T22:10:00.000Z', 1, 1], ['2026-10-25T22:10:59.000Z', 2, 2], ['2026-10-25T22:11:00.000Z', 2.1, 2]] },
       { numero: 2, pontos: [['2026-10-25T22:11:05.000Z', 4, 4]] },
     ]);
+  });
+});
+
+describe('a conta das telas da planta viva (web/lib/planta-viva.ts)', () => {
+  const CAL = JSON.parse(readFileSync(new URL('../../contratos/calibracao-da-camera.json', import.meta.url), 'utf8')) as {
+    pares: Array<{ img: [number, number]; piso: [number, number] }>;
+    testes: Array<{ img: [number, number]; piso: [number, number] }>;
+  };
+
+  it('o ponto da imagem cai no mesmo lugar do chão que na conta do servidor', () => {
+    const h = homografia(CAL.pares)!;
+    for (const t of CAL.testes) {
+      const naTela = tela.projetar(h, t.img)!;
+      const naApi = projetarNaApi(h, t.img)!;
+      assert.ok(Math.hypot(naTela[0] - naApi[0], naTela[1] - naApi[1]) < 1e-9);
+    }
+    assert.equal(tela.projetar(h, [0.5, -0.4]), null, 'acima do horizonte');
+    assert.equal(tela.projetar([1, 2, 3], [0.5, 0.5]), null, 'homografia torta');
+  });
+
+  it('o piso coberto: a fração da grade dentro de alguma área, e os quadrados que nenhuma vê', () => {
+    const amb = [{ x: 0, y: 0, w: 2, h: 1 }];
+    const metadeEsquerda: Array<[number, number]> = [[0, 0], [1, 0], [1, 1], [0, 1]];
+    const r = tela.coberturaDoPiso(amb, [metadeEsquerda]);
+    assert.equal(r.parte, 0.5);
+    assert.equal(r.semVer.length, 16, '2 × 1 m em quadrados de 25 cm: 32, metade sem ver');
+    assert.ok(r.semVer.every(([x]) => x >= 1), 'os que ninguém vê são os da direita');
+    assert.equal(tela.coberturaDoPiso(amb, []).parte, 0);
+    assert.equal(tela.coberturaDoPiso([], [metadeEsquerda]).parte, 0, 'sem chão desenhado');
+  });
+
+  it('a cor do calor, a duração, a régua', () => {
+    assert.deepEqual(tela.corDoCalor(1), { cor: 'ketchup', opacidade: 0.95 });
+    assert.deepEqual(tela.corDoCalor(0.5).cor, 'pao');
+    assert.deepEqual(tela.corDoCalor(0.1).cor, 'mostarda');
+    assert.deepEqual([tela.duracao(40), tela.duracao(2160), tela.duracao(15_480)], ['40 s', '36 min', '4 h 18 min']);
+    assert.equal(tela.reguaEmCm({ erroConferidoM: 0.026, erroMedioM: 0.019 }), 3, 'o conferido vale mais que o médio');
+    assert.equal(tela.reguaEmCm({ erroConferidoM: null, erroMedioM: 0.019 }), 2);
+    assert.equal(tela.reguaEmCm({ erroConferidoM: null, erroMedioM: null }), null);
+  });
+
+  it('o replay: onde cada caminho está no instante, o rastro de 30 s, e quem sumiu há mais de 3 s some', () => {
+    const t0 = Date.parse('2026-10-25T22:10:00Z');
+    const iso = (s: number) => new Date(t0 + s * 1000).toISOString();
+    const caminhos = [
+      { numero: 1, pontos: [[iso(0), 1, 1], [iso(10), 2, 1], [iso(40), 3, 1]] as Array<[string, number, number]> },
+      { numero: 2, pontos: [[iso(0), 5, 5]] as Array<[string, number, number]> },
+    ];
+    assert.deepEqual(tela.noInstante(caminhos, t0 + 2000), [
+      { numero: 1, agora: [1, 1], rastro: [[1, 1]] },
+      { numero: 2, agora: [5, 5], rastro: [[5, 5]] },
+    ]);
+    assert.deepEqual(tela.noInstante(caminhos, t0 + 12_000).map((f) => [f.numero, f.agora]), [[1, [2, 1]]], 'o 2 sumiu há 12 s; o 1 está no ponto de 10 s');
+    assert.deepEqual(tela.noInstante(caminhos, t0 + 40_000)[0]!.rastro, [[2, 1], [3, 1]], 'o rastro são os últimos 30 s');
+    assert.deepEqual(tela.noInstante(caminhos, t0 + 41_000)[0]!.rastro, [[3, 1]], 'o ponto de 31 s atrás já saiu do rastro');
   });
 });
 
@@ -196,6 +254,9 @@ describe('a planta viva (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABASE
     assert.deepEqual(d.postos.map((p: { id: string }) => p.id), ['chapa']);
     assert.ok(d.porHora.length >= 1 && d.pico === 3);
     assert.deepEqual(d.caminhos.map((c: { numero: number }) => c.numero), [1, 2], 'presidente, 30 min: com o replay');
+    // a tela lê a resposta DE VERDADE: no instante do 1º ponto do caminho 1, ele está lá
+    const primeiro = Date.parse(d.caminhos[0].pontos[0][0]);
+    assert.deepEqual(tela.noInstante(d.caminhos, primeiro).find((f) => f.numero === 1)?.agora, [d.caminhos[0].pontos[0][1], d.caminhos[0].pontos[0][2]]);
     const sup = (await ler(`?de=${encodeURIComponent(minutoAtras(30))}`, cookieSupervisao)).json();
     assert.equal(sup.caminhos, null, 'supervisão vê o calor e os postos, não o caminho de cada um');
     assert.ok(sup.calor.length > 0);

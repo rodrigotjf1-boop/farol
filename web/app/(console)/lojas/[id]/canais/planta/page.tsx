@@ -23,6 +23,7 @@ import { useConsole } from '@/componentes/console';
 import { emOrdem } from '@/componentes/criterios/canais';
 import { DesenhoDaPlanta, type Camada, type Ferramenta, type Retangulo, type Selecao } from '@/componentes/planta/desenho';
 import { PainelDaPlanta, type CanalNaPlanta } from '@/componentes/planta/painel';
+import { abasDaPlanta } from '@/componentes/planta-viva/abas-da-planta';
 import { cobre, numeroDoCanal, situacaoDoCanal } from '@/componentes/planta/situacao';
 import { abasDeCanais } from '@/componentes/pontos/abas-de-canais';
 import { Abas } from '@/componentes/ui/abas';
@@ -330,6 +331,7 @@ export default function PlantaDaLoja() {
       </Cabecalho>
 
       <Abas rotulo="Vistas dos canais" abas={abasDeCanais(id)} />
+      <Abas rotulo="Vistas da planta" abas={abasDaPlanta(id)} />
 
       {erro && (
         <Alerta tom="critico" papel="alert">
