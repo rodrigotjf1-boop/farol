@@ -16,6 +16,7 @@ teste do outro — que é o que deveria ter acontecido na primeira vez.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any
 
@@ -207,6 +208,47 @@ def uso_para_nuvem(linha: dict[str, Any]) -> dict[str, Any]:
         # O disco onde ficam a fila e as imagens: a última leitura da hora.
         "discoLivreGb": _arredondado(linha["disco_livre_gb"]),
         "discoTotalGb": _arredondado(linha["disco_total_gb"]),
+        # O monitoramento (25/10/2026): os sensores da hora e o pico de cada minuto.
+        **sensores_para_nuvem(linha.get("sensores"), linha.get("minutos")),
+    }
+
+
+def sensores_para_nuvem(sensores_json: str | None, minutos_json: str | None) -> dict[str, Any]:
+    """Os sensores da hora no corpo de `POST /v1/uso`: de cada campo somado, `{soma, amostras, max}`; a saúde e as horas
+    do disco, há quanto tempo o PC está ligado e as amostras em que a placa segurou a frequência; e os minutos —
+    `[minuto, {campo: pico}]`, na ordem. Sem sensor nenhum (máquina sem eles, agente antigo), nada vai."""
+    from farol_agent.sensores import SOMADOS
+
+    try:
+        s = json.loads(sensores_json) if sensores_json else {}
+        m = json.loads(minutos_json) if minutos_json else {}
+    except ValueError:
+        return {}
+    corpo: dict[str, Any] = {}
+    sensores: dict[str, Any] = {
+        campo: {"soma": round(v[0], 2), "amostras": int(v[1]), "max": round(v[2], 2)}
+        for campo, v in s.items() if campo in SOMADOS and isinstance(v, list) and len(v) == 3 and v[1] > 0
+    }
+    for campo in ("discoSaude", "discoHorasLigado", "ligadoHaH", "gpuLimitaTemperatura", "gpuLimitaEnergia"):
+        if s.get(campo) is not None:
+            sensores[campo] = s[campo]
+    if sensores:
+        corpo["sensores"] = sensores
+    minutos = [[int(k), v] for k, v in sorted(m.items(), key=lambda kv: int(kv[0])) if isinstance(v, dict) and v]
+    if minutos:
+        corpo["minutos"] = minutos
+    return corpo
+
+
+def queda_para_nuvem(queda: Any) -> dict[str, Any] | None:
+    """A última queda do PC (`sensores.Queda`) no corpo de `POST /v1/uso`: quando apagou e ligou (UTC) e a causa."""
+    if queda is None:
+        return None
+    return {
+        "desligou": queda.desligou.isoformat() if queda.desligou else None,
+        "ligou": queda.ligou.isoformat(),
+        "causa": queda.causa,
+        "bugcheck": queda.bugcheck,
     }
 
 

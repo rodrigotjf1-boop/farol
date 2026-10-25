@@ -42,6 +42,7 @@ import { rotasDeAnalises } from './rotas/analises.js';
 import { rotasDeResultados } from './rotas/resultados.js';
 import { rotasDeResumos } from './rotas/resumos.js';
 import { rotasDeUso } from './rotas/uso.js';
+import { rotasDaSaudeDaMaquina } from './rotas/saude-da-maquina.js';
 import { rotasDeSessao } from './rotas/sessao.js';
 import { rotasDeTransportes } from './rotas/transportes.js';
 
@@ -222,6 +223,7 @@ export function criarApp(
   rotasDeEventos(app, pool);
   rotasDeResumos(app, pool);
   rotasDeUso(app, pool);
+  rotasDaSaudeDaMaquina(app, pool);
   rotasDeResultados(app, pool);
   rotasDeAnalises(app, pool);
   rotasDeAlertas(app, pool);

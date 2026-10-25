@@ -340,7 +340,9 @@ def test_a_linha_que_sai_da_FILA_de_verdade_tem_tudo_o_que_o_contrato_pede(fila)
 
     corpo = uso_para_nuvem(fila.usos_a_subir()[0])
 
-    assert set(corpo) == set(json.loads(CONTRATO.read_text(encoding="utf-8"))["hora"])
+    # os minutos e os sensores (o monitoramento, 25/10/2026) são opcionais no contrato: vão quando a hora tem o que mostrar
+    assert set(corpo) - {"minutos", "sensores"} == set(json.loads(CONTRATO.read_text(encoding="utf-8"))["hora"])
+    assert corpo["minutos"][0][1] == {"cpu": 10.0, "mem": 40.0, "gpu": 3.0}
     assert not [k for k in corpo if "_" in k], "a API lê camelCase"
     assert "versao" not in corpo and "estado" not in corpo
     # a hora sobe com o fuso da loja, como no resumo
@@ -407,6 +409,25 @@ def test_cada_volta_mede_e_a_hora_sobe_com_a_maquina(tmp_path):
     h = corpo["horas"][0]
     assert (h["amostras"], h["cpuSoma"], h["cpuMax"], h["gpuMax"], h["discoLivreGb"]) == (1, 25.0, 25.0, 8.0, 64.0)
     assert a.fila.usos_a_subir() == [], "a hora que subiu continuou marcada como pendente"
+    assert "queda" not in corpo, "sem queda lida, o corpo não leva a chave"
+
+
+def test_a_queda_do_pc_sobe_junto_com_o_uso(tmp_path):
+    # O monitoramento (25/10/2026): o medidor lê a última queda ao subir; ela vai em todo envio, e a nuvem guarda uma vez.
+    from datetime import datetime, timezone
+
+    from farol_agent.sensores import Queda
+
+    m = MedidorFixo()
+    m.queda = Queda(desligou=datetime(2026, 10, 24, 11, 49, 19, tzinfo=timezone.utc),
+                    ligou=datetime(2026, 10, 25, 7, 44, 8, tzinfo=timezone.utc), causa="energia", bugcheck=None)
+    nuvem = NuvemDeTeste()
+    a = montar(tmp_path, nuvem, medidor=m)
+
+    a.passo(MEIO_DIA)
+
+    assert nuvem.usos_enviados[0]["queda"] == {"desligou": "2026-10-24T11:49:19+00:00", "ligou": "2026-10-25T07:44:08+00:00",
+                                               "causa": "energia", "bugcheck": None}
 
 
 def test_o_uso_sobe_de_tempos_em_tempos_e_nao_a_cada_volta(tmp_path):

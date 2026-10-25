@@ -281,7 +281,9 @@ create table if not exists uso_hora (
   disco_livre_gb  real,
   disco_total_gb  real,
   versao          integer not null default 0,
-  estado          integer not null default 1
+  estado          integer not null default 1,
+  sensores        text,
+  minutos         text
 );
 """
 
@@ -399,11 +401,62 @@ _COLUNAS_NOVAS = (
     ("resumo_hora", "claroes", "integer not null default 0"),
     ("resumo_hora", "acordou", "integer not null default 0"),
     ("resumo_hora", "assentou", "integer not null default 0"),
+    # o monitoramento da máquina (25/10/2026): os sensores da hora e o pico de cada minuto, em JSON
+    ("uso_hora", "sensores", "text"),
+    ("uso_hora", "minutos", "text"),
 )
 
 
 def _agora_iso(ts: datetime) -> str:
     return ts.isoformat(timespec="seconds")
+
+
+# O pico de cada minuto (25/10/2026): o processador, a memória e a placa do `uso.py`, e os sensores de `NO_MINUTO`.
+_DO_MINUTO = (("cpu", "cpu"), ("mem", "memoria"), ("gpu", "gpu"))
+
+
+def somar_sensores(sensores_json: str | None, minutos_json: str | None, minuto: int, amostra: Any) -> tuple[str, str]:
+    """Os sensores da hora e o pico de cada minuto com mais uma amostra (o JSON guardado na `uso_hora`).
+
+    - `sensores`: de cada campo somado, `[soma, amostras, máximo]`; o resto, o último valor (a saúde do disco, as horas
+      ligado do disco, há quanto tempo o PC está ligado) — e as amostras em que a placa segurou a frequência por
+      temperatura ou por energia;
+    - `minutos`: do minuto da amostra (0–59), o maior valor de cada campo.
+    """
+    from farol_agent.sensores import NO_MINUTO, SOMADOS
+
+    try:
+        s = json.loads(sensores_json) if sensores_json else {}
+    except ValueError:
+        s = {}
+    try:
+        m = json.loads(minutos_json) if minutos_json else {}
+    except ValueError:
+        m = {}
+    lidos = getattr(amostra, "sensores", None) or {}
+    for campo in SOMADOS:
+        v = lidos.get(campo)
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            soma, n, maximo = s.get(campo) or [0.0, 0, None]
+            s[campo] = [round(soma + float(v), 3), n + 1, float(v) if maximo is None else max(maximo, float(v))]
+    for campo in ("discoSaude", "discoHorasLigado", "ligadoHaH"):
+        if lidos.get(campo) is not None:
+            s[campo] = lidos[campo]
+    for campo in ("gpuLimitaTemperatura", "gpuLimitaEnergia"):
+        if campo in lidos:
+            s[campo] = int(s.get(campo) or 0) + (1 if lidos[campo] else 0)
+    do_minuto = m.get(str(minuto)) or {}
+    for chave, atributo in _DO_MINUTO:
+        v = getattr(amostra, atributo, None)
+        if isinstance(v, (int, float)):
+            do_minuto[chave] = max(float(v), do_minuto.get(chave, float(v)))
+    for campo in NO_MINUTO:
+        v = lidos.get(campo)
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            do_minuto[campo] = max(float(v), do_minuto.get(campo, float(v)))
+    if do_minuto:
+        m[str(minuto)] = {k: round(v, 2) for k, v in do_minuto.items()}
+    return json.dumps(s, separators=(",", ":")), json.dumps(m, separators=(",", ":"))
 
 
 class Fila:
@@ -1015,6 +1068,11 @@ class Fila:
                 valores.append(float(valor))
         with self._lock:
             self._con.execute("insert or ignore into uso_hora (hora) values (?)", (hora,))
+            # os sensores e o pico de cada minuto (25/10/2026): lidos e regravados na mesma trava
+            linha = self._con.execute("select sensores, minutos from uso_hora where hora = ?", (hora,)).fetchone()
+            sensores, minutos = somar_sensores(linha["sensores"], linha["minutos"], ts.minute, amostra)
+            partes += ["sensores = ?", "minutos = ?"]
+            valores += [sensores, minutos]
             self._con.execute(
                 f"update uso_hora set {', '.join(partes)} where hora = ?", (*valores, hora)
             )

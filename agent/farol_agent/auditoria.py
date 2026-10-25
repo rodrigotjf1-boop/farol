@@ -54,6 +54,7 @@ from farol_agent.contexto import FALTA_A_CENA, cenas_da_loja
 from farol_agent.contrato import (
     evento_para_nuvem,
     maquina_para_nuvem,
+    queda_para_nuvem,
     resumo_para_nuvem,
     uso_para_nuvem,
 )
@@ -1134,15 +1135,16 @@ class Auditoria:
         linhas = self.fila.usos_a_subir(LIMITE_DE_RESUMOS)
         if not linhas:
             return 0
+        corpo: dict[str, Any] = {
+            "maquina": maquina_para_nuvem(self.medidor.pecas()),
+            "horas": [uso_para_nuvem(l) for l in linhas],
+        }
+        # a última queda do PC (o monitoramento, 25/10/2026): a nuvem guarda uma vez por subida do Windows
+        queda = queda_para_nuvem(getattr(self.medidor, "queda", None))
+        if queda is not None:
+            corpo["queda"] = queda
         try:
-            self.cliente._pedir(
-                "POST",
-                "/v1/uso",
-                {
-                    "maquina": maquina_para_nuvem(self.medidor.pecas()),
-                    "horas": [uso_para_nuvem(l) for l in linhas],
-                },
-            )
+            self.cliente._pedir("POST", "/v1/uso", corpo)
         except ErroDaNuvem as e:
             if not e.recuperavel:
                 # Nuvem sem a rota (versão anterior) ou corpo recusado:
