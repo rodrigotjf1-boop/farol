@@ -9665,3 +9665,63 @@ vira exemplo · o agente reaprende com a loja fechada; a noite seguinte já usa"
 - A suíte inteira do agente: ~2.180 testes, sem falha. Mutação: 15 de 15 trocas pegas (`mutar_marcar_agente.py`; na
   primeira rodada escaparam o teto de 40% de dúvida e a noite encerrada pela conferência na mesma volta — os dois
   testes entraram).
+
+## 24/10/2026 · O olho duplo do juiz treinado: o SigLIP2 ao lado do DINOv2, só para o nome (A24 F3; sem migration)
+
+O dono, 24/10: "pode ativar olho duplo" — depois de perguntar o que era e de ver a medida. E, sobre o DINOv3: "a licença
+do dino pode ligar".
+
+**A medida** (banco de provas no notebook, `juiz_olhos.py`: as marcações do dono de 21/10 — 111 — e 22/10 — 155 —, o
+ingrediente de cima pela família, a mesma cabeça — regressão logística C=2, classes equilibradas, as 8 vistas; noite
+nova = treina numa noite e testa na outra; juntas = lanche a lanche):
+
+| olho | 21→22 | 22→21 | só a biblioteca | juntas 21/10 | juntas 22/10 |
+|---|---|---|---|---|---|
+| DINOv2-small int8 (o de hoje) | 61% | 79% | 43% | 83% | 77% |
+| SigLIP2-base fp32 | 68% | 76% | 47% | 77% | 80% |
+| SigLIP2-base int8 | 59% | 63% | 45% | 68% | 74% |
+| **DINOv2 + SigLIP2 (o olho duplo)** | **68%** | **82%** | **48%** | **86%** | 77% |
+| DINOv3-S fp32 | 60% | 79% | 47% | 85% | 74% |
+| DINOv3-S int8 | 61% | 77% | 48% | 79% | 75% |
+| DINOv3-B fp32 | 63% | 82% | 47% | 86% | 74% |
+| DINOv3-S + SigLIP2 | 65% | 80% | 50% | 85% | 81% |
+| DINOv3-B + SigLIP2 | 64% | 79% | 51% | 86% | 76% |
+| DINOv2 + DINOv3-B + SigLIP2 (três) | 66% | 83% | 50% | 86% | 76% |
+
+- O par DINOv2 + SigLIP2 é o melhor ou empata nas 5 contas, e deixa o olho de hoje como está (as réguas da certeza, o
+  "é comida?", a dúvida). O DINOv3 (S ou B) sozinho empata com o de hoje; com o SigLIP2, empata com o par — não paga a
+  troca do olho principal. Fica medido, para rever com mais noites marcadas. A confusão que sobra em todos é molho
+  cheddar × cheddar cremoso (4 + 4): o caminho é a regra das fichas (o dono, 24/10), não o olho.
+- O SigLIP2 compactado (int8) piora: vai o arquivo cheio (372 MB).
+- **A licença do DINOv3** (própria da Meta) foi liberada pelo dono: uso comercial permitido; proíbe uso militar e o que
+  cai no ITAR; quem distribui entrega uma cópia da licença. Ele NÃO entra no pacote agora; se entrar, o `LICENSE` vai junto.
+
+**O que entrou**:
+
+- `juizes/olho_extra.py`: o SigLIP2-base (Google, Apache-2.0), só a parte da imagem, em ONNX (onnx-community, revisão
+  `ba1f3b08…` fixada, sha256 `c0573e3f…` conferido), pelos bytes (ERR-111), no processador com 2 linhas, uma imagem por
+  chamada (ERR-148). O preparo é o do modelo: 224 × 224 direto, média e desvio 0,5. Não vem no pacote: instala à parte,
+  de propósito, com a loja fechada — `farol-agent ingredientes instalar-olho-duplo`.
+- `juizes/treinado.py`: com o segundo olho, cada vista vira o PAR (cada vetor com norma 1, o par dividido por raiz de 2:
+  cada olho pesa o mesmo), e o classificador aprende sobre o par. O mais parecido, a nota de cada ingrediente e o "é
+  comida?" seguem pelo protótipo do DINOv2: o olho duplo muda o NOME, e mais nada. Os vetores do par ficam guardados à
+  parte (`vetores-vistas-olho-duplo.npz`) com a identidade dos DOIS modelos.
+- `juizes/ingrediente.py` (`JuizDaLoja`): a chave **`FAROL_BANCADA_OLHO_DUPLO`** (desligada por padrão; só vale com o
+  juiz treinado). Sem o arquivo do modelo, o olho de sempre, e o registro diz por quê, uma vez. **Com a loja aberta, o
+  par não calcula vetor**: o SigLIP2 leva ~0,5 s por vista no processador (os 354 exemplos de hoje, ~25 minutos), e o
+  primeiro lanche não pode esperar isso. Se a guarda do par não tem todos os exemplos, o nome sai pelo olho de sempre
+  até a base descer com a loja fechada (`BaseEmFundo` chama o juiz com `pode_demorar=True`).
+- Na consulta, cada recorte custa ~0,4–0,5 s com os dois olhos (medido no notebook, 2 linhas), contra ~0,1 s hoje.
+
+### Como foi conferido
+
+- `agent/testes/test_olho_duplo.py` (12 testes): o par (norma 1, pesos iguais); a guarda do par à parte e com os dois
+  modelos (a de um olho só não vale, nem a de outro segundo olho); o olho duplo muda o nome e mais nada; uma chamada de
+  cada olho por vista; o juiz da loja com a chave e o modelo, sem o modelo (o de sempre, dito uma vez), sem o juiz
+  treinado e sem a chave (o segundo modelo nem carrega); com a loja aberta não calcula o par e espera a loja fechar —
+  também quando chega um exemplo novo; o modelo conferido pelo sha256 e o baixado errado que não fica; o preparo; a chave.
+- Com os modelos DE VERDADE no notebook (`olho_duplo_real.py`): o código do agente abriu os dois modelos conferidos,
+  montou o juiz treinado com o olho duplo na base de teste (95 fotos; classificador 1.152 × 18) e julgou recortes de
+  passo em 383 a 506 ms cada.
+- Mutação: 11 de 11 trocas pegas (`mutar_olho_duplo.py`; na primeira rodada escapou "a guarda sempre cobre" — o caso
+  do exemplo novo entrou no teste). A suíte inteira do agente, sem falha.

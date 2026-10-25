@@ -115,15 +115,16 @@ class Classificador:
 
 def vetores_das_vistas(
     vetor: Callable[[np.ndarray], np.ndarray], exemplos: Iterable[tuple[str, str]],
-    abrir: Callable[[str], np.ndarray | None], *, guardados: Path | None = None,
+    abrir: Callable[[str], np.ndarray | None], *, guardados: Path | None = None, identidade: str = MODELO_SHA256,
 ) -> list[tuple[str, np.ndarray]]:
     """(nome, vetores das 8 vistas) de cada exemplo que abre. Os vetores ficam guardados por sha256 em `guardados` (um
-    .npz com o modelo e a versão): o modelo só olha o exemplo novo, uma vista por chamada."""
+    .npz com o modelo e a versão): o modelo só olha o exemplo novo, uma vista por chamada. `identidade` diz de que
+    modelo(s) os vetores são — o olho duplo leva os dois resumos, e a guarda de um não vale para o outro."""
     guarda: dict[str, np.ndarray] = {}
     if guardados is not None and guardados.is_file():
         try:
             with np.load(guardados, allow_pickle=False) as z:
-                if str(z["modelo"]) == MODELO_SHA256 and int(z["versao"]) == VERSAO_DAS_VISTAS:
+                if str(z["modelo"]) == identidade and int(z["versao"]) == VERSAO_DAS_VISTAS:
                     guarda = {str(s): v for s, v in zip(z["shas"], z["vetores"])}
         except (OSError, ValueError, KeyError):
             guarda = {}
@@ -143,12 +144,25 @@ def vetores_das_vistas(
             guardados.parent.mkdir(parents=True, exist_ok=True)
             temporario = guardados.with_name(guardados.name + ".novo.npz")
             shas = sorted(usados)
-            np.savez(temporario, modelo=MODELO_SHA256, versao=VERSAO_DAS_VISTAS, shas=np.array(shas),
+            np.savez(temporario, modelo=identidade, versao=VERSAO_DAS_VISTAS, shas=np.array(shas),
                      vetores=np.stack([usados[s] for s in shas]) if shas else np.zeros((0, VISTAS, 1), np.float32))
             os.replace(temporario, guardados)
         except OSError as e:
             _log.warning("juiz treinado: não guardei os vetores das vistas (%s)", e)
     return saida
+
+
+def guarda_cobre(guardados: Path, identidade: str, shas: Iterable[str]) -> bool:
+    """A guarda dos vetores das vistas já tem TODOS estes exemplos, do mesmo modelo e versão? (Sem calcular nada: o olho
+    duplo só calcula vetor novo com a loja fechada.)"""
+    try:
+        with np.load(guardados, allow_pickle=False) as z:
+            if str(z["modelo"]) != identidade or int(z["versao"]) != VERSAO_DAS_VISTAS:
+                return False
+            tem = {str(s) for s in z["shas"]}
+    except (OSError, ValueError, KeyError):
+        return False
+    return set(shas) <= tem
 
 
 def treinar(vetores: list[tuple[str, np.ndarray]], *, c: float = C_PADRAO) -> Classificador | None:
@@ -165,17 +179,30 @@ class JuizTreinado(JuizDeIngrediente):
     comida?") e as notas seguem pelo protótipo; `vistas_na_consulta` = 1 (o custo de hoje) ou 8 (8 chamadas por recorte)."""
 
     def __init__(self, vetor: Callable[[np.ndarray], np.ndarray], prototipos: dict[str, np.ndarray],
-                 classificador: Classificador, *, vistas_na_consulta: int = 1, comida_min: float = COMIDA_MIN) -> None:
+                 classificador: Classificador, *, vistas_na_consulta: int = 1, comida_min: float = COMIDA_MIN,
+                 vetor_extra: Callable[[np.ndarray], np.ndarray] | None = None) -> None:
         super().__init__(vetor, prototipos, comida_min=comida_min)
         self.classificador = classificador
         self.vistas_na_consulta = 8 if vistas_na_consulta == 8 else 1
+        # o olho duplo (`juizes.olho_extra`): o classificador vê o par; o protótipo, só o olho de sempre
+        self._vetor_extra = vetor_extra
+
+    def _do_nome(self, principal: np.ndarray, img: np.ndarray) -> np.ndarray:
+        """O vetor que o classificador vê: o do olho de sempre, ou — com o olho duplo — o par."""
+        if self._vetor_extra is None:
+            return principal
+        from farol_agent.juizes.olho_extra import juntar
+
+        return juntar(principal, self._vetor_extra(img))
 
     def julgar(self, img: np.ndarray) -> Nota:
         v0 = self._vetor(img)
         notas = self._matriz @ v0
         ordem = np.argsort(-notas)
         melhor = int(ordem[0])
-        vs = [v0] + ([self._vetor(x) for x in vistas(img)[1:]] if self.vistas_na_consulta == 8 else [])
+        vs = [self._do_nome(v0, img)] + (
+            [self._do_nome(self._vetor(x), x) for x in vistas(img)[1:]] if self.vistas_na_consulta == 8 else []
+        )
         p = self.classificador.probabilidades(np.stack(vs)).mean(axis=0)
         nome_ing = next((self.classificador.classes[int(i)] for i in np.argsort(-p)
                          if not e_pao(self.classificador.classes[int(i)])), None)
@@ -188,14 +215,27 @@ class JuizTreinado(JuizDeIngrediente):
 
 def montar(vetor: Callable[[np.ndarray], np.ndarray], prototipos: dict[str, np.ndarray],
            exemplos: list[tuple[str, str]], abrir: Callable[[str], np.ndarray | None], *,
-           guardados: Path | None = None, vistas_na_consulta: int = 1) -> tuple[JuizDeIngrediente, str]:
-    """O juiz treinado da base, ou o de protótipo (com o motivo) quando não há o que treinar."""
-    vetores = vetores_das_vistas(vetor, exemplos, abrir, guardados=guardados)
+           guardados: Path | None = None, vistas_na_consulta: int = 1,
+           vetor_extra: Callable[[np.ndarray], np.ndarray] | None = None,
+           identidade_extra: str | None = None) -> tuple[JuizDeIngrediente, str]:
+    """O juiz treinado da base, ou o de protótipo (com o motivo) quando não há o que treinar. Com `vetor_extra` (o olho
+    duplo), o classificador aprende sobre o par de vetores — guardado à parte, com a identidade dos dois modelos."""
+    if vetor_extra is not None:
+        from farol_agent.juizes.olho_extra import juntar
+
+        def do_nome(x: np.ndarray) -> np.ndarray:
+            return juntar(vetor(x), vetor_extra(x))
+
+        identidade = f"{MODELO_SHA256}+{identidade_extra or 'extra'}"
+        vetores = vetores_das_vistas(do_nome, exemplos, abrir, guardados=guardados, identidade=identidade)
+    else:
+        vetores = vetores_das_vistas(vetor, exemplos, abrir, guardados=guardados)
     clf = treinar(vetores)
     if clf is None:
         return JuizDeIngrediente(vetor, prototipos), "menos de 2 ingredientes com exemplo: fica o juiz de protótipo"
-    juiz = JuizTreinado(vetor, prototipos, clf, vistas_na_consulta=vistas_na_consulta)
-    return juiz, f"juiz TREINADO: {len(clf.classes)} ingredientes, {len(vetores)} exemplos x {VISTAS} vistas"
+    juiz = JuizTreinado(vetor, prototipos, clf, vistas_na_consulta=vistas_na_consulta, vetor_extra=vetor_extra)
+    return juiz, (f"juiz TREINADO: {len(clf.classes)} ingredientes, {len(vetores)} exemplos x {VISTAS} vistas"
+                  + (" (OLHO DUPLO)" if vetor_extra is not None else ""))
 
 
 def vistas_da_consulta(valor: str | None) -> int:
