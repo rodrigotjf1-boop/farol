@@ -10086,3 +10086,34 @@ Duas réguas para os mesmos limites acabariam diferentes.
   arquivo da cozinha (8 câmeras) abre a janela com 3 ligadas e 5 de fora, em ordem de canal; em 5 larguras (320 a
   1440) e nos dois temas, sem rolagem para o lado, sem botão sem nome e sem erro de script; e de ponta a ponta —
   Abrir na edição → Concluir edição → a API guarda 6 ambientes, 21 equipamentos e 3 câmeras.
+
+## 27/10/2026 · Calibrar pela grade do piso e importar os pontos (A26; sem migration)
+
+**A calibração da cozinha sem fita no chão.** O dono deu o tamanho do piso (cozinha 0,72 × 0,72 m; atendimento 0,60 ×
+0,60 m) e a altura das câmeras (todas da cozinha a 2,20 m), e disse que **precisão aproximada basta: o fim é acompanhar
+o movimento**. Com o quadro de cada canal (tirado com a loja fechada, às 03h17, sem os tapetes no chão), as juntas do
+piso viram a régua: um modelo de câmera de furo com distorção radial (posição, direção, inclinação, giro, abertura, k1;
+a altura fixa) é ajustado até as juntas marcadas no quadro caírem nas linhas da grade, e a base de um equipamento da
+planta ancora a grade no lugar. O canal 1 encaixou com 1,5 cm de erro médio nas linhas marcadas; o 5, com 2,5 cm. Dos
+dois sai uma malha de pontos no chão do corredor (28 e 29), conferida pela `lerCalibracao` da API (erro conferido
+abaixo de 1 cm — é o quanto a homografia representa o modelo). As grades das duas câmeras discordam cerca de 20 cm na
+largura (a planta põe o corredor com 1,13 m; na obra ele tem 1,05 m): dentro do que o dono pediu. As ferramentas
+ficaram fora do repositório (são da loja, com as imagens dela).
+
+**Importar pontos** (o dono: "pode colocar"), no alto do Calibrar câmera: escolhe-se o `.json` — `{ calibracoes: [{
+canal, pares: [{ img: [u, v], piso: [x, y] }] }] }`, ou uma calibração só, ou a lista sozinha —; uma janela mostra cada
+calibração com o canal da loja em que entra (pelo número; ou pelo `pontoId`), quantos pontos e se troca a calibração de
+agora, ou **fica de fora** com o motivo (o número sem canal, o repetido em dois gravadores, a segunda do mesmo canal, a
+de menos de 4 ou mais de 40 pontos). **Salvar** grava cada uma como o "Salvar calibração" (com a versão lida); o que não
+salvou aparece no alto com o motivo, e a calibração do canal na tela é lida de novo. A conta da tela
+(`web/lib/calibracao-importar.ts`) só confere a forma; quem decide se a calibração vale é a API.
+
+### Como foi conferido
+
+- `api/testes/calibracao-importar.test.ts`: a calibração pelo número e pelo identificador; as cinco que ficam de fora,
+  com o motivo; 40 entram, 41 não; os três jeitos do arquivo; o ponto leva só imagem e piso; nove arquivos tortos; e o
+  que a importação devolve a API aceita (`lerCalibracao`). Mutação: 13 de 13.
+- No navegador (API e console locais; a loja de teste com os canais 1, 2 e 3): o arquivo torto recusado; o arquivo da
+  cozinha (canais 1 e 5) abre a janela com o 1 entrando (28 pontos, troca a de agora) e o 5 de fora; em 5 larguras e nos
+  dois temas, sem rolagem para o lado, sem botão sem nome e sem erro de script; e Salvar → a API guarda os 28 pontos no
+  canal 1, e a tela mostra os pontos no corredor.
