@@ -12,12 +12,16 @@
 // "Concluir edição" salva a planta inteira, "Descartar mudanças" volta ao
 // que está guardado. Quem salva diz a versão que leu; se outra pessoa
 // salvou no meio, nada é gravado e a tela avisa.
+//
+// "Importar planta" (27/10/2026) abre um arquivo de planta NA EDIÇÃO: nada é
+// gravado até o "Concluir edição", e a câmera do arquivo que vem pelo número
+// do canal entra no canal da loja com esse número (`lib/planta-importar.ts`).
 // =====================================================================
 
-import { Box, Check, Map as IconeDeMapa, Pencil, Plus, Rotate3d, Square, Store } from 'lucide-react';
+import { Box, Check, Map as IconeDeMapa, Pencil, Plus, Rotate3d, Square, Store, Upload } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useConsole } from '@/componentes/console';
 import { emOrdem } from '@/componentes/criterios/canais';
@@ -30,6 +34,7 @@ import { Abas } from '@/componentes/ui/abas';
 import { useAvisar } from '@/componentes/ui/avisos';
 import { Botao } from '@/componentes/ui/botao';
 import { Alerta, Cabecalho, CARTAO, Chip, Ossos, Segmentado, Titulo, Vazio } from '@/componentes/ui/pecas';
+import { Dialogo } from '@/componentes/ui/sobreposto';
 import {
   consoleApi,
   ErroDaApi,
@@ -43,6 +48,7 @@ import {
   type Setor,
 } from '@/lib/api';
 import { CAMERA_NOVA, centroDe, coberturaDaPlanta, LIMITES, mesmaPlanta, PLANTA_VAZIA, type Planta } from '@/lib/planta';
+import { lerArquivoDaPlanta, TAMANHO_MAXIMO_DO_ARQUIVO, type Importacao } from '@/lib/planta-importar';
 
 type Vista = 'perspectiva' | 'cima' | '3d';
 
@@ -93,6 +99,11 @@ export default function PlantaDaLoja() {
   const [erroAoSalvar, setErroAoSalvar] = useState<string | null>(null);
   const vistaAntes = useRef<Vista>('perspectiva');
   const animacao = useRef<number | null>(null);
+
+  // importar de um arquivo
+  const arquivo = useRef<HTMLInputElement>(null);
+  const [importacao, setImportacao] = useState<{ nome: string; resultado: Importacao } | null>(null);
+  const [erroDoArquivo, setErroDoArquivo] = useState<string | null>(null);
 
   const editando = rascunho !== null;
   const planta = rascunho ?? guardada ?? PLANTA_VAZIA;
@@ -283,6 +294,46 @@ export default function PlantaDaLoja() {
     setSelecao(null);
   }
 
+  /** O arquivo escolhido: lido e conferido aqui; o resumo vai para o diálogo antes de tocar na planta. */
+  async function leuArquivo(ev: ChangeEvent<HTMLInputElement>) {
+    const f = ev.target.files?.[0];
+    ev.target.value = ''; // escolher o MESMO arquivo de novo tem de disparar outra vez
+    if (!f) return;
+    setErroDoArquivo(null);
+    if (f.size > TAMANHO_MAXIMO_DO_ARQUIVO) {
+      setErroDoArquivo(`O arquivo ${f.name} não foi aberto: é grande demais para ser uma planta.`);
+      return;
+    }
+    let conteudo: string;
+    try {
+      conteudo = await f.text();
+    } catch {
+      setErroDoArquivo(`Não consegui ler o arquivo ${f.name}.`);
+      return;
+    }
+    const canaisDaLoja = setores.flatMap((s) => s.pontos.map((p) => ({ id: p.id, canal: p.canal, nome: p.nome })));
+    const r = lerArquivoDaPlanta(conteudo, canaisDaLoja, setores.map((s) => s.id), itens.map((i) => i.id));
+    if (!r.importacao) {
+      setErroDoArquivo(`O arquivo ${f.name} não foi aberto: ${r.problema ?? 'não é uma planta'}.`);
+      return;
+    }
+    setImportacao({ nome: f.name, resultado: r.importacao });
+  }
+
+  /** Confirmado: a planta do arquivo abre na edição. Gravar é o "Concluir edição" de sempre. */
+  function abrirImportada() {
+    if (!importacao) return;
+    if (!editando) vistaAntes.current = vista;
+    setRascunho(importacao.resultado.planta);
+    setFerramenta('');
+    setRecemCriado(null);
+    setErroAoSalvar(null);
+    setSelecao(null);
+    if (vista !== '3d') girar('cima');
+    setImportacao(null);
+    avisar('A planta do arquivo está aberta na edição. Confira e clique em Concluir edição para salvar.');
+  }
+
   /** Na edição, tocar na lista num canal que ainda não está na planta o põe nela: no meio do primeiro ambiente. */
   function porCamera(pontoId: string) {
     if (!rascunho) return;
@@ -311,24 +362,92 @@ export default function PlantaDaLoja() {
         titulo="Planta da loja"
         acoes={
           configura &&
-          !carregando &&
-          !semPlanta && (
+          !carregando && (
             <>
-              {editando && (
+              <Botao onClick={() => arquivo.current?.click()} disabled={salvando} data-importar>
+                <Upload className="h-[18px] w-[18px]" aria-hidden />
+                Importar planta
+              </Botao>
+              {!semPlanta && editando && (
                 <Botao onClick={() => void descartar()} disabled={salvando}>
                   Descartar mudanças
                 </Botao>
               )}
-              <Botao variante={editando ? 'primario' : 'secundario'} ocupado={salvando} onClick={() => (editando ? void concluir() : editar())}>
-                {!salvando && (editando ? <Check className="h-[18px] w-[18px]" aria-hidden /> : <Pencil className="h-[18px] w-[18px]" aria-hidden />)}
-                {editando ? 'Concluir edição' : 'Editar planta'}
-              </Botao>
+              {!semPlanta && (
+                <Botao variante={editando ? 'primario' : 'secundario'} ocupado={salvando} onClick={() => (editando ? void concluir() : editar())}>
+                  {!salvando && (editando ? <Check className="h-[18px] w-[18px]" aria-hidden /> : <Pencil className="h-[18px] w-[18px]" aria-hidden />)}
+                  {editando ? 'Concluir edição' : 'Editar planta'}
+                </Botao>
+              )}
             </>
           )
         }
       >
         Os ambientes, os equipamentos e cada câmera no seu lugar: onde está, para onde olha e o que cobre.
       </Cabecalho>
+
+      {/* o arquivo da planta: escolhido pelo botão "Importar planta" */}
+      <input
+        ref={arquivo}
+        type="file"
+        accept=".json,application/json"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        onChange={(ev) => void leuArquivo(ev)}
+        data-arquivo-da-planta
+      />
+      {erroDoArquivo && (
+        <Alerta tom="critico" papel="alert">
+          {erroDoArquivo}
+        </Alerta>
+      )}
+      {importacao && (
+        <Dialogo
+          titulo="Importar a planta do arquivo"
+          rotuloConfirmar="Abrir na edição"
+          variante="primario"
+          aoConfirmar={abrirImportada}
+          aoCancelar={() => setImportacao(null)}
+        >
+          <div className="flex flex-col gap-3 text-[14px]" data-resumo-da-importacao>
+            <p>
+              <b className="break-all font-semibold">{importacao.nome}</b>: {importacao.resultado.planta.ambientes.length} ambiente(s),{' '}
+              {importacao.resultado.planta.moveis.length} equipamento(s) e {importacao.resultado.planta.cameras.length} câmera(s).
+            </p>
+            {importacao.resultado.cameras.length > 0 && (
+              <ul className="flex flex-col gap-1.5" aria-label="As câmeras do arquivo">
+                {[...importacao.resultado.cameras]
+                  .sort((a, b) => (a.numero ?? 1e9) - (b.numero ?? 1e9))
+                  .map((c, i) => (
+                  <li key={i} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <b className="font-semibold">{c.rotulo}</b>
+                    {c.ponto ? (
+                      <span className="min-w-0 text-farol-suave">
+                        → {c.ponto.canal != null ? `${String(c.ponto.canal).padStart(2, '0')} · ` : ''}
+                        {c.ponto.nome}
+                      </span>
+                    ) : (
+                      <Chip tom="atencao">fica de fora: {c.motivo}</Chip>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {importacao.resultado.cameras.some((c) => !c.ponto) && (
+              <p className="text-farol-suave">
+                A câmera que ficou de fora entra depois: cadastre o canal em Canais e importe de novo, ou ponha a câmera à mão na
+                edição.
+              </p>
+            )}
+            <p className="text-farol-suave">
+              A planta abre na edição, no lugar {editando ? 'do que você está editando' : 'da que está guardada'}. Nada é gravado
+              até você clicar em <b className="font-semibold text-farol-tinta">Concluir edição</b>; Descartar mudanças volta à de
+              antes.
+            </p>
+          </div>
+        </Dialogo>
+      )}
 
       <Abas rotulo="Vistas dos canais" abas={abasDeCanais(id)} />
       <Abas rotulo="Vistas da planta" abas={abasDaPlanta(id)} />
