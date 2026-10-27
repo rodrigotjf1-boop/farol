@@ -10052,3 +10052,37 @@ desligado), aviso de disco com defeito e de disco cheio — dá para somar com a
   equivalentes: o filtro das marcas recentes antes da conta (é atalho: a instrução da marca é a trava), o filtro de
   conta na leitura da loja (a loja e o agente vêm da credencial do próprio agente) e o `try` em volta do aviso no
   `POST /v1/uso` (sem falha de banco a forçar no teste).
+
+## 27/10/2026 · Importar a planta de um arquivo (A26; sem migration)
+
+O dono mandou o projeto do arquiteto (layout da cozinha, detalhe da ilha de montagem e a planta da loja inteira) e
+respondeu foto a foto onde fica cada câmera; a planta da cozinha foi montada em escala, FORA do console, num arquivo. O
+editor não tinha como receber um arquivo — desenhar 29 peças à mão é o trabalho que a planta pronta poupa. O dono
+autorizou o botão ("pode colocar o botão", 27/10).
+
+**Onde:** Canais › Planta › Desenho, no alto, **Importar planta** (quem configura a loja), também com a loja sem
+planta. Escolhe-se um arquivo `.json`; uma janela mostra o resumo (quantos ambientes, equipamentos e câmeras) e cada
+câmera do arquivo com o canal da loja em que entrou — ou "fica de fora" com o motivo. **Abrir na edição** põe a planta
+do arquivo no rascunho: nada é gravado até o **Concluir edição** de sempre (que diz a versão lida), e **Descartar
+mudanças** volta à de antes. Arquivo que não é planta: um aviso no alto com o que falta, e nada muda.
+
+**O arquivo:** o mesmo formato que a API guarda (`ambientes`, `moveis`, `cameras`, em metros), ou a resposta inteira
+da API (`{ planta, … }`). A câmera pode vir pelo `pontoId` (o canal desta loja) ou pelo **número do canal**
+(`canal: 4`) — quem monta a planta fora do console não sabe o identificador. O número entra no canal da loja com ele;
+fica de fora (com a frase): o número que a loja não tem cadastrado, o número repetido em dois gravadores e a segunda
+câmera do mesmo canal. O setor do ambiente e o equipamento do móvel só ficam se forem desta loja. Campos a mais
+(anotações) ficam de fora.
+
+**Quem decide se a planta vale continua sendo a API** (`lerPlanta`, no salvar): a conta da tela
+(`web/lib/planta-importar.ts`) só confere a forma — é uma planta? cada peça tem id, nome e números? — e liga as câmeras.
+Duas réguas para os mesmos limites acabariam diferentes.
+
+### Como foi conferido
+
+- `api/testes/planta-importar.test.ts`: a câmera pelo número, pelo identificador, e as quatro que ficam de fora com o
+  motivo; o setor e o equipamento só desta loja; o centímetro; a resposta inteira da API; dez arquivos tortos com a
+  frase; e **o que a importação devolve a API aceita ao salvar** (`lerPlanta`, sem mudar nada). Mutação: 13 de 13.
+- No navegador (API e console locais, a loja de teste com os canais 1, 2 e 3): o arquivo torto recusado com a frase; o
+  arquivo da cozinha (8 câmeras) abre a janela com 3 ligadas e 5 de fora, em ordem de canal; em 5 larguras (320 a
+  1440) e nos dois temas, sem rolagem para o lado, sem botão sem nome e sem erro de script; e de ponta a ponta —
+  Abrir na edição → Concluir edição → a API guarda 6 ambientes, 21 equipamentos e 3 câmeras.
