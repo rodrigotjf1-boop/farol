@@ -1220,12 +1220,11 @@ onde cobre." O nobreak, o dono providencia.
 | **P3** | a nuvem: os minutos (migration 058, `POST /v1/planta-viva/minutos`) e a leitura `GET /v1/lojas/:id/planta-viva` — o calor do período, o tempo em cada posto (do calor com os móveis da planta), a média e o pico por hora e, num trecho de até 60 min, os caminhos para o replay (só para quem configura a loja). A guarda é curta: o caminho some em 7 dias, o minuto em 90 | ✅ 25/10/2026 |
 | **P4** | as telas, em Canais › Planta (abas **Desenho**, **O que cada câmera cobre**, **Calibrar câmera** e **Movimento**): marcar os pontos da calibração na imagem do canal e na planta, com a régua e o piso que a câmera vê; o piso coberto e o que nenhuma câmera vê; o calor, o tempo em cada posto, as pessoas por hora e o replay de até 60 min. Protótipo `mockups/farol-planta-viva-e-saude.html`, **aprovado pelo dono em 25/10/2026** | ✅ 25/10/2026 |
 | **Importar** | **Importar planta** no Desenho (27/10/2026, a pedido do dono): a planta montada fora do console (pelo projeto do arquiteto) entra por um arquivo, abre na edição e grava pelo "Concluir edição" de sempre; a câmera pode vir pelo número do canal (`web/lib/planta-importar.ts`) | ✅ 27/10/2026 |
+| **Importar pontos** | **Importar pontos** no Calibrar câmera (27/10/2026, a pedido do dono): as calibrações feitas fora do console (pela grade do piso de 0,72 m e a altura das câmeras, 2,20 m) entram por um arquivo, cada uma no canal da loja com o mesmo número, e são salvas como o "Salvar calibração" (`web/lib/calibracao-importar.ts`) | ✅ 27/10/2026 |
 
-**O que falta da loja para a planta viva ligar:** a planta da cozinha já está montada em escala pelo projeto do
-arquiteto (27/10, com as câmeras dos canais 1 a 8) e entra pelo **Importar planta**; os canais 3, 5, 7 e 8 ainda não
-estão cadastrados no console. Depois, calibrar cada câmera de chão pelos pontos do piso (a planta em escala dá o lado
-da planta; o passo a passo está em [estudo-planta-viva.md](estudo-planta-viva.md), seção 8): a nuvem calcula, o agente
-recebe, e a chave liga.
+**Onde a planta viva está na loja (27/10):** a planta da cozinha foi montada em escala pelo projeto do arquiteto e
+importada (canais 1 a 8, cadastrados); os canais 1 e 5 (o corredor da fritura) estão calibrados pela grade do piso; o 8,
+o 6, o 2 e o 3 em seguida. O dono: precisão aproximada basta — o fim é acompanhar o movimento. Depois, a chave liga.
 
 **O que o PC da loja não deixa ler:** a temperatura dos núcleos do processador precisa de um driver de sensor (o
 Windows não entrega). O que entra no lugar: a temperatura da placa-mãe (zona térmica do ACPI) e a frequência real do

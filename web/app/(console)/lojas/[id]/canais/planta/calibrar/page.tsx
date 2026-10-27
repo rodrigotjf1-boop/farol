@@ -11,12 +11,16 @@
 // onde a conta acha que ele fica. "Salvar calibração" grava com a versão que
 // leu (409 = outra pessoa salvou no meio); "Tirar calibração" apaga (a câmera
 // foi mexida). A conta é do servidor (`api/src/calibracao.ts`).
+//
+// "Importar pontos" (27/10/2026): as calibrações feitas fora do console (pela
+// grade do piso) entram por um arquivo, cada uma no canal da loja com o mesmo
+// número (`lib/calibracao-importar.ts`); salvas como o "Salvar calibração".
 // =====================================================================
 
-import { Crosshair, Map as IconeDeMapa, Save, Trash2, Undo2 } from 'lucide-react';
+import { Crosshair, Map as IconeDeMapa, Save, Trash2, Undo2, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ChangeEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useConsole } from '@/componentes/console';
 import { abasDaPlanta } from '@/componentes/planta-viva/abas-da-planta';
@@ -27,9 +31,10 @@ import { abasDeCanais } from '@/componentes/pontos/abas-de-canais';
 import { Abas } from '@/componentes/ui/abas';
 import { useAvisar } from '@/componentes/ui/avisos';
 import { Botao, classesDoBotao } from '@/componentes/ui/botao';
-import { Alerta, Cabecalho, CARTAO, Ossos, Segmentado, Titulo, Vazio } from '@/componentes/ui/pecas';
+import { Alerta, Cabecalho, CARTAO, Chip, Ossos, Segmentado, Titulo, Vazio } from '@/componentes/ui/pecas';
 import { Dialogo } from '@/componentes/ui/sobreposto';
 import { calibracaoApi, ErroDaApi } from '@/lib/api';
+import { lerArquivoDePontos, TAMANHO_MAXIMO_DO_ARQUIVO, type CalibracaoImportada } from '@/lib/calibracao-importar';
 import { LIMITES } from '@/lib/planta';
 import { ERRO_SUSPEITO_M, PONTOS_MINIMOS, PONTOS_RECOMENDADOS, projetar, type ConferenciaDaCalibracao, type ParDaCalibracao, type Pt } from '@/lib/planta-viva';
 
@@ -64,7 +69,15 @@ function Calibrar() {
   const [perguntandoTirar, setPerguntandoTirar] = useState(false);
   const [trocarPara, setTrocarPara] = useState<string | null>(null);
 
-  // a calibração guardada do canal escolhido
+  // importar os pontos de um arquivo
+  const arquivo = useRef<HTMLInputElement>(null);
+  const [importacao, setImportacao] = useState<{ nome: string; lista: CalibracaoImportada[] } | null>(null);
+  const [erroDoArquivo, setErroDoArquivo] = useState<string | null>(null);
+  const [importando, setImportando] = useState(false);
+  const [resultado, setResultado] = useState<Array<{ rotulo: string; ok: boolean; texto: string }> | null>(null);
+  const [recarga, setRecarga] = useState(0);
+
+  // a calibração guardada do canal escolhido (de novo depois de importar)
   useEffect(() => {
     if (!canal) return;
     let vivo = true;
@@ -83,7 +96,7 @@ function Calibrar() {
       })
       .finally(() => vivo && setLendo(false));
     return () => { vivo = false; };
-  }, [id, canal]);
+  }, [id, canal, recarga]);
 
   // a conta, sem salvar, a cada mudança dos pontos (de 4 para cima); só a resposta mais nova vale
   const pedidoDaConta = useRef(0);
@@ -170,16 +183,137 @@ function Calibrar() {
     }
   }
 
+  /** O arquivo escolhido: lido e ligado aos canais; o resumo vai para o diálogo antes de salvar. */
+  async function leuArquivo(ev: ChangeEvent<HTMLInputElement>) {
+    const f = ev.target.files?.[0];
+    ev.target.value = ''; // o MESMO arquivo de novo tem de disparar outra vez
+    if (!f) return;
+    setErroDoArquivo(null);
+    setResultado(null);
+    if (f.size > TAMANHO_MAXIMO_DO_ARQUIVO) {
+      setErroDoArquivo(`O arquivo ${f.name} não foi aberto: é grande demais para pontos de calibração.`);
+      return;
+    }
+    let conteudo: string;
+    try {
+      conteudo = await f.text();
+    } catch {
+      setErroDoArquivo(`Não consegui ler o arquivo ${f.name}.`);
+      return;
+    }
+    const r = lerArquivoDePontos(conteudo, (dados?.canais ?? []).map((c) => ({ id: c.id, canal: c.canal, nome: c.nome })));
+    if (!r.calibracoes) {
+      setErroDoArquivo(`O arquivo ${f.name} não foi aberto: ${r.problema ?? 'não traz pontos de calibração'}.`);
+      return;
+    }
+    setImportacao({ nome: f.name, lista: r.calibracoes });
+  }
+
+  /** Confirmado: cada calibração que entrou é salva no seu canal, com a versão lida (como o "Salvar calibração"). */
+  async function salvarImportadas() {
+    if (!importacao) return;
+    setImportando(true);
+    const feitos: Array<{ rotulo: string; ok: boolean; texto: string }> = [];
+    for (const c of importacao.lista) {
+      if (!c.ponto) continue;
+      const nome = nomeLongo(c.ponto.id);
+      try {
+        const salva = await calibracaoApi.salvar(id, c.ponto.id, c.pares, dados?.calibracoes.get(c.ponto.id)?.versao ?? null);
+        const reg = salva.erros?.conferido?.medianaM;
+        feitos.push({ rotulo: nome, ok: true, texto: `${c.pares.length} pontos${reg != null ? ` · régua ${fmt(reg * 100)} cm` : ''}` });
+      } catch (e) {
+        feitos.push({ rotulo: nome, ok: false, texto: e instanceof ErroDaApi ? e.message : 'não consegui salvar' });
+      }
+    }
+    setImportando(false);
+    setImportacao(null);
+    setResultado(feitos);
+    await carregar();
+    setRecarga((n) => n + 1);
+    const certos = feitos.filter((f) => f.ok).length;
+    avisar(certos === feitos.length ? `${certos} calibração(ões) salva(s). O agente recebe em até 1 minuto.` : `${certos} de ${feitos.length} calibrações salvas; veja o que faltou no alto.`);
+  }
+
   const fantasma = useMemo(() => (pendente && conta ? projetar(conta.homografia, pendente) : null), [pendente, conta]);
 
   const cabecalho = (
     <>
-      <Cabecalho sobre={loja?.nome} titulo="Planta viva">
+      <Cabecalho
+        sobre={loja?.nome}
+        titulo="Planta viva"
+        acoes={
+          configura && dados && (
+            <Botao onClick={() => arquivo.current?.click()} disabled={importando} data-importar-pontos>
+              <Upload className="h-[18px] w-[18px]" aria-hidden />
+              Importar pontos
+            </Botao>
+          )
+        }
+      >
         Cada câmera no mapa pelos pontos marcados no chão: o que ela cobre de verdade, e as pessoas no mapa — sem nome e sem
         rosto.
       </Cabecalho>
       <Abas rotulo="Vistas dos canais" abas={abasDeCanais(id)} />
       <Abas rotulo="Vistas da planta" abas={abasDaPlanta(id)} />
+      {/* o arquivo dos pontos: escolhido pelo botão "Importar pontos" */}
+      <input
+        ref={arquivo}
+        type="file"
+        accept=".json,application/json"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        onChange={(ev) => void leuArquivo(ev)}
+        data-arquivo-de-pontos
+      />
+      {erroDoArquivo && <Alerta tom="critico" papel="alert">{erroDoArquivo}</Alerta>}
+      {resultado && resultado.some((r) => !r.ok) && (
+        <Alerta tom="critico" papel="alert">
+          <b className="font-semibold">Nem todas as calibrações foram salvas.</b>{' '}
+          {resultado.filter((r) => !r.ok).map((r) => `${r.rotulo}: ${r.texto}`).join(' · ')}
+        </Alerta>
+      )}
+      {importacao && (
+        <Dialogo
+          titulo="Importar os pontos de calibração"
+          rotuloConfirmar={`Salvar ${importacao.lista.filter((c) => c.ponto).length} calibração(ões)`}
+          rotuloOcupado="Salvando…"
+          variante="primario"
+          ocupado={importando}
+          aoConfirmar={() => void salvarImportadas()}
+          aoCancelar={() => setImportacao(null)}
+        >
+          <div className="flex flex-col gap-3 text-[14px]" data-resumo-dos-pontos>
+            <p>
+              <b className="break-all font-semibold">{importacao.nome}</b>: {importacao.lista.length} calibração(ões).
+            </p>
+            <ul className="flex flex-col gap-1.5" aria-label="As calibrações do arquivo">
+              {[...importacao.lista]
+                .sort((a, b) => (a.numero ?? 1e9) - (b.numero ?? 1e9))
+                .map((c, i) => (
+                  <li key={i} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <b className="font-semibold">{c.rotulo}</b>
+                    {c.ponto ? (
+                      <span className="min-w-0 text-farol-suave">
+                        → {nomeLongo(c.ponto.id)} · {c.pares.length} pontos ·{' '}
+                        {dados?.calibracoes.has(c.ponto.id) ? 'troca a calibração de agora' : 'ainda sem calibração'}
+                      </span>
+                    ) : (
+                      <Chip tom="atencao">fica de fora: {c.motivo}</Chip>
+                    )}
+                  </li>
+                ))}
+            </ul>
+            {mudou && canal && importacao.lista.some((c) => c.ponto?.id === canal) && (
+              <p className="text-farol-critico">Os pontos ainda não salvos do {nomeDaCamera(canal).toLowerCase()} se perdem: entram os do arquivo.</p>
+            )}
+            <p className="text-farol-suave">
+              Cada calibração é salva no seu canal como no Salvar calibração, e o agente recebe em até 1 minuto. Para desfazer
+              uma, use Tirar calibração no canal.
+            </p>
+          </div>
+        </Dialogo>
+      )}
     </>
   );
   if (!configura) {
