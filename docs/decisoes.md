@@ -10117,3 +10117,69 @@ salvou aparece no alto com o motivo, e a calibração do canal na tela é lida d
   cozinha (canais 1 e 5) abre a janela com o 1 entrando (28 pontos, troca a de agora) e o 5 de fora; em 5 larguras e nos
   dois temas, sem rolagem para o lado, sem botão sem nome e sem erro de script; e Salvar → a API guarda os 28 pontos no
   canal 1, e a tela mostra os pontos no corredor.
+
+## 28/10/2026 · O rastreio firme da planta viva (A26 parte P5; sem migration)
+
+**O que a loja mostrou.** Com a chave ligada (27/10), o dono andou sozinho pela cozinha e a gravação de diagnóstico
+(as caixas do detector de cada canal, a cada meio segundo) mostrou três defeitos do rastreio da P2: a **mesma pessoa
+em dobro** (20% dos instantes) — duas câmeras punham o pé dela a ~1 m uma da outra, mais que os 0,6 m de juntar; o
+**zigue-zague** e o caminho que **atravessava equipamento** — atrás da bancada, a base da caixa é a beira do móvel, não
+o pé; e a **troca de número** na passagem de uma câmera para outra (8 números para uma pessoa). O dono: "quando houver
+umas 8 pessoas circulando vai ter muita confusão" — e aprovou o caminho B (rastreio firme, posições ao vivo e a tela
+"Ao vivo"). Esta parte é o rastreio; as outras duas vêm depois.
+
+**Como ficou** (`agent/farol_agent/planta_viva/rastreio.py`, `camera.py`; o serviço troca o rastreio antigo por este):
+
+1. **A câmera inteira tirada da calibração** (`camera.py`): a homografia do chão, decomposta (Zhang, com pixels
+   quadrados e o centro da imagem no centro da lente), dá a posição, a altura e a direção da câmera — sem dado a mais.
+   Com ela, o **alto da caixa (a cabeça)** também vira posição: o raio da cabeça cruza a altura de uma pessoa (1,65 m)
+   num ponto só. A altura que a conta dá é conferida com a medida na planta: na loja, 2,26–2,35 m para câmeras a
+   2,20 m; o canal 8 (grande-angular) dá 2,92 m — ali a cabeça vale pouco (18%).
+2. **Pé ou cabeça**: vale o pé, a não ser que a base encoste no fim da imagem ou que **o raio da câmera até o pé passe
+   por dentro de um móvel da planta** (com a altura dele): aí a bancada esconde as pernas, vale a cabeça, e a pessoa
+   fica do lado de lá do móvel. Pela cabeça a direção é certa e a distância nem tanto (a câmera fica só 55 cm acima da
+   cabeça: 5 cm de diferença de altura são ~40 cm no chão a 4 m) — a dúvida vai maior no sentido do raio. O pé cortado
+   pela borda de baixo limita a distância (a pessoa está mais perto que o chão da borda). Pé e cabeça juntos medem a
+   altura de cada pessoa, que deixa a cabeça mais certa depois.
+3. **Fora da área calibrada a vista vale menos** (ERR-154): a nuvem manda o contorno, na imagem, dos pontos marcados
+   (`areaCalibrada`); fora dele a lente distorce e a homografia é chute — a dúvida cresce 10 m por fração da imagem.
+4. **O chão livre**: ponto dentro de um móvel vai para a beira livre mais perto (também com móveis encostados).
+5. **A pessoa**: um filtro de Kalman (posição e velocidade) por pessoa junta as câmeras (cada vista com a sua dúvida,
+   de lado e no sentido do raio), dá o movimento reto, atravessa uma falha curta do detector (some da planta depois de
+   1 s sem ser vista, e do rastreio depois de 4 s), e só aparece depois de vista duas vezes (ou por duas câmeras ao mesmo
+   tempo). Ligar a vista à pessoa é pela distância, com uma preferência pequena para a trilha da mesma câmera (o mesmo
+   vulto de quadro em quadro); quem foi visto no quadro anterior escolhe antes de quem está sumido; quem volta depois
+   de sumir recomeça do último lugar visto. A vista de uma câmera só, perto (até 2 m) de quem as outras estão vendo,
+   é dessa pessoa; uma segunda caixa colada em alguém só aparece se for vista 5 vezes; duas pessoas juntas por mais de
+   1 s, cada uma vista por câmeras diferentes, viram uma.
+6. **O desvio de cada câmera, aprendido com o movimento**: quando uma pessoa sozinha (ninguém a 1,5 m) é vista pelo pé
+   por duas câmeras, cada uma aprende metade da diferença — no geral e por pedaço de 1,5 m do chão — e as vistas
+   seguintes saem corrigidas. Fica em disco no PC da loja (`planta-viva-desvios.json`), com a marca da calibração de
+   que veio: calibrou de novo, aquela câmera recomeça. A cada 30 min o registro do agente diz o desvio de cada câmera —
+   o diagnóstico de calibração torta.
+7. **O detector mais sensível**: a nota mínima desceu de 0,6 para 0,5 (quem aparece precisa ser visto duas vezes). Medir
+   na loja aberta.
+
+A configuração do agente ganhou, da planta, os móveis (só números: posição, tamanho e altura) e o retângulo dos
+ambientes (`plantaViva`), e, em cada calibração, a altura da câmera medida na planta e o contorno dos pontos marcados.
+Nuvem antiga não manda: o rastreio segue sem eles (sem chão livre, sem pé escondido, com a mesma confiança na imagem
+inteira).
+
+Sem nome e sem rosto (estudo, seção 7): a única "aparência" é a cor média da roupa no tronco, para desempatar quem está
+perto — fica no PC da loja. Identificar pelo nome (pela escala, sem biometria) é um adicional depois da conclusão, como o
+dono pediu.
+
+### Como foi conferido
+
+- **A gravação real de 27/10** (o dono sozinho; as mesmas caixas, refeitas pelo rastreio novo): pessoa em dobro 20% → 0%
+  dos instantes; números para a mesma pessoa 8 → 2 (o segundo é de quando ele ficou 30 s fora de todas as câmeras);
+  pontos dentro de móvel 1 → 0; o quanto o ponto foge da reta entre o anterior e o seguinte, nos piores 10%, 0,66 →
+  0,35 m; e a pessoa na planta em 77 instantes, contra 61.
+- **A cozinha simulada** (`testes/cozinha_simulada.py`: câmeras de furo, bancadas que escondem as pernas, o tremor do
+  detector): 8 pessoas cruzando, 4 câmeras, 20 sorteios — contagem certa em 100% dos instantes, erro mediano 11 cm,
+  nenhuma troca de número; com 15% das caixas perdidas, 95%; com a calibração de cada câmera torta até 0,4 m, 61% antes
+  de aprender o desvio e 92% depois de 1 min de uma pessoa andando sozinha.
+- `test_planta_camera.py` (a câmera achada a menos de 5 cm da simulada), `test_planta_rastreio.py` (os cenários) e
+  `test_planta_rastreio_regras.py` (cada regra num caso direto); `test_planta_servico.py` (a planta da configuração no
+  rastreio, o desvio em disco, esquecido quando a calibração muda); na API, `contornoNaImagem`, `plantaParaOAgente` e a
+  configuração com a planta. Mutação: as decisões do rastreio, do serviço e da configuração estragadas uma a uma.

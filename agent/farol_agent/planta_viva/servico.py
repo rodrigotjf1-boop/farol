@@ -2,24 +2,32 @@
 
 Uma linha de execução: a cada `A_CADA_S`, pega o quadro mais recente do fluxo REDUZIDO de cada canal CALIBRADO
 (a homografia que desce na configuração), acha as pessoas com o detector da auditoria (o mesmo, carregado uma vez),
-leva o pé de cada uma ao chão, junta as câmeras, segue cada caminho sem nome e soma o minuto
-(`planta_viva.pessoas`). Os minutos fechados sobem em lote (`POST /v1/planta-viva/minutos`); se a nuvem não aceita,
-ficam guardados na memória (até `GUARDA_MINUTOS`) e sobem depois — a nuvem antiga (sem a rota) é tentada de novo a cada
-`PAUSA_APOS_RECUSA_S`.
+põe cada uma no chão, junta as câmeras e segue cada uma sem nome (`planta_viva.rastreio`, desde 28/10: pé ou cabeça,
+o chão livre da planta, o filtro que junta as câmeras e o desvio de cada câmera aprendido com o movimento) e soma o
+minuto (`planta_viva.pessoas.Minutos`). Os minutos fechados sobem em lote (`POST /v1/planta-viva/minutos`); se a nuvem
+não aceita, ficam guardados na memória (até `GUARDA_MINUTOS`) e sobem depois — a nuvem antiga (sem a rota) é tentada de
+novo a cada `PAUSA_APOS_RECUSA_S`.
+
+O desvio aprendido de cada câmera fica em disco (`planta-viva-desvios.json`, ao lado da configuração), com a marca da
+calibração de que veio: calibrou de novo, aquela câmera recomeça a aprender.
 
 Só com a loja aberta (o horário cadastrado). Nada aqui guarda nem sobe imagem.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
+import os
 import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from farol_agent.planta_viva.pessoas import NOTA_MINIMA, Minutos, Rastreador, juntar, vistas_do_canal
+from farol_agent.planta_viva import rastreio as rt
+from farol_agent.planta_viva.pessoas import Minutos
 
 _log = logging.getLogger(__name__)
 
@@ -31,6 +39,14 @@ POR_LOTE = 60
 PAUSA_APOS_RECUSA_S = 600.0
 IDADE_MAXIMA_DO_QUADRO_S = 2.0
 ROTA = "/v1/planta-viva/minutos"
+GUARDA_DESVIOS_A_CADA_S = 300.0
+CONTA_DESVIOS_A_CADA_S = 1800.0
+ARQUIVO_DOS_DESVIOS = "planta-viva-desvios.json"
+
+
+def marca_da_calibracao(h: list[float]) -> str:
+    """A marca da homografia: o desvio aprendido de uma câmera só vale para a calibração de que veio."""
+    return hashlib.sha256(json.dumps([round(float(x), 9) for x in h]).encode()).hexdigest()[:16]
 
 
 def ligada(valor: str | None) -> bool:
@@ -69,11 +85,19 @@ class PlantaViva:
         self._abrir_fluxo = abrir_fluxo
         self._relogio = relogio
         self.a_cada_s = a_cada_s
-        self.rastreador = Rastreador()
+        self.rastreio = rt.Rastreio()
         self.minutos = Minutos()
         self.pendentes: list[dict] = []
         self.fluxos: dict[str, Any] = {}
-        self.canais: dict[str, Any] = {}  # id do ponto → o PontoConfig (com a homografia)
+        self.canais: dict[str, rt.CanalDoRastreio] = {}  # id do ponto → o canal do rastreio (homografia, câmera, trilhas)
+        self.nomes: dict[str, str] = {}  # id do ponto → "canal 6", para o registro
+        # o que a tela ao vivo mostra: as pessoas do último instante (número, x, y, vx, vy, câmeras) e quando
+        self.ao_vivo: tuple[datetime, list[tuple]] | None = None
+        self.arquivo_dos_desvios = self.caminho_config.parent / ARQUIVO_DOS_DESVIOS
+        self._marcas: dict[str, str] = {}  # id do ponto → a marca da calibração de que o desvio aprendido veio
+        self._carregar_desvios()
+        self._guardar_desvios_em = 0.0
+        self._contar_desvios_em = 0.0
         self._chave: tuple | None = None
         self._motivo_dito: str | None = None
         self._conferir_em = 0.0
@@ -98,14 +122,63 @@ class PlantaViva:
         # o horário da loja é o do relógio do computador da loja (hora local, sem fuso — como a bancada ao vivo)
         if not aberta(janelas_da_loja(config_json), self._relogio().astimezone().replace(tzinfo=None)):
             return None, "a loja está fechada"
-        calibrados = [p for p in de_json(config_json).pontos if p.homografia and p.host]
+        config = de_json(config_json)
+        calibrados = [p for p in config.pontos if p.homografia and p.host]
         if not calibrados:
             return None, "nenhum canal calibrado pelos pontos do piso (Canais → Planta → Calibrar)"
         detector = self._detector_de()
         if detector is None:
             return None, "o detector não está instalado neste computador (farol-agent detector instalar)"
-        chave = tuple(sorted((p.id, p.host, p.porta, p.canal, p.usuario, p.segredo_ref, tuple(p.homografia)) for p in calibrados))
-        return chave, {"pontos": calibrados, "detector": detector}
+        planta = rt.Planta(tuple(rt.Movel(*m) for m in config.planta_moveis), config.planta_limites)
+        chave = (tuple(sorted((p.id, p.host, p.porta, p.canal, p.usuario, p.segredo_ref, tuple(p.homografia), p.altura_da_camera_m,
+                               tuple(p.area_calibrada or ())) for p in calibrados)), planta)
+        return chave, {"pontos": calibrados, "detector": detector, "planta": planta}
+
+    # ───────────────────────────── o desvio aprendido de cada câmera ─────────────────────────────
+
+    def _carregar_desvios(self) -> None:
+        try:
+            dados = json.loads(self.arquivo_dos_desvios.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return
+        except (OSError, ValueError) as e:
+            _log.warning("planta viva: o desvio guardado das câmeras não deu para ler (%s); recomeça a aprender", e)
+            return
+        if isinstance(dados, dict):
+            self.rastreio.desvios = rt.DesvioDasCameras.de_json(dados.get("desvios"))
+            marcas = dados.get("marcas")
+            self._marcas = {str(k): str(v) for k, v in marcas.items()} if isinstance(marcas, dict) else {}
+
+    def _guardar_desvios(self) -> None:
+        if not self.rastreio.desvios.geral:
+            return
+        dados = {"versao": 1, "marcas": self._marcas, "desvios": self.rastreio.desvios.para_json()}
+        temporario = self.arquivo_dos_desvios.with_suffix(".tmp")
+        try:
+            temporario.write_text(json.dumps(dados), encoding="utf-8")
+            os.replace(temporario, self.arquivo_dos_desvios)
+        except OSError as e:
+            _log.warning("planta viva: não deu para guardar o desvio aprendido das câmeras (%s)", e)
+
+    def _montar_canais(self, pontos: list, planta: rt.Planta) -> None:
+        self.rastreio.planta = planta
+        self.canais = {}
+        for p in pontos:
+            marca = marca_da_calibracao(p.homografia)
+            if self._marcas.get(p.id) != marca:
+                self.rastreio.desvios.esquecer(p.id)  # calibrou de novo (ou é a primeira vez): recomeça a aprender
+                self._marcas[p.id] = marca
+            canal = rt.CanalDoRastreio(p.id, p.homografia, erro_da_calibracao=p.erro_da_calibracao_m or 0.0,
+                                       altura_medida=p.altura_da_camera_m, area=p.area_calibrada)
+            self.canais[p.id] = canal
+            nome = f"canal {p.canal}" if p.canal is not None else p.nome
+            self.nomes[p.id] = nome
+            if canal.cam is None:
+                _log.info("planta viva: %s — a calibração não dá a câmera inteira: só o pé vale", nome)
+            else:
+                medida = f" (medida na planta: {p.altura_da_camera_m:.2f} m)" if p.altura_da_camera_m else ""
+                _log.info("planta viva: %s — a calibração põe a câmera a %.2f m%s; a cabeça vale %.0f%%",
+                          nome, canal.cam.altura, medida, 100 * canal.confianca)
 
     def _fechar_fluxos(self) -> None:
         for f in self.fluxos.values():
@@ -113,7 +186,8 @@ class PlantaViva:
                 f.parar()
             except Exception:  # noqa: BLE001
                 _log.debug("planta viva: erro ao fechar um fluxo", exc_info=True)
-        self.fluxos, self.canais = {}, {}
+        self.fluxos = {}
+        self.ao_vivo = None
 
     # ───────────────────────────── uma volta ─────────────────────────────
 
@@ -133,17 +207,26 @@ class PlantaViva:
                 self._fechar_fluxos()
                 for p in pecas["pontos"]:  # type: ignore[index]
                     self.fluxos[p.id] = self._abrir_fluxo(p)
-                    self.canais[p.id] = p
+                self._montar_canais(pecas["pontos"], pecas["planta"])  # type: ignore[index]
                 self._detector = pecas["detector"]  # type: ignore[index]
                 self._chave, self._motivo_dito = chave, None
-                _log.info("planta viva: lendo %d canal(is) calibrado(s), %.0f quadros por segundo",
-                          len(self.fluxos), 1 / self.a_cada_s)
+                _log.info("planta viva: lendo %d canal(is) calibrado(s), %.0f quadros por segundo; a planta com %d móvel(is)",
+                          len(self.fluxos), 1 / self.a_cada_s, len(pecas["planta"].moveis))  # type: ignore[index]
         if self.fluxos:
             self._olhar(agora_s)
         if agora_s >= self._subir_em:
             self._subir_em = agora_s + SOBE_A_CADA_S
             self.pendentes.extend(self.minutos.fechados(self._relogio()))
             self._subir(agora_s)
+        if agora_s >= self._guardar_desvios_em:
+            self._guardar_desvios_em = agora_s + GUARDA_DESVIOS_A_CADA_S
+            self._guardar_desvios()
+        if self.fluxos and agora_s >= self._contar_desvios_em:
+            self._contar_desvios_em = agora_s + CONTA_DESVIOS_A_CADA_S
+            resumo = self.rastreio.desvios.resumo()
+            if resumo:
+                _log.info("planta viva: o desvio aprendido das câmeras (m): %s", "; ".join(
+                    f"{self.nomes.get(pid, pid)} ({dx:+.2f}; {dy:+.2f}) em {n} vez(es)" for pid, (dx, dy, n) in resumo.items()))
 
     def _olhar(self, agora_s: float) -> None:
         vistas = []
@@ -153,13 +236,13 @@ class PlantaViva:
                 continue
             _, img = q
             altura, largura = img.shape[:2]
-            p = self.canais[pid]
-            caixas = self._detector.caixas(img, "person", NOTA_MINIMA)
-            vistas.extend(vistas_do_canal(pid, p.homografia, p.erro_da_calibracao_m or 0.0, caixas, largura, altura))
+            caixas = self._detector.caixas(img, "person", rt.NOTA_MINIMA)
+            vistas.extend(self.canais[pid].observacoes(agora_s, caixas, largura, altura, self.rastreio, img))
         quando = self._relogio()
         dt = self.a_cada_s if self._ultimo_t is None else min(2.0, max(0.0, agora_s - self._ultimo_t))
         self._ultimo_t = agora_s
-        pessoas = self.rastreador.passo(agora_s, juntar(vistas), dia=quando.astimezone().date().isoformat())
+        pessoas = self.rastreio.passo(agora_s, vistas, dia=quando.astimezone().date().isoformat())
+        self.ao_vivo = (quando, self.rastreio.agora(agora_s))
         self.minutos.somar(quando, dt, pessoas)
 
     def _subir(self, agora_s: float) -> None:
@@ -201,6 +284,7 @@ class PlantaViva:
                     _log.exception("planta viva: erro inesperado (%s); sigo", texto)
             self._parar.wait(max(0.0, self.a_cada_s - (time.monotonic() - comeco)))
         self._fechar_fluxos()
+        self._guardar_desvios()
 
     def iniciar(self) -> None:
         if self._linha is not None:

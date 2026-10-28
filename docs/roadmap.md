@@ -1198,7 +1198,7 @@ gravador atende (1,5 s, fora da trava), e o OpenCV passa a desistir em 5 s
 
 ---
 
-## A26 · A saúde do computador do agente e o controle de movimento (pedido do dono em 25/10/2026) — 🟡 as sete partes feitas; falta, da loja, as fotos e os pontos no piso (e, para o aviso chegar ao celular, o transporte dos alertas)
+## A26 · A saúde do computador do agente e o controle de movimento (pedido do dono em 25/10/2026) — 🟡 o rastreio firme (P5) feito; faltam as posições ao vivo (P6) e a tela "Ao vivo" (P7), e, para o aviso chegar ao celular, o transporte dos alertas
 
 O pedido do dono (25/10, depois da queda de energia de 24/10 que deixou o PC desligado das 08h49 às 04h44):
 
@@ -1221,6 +1221,9 @@ onde cobre." O nobreak, o dono providencia.
 | **P4** | as telas, em Canais › Planta (abas **Desenho**, **O que cada câmera cobre**, **Calibrar câmera** e **Movimento**): marcar os pontos da calibração na imagem do canal e na planta, com a régua e o piso que a câmera vê; o piso coberto e o que nenhuma câmera vê; o calor, o tempo em cada posto, as pessoas por hora e o replay de até 60 min. Protótipo `mockups/farol-planta-viva-e-saude.html`, **aprovado pelo dono em 25/10/2026** | ✅ 25/10/2026 |
 | **Importar** | **Importar planta** no Desenho (27/10/2026, a pedido do dono): a planta montada fora do console (pelo projeto do arquiteto) entra por um arquivo, abre na edição e grava pelo "Concluir edição" de sempre; a câmera pode vir pelo número do canal (`web/lib/planta-importar.ts`) | ✅ 27/10/2026 |
 | **Importar pontos** | **Importar pontos** no Calibrar câmera (27/10/2026, a pedido do dono): as calibrações feitas fora do console (pela grade do piso de 0,72 m e a altura das câmeras, 2,20 m) entram por um arquivo, cada uma no canal da loja com o mesmo número, e são salvas como o "Salvar calibração" (`web/lib/calibracao-importar.ts`) | ✅ 27/10/2026 |
+| **P5** | **o rastreio firme** (o caminho B aprovado pelo dono em 27/10, depois da volta dele pela cozinha): a câmera inteira tirada da calibração; pé ou cabeça (o móvel da planta que esconde as pernas, com a altura dele); o contorno da área calibrada; o chão livre; um filtro de Kalman por pessoa que junta as câmeras; o desvio de cada câmera aprendido com o movimento e guardado no PC da loja (`agent/farol_agent/planta_viva/rastreio.py`). Na gravação de 27/10: pessoa em dobro 20% → 0%, números 8 → 2, zigue-zague (piores 10%) 0,66 → 0,35 m. Decisões de 28/10/2026 | ✅ 28/10/2026 — medir a nota 0,5 do detector com a loja aberta |
+| **P6** | as posições ao vivo: o agente manda as pessoas do instante a cada ~0,5 s; a nuvem guarda só a última de cada loja (memória, com validade curta) e o console lê enquanto a tela está aberta (supervisão para cima) | ⏳ |
+| **P7** | a tela **Ao vivo** (Planta / 3D / Câmeras), no protótipo aprovado pelo dono em 27/10 — por posto, sem nome; o nome pela escala é um adicional depois | ⏳ |
 
 **Onde a planta viva está na loja (27/10):** a planta da cozinha foi montada em escala pelo projeto do arquiteto e
 importada (canais 1 a 8, cadastrados); os canais 1 e 5 (o corredor da fritura) estão calibrados pela grade do piso; o 8,

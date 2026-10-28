@@ -16,6 +16,7 @@ import { criarApp } from '../src/app.js';
 import {
   LIMITES_DA_CALIBRACAO,
   areaVista,
+  contornoNaImagem,
   errosDaCalibracao,
   homografia,
   lerCalibracao,
@@ -46,6 +47,19 @@ const TOL = C.toleranciaM;
 const dist = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
 describe('a calibração da câmera pelos pontos do piso', () => {
+  it('o contorno dos pontos marcados na imagem: convexo, cobre todos e só usa pontos marcados', () => {
+    const c = contornoNaImagem(C.pares);
+    assert.ok(c.length >= 3 && c.length <= C.pares.length);
+    const marcados = new Set(C.pares.map((p) => `${Math.round(p.img[0] * 1e4) / 1e4},${Math.round(p.img[1] * 1e4) / 1e4}`));
+    for (const v of c) assert.ok(marcados.has(`${v[0]},${v[1]}`), `vértice ${v} é um ponto marcado`);
+    const cruz = (o: Pt, a: Pt, b: Pt) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    for (let i = 0; i < c.length; i++) {
+      const a = c[i]!, b = c[(i + 1) % c.length]!;
+      for (const p of C.pares) assert.ok(cruz(a, b, p.img) >= -1e-4, `o ponto ${p.img} fica dentro (ou na borda)`);
+    }
+    assert.deepEqual(contornoNaImagem(C.pares.slice(0, 2)).length, 2, 'menos de 3 pontos: os próprios pontos');
+  });
+
   it('com os pares exatos, cada ponto da imagem cai onde a geometria diz', () => {
     const h = homografia(C.pares);
     assert.ok(h);
@@ -161,7 +175,8 @@ describe('as rotas da calibração (Postgres real)', { skip: !URL_DO_BANCO && 's
   const versaoDaConfig = async () => (await pool.query('select config_versao from loja where id = $1', [lojaId])).rows[0].config_versao as number;
   const configuracao = async () =>
     (await app.inject({ method: 'GET', url: '/v1/agentes/configuracao', headers: { authorization: `Bearer ${token}` } })).json() as {
-      pontos: { id: string; calibracao: { homografia: number[]; erroM: number; versao: number } | null }[];
+      pontos: { id: string; calibracao: { homografia: number[]; erroM: number; versao: number; alturaDaCamera: number | null; areaCalibrada: Pt[] } | null }[];
+      plantaViva: { moveis: unknown[]; limites: number[] | null } | null;
     };
 
   before(async () => {
@@ -216,7 +231,23 @@ describe('as rotas da calibração (Postgres real)', { skip: !URL_DO_BANCO && 's
     assert.deepEqual([s.versao, s.pares.length, s.erroConferidoM, s.erroMedioM], [1, 12, C.comRuido.erros.conferido.medianaM, C.comRuido.erros.medioM]);
     assert.ok(await versaoDaConfig() > antes, 'a configuração do agente sobe de versão');
     const noAgente = (await configuracao()).pontos.find((p) => p.id === canal)!.calibracao!;
-    assert.deepEqual(noAgente, { homografia: s.homografia, erroM: C.comRuido.erros.conferido.medianaM, versao: 1 });
+    assert.deepEqual(noAgente, {
+      homografia: s.homografia, erroM: C.comRuido.erros.conferido.medianaM, versao: 1, alturaDaCamera: null,
+      areaCalibrada: contornoNaImagem(C.comRuido.pares),
+    });
+    assert.equal((await configuracao()).plantaViva, null, 'a loja ainda não tem planta');
+
+    // com a planta: a altura da câmera medida nela e os móveis descem para o rastreio da planta viva
+    const planta = {
+      ambientes: [{ id: 'cozinha', nome: 'Cozinha', setorId: null, x: 0, y: 0, w: 8, h: 5 }],
+      moveis: [{ id: 'bancada', nome: 'Bancada', itemId: null, x: 3, y: 1.8, w: 2, h: 0.7, alt: 0.9 }],
+      cameras: [{ pontoId: canal, x: 0.3, y: 0.3, alt: 2.2, dir: 45, abertura: 90, alcance: 8 }],
+    };
+    const salvaPlanta = await pedir('PUT', `/v1/lojas/${lojaId}/planta`, { versao: null, planta });
+    assert.equal(salvaPlanta.statusCode, 200, salvaPlanta.body);
+    const comPlanta = await configuracao();
+    assert.equal(comPlanta.pontos.find((p) => p.id === canal)!.calibracao!.alturaDaCamera, 2.2);
+    assert.deepEqual(comPlanta.plantaViva, { moveis: [{ x: 3, y: 1.8, w: 2, h: 0.7, alt: 0.9 }], limites: [0, 0, 8, 5] });
 
     const lista = (await pedir('GET', `/v1/lojas/${lojaId}/calibracoes`)).json().calibracoes;
     assert.deepEqual(lista.map((c: { pontoId: string; quantosPontos: number }) => [c.pontoId, c.quantosPontos]), [[canal, 12]]);

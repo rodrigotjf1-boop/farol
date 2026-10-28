@@ -94,6 +94,12 @@ class PontoConfig:
     # calibrado (ou a nuvem é antiga): a planta viva não usa este canal.
     homografia: list[float] | None = None
     erro_da_calibracao_m: float | None = None
+    # A altura da câmera medida na planta (A26, rastreio firme): o rastreio
+    # confere com a que a calibração dá. Nula = fora da planta.
+    altura_da_camera_m: float | None = None
+    # O contorno, na imagem normalizada, dos pontos marcados na calibração:
+    # fora dele a homografia vale menos. Nulo = a nuvem é antiga.
+    area_calibrada: list[tuple[float, float]] | None = None
 
     @property
     def zona_principal(self) -> Zona | None:
@@ -136,6 +142,11 @@ class ConfigDaLoja:
     # delas (baixada antes de isto existir) não manda apagar a cópia que a
     # loja tem: "não sei" não é "não tem".
     diz_das_fichas: bool = False
+    # O que o rastreio da planta viva usa da planta (A26): os móveis
+    # (x, y, largura, comprimento, altura, em metros) e o retângulo dos
+    # ambientes (x0, y0, x1, y1). Vazio/nulo = a loja não tem planta.
+    planta_moveis: tuple[tuple[float, float, float, float, float], ...] = ()
+    planta_limites: tuple[float, float, float, float] | None = None
 
     def ponto(self, ponto_id: str) -> PontoConfig | None:
         return next((p for p in self.pontos if p.id == ponto_id), None)
@@ -437,7 +448,30 @@ def de_json(dados: dict[str, Any]) -> ConfigDaLoja:
         pedida_sabendo=_pedida_sabendo(dados.get(MARCA_DO_AGENTE)),
         fichas=fichas,
         diz_das_fichas=diz_das_fichas,
+        **_planta_viva(dados.get("plantaViva")),
     )
+
+
+def _numero(v: Any) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and v == v and abs(v) != float("inf")
+
+
+def _planta_viva(bruto: Any) -> dict[str, Any]:
+    """Os móveis e o retângulo dos ambientes para o rastreio da planta viva (A26). Nuvem antiga não manda (a planta
+    viva segue sem eles: sem chão livre nem pé escondido); móvel torto fica de fora com um aviso, sem derrubar a
+    configuração."""
+    if not isinstance(bruto, dict):
+        return {}
+    moveis = []
+    for m in bruto.get("moveis") or []:
+        valores = [m.get(k) for k in ("x", "y", "w", "h", "alt")] if isinstance(m, dict) else []
+        if len(valores) == 5 and all(_numero(v) for v in valores) and valores[2] > 0 and valores[3] > 0:
+            moveis.append(tuple(float(v) for v in valores))
+        else:
+            _log.warning("planta viva: um móvel da planta veio torto na configuração e ficou de fora")
+    lim = bruto.get("limites")
+    limites = tuple(float(v) for v in lim) if isinstance(lim, list) and len(lim) == 4 and all(_numero(v) for v in lim) else None
+    return {"planta_moveis": tuple(moveis), "planta_limites": limites}
 
 
 # A anotação que o AGENTE põe na configuração guardada em disco: não vem
@@ -502,9 +536,16 @@ def _calibracao(bruto: Any) -> dict[str, Any]:
         _log.warning("calibração do canal sem a homografia certa na configuração: ignorada")
         return {}
     erro = bruto.get("erroM")
+    altura = bruto.get("alturaDaCamera")
+    area = bruto.get("areaCalibrada")
+    contorno = None
+    if isinstance(area, list) and len(area) >= 3 and all(isinstance(p, list) and len(p) == 2 and all(_numero(v) for v in p) for p in area):
+        contorno = [(float(p[0]), float(p[1])) for p in area]
     return {
         "homografia": [float(x) for x in h],
         "erro_da_calibracao_m": float(erro) if isinstance(erro, (int, float)) and not isinstance(erro, bool) else None,
+        "altura_da_camera_m": float(altura) if _numero(altura) and altura > 0 else None,
+        "area_calibrada": contorno,
     }
 
 
