@@ -49,6 +49,15 @@ export default {
           'sobre-mostarda': cor('sobre-mostarda'),
           picles: cor('picles'),
           pao: cor('pao'),
+          // A cena do "Ao vivo" (planta viva): sempre escura.
+          cena: cor('cena'),
+          'cena-piso': cor('cena-piso'),
+          'cena-tinta': cor('cena-tinta'),
+          'cena-suave': cor('cena-suave'),
+          'cena-ok': cor('cena-ok'),
+          pessoa: cor('pessoa'),
+          rotulo: cor('rotulo'),
+          'sobre-rotulo': cor('sobre-rotulo'),
         },
       },
       fontFamily: {

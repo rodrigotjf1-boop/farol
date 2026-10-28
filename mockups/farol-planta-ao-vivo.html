@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Movimento ao vivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Martian+Mono:wght@400;500;600&display=swap">
+<style>
+:root {
+  --papel: #F3F1EA; --papel-2: #EAE6DB; --cartao: #FFFFFF; --tinta: #1B1A17; --suave: #625E56; --linha: #D8D2C4;
+  --ketchup: #E2412A; --mostarda: #F2B300; --picles: #3B8A37; --sombra: 0 14px 28px -18px rgba(27, 26, 23, .45);
+  /* a cena é sempre escura, como no exemplo: o palco */
+  --cena: #0E1826; --cena-piso: #13243A; --cena-grade: rgba(120, 160, 210, .14); --cena-movel: #3A4A5E; --cena-movel-2: #4E6178;
+  --cena-parede: #6F8099; --cena-tinta: #E8EEF6; --cena-suave: #93A3B8; --pessoa: #3D7BEA; --pessoa-claro: #8DB4FF;
+  --rotulo: #F5B53A; --sobre-rotulo: #1B1A17;
+  --titulo: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif; --texto: "Hanken Grotesk", "Segoe UI", system-ui, sans-serif; --mono: "Martian Mono", ui-monospace, Consolas, monospace;
+  --mola: cubic-bezier(.34, 1.56, .64, 1);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --papel: #151412; --papel-2: #1D1B18; --cartao: #23211D; --tinta: #F3EFE6; --suave: #B5AE9F; --linha: #35322C;
+    --ketchup: #F0563D; --mostarda: #F5BC1A; --picles: #4CA347; --sombra: 0 14px 28px -18px rgba(0, 0, 0, .8); color-scheme: dark; }
+}
+:root[data-theme="dark"] { --papel: #151412; --papel-2: #1D1B18; --cartao: #23211D; --tinta: #F3EFE6; --suave: #B5AE9F; --linha: #35322C;
+  --ketchup: #F0563D; --mostarda: #F5BC1A; --picles: #4CA347; --sombra: 0 14px 28px -18px rgba(0, 0, 0, .8); color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--papel); color: var(--tinta); font: 400 15px/1.5 var(--texto); -webkit-font-smoothing: antialiased; padding: 0 16px 120px; }
+main { max-width: 1320px; margin: 0 auto; }
+h1, h2 { margin: 0; font-family: var(--titulo); text-transform: uppercase; letter-spacing: .01em; line-height: .95; }
+.olho { font: 600 11px/1 var(--mono); letter-spacing: .1em; color: var(--suave); text-transform: uppercase; margin: 22px 0 8px; }
+.cabeca h1 { font-size: clamp(38px, 5.4vw, 72px); font-weight: 900; }
+.cabeca p { margin: 8px 0 0; color: var(--suave); max-width: 70ch; }
+.abas { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 18px 0 14px; border-bottom: 1px solid var(--linha); }
+.abas a { padding: 10px 2px; color: var(--suave); text-decoration: none; font-weight: 600; border-bottom: 2px solid transparent; }
+.abas a[aria-current] { color: var(--tinta); border-color: var(--mostarda); }
+.status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-bottom: 12px; }
+.vivo { display: inline-flex; align-items: center; gap: 8px; font: 800 18px/1 var(--titulo); letter-spacing: .06em; text-transform: uppercase; }
+.vivo i { width: 11px; height: 11px; border-radius: 50%; background: var(--ketchup); box-shadow: 0 0 0 0 rgba(226, 65, 42, .6); animation: pulsa 1.6s infinite; }
+@keyframes pulsa { 70% { box-shadow: 0 0 0 10px rgba(226, 65, 42, 0); } 100% { box-shadow: 0 0 0 0 rgba(226, 65, 42, 0); } }
+@media (prefers-reduced-motion: reduce) { .vivo i { animation: none; } }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.pilula { font: 600 12px/1 var(--mono); padding: 7px 11px; border-radius: 99px; background: var(--cartao); box-shadow: var(--sombra); white-space: nowrap; }
+.grade { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1080px) { .grade { grid-template-columns: minmax(0, 1fr) 300px; } }
+.palco { position: relative; background: var(--cena); border-radius: 22px; overflow: hidden; min-width: 0; box-shadow: var(--sombra); }
+.vista { display: none; } .vista.ativa { display: block; }
+#v-planta svg { display: block; width: 100%; height: min(72vh, 720px); }
+#v-3d { height: min(66vh, 640px); position: relative; } #v-3d canvas { display: block; }
+.dica { position: absolute; left: 14px; top: 12px; font: 500 11px/1.3 var(--mono); color: var(--cena-suave); pointer-events: none; }
+.cams { display: grid; gap: 10px; padding: 10px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 720px) { .cams { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.cam { position: relative; border-radius: 14px; overflow: hidden; background: #0A121D; border: 1px solid rgba(147, 163, 184, .25); }
+.cam canvas { display: block; width: 100%; aspect-ratio: 16 / 9; height: auto; }
+.cam .topo { position: absolute; inset: 0 0 auto 0; display: flex; justify-content: space-between; padding: 8px 10px; font: 600 11px/1 var(--mono); color: var(--cena-tinta); text-shadow: 0 1px 2px #000; pointer-events: none; }
+.cam .rec { position: absolute; left: 10px; top: 28px; font: 700 10.5px/1 var(--mono); color: #FF6B5B; pointer-events: none; }
+.cam .rec::before { content: "● "; }
+.cam .pe { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; padding: 10px 12px 12px; background: #0E1826; color: var(--cena-tinta); }
+.cam .pe b { display: block; font: 800 20px/1 var(--titulo); text-transform: uppercase; letter-spacing: .02em; }
+.cam .pe small { font: 500 11px/1.4 var(--mono); color: var(--cena-suave); }
+.cam .conta { font: 600 11.5px/1 var(--mono); padding: 6px 10px; border-radius: 99px; border: 1.5px solid #4CA347; color: #8BE07F; white-space: nowrap; }
+.cam.sem .conta { border-color: rgba(147, 163, 184, .5); color: var(--cena-suave); }
+aside { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.bloco { background: var(--cartao); border-radius: 20px; padding: 16px; box-shadow: var(--sombra); min-width: 0; }
+.bloco h2 { font-size: 19px; font-weight: 800; letter-spacing: .04em; margin-bottom: 10px; }
+.numero { font: 900 64px/.85 var(--titulo); }
+.pessoas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pessoas li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 12px; background: var(--papel); cursor: pointer; border: 1.5px solid transparent; }
+.pessoas li[aria-selected="true"] { border-color: var(--mostarda); }
+.pessoas li i { width: 22px; height: 22px; border-radius: 50%; background: var(--pessoa); display: grid; place-items: center; color: #fff; font: 700 11px/1 var(--mono); font-style: normal; }
+.pessoas li b { font-weight: 700; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pessoas li small { color: var(--suave); font: 500 11px/1.3 var(--mono); }
+.pessoas li .t { font: 600 12px/1 var(--mono); color: var(--suave); }
+.nota { font-size: 13px; color: var(--suave); margin: 10px 0 0; }
+.dock { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 4px; padding: 6px; border-radius: 99px;
+  background: rgba(14, 24, 38, .92); border: 1px solid rgba(147, 163, 184, .3); box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .7); backdrop-filter: blur(10px); z-index: 10; max-width: calc(100vw - 24px); }
+.dock button { border: 0; background: transparent; color: var(--cena-tinta); font: 600 15px/1 var(--texto); padding: 12px 18px; border-radius: 99px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; transition: background .25s, transform .35s var(--mola); white-space: nowrap; }
+.dock button[aria-pressed="true"] { background: var(--rotulo); color: var(--sobre-rotulo); }
+.dock button:focus-visible, .pessoas li:focus-visible, .abas a:focus-visible { outline: 3px solid var(--mostarda); outline-offset: 2px; }
+.dock svg { width: 18px; height: 18px; }
+@media (max-width: 420px) { .dock button { padding: 11px 13px; font-size: 14px; } .dock button span { display: none; } }
+.planta-piso { fill: var(--cena-piso); stroke: var(--cena-parede); stroke-width: .05; }
+.planta-movel { fill: var(--cena-movel); stroke: var(--cena-movel-2); stroke-width: .03; }
+.planta-nome { fill: var(--cena-suave); font-family: var(--mono); }
+.planta-grade { stroke: var(--cena-grade); stroke-width: .012; }
+.cam-ponto { fill: #F5B53A; }
+</style>
+</head>
+<body>
+<main>
+  <p class="olho">Loja de exemplo · Canais › Planta</p>
+  <header class="cabeca">
+    <h1>Movimento ao vivo</h1>
+    <p>Quem está na cozinha agora, em que posto e por onde passou. Cada ponto é uma pessoa — sem nome e sem rosto: o rótulo é o posto em que ela está. <b>Protótipo com pessoas simuladas</b>, numa cozinha de exemplo. Aprovado pelo dono em 27/10/2026 na planta da loja dele (que fica fora do repositório).</p>
+  </header>
+  <nav class="abas" aria-label="Vistas da planta">
+    <a href="#">Desenho</a><a href="#">O que cada câmera cobre</a><a href="#">Calibrar câmera</a><a href="#">Movimento</a><a href="#" aria-current="page">Ao vivo</a>
+  </nav>
+  <div class="status" aria-live="polite">
+    <span class="vivo"><i aria-hidden="true"></i>Ao vivo</span>
+    <span class="pilula mono" id="atraso">atraso 1,2 s</span>
+    <span class="pilula mono" id="relogio">--:--:--</span>
+    <span class="pilula mono" id="canais-ativos">4 câmeras</span>
+  </div>
+  <div class="grade">
+    <section class="palco" aria-label="A cozinha agora">
+      <div class="vista ativa" id="v-planta"></div>
+      <div class="vista" id="v-3d"><span class="dica">arraste para girar · roda ou pinça para aproximar</span></div>
+      <div class="vista" id="v-cams"><div class="cams" id="cams"></div></div>
+    </section>
+    <aside>
+      <div class="bloco"><h2>Na cozinha agora</h2><div class="numero mono" id="total">0</div><p class="nota" id="por-posto"></p></div>
+      <div class="bloco"><h2>Quem está onde</h2><ul class="pessoas" id="lista" aria-label="Pessoas na cozinha"></ul>
+        <p class="nota">Toque numa pessoa para seguir o rastro dela. O tempo é há quanto ela está nesse posto.</p></div>
+    </aside>
+  </div>
+</main>
+<nav class="dock" aria-label="Modo de ver">
+  <button type="button" data-modo="planta" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg><span>Planta</span></button>
+  <button type="button" data-modo="3d" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg><span>3D</span></button>
+  <button type="button" data-modo="cams" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3"/></svg><span>Câmeras</span></button>
+</nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const D = {"ambientes":[{"id":"cozinha","nome":"Cozinha","x":0,"y":0,"w":10,"h":6}],"moveis":[{"id":"chapa","nome":"Chapa","x":1,"y":0.2,"w":2.2,"h":0.8,"alt":0.9},{"id":"fritadeira","nome":"Fritadeira","x":3.6,"y":0.2,"w":1.2,"h":0.8,"alt":0.9},{"id":"montagem-1","nome":"Montagem","x":2,"y":2.6,"w":4,"h":0.9,"alt":0.9},{"id":"despacho","nome":"Despacho","x":7.2,"y":2.4,"w":0.9,"h":2.2,"alt":0.9},{"id":"geladeira","nome":"Geladeira","x":9.1,"y":0.2,"w":0.8,"h":0.8,"alt":1.9},{"id":"pia","nome":"Pia","x":0.2,"y":5,"w":1.6,"h":0.8,"alt":0.9}],"cameras":[{"canal":1,"nome":"Chapa e fritadeira","x":0.4,"y":3.2,"h":2.2,"dir":330,"incl":35,"hfov":90,"roll":0},{"canal":2,"nome":"Montagem","x":5.5,"y":5.8,"h":2.2,"dir":250,"incl":40,"hfov":90,"roll":0},{"canal":3,"nome":"Despacho","x":9.8,"y":5.8,"h":2.2,"dir":220,"incl":40,"hfov":85,"roll":0},{"canal":4,"nome":"Corredor","x":9.8,"y":0.2,"h":2.2,"dir":135,"incl":38,"hfov":85,"roll":0}]};
+const rad = (g) => g * Math.PI / 180;
+const fmt = (n, c = 1) => n.toLocaleString('pt-BR', { minimumFractionDigits: c, maximumFractionDigits: c });
+// a área que importa: a cozinha e o que encosta nela
+const EXT = [-0.3, -0.3, 10.3, 6.3];
+
+// ─────────── os postos (onde se fica para trabalhar) ───────────
+const POSTOS = [
+  { nome: 'Chapa', x: 2, y: 1.5 }, { nome: 'Fritadeira', x: 4.2, y: 1.5 }, { nome: 'Montagem 1', x: 3, y: 2.1 },
+  { nome: 'Montagem 2', x: 5, y: 2.1 }, { nome: 'Montagem 3', x: 4, y: 4.1 }, { nome: 'Despacho', x: 6.6, y: 3.5 },
+  { nome: 'Geladeira', x: 9.5, y: 1.6 }, { nome: 'Pia', x: 1, y: 4.4 },
+];
+const postoDe = (x, y) => { let m = null, d = 0.85; for (const p of POSTOS) { const k = Math.hypot(p.x - x, p.y - y); if (k < d) { d = k; m = p; } } return m ? m.nome : 'Passando'; };
+
+// ─────────── as pessoas simuladas: andam em linha reta de posto em posto ───────────
+const P = (n) => POSTOS.find((p) => p.nome === n);
+const ROTEIROS = [
+  [['Chapa', 6], ['Montagem 1', 3], ['Chapa', 5], ['Geladeira', 2]],
+  [['Montagem 2', 7], ['Despacho', 3], ['Montagem 2', 4]],
+  [['Fritadeira', 5], ['Montagem 1', 2], ['Fritadeira', 6], ['Pia', 2]],
+  [['Montagem 3', 6], [[8.5, 5.2], 1], ['Despacho', 4], ['Montagem 3', 3]],
+  [['Despacho', 4], [[8.5, 5.2], 2], ['Geladeira', 2], ['Despacho', 3]],
+];
+const pessoas = ROTEIROS.map((r, i) => ({ id: i + 1, roteiro: r.map(([alvo, para]) => ({ ...(typeof alvo === 'string' ? P(alvo) : { x: alvo[0], y: alvo[1] }), para })),
+  passo: 0, x: 0, y: 0, espera: 0, rastro: [], posto: '', desde: 0 }));
+pessoas.forEach((p, i) => { const a = p.roteiro[0]; p.x = a.x; p.y = a.y; p.espera = 2 + i * 1.3; p.posto = postoDe(p.x, p.y); p.desde = -30 - i * 25; });
+let selecionada = null, tempo = 0;
+function andar(dt) {
+  tempo += dt;
+  for (const p of pessoas) {
+    if (p.espera > 0) { p.espera -= dt; } else {
+      const alvo = p.roteiro[(p.passo + 1) % p.roteiro.length];
+      const dx = alvo.x - p.x, dy = alvo.y - p.y, d = Math.hypot(dx, dy), v = 1.05 * dt;
+      if (d <= v) { p.x = alvo.x; p.y = alvo.y; p.passo = (p.passo + 1) % p.roteiro.length; p.espera = alvo.para; }
+      else { p.x += dx / d * v; p.y += dy / d * v; }
+    }
+    const novo = postoDe(p.x, p.y);
+    if (novo !== p.posto) { p.posto = novo; p.desde = tempo; }
+    const u = p.rastro[p.rastro.length - 1];
+    if (!u || Math.hypot(u[0] - p.x, u[1] - p.y) > 0.05) p.rastro.push([p.x, p.y, tempo]);
+    while (p.rastro.length && tempo - p.rastro[0][2] > 8) p.rastro.shift();
+  }
+}
+
+// ─────────── modo Planta (de cima) ───────────
+const NS = 'http://www.w3.org/2000/svg';
+const el = (n, a = {}, pai) => { const e = document.createElementNS(NS, n); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); if (pai) pai.appendChild(e); return e; };
+const svg = el('svg', { viewBox: `${EXT[0]} ${EXT[1]} ${EXT[2] - EXT[0]} ${EXT[3] - EXT[1]}`, role: 'img', 'aria-label': 'A cozinha vista de cima, com as pessoas agora' });
+document.getElementById('v-planta').appendChild(svg);
+for (let x = Math.ceil(EXT[0]); x <= EXT[2]; x += 0.5) el('line', { x1: x, y1: EXT[1], x2: x, y2: EXT[3], class: 'planta-grade' }, svg);
+for (let y = Math.ceil(EXT[1]); y <= EXT[3]; y += 0.5) el('line', { x1: EXT[0], y1: y, x2: EXT[2], y2: y, class: 'planta-grade' }, svg);
+for (const a of D.ambientes) el('rect', { x: a.x, y: a.y, width: a.w, height: a.h, class: 'planta-piso' }, svg);
+const curto = (n) => n.replace('Montagem do ', 'Mont. ').replace(' · lado ', ' ').replace(' (lâmpada, tela)', '').replace('Freezer de apoio (proteínas)', 'Freezer').replace('Conservador de frituras', 'Conservador').replace('Tostadores e estante de pão', 'Tostadores');
+for (const m of D.moveis) { el('rect', { x: m.x, y: m.y, width: m.w, height: m.h, rx: .04, class: 'planta-movel' }, svg);
+  if (m.w > .45 && m.h > .3 && !/lado 2$/.test(m.nome)) { const t = el('text', { x: m.x + .05, y: m.y + .14, class: 'planta-nome', 'font-size': .1 }, svg); t.textContent = curto(m.nome).replace(/ 1$/, '').slice(0, 18); } }
+for (const c of D.cameras) { const g = el('g', {}, svg); el('circle', { cx: c.x, cy: c.y, r: .07, class: 'cam-ponto' }, g);
+  const t = el('text', { x: c.x + .1, y: c.y + .04, fill: '#F5B53A', 'font-size': .11, 'font-weight': 700, 'font-family': 'Martian Mono, Consolas, monospace' }, g); t.textContent = c.canal; }
+const camadaRastro = el('g', {}, svg), camadaGente = el('g', {}, svg);
+const figuras = new Map();
+for (const p of pessoas) {
+  const g = el('g', { style: 'cursor:pointer' }, camadaGente);
+  el('circle', { r: .22, fill: 'rgba(61,123,234,.25)' }, g); el('circle', { r: .13, fill: 'var(--pessoa)', stroke: '#fff', 'stroke-width': .025 }, g);
+  const chip = el('g', {}, g); const fundo = el('rect', { x: .16, y: -.34, height: .17, rx: .04, fill: 'var(--rotulo)' }, chip);
+  const t = el('text', { x: .2, y: -.215, fill: 'var(--sobre-rotulo)', 'font-size': .11, 'font-weight': 700, 'font-family': 'Martian Mono, Consolas, monospace' }, chip);
+  const rastro = el('polyline', { fill: 'none', stroke: 'var(--pessoa-claro)', 'stroke-width': .045, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: .55 }, camadaRastro);
+  g.addEventListener('click', () => escolher(p.id));
+  figuras.set(p.id, { g, t, fundo, rastro });
+}
+function desenharPlanta() {
+  for (const p of pessoas) {
+    const f = figuras.get(p.id);
+    f.g.setAttribute('transform', `translate(${p.x.toFixed(3)} ${p.y.toFixed(3)})`);
+    const rot = `${p.posto}`; if (f.t.textContent !== rot) { f.t.textContent = rot; f.fundo.setAttribute('width', (rot.length * .07 + .09).toFixed(2)); }
+    f.rastro.setAttribute('points', p.rastro.map((r) => `${r[0].toFixed(2)},${r[1].toFixed(2)}`).join(' '));
+    f.rastro.setAttribute('opacity', selecionada === null || selecionada === p.id ? '.6' : '.12');
+    f.g.setAttribute('opacity', selecionada === null || selecionada === p.id ? '1' : '.35');
+  }
+}
+
+// ─────────── modo 3D e Câmeras (three.js) ───────────
+let mundo, avatares = new Map(), render3d, olho, controle, tiles = [];
+function rotuloSprite(texto) {
+  const c = document.createElement('canvas'); const ctx = c.getContext('2d'); ctx.font = '700 40px Martian Mono, Consolas, monospace';
+  const w = Math.ceil(ctx.measureText(texto).width) + 28; c.width = w; c.height = 58;
+  ctx.font = '700 40px Martian Mono, Consolas, monospace'; ctx.fillStyle = '#F5B53A'; ctx.fillRect(0, 0, w, 58); ctx.fillStyle = '#1B1A17'; ctx.textBaseline = 'middle'; ctx.fillText(texto, 14, 31);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false })); sp.scale.set(0.2 * w / 58, 0.2, 1); sp.userData.w = w / 58; sp.renderOrder = 5; return sp;
+}
+function montarMundo() {
+  mundo = new THREE.Scene(); mundo.background = new THREE.Color('#0E1826'); mundo.fog = new THREE.Fog('#0E1826', 14, 30);
+  mundo.add(new THREE.HemisphereLight(0xcfe0ff, 0x101820, 0.85)); const sol = new THREE.DirectionalLight(0xffffff, 0.55); sol.position.set(4, 9, 3); mundo.add(sol);
+  for (const a of D.ambientes) {
+    const chao = new THREE.Mesh(new THREE.PlaneGeometry(a.w, a.h), new THREE.MeshLambertMaterial({ color: 0x13243a })); chao.rotation.x = -Math.PI / 2; chao.position.set(a.x + a.w / 2, 0, a.y + a.h / 2); mundo.add(chao);
+    const grade = new THREE.GridHelper(Math.max(a.w, a.h), Math.round(Math.max(a.w, a.h) / 0.72), 0x2b4466, 0x1b304b); grade.position.set(a.x + a.w / 2, 0.002, a.y + a.h / 2);
+    grade.material.transparent = true; grade.material.opacity = .55; mundo.add(grade);
+    const borda = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(a.w, 0.9, a.h)), new THREE.LineBasicMaterial({ color: 0x5b6d86, transparent: true, opacity: .55 })); borda.position.set(a.x + a.w / 2, 0.45, a.y + a.h / 2); mundo.add(borda);
+  }
+  for (const m of D.moveis) {
+    const cor = m.id.startsWith('montagem') ? 0x9fb1c9 : m.id.startsWith('chapa') ? 0xb07a5c : m.id.startsWith('fritadeira') ? 0xc08a4a : m.id === 'coluna' ? 0x5c6a7d : 0x6f8199;
+    const caixa = new THREE.Mesh(new THREE.BoxGeometry(m.w, m.alt, m.h), new THREE.MeshLambertMaterial({ color: cor })); caixa.position.set(m.x + m.w / 2, m.alt / 2, m.y + m.h / 2); mundo.add(caixa);
+    const b = new THREE.LineSegments(new THREE.EdgesGeometry(caixa.geometry), new THREE.LineBasicMaterial({ color: 0x0a1320 })); b.position.copy(caixa.position); mundo.add(b);
+  }
+  for (const p of pessoas) {
+    const g = new THREE.Group();
+    const corpo = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.22, 1.3, 20), new THREE.MeshLambertMaterial({ color: 0x3d7bea })); corpo.position.y = 0.65; g.add(corpo);
+    const cabeca = new THREE.Mesh(new THREE.SphereGeometry(0.17, 20, 14), new THREE.MeshLambertMaterial({ color: 0x5c93f5 })); cabeca.position.y = 1.47; g.add(cabeca);
+    const anel = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.34, 32), new THREE.MeshBasicMaterial({ color: 0x8db4ff, transparent: true, opacity: .55, side: THREE.DoubleSide })); anel.rotation.x = -Math.PI / 2; anel.position.y = 0.01; g.add(anel);
+    const rot = rotuloSprite('·'); rot.position.y = 1.95; g.add(rot);
+    mundo.add(g); avatares.set(p.id, { g, rot, texto: '' });
+  }
+}
+function atualizarAvatares() {
+  for (const p of pessoas) {
+    const a = avatares.get(p.id); a.g.position.set(p.x, 0, p.y);
+    if (a.texto !== p.posto) { a.g.remove(a.rot); a.rot = rotuloSprite(p.posto); a.rot.position.y = 1.95; a.g.add(a.rot); a.texto = p.posto; }
+    a.g.children.forEach((c) => { if (c.material && 'opacity' in c.material && c !== a.rot) { c.material.transparent = true; c.material.opacity = selecionada === null || selecionada === p.id ? 1 : .3; } });
+  }
+}
+function iniciar3d() {
+  const caixa = document.getElementById('v-3d');
+  render3d = new THREE.WebGLRenderer({ antialias: true }); render3d.setPixelRatio(Math.min(2, devicePixelRatio || 1)); caixa.appendChild(render3d.domElement);
+  olho = new THREE.PerspectiveCamera(45, 1, 0.05, 200); controle = new THREE.OrbitControls(olho, render3d.domElement); controle.enableDamping = true;
+  const cx = (EXT[0] + EXT[2]) / 2 + .6, cz = (EXT[1] + EXT[3]) / 2; olho.position.set(cx - 1.5, 7.5, cz + 7.5); controle.target.set(cx, 0, cz); controle.update();
+  const medir = () => { const w = caixa.clientWidth, h = caixa.clientHeight; render3d.setSize(w, h); olho.aspect = w / h; olho.updateProjectionMatrix(); };
+  new ResizeObserver(medir).observe(caixa); medir();
+}
+function camDaPose(c, aspecto) {
+  const vfov = 2 * Math.atan(Math.tan(rad(c.hfov / 2)) / aspecto) * 180 / Math.PI;
+  const cam = new THREE.PerspectiveCamera(vfov, aspecto, 0.05, 60); cam.position.set(c.x, c.h, c.y);
+  const f = new THREE.Vector3(Math.cos(rad(c.incl)) * Math.cos(rad(c.dir)), -Math.sin(rad(c.incl)), Math.cos(rad(c.incl)) * Math.sin(rad(c.dir)));
+  cam.up.set(0, 1, 0); cam.lookAt(cam.position.clone().add(f)); cam.rotateZ(rad(c.roll || 0)); return cam;
+}
+function iniciarCams() {
+  const pai = document.getElementById('cams');
+  const ordem = [1, 2, 3, 4]; const cams = ordem.map((n) => D.cameras.find((c) => c.canal === n)).filter(Boolean);
+  for (const c of cams) {
+    const d = document.createElement('div'); d.className = 'cam';
+    d.innerHTML = `<canvas></canvas><div class="topo"><span>CH ${String(c.canal).padStart(2, '0')} · ${c.nome.toUpperCase()}</span><span class="hora"></span></div><span class="rec">REC</span>
+      <div class="pe"><div><b>${c.nome}</b><small>canal ${c.canal} · 1080p · simulado</small></div><span class="conta">0 na imagem</span></div>`;
+    pai.appendChild(d);
+    const r = new THREE.WebGLRenderer({ canvas: d.querySelector('canvas'), antialias: true }); r.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+    tiles.push({ c, d, r, cam: camDaPose(c, 16 / 9) });
+  }
+  const medir = () => { for (const t of tiles) { const w = t.d.clientWidth; if (w) t.r.setSize(w, Math.round(w * 9 / 16), false); } };
+  new ResizeObserver(medir).observe(pai); medir();
+}
+/** A pessoa aparece na imagem desta câmera? (o meio do corpo cai dentro do quadro, na frente da câmera) */
+function naImagem(t, p) {
+  t.cam.updateMatrixWorld();
+  const v = new THREE.Vector3(p.x, 0.9, p.y).project(t.cam);
+  return v.z > -1 && v.z < 1 && Math.abs(v.x) <= 1 && Math.abs(v.y) <= 1;
+}
+const quantosNaImagem = (t) => pessoas.filter((p) => naImagem(t, p)).length;
+/** O rótulo encolhe perto da câmera (senão a pessoa a 1 m vira uma faixa na imagem). */
+function rotulosPara(cam, base) {
+  for (const p of pessoas) { const a = avatares.get(p.id); const k = Math.min(1, cam.position.distanceTo(a.g.position) / 4); a.rot.scale.set(a.rot.userData.w * k * base, base * k, 1); }
+}
+
+// ─────────── a lista e os números ───────────
+function atualizarLista() {
+  document.getElementById('total').textContent = pessoas.length;
+  const cont = {}; for (const p of pessoas) cont[p.posto] = (cont[p.posto] || 0) + 1;
+  document.getElementById('por-posto').textContent = Object.entries(cont).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k}: ${n}`).join(' · ');
+  const ul = document.getElementById('lista');
+  if (ul.children.length !== pessoas.length) {
+    ul.innerHTML = ''; for (const p of pessoas) { const li = document.createElement('li'); li.tabIndex = 0; li.setAttribute('role', 'option'); li.dataset.id = p.id;
+      li.innerHTML = `<i>${p.id}</i><span><b></b><small></small></span><span class="t"></span>`;
+      li.addEventListener('click', () => escolher(p.id)); li.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); escolher(p.id); } }); ul.appendChild(li); }
+  }
+  for (const p of pessoas) { const li = ul.querySelector(`[data-id="${p.id}"]`); li.querySelector('b').textContent = p.posto;
+    const vistos = tiles.filter((t) => naImagem(t, p)).map((t) => t.c.canal);
+    li.querySelector('small').textContent = vistos.length ? `canal ${vistos.join(', ')}` : 'fora das câmeras';
+    const s = Math.max(0, Math.round(tempo - p.desde)); li.querySelector('.t').textContent = s >= 60 ? `${Math.floor(s / 60)} min` : `${s} s`;
+    li.setAttribute('aria-selected', String(selecionada === p.id)); }
+}
+function escolher(id) { selecionada = selecionada === id ? null : id; atualizarLista(); }
+
+// ─────────── os modos ───────────
+let modo = 'planta';
+for (const b of document.querySelectorAll('.dock button')) b.addEventListener('click', () => {
+  modo = b.dataset.modo;
+  for (const x of document.querySelectorAll('.dock button')) x.setAttribute('aria-pressed', String(x === b));
+  document.getElementById('v-planta').classList.toggle('ativa', modo === 'planta');
+  document.getElementById('v-3d').classList.toggle('ativa', modo === '3d');
+  document.getElementById('v-cams').classList.toggle('ativa', modo === 'cams');
+  window.dispatchEvent(new Event('resize'));
+});
+
+let tem3d = true;
+try { montarMundo(); iniciar3d(); iniciarCams(); } catch (e) { tem3d = false; console.warn(e); }
+let antes = performance.now(), ultimaLista = 0;
+function quadro(agora) {
+  const dt = Math.min(0.1, (agora - antes) / 1000); antes = agora; andar(dt);
+  if (modo === 'planta') desenharPlanta();
+  if (tem3d) {
+    atualizarAvatares();
+    if (modo === '3d') { controle.update(); for (const p of pessoas) { const a = avatares.get(p.id); a.rot.scale.set(a.rot.userData.w * 0.2, 0.2, 1); } render3d.render(mundo, olho); }
+    if (modo === 'cams') for (const t of tiles) { rotulosPara(t.cam, 0.16); t.r.render(mundo, t.cam); const n = quantosNaImagem(t); t.d.querySelector('.conta').textContent = `${n} na imagem`; t.d.classList.toggle('sem', n === 0); t.d.querySelector('.hora').textContent = new Date().toLocaleString('pt-BR').replace(',', ''); }
+  }
+  if (agora - ultimaLista > 500) { ultimaLista = agora; atualizarLista(); document.getElementById('relogio').textContent = new Date().toLocaleTimeString('pt-BR'); }
+  requestAnimationFrame(quadro);
+}
+desenharPlanta(); atualizarLista(); requestAnimationFrame(quadro);
+window.__pronto = true;
+</script>
+</body>
+</html>

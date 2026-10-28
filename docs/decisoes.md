@@ -10210,3 +10210,36 @@ nada de imagem nem de nome.
 - `api/testes/planta-viva.test.ts`: o instante do contrato passa e o torto é recusado dizendo o campo; ao vivo até 3 s,
   parado até 30 s, sem sinal depois; com o banco, o caminho inteiro com o relógio da API controlado — o agente manda, a
   tela lê, "olhando" liga e desliga, e quem pode (supervisão e execução 403, outra conta 404, sem sessão 401).
+
+## 28/10/2026 · A tela "Ao vivo" da planta viva (A26 parte P7; sem migration)
+
+O pedido do dono (27/10): "ter uma forma de acompanhar a movimentação ao vivo, no modo planta e modo 3d com os modelos
+que enviei como exemplo"; o protótipo (na planta da loja dele) foi **aprovado no mesmo dia**. No repositório,
+`mockups/farol-planta-ao-vivo.html` é o mesmo protótipo numa cozinha de exemplo — a planta da loja não sai do PC.
+
+- **Onde**: Canais › Planta › **Ao vivo** (`/lojas/:id/canais/planta/ao-vivo`), a quinta aba da planta. Só para quem
+  configura a loja (é o caminho de cada um, como o replay); a supervisão vê um aviso e o caminho para o Movimento.
+- **O palco escuro** (como o exemplo do dono), em três modos na barra de baixo: **Planta** (de cima: grade de 50 cm,
+  ambientes, móveis com o nome, câmeras com o número do canal, cada pessoa com o POSTO em que está e o rastro dos últimos
+  8 s), **3D** (a mesma planta com volume, um boneco simples por pessoa; arrasta para girar) e **Câmeras** (a cena vista
+  do lugar de cada câmera da planta, simulada — a imagem de verdade fica na loja —, com quantas pessoas caem na imagem).
+  As cores da cena são tokens novos (`--cena…`, `--pessoa`, `--rotulo`), iguais nos dois temas: a cena é sempre escura.
+- **Ao lado**: quantas pessoas, quantas em cada posto e, por pessoa, o posto, os canais que a viram e há quanto tempo
+  está nele; tocar destaca a pessoa (e o rastro dela) e apaga as outras.
+- **O posto** é o móvel em cuja frente a pessoa está, com os mesmos 70 cm de folga do "tempo em cada posto"; longe de
+  todos, "Passando". Sem nome: o número é do dia. O nome pela escala (sem biometria) é o adicional que o dono pediu para
+  depois da conclusão.
+- **O movimento**: a tela lê a última posição a cada segundo com a aba à vista (escondida, para; e ler é o que faz o
+  computador da loja mandar a cada meio segundo) e, entre uma leitura e outra, a figura anda suave até lá. O 3D lê as
+  posições a cada quadro sem passar pelo React; a vista de cima e a lista, ~20 vezes por segundo.
+- **Situação** no alto: "Ao vivo" (pulsando), "Parado" (mais de 3 s sem novidade) ou "Sem sinal" (com o aviso de que a
+  planta viva mede com a loja aberta e o agente ligado), o atraso, o relógio da loja e quantas câmeras deram imagem.
+
+### Como foi conferido
+
+- No navegador sem janela (API e console locais, a loja de teste com uma cozinha genérica, 2 canais calibrados e um
+  "agente" mandando 5 pessoas andando a cada 0,5 s): "Ao vivo" com as 5, os rótulos de posto, as figuras andando;
+  tocar na lista destaca a figura e apaga as 4 outras; o 3D desenha (WebGL por software); as 4 câmeras contam quem está
+  na imagem; a supervisão vê o aviso. Nada rola para o lado em 16 larguras (320 a 1920) nos dois temas — e o 3D e as
+  Câmeras em 5 —, nenhum botão sem nome, nenhum id repetido, nenhum erro de script (52 medidas, 0 problemas).
+- As contas da tela (o posto, o movimento suave, a memória) já estão no `api/testes/planta-viva.test.ts` (P6).
