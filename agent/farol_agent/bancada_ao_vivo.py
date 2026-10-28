@@ -97,6 +97,12 @@ PASTA = "bancada"
 QUADROS = "quadros"
 DENSA = "densa"
 GUARDA_DENSA_DIAS = 2
+# A FOLGA DO DISCO (ERR-156): a noite inteira guardada ocupa ~1 GB por hora (9 a 10 GB por noite no PC da loja), e pela
+# idade até três noites ficam juntas entre as 19h e a meia-noite. Em 27/10/2026 o disco encheu às 21h20 — a leitura
+# grava cada quadro e o lê de volta, então, cheio o disco, ela parou de ver lanches até a meia-noite. Por isso a limpeza
+# também olha o espaço livre: abaixo desta folga (uma noite inteira, com sobra), sai a sessão guardada MAIS ANTIGA, uma de
+# cada vez, até a folga voltar — nunca a que está sendo gravada.
+FOLGA_DO_DISCO_GB = 12.0
 # Um quadro por segundo: o da gravação de treino (a carne e o queijo levam 2 a 3 s para entrar — o dono, 14/10).
 A_CADA_S = 1.0
 # O quadro mais velho que isto não vale: o fluxo parou, e o quadro que ficou não é de agora.
@@ -104,7 +110,8 @@ IDADE_MAXIMA_S = 3.0
 GUARDA_DIAS = 3
 GUARDA_LINHA_DIAS = 30
 RESUMO_A_CADA_S = 600.0
-LIMPEZA_A_CADA_S = 3600.0
+# De 10 em 10 minutos (era de hora em hora): numa hora a noite guardada cresce ~1 GB, e a folga se confere antes de faltar.
+LIMPEZA_A_CADA_S = 600.0
 CONFIG_A_CADA_S = 300.0
 # O mesmo erro, de novo, só volta ao registro depois disto (um defeito a cada quadro afogaria o registro: ERR-014).
 REPETE_AVISO_S = 3600.0
@@ -116,6 +123,9 @@ _DIA = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _LINHA = re.compile(r"^(\d{4}-\d{2}-\d{2})\.jsonl$")
 _QUADRO = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_\d{3}\.jpg$")
 _SESSAO = re.compile(r"^(\d{4}-\d{2}-\d{2})_\d{2}h\d{2}$")
+# O que muda de uma vez para outra no texto do erro (o nome do arquivo, os bytes): fora da chave que decide se o registro
+# já disse aquilo — senão o disco cheio, que nomeia um arquivo novo a cada quadro, escreve uma linha por segundo (ERR-156).
+_VARIA_NO_ERRO = re.compile(r"'[^']*'|\"[^\"]*\"|\d+")
 
 
 def guardar_quadros_ligado(valor: str | None) -> bool:
@@ -187,20 +197,38 @@ def _iso(t: datetime) -> str:
     return t.astimezone().isoformat(timespec="seconds")
 
 
-def limpar(pasta: Path, hoje: date) -> int:
+def livre_no_disco(pasta: Path) -> int:
+    """Os bytes livres no disco da pasta (o erro de quem pergunta sobe: quem chama decide)."""
+    return shutil.disk_usage(pasta).free
+
+
+def _chave_do_aviso(texto: str) -> str:
+    """A chave que decide se o registro já disse este erro: o texto sem o que muda a cada vez (o nome do arquivo, os
+    bytes), mas com o número do erro do sistema — disco cheio não é o mesmo aviso que falta de permissão."""
+    numero = re.search(r"\[Errno (\d+)\]", texto)
+    base = _VARIA_NO_ERRO.sub("…", texto)
+    return f"{base} #{numero.group(1)}" if numero else base
+
+
+def limpar(
+    pasta: Path, hoje: date, *, em_uso: Path | None = None, livre: Callable[[Path], int] = livre_no_disco,
+    folga_gb: float = FOLGA_DO_DISCO_GB,
+) -> int:
     """Apaga as pastas de lanche com mais de `GUARDA_DIAS` dias, as linhas do tempo com mais de `GUARDA_LINHA_DIAS` e
     as sessões guardadas inteiras (`densa/`) com mais de `GUARDA_DENSA_DIAS`. Só o que esta leitura cria, pelo nome.
-    Devolve quantas apagou."""
+    Depois, a FOLGA DO DISCO (ERR-156): enquanto o disco tiver menos que `folga_gb` livres, sai a sessão guardada mais
+    antiga — nunca `em_uso`, a que a leitura está gravando agora. Devolve quantas apagou."""
     apagadas = 0
     if not pasta.is_dir():
         return 0
+    em_uso = em_uso.resolve() if em_uso is not None else None
     itens = [(item, _DIA, GUARDA_DIAS) for item in pasta.iterdir() if item.is_dir()]
     itens += [(item, _LINHA, GUARDA_LINHA_DIAS) for item in pasta.iterdir() if item.is_file()]
     if (pasta / DENSA).is_dir():
         itens += [(item, _SESSAO, GUARDA_DENSA_DIAS) for item in (pasta / DENSA).iterdir() if item.is_dir()]
     for item, nome, dias in itens:
         m = nome.match(item.name)
-        if not m:
+        if not m or item.resolve() == em_uso:
             continue
         try:
             if (hoje - date.fromisoformat(m.group(1) if m.groups() else item.name)).days > dias:
@@ -211,6 +239,32 @@ def limpar(pasta: Path, hoje: date) -> int:
                 apagadas += 1
         except (ValueError, OSError) as e:
             _log.warning("bancada ao vivo: não apaguei %s (%s)", item.name, type(e).__name__)
+    if not (pasta / DENSA).is_dir():
+        return apagadas
+    # o nome da sessão é a data e a hora em que ela começou: em ordem de nome, a mais antiga primeiro
+    antigas = sorted(
+        (item for item in (pasta / DENSA).iterdir() if item.is_dir() and _SESSAO.match(item.name) and item.resolve() != em_uso),
+        key=lambda item: item.name,
+    )
+    folga = folga_gb * 2**30
+    for item in antigas:
+        try:
+            sobra = livre(pasta)
+        except OSError as e:
+            _log.warning("bancada ao vivo: não consegui medir o espaço livre do disco (%s); a folga espera", type(e).__name__)
+            break
+        if sobra >= folga:
+            break
+        try:
+            shutil.rmtree(item)
+        except OSError as e:
+            _log.warning("bancada ao vivo: não apaguei %s (%s)", item.name, type(e).__name__)
+            continue
+        apagadas += 1
+        _log.info(
+            "bancada ao vivo: o disco tinha %.1f GB livres (a folga é %.0f GB) — apaguei a noite guardada mais antiga, %s",
+            sobra / 2**30, folga_gb, item.name,
+        )
     return apagadas
 
 
@@ -283,10 +337,12 @@ class LeituraDoCanal:
         self._trava = threading.RLock()
         self._paradas: Path | None = None
         self._indice = 0
+        # A sessão guardada que esta leitura grava (a limpeza pela folga do disco nunca a apaga).
+        self.sessao: Path | None = None
         if self.guardar:
             # A sessão inteira, como a densa da gravação de treino: `paradas.csv` + `recortes/`, que
             # `treino_lanches.lanches_da_densa` lê de novo.
-            sessao = self.pasta / DENSA / f"{relogio():%Y-%m-%d_%Hh%M}"
+            sessao = self.sessao = self.pasta / DENSA / f"{relogio():%Y-%m-%d_%Hh%M}"
             self.quadros = sessao / treino_quadros.RECORTES
             self.quadros.mkdir(parents=True, exist_ok=True)
             self._paradas = sessao / treino_quadros.PARADAS
@@ -426,8 +482,9 @@ class LeituraDoCanal:
         with self._trava:
             self.contas.erros_passos += 1
         agora = time.monotonic()
-        if agora - self._avisos_passos.get(texto, agora - REPETE_AVISO_S) >= REPETE_AVISO_S:
-            self._avisos_passos[texto] = agora
+        chave = _chave_do_aviso(texto)
+        if agora - self._avisos_passos.get(chave, agora - REPETE_AVISO_S) >= REPETE_AVISO_S:
+            self._avisos_passos[chave] = agora
             _log.warning("bancada ao vivo, canal %d: os passos do lanche deram erro (%s); a leitura segue", self.canal, texto)
 
     def _ver_passos(self, nome: str, quando: datetime, img: np.ndarray, caixas: list) -> None:
@@ -594,6 +651,7 @@ class BancadaAoVivo:
         guardar_quadros: bool = False,
         passos: bool = False,
         juiz_de: Callable[[], Juiz | None] | None = None,
+        livre: Callable[[Path], int] = livre_no_disco,
     ) -> None:
         self.caminho_config = Path(caminho_config)
         self.canais = list(canais)
@@ -601,6 +659,7 @@ class BancadaAoVivo:
         self.passos = passos
         self.juiz_de = juiz_de
         self.raiz = self.caminho_config.parent / PASTA
+        self._livre = livre
         self._detector_de, self._abrir_fluxo, self._relogio = detector_de, abrir_fluxo, relogio
         self.a_cada_s, self.config_a_cada_s, self.limpeza_a_cada_s = a_cada_s, config_a_cada_s, limpeza_a_cada_s
         self._parar = threading.Event()
@@ -667,16 +726,39 @@ class BancadaAoVivo:
                     _log.info("bancada ao vivo, canal %d: lendo um quadro por segundo", c.canal)
             if agora_s >= c.limpar_em:
                 c.limpar_em = agora_s + self.limpeza_a_cada_s
-                limpar(self.pasta_do_canal(c.canal), self._relogio().date())
+                self._limpar(c, agora_s)
             if c.leitura is not None:
                 c.leitura.um_quadro()
         except Exception as e:  # noqa: BLE001 — um defeito num quadro não pode parar a leitura até alguém reiniciar
             if c.leitura is not None:
                 c.leitura.contas.erros += 1
             texto = f"{type(e).__name__}: {e}"
-            if agora_s - c.avisos.get(texto, agora_s - REPETE_AVISO_S) >= REPETE_AVISO_S:
-                c.avisos[texto] = agora_s
+            chave = _chave_do_aviso(texto)
+            if agora_s - c.avisos.get(chave, agora_s - REPETE_AVISO_S) >= REPETE_AVISO_S:
+                c.avisos[chave] = agora_s
                 _log.exception("bancada ao vivo, canal %d: erro inesperado (%s); sigo", c.canal, texto)
+
+    def _limpar(self, c: "CanalAoVivo", agora_s: float) -> None:
+        """A limpeza do canal (pela idade e pela folga do disco). Se, depois dela, o disco segue abaixo da folga — só
+        sobrou a noite que se grava agora, ou o que ocupa o disco não é da bancada —, o registro diz uma vez por hora:
+        cheio o disco, a leitura para de ver lanches (ERR-156)."""
+        pasta = self.pasta_do_canal(c.canal)
+        em_uso = c.leitura.sessao if c.leitura is not None else None
+        limpar(pasta, self._relogio().date(), em_uso=em_uso, livre=self._livre)
+        try:
+            sobra = self._livre(pasta) if pasta.is_dir() else None
+        except OSError:
+            sobra = None
+        # só quem guarda a noite inteira enche o disco a ~1 GB por hora; sem ela, os quadros saem logo depois de lidos
+        if not self.guardar_quadros or sobra is None or sobra >= FOLGA_DO_DISCO_GB * 2**30:
+            return
+        if agora_s - c.avisos.get("folga do disco", agora_s - REPETE_AVISO_S) >= REPETE_AVISO_S:
+            c.avisos["folga do disco"] = agora_s
+            _log.warning(
+                "bancada ao vivo, canal %d: o disco está com %.1f GB livres (a folga é %.0f GB) e não há mais noite "
+                "guardada antiga para apagar — se o disco encher, a leitura para de ver lanches; libere espaço no "
+                "computador da loja", c.canal, sobra / 2**30, FOLGA_DO_DISCO_GB,
+            )
 
     def fechar(self, c: "CanalAoVivo", motivo: str) -> None:
         if c.leitura is None:
