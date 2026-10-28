@@ -26,8 +26,8 @@ import { cobre, JANELA_DO_AVISO_MS, situacaoDoCanal } from '../../web/componente
 import * as web from '../../web/lib/planta.ts';
 import { criarApp } from '../src/app.js';
 import {
-  ambienteEm, coneDaCamera, descricaoDoLugar, lerPlanta, LIMITES_DA_PLANTA, lugaresDaPlanta, MAX_NOMES_NO_LUGAR, moveisVistos,
-  type Camera, type Movel, type Planta,
+  alturasDasCameras, ambienteEm, coneDaCamera, descricaoDoLugar, lerPlanta, LIMITES_DA_PLANTA, lugaresDaPlanta, MAX_NOMES_NO_LUGAR,
+  moveisVistos, plantaParaOAgente, type Camera, type Movel, type Planta,
 } from '../src/planta.js';
 
 type Contrato = {
@@ -173,6 +173,27 @@ describe('o que entra na planta (sem banco)', () => {
     assert.equal(lida.ambientes[0]!.setorId, comLetras, 'guardado em minúsculas, como o banco devolve');
     assert.equal(lerPlanta(com({ moveis: [{ ...MOVEL, itemId: comLetras.toUpperCase() }] })).planta!.moveis[0]!.itemId, comLetras);
     assert.equal(lida.moveis[0]!.itemId, null);
+  });
+});
+
+describe('o que o rastreio da planta viva recebe (sem banco)', () => {
+  it('os móveis com a altura, sem nome, e o retângulo que cobre os ambientes', () => {
+    const p = plantaParaOAgente(EXEMPLO);
+    const m0 = EXEMPLO.moveis[0]!;
+    assert.equal(p.moveis.length, EXEMPLO.moveis.length);
+    assert.deepEqual(p.moveis[0], { x: m0.x, y: m0.y, w: m0.w, h: m0.h, alt: m0.alt });
+    assert.ok(!JSON.stringify(p).includes(m0.nome), 'o nome do móvel não desce');
+    const [x0, y0, x1, y1] = p.limites!;
+    for (const a of EXEMPLO.ambientes) assert.ok(a.x >= x0 && a.y >= y0 && a.x + a.w <= x1 + 1e-9 && a.y + a.h <= y1 + 1e-9, a.nome);
+    assert.ok(EXEMPLO.ambientes.some((a) => a.x === x0) && EXEMPLO.ambientes.some((a) => a.y === y0), 'justo, não folgado');
+    assert.ok(EXEMPLO.ambientes.some((a) => Math.abs(a.x + a.w - x1) < 1e-9) && EXEMPLO.ambientes.some((a) => Math.abs(a.y + a.h - y1) < 1e-9));
+    assert.deepEqual(plantaParaOAgente({ ambientes: [], moveis: [], cameras: [] }), { moveis: [], limites: null });
+  });
+
+  it('a altura de cada câmera, pelo canal', () => {
+    const alturas = alturasDasCameras(EXEMPLO);
+    assert.equal(alturas.size, EXEMPLO.cameras.length);
+    for (const c of EXEMPLO.cameras) assert.equal(alturas.get(c.pontoId), c.alt);
   });
 });
 

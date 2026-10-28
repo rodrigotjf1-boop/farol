@@ -1,5 +1,10 @@
 """As pessoas na planta, sem nome (A26, parte P2, 25/10/2026).
 
+⚠️ Desde 28/10/2026 o serviço segue as pessoas pelo RASTREIO FIRME (`rastreio.py`): os passos 1 a 4 abaixo deram, na
+volta do dono pela cozinha em 27/10, a mesma pessoa em dobro, o zigue-zague e a troca de número entre câmeras. Daqui o
+serviço usa só o passo 5 (`Minutos`); `vistas_do_canal`, `juntar` e `Rastreador` ficam para refazer e comparar uma
+gravação de diagnóstico (o "antes").
+
 O pedido do dono: o controle de movimento dos colaboradores, com o código pronto à espera das fotos. O caminho é o do
 estudo (`docs/estudo-planta-viva.md`, seção 5), nos degraus 2 e 3 — por posto e as figuras ao vivo, SEM nome e sem
 rosto (seção 7: o legítimo interesse não cobre biometria):

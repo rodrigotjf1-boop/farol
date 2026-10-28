@@ -200,6 +200,27 @@ export function errosDaCalibracao(pares: readonly Par[], h: readonly number[]): 
 }
 
 /**
+ * O contorno, na imagem, dos pontos marcados (o menor polígono convexo que os cobre, em ordem): é onde a conta foi
+ * conferida. Fora dele a homografia é chute — a lente grande-angular distorce na borda da imagem, e a reta da conta não
+ * acompanha (o canal 8 da loja errou 1,5–2 m a 0,1 da imagem fora do contorno, na gravação de 27/10). Vai ao agente,
+ * que confia menos no ponto de lá.
+ */
+export function contornoNaImagem(pares: readonly Par[]): Pt[] {
+  const pts = [...new Map(pares.map((p) => [`${p.img[0]},${p.img[1]}`, p.img] as const)).values()].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (pts.length < 3) return pts.map(([u, v]) => [u, v]);
+  const cruz = (o: Pt, a: Pt, b: Pt) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const metade = (lista: Pt[]): Pt[] => {
+    const h: Pt[] = [];
+    for (const p of lista) {
+      while (h.length >= 2 && cruz(h[h.length - 2]!, h[h.length - 1]!, p) <= 0) h.pop();
+      h.push(p);
+    }
+    return h.slice(0, -1);
+  };
+  return [...metade(pts), ...metade([...pts].reverse())].map(([u, v]) => [Math.round(u * 1e4) / 1e4, Math.round(v * 1e4) / 1e4]);
+}
+
+/**
  * O pedaço do piso que a câmera vê: a borda da imagem levada à planta. O que fica no horizonte (ou mais longe que
  * `LIMITES_DA_CALIBRACAO.alcanceDaArea` do centro dos pontos marcados) é cortado ali — a borda da área vira uma
  * reta entre os dois cortes.

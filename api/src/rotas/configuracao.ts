@@ -29,8 +29,10 @@ import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import { SQL_NUMERO_DO_QUADRO } from '../cena.js';
 import { lerSabe, SABE_ESTADOS } from '../estado.js';
 import { estudoParaOAgente, SABE_ESTUDO } from '../estudo.js';
+import { contornoNaImagem } from '../calibracao.js';
+import { alturasDasCameras, lugaresDaPlanta, plantaParaOAgente } from '../planta.js';
 import { calibracoesDaLoja } from './calibracao.js';
-import { lugaresDaLoja } from './planta.js';
+import { plantaDaLoja } from './planta.js';
 
 /**
  * A configuração da loja, como ela desce para o agente — ou nulo, se a loja
@@ -209,8 +211,11 @@ export async function configuracaoDaLoja(pool: pg.Pool, lojaId: string, sabe: Re
   }
 
   // Onde cada câmera fica e o que tem na frente dela, tirado da planta
-  // da loja. É a mesma frase que a tela da planta mostra.
-  const lugares = await lugaresDaLoja(pool, lojaId);
+  // da loja. É a mesma frase que a tela da planta mostra. Da mesma planta
+  // saem os móveis e a altura de cada câmera para o rastreio da planta viva.
+  const guardada = await plantaDaLoja(pool, lojaId);
+  const lugares = guardada ? lugaresDaPlanta(guardada.planta, guardada.nomeDoItem) : new Map<string, string>();
+  const alturas = guardada ? alturasDasCameras(guardada.planta) : new Map<string, number>();
   // A calibração de cada câmera pelos pontos do piso (A26, P1): a homografia que leva o pé de cada pessoa à planta.
   const calibracoes = await calibracoesDaLoja(pool, lojaId);
 
@@ -274,6 +279,9 @@ export async function configuracaoDaLoja(pool: pg.Pool, lojaId: string, sabe: Re
           comFicha: l.rows[0].fichas_com_ficha,
         }
       : null,
+    // O que o rastreio da planta viva usa da planta (A26): os móveis com a altura e o retângulo dos ambientes. Nulo =
+    // a loja não tem planta. O agente antigo ignora.
+    plantaViva: guardada ? plantaParaOAgente(guardada.planta) : null,
     pontos: pontos.rows.map((p) => ({
       id: p.id,
       nome: p.nome,
@@ -314,6 +322,10 @@ export async function configuracaoDaLoja(pool: pg.Pool, lojaId: string, sabe: Re
           homografia: c.homografia,
           erroM: Number(c.erro_conferido_m ?? c.erro_medio_m),
           versao: c.versao,
+          // A altura medida na planta (nula = o canal não está nela): o agente confere com a que a calibração dá.
+          alturaDaCamera: alturas.get(p.id) ?? null,
+          // Onde, na imagem, os pontos foram marcados: fora disto o agente confia menos no ponto.
+          areaCalibrada: contornoNaImagem(c.pares),
         };
       })(),
     })),

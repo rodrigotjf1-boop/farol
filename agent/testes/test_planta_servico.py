@@ -15,6 +15,7 @@ import numpy as np
 
 from farol_agent.nuvem import ErroDaNuvem
 from farol_agent.planta_viva import calibracao as cal
+from farol_agent.planta_viva import rastreio as rt
 from farol_agent.planta_viva import servico as sv
 from ferramentas.contrato_calibracao import imagem_de
 from testes.test_configuracao import resposta
@@ -58,10 +59,14 @@ class Relogio:
         return self.t
 
 
-def montar(tmp_path, *, calibrado=True, horario=None):
+def montar(tmp_path, *, calibrado=True, horario=None, planta=None, altura=None, homografia=None):
+    """A planta viva com a configuração de teste na pasta `tmp_path` (o desvio aprendido das câmeras fica nela também:
+    montar de novo na mesma pasta é o agente reiniciado)."""
     dados = resposta()
     if calibrado:
-        dados["pontos"][0]["calibracao"] = {"homografia": H, "erroM": 0.03, "versao": 1}
+        dados["pontos"][0]["calibracao"] = {"homografia": homografia or H, "erroM": 0.03, "versao": 1, "alturaDaCamera": altura}
+    if planta is not None:
+        dados["plantaViva"] = planta
     dados["loja"]["horarioFuncionamento"] = horario or []  # vazio = sempre aberta
     caminho = tmp_path / "config.json"
     caminho.write_text(json.dumps(dados), encoding="utf-8")
@@ -93,9 +98,38 @@ def test_le_o_canal_calibrado_e_sobe_os_minutos_fechados(tmp_path):
     assert len(enviados) == 1
     (minuto,) = enviados[0]
     assert minuto["minuto"] == "2026-10-25T22:10:00+00:00" and minuto["pico"] == 2
-    assert sum(s for _, _, s in minuto["calor"]) == 120.0, "2 pessoas x 60 s"
+    # 2 pessoas x 60 s, menos o primeiro quadro: a pessoa só aparece depois de vista duas vezes (o rastreio firme)
+    assert sum(s for _, _, s in minuto["calor"]) == 119.0
     assert [n for n, _ in minuto["caminhos"]] == [1, 2] and len(minuto["caminhos"][0][1]) == 60
     assert p.pendentes == []
+    numero, x, y, *_ = p.ao_vivo[1][0]
+    assert numero == 1 and abs(x - 2.5) < 0.15 and abs(y - 4.4) < 0.15, "a tela ao vivo tem as pessoas do último quadro"
+
+
+def test_a_planta_chega_ao_rastreio_e_o_desvio_aprendido_fica_em_disco(tmp_path):
+    p, *_ = montar(tmp_path, planta={"moveis": [{"x": 3.0, "y": 5.0, "w": 1.0, "h": 0.6, "alt": 0.9}, {"x": "torto"}],
+                                     "limites": [0, 0, 8, 10]}, altura=2.6)
+    p.passo(0.0)
+    assert p.rastreio.planta.moveis == (rt.Movel(3.0, 5.0, 1.0, 0.6, 0.9),), "o móvel torto fica de fora"
+    assert p.rastreio.planta.limites == (0.0, 0.0, 8.0, 10.0)
+    (canal,) = p.canais.values()
+    assert canal.cam is not None and canal.confianca > 0.9, "a câmera do contrato está a 2,6 m, como a planta diz"
+    # o desvio aprendido vai para o disco e volta com o agente reiniciado — da MESMA calibração
+    p.rastreio.desvios.geral[canal.canal] = [0.3, -0.1, 40.0]
+    p._guardar_desvios()
+    assert (tmp_path / sv.ARQUIVO_DOS_DESVIOS).exists()
+    p2, *_ = montar(tmp_path)
+    p2.passo(0.0)
+    assert p2.rastreio.desvios.geral[canal.canal] == [0.3, -0.1, 40.0]
+    # calibrou de novo: o que se aprendeu daquela câmera não vale mais
+    p3, *_ = montar(tmp_path, homografia=[v * 1.0001 for v in H])
+    p3.passo(0.0)
+    assert canal.canal not in p3.rastreio.desvios.geral
+    # a planta diz 4 m e a calibração põe a câmera a 2,6 m: a conta da cabeça não bate com a medida — vale pouco
+    p4, *_ = montar(tmp_path, altura=4.0)
+    p4.passo(0.0)
+    (outro,) = p4.canais.values()
+    assert outro.confianca < 0.2, outro.confianca
 
 
 def test_sem_canal_calibrado_ou_com_a_loja_fechada_nao_le(tmp_path, caplog):

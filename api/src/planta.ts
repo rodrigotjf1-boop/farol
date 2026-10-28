@@ -272,3 +272,29 @@ export function lugaresDaPlanta(planta: Planta, nomeDoItem: ReadonlyMap<string, 
   const nomeDe = (m: Movel): string => (m.itemId && nomeDoItem.get(m.itemId)) || m.nome;
   return new Map(planta.cameras.map((cam) => [cam.pontoId, descricaoDoLugar(planta, cam, nomeDe)]));
 }
+
+/**
+ * O que o rastreio da planta viva, no agente, usa da planta (A26, rastreio firme, 28/10/2026): os móveis com a altura —
+ * a pessoa nunca fica dentro de um, e o móvel entre a câmera e o chão esconde as pernas de quem está atrás — e o
+ * retângulo que cobre os ambientes (ponto muito fora dele não é desta planta). Só números: o nome dos móveis não desce.
+ */
+export function plantaParaOAgente(planta: Planta): {
+  moveis: { x: number; y: number; w: number; h: number; alt: number }[];
+  limites: [number, number, number, number] | null;
+} {
+  const a = planta.ambientes;
+  return {
+    moveis: planta.moveis.map(({ x, y, w, h, alt }) => ({ x, y, w, h, alt })),
+    limites: a.length
+      ? [
+          Math.min(...a.map((r) => r.x)),
+          Math.min(...a.map((r) => r.y)),
+          centesimos(Math.max(...a.map((r) => r.x + r.w))),
+          centesimos(Math.max(...a.map((r) => r.y + r.h))),
+        ]
+      : null,
+  };
+}
+
+/** A altura medida de cada câmera da planta, pelo canal: o agente confere com a que a calibração dá. */
+export const alturasDasCameras = (planta: Planta): Map<string, number> => new Map(planta.cameras.map((c) => [c.pontoId, c.alt]));
