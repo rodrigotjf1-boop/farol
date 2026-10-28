@@ -1198,7 +1198,7 @@ gravador atende (1,5 s, fora da trava), e o OpenCV passa a desistir em 5 s
 
 ---
 
-## A26 · A saúde do computador do agente e o controle de movimento (pedido do dono em 25/10/2026) — 🟡 o rastreio firme (P5) feito; faltam as posições ao vivo (P6) e a tela "Ao vivo" (P7), e, para o aviso chegar ao celular, o transporte dos alertas
+## A26 · A saúde do computador do agente e o controle de movimento (pedido do dono em 25/10/2026) — 🟡 o rastreio firme (P5), as posições ao vivo (P6) e a tela "Ao vivo" (P7) feitos; falta medir com a loja aberta, calibrar os canais que faltam e, para o aviso chegar ao celular, o transporte dos alertas
 
 O pedido do dono (25/10, depois da queda de energia de 24/10 que deixou o PC desligado das 08h49 às 04h44):
 
@@ -1223,7 +1223,7 @@ onde cobre." O nobreak, o dono providencia.
 | **Importar pontos** | **Importar pontos** no Calibrar câmera (27/10/2026, a pedido do dono): as calibrações feitas fora do console (pela grade do piso de 0,72 m e a altura das câmeras, 2,20 m) entram por um arquivo, cada uma no canal da loja com o mesmo número, e são salvas como o "Salvar calibração" (`web/lib/calibracao-importar.ts`) | ✅ 27/10/2026 |
 | **P5** | **o rastreio firme** (o caminho B aprovado pelo dono em 27/10, depois da volta dele pela cozinha): a câmera inteira tirada da calibração; pé ou cabeça (o móvel da planta que esconde as pernas, com a altura dele); o contorno da área calibrada; o chão livre; um filtro de Kalman por pessoa que junta as câmeras; o desvio de cada câmera aprendido com o movimento e guardado no PC da loja (`agent/farol_agent/planta_viva/rastreio.py`). Na gravação de 27/10: pessoa em dobro 20% → 0%, números 8 → 2, zigue-zague (piores 10%) 0,66 → 0,35 m. Decisões de 28/10/2026 | ✅ 28/10/2026 — medir a nota 0,5 do detector com a loja aberta |
 | **P6** | as posições ao vivo: o agente manda as pessoas do instante numa linha própria (`planta_viva/ao_vivo.py`; `POST /v1/planta-viva/agora`, `contratos/planta-viva-agora.json`) — a cada 0,5 s enquanto alguém olha a tela, a cada 5 s quando ninguém olha (a resposta diz); a nuvem guarda só a última de cada loja, na memória, por 30 s ("parado" depois de 3 s), e o console lê em `GET /v1/lojas/:id/planta-viva/agora` — só quem configura a loja (é o caminho de cada um, como o replay) | ✅ 28/10/2026 (servidor e agente; a tela é a P7) |
-| **P7** | a tela **Ao vivo** (Planta / 3D / Câmeras), no protótipo aprovado pelo dono em 27/10 — por posto, sem nome; o nome pela escala é um adicional depois | ⏳ |
+| **P7** | a tela **Ao vivo** em Canais › Planta (`/canais/planta/ao-vivo`): a barra de baixo troca Planta (de cima, com o rastro), 3D (gira) e Câmeras (a cena do lugar de cada câmera da planta, simulada, com quantos caem na imagem); ao lado, quantas pessoas, em que posto e há quanto tempo — por posto, sem nome. Lê a cada segundo com a aba à vista; a figura anda suave entre as leituras. Protótipo `mockups/farol-planta-ao-vivo.html` (numa cozinha de exemplo), **aprovado pelo dono em 27/10/2026**; o nome pela escala é um adicional depois | ✅ 28/10/2026 |
 
 **Onde a planta viva está na loja (27/10):** a planta da cozinha foi montada em escala pelo projeto do arquiteto e
 importada (canais 1 a 8, cadastrados); os canais 1 e 5 (o corredor da fritura) estão calibrados pela grade do piso; o 8,
