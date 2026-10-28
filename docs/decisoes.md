@@ -10271,3 +10271,36 @@ meia-noite conviviam três noites. A leitura grava cada quadro e o lê de volta,
   ao registro uma vez por hora. O espaço livre entra por função (o disco de quem roda o teste não decide nada).
 - Mutação 9/9 (a noite em uso na folga, a mais nova primeiro, a folga exata, a idade na noite em uso, o erro pelo texto
   inteiro, o aviso a cada limpeza, avisar sem guardar a noite, a limpeza sem a noite em uso, o número do erro).
+- Na loja: pacote `c0ad5eb` trocado às 13:49 de 28/10 (sha256 conferido dos dois lados); 0 avisos e erros, o juiz
+  treinado de volta (olho duplo), 22,5 GB livres — as noites de 26 e 27/10 ficaram (há folga).
+
+## 28/10/2026 · O aviso da máquina ganha o disco quase cheio (migration 060)
+
+A outra metade da correção de 27/10 (a entrada anterior): o agente agora segura 12 GB livres apagando a noite guardada
+mais antiga, e a nuvem avisa quando nem isso basta. O disco livre já chegava a cada hora (`uso_hora.disco_livre_gb`) e
+aparecia só na tela Saúde.
+
+- **Quando**: a leitura MAIS NOVA das últimas 2 horas diz menos de 8 GB livres (`REGUA_DO_AVISO.discoLivreMinGb`).
+  A leitura de antes não vale contra a de agora: se o agente já abriu espaço, não há aviso. Leitura que não é número
+  não conta como "a mais nova".
+- **Quantas vezes e para quem**: como o calor e a sobrecarga — um a cada 12 horas por computador, contadas desde o
+  último aviso (`computador_aviso`, que ganha o tipo `disco` na migration 060); atenção/urgente, então alcança os
+  destinos da loja sem política, e um veto da combinação cala.
+- **O texto**: "Farol · <loja>: o disco do computador do agente está quase cheio. O disco tem 3,1 GB livres de 222,9 GB
+  (o aviso é abaixo de 8 GB). Com o disco cheio, a bancada para de ver lanches até abrir espaço. No console: Computador
+  da loja › Saúde."
+- **No console**: Alertas › Chegou? mostra "Disco quase cheio" (antes, todo aviso da máquina que não fosse sobrecarga
+  aparecia como "Computador esquentando").
+- Como os outros avisos da máquina, ninguém o entrega ainda (o transporte é "a fazer"): fica na fila em Chegou?.
+
+### Como foi conferido
+
+- `api/testes/aviso-da-maquina.test.ts`: abaixo de 8 GB avisa e 8 GB exatos não; vale a leitura mais nova das últimas
+  2 horas, em qualquer ordem (a de antes cheia e a de agora folgada não avisa); a de 2 horas atrás e a hora que ainda não
+  começou não valem; a hora sem leitura do disco (ou com texto que não é número) não esconde a anterior; o número que o
+  banco devolve como texto; sem o total, o texto não inventa; junto do calor, os dois avisos e o texto pronto. Com o
+  Postgres: o `POST /v1/uso` com o disco a 3,1 GB vira um envio por destino com a marca `disco`, o reenvio da hora não
+  repete, com espaço de novo nada sai, e Chegou? mostra o tipo.
+- A migration 060 aplicada num banco local montado como o do CI (`npm run migrar`); 54 testes da API dos avisos, da
+  saúde e dos alertas verdes; o console monta (`next build`). Mutação 8/8 (8 GB exatos, a mais velha primeiro, sem a
+  janela, a hora futura, a hora sem leitura, o texto que não é número, o total inventado, a gravidade).
