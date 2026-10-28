@@ -136,3 +136,74 @@ export function noInstante(caminhos: NonNullable<LeituraDaPlantaViva['caminhos']
   }
   return saida;
 }
+
+// ───────────────────────── ao vivo (A26, P7) ─────────────────────────
+// A tela lê a última posição de cada pessoa (`GET /v1/lojas/:id/planta-viva/agora`) a cada segundo; entre uma leitura e
+// outra, a figura anda suave até lá. O rótulo de cada pessoa é o POSTO em que ela está — sem nome.
+
+export type PessoaAoVivo = { n: number; x: number; y: number; vx: number; vy: number; canais: string[] };
+export type AgoraDaPlanta = {
+  situacao: 'ao_vivo' | 'parado' | 'sem_sinal';
+  /** Há quantos segundos a nuvem recebeu a última posição (nulo = nunca, ou faz tempo). */
+  idadeS: number | null;
+  quando: string | null;
+  pessoas: PessoaAoVivo[];
+  /** Os canais que deram quadro no último instante. */
+  canais: string[];
+};
+
+/** Na frente do móvel, onde a pessoa fica para trabalhar nele (m) — a mesma folga do "tempo em cada posto". */
+export const FOLGA_DO_POSTO = 0.7;
+
+/**
+ * O posto em que a pessoa está: o móvel em cuja frente (com `FOLGA_DO_POSTO`) ela fica — o mais perto, se há mais de um;
+ * nulo = passando. A mesma régua do "tempo em cada posto" do servidor.
+ */
+export function postoDe<M extends Ret & { id: string; nome: string }>(x: number, y: number, moveis: readonly M[], folga = FOLGA_DO_POSTO): M | null {
+  let melhor: M | null = null;
+  let menor = Infinity;
+  for (const m of moveis) {
+    const dx = Math.max(m.x - x, 0, x - (m.x + m.w));
+    const dy = Math.max(m.y - y, 0, y - (m.y + m.h));
+    const d = Math.hypot(dx, dy);
+    if (dx <= folga && dy <= folga && d < menor) {
+      menor = d;
+      melhor = m;
+    }
+  }
+  return melhor;
+}
+
+/**
+ * Onde a figura fica agora, andando suave até o alvo: a cada `dtMs`, percorre a fração `1 − e^(−dt/τ)` do que falta
+ * (τ = 250 ms) — sem pulo entre uma leitura e outra, sem passar do alvo.
+ */
+export function aproximar(atual: Pt, alvo: Pt, dtMs: number, tauMs = 250): Pt {
+  const k = 1 - Math.exp(-Math.max(0, dtMs) / tauMs);
+  return [atual[0] + (alvo[0] - atual[0]) * k, atual[1] + (alvo[1] - atual[1]) * k];
+}
+
+/**
+ * O que a tela guarda de cada pessoa entre as leituras: o posto e desde quando ela está nele, e o rastro dos últimos
+ * `rastroMs`. Quem não veio na leitura sai.
+ */
+export type MemoriaAoVivo = Map<number, { posto: string | null; desde: number; rastro: Array<[number, number, number]> }>;
+
+export function lembrar<M extends Ret & { id: string; nome: string }>(
+  antes: MemoriaAoVivo,
+  pessoas: readonly PessoaAoVivo[],
+  agoraMs: number,
+  moveis: readonly M[],
+  rastroMs = 8_000,
+): MemoriaAoVivo {
+  const depois: MemoriaAoVivo = new Map();
+  for (const p of pessoas) {
+    const posto = postoDe(p.x, p.y, moveis)?.id ?? null;
+    const a = antes.get(p.n);
+    const rastro = (a?.rastro ?? []).filter(([, , t]) => agoraMs - t <= rastroMs);
+    const ultimo = rastro[rastro.length - 1];
+    if (!ultimo || Math.hypot(ultimo[0] - p.x, ultimo[1] - p.y) > 0.05) rastro.push([p.x, p.y, agoraMs]);
+    depois.set(p.n, { posto, desde: a && a.posto === posto ? a.desde : agoraMs, rastro });
+  }
+  return depois;
+}

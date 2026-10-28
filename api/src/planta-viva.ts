@@ -170,3 +170,63 @@ export function caminhosDoTrecho(minutos: readonly MinutoGuardado[]): { numero: 
   }
   return [...por.entries()].sort(([a], [b]) => a - b).map(([numero, pontos]) => ({ numero, pontos }));
 }
+
+// ───────────────────────── ao vivo (A26, P6, 28/10/2026) ─────────────────────────
+// O agente manda as pessoas do instante (`agent/farol_agent/planta_viva/ao_vivo.py`): rápido (a cada ~0,5 s) enquanto
+// alguém olha a tela "Ao vivo", devagar quando ninguém olha — a resposta diz. A nuvem guarda só a ÚLTIMA de cada loja,
+// na memória e por pouco tempo: é a tela de agora, não histórico (o histórico são os minutos). Nada de imagem nem nome.
+
+export const AO_VIVO = {
+  maximoDePessoas: 60,
+  maximoDeCanais: 64,
+  canaisPorPessoa: 16,
+  velocidadeMaxima: 10,
+  /** Sem posição nova há mais que isto, a tela diz "parado". */
+  paradoDepoisMs: 3_000,
+  /** … e há mais que isto, "sem sinal": a posição de antes não vale mais e some. */
+  validadeMs: 30_000,
+  /** Quem leu a tela "olha" por este tempo depois da última leitura: o agente manda rápido. */
+  olhandoMs: 20_000,
+} as const;
+
+export type PessoaAoVivo = { n: number; x: number; y: number; vx: number; vy: number; canais: string[] };
+export type AgoraDaPlanta = { quando: string; pessoas: PessoaAoVivo[]; canais: string[] };
+export type SituacaoAoVivo = 'ao_vivo' | 'parado' | 'sem_sinal';
+
+const UUID_DO_CANAL = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const listaDeCanais = (v: unknown, max: number): v is string[] =>
+  Array.isArray(v) && v.length <= max && v.every((c) => typeof c === 'string' && UUID_DO_CANAL.test(c));
+
+/** As pessoas do instante, como o agente mandou, conferidas. */
+export function lerAgoraDaPlanta(bruto: unknown): { agora?: AgoraDaPlanta; problema?: string } {
+  const A = AO_VIVO;
+  const ext = LIMITES_DA_PLANTA_VIVA.extensao;
+  const o = typeof bruto === 'object' && bruto !== null && !Array.isArray(bruto) ? (bruto as Record<string, unknown>) : null;
+  if (!o) return { problema: 'objeto {quando, pessoas, canais}' };
+  if (typeof o.quando !== 'string' || o.quando.length > 40 || !COM_FUSO.test(o.quando) || Number.isNaN(Date.parse(o.quando))) {
+    return { problema: 'quando: data e hora com fuso' };
+  }
+  if (!listaDeCanais(o.canais, A.maximoDeCanais)) return { problema: `canais: até ${A.maximoDeCanais} identificadores de canal` };
+  if (!Array.isArray(o.pessoas) || o.pessoas.length > A.maximoDePessoas) return { problema: `pessoas: lista de até ${A.maximoDePessoas}` };
+  const pessoas: PessoaAoVivo[] = [];
+  for (const [i, p] of o.pessoas.entries()) {
+    const q = typeof p === 'object' && p !== null && !Array.isArray(p) ? (p as Record<string, unknown>) : null;
+    if (
+      !q || !inteiro(q.n, 1, 1_000_000) || !numero(q.x, -ext, ext) || !numero(q.y, -ext, ext)
+      || !numero(q.vx, -A.velocidadeMaxima, A.velocidadeMaxima) || !numero(q.vy, -A.velocidadeMaxima, A.velocidadeMaxima)
+      || !listaDeCanais(q.canais, A.canaisPorPessoa)
+    ) {
+      return { problema: `pessoas[${i}]: {n (inteiro), x, y (m), vx, vy (m/s), canais}` };
+    }
+    pessoas.push({ n: q.n, x: q.x, y: q.y, vx: q.vx, vy: q.vy, canais: [...q.canais] });
+  }
+  return { agora: { quando: o.quando, pessoas, canais: [...(o.canais as string[])] } };
+}
+
+/** Ao vivo, parado ou sem sinal, pelo tempo desde que a nuvem recebeu a última posição. */
+export function situacaoAoVivo(recebidoEmMs: number | null | undefined, agoraMs: number): SituacaoAoVivo {
+  if (recebidoEmMs == null) return 'sem_sinal';
+  const idade = agoraMs - recebidoEmMs;
+  if (idade > AO_VIVO.validadeMs) return 'sem_sinal';
+  return idade > AO_VIVO.paradoDepoisMs ? 'parado' : 'ao_vivo';
+}

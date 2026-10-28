@@ -77,14 +77,19 @@ class ErroDaNuvem(Exception):
 #   fichas   a base de fichas da loja: o agente baixa a cópia e a guarda.
 #   treino   a gravação de treino (A21): o agente busca no gravador, lê a
 #            bancada e manda os lanches para a conferência.
+#   planta   a planta viva com o rastreio firme (A26, 28/10/2026): usa os
+#            móveis da planta, a altura e a área calibrada de cada câmera, e
+#            manda as pessoas ao vivo.
 #
 # A nuvem GUARDA a declaração (é como o console sabe o que já vale na loja).
-# "bancada", "fichas" e "treino" não mudam o que desce — o papel do quadro e
-# a marca da base descem para todos —, só informam ("treino" é o que tira o
-# aviso "o computador da loja ainda não sabe gravar" da tela). E fazem o
-# agente que acabou de aprender pedir a configuração de novo. A lista é a de
+# "bancada", "fichas", "treino" e "planta" não mudam o que desce — o papel do
+# quadro, a marca da base e a planta descem para todos —, só informam
+# ("treino" é o que tira o aviso "o computador da loja ainda não sabe gravar"
+# da tela). E fazem o agente que acabou de aprender pedir a configuração de
+# novo ("planta" foi posto para isto: a configuração guardada antes da planta
+# descer, com a mesma versão, era usada sem ela). A lista é a de
 # `contratos/o-que-o-agente-sabe.json`.
-SABE: tuple[str, ...] = ("estados", "estudo", "bancada", "fichas", "treino")
+SABE: tuple[str, ...] = ("estados", "estudo", "bancada", "fichas", "treino", "planta")
 
 
 class ClienteNuvem:
