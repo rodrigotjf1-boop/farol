@@ -66,6 +66,8 @@ export function criarApp(
      * do custo (ausente: `FAROL_DOLAR`). O teste passa os dele.
      */
     balcao?: { cofre: Buffer | null; enviar?: Transporte; dolar?: number };
+    /** O relógio do que vale por segundos na memória (o ao vivo da planta). Ausente: o de verdade. */
+    relogio?: () => number;
   } = {},
 ): FastifyInstance {
   const app = Fastify({
@@ -222,7 +224,7 @@ export function criarApp(
   rotasDeInventario(app, pool);
   rotasDePlanta(app, pool);
   rotasDeCalibracao(app, pool);
-  rotasDaPlantaViva(app, pool);
+  rotasDaPlantaViva(app, pool, opcoes.relogio);
   rotasDoEspecialista(app, pool);
   rotasDeEventos(app, pool);
   rotasDeResumos(app, pool);

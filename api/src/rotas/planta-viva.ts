@@ -4,8 +4,14 @@
 //   POST /v1/planta-viva/minutos      o agente: os minutos fechados, em lote
 //   GET  /v1/lojas/:id/planta-viva    quem acompanha a loja: o calor, os postos e a média por hora do período;
 //                                     os caminhos (replay) só num trecho de até 60 min e só para quem configura
+//   POST /v1/planta-viva/agora        o agente: as pessoas do instante (P6); a resposta diz se alguém olha
+//   GET  /v1/lojas/:id/planta-viva/agora   a tela "Ao vivo": a última posição de cada pessoa — só para quem
+//                                     configura (é o caminho de cada um, como o replay)
 //
-// A guarda é curta: no envio, os caminhos com mais de 7 dias são apagados e o minuto inteiro com mais de 90.
+// A guarda é curta: no envio, os caminhos com mais de 7 dias são apagados e o minuto inteiro com mais de 90. O ao vivo
+// não vai ao banco: a última posição de cada loja fica na memória desta API, por 30 s. ⚠️ Vale enquanto a API roda
+// numa instância só (o EasyPanel de hoje); com duas, o agente e a tela podem cair em instâncias diferentes — aí a
+// última posição vai para um lugar comum (Redis, ou uma tabela sem log).
 // =====================================================================
 
 import type { FastifyInstance } from 'fastify';
@@ -13,12 +19,16 @@ import type pg from 'pg';
 
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import {
+  AO_VIVO,
   LIMITES_DA_PLANTA_VIVA as L,
   caminhosDoTrecho,
   calorDoPeriodo,
+  lerAgoraDaPlanta,
   lerMinutoDaPlanta,
   porHora,
   postosDoPeriodo,
+  situacaoAoVivo,
+  type AgoraDaPlanta,
   type MinutoDaPlanta,
   type MinutoGuardado,
 } from '../planta-viva.js';
@@ -29,7 +39,57 @@ import { sessaoDe } from './sessao.js';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const COM_FUSO = /(Z|[+-]\d{2}:?\d{2})$/i;
 
-export function rotasDaPlantaViva(app: FastifyInstance, pool: pg.Pool): void {
+export function rotasDaPlantaViva(app: FastifyInstance, pool: pg.Pool, relogio: () => number = Date.now): void {
+  // o ao vivo de cada loja: a última posição (e quando chegou) e até quando alguém olha a tela
+  const aoVivo = new Map<string, { agora: AgoraDaPlanta; recebidoEm: number }>();
+  const olhandoAte = new Map<string, number>();
+
+  app.post('/v1/planta-viva/agora', async (req, resposta) => {
+    let autor;
+    try {
+      autor = await autenticarAgente(pool, req.headers.authorization);
+    } catch (e) {
+      if (e instanceof ErroDeAuth) {
+        req.log.warn({ motivo: e.motivo }, 'agente recusado');
+        return resposta.status(e.status).send({ erro: e.motivo, mensagem: e.message });
+      }
+      throw e;
+    }
+    const lido = lerAgoraDaPlanta(req.body);
+    if (lido.problema) return resposta.status(422).send({ erro: 'validacao', mensagem: lido.problema });
+    const agora = relogio();
+    aoVivo.set(autor.lojaId, { agora: lido.agora!, recebidoEm: agora });
+    // o que ficou para trás (loja que fechou, agente desligado) sai da memória
+    for (const [loja, g] of aoVivo) if (agora - g.recebidoEm > AO_VIVO.validadeMs) aoVivo.delete(loja);
+    for (const [loja, ate] of olhandoAte) if (ate < agora) olhandoAte.delete(loja);
+    return { olhando: (olhandoAte.get(autor.lojaId) ?? 0) > agora };
+  });
+
+  app.get('/v1/lojas/:id/planta-viva/agora', async (req, resposta) => {
+    const s = await sessaoDe(pool, req);
+    if (!s) return resposta.status(401).send({ erro: 'sem_sessao', mensagem: 'faça login' });
+    const { id } = req.params as { id: string };
+    if (!UUID.test(id) || (await pool.query('select 1 from loja where id = $1 and tenant_id = $2', [id, s.tenantId])).rowCount !== 1) {
+      return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'loja não encontrada' });
+    }
+    if (!podeConfigurar(s)) {
+      return resposta.status(403).send({ erro: 'sem_permissao', mensagem: 'o movimento ao vivo é só para quem configura a loja' });
+    }
+    const agora = relogio();
+    olhandoAte.set(id, agora + AO_VIVO.olhandoMs);
+    const g = aoVivo.get(id);
+    const situacao = situacaoAoVivo(g?.recebidoEm, agora);
+    const vale = g !== undefined && situacao !== 'sem_sinal';
+    return {
+      situacao,
+      /** Há quantos segundos a nuvem recebeu a última posição (nulo = nunca, ou faz tempo). */
+      idadeS: vale ? Math.round((agora - g.recebidoEm) / 100) / 10 : null,
+      quando: vale ? g.agora.quando : null,
+      pessoas: vale ? g.agora.pessoas : [],
+      canais: vale ? g.agora.canais : [],
+    };
+  });
+
   app.post('/v1/planta-viva/minutos', async (req, resposta) => {
     let autor;
     try {

@@ -10183,3 +10183,30 @@ dono pediu.
   `test_planta_rastreio_regras.py` (cada regra num caso direto); `test_planta_servico.py` (a planta da configuração no
   rastreio, o desvio em disco, esquecido quando a calibração muda); na API, `contornoNaImagem`, `plantaParaOAgente` e a
   configuração com a planta. Mutação: as decisões do rastreio, do serviço e da configuração estragadas uma a uma.
+
+## 28/10/2026 · As posições ao vivo da planta viva (A26 parte P6; sem migration)
+
+Para a tela "Ao vivo" (P7; o protótipo aprovado pelo dono em 27/10), o console precisa da posição de cada pessoa
+**agora**, não do minuto fechado. O agente manda o instante (`POST /v1/planta-viva/agora`,
+`contratos/planta-viva-agora.json`): o número da pessoa (do dia), x e y na planta, a velocidade e os canais que a viram —
+nada de imagem nem de nome.
+
+- **Rápido só quando alguém olha**: a cada 0,5 s enquanto a tela está aberta, a cada 5 s quando não — a resposta do
+  envio diz (`{"olhando": true}`), e quem lê a tela "olha" por 20 s depois da última leitura. Fora do horário da loja,
+  nada (o rastreio nem lê).
+- **Numa linha própria** do agente (`planta_viva/ao_vivo.py`): o pedido pela internet não atrasa o rastreio; só o
+  instante mais novo vale (o pendente é trocado). Falha: espera 5 s; nuvem sem a rota: 10 min.
+- **Na memória da API, não no banco**: a última posição de cada loja, por 30 s ("parado" depois de 3 s sem novidade,
+  "sem sinal" depois de 30 s, e a posição some). É a tela de agora; o histórico continua nos minutos. ⚠️ Vale com a API
+  numa instância só (o EasyPanel de hoje) — com duas, a última posição vai para um lugar comum.
+- **Quem vê**: `GET /v1/lojas/:id/planta-viva/agora` só para quem configura a loja (gerente para cima e suporte) — é o
+  caminho de cada um, como o replay; a supervisão continua vendo o calor e os postos.
+
+### Como foi conferido
+
+- `agent/testes/test_planta_ao_vivo.py`: o corpo é o do contrato; só o mais novo sai; o ritmo segue quem olha; a falha
+  espera 5 s e a nuvem sem a rota, 10 min; a linha própria manda e para; o serviço publica as pessoas do instante (e,
+  no primeiro quadro, ninguém — a pessoa só aparece vista duas vezes).
+- `api/testes/planta-viva.test.ts`: o instante do contrato passa e o torto é recusado dizendo o campo; ao vivo até 3 s,
+  parado até 30 s, sem sinal depois; com o banco, o caminho inteiro com o relógio da API controlado — o agente manda, a
+  tela lê, "olhando" liga e desliga, e quem pode (supervisão e execução 403, outra conta 404, sem sessão 401).

@@ -1,0 +1,27 @@
+{
+  "_": [
+    "As pessoas do instante (A26, P6): o que o agente manda em POST /v1/planta-viva/agora",
+    "(agent/farol_agent/planta_viva/ao_vivo.py, dados_do_instante) e a nuvem confere (api/src/planta-viva.ts, lerAgoraDaPlanta).",
+    "Lido por agent/testes/test_planta_ao_vivo.py e api/testes/planta-viva.test.ts.",
+    "n: o número da pessoa (do dia, sem nome); x, y em metros na planta; vx, vy em m/s; canais: os pontos (canais) que a",
+    "viram agora. canais (fora): os canais que deram quadro neste instante. A resposta diz se alguém olha a tela agora."
+  ],
+  "agora": {
+    "quando": "2026-10-28T22:10:00.500000+00:00",
+    "pessoas": [
+      { "n": 1, "x": 2.5, "y": 4.4, "vx": 0.6, "vy": 0.0, "canais": ["00000000-0000-4000-8000-000000000001"] },
+      {
+        "n": 2,
+        "x": 3.5,
+        "y": 6.0,
+        "vx": 0.0,
+        "vy": -0.4,
+        "canais": ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"]
+      }
+    ],
+    "canais": ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"]
+  },
+  "chavesDoInstante": ["quando", "pessoas", "canais"],
+  "chavesDaPessoa": ["n", "x", "y", "vx", "vy", "canais"],
+  "resposta": { "olhando": false }
+}

@@ -14,14 +14,64 @@ import pg from 'pg';
 import * as tela from '../../web/lib/planta-viva.ts';
 import { criarApp } from '../src/app.js';
 import { homografia, projetar as projetarNaApi } from '../src/calibracao.js';
-import { caminhosDoTrecho, calorDoPeriodo, lerMinutoDaPlanta, porHora, postosDoPeriodo, type MinutoGuardado } from '../src/planta-viva.js';
+import {
+  AO_VIVO,
+  caminhosDoTrecho,
+  calorDoPeriodo,
+  lerAgoraDaPlanta,
+  lerMinutoDaPlanta,
+  porHora,
+  postosDoPeriodo,
+  situacaoAoVivo,
+  type MinutoGuardado,
+} from '../src/planta-viva.js';
 
 const C = JSON.parse(readFileSync(new URL('../../contratos/planta-viva-minuto.json', import.meta.url), 'utf8')) as {
   minuto: Record<string, unknown>;
   chavesDoMinuto: string[];
 };
+const AGORA = JSON.parse(readFileSync(new URL('../../contratos/planta-viva-agora.json', import.meta.url), 'utf8')) as {
+  agora: { quando: string; pessoas: Record<string, unknown>[]; canais: string[] };
+  chavesDoInstante: string[];
+  chavesDaPessoa: string[];
+  resposta: { olhando: boolean };
+};
 const copia = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 const DEPOIS = new Date('2026-10-25T22:15:00Z');
+
+describe('a planta viva ao vivo (sem banco)', () => {
+  it('o instante do contrato passa como veio; o torto é recusado dizendo o campo', () => {
+    const r = lerAgoraDaPlanta(copia(AGORA.agora));
+    assert.equal(r.problema, undefined);
+    assert.deepEqual(r.agora, AGORA.agora);
+    assert.deepEqual(Object.keys(AGORA.agora), AGORA.chavesDoInstante);
+    for (const p of AGORA.agora.pessoas) assert.deepEqual(Object.keys(p), AGORA.chavesDaPessoa);
+    const torto = (mexer: (a: typeof AGORA.agora) => void) => {
+      const a = copia(AGORA.agora);
+      mexer(a);
+      return lerAgoraDaPlanta(a).problema ?? '';
+    };
+    assert.match(torto((a) => { a.quando = '2026-10-28 22:10'; }), /^quando/);
+    assert.match(torto((a) => { a.canais = ['canal 1']; }), /^canais/);
+    assert.match(torto((a) => { a.pessoas[0]!.n = 1.5; }), /^pessoas\[0\]/);
+    assert.match(torto((a) => { a.pessoas[1]!.x = 1e6; }), /^pessoas\[1\]/);
+    assert.match(torto((a) => { a.pessoas[0]!.vx = 50; }), /^pessoas\[0\]/, 'mais que 10 m/s não é gente');
+    assert.match(torto((a) => { a.pessoas[0]!.canais = ['x']; }), /^pessoas\[0\]/);
+    assert.match(torto((a) => { a.pessoas = Array.from({ length: AO_VIVO.maximoDePessoas + 1 }, () => a.pessoas[0]!); }), /^pessoas/);
+    assert.equal(lerAgoraDaPlanta([]).problema, 'objeto {quando, pessoas, canais}');
+    const vazio = lerAgoraDaPlanta({ quando: AGORA.agora.quando, pessoas: [], canais: [] });
+    assert.deepEqual(vazio.agora?.pessoas, [], 'ninguém na cozinha também é um instante');
+  });
+
+  it('ao vivo até 3 s; parado até 30 s; depois, sem sinal', () => {
+    assert.equal(situacaoAoVivo(null, 1000), 'sem_sinal');
+    assert.equal(situacaoAoVivo(1000, 1000), 'ao_vivo');
+    assert.equal(situacaoAoVivo(1000, 1000 + AO_VIVO.paradoDepoisMs), 'ao_vivo');
+    assert.equal(situacaoAoVivo(1000, 1001 + AO_VIVO.paradoDepoisMs), 'parado');
+    assert.equal(situacaoAoVivo(1000, 1000 + AO_VIVO.validadeMs), 'parado');
+    assert.equal(situacaoAoVivo(1000, 1001 + AO_VIVO.validadeMs), 'sem_sinal');
+  });
+});
 
 describe('a planta viva (sem banco)', () => {
   it('o minuto do contrato passa; o torto é recusado com o campo', () => {
@@ -80,6 +130,43 @@ describe('a conta das telas da planta viva (web/lib/planta-viva.ts)', () => {
     pares: Array<{ img: [number, number]; piso: [number, number] }>;
     testes: Array<{ img: [number, number]; piso: [number, number] }>;
   };
+
+  const MOVEIS = [
+    { id: 'chapa', nome: 'Chapa', x: 2, y: 2, w: 1, h: 0.8 },
+    { id: 'fritadeira', nome: 'Fritadeira', x: 3.2, y: 2, w: 0.6, h: 0.6 },
+  ];
+
+  it('ao vivo: o posto é o móvel em cuja frente a pessoa está (70 cm), o mais perto; longe de todos, passando', () => {
+    assert.equal(tela.postoDe(2.5, 1.5, MOVEIS)?.id, 'chapa', 'na frente da chapa');
+    assert.equal(tela.postoDe(2.5, 2.4, MOVEIS)?.id, 'chapa', 'dentro (o ponto cai no móvel) também conta');
+    assert.equal(tela.postoDe(3.5, 1.4, MOVEIS)?.id, 'fritadeira');
+    assert.equal(tela.postoDe(3.1, 1.6, MOVEIS)?.id, 'chapa', 'entre os dois: o mais perto');
+    assert.equal(tela.postoDe(2.5, 2 - tela.FOLGA_DO_POSTO - 0.01, MOVEIS), null, 'passou da folga: passando');
+    assert.equal(tela.postoDe(2.5, 2 - tela.FOLGA_DO_POSTO + 0.01, MOVEIS)?.id, 'chapa');
+    assert.equal(tela.postoDe(1, 1, []), null);
+  });
+
+  it('ao vivo: a figura anda suave até a posição nova, sem passar dela', () => {
+    assert.deepEqual(tela.aproximar([0, 0], [1, 2], 0), [0, 0]);
+    const meio = tela.aproximar([0, 0], [1, 2], 250);
+    assert.ok(Math.abs(meio[0] - (1 - Math.exp(-1))) < 1e-9 && Math.abs(meio[1] - 2 * (1 - Math.exp(-1))) < 1e-9);
+    const quase = tela.aproximar([0, 0], [1, 2], 5000);
+    assert.ok(quase[0] <= 1 && quase[0] > 0.999 && quase[1] <= 2);
+    assert.deepEqual(tela.aproximar([0, 0], [1, 2], -100), [0, 0], 'tempo negativo não anda');
+  });
+
+  it('ao vivo: o posto e desde quando, o rastro dos últimos 8 s, e quem não veio sai', () => {
+    const p = (n: number, x: number, y: number) => ({ n, x, y, vx: 0, vy: 0, canais: [] });
+    let m = tela.lembrar(new Map(), [p(1, 2.5, 1.5), p(2, 6, 6)], 1000, MOVEIS);
+    assert.deepEqual([m.get(1)?.posto, m.get(1)?.desde, m.get(2)?.posto], ['chapa', 1000, null]);
+    m = tela.lembrar(m, [p(1, 2.6, 1.5), p(2, 6, 6)], 2000, MOVEIS);
+    assert.equal(m.get(1)?.desde, 1000, 'no mesmo posto: desde quando chegou');
+    assert.equal(m.get(2)?.rastro.length, 1, 'parada: o rastro não cresce');
+    m = tela.lembrar(m, [p(1, 3.5, 1.4)], 3000, MOVEIS);
+    assert.deepEqual([m.get(1)?.posto, m.get(1)?.desde, m.has(2)], ['fritadeira', 3000, false], 'mudou de posto; a 2 saiu');
+    m = tela.lembrar(m, [p(1, 3.6, 1.4)], 3000 + 8_001, MOVEIS);
+    assert.deepEqual(m.get(1)?.rastro.map(([x]) => x), [3.6], 'o rastro guarda só os últimos 8 s');
+  });
 
   it('o ponto da imagem cai no mesmo lugar do chão que na conta do servidor', () => {
     const h = homografia(CAL.pares)!;
@@ -146,6 +233,8 @@ describe('a planta viva (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABASE
   let cookieExecucao = '';
   let cookieVizinho = '';
   let token = '';
+  /** O relógio do ao vivo (o que vale por segundos na memória da API). */
+  let agoraMs = Date.UTC(2026, 9, 28, 22, 10, 0);
 
   async function entrar(tenantId: string, email: string, nivel: string) {
     await app.inject({
@@ -167,7 +256,7 @@ describe('a planta viva (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABASE
     adminAntes = process.env.FAROL_ADMIN_TOKEN;
     process.env.FAROL_ADMIN_TOKEN = ADMIN;
     pool = new pg.Pool({ connectionString: URL_DO_BANCO });
-    app = criarApp(pool, { logger: false });
+    app = criarApp(pool, { logger: false, relogio: () => agoraMs });
     await app.ready();
     const conta = (await app.inject({
       method: 'POST', url: '/v1/distribuicao/lojas', headers: { 'x-farol-admin': ADMIN },
@@ -267,5 +356,42 @@ describe('a planta viva (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATABASE
     assert.equal((await ler('', '')).statusCode, 401);
     assert.equal((await ler('?de=ontem')).statusCode, 422);
     assert.equal((await ler(`?de=${encodeURIComponent(new Date(Date.now() - 40 * 86_400_000).toISOString())}`)).statusCode, 422);
+  });
+
+  it('ao vivo: o agente manda o instante, a tela lê a última posição; parado em 3 s, sem sinal em 30 s', async () => {
+    const mandarAgora = (corpo: unknown, comToken = token) =>
+      app.inject({ method: 'POST', url: '/v1/planta-viva/agora', headers: comToken ? { authorization: `Bearer ${comToken}` } : {}, payload: corpo as object });
+    const lerAgora = (comCookie = cookie) =>
+      app.inject({ method: 'GET', url: `/v1/lojas/${lojaId}/planta-viva/agora`, headers: comCookie ? { cookie: comCookie } : {} });
+
+    // ninguém olhando: o agente pode mandar devagar
+    const primeiro = await mandarAgora(AGORA.agora);
+    assert.equal(primeiro.statusCode, 200, primeiro.body);
+    assert.deepEqual(primeiro.json(), AGORA.resposta);
+    // a tela abre: lê a última posição e, por 20 s, conta como alguém olhando
+    const lido = await lerAgora();
+    assert.equal(lido.statusCode, 200, lido.body);
+    assert.deepEqual(lido.json(), { situacao: 'ao_vivo', idadeS: 0, quando: AGORA.agora.quando, pessoas: AGORA.agora.pessoas, canais: AGORA.agora.canais });
+    assert.deepEqual((await mandarAgora(AGORA.agora)).json(), { olhando: true }, 'alguém olhando: o agente manda rápido');
+    agoraMs += 5_000;
+    assert.deepEqual(
+      [(await lerAgora()).json().situacao, (await lerAgora()).json().idadeS],
+      ['parado', 5],
+      'a última posição ficou 5 s sem trocar',
+    );
+    agoraMs += AO_VIVO.validadeMs;
+    assert.deepEqual((await lerAgora()).json(), { situacao: 'sem_sinal', idadeS: null, quando: null, pessoas: [], canais: [] });
+    agoraMs += AO_VIVO.olhandoMs + 1;
+    assert.deepEqual((await mandarAgora(AGORA.agora)).json(), { olhando: false }, 'a tela fechou há mais de 20 s');
+
+    // quem pode: só quem configura (é o caminho de cada um, como o replay); outra conta não acha a loja
+    assert.equal((await lerAgora(cookieSupervisao)).statusCode, 403);
+    assert.equal((await lerAgora(cookieExecucao)).statusCode, 403);
+    assert.equal((await lerAgora(cookieVizinho)).statusCode, 404);
+    assert.equal((await lerAgora('')).statusCode, 401);
+    const torto = await mandarAgora({ ...AGORA.agora, quando: 'agora' });
+    assert.equal(torto.statusCode, 422);
+    assert.match(torto.json().mensagem, /^quando/);
+    assert.equal((await mandarAgora(AGORA.agora, '')).statusCode, 401);
   });
 });

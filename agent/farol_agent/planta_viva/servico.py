@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from farol_agent.planta_viva import rastreio as rt
+from farol_agent.planta_viva.ao_vivo import EnvioAoVivo, dados_do_instante
 from farol_agent.planta_viva.pessoas import Minutos
 
 _log = logging.getLogger(__name__)
@@ -76,6 +77,7 @@ class PlantaViva:
         abrir_fluxo: Callable[[Any], Any] = abrir_fluxo_reduzido,
         relogio: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
         a_cada_s: float = A_CADA_S,
+        envio_ao_vivo: EnvioAoVivo | None = None,
     ) -> None:
         if detector_de is None:
             from farol_agent.treino_servico import _detector_da_auditoria as detector_de
@@ -91,8 +93,10 @@ class PlantaViva:
         self.fluxos: dict[str, Any] = {}
         self.canais: dict[str, rt.CanalDoRastreio] = {}  # id do ponto → o canal do rastreio (homografia, câmera, trilhas)
         self.nomes: dict[str, str] = {}  # id do ponto → "canal 6", para o registro
-        # o que a tela ao vivo mostra: as pessoas do último instante (número, x, y, vx, vy, câmeras) e quando
+        # o que a tela ao vivo mostra: as pessoas do último instante (número, x, y, vx, vy, câmeras) e quando — e quem
+        # leva à nuvem (P6; nulo = não manda)
         self.ao_vivo: tuple[datetime, list[tuple]] | None = None
+        self.envio_ao_vivo = envio_ao_vivo
         self.arquivo_dos_desvios = self.caminho_config.parent / ARQUIVO_DOS_DESVIOS
         self._marcas: dict[str, str] = {}  # id do ponto → a marca da calibração de que o desvio aprendido veio
         self._carregar_desvios()
@@ -230,11 +234,13 @@ class PlantaViva:
 
     def _olhar(self, agora_s: float) -> None:
         vistas = []
+        com_quadro = []
         for pid, fluxo in self.fluxos.items():
             q = fluxo.ultimo(IDADE_MAXIMA_DO_QUADRO_S)
             if q is None:
                 continue
             _, img = q
+            com_quadro.append(pid)
             altura, largura = img.shape[:2]
             caixas = self._detector.caixas(img, "person", rt.NOTA_MINIMA)
             vistas.extend(self.canais[pid].observacoes(agora_s, caixas, largura, altura, self.rastreio, img))
@@ -243,6 +249,8 @@ class PlantaViva:
         self._ultimo_t = agora_s
         pessoas = self.rastreio.passo(agora_s, vistas, dia=quando.astimezone().date().isoformat())
         self.ao_vivo = (quando, self.rastreio.agora(agora_s))
+        if self.envio_ao_vivo is not None:
+            self.envio_ao_vivo.publicar(dados_do_instante(quando, self.ao_vivo[1], com_quadro))
         self.minutos.somar(quando, dt, pessoas)
 
     def _subir(self, agora_s: float) -> None:
@@ -290,6 +298,8 @@ class PlantaViva:
         if self._linha is not None:
             return
         self._parar.clear()
+        if self.envio_ao_vivo is not None:
+            self.envio_ao_vivo.iniciar()
         self._linha = threading.Thread(target=self._rodar, name="farol-planta-viva", daemon=True)
         self._linha.start()
 
@@ -298,3 +308,5 @@ class PlantaViva:
         if self._linha is not None:
             self._linha.join(espera_s)
         self._linha = None
+        if self.envio_ao_vivo is not None:
+            self.envio_ao_vivo.parar()

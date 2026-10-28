@@ -5,9 +5,10 @@
     "estudo": "o estudo do critério: o contexto e o gatilho que a loja confere sozinha",
     "bancada": "o quadro de bancada: a imagem espera as mãos saírem",
     "fichas": "a base de fichas da loja: o agente baixa a cópia e a guarda",
-    "treino": "a gravação de treino: o agente busca no gravador, lê a bancada e manda os lanches para a conferência"
+    "treino": "a gravação de treino: o agente busca no gravador, lê a bancada e manda os lanches para a conferência",
+    "planta": "a planta viva com o rastreio firme: os móveis da planta, a altura e a área calibrada de cada câmera, e as pessoas ao vivo"
   },
   "mudamOQueDesce": ["estados", "estudo"],
-  "pedido": "/v1/agentes/configuracao?sabe=estados,estudo,bancada,fichas,treino",
-  "guardado": ["bancada", "estados", "estudo", "fichas", "treino"]
+  "pedido": "/v1/agentes/configuracao?sabe=estados,estudo,bancada,fichas,treino,planta",
+  "guardado": ["bancada", "estados", "estudo", "fichas", "planta", "treino"]
 }
