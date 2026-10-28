@@ -145,8 +145,65 @@ describe('o aviso da máquina: a régua (sem banco)', () => {
     assert.deepEqual(GRAVIDADE, {
       esquentando: { severidade: 'critico', prioridade: 'urgente' },
       sobrecarregado: { severidade: 'atencao', prioridade: 'urgente' },
+      disco: { severidade: 'atencao', prioridade: 'urgente' },
     });
     assert.equal(REGUA_DO_AVISO.repetirH, 12);
+  });
+
+  // ── o disco quase cheio (migration 060; ERR-156: em 27/10 o disco da loja encheu às 21h20) ──
+  /** Horas só com o disco: [horas atrás, livre, total]. */
+  const comDisco = (lista: [number, number | string | null, number | string | null][]): HoraDoAviso[] =>
+    lista.map(([atras, livre, total]) => ({
+      hora: new Date(horaDe(AGORA, atras)), sensores: null, minutos: null, discoLivreGb: livre, discoTotalGb: total,
+    }));
+
+  it('o disco abaixo de 8 GB avisa, com o livre e o total no texto; 8 GB exatos não', () => {
+    const avisos = avaliarAvisos(comDisco([[0, 6.24, 222.9]]), AGORA, FUSO);
+    assert.equal(avisos.length, 1);
+    assert.equal(avisos[0]!.tipo, 'disco');
+    assert.deepEqual(avisos[0]!.porque, ['o disco tem 6,2 GB livres de 222,9 GB (o aviso é abaixo de 8 GB)']);
+    assert.equal(avisos[0]!.desde, new Date(horaDe(AGORA, 0)).toISOString());
+    assert.deepEqual(avaliarAvisos(comDisco([[0, REGUA_DO_AVISO.discoLivreMinGb, 222.9]]), AGORA, FUSO), [], '8 GB: não');
+    assert.equal(avaliarAvisos(comDisco([[0, 7.99, 222.9]]), AGORA, FUSO).length, 1);
+  });
+
+  it('o disco: vale a leitura MAIS NOVA das últimas 2 horas, em qualquer ordem', () => {
+    // a hora anterior cheia e a de agora já com espaço (o agente apagou a noite antiga): não avisa
+    assert.deepEqual(avaliarAvisos(comDisco([[0, 21.5, 222.9], [1, 2.1, 222.9]]), AGORA, FUSO), []);
+    // ao contrário: avisa pela de agora
+    const avisos = avaliarAvisos(comDisco([[0, 2.1, 222.9], [1, 21.5, 222.9]]), AGORA, FUSO);
+    assert.match(avisos[0]!.porque[0]!, /^o disco tem 2,1 GB livres/);
+    // a da hora anterior sozinha ainda vale; a de 2 horas atrás, não; a hora que ainda não começou, também não
+    assert.equal(avaliarAvisos(comDisco([[1, 2.1, 222.9]]), AGORA, FUSO).length, 1);
+    assert.deepEqual(avaliarAvisos(comDisco([[2, 2.1, 222.9]]), AGORA, FUSO), []);
+    assert.deepEqual(avaliarAvisos(comDisco([[-1, 2.1, 222.9]]), AGORA, FUSO), []);
+    // a hora sem a leitura do disco não esconde a anterior
+    assert.equal(avaliarAvisos(comDisco([[0, null, null], [1, 2.1, 222.9]]), AGORA, FUSO).length, 1);
+  });
+
+  it('o disco: o banco devolve o número como texto; sem o total, o texto não inventa', () => {
+    assert.deepEqual(avaliarAvisos(comDisco([[0, '5.50', '223.00']]), AGORA, FUSO)[0]!.porque, [
+      'o disco tem 5,5 GB livres de 223 GB (o aviso é abaixo de 8 GB)',
+    ]);
+    assert.deepEqual(avaliarAvisos(comDisco([[0, '5.50', null]]), AGORA, FUSO)[0]!.porque, [
+      'o disco tem 5,5 GB livres (o aviso é abaixo de 8 GB)',
+    ]);
+    assert.deepEqual(avaliarAvisos(comDisco([[0, 'não sei', null]]), AGORA, FUSO), []);
+    // a leitura que não é número não vale como "a mais nova": a anterior, que é, decide
+    assert.equal(avaliarAvisos(comDisco([[0, 'não sei', null], [1, 2.1, 222.9]]), AGORA, FUSO).length, 1);
+    assert.equal(avaliarAvisos(comDisco([[0, -1, 222.9], [1, 2.1, 222.9]]), AGORA, FUSO).length, 1);
+  });
+
+  it('o disco cheio junto do calor: os dois avisos, o disco por último; e o texto pronto', () => {
+    const horas = [...horasCom(AGORA, seguidos(0, 9, { gpuTempC: 85 })), ...comDisco([[1, 3, 222.9]])];
+    const avisos = avaliarAvisos(horas, AGORA, FUSO);
+    assert.deepEqual(avisos.map((a) => a.tipo), ['esquentando', 'disco']);
+    assert.equal(
+      textoDoAviso(avisos[1]!, 'Matriz'),
+      'Farol · Matriz: o disco do computador do agente está quase cheio. O disco tem 3 GB livres de 222,9 GB (o aviso é '
+        + 'abaixo de 8 GB). Com o disco cheio, a bancada para de ver lanches até abrir espaço. '
+        + 'No console: Computador da loja › Saúde.',
+    );
   });
 });
 
@@ -336,5 +393,27 @@ describe('o aviso da máquina (Postgres real)', { skip: !URL_DO_BANCO && 'sem DA
     const daMaquina = lista.filter((x) => x.motivo === 'computador');
     assert.equal(daMaquina.length, 8);
     assert.deepEqual([...new Set(daMaquina.map((x) => x.computador))].sort(), ['esquentando', 'sobrecarregado']);
+  });
+
+  it('o disco quase cheio (migration 060): vira envio com a marca dele, sem repetir, e o console vê o tipo', async () => {
+    const e = await montarLoja(`${marca}-disco`);
+    await destino(e);
+    const corpo = corpoCom(seguidos(0, 5, { cpu: 30 }));
+    corpo.horas = corpo.horas.map((h) => ({ ...h, discoLivreGb: 3.1, discoTotalGb: 222.9 }));
+    assert.equal((await mandar(corpo, e)).statusCode, 200);
+    assert.equal((await mandar(corpo, e)).statusCode, 200, 'o reenvio da hora não repete');
+    const lista = await envios(e);
+    assert.equal(lista.length, 1);
+    assert.equal(lista[0]!.payload.tipo, 'disco');
+    assert.match(String(lista[0]!.payload.texto), /^Farol · Matriz: o disco do computador do agente está quase cheio\. O disco tem 3,1 GB livres de 222,9 GB/);
+    assert.match(lista[0]!.chave, new RegExp(`^computador:${e.agenteId}:disco:`));
+    assert.deepEqual((await marcas(e)).map((m) => m.tipo), ['disco']);
+    // com espaço de novo (a hora do contrato tem 64 GB livres), nada sai, mesmo sem a marca
+    await pool.query('delete from computador_aviso where agente_id = $1', [e.agenteId]);
+    assert.equal((await mandar(corpoCom(seguidos(0, 5, { cpu: 30 })), e)).statusCode, 200);
+    assert.equal((await envios(e)).length, 1);
+    const r = await app.inject({ method: 'GET', url: `/v1/lojas/${e.lojaId}/envios`, headers: { cookie: e.cookie } });
+    const daMaquina = (r.json().envios as { motivo: string; computador: string | null }[]).filter((x) => x.motivo === 'computador');
+    assert.deepEqual(daMaquina.map((x) => x.computador), ['disco']);
   });
 });
