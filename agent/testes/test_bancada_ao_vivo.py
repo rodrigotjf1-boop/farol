@@ -367,7 +367,7 @@ def test_a_limpeza_apaga_so_o_velho_e_so_o_que_a_leitura_criou(tmp_path):
     for nome in ("2026-10-14_19h00", "2026-10-15_19h00", "2026-10-17_05h37", "uma-pasta-qualquer"):
         (tmp_path / bav.DENSA / nome / "recortes").mkdir(parents=True)
 
-    assert bav.limpar(tmp_path, hoje) == 4
+    assert bav.limpar(tmp_path, hoje, livre=lambda _p: SOBRA) == 4
 
     assert sorted(p.name for p in tmp_path.iterdir()) == [
         "2026-09-17.jsonl", "2026-09-18.jsonl", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17", "2026-13-45",
@@ -376,6 +376,134 @@ def test_a_limpeza_apaga_so_o_velho_e_so_o_que_a_leitura_criou(tmp_path):
     assert sorted(p.name for p in (tmp_path / bav.DENSA).iterdir()) == [
         "2026-10-15_19h00", "2026-10-17_05h37", "uma-pasta-qualquer",
     ], "a sessão inteira fica 2 dias; o que não é sessão, fica"
+
+
+# ───────────────────────────── a folga do disco (ERR-156) ─────────────────────────────
+
+GB = 2**30
+# O disco com espaço de sobra: a folga não apaga nada (o disco de quem roda o teste não decide o resultado).
+SOBRA = 10**15
+
+
+def _sessoes(densa: Path, *nomes: str) -> None:
+    for nome in nomes:
+        (densa / nome / "recortes").mkdir(parents=True)
+
+
+def test_sem_folga_sai_a_noite_guardada_mais_antiga_e_para_quando_a_folga_volta(tmp_path, caplog):
+    # 27/10/2026: três noites juntas (a de 25 só sairia pela idade à meia-noite) e o disco encheu às 21h20
+    densa = tmp_path / bav.DENSA
+    _sessoes(densa, "2026-10-27_19h00", "2026-10-25_19h00", "2026-10-26_19h00", "uma-pasta-qualquer")
+
+    def livre(_pasta):
+        # cada noite que sai devolve 9 GB; com as três no disco, sobram 2 GB
+        restam = sum(1 for p in densa.iterdir() if bav._SESSAO.match(p.name))
+        return (2 + 9 * (3 - restam)) * GB
+
+    with caplog.at_level(logging.INFO, logger="farol_agent.bancada_ao_vivo"):
+        apagadas = bav.limpar(
+            tmp_path, date(2026, 10, 27), em_uso=densa / "2026-10-27_19h00", livre=livre, folga_gb=12,
+        )
+
+    assert apagadas == 2, "2 GB → 11 GB (ainda abaixo de 12) → 20 GB: duas noites, e para"
+    assert sorted(p.name for p in densa.iterdir()) == ["2026-10-27_19h00", "uma-pasta-qualquer"]
+    ditas = [r.getMessage() for r in caplog.records if "apaguei a noite guardada mais antiga" in r.getMessage()]
+    assert [d.rsplit(", ", 1)[1] for d in ditas] == ["2026-10-25_19h00", "2026-10-26_19h00"], "a mais antiga primeiro"
+    assert "2.0 GB livres" in ditas[0] and "a folga é 12 GB" in ditas[0]
+
+
+def test_com_folga_nenhuma_noite_sai_alem_da_idade(tmp_path):
+    densa = tmp_path / bav.DENSA
+    _sessoes(densa, "2026-10-26_19h00", "2026-10-27_19h00")
+
+    assert bav.limpar(tmp_path, date(2026, 10, 28), livre=lambda _p: 12 * GB, folga_gb=12) == 0
+    assert sorted(p.name for p in densa.iterdir()) == ["2026-10-26_19h00", "2026-10-27_19h00"], "12 GB é a folga: fica"
+
+
+def test_a_noite_que_se_grava_nunca_sai_nem_velha_nem_sem_folga(tmp_path):
+    densa = tmp_path / bav.DENSA
+    _sessoes(densa, "2026-10-26_19h00", "2026-10-27_19h00")
+
+    # a de 26 sai pela idade; a de 27 é a que se grava: fica, com o disco vazio de espaço e 4 dias depois
+    assert bav.limpar(tmp_path, date(2026, 10, 31), em_uso=densa / "2026-10-27_19h00", livre=lambda _p: 0) == 1
+    assert [p.name for p in densa.iterdir()] == ["2026-10-27_19h00"]
+
+
+def test_sem_medir_o_disco_a_folga_espera_e_a_idade_segue(tmp_path, caplog):
+    densa = tmp_path / bav.DENSA
+    _sessoes(densa, "2026-10-20_19h00", "2026-10-27_19h00")
+
+    def livre(_pasta):
+        raise OSError("o disco não respondeu")
+
+    with caplog.at_level(logging.WARNING, logger="farol_agent.bancada_ao_vivo"):
+        assert bav.limpar(tmp_path, date(2026, 10, 28), livre=livre, folga_gb=12) == 1
+
+    assert [p.name for p in densa.iterdir()] == ["2026-10-27_19h00"], "sem a medida, só a idade apaga"
+    assert any("não consegui medir o espaço livre" in r.getMessage() for r in caplog.records)
+
+
+def test_o_servico_abre_a_folga_sem_tocar_na_noite_que_grava_e_avisa_uma_vez_por_hora(tmp_path, caplog):
+    caminho = em_disco(tmp_path)
+    densa = tmp_path / "bancada" / "canal-04" / bav.DENSA
+    _sessoes(densa, "2026-10-14_19h00")
+    fluxo = FluxoDeMentira([(T0 + timedelta(seconds=s), quadro()) for s in range(8)])
+    sv = Servico(caminho, fluxo, guardar_quadros=True, livre=lambda _p: 3 * GB)
+
+    with caplog.at_level(logging.INFO, logger="farol_agent.bancada_ao_vivo"):
+        for t in (0.0, 600.0, 1200.0, 2400.0, bav.REPETE_AVISO_S - 1, bav.REPETE_AVISO_S + 600):
+            sv.s.passo(sv.c, t)
+    sv.s.fechar(sv.c, "o agente parou")
+
+    assert [p.name for p in densa.iterdir()] == ["2026-10-15_21h00"], "a antiga saiu; a que se grava ficou"
+    assert len(list((densa / "2026-10-15_21h00" / "recortes").iterdir())) == 6
+    avisos = [r for r in caplog.records if "não há mais noite guardada antiga" in r.getMessage()]
+    assert len(avisos) == 2, "na primeira vez e uma hora depois — não a cada 10 minutos"
+    assert avisos[0].levelno == logging.WARNING and "3.0 GB livres" in avisos[0].getMessage()
+
+
+def test_sem_guardar_a_noite_o_servico_nao_avisa_da_folga(tmp_path, caplog):
+    sv = Servico(em_disco(tmp_path), FluxoDeMentira(), livre=lambda _p: 3 * GB)
+
+    with caplog.at_level(logging.INFO, logger="farol_agent.bancada_ao_vivo"):
+        sv.s.passo(sv.c, 0.0)
+
+    assert not [r for r in caplog.records if "folga" in r.getMessage()]
+
+
+def test_a_chave_do_aviso_tira_o_que_muda_e_guarda_o_numero_do_erro():
+    cheio_a = bav._chave_do_aviso("OSError: [Errno 28] No space left on device: 'densa\\2026-10-27_22-00-42_999.jpg'")
+    cheio_b = bav._chave_do_aviso("OSError: [Errno 28] No space left on device: 'densa\\2026-10-27_22-00-43_010.jpg'")
+    outro = bav._chave_do_aviso("OSError: [Errno 5] No space left on device: 'densa\\2026-10-27_22-00-42_999.jpg'")
+
+    assert cheio_a == cheio_b and cheio_a != outro
+    assert bav._chave_do_aviso("OSError: 264401 requested and 0 written") == bav._chave_do_aviso(
+        "OSError: 540151 requested and 0 written"
+    )
+    assert bav._chave_do_aviso("RuntimeError: o detector caiu") == "RuntimeError: o detector caiu"
+
+
+def test_o_disco_cheio_volta_ao_registro_uma_vez_por_hora_com_um_arquivo_novo_a_cada_quadro(tmp_path, caplog):
+    # o registro de 27/10: uma linha por segundo, cada uma com o nome do quadro que não coube
+    vez = iter(range(100))
+
+    class DetectorSemDisco(DetectorDaCor):
+        def caixas(self, imagem, classe, limite):
+            k = next(vez)
+            if k % 2:
+                raise OSError(f"{264401 + k} requested and 0 written")
+            raise OSError(28, "No space left on device", f"densa\\2026-10-27_22-00-{k:02d}_999.jpg")
+
+    fluxo = FluxoDeMentira([(T0 + timedelta(seconds=s), quadro()) for s in range(6)])
+    sv = Servico(em_disco(tmp_path), fluxo, detector=DetectorSemDisco())
+
+    with caplog.at_level(logging.ERROR, logger="farol_agent.bancada_ao_vivo"):
+        for t in (0.0, 1.0, 2.0, 3.0, bav.REPETE_AVISO_S, bav.REPETE_AVISO_S + 1):
+            sv.s.passo(sv.c, t)
+
+    ditas = [r.getMessage() for r in caplog.records if "erro inesperado" in r.getMessage()]
+    assert len([d for d in ditas if "No space left" in d]) == 2, "na primeira vez e uma hora depois"
+    assert len([d for d in ditas if "requested and 0 written" in d]) == 2
 
 
 # ───────────────────────────── o serviço ─────────────────────────────
@@ -403,6 +531,8 @@ class Servico:
 
     def __init__(self, caminho: Path, *fluxos: FluxoDeMentira, detector="padrao", agora=T0, **kw):
         self.fluxos, self.abertos, self.agora = list(fluxos), [], agora
+        # o disco de quem roda o teste não decide a limpeza: com sobra, salvo o teste da folga
+        kw.setdefault("livre", lambda _p: SOBRA)
         self.s = bav.BancadaAoVivo(
             caminho, [4], detector_de=lambda: DetectorDaCor() if detector == "padrao" else detector,
             abrir_fluxo=self._abrir, relogio=lambda: self.agora, a_cada_s=0.0, **kw,

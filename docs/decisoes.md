@@ -10243,3 +10243,31 @@ que enviei como exemplo"; o protótipo (na planta da loja dele) foi **aprovado n
   na imagem; a supervisão vê o aviso. Nada rola para o lado em 16 larguras (320 a 1920) nos dois temas — e o 3D e as
   Câmeras em 5 —, nenhum botão sem nome, nenhum id repetido, nenhum erro de script (52 medidas, 0 problemas).
 - As contas da tela (o posto, o movimento suave, a memória) já estão no `api/testes/planta-viva.test.ts` (P6).
+
+## 28/10/2026 · A noite guardada da bancada sai pela folga do disco (sem migration)
+
+Em 27/10 o disco do computador da loja encheu às 21h20 e a bancada ao vivo parou de ver lanches até a meia-noite (84
+lanches na noite, contra ~370 de uma noite cheia). Com `FAROL_BANCADA_GUARDAR_QUADROS`, cada noite guarda todos os
+quadros — ~1 GB por hora, 9 a 10 GB por noite —, e a limpeza só olhava a idade ("mais de 2 dias"): entre as 19h e a
+meia-noite conviviam três noites. A leitura grava cada quadro e o lê de volta, então, cheio o disco, ela para.
+
+- **A folga do disco** (`FOLGA_DO_DISCO_GB = 12`, uma noite com sobra): abaixo dela, sai a noite guardada mais antiga,
+  uma de cada vez, até a folga voltar. A noite que está sendo gravada nunca sai (nem pela idade). A regra da idade
+  continua valendo por cima.
+- **De 10 em 10 minutos** (era de hora em hora): numa hora a noite guardada cresce ~1 GB.
+- **O registro**: cada noite apagada pela folga leva uma linha (quantos GB havia); se só sobrou a noite em gravação e o
+  disco segue abaixo da folga, um aviso por hora pede para liberar espaço. O erro repetido (disco cheio nomeia um arquivo
+  novo a cada quadro) volta ao registro uma vez por hora: a chave do aviso tira o nome do arquivo e os números.
+- **Na loja, no mesmo dia**, com o "pode" do dono: saíram os modelos Qwen3-VL e o llama.cpp da F4 (14,6 GB em
+  `C:\Farol\ferramentas`, medidos em 22/10 como inúteis ao passo) — o disco foi de 7,8 para 22,5 GB livres.
+- **A seguir** (PR à parte): o aviso de "disco quase cheio" no aviso da máquina (M3), que hoje cobre só calor e
+  sobrecarga.
+
+### Como foi conferido
+
+- `agent/testes/test_bancada_ao_vivo.py`: a mais antiga sai primeiro e para quando a folga volta (o caso de 27/10:
+  2 → 11 → 20 GB), 12 GB exatos não apagam, a noite em gravação fica (velha e sem folga), sem medir o disco só a idade
+  apaga, o serviço avisa uma vez por hora (e só guardando a noite), o disco cheio com um arquivo novo a cada quadro volta
+  ao registro uma vez por hora. O espaço livre entra por função (o disco de quem roda o teste não decide nada).
+- Mutação 9/9 (a noite em uso na folga, a mais nova primeiro, a folga exata, a idade na noite em uso, o erro pelo texto
+  inteiro, o aviso a cada limpeza, avisar sem guardar a noite, a limpeza sem a noite em uso, o número do erro).
