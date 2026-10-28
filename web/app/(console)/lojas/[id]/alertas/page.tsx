@@ -26,6 +26,7 @@ import {
   CircleX,
   Clock,
   Gauge,
+  HardDrive,
   Info,
   LockKeyhole,
   Mail,
@@ -629,6 +630,11 @@ export default function Alertas() {
                                 <>
                                   <Gauge className="h-[15px] w-[15px] shrink-0 text-farol-facho-icone" aria-hidden />
                                   Computador sobrecarregado
+                                </>
+                              ) : e.computador === 'disco' ? (
+                                <>
+                                  <HardDrive className="h-[15px] w-[15px] shrink-0 text-farol-facho-icone" aria-hidden />
+                                  Disco quase cheio
                                 </>
                               ) : (
                                 <>

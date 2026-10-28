@@ -936,7 +936,7 @@ export type Envio = {
   id: string;
   motivo: 'evento' | 'agente_caiu' | 'busca_concluida' | 'computador';
   /** O aviso da máquina (A26, M3): o tipo; nulo nos outros motivos. */
-  computador: 'esquentando' | 'sobrecarregado' | null;
+  computador: 'esquentando' | 'sobrecarregado' | 'disco' | null;
   estado: 'pendente' | 'enviado' | 'entregue' | 'falhou' | 'descartado';
   tentativas: number;
   erro: string | null;

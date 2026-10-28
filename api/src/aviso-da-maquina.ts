@@ -19,6 +19,12 @@
 //                    minutos (a mesma régua da tela) — E um desses minutos
 //                    nos últimos 15: o aviso é do que está acontecendo, não
 //                    de ontem à noite.
+//   disco          — a leitura mais nova das últimas 2 horas diz menos de
+//                    8 GB livres (migration 060). Em 27/10/2026 o disco da
+//                    loja encheu às 21h20 e a bancada parou de ver lanches
+//                    até a meia-noite (ERR-156): o agente agora apaga a noite
+//                    guardada mais antiga abaixo de 12 GB, e este aviso diz
+//                    quando nem isso basta.
 //
 // Os limites são os da tela (`LIMITES`, em `saude-da-maquina.ts`).
 //
@@ -26,14 +32,14 @@
 //
 // Um de cada tipo a cada 12 horas por computador, contadas DESDE O ÚLTIMO
 // AVISO (V22: nunca por faixa do calendário). A marca fica em
-// `computador_aviso` (migration 059) e é trocada na MESMA instrução que cria
+// `computador_aviso` (migrations 059 e 060) e é trocada na MESMA instrução que cria
 // os envios: dois envios do agente juntos não avisam duas vezes.
 //
 // ## Para quem
 //
 // Pela política da loja, como os outros alertas (`resolverDestinos`).
-// Esquentando é crítico/urgente; sobrecarregado, atenção/urgente — os dois
-// alcançam os destinos da loja sem política nenhuma (o dono pediu para
+// Esquentando é crítico/urgente; sobrecarregado e disco, atenção/urgente — os
+// três alcançam os destinos da loja sem política nenhuma (o dono pediu para
 // saber), e quem não quiser cala com uma linha de veto da combinação.
 // Sem destino cadastrado, não se marca: o aviso sai quando houver para quem.
 // =====================================================================
@@ -45,7 +51,7 @@ import { carregarPolitica } from './despacho.js';
 import { relogioDaLoja } from './horario.js';
 import { LIMITES, type MinutoDaHora, type SensoresDaHora } from './saude-da-maquina.js';
 
-export const TIPOS_DE_AVISO = ['esquentando', 'sobrecarregado'] as const;
+export const TIPOS_DE_AVISO = ['esquentando', 'sobrecarregado', 'disco'] as const;
 export type TipoDeAviso = (typeof TIPOS_DE_AVISO)[number];
 
 export const REGUA_DO_AVISO = {
@@ -58,15 +64,29 @@ export const REGUA_DO_AVISO = {
   agoraMin: 15,
   /** Um aviso de cada tipo a cada tantas horas, desde o último. */
   repetirH: 12,
+  /** O disco: abaixo disto de livre (em GB), avisa — o agente segura 12 GB apagando a noite guardada mais antiga. */
+  discoLivreMinGb: 8,
+  /** O disco: só a leitura destas últimas horas vale (a de ontem não diz como está agora). */
+  janelaDoDiscoH: 2,
 } as const;
 
 export const GRAVIDADE: Record<TipoDeAviso, { severidade: Severidade; prioridade: Prioridade }> = {
   esquentando: { severidade: 'critico', prioridade: 'urgente' },
   sobrecarregado: { severidade: 'atencao', prioridade: 'urgente' },
+  disco: { severidade: 'atencao', prioridade: 'urgente' },
 };
 
-/** Uma hora de `uso_hora` como o aviso lê: o começo, os sensores e o pico de cada minuto. */
-export type HoraDoAviso = { hora: Date; sensores: SensoresDaHora | null; minutos: MinutoDaHora[] | null };
+/**
+ * Uma hora de `uso_hora` como o aviso lê: o começo, os sensores, o pico de cada minuto e o disco livre e total da hora
+ * (em GB; do banco vêm como texto — `numeric`).
+ */
+export type HoraDoAviso = {
+  hora: Date;
+  sensores: SensoresDaHora | null;
+  minutos: MinutoDaHora[] | null;
+  discoLivreGb?: number | string | null;
+  discoTotalGb?: number | string | null;
+};
 
 export type Aviso = {
   tipo: TipoDeAviso;
@@ -166,16 +186,42 @@ export function avaliarAvisos(horas: HoraDoAviso[], agora: Date, fuso: string): 
       ate: new Date(Math.max(...cargas.map((c) => c.ultimo))).toISOString(),
     });
   }
+
+  // ── disco ── a leitura mais nova (das últimas horas, nunca do futuro) diz como o disco está agora
+  const comDisco = horas
+    .filter((h) => h.hora.getTime() <= t && h.hora.getTime() > t - REGUA_DO_AVISO.janelaDoDiscoH * 3600_000)
+    .map((h) => ({ hora: h.hora.getTime(), livre: gb(h.discoLivreGb), total: gb(h.discoTotalGb) }))
+    .filter((h): h is { hora: number; livre: number; total: number | null } => h.livre !== null)
+    .sort((a, b) => b.hora - a.hora);
+  const leitura = comDisco[0];
+  if (leitura && leitura.livre < REGUA_DO_AVISO.discoLivreMinGb) {
+    const de = leitura.total !== null ? ` de ${num(leitura.total)} GB` : '';
+    avisos.push({
+      tipo: 'disco',
+      porque: [`o disco tem ${num(leitura.livre)} GB livres${de} (o aviso é abaixo de ${REGUA_DO_AVISO.discoLivreMinGb} GB)`],
+      desde: new Date(leitura.hora).toISOString(),
+      ate: new Date(leitura.hora).toISOString(),
+    });
+  }
   return avisos;
+}
+
+/** O disco da hora em GB (o banco devolve `numeric` como texto); o que não é número, nulo. */
+function gb(v: number | string | null | undefined): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
 const CONSEQUENCIA: Record<TipoDeAviso, string> = {
   esquentando: 'calor demais deixa a auditoria lenta e pode desligar o computador',
   sobrecarregado: 'com a máquina no limite, a auditoria atrasa',
+  disco: 'com o disco cheio, a bancada para de ver lanches até abrir espaço',
 };
 const TITULO: Record<TipoDeAviso, string> = {
   esquentando: 'o computador do agente está esquentando',
   sobrecarregado: 'o computador do agente está sobrecarregado',
+  disco: 'o disco do computador do agente está quase cheio',
 };
 
 /** A mensagem pronta, para o transporte que só repassa texto. */
@@ -199,7 +245,7 @@ export async function avisarDaMaquina(
 ): Promise<ResultadoDoAviso> {
   const [horasR, marcasR, lojaR] = await Promise.all([
     pool.query<HoraDoAviso>(
-      `select hora, sensores, minutos from uso_hora
+      `select hora, sensores, minutos, disco_livre_gb as "discoLivreGb", disco_total_gb as "discoTotalGb" from uso_hora
         where agente_id = $1 and hora > $2::timestamptz - interval '13 hours' and hora <= $2::timestamptz`,
       [autor.agenteId, agora],
     ),
