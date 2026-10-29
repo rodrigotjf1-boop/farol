@@ -10314,3 +10314,31 @@ conferir", o lanche sem leitura (`semLeitura`) vai depois de todos os que têm l
 de antes (o coberto e a dúvida primeiro, depois a hora). Só a ordem muda: o lanche continua na lista e pode ser
 conferido. Conferido em `api/testes/treino.test.ts` (o sem leitura mais novo fica atrás de um com leitura mais antigo; sem
 a regra, o teste reprova).
+
+## 28/10/2026 · Planta viva: quem pisca não some do mapa (sem migration)
+
+O dono, olhando a tela "Ao vivo" com a loja aberta: "do nada a pessoa no mapa some mesmo estando ainda no mapa, e depois
+aparece no mesmo local". A causa eram dois prazos para a mesma coisa: sem ser vista, a pessoa continuava no rastreio por
+4 s (e voltava com o mesmo número), mas a planta só a mostrava por 1 s. E a caixa com nota entre 0,3 e 0,5 nem chegava
+ao rastreio.
+
+- **O mapa segura pelo prazo do rastreio** (`MOSTRA_SEM_VER_S = PERDA_S`, 4 s): o detector falhando 1,5 a 4 s (parada,
+  abaixada, atrás do balcão) não tira mais a pessoa do mapa.
+- **A caixa fraca** (nota de 0,3 a 0,5, `NOTA_FRACA`) só SEGURA quem já está confirmado, perto de onde estava, e por até
+  8 s depois da última vista forte (`FRACA_SEGURA_S`): nunca cria gente, não confirma, não mede altura nem a cor da roupa,
+  não ensina o desvio das câmeras, e a forte escolhe antes dela.
+- **A medida**: a cada 30 min o registro do agente diz quantas pessoas voltaram depois de sumir (até 1,5 s e de 1,5 a
+  4 s — estas saíam do mapa antes), quantas se perderam, quantas "renasceram" com outro número a até 1 m de onde uma
+  sumiu (e depois de quanto tempo) e quantas vezes a caixa fraca segurou alguém. Se renascer muito, o próximo passo é um
+  prazo maior para quem está parado — com cuidado com a porta da câmara fria (quem entra nela "some parado", e o teste
+  "quem sai não vira fantasma" guarda isso).
+
+### Como foi conferido
+
+- `agent/testes/test_planta_rastreio.py`: quem pisca de 1 a 4 s fica no mapa no mesmo lugar e com o número; parada com
+  duas câmeras perdendo-a em metade dos quadros fica no mapa ≥ 97% do tempo, com um número só; a fraca sozinha não cria
+  gente nem segura a tentativa; segura quem já está sem altura nem desvio, e só por 8 s; a fraca longe não é ela; a forte
+  escolhe antes da fraca; as contas e quem renasce (longe de onde sumiu não conta). `test_planta_servico.py`: o detector
+  pedido desde a nota fraca e a linha do registro (só depois de um minuto de leitura, com o tempo de verdade).
+- Os testes antigos do rastreio (8 pessoas cruzando, quem sai não vira fantasma, troca de câmera) seguem verdes.
+  Mutação 13/13.

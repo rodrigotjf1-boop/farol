@@ -276,9 +276,130 @@ def test_coberta_por_um_instante_continua_e_depois_some():
     for t in (0.0, 0.5, 1.0):
         r.passo(t, canal.observacoes(t, [CAM_A.caixa(2.0, 1.0)], L, A, r))
     assert [n for n, *_ in r.passo(1.5, [])] == [1], "falhou um quadro: continua"
-    assert r.passo(1.0 + rt.MOSTRA_SEM_VER_S + 0.1, []) == [], "some da planta"
-    r.passo(1.0 + rt.PERDA_S + 0.1, [])
+    # 28/10: continua NA PLANTA enquanto o rastreio a segura (antes saía dela 1 s depois — o dono via sumir e voltar)
+    assert [n for n, *_ in r.passo(1.0 + rt.PERDA_S - 0.1, [])] == [1], "sem ser vista 3,9 s: ainda no mapa"
+    assert r.passo(1.0 + rt.PERDA_S + 0.1, []) == [], "passou do prazo: some da planta"
     assert r.pessoas == []
+
+
+# ───────────────────────────── quem pisca não some (28/10/2026) ─────────────────────────────
+
+def fraca(caixa, nota=0.4):
+    """A mesma caixa com a nota baixa do detector (entre a fraca e a mínima)."""
+    return (*caixa[:4], nota)
+
+
+def test_quem_pisca_de_1_a_4_s_fica_no_mapa_no_mesmo_lugar_e_com_o_numero():
+    """O dono, 28/10: "do nada a pessoa no mapa some mesmo estando ainda no mapa, e depois aparece no mesmo local"."""
+    canal = rt.CanalDoRastreio("1", CAM_A.homografia(), altura_medida=2.2)
+    r = rt.Rastreio(PLANTA)
+    for t in (0.0, 0.5, 1.0):
+        r.passo(t, canal.observacoes(t, [CAM_A.caixa(2.0, 1.0)], L, A, r))
+    no_sumico = [r.passo(t, canal.observacoes(t, [], L, A, r)) for t in (1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5)]
+    assert all(len(m) == 1 for m in no_sumico), "parada e sem ser vista 3,5 s: continua no mapa"
+    assert all(math.hypot(x - 2.0, y - 1.0) < 0.3 for m in no_sumico for _, x, y in m), "no mesmo lugar, não anda sozinha"
+    volta = r.passo(5.0, canal.observacoes(5.0, [CAM_A.caixa(2.0, 1.0)], L, A, r))
+    assert [n for n, *_ in volta] == [1], "voltou com o mesmo número"
+    assert r.contas.voltas_longas == 1 and r.contas.voltas_curtas == 0 and r.contas.perdidas == 0
+
+
+def test_parada_com_o_detector_falhando_metade_das_vezes_fica_no_mapa():
+    """Duas câmeras perdendo a pessoa em metade dos quadros: com 1 s na planta ela sumia; com o prazo inteiro, fica."""
+    res = rodar([CAM_A, CAM_B], [lambda t: (2.0, 1.0)], segundos=60.0, perde=0.5, semente=3)
+    depois = [m for t, v, m in res if t >= 2.0]
+    assert sum(len(m) == 1 for m in depois) >= 0.97 * len(depois), sum(len(m) == 1 for m in depois) / len(depois)
+    assert len({n for m in depois for n, *_ in m}) == 1, "o mesmo número o tempo todo"
+
+
+def test_a_caixa_fraca_sozinha_nao_cria_gente():
+    canal = rt.CanalDoRastreio("1", CAM_A.homografia(), altura_medida=2.2)
+    r = rt.Rastreio(PLANTA)
+    for t in (0.0, 0.5, 1.0, 1.5, 2.0):
+        assert r.passo(t, canal.observacoes(t, [fraca(CAM_A.caixa(2.0, 1.0))], L, A, r)) == []
+    assert r.pessoas == [], "nem tentativa"
+    assert [c for c in canal.observacoes(2.5, [fraca(CAM_A.caixa(2.0, 1.0), nota=rt.NOTA_FRACA - 0.01)], L, A, r)] == [], \
+        "abaixo da nota fraca nem vira vista"
+    # uma vista forte solta (a tentativa) e depois só fracas: a fraca não segura quem ainda não foi confirmado
+    r.passo(3.0, canal.observacoes(3.0, [CAM_A.caixa(4.0, 4.0)], L, A, r))
+    assert len(r.pessoas) == 1 and not r.pessoas[0].confirmada
+    for t in (3.5, 4.0, 4.5):
+        r.passo(t, canal.observacoes(t, [fraca(CAM_A.caixa(4.0, 4.0))], L, A, r))
+    assert r.pessoas == [], "a tentativa some no prazo dela"
+
+
+def test_a_caixa_fraca_segura_quem_ja_esta_sem_ensinar_altura_nem_desvio():
+    canal = rt.CanalDoRastreio("1", CAM_A.homografia(), altura_medida=2.2)
+    r = rt.Rastreio(PLANTA)
+    for t in (0.0, 0.5, 1.0):
+        r.passo(t, canal.observacoes(t, [CAM_A.caixa(2.0, 1.0)], L, A, r))
+    (p,) = r.pessoas
+    alturas, vistas = list(p.alturas), p.vistas
+    t = 1.5
+    while t <= 1.0 + rt.FRACA_SEGURA_S:  # só a fraca, por todo o tempo em que ela pode segurar
+        assert [n for n, *_ in r.passo(t, canal.observacoes(t, [fraca(CAM_A.caixa(2.0, 1.0))], L, A, r))] == [1], t
+        t += 0.5
+    assert p.alturas == alturas and p.vistas == vistas, "a fraca não mede altura nem conta como vista"
+    assert r.contas.seguradas_pela_fraca >= 10
+    assert r.desvios.resumo() == {}
+    # passou de FRACA_SEGURA_S desde a última forte: a fraca já não segura, e a pessoa sai depois do prazo de sempre
+    fim = t + rt.PERDA_S + 0.5
+    while t <= fim:
+        r.passo(t, canal.observacoes(t, [fraca(CAM_A.caixa(2.0, 1.0))], L, A, r))
+        t += 0.5
+    assert r.pessoas == [], "a fraca não segura um fantasma a noite inteira"
+
+
+def test_a_caixa_fraca_longe_de_quem_esta_nao_e_ela():
+    canal = rt.CanalDoRastreio("1", CAM_A.homografia(), altura_medida=2.2)
+    r = rt.Rastreio(PLANTA)
+    for t in (0.0, 0.5, 1.0):
+        r.passo(t, canal.observacoes(t, [CAM_A.caixa(2.0, 1.0)], L, A, r))
+    longe = canal.observacoes(1.5, [fraca(CAM_A.caixa(6.0, 4.0))], L, A, r)
+    assert longe and longe[0].fraca
+    r.passo(1.5, longe)
+    (p,) = r.pessoas
+    assert math.hypot(p.x - 2.0, p.y - 1.0) < 0.3 and r.contas.seguradas_pela_fraca == 0, "não puxou a pessoa para lá"
+
+
+def test_a_vista_forte_escolhe_antes_da_fraca():
+    canal_a = rt.CanalDoRastreio("1", CAM_A.homografia(), altura_medida=2.2)
+    r = rt.Rastreio(PLANTA)
+    for t in (0.0, 0.5, 1.0):
+        r.passo(t, canal_a.observacoes(t, [CAM_A.caixa(2.0, 1.0)], L, A, r))
+    # a mesma câmera vê uma caixa fraca BEM onde a pessoa estava (um reflexo) e a forte a 30 cm: a forte fica com a
+    # pessoa, e a fraca não vira ninguém (se a fraca escolhesse antes, a forte viraria uma pessoa nova)
+    vistas = canal_a.observacoes(1.5, [fraca(CAM_A.caixa(2.0, 1.0)), CAM_A.caixa(2.3, 1.1)], L, A, r)
+    assert sorted(o.fraca for o in vistas) == [False, True]
+    r.passo(1.5, vistas)
+    (p,) = r.pessoas
+    assert p.forte_em == 1.5 and r.contas.seguradas_pela_fraca == 0
+
+
+def test_as_contas_do_sumico_e_quem_renasce_perto_de_onde_sumiu():
+    canal = rt.CanalDoRastreio("1", CAM_A.homografia(), altura_medida=2.2)
+    r = rt.Rastreio(PLANTA)
+    vista = lambda t: canal.observacoes(t, [CAM_A.caixa(2.0, 1.0)], L, A, r)  # noqa: E731
+    for t in (0.0, 0.5, 1.0):
+        r.passo(t, vista(t))
+    r.passo(1.5, [])
+    r.passo(2.0, vista(2.0))  # 1 s sem ver: volta curta
+    t = 2.5
+    while t <= 2.0 + rt.PERDA_S + 0.5:  # some de vez
+        r.passo(t, [])
+        t += 0.5
+    assert r.pessoas == []
+    longe = lambda t: canal.observacoes(t, [CAM_A.caixa(5.5, 4.0)], L, A, r)  # noqa: E731
+    r.passo(8.0, longe(8.0))
+    r.passo(8.5, longe(8.5))
+    assert len(r.pessoas) == 1 and r.pessoas[0].confirmada and r.contas.renasceram == 0, "longe de onde sumiu: é outra"
+    r.pessoas = []
+    t = 2.0 + 10.0  # 10 s depois de vista pela última vez, alguém aparece no mesmo lugar
+    r.passo(t, vista(t))
+    r.passo(t + 0.5, vista(t + 0.5))
+    c = r.contas_e_zerar()
+    assert (c.voltas_curtas, c.voltas_longas, c.perdidas, c.renasceram) == (1, 0, 1, 1)
+    assert c.renasceram_s == [10.5], "do último instante em que foi vista até aparecer de novo"
+    assert r.contas == rt.Contas(), "a leitura zera"
 
 
 def test_o_ponto_nunca_fica_dentro_do_movel_e_o_dia_novo_recomeca():

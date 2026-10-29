@@ -54,6 +54,21 @@ def ligada(valor: str | None) -> bool:
     return (valor or "").strip().lower() in ("1", "sim", "true", "ligado", "ligada")
 
 
+def texto_das_contas(c: rt.Contas, periodo_s: float) -> str:
+    """A medida do sumiço, numa linha do registro (28/10/2026): quem voltou depois de sumir e por quanto tempo, quem se
+    perdeu, quem renasceu com outro número perto de onde sumiu, e quantas vezes a caixa fraca segurou alguém."""
+    renasceram = ""
+    if c.renasceram_s:
+        s = sorted(c.renasceram_s)
+        renasceram = f" (sem ser vistas de {s[0]:.0f} a {s[-1]:.0f} s, mediana {s[len(s) // 2]:.0f} s)"
+    return (
+        f"nos últimos {periodo_s / 60:.0f} min, {c.voltas_curtas} volta(s) depois de sumir até 1,5 s e {c.voltas_longas} "
+        f"de 1,5 a {rt.PERDA_S:.0f} s (estas saíam do mapa antes de 28/10); {c.perdidas} perdida(s); {c.renasceram} "
+        f"renasceram com outro número a até {rt.RENASCE_M:.0f} m de onde sumiram{renasceram}; a caixa fraca segurou "
+        f"alguém {c.seguradas_pela_fraca} vez(es)"
+    )
+
+
 def abrir_fluxo_reduzido(ponto) -> Any:
     """O fluxo REDUZIDO do canal (é o que basta para achar gente e custa menos), drenado o tempo todo."""
     from farol_agent.fontes.rtsp import _LeitorContinuo
@@ -102,6 +117,7 @@ class PlantaViva:
         self._carregar_desvios()
         self._guardar_desvios_em = 0.0
         self._contar_desvios_em = 0.0
+        self._contas_desde: float | None = None  # desde quando a medida do sumiço está contando (nula: sem ler)
         self._chave: tuple | None = None
         self._motivo_dito: str | None = None
         self._conferir_em = 0.0
@@ -204,6 +220,10 @@ class PlantaViva:
                     self._fechar_fluxos()
                     self.pendentes.extend(self.minutos.fechados(datetime.max.replace(tzinfo=timezone.utc)))
                     self._ultimo_t = None
+                    # a conta do sumiço da noite que acabou: o que sobrou desde a última linha, e para
+                    if self._contas_desde is not None and agora_s - self._contas_desde >= 60.0:
+                        _log.info("planta viva: %s", texto_das_contas(self.rastreio.contas_e_zerar(), agora_s - self._contas_desde))
+                    self._contas_desde = None
                 if pecas != self._motivo_dito:
                     _log.info("planta viva: não leio agora — %s", pecas)
                     self._motivo_dito = pecas  # type: ignore[assignment]
@@ -231,6 +251,12 @@ class PlantaViva:
             if resumo:
                 _log.info("planta viva: o desvio aprendido das câmeras (m): %s", "; ".join(
                     f"{self.nomes.get(pid, pid)} ({dx:+.2f}; {dy:+.2f}) em {n} vez(es)" for pid, (dx, dy, n) in resumo.items()))
+            # a medida do sumiço, pelo tempo de leitura de verdade (a primeira volta, na abertura, só começa a conta)
+            if self._contas_desde is not None and agora_s - self._contas_desde >= 60.0:
+                _log.info("planta viva: %s", texto_das_contas(self.rastreio.contas_e_zerar(), agora_s - self._contas_desde))
+            else:
+                self.rastreio.contas_e_zerar()
+            self._contas_desde = agora_s
 
     def _olhar(self, agora_s: float) -> None:
         vistas = []
@@ -242,7 +268,8 @@ class PlantaViva:
             _, img = q
             com_quadro.append(pid)
             altura, largura = img.shape[:2]
-            caixas = self._detector.caixas(img, "person", rt.NOTA_MINIMA)
+            # desde a nota FRACA: a caixa fraca só segura quem já está na planta (o rastreio separa)
+            caixas = self._detector.caixas(img, "person", rt.NOTA_FRACA)
             vistas.extend(self.canais[pid].observacoes(agora_s, caixas, largura, altura, self.rastreio, img))
         quando = self._relogio()
         dt = self.a_cada_s if self._ultimo_t is None else min(2.0, max(0.0, agora_s - self._ultimo_t))
