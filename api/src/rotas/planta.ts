@@ -66,13 +66,14 @@ export async function plantaDaLoja(cliente: pg.Pool | pg.PoolClient, lojaId: str
   // O documento foi conferido ao entrar. Se um dia deixar de passar (um
   // limite que mudou), a planta não derruba a tela nem a configuração do
   // agente: fica vazia para quem lê.
-  const guardada = lerPlanta(linha.documento).planta ?? { ambientes: [], moveis: [], cameras: [] };
+  const guardada = lerPlanta(linha.documento).planta ?? { ambientes: [], moveis: [], cameras: [], areas: [] };
   const tem = await oQueALojaTem(cliente, lojaId);
   return {
     planta: {
       ambientes: guardada.ambientes.map((a) => (a.setorId && !tem.setores.has(a.setorId) ? { ...a, setorId: null } : a)),
       moveis: guardada.moveis.map((m) => (m.itemId && !tem.nomeDoItem.has(m.itemId) ? { ...m, itemId: null } : m)),
       cameras: guardada.cameras.filter((c) => tem.pontos.has(c.pontoId)),
+      areas: guardada.areas,
     },
     versao: linha.versao,
     atualizadaEm: linha.atualizado_em,
@@ -131,6 +132,10 @@ export function rotasDePlanta(app: FastifyInstance, pool: pg.Pool): void {
     const lido = lerPlanta(c.planta);
     if (lido.problema) return invalido(lido.problema);
     const planta = lido.planta!;
+    // As áreas de medida (28/10/2026): a tela de antes manda a planta SEM elas — ausente mantém as que estavam (salvar o
+    // desenho não apaga o que outra tela marcou); lista vazia é "tirar todas".
+    const semAreas = (c.planta as { areas?: unknown } | null)?.areas == null;
+    if (semAreas) planta.areas = (await plantaDaLoja(pool, id))?.planta.areas ?? [];
 
     // O que a planta aponta tem de existir NESTA loja.
     const tem = await oQueALojaTem(pool, id);

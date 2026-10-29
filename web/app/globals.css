@@ -430,6 +430,44 @@ dialog::backdrop {
   stroke-dasharray: 5 4;
   pointer-events: none;
 }
+/* As áreas de medida (28/10/2026): tracejadas no chão, por baixo dos móveis — não são parede. Espera em mostarda,
+   porta em ketchup, como no protótipo aprovado. O nome leva contorno da cor do piso para ler por cima das linhas. */
+.pl-area {
+  fill: color-mix(in srgb, rgb(var(--mostarda)) 16%, transparent);
+  stroke: rgb(var(--facho-icone));
+  stroke-width: 1.6;
+  stroke-dasharray: 6 4;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.pl-area.porta {
+  fill: color-mix(in srgb, rgb(var(--ketchup)) 14%, transparent);
+  stroke: rgb(var(--ketchup));
+}
+.pl-area.sel {
+  stroke-width: 2.6;
+  fill: color-mix(in srgb, rgb(var(--mostarda)) 28%, transparent);
+}
+.pl-area.porta.sel {
+  fill: color-mix(in srgb, rgb(var(--ketchup)) 26%, transparent);
+}
+.pl-area-nome {
+  fill: rgb(var(--facho-tinta));
+  stroke: rgb(var(--painel));
+  stroke-width: 3px;
+  paint-order: stroke;
+  font-family: theme('fontFamily.sans');
+  font-size: 11.5px;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.pl-area-nome.porta {
+  fill: rgb(var(--critico));
+}
+.pl-area-nome.pq {
+  font-size: 10px;
+}
 
 /* =====================================================================
    Padrões (Análises → Padrões)

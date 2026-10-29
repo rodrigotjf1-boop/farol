@@ -10370,3 +10370,53 @@ noite de 28/10 não foi guardada (calor, postos, replay); o "Ao vivo" seguia nor
   sai da fila e os outros sobem; outra falha no meio guarda o resto. `test_configuracao.py`: a recusa de lote traz os
   problemas fora da mensagem. Os 5 falham no código antigo. Suíte do agente inteira verde.
 - Na loja, depois da troca de pacote: o registro tem que mostrar "a nuvem voltou a aceitar os minutos".
+- **Conferido na loja (29/10, 01:29):** "planta viva: a nuvem voltou a aceitar os minutos" — os guardados subiram sem
+  recusa. (A queda das 00:21 às 01:29 foi o DNS do roteador da loja, não esta troca: ver a nota de 29/10 abaixo.)
+
+## 29/10/2026 · Atendimento na planta: as áreas de medida, a conta da espera e da porta, e a aba Atendimento (sem migration)
+
+Pedido do dono (28/10): "faça a integração com o balcão, e o atendimento delivery e saída dos entregadores"; escolheu
+"os dois" — as pessoas no mapa nesses lugares E números (tempo de espera no balcão, espera do entregador, quantos
+entregadores saíram e a que horas). Protótipo aprovado em 29/10 (a aba "Atendimento" e as áreas no Desenho), com as
+áreas marcadas por ele na planta da loja: a área dos clientes na frente do balcão em L, a retirada dos pedidos prontos ao
+lado do L, a espera e a porta dos entregadores no corredor. (De passagem: o DNS do roteador da loja — a operadora
+entregava UM DNS só — derrubava a internet "por nome" de madrugada desde 20/10; o dono trocou no roteador para
+1.1.1.1/8.8.8.8 com a gente guiando.)
+
+- **Área de medida** é uma lista nova na planta (`areas`: id, nome, tipo, retângulo), NÃO um ambiente: ambiente é parede
+  para o que cada câmera cobre. Dois tipos: **espera** (quanto tempo cada pessoa fica dentro) e **porta** (o caminho que
+  começa nela entrou, o que termina nela saiu). Até 20, lado de 0,3 a 60 m.
+- **Salvar a planta sem `areas` mantém as que estavam** (o Desenho de antes não as conhece; salvar o desenho não pode
+  apagá-las); lista vazia tira todas.
+- **A conta** (`api/src/atendimento.ts`) sai dos CAMINHOS que o agente já manda a cada minuto — sem mudança no agente.
+  Espera: da entrada à saída da área; sair por até 4 s não termina; menos de 5 s é quem passou. Porta: o caminho que
+  termina a menos de 15 s do fim do que se leu pode só estar piscando — a saída dele ainda não conta. O número do
+  caminho é do dia: o mesmo número com um vazio de mais de 30 s é outro caminho. O período vai até 7 dias (a guarda do
+  caminho). "Quantos estão lá agora" sai do ao vivo, quando o período chega ao agora.
+- **A rota** `GET /v1/lojas/:id/planta-viva/atendimento?de&ate`: para quem acompanha a loja (supervisão para cima) —
+  agregado, com horas e durações, nunca o caminho de cada um.
+- **O Desenho** ganha o quarto tipo de peça: "＋ Área de medida" (desenha arrastando, como o ambiente), tracejada no
+  chão por baixo dos móveis (mostarda = espera, ketchup = porta), escolhida pelo toque antes do ambiente; o painel edita
+  o nome, o tipo e o tamanho, e tira. A importação de arquivo lê as áreas; o arquivo SEM a lista mantém as da planta.
+- **A aba Atendimento** (Canais › Planta › Atendimento), como no protótipo aprovado (`mockups/farol-planta-atendimento.html`):
+  um cartão por área — espera: a do meio, pessoas, a maior, acima de 5 min, quantas estão lá agora, hora a hora; porta:
+  as saídas com a hora de cada uma, as entradas, o tempo na loja —; a linha do tempo do expediente (uma faixa por área);
+  onde ficam as áreas; e como conta. Períodos: última hora, este expediente e o anterior (pelo horário cadastrado da
+  loja, no fuso dela) e últimos 7 dias. A área que nenhuma câmera calibrada vê avisa. O que está acontecendo agora se lê
+  de novo a cada minuto. Sem áreas: o estado vazio leva ao Desenho.
+
+### Como foi conferido
+
+- `api/testes/atendimento.test.ts`: a espera (sair 3 s continua, 6 s são duas, 4 s não conta, a mediana, acima de
+  5 min, por hora), a porta (entrou, saiu, o tempo na loja), a saída perto do fim do que se leu, só o que aconteceu no
+  período, o mesmo número horas depois, e o "agora"; a rota no Postgres real (sem áreas, quem pode e quem não, mais de
+  7 dias, e os minutos mandados pelo agente virando espera e porta). `api/testes/planta.test.ts`: as áreas conferidas e
+  "salvar sem as áreas mantém; vazio tira". `api/testes/planta-importar.test.ts`: as áreas do arquivo e o arquivo sem
+  elas. `agent/testes/test_lugar.py` (lê o mesmo contrato) verde. Suíte da API inteira contra Postgres local.
+- A tela, de ponta a ponta nesta máquina (a API e o console contra o banco de teste, uma loja GENÉRICA com 3 horas de
+  caminhos simulados): os 4 cartões com os números da API, a linha do tempo, as áreas no mapa, o "agora" com o ao vivo,
+  os períodos (sem a leitura do período de antes piscando com o rótulo novo), o Desenho com a área escolhida e o painel
+  dela, supervisão vê, execução recebe o aviso, o estado vazio leva ao Desenho; 16 larguras no claro e no escuro sem
+  nada rolando para o lado. `npm run build` do console verde.
+- Mutação 12/12 (as regras da espera e da porta, o "ausente mantém", o tipo da área, o expediente que vira a
+  meia-noite, o arquivo sem áreas): todas pegas pelos testes.

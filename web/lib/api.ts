@@ -7,7 +7,15 @@
  */
 
 import type { Planta } from '@/lib/planta';
-import type { AgoraDaPlanta, Calibracao, ConferenciaDaCalibracao, ErrosDaCalibracao, LeituraDaPlantaViva, ParDaCalibracao } from '@/lib/planta-viva';
+import type {
+  AgoraDaPlanta,
+  AtendimentoDaPlanta,
+  Calibracao,
+  ConferenciaDaCalibracao,
+  ErrosDaCalibracao,
+  LeituraDaPlantaViva,
+  ParDaCalibracao,
+} from '@/lib/planta-viva';
 import type { SaudeDaMaquina } from '@/lib/saude';
 
 export class ErroDaApi extends Error {
@@ -1331,6 +1339,9 @@ export const plantaVivaApi = {
     pedir<LeituraDaPlantaViva>(`/lojas/${lojaId}/planta-viva?de=${encodeURIComponent(de)}&ate=${encodeURIComponent(ate)}`),
   /** As pessoas agora (a última posição de cada uma) — só para quem configura. Ler também diz ao agente que alguém olha. */
   agora: (lojaId: string) => pedir<AgoraDaPlanta>(`/lojas/${lojaId}/planta-viva/agora`),
+  /** A espera em cada área de medida e quem entra e sai por cada porta (até 7 dias; agregado, sem o caminho de cada um). */
+  atendimento: (lojaId: string, de: string, ate: string) =>
+    pedir<AtendimentoDaPlanta>(`/lojas/${lojaId}/planta-viva/atendimento?de=${encodeURIComponent(de)}&ate=${encodeURIComponent(ate)}`),
 };
 
 // ───────────────────────── análises ─────────────────────────

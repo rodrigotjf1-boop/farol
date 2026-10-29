@@ -24,7 +24,7 @@ import { Botao } from '@/componentes/ui/botao';
 import { AJUDA, ROTULO } from '@/componentes/ui/campo';
 import { Chip } from '@/componentes/ui/pecas';
 import type { Equipamento, Ponto, Regra, Setor } from '@/lib/api';
-import { ambienteEm, camerasQueVeem, comVirgula, inclinacaoDe, LIMITES, type Camera, type Planta } from '@/lib/planta';
+import { ambienteEm, areasDe, camerasQueVeem, comVirgula, inclinacaoDe, LIMITES, type Camera, type Planta, type TipoDeArea } from '@/lib/planta';
 
 export type CanalNaPlanta = { ponto: Ponto; situacao: Situacao; setorNome: string };
 
@@ -160,6 +160,7 @@ export function PainelDaPlanta({
   const idDoNome = useId();
   const idDoSetor = useId();
   const idDoItem = useId();
+  const idDoTipo = useId();
 
   useEffect(() => {
     if (recemCriado && selecao?.id === recemCriado) nome.current?.select();
@@ -367,6 +368,57 @@ export function PainelDaPlanta({
     );
   }
 
+  // ───────────────────────── a área de medida (só na edição) ─────────────────────────
+  const area = selecao?.tipo === 'area' && editando ? areasDe(planta).find((a) => a.id === selecao.id) : undefined;
+  if (area) {
+    const mudar = (mais: Partial<typeof area>) =>
+      aoMudar({ ...planta, areas: areasDe(planta).map((a) => (a.id === area.id ? { ...a, ...mais } : a)) });
+    return (
+      <section className={SECAO} data-painel="area">
+        <h2 className="text-base font-semibold">Área de medida</h2>
+        <div className="flex min-w-0 flex-col gap-[5px]">
+          <label htmlFor={idDoNome} className={ROTULO}>
+            Nome
+          </label>
+          <input
+            key={area.id}
+            ref={nome}
+            id={idDoNome}
+            className="entrada"
+            maxLength={LIMITES.nome}
+            defaultValue={area.nome}
+            onChange={(ev) => {
+              const v = ev.target.value.replace(/\s+/g, ' ').trim();
+              if (v) mudar({ nome: v });
+            }}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-[5px]">
+          <label htmlFor={idDoTipo} className={ROTULO}>
+            O que ela conta
+          </label>
+          <select id={idDoTipo} className="entrada" value={area.tipo} onChange={(ev) => mudar({ tipo: ev.target.value as TipoDeArea })}>
+            <option value="espera">Espera — quanto tempo cada pessoa fica</option>
+            <option value="porta">Porta — quem entra e quem sai</option>
+          </select>
+        </div>
+        <p className={NOTA}>
+          {area.tipo === 'espera'
+            ? 'Marque só onde se espera — o lado do cliente no balcão, o lugar do entregador no despacho. Quem fica menos de 5 s só passou e não conta.'
+            : 'Marque o pedaço de chão logo antes da porta, até onde a câmera ainda vê: o caminho que termina aqui é alguém saindo; o que começa, alguém entrando.'}
+        </p>
+        <div key={area.id} className="grid grid-cols-2 items-end gap-2.5">
+          <Medida rotulo="Largura, em m" valor={area.w} faixa={LIMITES.ladoDaArea} aoMudar={(v) => mudar({ w: v })} />
+          <Medida rotulo="Comprimento, em m" valor={area.h} faixa={LIMITES.ladoDaArea} aoMudar={(v) => mudar({ h: v })} />
+        </div>
+        <Botao variante="perigo-leve" mini className="self-start" onClick={() => aoTirar({ tipo: 'area', id: area.id })}>
+          <Trash2 className="h-[15px] w-[15px]" aria-hidden />
+          Tirar a área
+        </Botao>
+      </section>
+    );
+  }
+
   // ───────────────────────── o ambiente (só na edição) ─────────────────────────
   const ambiente = selecao?.tipo === 'ambiente' && editando ? planta.ambientes.find((a) => a.id === selecao.id) : undefined;
   if (ambiente) {
@@ -422,7 +474,7 @@ export function PainelDaPlanta({
       <h2 className="text-base font-semibold">Nada selecionado</h2>
       <p className={NOTA}>
         {editando
-          ? 'Toque numa câmera, num equipamento ou num ambiente para mexer nele. Use os botões acima da planta para desenhar um novo.'
+          ? 'Toque numa câmera, num equipamento, numa área de medida ou num ambiente para mexer nele. Use os botões acima da planta para desenhar um novo.'
           : 'Toque numa câmera ou num equipamento da planta.'}
       </p>
     </section>

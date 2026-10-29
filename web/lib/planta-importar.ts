@@ -17,7 +17,7 @@
 // Não importa nada (os testes da API a leem pelo caminho, como `planta.ts`).
 // =====================================================================
 
-import type { Ambiente, Camera, Movel, Planta } from './planta';
+import type { Ambiente, Area, Camera, Movel, Planta } from './planta';
 
 /** Um canal cadastrado na loja, do jeito que a tela já tem. */
 export type CanalDaLoja = { id: string; canal: number | null; nome: string };
@@ -34,7 +34,8 @@ export type CameraImportada = {
   motivo: string | null;
 };
 
-export type Importacao = { planta: Planta; cameras: CameraImportada[] };
+/** `trouxeAreas`: o arquivo tinha a lista de áreas de medida (falso: a tela mantém as que a planta já tem). */
+export type Importacao = { planta: Planta; cameras: CameraImportada[]; trouxeAreas: boolean };
 
 /** O maior arquivo aceito: uma planta de verdade tem poucos KB. */
 export const TAMANHO_MAXIMO_DO_ARQUIVO = 1_000_000;
@@ -156,5 +157,26 @@ export function lerArquivoDaPlanta(
     });
   }
 
-  return { importacao: { planta: { ambientes, moveis, cameras }, cameras: relatorio } };
+  // As áreas de medida (28/10/2026): a forma aqui, o resto a API diz ao salvar. O arquivo sem a lista NÃO apaga as
+  // áreas da planta (`trouxeAreas` falso: a tela mantém as que estavam, como a API faz com o salvar sem elas).
+  const areas: Area[] = [];
+  const trouxeAreas = p.areas !== undefined && p.areas !== null;
+  if (trouxeAreas) {
+    if (!Array.isArray(p.areas)) return { problema: 'as áreas de medida do arquivo não são uma lista' };
+    for (const [i, bA] of (p.areas as unknown[]).entries()) {
+      const o = objeto(bA);
+      const onde = `área de medida ${i + 1}`;
+      if (!o) return { problema: `${onde}: não é uma área` };
+      const id = texto(o.id);
+      const nome = texto(o.nome);
+      if (!id || !nome) return { problema: `${onde}: falta o id ou o nome` };
+      if (areas.some((a) => a.id === id)) return { problema: `${onde}: o id "${id}" se repete no arquivo` };
+      if (o.tipo !== 'espera' && o.tipo !== 'porta') return { problema: `${onde} (${nome}): o tipo é espera ou porta` };
+      const { r, problema } = retangulo(o, `${onde} (${nome})`);
+      if (problema) return { problema };
+      areas.push({ id, nome, tipo: o.tipo, ...r! });
+    }
+  }
+
+  return { importacao: { planta: { ambientes, moveis, cameras, areas }, cameras: relatorio, trouxeAreas } };
 }

@@ -84,6 +84,20 @@ describe('importar a planta de um arquivo', () => {
     assert.deepEqual(r.planta, planta, 'nada muda na conferência da API');
   });
 
+  it('as áreas de medida do arquivo entram como a API guarda; o arquivo sem elas não apaga as da planta', () => {
+    const fila = { id: 'fila', nome: 'Fila do balcão', tipo: 'espera', x: 1.234, y: 2, w: 3, h: 1.4 };
+    const com = ler({ ...ARQUIVO, areas: [fila, { ...fila, id: 'porta', nome: 'Porta', tipo: 'porta' }] }).importacao!;
+    assert.equal(com.trouxeAreas, true);
+    assert.deepEqual(com.planta.areas, [{ ...fila, x: 1.23 }, { ...fila, x: 1.23, id: 'porta', nome: 'Porta', tipo: 'porta' }]);
+    assert.deepEqual(lerPlanta(com.planta).planta, com.planta, 'a API aceita igual');
+    const sem = ler(ARQUIVO).importacao!;
+    assert.equal(sem.trouxeAreas, false, 'sem a lista: a tela mantém as que a planta tem');
+    assert.deepEqual(sem.planta.areas, []);
+    assert.match(ler({ ...ARQUIVO, areas: [{ ...fila, tipo: 'janela' }] }).problema ?? '', /área de medida 1 \(Fila do balcão\): o tipo é espera ou porta/);
+    assert.match(ler({ ...ARQUIVO, areas: [fila, fila] }).problema ?? '', /o id "fila" se repete/);
+    assert.match(ler({ ...ARQUIVO, areas: 'fila' }).problema ?? '', /não são uma lista/);
+  });
+
   it('aceita a resposta da API inteira ({ planta }) e a planta sem câmeras', () => {
     const r = ler({ planta: { ambientes: ARQUIVO.ambientes, moveis: [] }, versao: 3 });
     assert.ok(r.importacao, r.problema);

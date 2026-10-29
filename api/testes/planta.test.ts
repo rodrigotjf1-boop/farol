@@ -57,7 +57,20 @@ const problema = (corpo: unknown): string => lerPlanta(corpo).problema ?? '';
 describe('o que entra na planta (sem banco)', () => {
   it('o exemplo do contrato passa e sai igual', () => {
     assert.deepEqual(lerPlanta(EXEMPLO), { planta: EXEMPLO });
-    assert.deepEqual(lerPlanta({ ambientes: [], moveis: [], cameras: [] }), { planta: { ambientes: [], moveis: [], cameras: [] } }, 'planta vazia vale');
+    assert.deepEqual(lerPlanta({ ambientes: [], moveis: [], cameras: [] }), { planta: { ambientes: [], moveis: [], cameras: [], areas: [] } }, 'planta vazia vale (sem áreas: lista vazia)');
+  });
+
+  it('as áreas de medida (28/10/2026): espera ou porta, conferidas como os retângulos; ausente ou nula é lista vazia', () => {
+    const area = { id: 'fila', nome: ' Fila   do balcão ', tipo: 'espera', x: 1.234, y: 2, w: 3, h: 1.4 };
+    assert.deepEqual(lerPlanta(com({ areas: [area] })).planta?.areas, [{ id: 'fila', nome: 'Fila do balcão', tipo: 'espera', x: 1.23, y: 2, w: 3, h: 1.4 }]);
+    assert.deepEqual(lerPlanta({ ...com({}), areas: null }).planta?.areas, []);
+    assert.match(problema(com({ areas: [{ ...area, tipo: 'parede' }] })), /areas\[0\]\.tipo: espera ou porta/);
+    assert.match(problema(com({ areas: [area, area] })), /areas\[1\]\.id: repetido/);
+    assert.match(problema(com({ areas: [{ ...area, w: 0.1 }] })), /areas\[0\]: largura e comprimento de 0,3 a 60/);
+    assert.match(problema(com({ areas: [{ ...area, x: 199 }] })), /areas\[0\]: passa de 200 m/);
+    assert.match(problema(com({ areas: [{ ...area, nome: '' }] })), /areas\[0\]\.nome/);
+    assert.match(problema(com({ areas: Array.from({ length: 21 }, (_, i) => ({ ...area, id: `a${i}` })) })), /areas: no máximo 20/);
+    assert.match(problema({ ...com({}), areas: 'fila' }), /areas: lista/);
   });
 
   it('o que não é da planta fica de fora, e as medidas saem com duas casas', () => {
@@ -71,6 +84,7 @@ describe('o que entra na planta (sem banco)', () => {
       ambientes: [{ ...AMBIENTE, w: 6 }],
       moveis: [{ ...MOVEL, x: 1.01, alt: 0.9 }],
       cameras: [{ ...CAMERA, alcance: 3.14 }],
+      areas: [],
     });
   });
 
@@ -613,7 +627,7 @@ describe('a planta da loja (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATAB
     assert.equal(r.statusCode, 200, r.body);
     const salva = r.json() as Resposta;
     assert.equal(salva.versao, 1);
-    assert.deepEqual(salva.planta, sala());
+    assert.deepEqual(salva.planta, { ...sala(), areas: [] }, 'sem áreas: a leitura devolve a lista vazia');
     assert.ok(salva.atualizadaEm);
     assert.deepEqual((await ler()).json(), salva);
     assert.deepEqual((await ler(cookieSupervisao)).json(), salva);
@@ -807,8 +821,27 @@ describe('a planta da loja (Postgres real)', { skip: !URL_DO_BANCO && 'sem DATAB
     await pool.query(`update planta set documento = '{"ambientes": "torto"}'::jsonb where loja_id = $1`, [lojaId]);
     const r = await ler();
     assert.equal(r.statusCode, 200, r.body);
-    assert.deepEqual((r.json() as Resposta).planta, { ambientes: [], moveis: [], cameras: [] });
+    assert.deepEqual((r.json() as Resposta).planta, { ambientes: [], moveis: [], cameras: [], areas: [] });
     assert.equal((await app.inject({ method: 'GET', url: '/v1/agentes/configuracao', headers: { authorization: `Bearer ${token}` } })).statusCode, 200, 'e o agente continua recebendo a configuração');
     assert.equal((await salvar(antes.planta, antes.versao)).statusCode, 200, 'salvar de novo conserta');
+  });
+
+  it('as áreas de medida: salvar a planta SEM elas mantém as que estavam; a lista vazia tira todas', async () => {
+    const fila = { id: 'fila', nome: 'Fila do balcão', tipo: 'espera', x: 0.5, y: 2.5, w: 2, h: 1 };
+    const v = ((await ler()).json() as Resposta).versao!;
+    const comArea = await salvar({ ...sala(), areas: [fila] }, v);
+    assert.equal(comArea.statusCode, 200, comArea.body);
+    assert.deepEqual((comArea.json() as Resposta).planta!.areas, [fila]);
+    // a tela de antes (sem as áreas) salva o desenho: a área continua lá
+    const semAreas = await salvar(sala(), v + 1);
+    assert.equal(semAreas.statusCode, 200, semAreas.body);
+    assert.deepEqual((semAreas.json() as Resposta).planta!.areas, [fila], 'ausente mantém');
+    assert.deepEqual(((await salvar({ ...sala(), areas: null }, v + 2)).json() as Resposta).planta!.areas, [fila], 'nulo também mantém');
+    // tirar de propósito: a lista vazia
+    const vazia = await salvar({ ...sala(), areas: [] }, v + 3);
+    assert.deepEqual((vazia.json() as Resposta).planta!.areas, []);
+    const torta = await salvar({ ...sala(), areas: [{ ...fila, tipo: 'janela' }] }, v + 4);
+    assert.equal(torta.statusCode, 422);
+    assert.match(torta.json().mensagem, /areas\[0\]\.tipo/);
   });
 });

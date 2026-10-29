@@ -27,17 +27,28 @@ export type Movel = { id: string; nome: string; itemId: string | null; x: number
  * simulada do console usam; o leque no chão e a frase do lugar não mudam com ela.
  */
 export type Camera = { pontoId: string; x: number; y: number; alt: number; dir: number; abertura: number; alcance: number; incl?: number };
-export type Planta = { ambientes: Ambiente[]; moveis: Movel[]; cameras: Camera[] };
+/**
+ * Área de medida (pedido do dono, 28/10/2026: o balcão, o atendimento do delivery e a saída dos entregadores). NÃO é
+ * ambiente: ambiente é parede para o que cada câmera cobre; a área só marca um pedaço de chão para contar.
+ *   espera — quanto tempo cada pessoa fica dentro (a fila do balcão, a retirada, a espera dos entregadores);
+ *   porta  — quem entra (o caminho começa nela) e quem sai (o caminho termina nela), com a hora.
+ */
+export type TipoDeArea = 'espera' | 'porta';
+export type Area = { id: string; nome: string; tipo: TipoDeArea; x: number; y: number; w: number; h: number };
+export type Planta = { ambientes: Ambiente[]; moveis: Movel[]; cameras: Camera[]; areas: Area[] };
+export const TIPOS_DE_AREA: readonly TipoDeArea[] = ['espera', 'porta'];
 
 export const LIMITES_DA_PLANTA = {
   ambientes: 30,
   moveis: 200,
   cameras: 64,
+  areas: 20,
   nome: 60,
   /** Nada passa disto, em metros: nem posição, nem o fim de um retângulo. */
   extensao: 200,
   ladoDoAmbiente: [0.5, 100],
   ladoDoMovel: [0.2, 30],
+  ladoDaArea: [0.3, 60],
   alturaDoMovel: [0.1, 5],
   alturaDaCamera: [0.5, 10],
   abertura: [20, 180],
@@ -166,8 +177,33 @@ export function lerPlanta(corpo: unknown): { planta?: Planta; problema?: string 
     cameras.push({ pontoId, x, y, alt, dir, abertura, alcance, incl: Math.round(incl) });
   }
 
-  return { planta: { ambientes, moveis, cameras } };
+  // As áreas de medida: a planta de antes não tinha — ausente (ou nulo) é lista vazia. Quem decide "ausente mantém as
+  // que estavam" é a gravação (`rotas/planta.ts`), que sabe o que estava.
+  const areas: Area[] = [];
+  if (c.areas !== undefined && c.areas !== null) {
+    if (!Array.isArray(c.areas)) return { problema: 'areas: lista (pode ser vazia)' };
+    if (c.areas.length > L.areas) return { problema: `areas: no máximo ${L.areas}` };
+    for (const [i, bruto] of (c.areas as unknown[]).entries()) {
+      const onde = `areas[${i}]`;
+      const o = objeto(bruto);
+      if (!o) return { problema: `${onde}: não é uma área` };
+      if (typeof o.id !== 'string' || !ID.test(o.id)) return { problema: `${onde}.id: letras, números e hífen, até 40` };
+      if (areas.some((a) => a.id === o.id)) return { problema: `${onde}.id: repetido` };
+      const nome = nomeLimpo(o.nome);
+      if (!nome) return { problema: `${onde}.nome: texto de 1 a ${L.nome} caracteres` };
+      if (typeof o.tipo !== 'string' || !TIPOS_DE_AREA.includes(o.tipo as TipoDeArea)) return { problema: `${onde}.tipo: espera ou porta` };
+      const r = retangulo(o, onde, L.ladoDaArea);
+      if ('problema' in r) return r;
+      areas.push({ id: o.id, nome, tipo: o.tipo as TipoDeArea, ...r });
+    }
+  }
+
+  return { planta: { ambientes, moveis, cameras, areas } };
 }
+
+/** O ponto (x, y) dentro da área (a borda conta). */
+export const dentroDaArea = (a: Pick<Area, 'x' | 'y' | 'w' | 'h'>, x: number, y: number): boolean =>
+  x >= a.x && x <= a.x + a.w && y >= a.y && y <= a.y + a.h;
 
 // ───────────────────────── a geometria, no chão ─────────────────────────
 
