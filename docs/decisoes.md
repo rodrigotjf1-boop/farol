@@ -10304,3 +10304,13 @@ aparecia só na tela Saúde.
 - A migration 060 aplicada num banco local montado como o do CI (`npm run migrar`); 54 testes da API dos avisos, da
   saúde e dos alertas verdes; o console monta (`next build`). Mutação 8/8 (8 GB exatos, a mais velha primeiro, sem a
   janela, a hora futura, a hora sem leitura, o texto que não é número, o total inventado, a gravidade).
+
+## 28/10/2026 · Treinamento: o lanche sem leitura vai para o fim da fila (sem migration)
+
+No print do dono (Treinamento › Lanches, 183 para conferir), o topo da fila eram lanches da gravação de 24/10, 22:30 às
+23:30, com "sem palpite" e "sem leitura dos ingredientes": nenhuma etapa lida, nada a ensinar ao juiz — e eles
+empurravam para baixo os lanches das noites ao vivo com o juiz treinado. O dono aprovou ("3 ok"): na fila "Para
+conferir", o lanche sem leitura (`semLeitura`) vai depois de todos os que têm leitura; entre os que têm, a ordem segue a
+de antes (o coberto e a dúvida primeiro, depois a hora). Só a ordem muda: o lanche continua na lista e pode ser
+conferido. Conferido em `api/testes/treino.test.ts` (o sem leitura mais novo fica atrás de um com leitura mais antigo; sem
+a regra, o teste reprova).

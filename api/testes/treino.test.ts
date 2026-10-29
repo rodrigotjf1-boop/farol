@@ -771,9 +771,24 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
       e.leu = null;
       e.candidatos = [];
     }
+    corpo.lanche.abertoEm = '2026-10-14T22:30:40-03:00'; // o mais novo: pela hora, iria na frente
+    corpo.lanche.fechouEm = '2026-10-14T22:31:23-03:00';
     const id = (await mandar(corpo)).json().lancheId as string;
-    const x = (await lista()).json().lanches.find((y: { id: string }) => y.id === id);
+    // e um lanche COM leitura, mais antigo, ainda na fila
+    const comLeituraCorpo = CORPO();
+    comLeituraCorpo.lanche.chave = 'lanche-com-leitura-antes';
+    comLeituraCorpo.lanche.abertoEm = '2026-10-14T21:00:40-03:00';
+    comLeituraCorpo.lanche.fechouEm = '2026-10-14T21:01:23-03:00';
+    assert.equal((await mandar(comLeituraCorpo)).statusCode, 201);
+    const todos = (await lista()).json().lanches as { id: string; situacao: string; semLeitura: boolean; abertoEm: string }[];
+    const x = todos.find((y) => y.id === id)!;
     assert.deepEqual([x.semLeitura, x.palpite], [true, null]);
+    // na fila, depois de TODOS os que têm leitura (o dono, 28/10: no topo ele empurrava para baixo os que ensinam) —
+    // mesmo sendo o mais novo e "coberto", que antes o punham em primeiro
+    const fila = todos.filter((y) => y.situacao === 'conferir');
+    const comLeitura = fila.filter((y) => !y.semLeitura);
+    assert.ok(comLeitura.length > 0, 'há lanche com leitura na fila');
+    assert.ok(fila.indexOf(x) > Math.max(...comLeitura.map((y) => fila.indexOf(y))), fila.map((y) => [y.semLeitura, y.abertoEm]).join(' | '));
     const d = (await umLanche(id)).json();
     assert.equal(d.semPalpite, true);
     const r = await conferir(id, { versao: 2, produto: 'X-Burger', fotos: d.fotos.map(() => ({ marcados: [], ruim: false, obs: null })) });
