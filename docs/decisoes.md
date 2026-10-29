@@ -10477,3 +10477,70 @@ acompanhar do celular por algum link, setorizar com cores os setores". Protótip
   nada rolando para o lado; contrastes dos nomes ≥ 5,2:1.
 - Suíte da API inteira contra Postgres local (1712/1713: a de fora é a do banco local, "embedding de dimensão errada",
   a mesma do #230) e `npm run build` da API e do console verdes.
+
+## 29/10/2026 · O link só do ao vivo: o celular vê SÓ o movimento, sem login (migration 061)
+
+O dono, no mesmo dia da planta com vida: "a ideia de ver do celular não é ter acesso completo ao webapp, é ver somente
+a movimentação ao vivo". O "Ver no celular" de antes (#231) abria o console inteiro, com login. Protótipo aprovado no
+mesmo dia com o recomendado (`mockups/farol-link-ao-vivo.html`): prazo de 30 dias por padrão, o código só na hora de
+criar, e só quem configura a loja cria e desliga.
+
+- **O link** (`link_ao_vivo`, migration 061): um por pessoa ou aparelho ("Celular do gerente"), de uma loja. Vale 1, 7
+  ou 30 dias (o padrão) ou até alguém desligar; no máximo 20 valendo por loja. O código (32 bytes aleatórios) aparece
+  UMA vez; o banco guarda a impressão (SHA-256), como o acesso de outro sistema. Desligar preenche `desligado_em` e a
+  linha fica, como registro; não se religa (para voltar, cria-se outro). A lista diz o prazo, quem criou e o último
+  acesso (anotado no máximo uma vez por minuto). A situação (valendo, vencido, desligado) é do relógio do banco.
+- **O código não passa por registro nenhum.** A página é `/ver#<código>`: o que vem depois do "#" o navegador nunca
+  manda a servidor (nem ao Next, nem à borda). A página o lê e o manda à API num cabeçalho (`x-farol-link`), que o
+  registro da API não guarda (o endereço guarda). A página do link pede aos buscadores para não guardá-la e não manda
+  referência (`noindex`, `no-referrer`, `no-store`).
+- **O que o link abre** — duas rotas, sem sessão: `GET /v1/ver` (o nome e o fuso da loja e o DESENHO da planta: os
+  ambientes e os móveis com nome, medidas e tipo; nada de câmera, área de medida, setor da loja nem equipamento do
+  inventário — campo a campo, para um campo novo da planta não sair por aqui sem alguém decidir) e `GET /v1/ver/agora`
+  (as pessoas agora: o número do dia, a posição e a velocidade — sem os canais que viram cada uma). A leitura pelo link
+  conta como alguém olhando: o agente manda a cada meio segundo, como com o console aberto.
+- **O código só abre essas duas rotas (V116)**, e nenhuma outra credencial (sessão, agente, distribuição) abre o link.
+  O que não vale — desligado, vencido, de loja ou conta desativada, de loja apagada, que nunca existiu, copiado pela
+  metade — responde IGUAL (404 "este link não vale mais"), sem dizer de que loja era.
+- **Na memória, 10 s.** A conferência do código fica 10 s na memória da API (a página lê uma vez por segundo); o prazo
+  vale pelo relógio mesmo com ela na memória, e desligar a apaga NA HORA. ⚠️ Como a última posição do ao vivo, vale
+  enquanto a API roda numa instância só. Limites: 240 leituras por minuto por link (429 com `Retry-After`; os outros
+  links seguem) e 600 códigos errados por minuto na API inteira (passou disso, o código desconhecido espera a janela; o
+  que já está na memória segue).
+- **A página do celular** (`web/app/ver/page.tsx` + `ao-vivo-por-link.tsx`), fora da moldura do console e liberada no
+  `middleware`: o nome da loja, "Ao vivo / Parado / Sem sinal", Planta e 3D (abre no 3D), "Cores" e "Nomes", a legenda,
+  "Na loja" e "Por setor", e o rodapé "só o movimento ao vivo: sem nomes e sem imagem das câmeras" com o prazo. Sem
+  sinal, a planta fica sem ninguém, os números viram "–" e o aviso diz que o computador da loja ou a internet de lá está
+  fora (ou a loja fechada). Desligado: "Este link não vale mais", sem o nome da loja.
+- **O console**: "Ver no celular" abre uma GAVETA (no celular, folha que sobe) com "Novo link" (para quem é, vale por,
+  Criar link → o QR, o endereço e Copiar), "O que quem tem o link vê" e "Links desta loja" com Desligar e a pergunta ali
+  mesmo. A leitura do ao vivo e o movimento suave foram para um gancho comum (`use-ao-vivo.ts`) e a legenda, as chaves e
+  o "Por setor" para `lugares-ao-vivo.tsx` — o console e o link mostram o mesmo do mesmo jeito.
+
+### Como foi conferido
+
+- `api/testes/link-ao-vivo.test.ts` (Postgres real): quem configura cria (gerente e diretoria; supervisão 403, sem
+  sessão 401, outra conta 404), o código aparece uma vez e só a impressão fica no banco, a lista sem código nem
+  impressão; o que não entra (nome, prazo, código no corpo); o link abre só o desenho (sem câmera, área, setor, nem os
+  ids da loja e da conta) e as pessoas sem os canais, cada link a SUA loja (duas lojas da mesma conta), e ler pelo link
+  conta como alguém olhando; desligado (na hora, com a conferência na memória), vencido (pelo banco e com a conferência
+  na memória), loja e conta desativadas, loja apagada, código curto, inventado e ausente — a mesma resposta; o código
+  não abre nenhuma outra porta como sessão, agente ou chave da distribuição, e elas não abrem o link (V116); a lista
+  com os que valem primeiro (V80) e o último uso; o máximo de 20 com o cruzamento FORÇADO (o teste prende a gravação
+  na tabela e solta com os seis pedidos presos atrás — V30, V124); os limites (429 com `Retry-After`).
+- Mutação 20/20. Na primeira rodada sobraram duas, e as duas mudaram o código ou o teste: o prazo era conferido duas
+  vezes seguidas (no banco e, logo depois, na memória — agora o banco decide quando lê e a memória só enquanto guarda),
+  e o teste dos seis pedidos ao mesmo tempo passava sem a trava (agora o cruzamento é forçado).
+- A tela de ponta a ponta nesta máquina (a API e o console MONTADO contra o banco de teste, uma loja genérica com um
+  "agente" mandando 7 pessoas): o Ao vivo do console igual depois do gancho comum; a gaveta pelo teclado, com o foco em
+  "Para quem é", "Criar link" só com nome, 30 dias marcado; 7 dias → o QR LIDO por um leitor de verdade (`jsQR`) dá o
+  endereço `/ver#<código>`, o mesmo do texto e do copiar; a lista com o prazo, "ainda não abriu" e quem criou; o
+  celular num contexto SEM cookie: a página sem a moldura do console, o nome da loja, as 7 pessoas, "Por setor" igual
+  ao do console, nenhuma câmera desenhada, só `/api/ver` e `/api/ver/agora` pedidos, os cabeçalhos combinados; a lista
+  passa a "aberto agora"; Desligar com a pergunta; o celular mostra "Este link não vale mais" em menos de 1 s, sem o
+  nome da loja; Esc fecha a gaveta e o foco volta ao botão; o agente para e, em 30 s, "Sem sinal da loja" com os
+  números em "–"; 144 medidas (16 larguras, claro e escuro: a página do link na Planta e no 3D, a gaveta com o QR e com
+  a pergunta, "não vale" e "sem sinal") sem nada rolando para o lado; contraste do "Link criado" ≥ 13:1 e dos sinais
+  ≥ 4,2:1 nos dois temas.
+- Suíte da API inteira contra Postgres local (1723/1724: a de fora é a do banco local, "embedding de dimensão errada",
+  a mesma do #230 e do #231) e `npm run build` da API e do console verdes.

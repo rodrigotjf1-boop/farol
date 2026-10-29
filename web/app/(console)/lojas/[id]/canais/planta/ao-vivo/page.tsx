@@ -15,18 +15,23 @@
 // figura anda suave até lá. Ler também diz ao computador da loja que alguém
 // olha: só então ele manda a cada meio segundo. Com a aba escondida, para
 // de ler. Só para quem configura a loja (é o caminho de cada um).
+//
+// A leitura e o movimento são os mesmos da página do link só do ao vivo
+// (`use-ao-vivo.ts`); "Ver no celular" abre a gaveta dos links (29/10/2026):
+// o link abre SÓ o movimento ao vivo, sem login e sem o resto do console.
 // =====================================================================
 
 import { Box, Crosshair, Footprints, Map as MapaIcone, Smartphone, Video } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useConsole } from '@/componentes/console';
 import { abasDaPlanta } from '@/componentes/planta-viva/abas-da-planta';
-import { AoVivo3D, type PosicaoNaCena } from '@/componentes/planta-viva/ao-vivo-3d';
-import { AoVivoPlanta, type FiguraAoVivo } from '@/componentes/planta-viva/ao-vivo-planta';
-import { corDoLugar } from '@/componentes/planta-viva/cara-da-planta';
+import { AoVivo3D } from '@/componentes/planta-viva/ao-vivo-3d';
+import { AoVivoPlanta } from '@/componentes/planta-viva/ao-vivo-planta';
+import { classeDaChave as chave, LegendaDosLugares, ListaPorSetor, useLugares } from '@/componentes/planta-viva/lugares-ao-vivo';
+import { useAoVivo } from '@/componentes/planta-viva/use-ao-vivo';
 import { usePlantaViva } from '@/componentes/planta-viva/use-planta-viva';
 import { VerNoCelular } from '@/componentes/planta-viva/ver-no-celular';
 import { abasDeCanais } from '@/componentes/pontos/abas-de-canais';
@@ -34,8 +39,7 @@ import { Abas } from '@/componentes/ui/abas';
 import { Botao, classesDoBotao } from '@/componentes/ui/botao';
 import { Alerta, Cabecalho, CARTAO, Ossos, Ponto, Titulo, Vazio } from '@/componentes/ui/pecas';
 import { ErroDaApi, plantaVivaApi } from '@/lib/api';
-import { ambienteEm, NOME_DO_TIPO_DE_AMBIENTE, TIPOS_DE_AMBIENTE, tipoDoAmbiente, type Pt, type TipoDeAmbiente } from '@/lib/planta';
-import { aproximar, duracao, lembrar, type AgoraDaPlanta, type MemoriaAoVivo } from '@/lib/planta-viva';
+import { duracao } from '@/lib/planta-viva';
 
 type Modo = 'planta' | '3d' | 'cams';
 const MODOS: ReadonlyArray<{ valor: Modo; rotulo: string; icone: typeof MapaIcone }> = [
@@ -43,13 +47,6 @@ const MODOS: ReadonlyArray<{ valor: Modo; rotulo: string; icone: typeof MapaIcon
   { valor: '3d', rotulo: '3D', icone: Box },
   { valor: 'cams', rotulo: 'Câmeras', icone: Video },
 ];
-const LER_A_CADA_MS = 1000;
-const PASSANDO = 'Passando';
-/** A chave sobre a cena (sempre escura): ligada, com a cor do rótulo. */
-const CHAVE =
-  'rounded-full border-[1.5px] px-[11px] py-1.5 font-mono text-[12px] font-semibold transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-farol-mostarda';
-const chave = (ligada: boolean): string =>
-  `${CHAVE} ${ligada ? 'border-farol-rotulo bg-farol-rotulo text-farol-sobre-rotulo' : 'border-farol-cena-suave/45 bg-farol-cena text-farol-cena-tinta'}`;
 
 const relogioNaLoja = (ms: number, fuso: string) => {
   try {
@@ -65,22 +62,25 @@ export default function AoVivoNaPlanta() {
   const fuso = loja?.timezone ?? 'America/Sao_Paulo';
   const { dados, erro: erroDaPlanta, nomeDaCamera } = usePlantaViva(id);
   const planta = dados?.planta ?? null;
-  const [agora, setAgora] = useState<AgoraDaPlanta | null>(null);
-  const [erro, setErro] = useState<string | null>(null);
   const [semAcesso, setSemAcesso] = useState(false);
   const [modo, setModo] = useState<Modo>('planta');
   const [escolhida, setEscolhida] = useState<number | null>(null);
-  const [figuras, setFiguras] = useState<FiguraAoVivo[]>([]);
-  const [relogio, setRelogio] = useState(0);
   // A planta com vida (29/10/2026): o chão de cada lugar com a cor dele e o nome de cada equipamento — os dois ligados.
   const [comCores, setComCores] = useState(true);
   const [comNomes, setComNomes] = useState(true);
-  const [celular, setCelular] = useState<string | null>(null);
-  const memoria = useRef<MemoriaAoVivo>(new Map());
-  const alvos = useRef(new Map<number, Pt>());
-  const mostradas = useRef(new Map<number, PosicaoNaCena>());
+  const [celular, setCelular] = useState(false);
 
-  const nomeDoPosto = useMemo(() => new Map((planta?.moveis ?? []).map((m) => [m.id, m.nome])), [planta]);
+  // ───────────── a leitura a cada segundo e o movimento suave (o mesmo do link) ─────────────
+  const ler = useCallback(() => plantaVivaApi.agora(id), [id]);
+  const parar = useCallback((e: unknown) => {
+    if (e instanceof ErroDaApi && e.status === 403) {
+      setSemAcesso(true);
+      return true;
+    }
+    return false;
+  }, []);
+  const { agora, erro, figuras, relogio, mostradas, memoria } = useAoVivo({ planta, ler, parar });
+
   const numeroDoCanal = useCallback(
     (pontoId: string) => {
       const c = dados?.canais.find((x) => x.id === pontoId);
@@ -88,75 +88,6 @@ export default function AoVivoNaPlanta() {
     },
     [dados],
   );
-
-  // ───────────── a leitura, a cada segundo, com a aba à vista ─────────────
-  useEffect(() => {
-    if (!planta) return;
-    let parado = false;
-    let espera: ReturnType<typeof setTimeout> | undefined;
-    const ler = async () => {
-      if (document.visibilityState === 'visible') {
-        try {
-          const a = await plantaVivaApi.agora(id);
-          if (parado) return;
-          const t = Date.now();
-          memoria.current = lembrar(memoria.current, a.pessoas, t, planta.moveis);
-          alvos.current = new Map(a.pessoas.map((p) => [p.n, [p.x, p.y] as Pt]));
-          setAgora(a);
-          setErro(null);
-        } catch (e) {
-          if (parado) return;
-          if (e instanceof ErroDaApi && e.status === 403) {
-            setSemAcesso(true);
-            return;
-          }
-          setErro(e instanceof ErroDaApi ? e.message : 'não consegui ler o movimento agora');
-        }
-      }
-      if (!parado) espera = setTimeout(ler, LER_A_CADA_MS);
-    };
-    void ler();
-    return () => {
-      parado = true;
-      if (espera) clearTimeout(espera);
-    };
-  }, [id, planta]);
-
-  // ───────────── o movimento suave entre as leituras ─────────────
-  useEffect(() => {
-    let quadro = 0;
-    let antes = performance.now();
-    let desenhadoEm = 0;
-    const passo = (t: number) => {
-      const dt = t - antes;
-      antes = t;
-      const novas = new Map<number, PosicaoNaCena>();
-      for (const [n, alvo] of alvos.current) {
-        const era = mostradas.current.get(n);
-        const [x, y] = era ? aproximar([era.x, era.y], alvo, dt) : alvo;
-        const posto = memoria.current.get(n)?.posto;
-        novas.set(n, { x, y, rotulo: (posto && nomeDoPosto.get(posto)) || PASSANDO });
-      }
-      mostradas.current = novas;
-      // a vista de cima e a lista pelo React, ~20 vezes por segundo; o 3D lê o ref a cada quadro
-      if (t - desenhadoEm > 50) {
-        desenhadoEm = t;
-        setFiguras(
-          [...novas].map(([n, p]) => ({
-            n,
-            x: p.x,
-            y: p.y,
-            rotulo: p.rotulo,
-            rastro: [...(memoria.current.get(n)?.rastro ?? []).map(([rx, ry]) => [rx, ry] as Pt), [p.x, p.y] as Pt],
-          })),
-        );
-        setRelogio(Date.now());
-      }
-      quadro = requestAnimationFrame(passo);
-    };
-    quadro = requestAnimationFrame(passo);
-    return () => cancelAnimationFrame(quadro);
-  }, [nomeDoPosto]);
 
   const escolher = useCallback((n: number) => setEscolhida((x) => (x === n ? null : n)), []);
   useEffect(() => {
@@ -169,22 +100,8 @@ export default function AoVivoNaPlanta() {
     return [...c].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   }, [figuras]);
 
-  /** Os lugares que a planta tem, na ordem da legenda. */
-  const lugares = useMemo(
-    () => TIPOS_DE_AMBIENTE.filter((t) => (planta?.ambientes ?? []).some((a) => tipoDoAmbiente(a) === t)),
-    [planta],
-  );
-  /** Quantas pessoas em cada lugar agora (quem está fora de todo ambiente conta à parte). */
-  const porLugar = useMemo(() => {
-    const c = new Map<TipoDeAmbiente | 'fora', number>();
-    if (!planta) return c;
-    for (const f of figuras) {
-      const a = ambienteEm(planta, f.x, f.y);
-      const t = a ? tipoDoAmbiente(a) : 'fora';
-      c.set(t, (c.get(t) ?? 0) + 1);
-    }
-    return c;
-  }, [figuras, planta]);
+  /** Os lugares que a planta tem (na ordem da legenda) e quantas pessoas há em cada um agora. */
+  const { lugares, porLugar } = useLugares(planta, figuras);
 
   const cabecalho = (
     <>
@@ -246,12 +163,12 @@ export default function AoVivoNaPlanta() {
         <span className="whitespace-nowrap rounded-full bg-farol-painel px-3 py-1.5 font-mono text-[12px] font-semibold shadow-farol-1">
           {agora?.canais.length ?? 0} câmera(s) com imagem
         </span>
-        <Botao mini onClick={() => setCelular(`${window.location.origin}/lojas/${id}/canais/planta/ao-vivo`)} data-ver-no-celular>
+        <Botao mini onClick={() => setCelular(true)} aria-haspopup="dialog" data-ver-no-celular>
           <Smartphone className="h-4 w-4" aria-hidden />
           Ver no celular
         </Botao>
       </div>
-      {celular ? <VerNoCelular endereco={celular} aoFechar={() => setCelular(null)} /> : null}
+      {celular ? <VerNoCelular lojaId={id} aoFechar={() => setCelular(false)} /> : null}
       {erro ? <Alerta tom="atencao" papel="status">{erro} — tentando de novo.</Alerta> : null}
 
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_300px]">
@@ -263,16 +180,7 @@ export default function AoVivoNaPlanta() {
             <button type="button" className={chave(comNomes)} aria-pressed={comNomes} onClick={() => setComNomes((v) => !v)}>
               Nomes
             </button>
-            {comCores ? (
-              <ul className="contents" aria-label="Os setores da planta" data-legenda>
-                {lugares.map((t) => (
-                  <li key={t} className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11.5px] font-semibold text-farol-cena-tinta">
-                    <i className="inline-block h-[11px] w-[11px] rounded-[3px]" style={{ background: corDoLugar(t) }} aria-hidden />
-                    {NOME_DO_TIPO_DE_AMBIENTE[t]}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+            {comCores ? <LegendaDosLugares lugares={lugares} /> : null}
           </div>
           {modo === 'planta' ? (
             <AoVivoPlanta
@@ -313,22 +221,7 @@ export default function AoVivoNaPlanta() {
           </section>
           <section className={`${CARTAO} p-4`} aria-labelledby="t-setor">
             <Titulo id="t-setor">Por setor</Titulo>
-            <ul className="flex flex-col gap-1.5" aria-label="Pessoas em cada setor agora" data-por-setor>
-              {lugares.map((t) => (
-                <li key={t} className="grid grid-cols-[12px_minmax(0,1fr)_auto] items-center gap-2 text-[14px]" data-lugar={t}>
-                  <i className="h-3 w-3 rounded-[3px]" style={{ background: corDoLugar(t) }} aria-hidden />
-                  <span className="min-w-0 break-words">{NOME_DO_TIPO_DE_AMBIENTE[t]}</span>
-                  <b className="font-mono text-[13px] tabular-nums">{porLugar.get(t) ?? 0}</b>
-                </li>
-              ))}
-              {porLugar.get('fora') ? (
-                <li className="grid grid-cols-[12px_minmax(0,1fr)_auto] items-center gap-2 text-[14px] text-farol-suave" data-lugar="fora">
-                  <i className="h-3 w-3 rounded-[3px] border border-farol-borda-forte" aria-hidden />
-                  <span className="min-w-0 break-words">Fora dos ambientes</span>
-                  <b className="font-mono text-[13px] tabular-nums">{porLugar.get('fora')}</b>
-                </li>
-              ) : null}
-            </ul>
+            <ListaPorSetor lugares={lugares} porLugar={porLugar} />
             <p className="mt-2.5 text-[12.5px] text-farol-suave">
               O setor é o do ambiente em que a pessoa está: em Canais › Planta › Desenho, &ldquo;Editar planta&rdquo;, toque no ambiente e
               escolha &ldquo;Que lugar é&rdquo;. Sem escolha, vale o nome dele.

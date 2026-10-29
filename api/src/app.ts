@@ -25,6 +25,7 @@ import { rotasDeInventario } from './rotas/inventario.js';
 import { rotasDePlanta } from './rotas/planta.js';
 import { rotasDeCalibracao } from './rotas/calibracao.js';
 import { rotasDaPlantaViva } from './rotas/planta-viva.js';
+import { rotasDoLinkAoVivo } from './rotas/link-ao-vivo.js';
 import { rotasDoEspecialista } from './rotas/especialista.js';
 import { rotasDePadroes } from './rotas/padroes.js';
 import { rotasDePreview } from './rotas/preview.js';
@@ -224,7 +225,9 @@ export function criarApp(
   rotasDeInventario(app, pool);
   rotasDePlanta(app, pool);
   rotasDeCalibracao(app, pool);
-  rotasDaPlantaViva(app, pool, opcoes.relogio);
+  const aoVivo = rotasDaPlantaViva(app, pool, opcoes.relogio);
+  // o link só do ao vivo lê a MESMA última posição (e conta como alguém olhando)
+  rotasDoLinkAoVivo(app, pool, aoVivo, opcoes.relogio);
   rotasDoEspecialista(app, pool);
   rotasDeEventos(app, pool);
   rotasDeResumos(app, pool);

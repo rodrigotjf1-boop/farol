@@ -10,6 +10,8 @@
 //   GET  /v1/lojas/:id/planta-viva/atendimento   a aba "Atendimento" (28/10/2026): a espera em cada área de medida e
 //                                     quem entra e sai por cada porta — agregado, para quem acompanha a loja
 //
+// O link só do ao vivo (`link-ao-vivo.ts`, 29/10/2026) lê a mesma última posição, sem os canais, por `AoVivoDaApi`.
+//
 // A guarda é curta: no envio, os caminhos com mais de 7 dias são apagados e o minuto inteiro com mais de 90. O ao vivo
 // não vai ao banco: a última posição de cada loja fica na memória desta API, por 30 s. ⚠️ Vale enquanto a API roda
 // numa instância só (o EasyPanel de hoje); com duas, o agente e a tela podem cair em instâncias diferentes — aí a
@@ -42,10 +44,42 @@ import { sessaoDe } from './sessao.js';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const COM_FUSO = /(Z|[+-]\d{2}:?\d{2})$/i;
 
-export function rotasDaPlantaViva(app: FastifyInstance, pool: pg.Pool, relogio: () => number = Date.now): void {
+/** O ao vivo de uma loja, como a tela lê. */
+export type LeituraAoVivo = {
+  situacao: ReturnType<typeof situacaoAoVivo>;
+  idadeS: number | null;
+  quando: string | null;
+  pessoas: AgoraDaPlanta['pessoas'];
+  canais: string[];
+};
+
+/**
+ * O que as outras rotas usam da memória do ao vivo: o link só do ao vivo (`link-ao-vivo.ts`, 29/10/2026) lê a MESMA
+ * última posição, e quem lê por ele também conta como alguém olhando (o agente manda rápido).
+ */
+export type AoVivoDaApi = { ler(lojaId: string): LeituraAoVivo };
+
+export function rotasDaPlantaViva(app: FastifyInstance, pool: pg.Pool, relogio: () => number = Date.now): AoVivoDaApi {
   // o ao vivo de cada loja: a última posição (e quando chegou) e até quando alguém olha a tela
   const aoVivo = new Map<string, { agora: AgoraDaPlanta; recebidoEm: number }>();
   const olhandoAte = new Map<string, number>();
+
+  /** A última posição da loja para quem lê — e, por `AO_VIVO.olhandoMs`, alguém olha. */
+  function lerAoVivo(lojaId: string): LeituraAoVivo {
+    const agora = relogio();
+    olhandoAte.set(lojaId, agora + AO_VIVO.olhandoMs);
+    const g = aoVivo.get(lojaId);
+    const situacao = situacaoAoVivo(g?.recebidoEm, agora);
+    const vale = g !== undefined && situacao !== 'sem_sinal';
+    return {
+      situacao,
+      /** Há quantos segundos a nuvem recebeu a última posição (nulo = nunca, ou faz tempo). */
+      idadeS: vale ? Math.round((agora - g.recebidoEm) / 100) / 10 : null,
+      quando: vale ? g.agora.quando : null,
+      pessoas: vale ? g.agora.pessoas : [],
+      canais: vale ? g.agora.canais : [],
+    };
+  }
 
   app.post('/v1/planta-viva/agora', async (req, resposta) => {
     let autor;
@@ -78,19 +112,7 @@ export function rotasDaPlantaViva(app: FastifyInstance, pool: pg.Pool, relogio: 
     if (!podeConfigurar(s)) {
       return resposta.status(403).send({ erro: 'sem_permissao', mensagem: 'o movimento ao vivo é só para quem configura a loja' });
     }
-    const agora = relogio();
-    olhandoAte.set(id, agora + AO_VIVO.olhandoMs);
-    const g = aoVivo.get(id);
-    const situacao = situacaoAoVivo(g?.recebidoEm, agora);
-    const vale = g !== undefined && situacao !== 'sem_sinal';
-    return {
-      situacao,
-      /** Há quantos segundos a nuvem recebeu a última posição (nulo = nunca, ou faz tempo). */
-      idadeS: vale ? Math.round((agora - g.recebidoEm) / 100) / 10 : null,
-      quando: vale ? g.agora.quando : null,
-      pessoas: vale ? g.agora.pessoas : [],
-      canais: vale ? g.agora.canais : [],
-    };
+    return lerAoVivo(id);
   });
 
   app.post('/v1/planta-viva/minutos', async (req, resposta) => {
@@ -231,4 +253,6 @@ export function rotasDaPlantaViva(app: FastifyInstance, pool: pg.Pool, relogio: 
       areas: atendimentoDoPeriodo(r.rows, areas, de, ate, { fimDosDados, agoraPessoas }),
     };
   });
+
+  return { ler: lerAoVivo };
 }

@@ -46,6 +46,16 @@ const nextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
         ],
       },
+      {
+        // O link só do ao vivo (29/10/2026): a página é aberta, mas não é para buscador nem para guardar. Vem DEPOIS da
+        // regra geral de propósito: com a mesma chave, vale a última.
+        source: '/ver',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+          { key: 'Cache-Control', value: 'no-store' },
+        ],
+      },
     ];
   },
 };
