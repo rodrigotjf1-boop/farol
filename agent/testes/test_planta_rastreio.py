@@ -425,3 +425,29 @@ def test_a_aparencia_e_so_a_cor_da_roupa():
     assert abs(branco.sum() - 1) < 1e-9 and branco.shape == (11,)
     assert rt._parecidas(branco, branco) > 0.99 and rt._parecidas(branco, vermelho) < 0.1
     assert rt._parecidas(None, branco) == 0.5
+
+
+# ───────────────────────────── o minuto recusado pela nuvem (ERR-158, 28/10/2026) ─────────────────────────────
+
+def test_a_pessoa_na_beira_mostrada_e_guardada_fica_dentro_da_planta():
+    """A loja de 28/10: a parede do fundo da cozinha é o y = 0; a vista vale até 0,5 m além da beira e a previsão anda
+    sem ser vista — a pessoa saía em y negativo e a nuvem recusava o minuto inteiro a noite toda."""
+    r = rt.Rastreio(rt.Planta((), (0.0, 0.0, 8.0, 5.0)))
+    for k in range(4):  # andando para a parede; a última vista já 0,3 m além dela
+        r.passo(k * 0.5, [rt.Observacao("1", 1, 4.0, 0.6 - 0.3 * k, 0.05)], dia="2026-10-28")
+    vistos = 0
+    for t in (2.0, 3.0, 4.5):  # depois, sem ser vista: a previsão segue para fora
+        for _, x, y in r.passo(t, [], dia="2026-10-28"):
+            vistos += 1
+            assert 0.0 <= x <= 8.0 and 0.0 <= y <= 5.0, (t, x, y)
+        for _, x, y, *_ in r.agora(t):
+            assert 0.0 <= x <= 8.0 and 0.0 <= y <= 5.0, ("ao vivo", t, x, y)
+    assert vistos >= 2, "continua no mapa enquanto o rastreio a segura — dentro da planta"
+
+
+def test_dentro_da_bancada_encostada_na_parede_o_chao_livre_e_a_frente_dela():
+    bancada = rt.Movel(3.0, 0.0, 2.0, 1.0, 0.9)  # a montagem encostada na parede do fundo (y = 0)
+    limites = (0.0, 0.0, 8.0, 5.0)
+    assert rt.no_chao_livre(4.0, 0.2, (bancada,))[1] < 0, "sem os limites a beira mais perto é a de trás: atrás da parede"
+    assert rt.no_chao_livre(4.0, 0.2, (bancada,), limites=limites) == (4.0, bancada.y + bancada.h + rt.FOLGA_DO_MOVEL)
+    assert rt.Planta((), limites).prender(-0.3, 5.2) == (0.0, 5.0) and rt.Planta((), None).prender(-0.3, 5.2) == (-0.3, 5.2)

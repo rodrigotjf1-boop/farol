@@ -10342,3 +10342,31 @@ ao rastreio.
   pedido desde a nota fraca e a linha do registro (só depois de um minuto de leitura, com o tempo de verdade).
 - Os testes antigos do rastreio (8 pessoas cruzando, quem sai não vira fantasma, troca de câmera) seguem verdes.
   Mutação 13/13.
+
+## 29/10/2026 · Planta viva: os minutos voltam a subir — a pessoa fica dentro da planta e o minuto recusado sai da fila (sem migration)
+
+Lendo o registro da loja à meia-noite de 28/10: desde a primeira noite do rastreio firme (28/10, 19h02) a nuvem
+recusava os minutos da planta viva — `422 em /v1/planta-viva/minutos — validacao` — e nunca mais "voltou a aceitar". A
+noite de 28/10 não foi guardada (calor, postos, replay); o "Ao vivo" seguia normal (rota própria). ERR-158.
+
+- **A causa:** a pessoa saía FORA da planta por três caminhos — a vista é aceita até 0,5 m além da beira (a calibração
+  erra uns centímetros), a previsão anda sem ver (até 4 s desde ontem) e o chão livre de um ponto dentro da bancada
+  encostada na parede do fundo saía pela beira de trás. Na cozinha a parede do fundo é o y = 0: y negativo, célula
+  negativa, e a nuvem (que aceita de 0 a 200 m) recusa o LOTE inteiro. O agente repetia o mesmo lote a cada 10 min: o
+  minuto torto na frente prendia todos os de depois.
+- **O que se mostra e o que sobe fica dentro da planta** (`Planta.prender` em `agora()`); o chão livre não sai mais por
+  trás da parede (`no_chao_livre(..., limites=)`); e o minuto já sai na régua da nuvem (`Minutos`: ponto fora de 0–200 m
+  ou sem número fica de fora; até 60 caminhos, os mais longos).
+- **O minuto que a nuvem recusa sai da fila** — 422 no lote → um a um: o recusado sai com o motivo da API no registro, os
+  outros sobem; outra falha no meio para e guarda o resto. A recusa traz os problemas da API (`ErroDaNuvem.problemas`,
+  fora da mensagem, para o registro não ganhar uma linha por item).
+- A API não muda: ela segue conferindo de 0 a 200 m.
+
+### Como foi conferido
+
+- `agent/testes/test_planta_rastreio.py`: a pessoa na beira, mostrada e guardada, fica dentro da planta (também sem ser
+  vista); dentro da bancada encostada na parede o chão livre é a frente dela. `test_planta_pessoas.py`: o minuto sai
+  dentro do que a nuvem aceita (negativo, além de 200 m, NaN, 70 caminhos). `test_planta_servico.py`: o minuto recusado
+  sai da fila e os outros sobem; outra falha no meio guarda o resto. `test_configuracao.py`: a recusa de lote traz os
+  problemas fora da mensagem. Os 5 falham no código antigo. Suíte do agente inteira verde.
+- Na loja, depois da troca de pacote: o registro tem que mostrar "a nuvem voltou a aceitar os minutos".

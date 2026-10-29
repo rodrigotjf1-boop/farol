@@ -175,6 +175,39 @@ def test_a_nuvem_que_nao_aceita_guarda_e_a_antiga_espera(tmp_path):
     assert len(p.pendentes) == sv.GUARDA_MINUTOS, "a memória tem teto: os mais velhos saem"
 
 
+def test_o_minuto_que_a_nuvem_recusa_sai_da_fila_e_os_outros_sobem(tmp_path, caplog):
+    """ERR-158 (28/10/2026): um minuto que a nuvem recusa (422) prendia o lote — repetido a cada 10 min a noite inteira,
+    sem subir mais nada. Agora: um a um, o recusado sai com o motivo no registro e os outros sobem; outra falha no
+    meio para e guarda o resto."""
+    p, *_ = montar(tmp_path)
+    aceitos, tentativas = [], []
+
+    def nuvem(lote):
+        tentativas.append([m["minuto"] for m in lote])
+        if len(lote) == 1 and lote[0].get("cai"):  # a rede cai justo na vez deste
+            raise ErroDaNuvem("não cheguei na nuvem: timed out")
+        if any(m.get("torto") for m in lote):
+            raise ErroDaNuvem("422 em /v1/planta-viva/minutos — validacao", recuperavel=False, status=422,
+                              problemas=("minutos[1].calor[0]: a célula dentro da planta",))
+        aceitos.extend(m["minuto"] for m in lote)
+
+    p._enviar = nuvem
+    p.pendentes = [{"minuto": "a"}, {"minuto": "b", "torto": True}, {"minuto": "c"}]
+    with caplog.at_level("WARNING"):
+        p._subir(100.0)
+    assert aceitos == ["a", "c"] and p.pendentes == []
+    assert tentativas == [["a", "b", "c"], ["a"], ["b"], ["c"]]
+    assert any("1 minuto(s) que a nuvem recusou saíram da fila" in r.getMessage() and "a célula dentro da planta" in r.getMessage()
+               for r in caplog.records)
+    p.pendentes = [{"minuto": "d"}]
+    p._subir(101.0)
+    assert aceitos[-1] == "d", "sem pausa: a fila andou"
+    # outra falha no meio do um a um: para ali e o resto fica guardado
+    p.pendentes = [{"minuto": "e", "torto": True}, {"minuto": "f", "cai": True}, {"minuto": "g"}]
+    p._subir(102.0)
+    assert [m["minuto"] for m in p.pendentes] == ["f", "g"]
+
+
 def test_a_chave_liga(tmp_path):
     assert sv.ligada("1") and sv.ligada("sim") and not sv.ligada(None) and not sv.ligada("0")
 

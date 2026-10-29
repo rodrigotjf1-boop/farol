@@ -451,3 +451,25 @@ def test_403_COM_mensagem_da_api_nao_culpa_a_borda(monkeypatch):
 
     assert "falta aprovar" in str(capturado.value)
     assert "borda" not in str(capturado.value)
+
+
+def test_a_recusa_de_lote_traz_os_problemas_fora_da_mensagem(monkeypatch):
+    # ERR-158: o 422 da planta viva dizia só "validacao" — sem o item, ninguém sabia qual minuto e por quê. Os problemas
+    # vêm à parte (a mensagem não muda a cada item, para quem deduplica o registro pelo texto).
+    import io
+    import json as _json
+    import urllib.error
+
+    c = ClienteNuvem("https://api.exemplo", "tok")
+    corpo = _json.dumps({"erro": "validacao", "problemas": ["minutos[1].calor[0]: a célula dentro da planta"] + ["x" * 300] * 9}).encode()
+
+    def recusar(*a, **k):
+        raise urllib.error.HTTPError("https://api.exemplo/v1/planta-viva/minutos", 422, "Unprocessable", {}, io.BytesIO(corpo))
+
+    monkeypatch.setattr("urllib.request.urlopen", recusar)
+    with pytest.raises(ErroDaNuvem) as capturado:
+        c._pedir("POST", "/v1/planta-viva/minutos", {"minutos": []})
+    e = capturado.value
+    assert e.status == 422 and str(e) == "422 em /v1/planta-viva/minutos — validacao"
+    assert e.problemas[0] == "minutos[1].calor[0]: a célula dentro da planta"
+    assert len(e.problemas) == 5 and all(len(p) <= 200 for p in e.problemas), "até 5, cada um curto"
