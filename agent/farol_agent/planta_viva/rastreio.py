@@ -19,6 +19,13 @@ sai, a cada instante, cada pessoa UMA vez, num ponto suave, no chão livre, com 
    falha curta do detector e só aparece depois de vista duas vezes (um falso positivo solto não vira gente). Duas
    pessoas que andam juntas por mais de um segundo, cada uma vista por câmeras diferentes, eram uma: viram uma.
 
+**Quem pisca não some (28/10/2026, o dono: "do nada a pessoa no mapa some mesmo estando ainda no mapa, e depois aparece
+no mesmo local").** A pessoa sem ser vista continuava no rastreio por `PERDA_S`, mas saía da planta 1 s depois: o
+detector falhando 1 a 4 s (parada, abaixada, atrás do balcão) tirava do mapa quem continuava ali. Agora ela fica na
+planta enquanto o rastreio a segura; e a caixa FRACA do detector (nota de `NOTA_FRACA` a `NOTA_MINIMA`) segura quem já
+está confirmado, perto de onde estava, sem nunca criar gente nem ensinar o desvio das câmeras. O rastreio conta as
+voltas depois de sumir e quem renasce perto de onde outra sumiu (`Contas`): é a medida para o passo seguinte.
+
 Sem nome e sem rosto (estudo, seção 7): a "aparência" é só a cor média da roupa no tronco, para desempatar quem está
 perto, e não sai do computador da loja.
 """
@@ -35,6 +42,11 @@ from farol_agent.planta_viva import camera as cm
 from farol_agent.planta_viva.calibracao import projetar
 
 NOTA_MINIMA = 0.5  # era 0,6: o rastreio só mostra quem foi visto duas vezes, dá para ouvir o detector mais baixo (medir na loja)
+# A caixa FRACA (28/10): desta nota até a mínima, só segura quem já está confirmado, perto de onde estava — nunca cria
+# gente, não confirma e não ensina o desvio. E só por `FRACA_SEGURA_S` desde a última vista forte: um casaco na cadeira
+# com nota 0,35 não segura um fantasma a noite inteira.
+NOTA_FRACA = 0.3
+FRACA_SEGURA_S = 8.0
 BORDA_DE_BAIXO = 0.985  # a caixa que encosta aqui tem o pé fora do quadro
 BORDA_DE_CIMA = 0.012  # e aqui, a cabeça
 PIXEL_DE_ERRO = 0.01  # da altura da imagem: o erro de achar a beira da caixa
@@ -56,7 +68,12 @@ CONFIRMA_EM = 2  # vistas para a pessoa aparecer
 CONFIRMA_PERTO = 5  # … e se nasceu de uma câmera só, colada em quem já está sendo visto
 TENTATIVA_SOME_S = 1.0
 PERDA_S = 4.0  # sem ser vista, a pessoa continua por este tempo (coberta, o detector falhou) …
-MOSTRA_SEM_VER_S = 1.0  # … e aparece na planta por este
+# … e aparece na planta por este (28/10: era 1 s — o detector piscando 1 a 4 s tirava do mapa quem continuava ali)
+MOSTRA_SEM_VER_S = PERDA_S
+# A medida do sumiço (`Contas`): quem nasce a até isto de onde uma pessoa confirmada sumiu, até `RENASCE_S` depois, é
+# provavelmente a mesma — sumiu por mais que `PERDA_S` e voltou com outro número
+RENASCE_M = 1.0
+RENASCE_S = 30.0
 AMORTECE_SEM_VER = 0.5  # a cada quadro sem ser vista, a velocidade cai a isto (parada atrás de algo, não some andando)
 JUNTAR_IGUAIS_M = 0.6
 JUNTAR_IGUAIS_S = 1.0
@@ -405,10 +422,12 @@ class Observacao:
     altura: float | None = None
     aparencia: np.ndarray | None = None
     bruto: tuple[float, float] | None = None  # o ponto antes de tirar o desvio aprendido da câmera
+    fraca: bool = False  # a caixa do detector com nota abaixo de `NOTA_MINIMA`: só segura quem já está confirmado
 
     @classmethod
-    def da_posicao(cls, canal: str, trilha: int, p: Posicao, aparencia: np.ndarray | None = None) -> "Observacao":
-        return cls(canal, trilha, p.x, p.y, p.sigma, p.sigma_raio, p.rumo, p.pela_cabeca, p.altura, aparencia)
+    def da_posicao(cls, canal: str, trilha: int, p: Posicao, aparencia: np.ndarray | None = None, *,
+                   fraca: bool = False) -> "Observacao":
+        return cls(canal, trilha, p.x, p.y, p.sigma, p.sigma_raio, p.rumo, p.pela_cabeca, p.altura, aparencia, fraca=fraca)
 
     @property
     def maior_duvida(self) -> float:
@@ -439,6 +458,7 @@ class Pessoa:
     alturas: list[float] = field(default_factory=list)
     juntas_desde: dict[int, float] = field(default_factory=dict)  # outra pessoa → desde quando anda junto
     visto_xy: tuple[float, float] | None = None  # onde estava quando foi vista por último
+    forte_em: float | None = None  # a última vista forte (a fraca só segura até `FRACA_SEGURA_S` depois dela)
 
     @property
     def x(self) -> float:
@@ -488,14 +508,19 @@ class CanalDoRastreio:
 
     def observacoes(self, t: float, caixas: Sequence[Sequence[float]], largura: int, altura: int, rastreio: "Rastreio",
                     img: np.ndarray | None = None) -> list[Observacao]:
-        caixas = [c for c in caixas if (float(c[4]) if len(c) > 4 else 1.0) >= NOTA_MINIMA]
+        def nota(c: Sequence[float]) -> float:
+            return float(c[4]) if len(c) > 4 else 1.0
+
+        # a fraca passa pelas trilhas da câmera junto das fortes: o mesmo vulto segue com o mesmo número de trilha
+        caixas = [c for c in caixas if nota(c) >= NOTA_FRACA]
         saida = []
         for c, trilha in zip(caixas, self.trilhas.passo(t, caixas)):
             p = posicao_da_caixa(self.h, self.cam, c, largura, altura, planta=rastreio.planta, erro_da_calibracao=self.erro,
                                  altura_da_pessoa=rastreio.altura_de(self.canal, trilha), confianca_da_cabeca=self.confianca,
                                  area=self.area)
             if p is not None:
-                saida.append(Observacao.da_posicao(self.canal, trilha, p, aparencia_da_caixa(img, c) if img is not None else None))
+                saida.append(Observacao.da_posicao(self.canal, trilha, p, aparencia_da_caixa(img, c) if img is not None else None,
+                                                   fraca=nota(c) < NOTA_MINIMA))
         return saida
 
 
@@ -572,6 +597,19 @@ class DesvioDasCameras:
         return d
 
 
+@dataclass
+class Contas:
+    """A medida do sumiço desde a última leitura (`Rastreio.contas_e_zerar`): o que o registro conta de tempos em tempos
+    para decidir o passo seguinte (28/10/2026)."""
+
+    voltas_curtas: int = 0  # voltou a ser vista depois de até 1,5 s sem ver
+    voltas_longas: int = 0  # … depois de 1,5 a `PERDA_S` s — antes de 28/10 tinha sumido do mapa nesse tempo
+    perdidas: int = 0  # confirmadas que saíram do rastreio (sem ser vistas por mais que `PERDA_S`)
+    renasceram: int = 0  # gente nova confirmada perto de onde uma perdida sumiu, até `RENASCE_S` depois
+    renasceram_s: list[float] = field(default_factory=list)  # quanto tempo cada uma ficou sem ser vista
+    seguradas_pela_fraca: int = 0  # vezes em que só a caixa fraca segurou uma pessoa num instante
+
+
 class Rastreio:
     """Cada pessoa uma vez, com o mesmo número, num ponto suave e no chão livre."""
 
@@ -579,9 +617,32 @@ class Rastreio:
         self.planta = planta
         self.pessoas: list[Pessoa] = []
         self.desvios = DesvioDasCameras()
+        self.contas = Contas()
+        self._sumidas: list[tuple[float, float, float]] = []  # (visto por último em, x, y) das confirmadas que saíram
         self._proximo = 1
         self._dia: str | None = None
         self._t: float | None = None
+
+    def contas_e_zerar(self) -> Contas:
+        """As contas do sumiço desde a última vez, e recomeça."""
+        contas, self.contas = self.contas, Contas()
+        return contas
+
+    @staticmethod
+    def _fraca_segura(p: Pessoa, t: float) -> bool:
+        """A caixa fraca só segura quem já está confirmado e foi visto forte há pouco."""
+        return p.confirmada and p.forte_em is not None and t - p.forte_em <= FRACA_SEGURA_S
+
+    def _confirmou(self, p: Pessoa, t: float) -> None:
+        """Uma pessoa acabou de aparecer na planta: se foi perto de onde uma confirmada sumiu há pouco, é quase certo
+        que é a mesma, que ficou sem ser vista mais que `PERDA_S` — a conta diz quanto tempo."""
+        perto = [(t - v, k) for k, (v, x, y) in enumerate(self._sumidas)
+                 if t - v <= RENASCE_S and math.hypot(p.x - x, p.y - y) <= RENASCE_M]
+        if perto:
+            s, k = min(perto)
+            self.contas.renasceram += 1
+            self.contas.renasceram_s.append(round(s, 1))
+            del self._sumidas[k]
 
     def _sem_desvio(self, o: Observacao) -> Observacao:
         dx, dy = self.desvios.de(o.canal, o.x, o.y)
@@ -635,6 +696,7 @@ class Rastreio:
         p.cov[:2, :2] = cov
         p.cov[2:, 2:] = np.eye(2) * 1.0  # parada ou andando: ainda não se sabe
         p.visto_xy = (float(xy[0]), float(xy[1]))
+        p.forte_em = t
         self._proximo += 1
         for o in obs:
             self._guardar(p, o, primeira=True)
@@ -660,7 +722,7 @@ class Rastreio:
     def passo(self, t: float, observacoes: Iterable[Observacao], *, dia: str | None = None) -> list[tuple[int, float, float]]:
         """As pessoas do instante `t` (segundos): (número, x, y) — só as confirmadas e vistas há pouco."""
         if dia is not None and dia != self._dia:
-            self._dia, self._proximo, self.pessoas = dia, 1, []
+            self._dia, self._proximo, self.pessoas, self._sumidas = dia, 1, [], []
         dt = 0.0 if self._t is None else max(0.0, t - self._t)
         self._t = t
         for p in self.pessoas:
@@ -678,6 +740,8 @@ class Rastreio:
         pares = []
         for i, o in enumerate(obs):
             for p in self.pessoas:
+                if o.fraca and not self._fraca_segura(p, t):
+                    continue  # a caixa fraca só segura quem já está confirmado e foi visto forte há pouco
                 # a distância à previsão — ou, se a pessoa sumiu um tempo, ao último lugar em que foi vista: sem ser
                 # vista ela pode ter virado para qualquer lado, e a previsão segue reto
                 d = distancia_corrigida(o, p.x, p.y)
@@ -685,14 +749,15 @@ class Rastreio:
                     d = min(d, distancia_corrigida(o, *p.visto_xy))
                 ligada = p.ligacoes.get(o.canal) == o.trilha
                 andou = VELOCIDADE_MAXIMA * (t - p.visto_em)
-                alcance = max(RAIO_DA_LIGACAO if ligada else RAIO_DE_JUNTAR, andou) + o.sigma
+                # a fraca só perto de onde a pessoa estava (não "anda" com o tempo sem ver)
+                alcance = (RAIO_DA_LIGACAO if o.fraca else max(RAIO_DA_LIGACAO if ligada else RAIO_DE_JUNTAR, andou)) + o.sigma
                 if d <= alcance:
                     custo = d + PESO_DA_APARENCIA * (1 - _parecidas(o.aparencia, p.aparencia)) - (BONUS_DA_LIGACAO if ligada else 0.0)
                     # quem foi visto no quadro anterior escolhe antes de quem está sumido: a vista de quem passa perto
-                    # não "revive" quem já saiu
+                    # não "revive" quem já saiu; e a vista forte escolhe antes da fraca
                     sumida = t - p.visto_em > dt + 1e-6
-                    pares.append((sumida, custo, i, p))
-        for *_, i, p in sorted(pares, key=lambda x: (x[0], x[1])):
+                    pares.append((sumida, o.fraca, custo, i, p))
+        for *_, i, p in sorted(pares, key=lambda x: (x[0], x[1], x[2])):
             if livre(i, p):
                 dono[i] = p
         # 2. cada pessoa corrigida pelas vistas dela (várias câmeras = várias correções)
@@ -712,19 +777,34 @@ class Rastreio:
                 raio = 0.5 * VELOCIDADE_MAXIMA * sumiu
                 p.estado = np.array([p.visto_xy[0], p.visto_xy[1], 0.0, 0.0])
                 p.cov = np.diag([raio ** 2, raio ** 2, 1.0, 1.0])
+                if p.confirmada:
+                    if sumiu <= 1.5 + 1e-6:
+                        self.contas.voltas_curtas += 1
+                    else:
+                        self.contas.voltas_longas += 1
+            fortes = [o for o in vistas if not o.fraca]
             for o in vistas:
                 self._corrigir(p, o)
-                self._guardar(p, o)
-            self._aprender_desvios(p, vistas)
+                if o.fraca:
+                    p.ligacoes[o.canal] = o.trilha  # segura a trilha; a altura e a cor da roupa só da caixa forte
+                else:
+                    self._guardar(p, o)
             p.canais_agora = tuple(sorted({o.canal for o in vistas}))
             p.visto_em = t
             p.visto_xy = (p.x, p.y)
+            if not fortes:
+                self.contas.seguradas_pela_fraca += 1
+                continue
+            self._aprender_desvios(p, fortes)
+            p.forte_em = t
             p.vistas += 1
-            if p.vistas >= p.confirma_em:
+            if p.vistas >= p.confirma_em and not p.confirmada:
                 p.confirmada = True
+                self._confirmou(p, t)
         # 4. as vistas sem dono: as de câmeras diferentes, perto uma da outra, são uma pessoa nova só
         grupos: list[list[Observacao]] = []
-        for o in sorted((o for i, o in enumerate(obs) if i not in dono), key=lambda o: o.maior_duvida):
+        # (a fraca sem dono não vira ninguém)
+        for o in sorted((o for i, o in enumerate(obs) if i not in dono and not o.fraca), key=lambda o: o.maior_duvida):
             perto = [(distancia_corrigida(o, g[0].x, g[0].y), k) for k, g in enumerate(grupos) if all(x.canal != o.canal for x in g)]
             perto = [pk for pk in perto if pk[0] <= RAIO_DE_JUNTAR + o.sigma]
             if perto:
@@ -748,14 +828,24 @@ class Rastreio:
             nova = self._nova(t, g)
             if len({o.canal for o in g}) >= 2:
                 nova.confirmada = True  # duas câmeras viram ao mesmo tempo: é gente
+                self._confirmou(nova, t)
             elif any(p.confirmada and p.visto_em == t and distancia_corrigida(g[0], p.x, p.y) <= RAIO_DA_ORFA + g[0].sigma
                      for p in self.pessoas):
                 # uma câmera só, colada em quem já está sendo visto (a câmera de longe que vê duas caixas onde há uma
                 # pessoa): só aparece se continuar sendo vista
                 nova.confirma_em = CONFIRMA_PERTO
             self.pessoas.append(nova)
-        # 5. quem some: a tentativa logo; a confirmada depois de PERDA_S
-        self.pessoas = [p for p in self.pessoas if t - p.visto_em <= (PERDA_S if p.confirmada else TENTATIVA_SOME_S)]
+        # 5. quem some: a tentativa logo; a confirmada depois de PERDA_S (e fica anotado onde, para a conta de quem renasce)
+        ficam = []
+        for p in self.pessoas:
+            if t - p.visto_em <= (PERDA_S if p.confirmada else TENTATIVA_SOME_S):
+                ficam.append(p)
+            elif p.confirmada:
+                self.contas.perdidas += 1
+                x, y = p.visto_xy or (p.x, p.y)
+                self._sumidas.append((p.visto_em, x, y))
+        self.pessoas = ficam
+        self._sumidas = [s for s in self._sumidas if t - s[0] <= RENASCE_S]
         # 6. duas pessoas juntas por mais de um segundo, vistas por câmeras diferentes: eram uma (a mais antiga fica)
         self._juntar_iguais(t)
         return [(n, x, y) for n, x, y, *_ in self.agora(t)]

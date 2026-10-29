@@ -41,9 +41,11 @@ class Detector:
 
     def __init__(self) -> None:
         self.onde: list[tuple[float, float]] = []
+        self.limites: list[float] = []
 
     def caixas(self, img, classe, limite):
         assert classe == "person"
+        self.limites.append(limite)
         saida = []
         for x, y in self.onde:
             u, v = imagem_de(x, y)
@@ -175,3 +177,35 @@ def test_a_nuvem_que_nao_aceita_guarda_e_a_antiga_espera(tmp_path):
 
 def test_a_chave_liga(tmp_path):
     assert sv.ligada("1") and sv.ligada("sim") and not sv.ligada(None) and not sv.ligada("0")
+
+
+def test_o_detector_e_pedido_desde_a_nota_fraca_e_as_contas_do_sumico_vao_ao_registro(tmp_path, caplog):
+    """28/10: a caixa fraca segura quem já está na planta; e o registro conta o sumiço de tempos em tempos."""
+    p, detector, relogio, _, _ = montar(tmp_path)
+    detector.onde = [(2.5, 4.4)]
+    t = 0.0
+    with caplog.at_level("INFO", logger="farol_agent.planta_viva.servico"):
+        for _ in range(4):
+            p.passo(t)
+            t += 0.5
+            relogio.t += timedelta(seconds=0.5)
+        assert detector.limites and set(detector.limites) == {rt.NOTA_FRACA}
+        assert not [r for r in caplog.records if "volta(s) depois de sumir" in r.getMessage()], \
+            "na abertura só começa a conta: não há 30 min para contar"
+        t = 90.0  # um minuto e meio de leitura
+        p._contar_desvios_em = 0  # a conta agora
+        p.passo(t)
+    linhas = [r.getMessage() for r in caplog.records if "volta(s) depois de sumir" in r.getMessage()]
+    assert linhas == ["planta viva: nos últimos 2 min, 0 volta(s) depois de sumir até 1,5 s e 0 de 1,5 a 4 s (estas saíam "
+                      "do mapa antes de 28/10); 0 perdida(s); 0 renasceram com outro número a até 1 m de onde sumiram; a "
+                      "caixa fraca segurou alguém 0 vez(es)"]
+
+
+def test_o_texto_das_contas_do_sumico_com_quem_renasceu():
+    c = rt.Contas(voltas_curtas=12, voltas_longas=5, perdidas=3, renasceram=3, renasceram_s=[21.0, 6.5, 9.0],
+                  seguradas_pela_fraca=40)
+    assert sv.texto_das_contas(c, 1800.0) == (
+        "nos últimos 30 min, 12 volta(s) depois de sumir até 1,5 s e 5 de 1,5 a 4 s (estas saíam do mapa antes de 28/10); "
+        "3 perdida(s); 3 renasceram com outro número a até 1 m de onde sumiram (sem ser vistas de 6 a 21 s, mediana 9 s); "
+        "a caixa fraca segurou alguém 40 vez(es)"
+    )
