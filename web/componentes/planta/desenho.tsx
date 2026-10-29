@@ -19,13 +19,13 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { cobre, numeroDoCanal, type Situacao } from '@/componentes/planta/situacao';
 import type { Ponto } from '@/lib/api';
 import {
-  alvoNoChao, ambienteEm, centroDe, coberturaDaPlanta, coneDaCamera, fatias, grade, LIMITES, lugarDoNome, molduraDeEdicao, molduraDoQueExiste,
-  moverAmbiente, noLimite, PAREDE, pinoDa, projetor, rad,
+  alvoNoChao, ambienteEm, areasDe, centroDe, coberturaDaPlanta, coneDaCamera, fatias, grade, LIMITES, lugarDoNome, molduraDeEdicao,
+  molduraDoQueExiste, moverAmbiente, noLimite, PAREDE, pinoDa, projetor, rad,
   type Moldura, type Movel, type Planta, type Pt,
 } from '@/lib/planta';
 
-export type Selecao = { tipo: 'camera' | 'movel' | 'ambiente'; id: string };
-export type Ferramenta = '' | 'ambiente' | 'movel';
+export type Selecao = { tipo: 'camera' | 'movel' | 'ambiente' | 'area'; id: string };
+export type Ferramenta = '' | 'ambiente' | 'movel' | 'area';
 export type Camada = 'situacao' | 'cobertura';
 export type Retangulo = { x: number; y: number; w: number; h: number };
 
@@ -262,7 +262,8 @@ export function DesenhoDaPlanta({
       aoSelecionar(null);
       return;
     }
-    const item = (tocado.tipo === 'movel' ? planta.moveis : planta.ambientes).find((i) => i.id === tocado.id)!;
+    const lista = tocado.tipo === 'movel' ? planta.moveis : tocado.tipo === 'area' ? areasDe(planta) : planta.ambientes;
+    const item = lista.find((i) => i.id === tocado.id)!;
     gesto.current = { modo: 'mover', dx: x - item.x, dy: y - item.y };
     aoSelecionar(tocado);
   }
@@ -297,6 +298,13 @@ export function DesenhoDaPlanta({
         ...planta,
         moveis: planta.moveis.map((m) =>
           m.id === selecao.id ? { ...m, x: noLimite(grade(x - g.dx, 0.1), 0, maxX - m.w), y: noLimite(grade(y - g.dy, 0.1), 0, maxY - m.h) } : m,
+        ),
+      });
+    } else if (selecao.tipo === 'area') {
+      aoMudar({
+        ...planta,
+        areas: areasDe(planta).map((a) =>
+          a.id === selecao.id ? { ...a, x: noLimite(grade(x - g.dx, 0.1), 0, maxX - a.w), y: noLimite(grade(y - g.dy, 0.1), 0, maxY - a.h) } : a,
         ),
       });
     } else if (selecao.tipo === 'ambiente') {
@@ -341,6 +349,8 @@ export function DesenhoDaPlanta({
       aoMudar({ ...planta, cameras: planta.cameras.map((c) => (c.pontoId === selecao.id ? { ...c, x: anda(c.x, passo[0]!, fim), y: anda(c.y, passo[1]!, fim) } : c)) });
     } else if (selecao.tipo === 'movel') {
       aoMudar({ ...planta, moveis: planta.moveis.map((m) => (m.id === selecao.id ? { ...m, x: anda(m.x, passo[0]!, fim - m.w), y: anda(m.y, passo[1]!, fim - m.h) } : m)) });
+    } else if (selecao.tipo === 'area') {
+      aoMudar({ ...planta, areas: areasDe(planta).map((a) => (a.id === selecao.id ? { ...a, x: anda(a.x, passo[0]!, fim - a.w), y: anda(a.y, passo[1]!, fim - a.h) } : a)) });
     } else {
       const a = planta.ambientes.find((i) => i.id === selecao.id);
       if (a) aoMudar(moverAmbiente(planta, a.id, anda(a.x, passo[0]!, fim - a.w), anda(a.y, passo[1]!, fim - a.h)));
@@ -411,9 +421,30 @@ export function DesenhoDaPlanta({
           );
         })}
 
+        {/* 4b · as áreas de medida: tracejadas no chão, por baixo dos móveis — não são parede */}
+        {areasDe(planta).map((a) => (
+          <polygon
+            key={`ar-${a.id}`}
+            className={`pl-area ${a.tipo}${editando && selecao?.tipo === 'area' && selecao.id === a.id ? ' sel' : ''}`}
+            data-area={a.id}
+            points={chao(cantos(a))}
+          />
+        ))}
+
         {volumes.map((v) => (
           <g key={v.chave}>{v.no}</g>
         ))}
+
+        {areasDe(planta).map((a) => {
+          // o nome inteiro, se couber; senão, só o tipo
+          const texto = a.nome.length * letra * 0.82 <= naTela(a) - 6 ? a.nome : a.tipo === 'porta' ? 'Porta' : 'Espera';
+          const [cx, cy] = p(a.x + a.w / 2, a.y + a.h / 2, 0);
+          return (
+            <text key={`arn-${a.id}`} className={`pl-area-nome ${a.tipo}${estreita ? ' pq' : ''}`} x={cx.toFixed(1)} y={(cy + 4).toFixed(1)}>
+              {texto}
+            </text>
+          );
+        })}
 
         {planta.ambientes.map((a) => {
           const largo = a.nome.length * letra;

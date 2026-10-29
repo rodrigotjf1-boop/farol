@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atendimento na planta</title>
+<!-- Protótipo da aba "Atendimento" da planta viva e das áreas de medida no Desenho — APROVADO pelo dono em 29/10/2026.
+     Loja de exemplo e números simulados (a planta da loja não sai do PC dela). A tela de verdade:
+     web/app/(console)/lojas/[id]/canais/planta/atendimento/page.tsx e web/componentes/planta-viva/atendimento.tsx. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Martian+Mono:wght@400;500;600&display=swap">
+<style>
+:root {
+  --papel: #F3F1EA; --papel-2: #EAE6DB; --cartao: #FFFFFF; --tinta: #1B1A17; --suave: #625E56; --linha: #D8D2C4;
+  --ketchup: #E2412A; --ketchup-tinta: #B5301C; --mostarda: #F2B300; --mostarda-tinta: #7A5A00; --picles: #3B8A37; --picles-tinta: #2E6E2B;
+  --sombra: 0 14px 28px -18px rgba(27, 26, 23, .45);
+  --cena: #0E1826; --cena-piso: #13243A; --cena-movel: #3A4A5E; --cena-movel-2: #4E6178; --cena-parede: #6F8099; --cena-tinta: #E8EEF6; --cena-suave: #93A3B8;
+  --area-espera: #F5B53A; --area-porta: #FF6B5B;
+  --titulo: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif; --texto: "Hanken Grotesk", "Segoe UI", system-ui, sans-serif; --mono: "Martian Mono", ui-monospace, Consolas, monospace;
+  --mola: cubic-bezier(.34, 1.56, .64, 1);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --papel: #151412; --papel-2: #1D1B18; --cartao: #23211D; --tinta: #F3EFE6; --suave: #B5AE9F; --linha: #35322C;
+    --ketchup: #F0563D; --ketchup-tinta: #FF8A73; --mostarda: #F5BC1A; --mostarda-tinta: #F5C94A; --picles: #4CA347; --picles-tinta: #7FD077;
+    --sombra: 0 14px 28px -18px rgba(0, 0, 0, .8); color-scheme: dark; }
+}
+:root[data-theme="dark"] { --papel: #151412; --papel-2: #1D1B18; --cartao: #23211D; --tinta: #F3EFE6; --suave: #B5AE9F; --linha: #35322C;
+  --ketchup: #F0563D; --ketchup-tinta: #FF8A73; --mostarda: #F5BC1A; --mostarda-tinta: #F5C94A; --picles: #4CA347; --picles-tinta: #7FD077;
+  --sombra: 0 14px 28px -18px rgba(0, 0, 0, .8); color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--papel); color: var(--tinta); font: 400 15px/1.5 var(--texto); -webkit-font-smoothing: antialiased; padding: 0 16px 64px; }
+main { max-width: 1320px; margin: 0 auto; }
+h1, h2, h3 { margin: 0; font-family: var(--titulo); text-transform: uppercase; letter-spacing: .01em; line-height: .95; text-wrap: balance; }
+button, input, select { font: inherit; color: inherit; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.prototipo { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; margin: 0 -16px; padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center;
+  background: var(--tinta); color: var(--papel); font: 600 12px/1.2 var(--mono); }
+.prototipo b { letter-spacing: .08em; text-transform: uppercase; }
+.prototipo button { border: 1px solid rgba(255,255,255,.35); background: transparent; color: inherit; border-radius: 99px; padding: 6px 12px; cursor: pointer; font: 600 12px/1 var(--mono); }
+:root[data-theme="dark"] .prototipo button, .prototipo button { border-color: color-mix(in srgb, var(--papel) 40%, transparent); }
+.prototipo button[aria-pressed="true"] { background: var(--mostarda); color: #1B1A17; border-color: var(--mostarda); }
+.olho { font: 600 11px/1 var(--mono); letter-spacing: .1em; color: var(--suave); text-transform: uppercase; margin: 22px 0 8px; }
+.cabeca h1 { font-size: clamp(38px, 5.4vw, 72px); font-weight: 900; }
+.cabeca p { margin: 8px 0 0; color: var(--suave); max-width: 72ch; }
+.abas { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 18px 0 14px; border-bottom: 1px solid var(--linha); }
+.abas a { padding: 10px 2px; color: var(--suave); text-decoration: none; font-weight: 600; border-bottom: 2px solid transparent; }
+.abas a[aria-current] { color: var(--tinta); border-color: var(--mostarda); }
+.abas a.nova::after { content: "nova"; margin-left: 6px; font: 700 9.5px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; background: var(--mostarda); color: #1B1A17; border-radius: 99px; padding: 3px 6px; vertical-align: 2px; }
+.barra { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 14px; }
+.segmentado { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 14px; background: var(--papel-2); }
+.segmentado button { border: 0; background: transparent; padding: 8px 12px; border-radius: 11px; cursor: pointer; font-weight: 600; font-size: 14px; color: var(--suave); transition: background .2s, color .2s; }
+.segmentado button[aria-pressed="true"] { background: var(--cartao); color: var(--tinta); box-shadow: var(--sombra); }
+.chip { font: 600 11.5px/1.3 var(--mono); padding: 6px 10px; border-radius: 99px; background: var(--cartao); box-shadow: var(--sombra); color: var(--suave); }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--mostarda); outline-offset: 2px; }
+.cartao { background: var(--cartao); border-radius: 22px; padding: 18px; box-shadow: var(--sombra); min-width: 0; }
+.areas { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.area { display: flex; flex-direction: column; gap: 12px; position: relative; overflow: hidden; }
+.area::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 6px; background: var(--cor); }
+.area header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.area h2 { font-size: 24px; font-weight: 800; letter-spacing: .02em; }
+.tipo { font: 700 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 5px 8px; border-radius: 99px; border: 1.5px solid var(--cor); color: var(--cor-tinta); white-space: nowrap; }
+.grande { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.grande b { font: 900 clamp(56px, 7vw, 76px)/.85 var(--titulo); font-variant-numeric: tabular-nums; }
+.grande span { font: 600 13px/1.3 var(--mono); color: var(--suave); }
+.miudos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.miudos div { background: var(--papel); border-radius: 12px; padding: 8px 10px; min-width: 0; }
+.miudos dt { font: 600 10.5px/1.2 var(--mono); color: var(--suave); text-transform: uppercase; letter-spacing: .04em; }
+.miudos dd { margin: 4px 0 0; font: 800 22px/1 var(--titulo); font-variant-numeric: tabular-nums; }
+.miudos dd.alerta { color: var(--ketchup-tinta); }
+.agora { display: inline-flex; align-items: center; gap: 7px; font: 600 12px/1 var(--mono); }
+.agora i { width: 9px; height: 9px; border-radius: 50%; background: var(--ketchup); box-shadow: 0 0 0 0 rgba(226, 65, 42, .55); animation: pulsa 1.6s infinite; }
+@keyframes pulsa { 70% { box-shadow: 0 0 0 8px rgba(226, 65, 42, 0); } 100% { box-shadow: 0 0 0 0 rgba(226, 65, 42, 0); } }
+.barras { display: grid; align-items: end; gap: 4px; height: 92px; }
+.barras li { list-style: none; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; gap: 3px; height: 100%; min-width: 0; }
+.barras i { display: block; border-radius: 5px 5px 2px 2px; background: var(--cor); transform-origin: bottom; animation: sobe .7s var(--mola) both; }
+.barras i.longa { background: var(--ketchup); }
+.barras small { font: 500 9.5px/1 var(--mono); color: var(--suave); text-align: center; }
+@keyframes sobe { from { transform: scaleY(0); } }
+@media (prefers-reduced-motion: reduce) { .barras i, .agora i { animation: none; } }
+.legenda { font-size: 12.5px; color: var(--suave); margin: 0; }
+.saidas { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; max-height: 210px; overflow-y: auto; }
+.saidas li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; align-items: start; }
+.saidas li > b { font: 800 16px/1.5 var(--titulo); color: var(--suave); }
+.horas { display: flex; flex-wrap: wrap; gap: 4px; }
+.horas span { font: 600 12px/1 var(--mono); padding: 5px 7px; border-radius: 8px; background: var(--papel); }
+.lt { display: flex; flex-direction: column; gap: 12px; padding: 0 6px; }
+.lt-faixa h3 { font: 700 14px/1.2 var(--texto); text-transform: none; letter-spacing: 0; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-bottom: 6px; }
+.lt-faixa h3 small { font: 500 11px/1 var(--mono); color: var(--suave); }
+.lt-trilho { position: relative; height: 46px; border-radius: 10px; background: var(--papel); overflow: hidden; }
+.lt-trilho .lt-linha { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--linha); }
+.lt-trilho b { position: absolute; height: 6px; border-radius: 3px; background: var(--area-espera); }
+.lt-trilho b.longa { background: var(--ketchup); }
+.lt-trilho b.entra, .lt-trilho b.sai { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-radius: 0; background: none; transform: translateX(-6px); }
+.lt-trilho b.entra { top: 6px; border-top: 10px solid var(--picles); }
+.lt-trilho b.sai { bottom: 6px; border-bottom: 10px solid var(--ketchup); }
+.lt-horas { position: relative; height: 16px; margin: 0 6px; }
+.lt-horas span { position: absolute; transform: translateX(-50%); font: 500 10.5px/1 var(--mono); color: var(--suave); }
+.lt-horas span:first-child { transform: none; } .lt-horas span:last-child { transform: translateX(-100%); }
+@media (max-width: 480px) { .lt-horas span:nth-child(even) { display: none; } }
+.duas { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); margin-top: 14px; }
+@media (min-width: 980px) { .duas { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); } }
+.palco { background: var(--cena); border-radius: 18px; overflow: hidden; }
+.palco svg { display: block; width: 100%; height: auto; }
+.como { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.como li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; font-size: 14px; }
+.como li i { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font: 800 14px/1 var(--titulo); font-style: normal; color: #1B1A17; }
+h2.secao { font-size: 22px; font-weight: 800; letter-spacing: .03em; margin-bottom: 12px; }
+.vista { display: none; } .vista.ativa { display: block; }
+.vazio { text-align: center; padding: 48px 18px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.vazio h2 { font-size: 30px; }
+.vazio p { max-width: 60ch; color: var(--suave); margin: 0; }
+.botao { display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 14px; padding: 11px 16px; font-weight: 700; cursor: pointer; background: var(--ketchup); color: #fff; text-decoration: none; }
+.botao.claro { background: var(--papel-2); color: var(--tinta); }
+.aviso { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; padding: 9px 11px; border-radius: 12px; background: color-mix(in srgb, var(--mostarda) 18%, transparent); }
+.editor { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 980px) { .editor { grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); } }
+.lista-areas { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.lista-areas button { width: 100%; display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 10px; align-items: center; text-align: left; padding: 10px 12px; border-radius: 12px; background: var(--papel); border: 1.5px solid transparent; cursor: pointer; }
+.lista-areas button[aria-pressed="true"] { border-color: var(--mostarda); }
+.lista-areas i { width: 14px; height: 14px; border-radius: 4px; border: 2px dashed var(--cor); }
+.lista-areas small { font: 600 10.5px/1 var(--mono); color: var(--suave); text-transform: uppercase; }
+.form { display: grid; gap: 10px; margin-top: 14px; }
+.form label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
+.form input { border: 1.5px solid var(--linha); border-radius: 10px; padding: 9px 10px; background: var(--cartao); min-width: 0; width: 100%; }
+.form .quatro { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 420px) { .form .quatro { grid-template-columns: repeat(2, minmax(0, 1fr)); } .miudos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.nota { font-size: 12.5px; color: var(--suave); margin: 8px 0 0; }
+</style>
+</head>
+<body>
+<div class="prototipo" role="toolbar" aria-label="Controle do protótipo (não faz parte da tela)">
+  <b>Protótipo</b>
+  <button type="button" data-ver="atendimento" aria-pressed="true">Aba Atendimento</button>
+  <button type="button" data-ver="desenho" aria-pressed="false">Desenho › áreas</button>
+  <button type="button" data-ver="vazio" aria-pressed="false">Sem áreas marcadas</button>
+  <span>loja de exemplo · dados simulados</span>
+</div>
+
+<main>
+  <p class="olho">Loja de exemplo · Canais › Planta</p>
+  <header class="cabeca">
+    <h1>Planta viva</h1>
+    <p>Cada câmera no mapa pelos pontos marcados no chão: o que ela cobre de verdade, e as pessoas no mapa — sem nome e sem rosto.</p>
+  </header>
+  <nav class="abas" aria-label="Vistas da planta">
+    <a href="#" data-aba="desenho">Desenho</a><a href="#">O que cada câmera cobre</a><a href="#">Calibrar câmera</a><a href="#">Movimento</a><a href="#">Ao vivo</a><a href="#" data-aba="atendimento" class="nova" aria-current="page">Atendimento</a>
+  </nav>
+
+  <!-- ───────────── a aba Atendimento ───────────── -->
+  <section class="vista ativa" id="v-atendimento" aria-label="Atendimento">
+    <div class="barra">
+      <div class="segmentado" role="group" aria-label="Período" id="periodos">
+        <button type="button" data-p="hora" aria-pressed="false">Última hora</button>
+        <button type="button" data-p="este" aria-pressed="true">Este expediente</button>
+        <button type="button" data-p="anterior" aria-pressed="false">Expediente anterior</button>
+        <button type="button" data-p="7d" aria-pressed="false">Últimos 7 dias</button>
+      </div>
+      <span class="chip">sem nome · sem rosto · conta pelo caminho de cada um (guardado por 7 dias)</span>
+    </div>
+    <div class="areas" id="cartoes"></div>
+
+    <section class="cartao linha-do-tempo" style="margin-top:14px" aria-labelledby="t-lt">
+      <h2 class="secao" id="t-lt">O expediente, área por área</h2>
+      <div id="lt"></div>
+      <p class="legenda">Cada barra é uma pessoa numa área de espera, do começo ao fim da espera (a vermelha passou de 5 min). Na porta, ▲ é alguém saindo e ▽ entrando.</p>
+    </section>
+
+    <div class="duas">
+      <section class="cartao" aria-labelledby="t-onde">
+        <h2 class="secao" id="t-onde">Onde ficam as áreas</h2>
+        <div class="palco" id="mapa"></div>
+        <p class="nota">As áreas se marcam no Desenho. Para medir, a área precisa estar no campo de uma câmera calibrada.</p>
+      </section>
+      <section class="cartao" aria-labelledby="t-como">
+        <h2 class="secao" id="t-como">Como conta</h2>
+        <ul class="como">
+          <li><i style="background:var(--area-espera)">E</i><span><b>Área de espera:</b> o tempo de cada pessoa, de quando entra na área até quando sai. Quem fica menos de 5 s só passou e não conta.</span></li>
+          <li><i style="background:var(--area-porta)">P</i><span><b>Porta:</b> o caminho que <b>termina</b> na porta é alguém saindo; o que <b>começa</b> nela, alguém entrando — com a hora de cada um.</span></li>
+          <li><i style="background:var(--papel-2);color:var(--tinta)">⏱</i><span><b>Tempo na loja:</b> da entrada à saída pela mesma porta, quando as câmeras seguem a pessoa o caminho inteiro (quem some das câmeras no meio não entra nessa conta).</span></li>
+          <li><i style="background:var(--papel-2);color:var(--tinta)">#</i><span>Sem nome e sem rosto: cada pessoa é um caminho do dia. A espera é de quem estava na área — cliente, entregador ou equipe — conforme onde a área foi marcada.</span></li>
+        </ul>
+      </section>
+    </div>
+  </section>
+
+  <!-- ───────────── o Desenho, com as áreas ───────────── -->
+  <section class="vista" id="v-desenho" aria-label="Desenho com as áreas de medida">
+    <div class="editor">
+      <div class="cartao">
+        <h2 class="secao">Desenho · editando</h2>
+        <div class="palco" id="mapa-edicao"></div>
+        <p class="nota">A área de medida aparece tracejada por cima da planta e não é parede: o que cada câmera cobre não muda.</p>
+      </div>
+      <aside class="cartao" aria-labelledby="t-areas">
+        <h2 class="secao" id="t-areas">Áreas de medida</h2>
+        <ul class="lista-areas" id="lista-areas"></ul>
+        <div class="acoes">
+          <button type="button" class="botao claro" id="nova-espera">＋ Área de espera</button>
+          <button type="button" class="botao claro" id="nova-porta">＋ Porta</button>
+        </div>
+        <div class="form" id="form"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ───────────── sem áreas ───────────── -->
+  <section class="vista" id="v-vazio" aria-label="Sem áreas marcadas">
+    <div class="cartao vazio">
+      <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 2"/><path d="M8 12h8M12 8v8"/></svg>
+      <h2>Nenhuma área marcada na planta</h2>
+      <p>Marque no Desenho onde as pessoas esperam (a fila do balcão, a espera dos entregadores) e por onde elas entram e saem (a porta). Daí em diante o Farol conta o tempo de cada espera e cada saída, sem nome e sem rosto.</p>
+      <a href="#" class="botao" id="ir-desenho">Marcar áreas no Desenho</a>
+    </div>
+  </section>
+</main>
+
+<script>
+// ───────────── a loja de exemplo (não é a planta de nenhuma loja) ─────────────
+const PLANTA = {
+  ambientes: [
+    { nome: 'Cozinha', x: 0, y: 0, w: 7, h: 5, rotulo: [0.2, 4.35] },
+    { nome: 'Corredor', x: 7, y: 0, w: 1.3, h: 7.6, rotulo: [7.65, 5.2], vertical: true },
+    { nome: 'Frente da loja', x: 0, y: 5, w: 7, h: 4.6, rotulo: [4.8, 9.35] },
+  ],
+  moveis: [
+    { nome: 'Chapa', x: 0.3, y: 0.2, w: 2.2, h: 0.8 }, { nome: 'Fritadeira', x: 2.9, y: 0.2, w: 1.2, h: 0.8 },
+    { nome: 'Montagem', x: 1.2, y: 2.4, w: 3.8, h: 0.9 }, { nome: 'Despacho', x: 6.55, y: 1.0, w: 0.45, h: 2.4 },
+    { nome: 'Balcão', x: 0.8, y: 4.7, w: 4.6, h: 0.6 }, { nome: 'Caixa', x: 5.5, y: 4.9, w: 1.2, h: 0.6 },
+    { nome: 'Mesa', x: 1, y: 7.4, w: 1.2, h: 0.8 }, { nome: 'Mesa', x: 3.2, y: 7.4, w: 1.2, h: 0.8 },
+  ],
+  portas: [{ x: 7, y: 7.6, w: 1.3 }, { x: 2.6, y: 9.6, w: 1.6 }],
+};
+let AREAS = [
+  { id: 'fila', nome: 'Fila do balcão', tipo: 'espera', perfil: 'cliente', x: 0.8, y: 5.4, w: 4.6, h: 1.4, cor: 'var(--area-espera)' },
+  { id: 'retirada', nome: 'Retirada dos pedidos', tipo: 'espera', perfil: 'retirada', x: 5.5, y: 5.6, w: 1.4, h: 1.4, cor: 'var(--area-espera)' },
+  { id: 'entregadores', nome: 'Espera dos entregadores', tipo: 'espera', perfil: 'entregador', x: 7.0, y: 0.8, w: 1.3, h: 2.8, cor: 'var(--area-espera)' },
+  { id: 'porta', nome: 'Porta dos entregadores', tipo: 'porta', x: 7.0, y: 6.7, w: 1.3, h: 0.9, cor: 'var(--area-porta)' },
+];
+
+// ───────────── um expediente simulado (19h às 3h), com sementes fixas ─────────────
+let semente = 7;
+const sorte = () => (semente = (semente * 16807) % 2147483647) / 2147483647;
+const INICIO = 19 * 60, FIM = 27 * 60; // minutos do dia (27 = 3h do dia seguinte)
+const movimento = (m) => { const h = m / 60; return 0.25 + Math.exp(-((h - 21) ** 2) / 1.6) + 0.55 * Math.exp(-((h - 23.5) ** 2) / 1.2); };
+// cada área de espera tem um jeito de esperar na simulação: o cliente no balcão, o cliente na retirada, o entregador
+function simular(fator) {
+  const espera = { cliente: [], retirada: [], entregador: [] }, saidas = [], entradas = [], naLoja = [];
+  for (let m = INICIO; m < FIM; m += 1) {
+    if (sorte() < 0.11 * movimento(m) * fator) { const e = 40 + sorte() * 160 + (movimento(m) > 1 ? sorte() * 280 : 0); espera.cliente.push([m * 60 + sorte() * 60, e]); }
+    if (sorte() < 0.08 * movimento(m) * fator) { const e = 50 + sorte() * 200 + (movimento(m) > 1.1 ? sorte() * 260 : 0); espera.retirada.push([m * 60 + sorte() * 60, e]); }
+    if (sorte() < 0.055 * movimento(m) * fator) {
+      const chega = m * 60 + sorte() * 60, e = 60 + sorte() * 240 + (movimento(m) > 1.1 ? sorte() * 420 : 0);
+      entradas.push(chega); espera.entregador.push([chega + 12, e]);
+      const sai = chega + 12 + e + 10;
+      if (sorte() < 0.9) { saidas.push(sai); naLoja.push(sai - chega); }
+    }
+  }
+  return { espera, saidas, entradas, naLoja };
+}
+const PERIODOS = { hora: 0.14, este: 1, anterior: 1.15, '7d': 6.6 };
+const minSeg = (s) => { s = Math.round(s); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const relogio = (s) => { const m = Math.floor(s / 60) % 1440; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+const mediana = (v) => { if (!v.length) return 0; const o = [...v].sort((a, b) => a - b); return o[Math.floor(o.length / 2)]; };
+const NS = 'http://www.w3.org/2000/svg';
+const el = (n, a = {}, pai) => { const e = document.createElementNS(NS, n); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); if (pai) pai.appendChild(e); return e; };
+
+function porHora(lista) { // a mediana da espera em cada hora
+  const h = new Map();
+  for (const [t, e] of lista) { const k = Math.floor(t / 3600); (h.get(k) || h.set(k, []).get(k)).push(e); }
+  const saida = [];
+  for (let k = 19; k < 27; k++) saida.push([k, mediana(h.get(k) || [])]);
+  return saida;
+}
+
+function cartaoDeEspera(area, lista, agora) {
+  const esperas = lista.map((v) => v[1]);
+  const maior = Math.max(0, ...esperas);
+  const longas = esperas.filter((e) => e > 300).length;
+  const horas = porHora(lista);
+  const teto = Math.max(60, ...horas.map((h) => h[1]));
+  return `<article class="cartao area" data-tipo="espera" style="--cor:${area.cor};--cor-tinta:var(--mostarda-tinta)" aria-labelledby="t-${area.id}">
+    <header><h2 id="t-${area.id}">${area.nome}</h2><span class="tipo">espera</span></header>
+    <div class="grande"><b>${esperas.length ? minSeg(mediana(esperas)) : '—'}</b><span>min de espera<br>(a do meio)</span></div>
+    <dl class="miudos">
+      <div><dt>pessoas</dt><dd>${esperas.length}</dd></div>
+      <div><dt>maior</dt><dd>${esperas.length ? minSeg(maior) : '—'}</dd></div>
+      <div><dt>+ de 5 min</dt><dd class="${longas ? 'alerta' : ''}">${longas}</dd></div>
+    </dl>
+    ${agora === null ? '' : `<span class="agora"><i aria-hidden="true"></i>agora: ${agora} ${agora === 1 ? 'pessoa esperando' : 'pessoas esperando'}</span>`}
+    <ol class="barras" style="grid-template-columns:repeat(${horas.length},minmax(0,1fr))" aria-label="A espera do meio, hora a hora">
+      ${horas.map(([h, e], i) => `<li title="${h % 24}h: ${e ? minSeg(e) + ' min' : 'ninguém'}"><i class="${e > 300 ? 'longa' : ''}" style="height:${Math.max(e ? 4 : 0, Math.round((e / teto) * 70))}px;animation-delay:${i * 40}ms"></i><small>${h % 24}h</small></li>`).join('')}
+    </ol>
+  </article>`;
+}
+
+function cartaoDaPorta(area, d) {
+  const grupos = new Map();
+  for (const s of d.saidas) { const h = Math.floor(s / 3600) % 24; (grupos.get(h) || grupos.set(h, []).get(h)).push(s); }
+  return `<article class="cartao area" data-tipo="porta" style="--cor:${area.cor};--cor-tinta:var(--ketchup-tinta)" aria-labelledby="t-${area.id}">
+    <header><h2 id="t-${area.id}">${area.nome}</h2><span class="tipo">porta</span></header>
+    <div class="grande"><b>${d.saidas.length}</b><span>saídas</span></div>
+    <dl class="miudos">
+      <div><dt>entradas</dt><dd>${d.entradas.length}</dd></div>
+      <div><dt>na loja</dt><dd>${d.naLoja.length ? minSeg(mediana(d.naLoja)) : '—'}</dd></div>
+      <div><dt>última saída</dt><dd>${d.saidas.length ? relogio(Math.max(...d.saidas)) : '—'}</dd></div>
+    </dl>
+    <ul class="saidas" aria-label="A hora de cada saída">
+      ${[...grupos.entries()].sort((a, b) => ((a[0] + 5) % 24) - ((b[0] + 5) % 24)).map(([h, l]) => `<li><b>${h}h</b><span class="horas">${l.map((s) => `<span>${relogio(s)}</span>`).join('')}</span></li>`).join('') || '<li><span class="legenda">Ninguém saiu por esta porta no período.</span></li>'}
+    </ul>
+    <p class="legenda">"Na loja": da entrada à saída, a do meio — de quem as câmeras seguiram o caminho inteiro (${d.naLoja.length} de ${d.saidas.length}).</p>
+  </article>`;
+}
+
+// A linha do tempo em HTML (não um desenho que encolhe): o nome em cima de cada faixa e as barras em porcentagem — lê
+// igual a 320 px e a 1920 px, sem rolar para o lado.
+function linhaDoTempo(d) {
+  const pct = (s) => ((s / 60 - INICIO) / (FIM - INICIO)) * 100;
+  const grade = Array.from({ length: 9 }, (_, i) => `<i class="lt-linha" style="left:${(i / 8) * 100}%"></i>`).join('');
+  const horas = Array.from({ length: 9 }, (_, i) => `<span style="left:${(i / 8) * 100}%">${(19 + i) % 24}h</span>`).join('');
+  const barras = (lista) => {
+    const fins = [];
+    return lista.map(([t, e]) => {
+      let k = fins.findIndex((f) => f < t); if (k < 0) { k = fins.length; fins.push(0); } fins[k] = t + e;
+      return `<b class="${e > 300 ? 'longa' : ''}" style="left:${pct(t)}%;width:max(3px,${pct(t + e) - pct(t)}%);top:${4 + (k % 5) * 8}px" title="${relogio(t)} · ${minSeg(e)} min"></b>`;
+    }).join('');
+  };
+  const marcas = (lista, classe, verbo) => lista.map((s) => `<b class="${classe}" style="left:${pct(s)}%" title="${verbo} ${relogio(s)}"></b>`).join('');
+  const faixa = (nome, dentro, resumo) => `<div class="lt-faixa"><h3>${nome}<small>${resumo}</small></h3><div class="lt-trilho">${grade}${dentro}</div></div>`;
+  const caixa = document.createElement('div');
+  caixa.className = 'lt';
+  caixa.setAttribute('role', 'img');
+  caixa.setAttribute('aria-label', `O expediente, área por área: ${AREAS.map((a) => (a.tipo === 'porta' ? `${a.nome}, ${d.saidas.length} saídas` : `${a.nome}, ${(d.espera[a.perfil] || []).length} esperas`)).join('; ')}`);
+  caixa.innerHTML = AREAS.map((a) => (a.tipo === 'porta'
+    ? faixa(a.nome, marcas(d.entradas, 'entra', 'entrou') + marcas(d.saidas, 'sai', 'saiu'), `${d.saidas.length} saídas · ${d.entradas.length} entradas`)
+    : faixa(a.nome, barras(d.espera[a.perfil] || []), `${(d.espera[a.perfil] || []).length} esperas`))).join('')
+    + `<div class="lt-horas" aria-hidden="true">${horas}</div>`;
+  return caixa;
+}
+
+function mapa(destino, { editando = false, selecionada = null } = {}) {
+  // o tamanho sai da planta (a de exemplo ou a da loja) e as letras crescem com ela
+  const tudo = [...PLANTA.ambientes, ...PLANTA.moveis, ...AREAS];
+  const x0 = Math.min(...tudo.map((r) => r.x)), y0 = Math.min(...tudo.map((r) => r.y));
+  const x1 = Math.max(...tudo.map((r) => r.x + r.w)), y1 = Math.max(...tudo.map((r) => r.y + r.h));
+  const fs = Math.max(0.22, Math.max(x1 - x0, y1 - y0) / 42), pad = fs * 1.6;
+  const svg = el('svg', { viewBox: `${x0 - pad} ${y0 - pad} ${x1 - x0 + pad * 2} ${y1 - y0 + pad * 2}`, role: 'img', 'aria-label': `A planta com ${AREAS.length} áreas de medida` });
+  for (const a of PLANTA.ambientes) {
+    el('rect', { x: a.x, y: a.y, width: a.w, height: a.h, fill: 'var(--cena-piso)', stroke: 'var(--cena-parede)', 'stroke-width': fs / 5 }, svg);
+    if (!a.rotulo && (a.nome.length * fs * 0.62 > a.w - fs || a.h < fs * 2.2)) continue; // o nome só onde cabe
+    const [lx, ly] = a.rotulo || [a.x + fs * .6, a.y + fs * 1.4];
+    const t = el('text', { x: lx, y: ly, fill: 'var(--cena-suave)', 'font-size': fs, 'font-family': 'Martian Mono, monospace', ...(a.vertical ? { transform: `rotate(-90 ${lx} ${ly})`, 'text-anchor': 'middle' } : {}) }, svg); t.textContent = a.nome;
+  }
+  for (const p of PLANTA.portas || []) el('rect', { x: p.x, y: p.y - fs / 4, width: p.w, height: fs / 2, fill: 'var(--cena-tinta)', opacity: .7 }, svg);
+  for (const m of PLANTA.moveis) {
+    el('rect', { x: m.x, y: m.y, width: m.w, height: m.h, rx: fs / 5, fill: 'var(--cena-movel)', stroke: 'var(--cena-movel-2)', 'stroke-width': fs / 8 }, svg);
+    if (m.nome.length * fs * 0.5 < m.w - fs * .4 && m.h > fs * 1.2) { const t = el('text', { x: m.x + m.w / 2, y: m.y + m.h / 2 + fs * .35, 'text-anchor': 'middle', fill: 'var(--cena-tinta)', 'font-size': fs * .9, 'font-family': 'Hanken Grotesk, sans-serif' }, svg); t.textContent = m.nome; }
+  }
+  for (const c of PLANTA.cameras || []) {
+    el('circle', { cx: c.x, cy: c.y, r: fs * .7, fill: '#F5B53A' }, svg);
+    const t = el('text', { x: c.x, y: c.y + fs * .32, 'text-anchor': 'middle', fill: '#1B1A17', 'font-size': fs * .85, 'font-weight': 700, 'font-family': 'Martian Mono, monospace' }, svg); t.textContent = c.canal;
+  }
+  for (const a of AREAS) {
+    const g = el('g', {}, svg);
+    el('rect', { x: a.x, y: a.y, width: a.w, height: a.h, rx: fs / 3, fill: a.cor, 'fill-opacity': selecionada === a.id ? .3 : .18, stroke: a.cor, 'stroke-width': selecionada === a.id ? fs / 3 : fs / 5, 'stroke-dasharray': `${fs * .8} ${fs * .5}` }, g);
+    const t = el('text', { x: a.x + a.w / 2, y: a.y + a.h / 2 + fs * .4, 'text-anchor': 'middle', fill: a.cor, 'font-size': fs * 1.15, 'font-weight': 700, 'font-family': 'Hanken Grotesk, sans-serif', stroke: 'var(--cena)', 'stroke-width': fs / 5, 'paint-order': 'stroke' }, g);
+    t.textContent = a.w < fs * 9 ? (a.tipo === 'porta' ? 'Porta' : 'Espera') : a.nome;
+    if (editando && selecionada === a.id) for (const [cx, cy] of [[a.x, a.y], [a.x + a.w, a.y], [a.x, a.y + a.h], [a.x + a.w, a.y + a.h]]) el('rect', { x: cx - fs / 2, y: cy - fs / 2, width: fs, height: fs, fill: 'var(--cena-tinta)' }, g);
+  }
+  destino.replaceChildren(svg);
+}
+
+// ───────────── a aba ─────────────
+let periodo = 'este';
+function desenharAtendimento() {
+  semente = { hora: 3, este: 7, anterior: 11, '7d': 13 }[periodo];
+  const d = simular(PERIODOS[periodo]);
+  const cartoes = document.getElementById('cartoes');
+  const aoVivo = periodo === 'hora' || periodo === 'este';
+  const agora = { cliente: 3, retirada: 2, entregador: 1 };
+  cartoes.innerHTML = AREAS.map((a) => (a.tipo === 'porta'
+    ? cartaoDaPorta(a, d)
+    : cartaoDeEspera(a, d.espera[a.perfil] || [], aoVivo ? agora[a.perfil] ?? 0 : null))).join('');
+  const lt = document.getElementById('lt');
+  if (periodo === 'este' || periodo === 'anterior') lt.replaceChildren(linhaDoTempo(d));
+  else {
+    const p = document.createElement('p');
+    p.className = 'legenda';
+    p.textContent = 'A linha do tempo mostra um expediente de cada vez: escolha "Este expediente" ou "Expediente anterior".';
+    lt.replaceChildren(p);
+  }
+  mapa(document.getElementById('mapa'));
+}
+document.getElementById('periodos').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  periodo = b.dataset.p;
+  for (const x of document.querySelectorAll('#periodos button')) x.setAttribute('aria-pressed', String(x === b));
+  desenharAtendimento();
+});
+
+// ───────────── o Desenho com as áreas ─────────────
+let selecionada = 'fila';
+function desenharEditor() {
+  const lista = document.getElementById('lista-areas');
+  lista.innerHTML = AREAS.map((a) => `<li><button type="button" data-id="${a.id}" aria-pressed="${a.id === selecionada}" style="--cor:${a.cor}"><i aria-hidden="true"></i><span>${a.nome}</span><small>${a.tipo}</small></button></li>`).join('');
+  const a = AREAS.find((x) => x.id === selecionada);
+  const form = document.getElementById('form');
+  if (!a) { form.innerHTML = '<p class="nota">Escolha uma área para editar.</p>'; mapa(document.getElementById('mapa-edicao'), { editando: true }); return; }
+  form.innerHTML = `
+    <label>Nome<input id="f-nome" value="${a.nome}" maxlength="60"></label>
+    <div><span style="font-size:13px;font-weight:600">Tipo</span>
+      <div class="segmentado" role="group" aria-label="Tipo da área" style="display:flex;margin-top:4px">
+        <button type="button" data-tipo="espera" aria-pressed="${a.tipo === 'espera'}">Espera</button>
+        <button type="button" data-tipo="porta" aria-pressed="${a.tipo === 'porta'}">Porta</button>
+      </div></div>
+    <div class="quatro">
+      <label>x (m)<input type="number" step="0.05" value="${a.x}" data-k="x"></label>
+      <label>y (m)<input type="number" step="0.05" value="${a.y}" data-k="y"></label>
+      <label>largura<input type="number" step="0.05" min="0.3" value="${a.w}" data-k="w"></label>
+      <label>comprimento<input type="number" step="0.05" min="0.3" value="${a.h}" data-k="h"></label>
+    </div>
+    <p class="nota">${a.tipo === 'espera' ? 'Conta o tempo de cada pessoa dentro da área (5 s ou mais). Marque só onde se espera — o lado do cliente no balcão, o lugar do entregador no despacho.' : 'Conta quem sai (o caminho termina aqui) e quem entra (começa aqui). Marque o pedaço de chão logo antes da porta, até onde a câmera ainda vê.'}</p>
+    <div class="aviso"><span aria-hidden="true">●</span><span>${a.id === 'porta' ? 'Esta área fica no campo do canal 3 (calibrado).' : 'Esta área fica no campo de 2 câmeras calibradas.'}</span></div>
+    <div class="acoes"><button type="button" class="botao claro" id="remover">Remover área</button></div>`;
+  form.querySelector('#f-nome').addEventListener('input', (e) => { a.nome = e.target.value || 'Área sem nome'; desenharEditorLista(); mapa(document.getElementById('mapa-edicao'), { editando: true, selecionada }); });
+  for (const b of form.querySelectorAll('[data-tipo]')) b.addEventListener('click', () => { a.tipo = b.dataset.tipo; a.cor = a.tipo === 'porta' ? 'var(--area-porta)' : 'var(--area-espera)'; desenharEditor(); });
+  for (const i of form.querySelectorAll('input[data-k]')) i.addEventListener('input', () => { const v = Number(i.value); if (Number.isFinite(v)) { a[i.dataset.k] = v; mapa(document.getElementById('mapa-edicao'), { editando: true, selecionada }); } });
+  form.querySelector('#remover').addEventListener('click', () => { AREAS = AREAS.filter((x) => x.id !== a.id); selecionada = AREAS[0]?.id ?? null; desenharEditor(); });
+  mapa(document.getElementById('mapa-edicao'), { editando: true, selecionada });
+}
+function desenharEditorLista() {
+  for (const b of document.querySelectorAll('#lista-areas button')) { const a = AREAS.find((x) => x.id === b.dataset.id); if (a) b.querySelector('span').textContent = a.nome; }
+}
+document.getElementById('lista-areas').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; selecionada = b.dataset.id; desenharEditor(); });
+let novas = 0;
+const nova = (tipo) => { novas += 1; const id = `nova-${novas}`; AREAS.push({ id, nome: tipo === 'porta' ? 'Porta nova' : 'Espera nova', tipo, x: 2.5, y: 6.8, w: 2, h: 1, cor: tipo === 'porta' ? 'var(--area-porta)' : 'var(--area-espera)' }); selecionada = id; desenharEditor(); };
+document.getElementById('nova-espera').addEventListener('click', () => nova('espera'));
+document.getElementById('nova-porta').addEventListener('click', () => nova('porta'));
+
+// ───────────── o controle do protótipo ─────────────
+function ver(qual) {
+  for (const b of document.querySelectorAll('[data-ver]')) b.setAttribute('aria-pressed', String(b.dataset.ver === qual));
+  for (const v of document.querySelectorAll('.vista')) v.classList.toggle('ativa', v.id === `v-${qual}`);
+  for (const a of document.querySelectorAll('.abas a')) a.removeAttribute('aria-current');
+  document.querySelector(`.abas a[data-aba="${qual === 'desenho' ? 'desenho' : 'atendimento'}"]`).setAttribute('aria-current', 'page');
+  if (qual === 'desenho') desenharEditor(); else if (qual === 'atendimento') desenharAtendimento();
+}
+document.querySelector('.prototipo').addEventListener('click', (e) => { const b = e.target.closest('[data-ver]'); if (b) ver(b.dataset.ver); });
+document.getElementById('ir-desenho').addEventListener('click', (e) => { e.preventDefault(); ver('desenho'); });
+for (const a of document.querySelectorAll('.abas a')) a.addEventListener('click', (e) => { e.preventDefault(); if (a.dataset.aba) ver(a.dataset.aba); });
+desenharAtendimento();
+</script>
+</body>
+</html>

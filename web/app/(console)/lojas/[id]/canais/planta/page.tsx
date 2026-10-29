@@ -47,7 +47,7 @@ import {
   type Resultados,
   type Setor,
 } from '@/lib/api';
-import { CAMERA_NOVA, centroDe, coberturaDaPlanta, LIMITES, mesmaPlanta, PLANTA_VAZIA, type Planta } from '@/lib/planta';
+import { areasDe, CAMERA_NOVA, centroDe, coberturaDaPlanta, LIMITES, mesmaPlanta, PLANTA_VAZIA, type Planta } from '@/lib/planta';
 import { lerArquivoDaPlanta, TAMANHO_MAXIMO_DO_ARQUIVO, type Importacao } from '@/lib/planta-importar';
 
 type Vista = 'perspectiva' | 'cima' | '3d';
@@ -260,11 +260,14 @@ export default function PlantaDaLoja() {
     avisar('Mudanças descartadas. A planta voltou a como estava.');
   }
 
-  /** Um retângulo acabou de ser desenhado: vira ambiente ou móvel, já escolhido e com o nome pronto para trocar. */
+  /** Um retângulo acabou de ser desenhado: vira ambiente, móvel ou área de medida, já escolhido e com o nome pronto para trocar. */
   function desenhou(ret: Retangulo) {
     if (!rascunho || !ferramenta) return;
-    const novo = novoId(ferramenta === 'ambiente' ? 'a' : 'm');
-    if (ferramenta === 'ambiente') {
+    const novo = novoId(ferramenta === 'ambiente' ? 'a' : ferramenta === 'area' ? 'area' : 'm');
+    if (ferramenta === 'area') {
+      setRascunho({ ...rascunho, areas: [...areasDe(rascunho), { id: novo, nome: `Área ${areasDe(rascunho).length + 1}`, tipo: 'espera', ...ret }] });
+      avisar('Área de medida criada. Dê um nome e diga se é espera ou porta.');
+    } else if (ferramenta === 'ambiente') {
       setRascunho({
         ...rascunho,
         ambientes: [...rascunho.ambientes, { id: novo, nome: `Ambiente ${rascunho.ambientes.length + 1}`, setorId: setores[0]?.id ?? null, ...ret }],
@@ -274,7 +277,7 @@ export default function PlantaDaLoja() {
       setRascunho({ ...rascunho, moveis: [...rascunho.moveis, { id: novo, nome: 'Equipamento', itemId: null, alt: 0.9, ...ret }] });
       avisar('Equipamento posto na planta. Dê um nome; o cadastro completo fica no inventário.');
     }
-    setSelecao({ tipo: ferramenta === 'ambiente' ? 'ambiente' : 'movel', id: novo });
+    setSelecao({ tipo: ferramenta === 'ambiente' ? 'ambiente' : ferramenta === 'area' ? 'area' : 'movel', id: novo });
     setRecemCriado(novo);
     setFerramenta('');
   }
@@ -287,6 +290,9 @@ export default function PlantaDaLoja() {
     } else if (s.tipo === 'movel') {
       setRascunho({ ...rascunho, moveis: rascunho.moveis.filter((m) => m.id !== s.id) });
       avisar('Tirado da planta. O cadastro no inventário continua.');
+    } else if (s.tipo === 'area') {
+      setRascunho({ ...rascunho, areas: areasDe(rascunho).filter((a) => a.id !== s.id) });
+      avisar('Área de medida tirada da planta. O que já foi contado nela some da aba Atendimento.');
     } else {
       setRascunho({ ...rascunho, ambientes: rascunho.ambientes.filter((a) => a.id !== s.id) });
       avisar('Ambiente excluído.');
@@ -324,7 +330,9 @@ export default function PlantaDaLoja() {
   function abrirImportada() {
     if (!importacao) return;
     if (!editando) vistaAntes.current = vista;
-    setRascunho(importacao.resultado.planta);
+    // o arquivo sem as áreas de medida não apaga as que a planta já tem
+    const { planta: doArquivo, trouxeAreas } = importacao.resultado;
+    setRascunho(trouxeAreas ? doArquivo : { ...doArquivo, areas: areasDe(planta) });
     setFerramenta('');
     setRecemCriado(null);
     setErroAoSalvar(null);
@@ -348,7 +356,7 @@ export default function PlantaDaLoja() {
   const carregando = guardada === undefined && !erro;
   const semPlanta = guardada !== undefined && !editando && planta.ambientes.length === 0;
   const totalDeCanais = setores.reduce((n, s) => n + s.pontos.length, 0);
-  const cheio = (lista: 'ambientes' | 'moveis') => planta[lista].length >= LIMITES[lista];
+  const cheio = (lista: 'ambientes' | 'moveis' | 'areas') => (lista === 'areas' ? areasDe(planta) : planta[lista]).length >= LIMITES[lista];
 
   return (
     <>
@@ -414,6 +422,11 @@ export default function PlantaDaLoja() {
             <p>
               <b className="break-all font-semibold">{importacao.nome}</b>: {importacao.resultado.planta.ambientes.length} ambiente(s),{' '}
               {importacao.resultado.planta.moveis.length} equipamento(s) e {importacao.resultado.planta.cameras.length} câmera(s).
+              {importacao.resultado.trouxeAreas
+                ? ` E ${areasDe(importacao.resultado.planta).length} área(s) de medida, no lugar das que a planta tem.`
+                : areasDe(planta).length > 0
+                  ? ` O arquivo não traz áreas de medida: as ${areasDe(planta).length} da planta continuam.`
+                  : ''}
             </p>
             {importacao.resultado.cameras.length > 0 && (
               <ul className="flex flex-col gap-1.5" aria-label="As câmeras do arquivo">
@@ -514,8 +527,8 @@ export default function PlantaDaLoja() {
               )}
               {editando && (
                 <div className="flex flex-wrap gap-2 md:ml-auto">
-                  {(['ambiente', 'movel'] as const).map((f) => {
-                    const lista = f === 'ambiente' ? 'ambientes' : 'moveis';
+                  {(['ambiente', 'movel', 'area'] as const).map((f) => {
+                    const lista = f === 'ambiente' ? 'ambientes' : f === 'area' ? 'areas' : 'moveis';
                     return (
                       <Botao
                         key={f}
@@ -533,7 +546,7 @@ export default function PlantaDaLoja() {
                         onClick={() => setFerramenta(ferramenta === f ? '' : f)}
                       >
                         <Plus className="h-[15px] w-[15px]" aria-hidden />
-                        {f === 'ambiente' ? 'Ambiente' : 'Equipamento'}
+                        {f === 'ambiente' ? 'Ambiente' : f === 'area' ? 'Área de medida' : 'Equipamento'}
                       </Botao>
                     );
                   })}
@@ -613,7 +626,9 @@ export default function PlantaDaLoja() {
                   : 'A mesma planta, com volume. Para mudar alguma coisa, clique em Editar planta.'
                 : editando
                 ? ferramenta
-                  ? `Arraste na planta para desenhar ${ferramenta === 'ambiente' ? 'o ambiente' : 'o equipamento'}. Não precisa de medida exata: dá para corrigir os números ao lado.`
+                  ? ferramenta === 'area'
+                    ? 'Arraste na planta para marcar a área: onde as pessoas esperam (o lado do cliente no balcão, o lugar do entregador) ou o chão logo antes de uma porta. Ela não é parede: o que cada câmera cobre não muda.'
+                    : `Arraste na planta para desenhar ${ferramenta === 'ambiente' ? 'o ambiente' : 'o equipamento'}. Não precisa de medida exata: dá para corrigir os números ao lado.`
                   : 'A planta é editada de cima. As medidas são em metros.'
                 : 'Toque numa câmera para ver o canal; num equipamento, para ver o que o inventário sabe dele.'}
             </p>

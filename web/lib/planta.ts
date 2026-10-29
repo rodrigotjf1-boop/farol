@@ -20,7 +20,15 @@ export type Movel = { id: string; nome: string; itemId: string | null; x: number
  * câmera simulada usam — o leque no chão e a frase do lugar continuam sem ela.
  */
 export type Camera = { pontoId: string; x: number; y: number; alt: number; dir: number; abertura: number; alcance: number; incl?: number };
-export type Planta = { ambientes: Ambiente[]; moveis: Movel[]; cameras: Camera[] };
+/**
+ * Área de medida (28/10/2026; a mesma de `api/src/planta.ts`): um pedaço de chão para contar, NÃO parede — o que cada
+ * câmera cobre não muda com ela. `espera`: quanto tempo cada pessoa fica dentro; `porta`: quem entra e quem sai.
+ */
+export type TipoDeArea = 'espera' | 'porta';
+export type Area = { id: string; nome: string; tipo: TipoDeArea; x: number; y: number; w: number; h: number };
+/** `areas` é opcional: a planta de antes não tinha (e a API de antes não devolvia). Leia por `areasDe`. */
+export type Planta = { ambientes: Ambiente[]; moveis: Movel[]; cameras: Camera[]; areas?: Area[] };
+export const areasDe = (p: Pick<Planta, 'areas'>): Area[] => p.areas ?? [];
 
 export type Pt = [number, number];
 type Retangulo = { x: number; y: number; w: number; h: number };
@@ -29,10 +37,12 @@ type Retangulo = { x: number; y: number; w: number; h: number };
 export const LIMITES = {
   ambientes: 30,
   moveis: 200,
+  areas: 20,
   nome: 60,
   extensao: 200,
   ladoDoAmbiente: [0.5, 100],
   ladoDoMovel: [0.2, 30],
+  ladoDaArea: [0.3, 60],
   alturaDoMovel: [0.1, 5],
   alturaDaCamera: [2, 4],
   abertura: [40, 120],
@@ -40,7 +50,7 @@ export const LIMITES = {
   inclinacao: [0, 90],
 } as const;
 
-export const PLANTA_VAZIA: Planta = { ambientes: [], moveis: [], cameras: [] };
+export const PLANTA_VAZIA: Planta = { ambientes: [], moveis: [], cameras: [], areas: [] };
 /** A câmera que acaba de entrar na planta: no teto, lente comum, olhando para baixo no desenho. */
 export const CAMERA_NOVA = { alt: 2.6, dir: 90, abertura: 80, alcance: 3, incl: 35 } as const;
 /** A inclinação de quem não tem o campo (planta de antes dele): a de uma câmera de canto comum. */
@@ -164,7 +174,7 @@ export type Moldura = [number, number, number, number];
 
 /** O que existe, com folga nenhuma: é o que a planta mostra fora da edição. */
 export function molduraDoQueExiste(planta: Planta): Moldura {
-  const rs: Retangulo[] = [...planta.ambientes, ...planta.moveis];
+  const rs: Retangulo[] = [...planta.ambientes, ...planta.moveis, ...areasDe(planta)];
   const xs = [...rs.flatMap((r) => [r.x, r.x + r.w]), ...planta.cameras.map((c) => c.x)];
   const ys = [...rs.flatMap((r) => [r.y, r.y + r.h]), ...planta.cameras.map((c) => c.y)];
   if (!xs.length) return [0, 0, 14, 9];
@@ -287,12 +297,17 @@ export function moverAmbiente(planta: Planta, id: string, nx: number, ny: number
   };
 }
 
-/** O menor retângulo que contém o ponto: móvel antes de ambiente. É o que o toque escolhe na edição. */
-export function alvoNoChao(planta: Planta, x: number, y: number): { tipo: 'movel' | 'ambiente'; id: string } | null {
+/**
+ * O menor retângulo que contém o ponto: móvel, depois área de medida, depois ambiente. É o que o toque escolhe na
+ * edição (a área fica por cima do ambiente: senão, tocar dentro dela pegaria a sala inteira).
+ */
+export function alvoNoChao(planta: Planta, x: number, y: number): { tipo: 'movel' | 'area' | 'ambiente'; id: string } | null {
   const contem = (r: Retangulo): boolean => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
   const menor = <T extends Retangulo>(lista: T[]): T | undefined => lista.filter(contem).sort((a, b) => a.w * a.h - b.w * b.h)[0];
   const movel = menor(planta.moveis);
   if (movel) return { tipo: 'movel', id: movel.id };
+  const area = menor(areasDe(planta));
+  if (area) return { tipo: 'area', id: area.id };
   const ambiente = menor(planta.ambientes);
   return ambiente ? { tipo: 'ambiente', id: ambiente.id } : null;
 }

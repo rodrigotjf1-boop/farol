@@ -7,6 +7,8 @@
 //   POST /v1/planta-viva/agora        o agente: as pessoas do instante (P6); a resposta diz se alguém olha
 //   GET  /v1/lojas/:id/planta-viva/agora   a tela "Ao vivo": a última posição de cada pessoa — só para quem
 //                                     configura (é o caminho de cada um, como o replay)
+//   GET  /v1/lojas/:id/planta-viva/atendimento   a aba "Atendimento" (28/10/2026): a espera em cada área de medida e
+//                                     quem entra e sai por cada porta — agregado, para quem acompanha a loja
 //
 // A guarda é curta: no envio, os caminhos com mais de 7 dias são apagados e o minuto inteiro com mais de 90. O ao vivo
 // não vai ao banco: a última posição de cada loja fica na memória desta API, por 30 s. ⚠️ Vale enquanto a API roda
@@ -17,6 +19,7 @@
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
+import { ATENDIMENTO, atendimentoDoPeriodo, type MinutoComCaminhos } from '../atendimento.js';
 import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import {
   AO_VIVO,
@@ -180,6 +183,52 @@ export function rotasDaPlantaViva(app: FastifyInstance, pool: pg.Pool, relogio: 
       pico: minutos.reduce((p, m) => Math.max(p, m.pico), 0),
       /** Nulo fora do replay: trecho de mais de 60 min, ou quem não configura a loja. */
       caminhos: replay ? caminhosDoTrecho(minutos) : null,
+    };
+  });
+
+  // O atendimento (28/10/2026): a espera em cada área de medida e quem entra e sai por cada porta, contados dos
+  // caminhos (`atendimento.ts`). Agregado e sem o caminho de cada um: para quem acompanha a loja, como o calor.
+  app.get('/v1/lojas/:id/planta-viva/atendimento', async (req, resposta) => {
+    const s = await sessaoDe(pool, req);
+    if (!s) return resposta.status(401).send({ erro: 'sem_sessao', mensagem: 'faça login' });
+    const { id } = req.params as { id: string };
+    if (!UUID.test(id) || (await pool.query('select 1 from loja where id = $1 and tenant_id = $2', [id, s.tenantId])).rowCount !== 1) {
+      return resposta.status(404).send({ erro: 'nao_encontrado', mensagem: 'loja não encontrada' });
+    }
+    if (!podeAcompanhar(s)) return resposta.status(403).send({ erro: 'sem_permissao', mensagem: 'seu perfil não acompanha a planta da loja' });
+    const q = (req.query ?? {}) as { de?: string; ate?: string };
+    const data = (x: string | undefined) => (x && COM_FUSO.test(x) && !Number.isNaN(Date.parse(x)) ? new Date(x) : null);
+    const agora = new Date();
+    const ate = q.ate === undefined ? agora : data(q.ate);
+    const de = q.de === undefined && ate ? new Date(ate.getTime() - 3_600_000) : data(q.de);
+    if (!de || !ate || de >= ate) return resposta.status(422).send({ erro: 'validacao', mensagem: 'de e ate: datas com fuso, de antes de ate' });
+    if (ate.getTime() - de.getTime() > ATENDIMENTO.periodoMaximoDias * 86_400_000) {
+      return resposta.status(422).send({
+        erro: 'validacao',
+        mensagem: `o período vai até ${ATENDIMENTO.periodoMaximoDias} dias (o caminho de cada um fica ${L.guardaDosCaminhosDias})`,
+      });
+    }
+    const planta = await plantaDaLoja(pool, id);
+    const areas = planta?.planta.areas ?? [];
+    if (!areas.length) return { de: de.toISOString(), ate: ate.toISOString(), minutos: 0, areas: [] };
+    // um pouco antes e depois do período: onde cada caminho começou e terminou
+    const margem = ATENDIMENTO.margemMin * 60_000;
+    const fimDosDados = new Date(Math.min(agora.getTime(), ate.getTime() + margem));
+    const r = await pool.query<{ minuto: Date; caminhos: MinutoComCaminhos['caminhos'] }>(
+      `select minuto, caminhos from planta_minuto
+        where loja_id = $1 and minuto >= $2 and minuto < $3 and caminhos is not null
+        order by minuto`,
+      [id, new Date(de.getTime() - margem).toISOString(), fimDosDados.toISOString()],
+    );
+    // "quantos estão lá agora": só quando o período chega ao agora e o ao vivo tem sinal
+    const g = aoVivo.get(id);
+    const comSinal = g !== undefined && situacaoAoVivo(g.recebidoEm, relogio()) !== 'sem_sinal';
+    const agoraPessoas = comSinal && agora.getTime() - ate.getTime() < 60_000 ? g.agora.pessoas : null;
+    return {
+      de: de.toISOString(),
+      ate: ate.toISOString(),
+      minutos: r.rows.filter((l) => l.minuto >= de && l.minuto < ate).length,
+      areas: atendimentoDoPeriodo(r.rows, areas, de, ate, { fimDosDados, agoraPessoas }),
     };
   });
 }

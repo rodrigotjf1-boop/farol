@@ -207,3 +207,101 @@ export function lembrar<M extends Ret & { id: string; nome: string }>(
   }
   return depois;
 }
+
+// ───────────────────────── o atendimento (28/10/2026) ─────────────────────────
+// A aba Atendimento: a espera em cada área de medida e quem entra e sai por cada porta, como a API conta
+// (`api/src/atendimento.ts`). Aqui: a forma da resposta e o que a tela faz com ela.
+
+export type EsperaNaArea = {
+  id: string;
+  nome: string;
+  tipo: 'espera';
+  /** Cada espera: [quando começou (ISO), quantos segundos]. */
+  visitas: Array<[string, number]>;
+  pessoas: number;
+  medianaS: number | null;
+  maiorS: number | null;
+  acimaDe5Min: number;
+  porHora: Array<{ hora: string; pessoas: number; medianaS: number }>;
+  agora: number | null;
+};
+export type PortaNaArea = {
+  id: string;
+  nome: string;
+  tipo: 'porta';
+  entradas: string[];
+  saidas: string[];
+  naLoja: { quantos: number; medianaS: number | null };
+  porHora: Array<{ hora: string; entradas: number; saidas: number }>;
+  agora: number | null;
+};
+export type AtendimentoDaPlanta = { de: string; ate: string; minutos: number; areas: Array<EsperaNaArea | PortaNaArea> };
+
+/** A espera longa (a barra vermelha e o "acima de 5 min"), a mesma da API. */
+export const ESPERA_LONGA_S = 300;
+
+/** A duração como relógio de espera: "2:37" (minutos:segundos), ou "1:02:05" com horas. */
+export function minSeg(segundos: number): string {
+  const s = Math.max(0, Math.round(segundos));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = String(s % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+}
+
+/** Quanto o relógio do fuso está à frente do UTC no instante (ms). */
+function deslocamentoDoFuso(fuso: string, ms: number): number {
+  const partes = new Intl.DateTimeFormat('en-US', {
+    timeZone: fuso, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(new Date(ms));
+  const v = (t: string): number => Number(partes.find((p) => p.type === t)?.value ?? 0);
+  return Date.UTC(v('year'), v('month') - 1, v('day'), v('hour'), v('minute'), v('second')) - Math.floor(ms / 1000) * 1000;
+}
+
+/** O instante (ms) de uma hora de relógio no fuso da loja. */
+export function instanteNoFuso(fuso: string, ano: number, mes: number, dia: number, hora: number, minuto: number): number {
+  const chute = Date.UTC(ano, mes - 1, dia, hora, minuto);
+  const primeiro = chute - deslocamentoDoFuso(fuso, chute);
+  return chute - deslocamentoDoFuso(fuso, primeiro); // de novo: perto de uma troca de horário, o deslocamento muda
+}
+
+type FaixaDaLoja = { dias: number[]; hora_ini: string; hora_fim: string };
+
+/**
+ * O expediente de agora (ou o último, com a loja fechada) e o anterior, pelo horário cadastrado da loja e no fuso
+ * dela: [de, ate] em ms. `dias`: 1 = segunda … 7 = domingo; `hora_fim` menor ou igual a `hora_ini` fecha no dia
+ * seguinte. Sem horário cadastrado: hoje (desde a meia-noite da loja) e ontem.
+ */
+export function expedientes(horario: readonly FaixaDaLoja[], fuso: string, agoraMs: number): { este: [number, number]; anterior: [number, number] } {
+  const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: fuso, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(agoraMs));
+  const [ano, mes, dia] = hoje.split('-').map(Number) as [number, number, number];
+  const meiaNoite = (k: number) => instanteNoFuso(fuso, ano, mes, dia + k, 0, 0);
+  if (!horario.length) return { este: [meiaNoite(0), agoraMs], anterior: [meiaNoite(-1), meiaNoite(0)] };
+  const hm = (t: string): [number, number] => t.split(':').map(Number) as [number, number];
+  const janelas: Array<[number, number]> = [];
+  for (let k = -8; k <= 0; k += 1) {
+    // o dia da semana da loja nesse dia (1 = segunda … 7 = domingo)
+    const ds = new Date(Date.UTC(ano, mes - 1, dia + k)).getUTCDay();
+    const diaDaSemana = ds === 0 ? 7 : ds;
+    for (const f of horario) {
+      if (!f.dias.includes(diaDaSemana)) continue;
+      const [hi, mi] = hm(f.hora_ini);
+      const [hf, mf] = hm(f.hora_fim);
+      const ini = instanteNoFuso(fuso, ano, mes, dia + k, hi, mi);
+      const viraODia = hf * 60 + mf <= hi * 60 + mi;
+      const fim = instanteNoFuso(fuso, ano, mes, dia + k + (viraODia ? 1 : 0), hf, mf);
+      if (ini <= agoraMs) janelas.push([ini, Math.min(fim, agoraMs)]);
+    }
+  }
+  janelas.sort((a, b) => a[0] - b[0]);
+  const ultima = janelas[janelas.length - 1];
+  const penultima = janelas[janelas.length - 2];
+  if (!ultima) return { este: [meiaNoite(0), agoraMs], anterior: [meiaNoite(-1), meiaNoite(0)] };
+  return { este: ultima, anterior: penultima ?? [ultima[0] - 86_400_000, ultima[0]] };
+}
+
+/** Quantas câmeras calibradas veem a área: o centro dela dentro do chão que a calibração cobre. */
+export function camerasQueVeem(area: Ret, chaoDasCalibracoes: ReadonlyArray<readonly Pt[]>): number {
+  const centro: Pt = [area.x + area.w / 2, area.y + area.h / 2];
+  return chaoDasCalibracoes.filter((pol) => pol.length >= 3 && dentro(centro, pol)).length;
+}
