@@ -198,6 +198,13 @@ class Rastreador:
         return [(numero_de[i], p.x, p.y) for i, p in enumerate(pessoas)]
 
 
+# O que a nuvem aceita num minuto (`api/src/planta-viva.ts`, LIMITES_DA_PLANTA_VIVA): o ponto de 0 a 200 m, até 60
+# pessoas ao mesmo tempo e até 60 caminhos. Um valor fora disso recusa o LOTE inteiro (422) — e o lote nunca passa
+# (ERR-158): aqui o minuto já sai dentro da régua.
+EXTENSAO_NA_NUVEM = 200.0
+MAXIMO_NA_NUVEM = 60
+
+
 class Minutos:
     """O que sobe à nuvem, por minuto: o calor (segundos-pessoa por célula), o pico de pessoas ao mesmo tempo e o
     caminho de cada um a 1 ponto por segundo (para o replay)."""
@@ -207,10 +214,14 @@ class Minutos:
         self._abertos: dict[str, dict] = {}
 
     def somar(self, quando: datetime, dt: float, pessoas: Sequence[tuple[int, float, float]]) -> None:
-        """`pessoas` no instante `quando` (com fuso), valendo `dt` segundos cada (o intervalo entre dois quadros)."""
+        """`pessoas` no instante `quando` (com fuso), valendo `dt` segundos cada (o intervalo entre dois quadros). O ponto
+        fora do que a nuvem aceita (negativo, além de 200 m, sem número) fica de fora: o rastreio já prende a pessoa na
+        planta, isto é a rede de baixo."""
+        pessoas = [(n, x, y) for n, x, y in pessoas
+                   if math.isfinite(x) and math.isfinite(y) and 0.0 <= x <= EXTENSAO_NA_NUVEM and 0.0 <= y <= EXTENSAO_NA_NUVEM]
         chave = quando.replace(second=0, microsecond=0).isoformat()
         m = self._abertos.setdefault(chave, {"calor": {}, "pico": 0, "caminhos": {}})
-        m["pico"] = max(m["pico"], len(pessoas))
+        m["pico"] = max(m["pico"], min(len(pessoas), MAXIMO_NA_NUVEM))
         segundo = quando.second
         for numero, x, y in pessoas:
             celula = (int(math.floor(x / self.celula)), int(math.floor(y / self.celula)))
@@ -225,11 +236,16 @@ class Minutos:
         saida = []
         for k in prontos:
             m = self._abertos.pop(k)
+            caminhos = m["caminhos"]
+            if len(caminhos) > MAXIMO_NA_NUVEM:
+                # mais caminhos que a nuvem aceita num minuto (gente que nasce e some): ficam os mais longos
+                longos = sorted(caminhos, key=lambda n: (-len(caminhos[n]), n))[:MAXIMO_NA_NUVEM]
+                caminhos = {n: caminhos[n] for n in longos}
             saida.append({
                 "minuto": k,
                 "celulaM": self.celula,
                 "calor": [[i, j, round(s, 1)] for (i, j), s in sorted(m["calor"].items())],
                 "pico": m["pico"],
-                "caminhos": [[n, [[seg, x, y] for seg, (x, y) in sorted(pts.items())]] for n, pts in sorted(m["caminhos"].items())],
+                "caminhos": [[n, [[seg, x, y] for seg, (x, y) in sorted(pts.items())]] for n, pts in sorted(caminhos.items())],
             })
         return saida

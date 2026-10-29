@@ -115,12 +115,25 @@ class Planta:
         x0, y0, x1, y1 = self.limites
         return x0 - FORA_DA_PLANTA <= x <= x1 + FORA_DA_PLANTA and y0 - FORA_DA_PLANTA <= y <= y1 + FORA_DA_PLANTA
 
+    def prender(self, x: float, y: float) -> tuple[float, float]:
+        """O ponto dentro do retângulo dos ambientes. A vista é aceita até `FORA_DA_PLANTA` além dele (a calibração erra
+        uns centímetros na beira) e a previsão anda sem ser vista; o que se MOSTRA e o que SOBE à nuvem é a pessoa na
+        loja — fora dele a nuvem recusa o minuto inteiro (ERR-158: a parede do fundo da cozinha é o y = 0)."""
+        if self.limites is None:
+            return x, y
+        x0, y0, x1, y1 = self.limites
+        return min(max(x, x0), x1), min(max(y, y0), y1)
 
-def no_chao_livre(x: float, y: float, moveis: Sequence[Movel], folga: float = FOLGA_DO_MOVEL) -> tuple[float, float]:
+
+def no_chao_livre(x: float, y: float, moveis: Sequence[Movel], folga: float = FOLGA_DO_MOVEL,
+                  limites: tuple[float, float, float, float] | None = None) -> tuple[float, float]:
     """O ponto, ou — se ele cai dentro de um móvel — o chão livre mais perto: a beira mais perto do móvel, `folga` para
-    fora, que não caia dentro de outro (móveis encostados: a bancada na parede, a ilha colada no balcão); sem nenhuma
-    assim, o chão livre em volta, procurado em círculos de 10 cm."""
+    fora, que não caia dentro de outro (móveis encostados: a bancada na parede, a ilha colada no balcão) nem fora dos
+    `limites` da planta (a bancada encostada na parede do fundo: a beira de trás é a parede); sem nenhuma assim, o chão
+    livre em volta, procurado em círculos de 10 cm."""
     def livre(px: float, py: float) -> bool:
+        if limites is not None and not (limites[0] <= px <= limites[2] and limites[1] <= py <= limites[3]):
+            return False
         return not any(m.dentro(px, py) for m in moveis)
 
     if livre(x, y):
@@ -288,7 +301,7 @@ def posicao_da_caixa(h: Sequence[float], cam: cm.Camera | None, caixa: Sequence[
         if altura is not None and not ALTURA_DE_GENTE[0] <= altura <= ALTURA_DE_GENTE[1]:
             # agachada, ou escondida por algo que não está na planta (outra pessoa, um carrinho): o pé fica, com dúvida
             s, altura = s * 3, None
-        x, y = no_chao_livre(pe[0], pe[1], planta.moveis)
+        x, y = no_chao_livre(pe[0], pe[1], planta.moveis, limites=planta.limites)
         if not planta.na_planta(x, y):
             return None
         return Posicao(x, y, s, s, None, False, altura)
@@ -322,7 +335,7 @@ def posicao_da_caixa(h: Sequence[float], cam: cm.Camera | None, caixa: Sequence[
             if dist > limite > 0:
                 ponto = (cx + (ponto[0] - cx) * limite / dist, cy + (ponto[1] - cy) * limite / dist)
                 s_raio = min(s_raio, max(s_lado, limite / 2))
-    x, y = no_chao_livre(ponto[0], ponto[1], planta.moveis)
+    x, y = no_chao_livre(ponto[0], ponto[1], planta.moveis, limites=planta.limites)
     if not planta.na_planta(x, y):
         return None
     rx, ry = x - cam.centro[0], y - cam.centro[1]  # type: ignore[union-attr]
@@ -851,11 +864,12 @@ class Rastreio:
         return [(n, x, y) for n, x, y, *_ in self.agora(t)]
 
     def agora(self, t: float) -> list[tuple[int, float, float, float, float, tuple[str, ...]]]:
-        """As pessoas para mostrar no instante `t`: (número, x, y, vx, vy, câmeras que a viram agora) — no chão livre."""
+        """As pessoas para mostrar no instante `t`: (número, x, y, vx, vy, câmeras que a viram agora) — no chão livre e
+        dentro da planta (ERR-158)."""
         saida = []
         for p in self.pessoas:
             if p.confirmada and t - p.visto_em <= MOSTRA_SEM_VER_S:
-                x, y = no_chao_livre(p.x, p.y, self.planta.moveis)
+                x, y = self.planta.prender(*no_chao_livre(p.x, p.y, self.planta.moveis, limites=self.planta.limites))
                 saida.append((p.numero, round(x, 3), round(y, 3), round(float(p.estado[2]), 2), round(float(p.estado[3]), 2),
                               p.canais_agora))
         return saida

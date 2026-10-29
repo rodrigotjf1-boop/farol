@@ -294,16 +294,53 @@ class PlantaViva:
             try:
                 self._enviar(lote)
             except ErroDaNuvem as e:
-                if not e.recuperavel:
-                    self._pausa_ate = agora_s + PAUSA_APOS_RECUSA_S
-                if str(e) != self._erro_dito:
-                    self._erro_dito = str(e)
-                    _log.warning("planta viva: os minutos ficaram sem subir (%s) — guardados, sobem depois", e)
+                if e.status == 422:
+                    # um minuto do lote a nuvem não aceita — e não vai aceitar nunca: repetido, o lote prendia a fila
+                    # a noite inteira (ERR-158). Um a um: o recusado sai, os outros sobem
+                    if self._um_a_um(len(lote), agora_s):
+                        continue
+                    return
+                self._nao_subiu(e, agora_s)
                 return
             self.pendentes = self.pendentes[len(lote):]
-            if self._erro_dito is not None:
-                _log.info("planta viva: a nuvem voltou a aceitar os minutos")
-                self._erro_dito = None
+            self._voltou()
+
+    def _nao_subiu(self, e: Exception, agora_s: float) -> None:
+        if getattr(e, "recuperavel", True) is False:
+            self._pausa_ate = agora_s + PAUSA_APOS_RECUSA_S
+        if str(e) != self._erro_dito:
+            self._erro_dito = str(e)
+            _log.warning("planta viva: os minutos ficaram sem subir (%s) — guardados, sobem depois", e)
+
+    def _voltou(self) -> None:
+        if self._erro_dito is not None:
+            _log.info("planta viva: a nuvem voltou a aceitar os minutos")
+            self._erro_dito = None
+
+    def _um_a_um(self, quantos: int, agora_s: float) -> bool:
+        """Os `quantos` primeiros minutos da fila, cada um sozinho: o que a nuvem recusa (422) sai da fila, com o motivo
+        no registro; outra falha para (o que sobrou fica). Verdadeiro = passou por todos."""
+        from farol_agent.nuvem import ErroDaNuvem
+
+        recusados: list[str] = []
+        try:
+            for _ in range(quantos):
+                minuto = self.pendentes[0]
+                try:
+                    self._enviar([minuto])
+                except ErroDaNuvem as e:
+                    if e.status != 422:
+                        self._nao_subiu(e, agora_s)
+                        return False
+                    recusados.append(e.problemas[0] if e.problemas else str(e))
+                else:
+                    self._voltou()
+                self.pendentes = self.pendentes[1:]
+            return True
+        finally:
+            if recusados:
+                _log.warning("planta viva: %d minuto(s) que a nuvem recusou saíram da fila (%s) — os outros sobem",
+                             len(recusados), recusados[0])
 
     # ───────────────────────────── ligar e desligar ─────────────────────────────
 

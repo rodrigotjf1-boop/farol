@@ -60,10 +60,13 @@ class ErroDaNuvem(Exception):
     de uma oscilação de rede que passaria em trinta segundos.
     """
 
-    def __init__(self, mensagem: str, *, recuperavel: bool = True, status: int = 0):
+    def __init__(self, mensagem: str, *, recuperavel: bool = True, status: int = 0, problemas: tuple[str, ...] = ()):
         super().__init__(mensagem)
         self.recuperavel = recuperavel
         self.status = status
+        # o que a API apontou na recusa (422 com `problemas`): fora da mensagem, para quem só deduplica pelo texto
+        # não ganhar uma linha nova a cada item recusado
+        self.problemas = problemas
 
 
 # O que este agente SABE fazer, dito à nuvem ao pedir a configuração. Há
@@ -232,7 +235,8 @@ class ClienteNuvem:
             # desativado ou ligado a outra máquina. 4xx em geral é pedido
             # malformado — repetir só gasta.
             recuperavel = e.code >= 500 or e.code == 429
-            detalhe = self._detalhe(e)
+            corpo_do_erro = self._corpo_do_erro(e)
+            detalhe = self._detalhe(corpo_do_erro)
             if e.code == 403 and not detalhe:
                 # 403 sem corpo JSON quase nunca é a API: ela sempre
                 # explica. É a borda (Cloudflare, WAF, proxy) barrando
@@ -242,7 +246,8 @@ class ClienteNuvem:
                     "(Cloudflare/WAF) barrou o pedido antes de chegar lá"
                 )
             raise ErroDaNuvem(
-                f"{e.code} em {caminho}{detalhe}", recuperavel=recuperavel, status=e.code
+                f"{e.code} em {caminho}{detalhe}", recuperavel=recuperavel, status=e.code,
+                problemas=self._problemas(corpo_do_erro),
             ) from None
         except urllib.error.URLError as e:
             # Rede caída, DNS fora, nuvem reiniciando. Passa.
@@ -262,11 +267,26 @@ class ClienteNuvem:
         return bruto
 
     @staticmethod
-    def _detalhe(e: urllib.error.HTTPError) -> str:
-        """A mensagem da API, quando houver. Sem ela, 401 é só um número."""
+    def _corpo_do_erro(e: urllib.error.HTTPError) -> dict[str, Any] | None:
+        """O corpo JSON da recusa, quando houver (lido uma vez só: a resposta não volta)."""
         try:
             corpo = json.loads(e.read())
         except Exception:
+            return None
+        return corpo if isinstance(corpo, dict) else None
+
+    @staticmethod
+    def _detalhe(corpo: dict[str, Any] | None) -> str:
+        """A mensagem da API, quando houver. Sem ela, 401 é só um número."""
+        if not corpo:
             return ""
         msg = corpo.get("mensagem") or corpo.get("erro")
         return f" — {msg}" if msg else ""
+
+    @staticmethod
+    def _problemas(corpo: dict[str, Any] | None) -> tuple[str, ...]:
+        """Os itens que a API apontou numa recusa de lote (`problemas`), até 5, cada um com até 200 letras."""
+        lista = corpo.get("problemas") if corpo else None
+        if not isinstance(lista, list):
+            return ()
+        return tuple(str(p)[:200] for p in lista[:5])

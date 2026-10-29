@@ -94,3 +94,18 @@ def test_o_minuto_tem_o_formato_do_contrato():
     exemplo = contrato["minuto"]
     assert fechado["minuto"] == exemplo["minuto"] and fechado["celulaM"] == exemplo["celulaM"]
     assert all(len(c) == 3 for c in fechado["calor"]) and all(len(p) == 3 for _, pts in fechado["caminhos"] for p in pts)
+
+
+def test_o_minuto_sai_dentro_do_que_a_nuvem_aceita():
+    """ERR-158 (28/10/2026): um ponto negativo recusava o LOTE inteiro na nuvem (422), e o lote nunca passava."""
+    m = pv.Minutos()
+    t0 = datetime(2026, 10, 28, 22, 10, 0, tzinfo=timezone.utc)
+    m.somar(t0, 0.5, [(1, 4.0, -0.3), (2, 4.0, 0.0), (3, -0.01, 2.0), (4, 250.0, 1.0), (5, float("nan"), 1.0)])
+    for k in range(70):  # 70 caminhos no mesmo minuto: a nuvem aceita até 60
+        m.somar(t0 + timedelta(seconds=1 + k * 0.5), 0.5, [(100 + k, 1.0, 1.0)] + ([(7, 2.0, 2.0)] if k < 30 else []))
+    (fechado,) = m.fechados(t0 + timedelta(minutes=1))
+    numeros = [n for n, _ in fechado["caminhos"]]
+    assert 1 not in numeros and 3 not in numeros and 4 not in numeros and 5 not in numeros, "o de fora fica de fora"
+    assert 2 in numeros and 7 in numeros, "a beira (0,0) vale; o caminho mais longo fica"
+    assert len(numeros) == pv.MAXIMO_NA_NUVEM and numeros == sorted(numeros)
+    assert all(i >= 0 and j >= 0 for i, j, _ in fechado["calor"]) and fechado["pico"] <= pv.MAXIMO_NA_NUVEM
