@@ -24,7 +24,16 @@ import { Botao } from '@/componentes/ui/botao';
 import { AJUDA, ROTULO } from '@/componentes/ui/campo';
 import { Chip } from '@/componentes/ui/pecas';
 import type { Equipamento, Ponto, Regra, Setor } from '@/lib/api';
-import { ambienteEm, areasDe, camerasQueVeem, comVirgula, inclinacaoDe, LIMITES, type Camera, type Planta, type TipoDeArea } from '@/lib/planta';
+import {
+  ambienteEm, areasDe, camerasQueVeem, comVirgula, inclinacaoDe, LIMITES, NOME_DO_TIPO_DE_AMBIENTE, NOME_DO_TIPO_DE_MOVEL, TIPOS_DE_AMBIENTE,
+  TIPOS_DE_MOVEL, tipoDeAmbientePeloNome, tipoDeMovelPeloNome, type Camera, type Planta, type TipoDeAmbiente, type TipoDeArea, type TipoDeMovel,
+} from '@/lib/planta';
+
+/** O tipo dado, ou nenhum (aí vale o nome): a chave sai do objeto, em vez de ficar `undefined` dentro dele. */
+function comTipo<T extends { tipo?: string }>(o: T, tipo: T['tipo'] | ''): T {
+  const { tipo: _antes, ...resto } = o;
+  return (tipo ? { ...resto, tipo } : resto) as T;
+}
 
 export type CanalNaPlanta = { ponto: Ponto; situacao: Situacao; setorNome: string };
 
@@ -161,6 +170,7 @@ export function PainelDaPlanta({
   const idDoSetor = useId();
   const idDoItem = useId();
   const idDoTipo = useId();
+  const idDoQueE = useId();
 
   useEffect(() => {
     if (recemCriado && selecao?.id === recemCriado) nome.current?.select();
@@ -321,6 +331,28 @@ export function PainelDaPlanta({
               </select>
               <p className={AJUDA}>Ligado a um equipamento, o nome dele vai na descrição do lugar da câmera que o vê.</p>
             </div>
+            <div className="flex min-w-0 flex-col gap-[5px]">
+              <label htmlFor={idDoQueE} className={ROTULO}>
+                Que equipamento é
+              </label>
+              <select
+                id={idDoQueE}
+                className="entrada"
+                value={movel.tipo ?? ''}
+                onChange={(ev) =>
+                  aoMudar({ ...planta, moveis: planta.moveis.map((m) => (m.id === movel.id ? comTipo(m, ev.target.value as TipoDeMovel | '') : m)) })
+                }
+                data-que-equipamento
+              >
+                <option value="">pelo nome: {NOME_DO_TIPO_DE_MOVEL[tipoDeMovelPeloNome(movel.nome)].toLowerCase()}</option>
+                {TIPOS_DE_MOVEL.map((t) => (
+                  <option key={t} value={t}>
+                    {NOME_DO_TIPO_DE_MOVEL[t]}
+                  </option>
+                ))}
+              </select>
+              <p className={AJUDA}>É a cara dele no Ao vivo: a chapa com a brasa, a fritadeira com o óleo, a bancada de inox, a mesa…</p>
+            </div>
             <div key={movel.id} className="grid grid-cols-3 items-end gap-2.5">
               <Medida rotulo="Largura, em m" valor={movel.w} faixa={LIMITES.ladoDoMovel} aoMudar={(v) => mudar({ w: v })} />
               <Medida rotulo="Comprimento, em m" valor={movel.h} faixa={LIMITES.ladoDoMovel} aoMudar={(v) => mudar({ h: v })} />
@@ -456,6 +488,28 @@ export function PainelDaPlanta({
               </option>
             ))}
           </select>
+        </div>
+        <div className="flex min-w-0 flex-col gap-[5px]">
+          <label htmlFor={idDoQueE} className={ROTULO}>
+            Que lugar é
+          </label>
+          <select
+            id={idDoQueE}
+            className="entrada"
+            value={ambiente.tipo ?? ''}
+            onChange={(ev) =>
+              aoMudar({ ...planta, ambientes: planta.ambientes.map((a) => (a.id === ambiente.id ? comTipo(a, ev.target.value as TipoDeAmbiente | '') : a)) })
+            }
+            data-que-lugar
+          >
+            <option value="">pelo nome: {NOME_DO_TIPO_DE_AMBIENTE[tipoDeAmbientePeloNome(ambiente.nome)].toLowerCase()}</option>
+            {TIPOS_DE_AMBIENTE.map((t) => (
+              <option key={t} value={t}>
+                {NOME_DO_TIPO_DE_AMBIENTE[t]}
+              </option>
+            ))}
+          </select>
+          <p className={AJUDA}>É a cor do chão no Ao vivo e a linha dele em &ldquo;Por setor&rdquo;. O setor de cima é outro: o da loja, que junta os canais.</p>
         </div>
         <div key={ambiente.id} className="grid grid-cols-2 items-end gap-2.5">
           <Medida rotulo="Largura, em m" valor={ambiente.w} faixa={LIMITES.ladoDoAmbiente} passo={0.5} aoMudar={(v) => mudar({ w: v })} />

@@ -94,7 +94,8 @@ export function lerArquivoDaPlanta(
     const { r, problema } = retangulo(o, `${onde} (${nome})`);
     if (problema) return { problema };
     const setorId = typeof o.setorId === 'string' && setores.includes(o.setorId) ? o.setorId : null;
-    ambientes.push({ id, nome, setorId, ...r! });
+    // Que lugar é (29/10/2026): vai como veio — se não for um dos tipos, quem diz é a API, ao salvar, como o resto.
+    ambientes.push({ id, nome, setorId, ...r!, ...(typeof o.tipo === 'string' ? { tipo: o.tipo as Ambiente['tipo'] } : {}) });
   }
 
   const moveis: Movel[] = [];
@@ -111,7 +112,7 @@ export function lerArquivoDaPlanta(
     if (problema) return { problema };
     if (!ehNumero(o.alt)) return { problema: `${onde} (${nome}): falta a altura (alt) em metros` };
     const itemId = typeof o.itemId === 'string' && itens.includes(o.itemId) ? o.itemId : null;
-    moveis.push({ id, nome, itemId, ...r!, alt: centesimos(o.alt) });
+    moveis.push({ id, nome, itemId, ...r!, alt: centesimos(o.alt), ...(typeof o.tipo === 'string' ? { tipo: o.tipo as Movel['tipo'] } : {}) });
   }
 
   // As câmeras: pelo identificador do canal desta loja, ou pelo número do canal.

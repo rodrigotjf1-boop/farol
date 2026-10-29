@@ -12,8 +12,31 @@
 // exige a mesma resposta das duas.
 // =====================================================================
 
-export type Ambiente = { id: string; nome: string; setorId: string | null; x: number; y: number; w: number; h: number };
-export type Movel = { id: string; nome: string; itemId: string | null; x: number; y: number; w: number; h: number; alt: number };
+/**
+ * Que lugar é o ambiente e que equipamento é o móvel (29/10/2026, pedido do dono: "onde é chapa ou fritadeira, o inox,
+ * o salão… setorizar com cores"). Só mudam o DESENHO do Ao vivo — a cor do chão e a cara de cada móvel; a conta da
+ * câmera e a frase do lugar não usam. Opcionais: sem eles vale o que o NOME diz (`tipoDoAmbiente`, `tipoDoMovel`).
+ * As mesmas listas de `api/src/planta.ts` (o teste da planta confere).
+ */
+export type TipoDeAmbiente = 'cozinha' | 'salao' | 'delivery' | 'estoque' | 'banheiro' | 'circulacao';
+export type TipoDeMovel =
+  | 'chapa' | 'fritadeira' | 'geladeira' | 'bancada' | 'pia' | 'estufa' | 'prateleira'
+  | 'balcao' | 'caixa' | 'totem' | 'mesa' | 'cabine' | 'banco' | 'estrutura';
+export const TIPOS_DE_AMBIENTE: readonly TipoDeAmbiente[] = ['cozinha', 'salao', 'delivery', 'estoque', 'banheiro', 'circulacao'];
+export const TIPOS_DE_MOVEL: readonly TipoDeMovel[] = [
+  'chapa', 'fritadeira', 'geladeira', 'bancada', 'pia', 'estufa', 'prateleira', 'balcao', 'caixa', 'totem', 'mesa', 'cabine', 'banco', 'estrutura',
+];
+export const NOME_DO_TIPO_DE_AMBIENTE: Record<TipoDeAmbiente, string> = {
+  cozinha: 'Cozinha', salao: 'Salão', delivery: 'Delivery', estoque: 'Estoque e preparo', banheiro: 'Banheiro', circulacao: 'Circulação',
+};
+export const NOME_DO_TIPO_DE_MOVEL: Record<TipoDeMovel, string> = {
+  chapa: 'Chapa', fritadeira: 'Fritadeira', geladeira: 'Geladeira ou freezer', bancada: 'Bancada de inox', pia: 'Pia ou tanque',
+  estufa: 'Estufa ou aquecedor', prateleira: 'Prateleira ou armário', balcao: 'Balcão', caixa: 'Caixa', totem: 'Totem', mesa: 'Mesa',
+  cabine: 'Cabine', banco: 'Banco estofado', estrutura: 'Pilar ou parede',
+};
+
+export type Ambiente = { id: string; nome: string; setorId: string | null; x: number; y: number; w: number; h: number; tipo?: TipoDeAmbiente };
+export type Movel = { id: string; nome: string; itemId: string | null; x: number; y: number; w: number; h: number; alt: number; tipo?: TipoDeMovel };
 /**
  * `dir` em graus: 0 = para a direita da planta, 90 = para baixo. `incl` em graus abaixo do horizonte: 0 = olhando
  * reto, 90 = direto no chão. Opcional: a planta de antes não tinha (vale `INCLINACAO_PADRAO`); só a vista em 3D e a
@@ -63,6 +86,53 @@ export const noLimite = (v: number, min: number, max: number): number => Math.mi
 export const grade = (v: number, passo: number): number => Math.round(Math.round(v / passo) * passo * 100) / 100;
 export const centroDe = (r: Retangulo): Pt => [r.x + r.w / 2, r.y + r.h / 2];
 export const comVirgula = (n: number): string => String(n).replace('.', ',');
+
+// ───────────────────────── que lugar é, que equipamento é ─────────────────────────
+
+const minusculoSemAcento = (s: string): string => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+/**
+ * O lugar pelo nome do ambiente, quando a planta não diz (`tipo`). A ordem conta: "Salão perto do delivery" é salão
+ * (começa por salão); "Escada do delivery" é delivery; o que nenhuma palavra diz é circulação.
+ */
+export function tipoDeAmbientePeloNome(nome: string): TipoDeAmbiente {
+  const n = minusculoSemAcento(nome);
+  if (/banheiro|lavabo|vestiario/.test(n)) return 'banheiro';
+  if (/^salao/.test(n)) return 'salao';
+  if (/delivery|motoboy|entregador|despacho/.test(n)) return 'delivery';
+  if (/camara|estoque|preparo|fundos|recebimento|deposito/.test(n)) return 'estoque';
+  if (/cozinha/.test(n)) return 'cozinha';
+  if (/salao|passagem|atendimento/.test(n)) return 'salao';
+  return 'circulacao';
+}
+
+/**
+ * O equipamento pelo nome do móvel, quando a planta não diz (`tipo`). A ordem conta: "Montagem", "Despacho" e "Mesa do
+ * preparo" são bancada de inox antes de tudo; o "Conservador de frituras" é aquecido (estufa), os outros conservadores
+ * são frios; "Geladeira de bebidas do caixa" é geladeira. O que nenhuma palavra diz é bancada de inox — o mais comum
+ * numa cozinha.
+ */
+export function tipoDeMovelPeloNome(nome: string): TipoDeMovel {
+  const n = minusculoSemAcento(nome);
+  if (/montagem|despacho|mesa do preparo|bancada atras|saida do balcao|batedeira/.test(n)) return 'bancada';
+  if (/chapa/.test(n)) return 'chapa';
+  if (/fritadeira/.test(n)) return 'fritadeira';
+  if (/estufa|conservador de frit/.test(n)) return 'estufa';
+  if (/geladeira|freezer|conservador|refriger|bebidas|alface/.test(n)) return 'geladeira';
+  if (/pia|tanque|escorredor/.test(n)) return 'pia';
+  if (/prateleira|armario|estante|tostador|carro de pa|vitamina/.test(n)) return 'prateleira';
+  if (/totem/.test(n)) return 'totem';
+  if (/caixa/.test(n)) return 'caixa';
+  if (/cabine/.test(n)) return 'cabine';
+  if (/banco/.test(n)) return 'banco';
+  if (/^mesa\b/.test(n)) return 'mesa';
+  if (/balcao/.test(n)) return 'balcao';
+  if (/pilar|coluna|divis|parede/.test(n)) return 'estrutura';
+  return 'bancada';
+}
+
+export const tipoDoAmbiente = (a: Pick<Ambiente, 'nome' | 'tipo'>): TipoDeAmbiente => a.tipo ?? tipoDeAmbientePeloNome(a.nome);
+export const tipoDoMovel = (m: Pick<Movel, 'nome' | 'tipo'>): TipoDeMovel => m.tipo ?? tipoDeMovelPeloNome(m.nome);
 
 /** O ambiente em que o ponto está (a borda conta). O primeiro desenhado vence. */
 export const ambienteEm = (planta: Planta, x: number, y: number): Ambiente | undefined =>
@@ -282,7 +352,10 @@ export function fatias(tamanho: number): Array<[number, number]> {
 // Toda mudança devolve uma planta NOVA: a tela guarda a de antes para
 // "Descartar mudanças", e o React só redesenha o que mudou de referência.
 
-/** Move um ambiente e leva junto quem mora nele: os móveis e as câmeras cujo centro está dentro. */
+/**
+ * Move um ambiente e leva junto quem mora nele: os móveis, as câmeras e as áreas de medida cujo centro está dentro.
+ * As áreas vêm junto SEMPRE (ERR-159): sem elas na planta nova, mover um ambiente apagava as áreas do desenho.
+ */
 export function moverAmbiente(planta: Planta, id: string, nx: number, ny: number): Planta {
   const a = planta.ambientes.find((x) => x.id === id);
   if (!a) return planta;
@@ -290,10 +363,13 @@ export function moverAmbiente(planta: Planta, id: string, nx: number, ny: number
   if (mx === 0 && my === 0) return planta;
   const dentro = (px: number, py: number): boolean => px >= a.x && px <= a.x + a.w && py >= a.y && py <= a.y + a.h;
   const soma = (v: number, d: number): number => Math.round((v + d) * 100) / 100;
+  const leva = <T extends Retangulo>(r: T): T => (dentro(...centroDe(r)) ? { ...r, x: Math.max(0, soma(r.x, mx)), y: Math.max(0, soma(r.y, my)) } : r);
   return {
+    ...planta,
     ambientes: planta.ambientes.map((x) => (x.id === id ? { ...x, x: nx, y: ny } : x)),
-    moveis: planta.moveis.map((m) => (dentro(...centroDe(m)) ? { ...m, x: Math.max(0, soma(m.x, mx)), y: Math.max(0, soma(m.y, my)) } : m)),
+    moveis: planta.moveis.map(leva),
     cameras: planta.cameras.map((c) => (dentro(c.x, c.y) ? { ...c, x: Math.max(0, soma(c.x, mx)), y: Math.max(0, soma(c.y, my)) } : c)),
+    ...(planta.areas ? { areas: planta.areas.map(leva) } : {}),
   };
 }
 

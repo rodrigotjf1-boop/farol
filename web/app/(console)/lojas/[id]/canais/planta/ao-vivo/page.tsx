@@ -17,7 +17,7 @@
 // de ler. Só para quem configura a loja (é o caminho de cada um).
 // =====================================================================
 
-import { Box, Crosshair, Footprints, Map as MapaIcone, Video } from 'lucide-react';
+import { Box, Crosshair, Footprints, Map as MapaIcone, Smartphone, Video } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -26,13 +26,15 @@ import { useConsole } from '@/componentes/console';
 import { abasDaPlanta } from '@/componentes/planta-viva/abas-da-planta';
 import { AoVivo3D, type PosicaoNaCena } from '@/componentes/planta-viva/ao-vivo-3d';
 import { AoVivoPlanta, type FiguraAoVivo } from '@/componentes/planta-viva/ao-vivo-planta';
+import { corDoLugar } from '@/componentes/planta-viva/cara-da-planta';
 import { usePlantaViva } from '@/componentes/planta-viva/use-planta-viva';
+import { VerNoCelular } from '@/componentes/planta-viva/ver-no-celular';
 import { abasDeCanais } from '@/componentes/pontos/abas-de-canais';
 import { Abas } from '@/componentes/ui/abas';
-import { classesDoBotao } from '@/componentes/ui/botao';
+import { Botao, classesDoBotao } from '@/componentes/ui/botao';
 import { Alerta, Cabecalho, CARTAO, Ossos, Ponto, Titulo, Vazio } from '@/componentes/ui/pecas';
 import { ErroDaApi, plantaVivaApi } from '@/lib/api';
-import type { Pt } from '@/lib/planta';
+import { ambienteEm, NOME_DO_TIPO_DE_AMBIENTE, TIPOS_DE_AMBIENTE, tipoDoAmbiente, type Pt, type TipoDeAmbiente } from '@/lib/planta';
 import { aproximar, duracao, lembrar, type AgoraDaPlanta, type MemoriaAoVivo } from '@/lib/planta-viva';
 
 type Modo = 'planta' | '3d' | 'cams';
@@ -43,6 +45,11 @@ const MODOS: ReadonlyArray<{ valor: Modo; rotulo: string; icone: typeof MapaIcon
 ];
 const LER_A_CADA_MS = 1000;
 const PASSANDO = 'Passando';
+/** A chave sobre a cena (sempre escura): ligada, com a cor do rótulo. */
+const CHAVE =
+  'rounded-full border-[1.5px] px-[11px] py-1.5 font-mono text-[12px] font-semibold transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-farol-mostarda';
+const chave = (ligada: boolean): string =>
+  `${CHAVE} ${ligada ? 'border-farol-rotulo bg-farol-rotulo text-farol-sobre-rotulo' : 'border-farol-cena-suave/45 bg-farol-cena text-farol-cena-tinta'}`;
 
 const relogioNaLoja = (ms: number, fuso: string) => {
   try {
@@ -65,6 +72,10 @@ export default function AoVivoNaPlanta() {
   const [escolhida, setEscolhida] = useState<number | null>(null);
   const [figuras, setFiguras] = useState<FiguraAoVivo[]>([]);
   const [relogio, setRelogio] = useState(0);
+  // A planta com vida (29/10/2026): o chão de cada lugar com a cor dele e o nome de cada equipamento — os dois ligados.
+  const [comCores, setComCores] = useState(true);
+  const [comNomes, setComNomes] = useState(true);
+  const [celular, setCelular] = useState<string | null>(null);
   const memoria = useRef<MemoriaAoVivo>(new Map());
   const alvos = useRef(new Map<number, Pt>());
   const mostradas = useRef(new Map<number, PosicaoNaCena>());
@@ -158,6 +169,23 @@ export default function AoVivoNaPlanta() {
     return [...c].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   }, [figuras]);
 
+  /** Os lugares que a planta tem, na ordem da legenda. */
+  const lugares = useMemo(
+    () => TIPOS_DE_AMBIENTE.filter((t) => (planta?.ambientes ?? []).some((a) => tipoDoAmbiente(a) === t)),
+    [planta],
+  );
+  /** Quantas pessoas em cada lugar agora (quem está fora de todo ambiente conta à parte). */
+  const porLugar = useMemo(() => {
+    const c = new Map<TipoDeAmbiente | 'fora', number>();
+    if (!planta) return c;
+    for (const f of figuras) {
+      const a = ambienteEm(planta, f.x, f.y);
+      const t = a ? tipoDoAmbiente(a) : 'fora';
+      c.set(t, (c.get(t) ?? 0) + 1);
+    }
+    return c;
+  }, [figuras, planta]);
+
   const cabecalho = (
     <>
       <Cabecalho sobre={loja?.nome} titulo="Planta viva">
@@ -218,15 +246,54 @@ export default function AoVivoNaPlanta() {
         <span className="whitespace-nowrap rounded-full bg-farol-painel px-3 py-1.5 font-mono text-[12px] font-semibold shadow-farol-1">
           {agora?.canais.length ?? 0} câmera(s) com imagem
         </span>
+        <Botao mini onClick={() => setCelular(`${window.location.origin}/lojas/${id}/canais/planta/ao-vivo`)} data-ver-no-celular>
+          <Smartphone className="h-4 w-4" aria-hidden />
+          Ver no celular
+        </Botao>
       </div>
+      {celular ? <VerNoCelular endereco={celular} aoFechar={() => setCelular(null)} /> : null}
       {erro ? <Alerta tom="atencao" papel="status">{erro} — tentando de novo.</Alerta> : null}
 
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_300px]">
         <section className="relative min-w-0 overflow-hidden rounded-[22px] bg-farol-cena shadow-farol-2" aria-label="A loja agora">
+          <div className="flex flex-wrap items-center gap-1.5 px-3 pb-1 pt-3" data-chaves-da-cena>
+            <button type="button" className={chave(comCores)} aria-pressed={comCores} onClick={() => setComCores((v) => !v)}>
+              Cores dos setores
+            </button>
+            <button type="button" className={chave(comNomes)} aria-pressed={comNomes} onClick={() => setComNomes((v) => !v)}>
+              Nomes
+            </button>
+            {comCores ? (
+              <ul className="contents" aria-label="Os setores da planta" data-legenda>
+                {lugares.map((t) => (
+                  <li key={t} className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11.5px] font-semibold text-farol-cena-tinta">
+                    <i className="inline-block h-[11px] w-[11px] rounded-[3px]" style={{ background: corDoLugar(t) }} aria-hidden />
+                    {NOME_DO_TIPO_DE_AMBIENTE[t]}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
           {modo === 'planta' ? (
-            <AoVivoPlanta planta={planta} figuras={figuras} escolhida={escolhida} aoEscolher={escolher} numeroDoCanal={numeroDoCanal} />
+            <AoVivoPlanta
+              planta={planta}
+              figuras={figuras}
+              escolhida={escolhida}
+              aoEscolher={escolher}
+              numeroDoCanal={numeroDoCanal}
+              comCores={comCores}
+              comNomes={comNomes}
+            />
           ) : (
-            <AoVivo3D planta={planta} modo={modo} posicoes={mostradas} escolhida={escolhida} nomeDaCamera={nomeDaCamera} />
+            <AoVivo3D
+              planta={planta}
+              modo={modo}
+              posicoes={mostradas}
+              escolhida={escolhida}
+              nomeDaCamera={nomeDaCamera}
+              comCores={comCores}
+              comNomes={comNomes}
+            />
           )}
           {situacao === 'sem_sinal' ? (
             <p className="absolute inset-x-3 bottom-3 rounded-xl bg-farol-cena/90 px-3 py-2 text-[13px] text-farol-cena-tinta" role="status">
@@ -244,6 +311,29 @@ export default function AoVivoNaPlanta() {
               {porPosto.length ? porPosto.map(([posto, n]) => `${posto}: ${n}`).join(' · ') : 'Ninguém nas câmeras calibradas.'}
             </p>
           </section>
+          <section className={`${CARTAO} p-4`} aria-labelledby="t-setor">
+            <Titulo id="t-setor">Por setor</Titulo>
+            <ul className="flex flex-col gap-1.5" aria-label="Pessoas em cada setor agora" data-por-setor>
+              {lugares.map((t) => (
+                <li key={t} className="grid grid-cols-[12px_minmax(0,1fr)_auto] items-center gap-2 text-[14px]" data-lugar={t}>
+                  <i className="h-3 w-3 rounded-[3px]" style={{ background: corDoLugar(t) }} aria-hidden />
+                  <span className="min-w-0 break-words">{NOME_DO_TIPO_DE_AMBIENTE[t]}</span>
+                  <b className="font-mono text-[13px] tabular-nums">{porLugar.get(t) ?? 0}</b>
+                </li>
+              ))}
+              {porLugar.get('fora') ? (
+                <li className="grid grid-cols-[12px_minmax(0,1fr)_auto] items-center gap-2 text-[14px] text-farol-suave" data-lugar="fora">
+                  <i className="h-3 w-3 rounded-[3px] border border-farol-borda-forte" aria-hidden />
+                  <span className="min-w-0 break-words">Fora dos ambientes</span>
+                  <b className="font-mono text-[13px] tabular-nums">{porLugar.get('fora')}</b>
+                </li>
+              ) : null}
+            </ul>
+            <p className="mt-2.5 text-[12.5px] text-farol-suave">
+              O setor é o do ambiente em que a pessoa está: em Canais › Planta › Desenho, &ldquo;Editar planta&rdquo;, toque no ambiente e
+              escolha &ldquo;Que lugar é&rdquo;. Sem escolha, vale o nome dele.
+            </p>
+          </section>
           <section className={`${CARTAO} p-4`} aria-labelledby="t-quem">
             <Titulo id="t-quem">Quem está onde</Titulo>
             {figuras.length ? (
@@ -258,11 +348,11 @@ export default function AoVivoNaPlanta() {
                         type="button"
                         onClick={() => escolher(f.n)}
                         aria-pressed={escolhida === f.n}
-                        className={`grid w-full grid-cols-[26px_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border-[1.5px] bg-farol-fundo px-2.5 py-2 text-left focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-farol-mostarda ${escolhida === f.n ? 'border-farol-mostarda' : 'border-transparent'}`}
+                        className={`grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border-[1.5px] bg-farol-fundo px-2.5 py-2 text-left focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-farol-mostarda ${escolhida === f.n ? 'border-farol-mostarda' : 'border-transparent'}`}
                       >
-                        <i className="grid h-[22px] w-[22px] place-items-center rounded-full bg-farol-pessoa font-mono text-[11px] font-bold not-italic text-white">{f.n}</i>
+                        <i className="grid h-[22px] min-w-[30px] place-items-center rounded-full bg-farol-pessoa px-1.5 font-mono text-[11px] font-bold not-italic text-white">{f.n}</i>
                         <span className="min-w-0">
-                          <b className="block truncate font-semibold">{f.rotulo}</b>
+                          <b className="block break-words font-semibold leading-[1.25]">{f.rotulo}</b>
                           <small className="font-mono text-[11px] text-farol-suave">{vistos.length ? `canal ${vistos.join(', ')}` : 'fora das câmeras agora'}</small>
                         </span>
                         <span className="font-mono text-[12px] text-farol-suave">{desde ? duracao(Math.max(0, (relogio - desde) / 1000)) : ''}</span>
