@@ -17,6 +17,9 @@ export function middleware(req: NextRequest) {
   // A documentação da porta para outro sistema é ABERTA: quem a lê é quem programa o sistema da loja, e essa
   // pessoa não tem (nem precisa ter) entrada no console. A página é texto fixo, sem dado de ninguém.
   if (indo === '/integracao') return NextResponse.next();
+  // O link só do ao vivo (29/10/2026) é ABERTO de propósito: quem o recebe não tem entrada no console. O código vem
+  // depois do "#" (o middleware nem o vê) e a API confere em cada leitura; a página não tem dado nenhum sem ele.
+  if (indo === '/ver') return NextResponse.next();
 
   if (!tem && indo !== '/entrar') {
     const destino = new URL('/entrar', req.url);

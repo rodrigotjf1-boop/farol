@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Link do ao vivo</title>
+<!-- Protótipo do "link só do ao vivo", APROVADO pelo dono em 29/10/2026 com o recomendado ("aprovado, e pode seguir o
+     recomendado"): "a ideia de ver do celular não é ter acesso completo ao webapp, é ver somente a movimentação ao
+     vivo". À esquerda, o console (Canais › Planta › Ao vivo › Ver no celular): para quem é, por quanto tempo vale
+     (1, 7, 30 dias — o padrão — ou até desligar), o QR que aparece só na hora de criar, o que quem tem o link vê e não
+     vê, e os links da loja com Desligar. À direita, o celular de quem recebe: só a planta (de cima e em 3D) com as
+     pessoas pelo posto e os números por setor; "sem sinal da loja"; "este link não vale mais". Loja de exemplo e
+     pessoas simuladas. Substitui o "Ver no celular" com login da planta com vida (farol-planta-ao-vivo.html).
+     A tela de verdade: web/componentes/planta-viva/ver-no-celular.tsx (a gaveta), web/app/ver/page.tsx e
+     web/componentes/planta-viva/ao-vivo-por-link.tsx (a página do link); a API em api/src/rotas/link-ao-vivo.ts. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Martian+Mono:wght@400;500;600&display=swap">
+<style>
+/* Protótipo do "link só do ao vivo": à esquerda o que se faz no console (criar, mostrar o QR, desligar);
+   à direita o celular de quem recebe o link. Mesmos tons e letras do protótipo aprovado da planta com vida. */
+:root {
+  --papel: #F3F1EA; --papel-2: #EAE6DB; --cartao: #FFFFFF; --tinta: #1B1A17; --suave: #625E56; --linha: #D8D2C4;
+  --ketchup: #C8361F; --mostarda: #F2B300; --picles: #2F7A2B; --moldura: #1B1A17; --sombra: 0 14px 28px -18px rgba(27, 26, 23, .45);
+  --cena: #0E1826; --cena-tinta: #E8EEF6; --cena-suave: #93A3B8; --pessoa: #3D7BEA; --pessoa-claro: #8DB4FF;
+  --rotulo: #F5B53A; --sobre-rotulo: #1B1A17;
+  --titulo: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif; --texto: "Hanken Grotesk", "Segoe UI", system-ui, sans-serif; --mono: "Martian Mono", ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --papel: #151412; --papel-2: #1D1B18; --cartao: #23211D; --tinta: #F3EFE6; --suave: #B5AE9F; --linha: #35322C;
+    --ketchup: #F0563D; --mostarda: #F5BC1A; --picles: #6CC566; --moldura: #000000; --sombra: 0 14px 28px -18px rgba(0, 0, 0, .8); color-scheme: dark; }
+}
+:root[data-theme="dark"] { --papel: #151412; --papel-2: #1D1B18; --cartao: #23211D; --tinta: #F3EFE6; --suave: #B5AE9F; --linha: #35322C;
+  --ketchup: #F0563D; --mostarda: #F5BC1A; --picles: #6CC566; --moldura: #000000; --sombra: 0 14px 28px -18px rgba(0, 0, 0, .8); color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--papel); color: var(--tinta); font: 400 15px/1.5 var(--texto); -webkit-font-smoothing: antialiased;
+  padding-block: 0 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+main { max-width: 1240px; margin: 0 auto; }
+h1, h2, h3 { margin: 0; font-family: var(--titulo); text-transform: uppercase; letter-spacing: .01em; line-height: .95; text-wrap: balance; }
+button, input { font: inherit; color: inherit; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.olho { font: 600 11px/1 var(--mono); letter-spacing: .1em; color: var(--suave); text-transform: uppercase; margin: 22px 0 8px; }
+.cabeca h1 { font-size: clamp(36px, 5vw, 64px); font-weight: 900; }
+.cabeca p { margin: 8px 0 0; color: var(--suave); max-width: 72ch; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--mostarda); outline-offset: 2px; }
+
+/* de onde vem o movimento */
+.caminho { list-style: none; margin: 18px 0 20px; padding: 0; display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 760px) { .caminho { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.caminho li { background: var(--papel-2); border-radius: 16px; padding: 12px 14px; min-width: 0; position: relative; }
+.caminho b { display: block; font: 800 17px/1.05 var(--titulo); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 4px; }
+.caminho span { font-size: 13.5px; color: var(--suave); display: block; }
+.caminho .onde { font: 600 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--tinta); opacity: .7; margin-bottom: 6px; }
+
+.duas { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1060px) { .duas { grid-template-columns: minmax(0, 1fr) 410px; } }
+.rotulo-lado { font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--suave); margin: 0 0 8px; }
+
+/* o lado do console: o diálogo "Ver no celular" */
+.painel { background: var(--cartao); border-radius: 22px; padding: 20px; box-shadow: var(--sombra); display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.painel > header h2 { font-size: 30px; font-weight: 900; }
+.painel > header p { margin: 6px 0 0; color: var(--suave); font-size: 14.5px; max-width: 62ch; }
+.secao { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--linha); padding-top: 16px; min-width: 0; }
+.secao h3 { font-size: 19px; font-weight: 800; letter-spacing: .04em; }
+.campos { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 640px) { .campos { grid-template-columns: minmax(0, 1fr) auto; align-items: end; } }
+.campo { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.campo label, .campo .nome { font-weight: 700; font-size: 13.5px; }
+.campo input { border: 1.5px solid var(--linha); background: var(--papel); border-radius: 12px; padding: 10px 12px; width: 100%; }
+.segmentos { display: flex; flex-wrap: wrap; gap: 4px; background: var(--papel); border-radius: 12px; padding: 4px; }
+.segmentos button { border: 0; background: transparent; border-radius: 9px; padding: 8px 11px; font-weight: 600; font-size: 13.5px; cursor: pointer; white-space: nowrap; }
+.segmentos button[aria-pressed="true"] { background: var(--tinta); color: var(--papel); }
+.dica { font-size: 13px; color: var(--suave); margin: 0; }
+.acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.botao { border: 0; border-radius: 12px; padding: 10px 15px; font-weight: 700; cursor: pointer; background: var(--papel-2); }
+.botao.principal { background: var(--tinta); color: var(--papel); }
+.botao.perigo { background: var(--ketchup); color: #fff; }
+.botao[disabled] { opacity: .5; cursor: not-allowed; }
+.resultado { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); background: var(--papel); border-radius: 16px; padding: 14px; }
+@media (min-width: 560px) { .resultado { grid-template-columns: auto minmax(0, 1fr); align-items: center; } }
+.qr { justify-self: center; background: #fff; padding: 10px; border-radius: 14px; line-height: 0; }
+.qr img, .qr canvas { width: 168px !important; height: 168px !important; }
+.endereco { font: 500 12px/1.45 var(--mono); word-break: break-all; background: var(--cartao); padding: 8px 10px; border-radius: 10px; margin: 6px 0 8px; }
+.resultado b.ok { color: var(--picles); }
+.ve { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 640px) { .ve { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ve ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ve li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; font-size: 14px; align-items: start; }
+.ve li svg { width: 18px; height: 18px; margin-top: 1px; }
+.ve .sim svg { color: var(--picles); } .ve .nao svg { color: var(--ketchup); }
+.ve .titulo-lista { font-weight: 700; font-size: 13.5px; margin-bottom: 6px; display: block; }
+.links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.links li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--papel); }
+.links li b { display: block; font-weight: 700; overflow-wrap: anywhere; }
+.links li small { display: block; font: 500 11.5px/1.45 var(--mono); color: var(--suave); }
+.links li.desligado b { text-decoration: line-through; color: var(--suave); }
+.links .confirmar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13.5px; background: var(--cartao); border-radius: 10px; padding: 8px 10px; }
+.links .confirmar span { flex: 1 1 220px; min-width: 0; }
+.selo { font: 600 11px/1 var(--mono); padding: 5px 8px; border-radius: 99px; background: var(--papel-2); color: var(--suave); white-space: nowrap; }
+.selo.vivo { background: var(--picles); color: #fff; }
+
+/* o celular de quem recebe o link */
+.estados { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.estados button { border: 1.5px solid var(--linha); background: var(--cartao); border-radius: 99px; padding: 6px 11px; font: 600 12px/1 var(--mono); cursor: pointer; }
+.estados button[aria-pressed="true"] { background: var(--tinta); color: var(--papel); border-color: var(--tinta); }
+.aparelho { width: min(100%, 410px); margin: 0 auto; border: 10px solid var(--moldura); border-radius: 42px; background: var(--papel); overflow: hidden; box-shadow: var(--sombra); }
+@media (max-width: 520px) { .aparelho { border-width: 0; border-radius: 20px; } }
+.tela { display: flex; flex-direction: column; gap: 10px; padding: 14px 12px 16px; min-height: 640px; }
+.cel-topo { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.cel-topo small { display: block; font: 600 10.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--suave); margin-bottom: 4px; }
+.cel-topo b { font: 900 26px/.95 var(--titulo); text-transform: uppercase; letter-spacing: .01em; }
+.vivo { display: inline-flex; align-items: center; gap: 7px; font: 800 15px/1 var(--titulo); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.vivo i { width: 10px; height: 10px; border-radius: 50%; background: var(--ketchup); box-shadow: 0 0 0 0 rgba(226, 65, 42, .6); animation: pulsa 1.6s infinite; }
+.vivo.parado i { background: var(--suave); animation: none; }
+@keyframes pulsa { 70% { box-shadow: 0 0 0 9px rgba(226, 65, 42, 0); } 100% { box-shadow: 0 0 0 0 rgba(226, 65, 42, 0); } }
+@media (prefers-reduced-motion: reduce) { .vivo i { animation: none; } }
+.cel-barra { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: space-between; }
+.cel-barra .segmentos { background: var(--papel-2); }
+.chaves { display: flex; gap: 5px; flex-wrap: wrap; }
+.chave { border: 1.5px solid var(--linha); background: var(--cartao); border-radius: 99px; padding: 6px 10px; font: 600 11.5px/1 var(--mono); cursor: pointer; }
+.chave[aria-pressed="true"] { background: var(--rotulo); color: var(--sobre-rotulo); border-color: var(--rotulo); }
+.cena { position: relative; height: clamp(300px, 54vh, 430px); background: var(--cena); border-radius: 18px; overflow: hidden; }
+.cena > .vista { position: absolute; inset: 0; display: none; } .cena > .vista.ativa { display: block; }
+.cena svg { display: block; width: 100%; height: 100%; }
+.cena canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.legenda { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; flex-wrap: wrap; gap: 4px; pointer-events: none; }
+.legenda span { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 99px; background: rgba(14, 24, 38, .85); color: var(--cena-tinta); font: 600 10.5px/1 var(--texto); }
+.legenda i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.legenda.esconde { display: none; }
+.sem-sinal { position: absolute; inset: 10px 10px auto 10px; background: rgba(14, 24, 38, .94); color: var(--cena-tinta); border: 1px solid rgba(147, 163, 184, .4); border-radius: 14px; padding: 12px 14px; font-size: 13.5px; }
+.sem-sinal b { display: block; font: 800 17px/1 var(--titulo); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+.numeros { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; }
+.numeros > div { background: var(--cartao); border-radius: 16px; padding: 12px; min-width: 0; }
+.numeros h3 { font-size: 15px; font-weight: 800; letter-spacing: .05em; margin-bottom: 8px; }
+.grande { font: 900 52px/.85 var(--titulo); }
+.setores { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.setores li { display: grid; grid-template-columns: 11px minmax(0, 1fr) auto; gap: 7px; align-items: center; font-size: 13.5px; }
+.setores li i { width: 11px; height: 11px; border-radius: 3px; }
+.setores li b { font: 700 12.5px/1 var(--mono); }
+.cel-pe { font-size: 12px; color: var(--suave); margin: 0; }
+.fim { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 10px; min-height: 560px; padding: 0 10px; }
+.fim h2 { font-size: 34px; font-weight: 900; }
+.fim p { margin: 0; color: var(--suave); }
+.fim svg { width: 44px; height: 44px; color: var(--suave); }
+.nota-fim { margin: 22px 0 0; color: var(--suave); font-size: 13.5px; max-width: 80ch; }
+</style>
+</head>
+<body>
+<main>
+  <p class="olho">Protótipo · loja de exemplo · pessoas simuladas</p>
+  <header class="cabeca">
+    <h1>Link só do ao vivo</h1>
+    <p>No console, quem configura a loja cria um link. Quem recebe abre no celular e vê só o movimento ao vivo daquela loja, sem entrar no console e sem ver mais nada. O link tem prazo e pode ser desligado a qualquer hora.</p>
+  </header>
+
+  <ol class="caminho" aria-label="De onde vem o movimento">
+    <li><span class="onde">Na loja</span><b>Câmeras</b><span>Mandam a imagem para o gravador, pela rede da loja.</span></li>
+    <li><span class="onde">Na loja</span><b>Computador do Farol</b><span>Vê as pessoas e calcula onde cada uma está na planta. A imagem não sai da loja.</span></li>
+    <li><span class="onde">Na nuvem</span><b>Nuvem do Farol</b><span>Recebe só as posições, a cada 0,5 s quando alguém está olhando. Guarda a última por 30 s.</span></li>
+    <li><span class="onde">Onde você estiver</span><b>Celular ou console</b><span>Pede a posição a cada 1 s e anima as pessoas entre uma leitura e outra.</span></li>
+  </ol>
+
+  <div class="duas">
+    <div>
+      <p class="rotulo-lado">No console · Canais › Planta › Ao vivo › Ver no celular</p>
+      <section class="painel" aria-labelledby="t-painel">
+        <header>
+          <h2 id="t-painel">Ver no celular</h2>
+          <p>Crie um link para abrir o movimento ao vivo desta loja no celular, sem login.</p>
+        </header>
+
+        <div class="secao">
+          <h3>Novo link</h3>
+          <div class="campos">
+            <div class="campo">
+              <label for="para-quem">Para quem é</label>
+              <input id="para-quem" type="text" maxlength="40" value="Celular do gerente" autocomplete="off">
+            </div>
+            <div class="campo">
+              <span class="nome" id="t-prazo">Vale por</span>
+              <div class="segmentos" role="group" aria-labelledby="t-prazo" id="prazo">
+                <button type="button" data-dias="1" aria-pressed="false">1 dia</button>
+                <button type="button" data-dias="7" aria-pressed="false">7 dias</button>
+                <button type="button" data-dias="30" aria-pressed="true">30 dias</button>
+                <button type="button" data-dias="0" aria-pressed="false">Até eu desligar</button>
+              </div>
+            </div>
+          </div>
+          <div class="acoes"><button type="button" class="botao principal" id="criar">Criar link</button></div>
+          <div class="resultado" id="resultado" hidden>
+            <div class="qr" id="qr" aria-hidden="true"></div>
+            <div>
+              <b class="ok" id="criado-titulo">Link criado</b>
+              <div class="endereco mono" id="endereco"></div>
+              <div class="acoes"><button type="button" class="botao" id="copiar">Copiar o link</button></div>
+              <p class="dica" style="margin-top:8px">Aponte a câmera do celular para o código. O código aparece só agora: se perder, crie outro e desligue este.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="secao">
+          <h3>O que quem tem o link vê</h3>
+          <div class="ve">
+            <div class="sim"><span class="titulo-lista">Vê</span><ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg><span>A planta, de cima e em 3D, com os setores em cores</span></li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg><span>As pessoas andando, pelo posto (sem nome)</span></li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg><span>Quantas pessoas há agora em cada setor</span></li>
+            </ul></div>
+            <div class="nao"><span class="titulo-lista">Não vê</span><ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg><span>Imagem das câmeras, nem onde elas ficam</span></li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg><span>Histórico, relatórios, alertas, outras lojas</span></li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg><span>Nenhum botão que muda alguma coisa</span></li>
+            </ul></div>
+          </div>
+        </div>
+
+        <div class="secao">
+          <h3>Links desta loja</h3>
+          <ul class="links" id="links" aria-label="Links desta loja"></ul>
+          <p class="dica">Desligou, parou na hora: quem estiver com o link aberto vê "Este link não vale mais".</p>
+        </div>
+      </section>
+    </div>
+
+    <div>
+      <p class="rotulo-lado">No celular de quem recebe o link</p>
+      <div class="estados" role="group" aria-label="Ver o celular quando">
+        <button type="button" data-estado="vivo" aria-pressed="true">Ao vivo</button>
+        <button type="button" data-estado="sem-sinal" aria-pressed="false">Sem sinal da loja</button>
+        <button type="button" data-estado="desligado" aria-pressed="false">Link desligado</button>
+      </div>
+      <div class="aparelho">
+        <div class="tela" id="tela">
+          <div id="cel-vivo">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="cel-topo">
+                <div><small>Farol · ao vivo</small><b>Loja de exemplo</b></div>
+                <span class="vivo" id="selo-vivo" aria-live="polite"><i aria-hidden="true"></i><span id="selo-texto">Ao vivo</span></span>
+              </div>
+              <div class="cel-barra">
+                <div class="segmentos" role="group" aria-label="Modo de ver" id="modos">
+                  <button type="button" data-modo="planta" aria-pressed="false">Planta</button>
+                  <button type="button" data-modo="3d" aria-pressed="true">3D</button>
+                </div>
+                <div class="chaves">
+                  <button type="button" class="chave" id="chave-cores" aria-pressed="true">Cores</button>
+                  <button type="button" class="chave" id="chave-nomes" aria-pressed="true">Nomes</button>
+                </div>
+              </div>
+              <div class="cena" aria-label="A loja agora">
+                <div id="c-planta" class="vista"></div>
+                <div id="c-3d" class="vista ativa"></div>
+                <div class="legenda" id="legenda" aria-label="Os setores"></div>
+                <div class="sem-sinal" id="sem-sinal" hidden><b>Sem sinal da loja</b>Desde <span id="desde">--:--</span>. O computador do Farol na loja, ou a internet de lá, está fora. A tela volta sozinha quando o sinal voltar.</div>
+              </div>
+              <div class="numeros">
+                <div><h3>Na loja</h3><div class="grande mono" id="total">0</div></div>
+                <div><h3>Por setor</h3><ul class="setores" id="por-setor" aria-label="Pessoas em cada setor"></ul></div>
+              </div>
+              <p class="cel-pe" id="cel-pe"></p>
+            </div>
+          </div>
+          <div class="fim" id="cel-fim" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <h2>Este link não vale mais</h2>
+            <p>Quem criou o link desligou, ou o prazo acabou. Peça um link novo a quem mandou este.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="nota-fim">Protótipo com pessoas simuladas, numa loja de exemplo. Os botões funcionam aqui na página: criar o link mostra o código, "Desligar" pede confirmação e o celular mostra o que acontece. Nada é gravado.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+// ─────────── a loja de exemplo (não é a de nenhuma loja) ───────────
+const D = {
+  ambientes: [
+    { id: 'cozinha', nome: 'Cozinha', x: 0, y: 0, w: 8, h: 5 },
+    { id: 'estoque', nome: 'Estoque e preparo', x: 8, y: 0, w: 4, h: 3 },
+    { id: 'camara', nome: 'Câmara fria', x: 8, y: 3, w: 2, h: 2 },
+    { id: 'banheiro', nome: 'Banheiro', x: 10, y: 3, w: 2, h: 2 },
+    { id: 'delivery', nome: 'Corredor do delivery', x: 12, y: 0, w: 1.4, h: 10 },
+    { id: 'salao', nome: 'Salão', x: 0, y: 5, w: 12, h: 5 },
+  ],
+  moveis: [
+    { nome: 'Chapa 1', x: 0.4, y: 0.2, w: 1.6, h: 0.8, alt: 0.9 },
+    { nome: 'Chapa 2', x: 2.2, y: 0.2, w: 1.6, h: 0.8, alt: 0.9 },
+    { nome: 'Fritadeira 1', x: 4.1, y: 0.2, w: 1, h: 0.8, alt: 0.9 },
+    { nome: 'Fritadeira 2', x: 5.3, y: 0.2, w: 1, h: 0.8, alt: 0.9 },
+    { nome: 'Freezer', x: 6.5, y: 0.2, w: 1.2, h: 0.8, alt: 0.85 },
+    { nome: 'Montagem 1', x: 1, y: 2.2, w: 2.8, h: 0.9, alt: 0.9 },
+    { nome: 'Estante de apoio', x: 3.9, y: 2.2, w: 0.7, h: 0.9, alt: 1.8 },
+    { nome: 'Montagem 2', x: 4.7, y: 2.2, w: 2.6, h: 0.9, alt: 0.9 },
+    { nome: 'Geladeira', x: 7.25, y: 3.8, w: 0.7, h: 0.7, alt: 1.9 },
+    { nome: 'Estufa', x: 5.6, y: 4.3, w: 1.2, h: 0.6, alt: 1.2 },
+    { nome: 'Pia de mãos', x: 0.2, y: 3.8, w: 0.8, h: 0.6, alt: 0.9 },
+    { nome: 'Prateleiras', x: 8.2, y: 0.2, w: 3, h: 0.5, alt: 2 },
+    { nome: 'Mesa do preparo', x: 8.5, y: 1.4, w: 2, h: 0.7, alt: 0.9 },
+    { nome: 'Prateleira da câmara', x: 8.2, y: 3.2, w: 1.6, h: 0.5, alt: 1.8 },
+    { nome: 'Despacho', x: 11.5, y: 1, w: 0.5, h: 2.4, alt: 0.9 },
+    { nome: 'Balcão', x: 0.8, y: 5.1, w: 4.6, h: 0.7, alt: 1.1 },
+    { nome: 'Caixa', x: 5.6, y: 5.1, w: 1.4, h: 0.7, alt: 1.1 },
+    { nome: 'Totem 1', x: 0.3, y: 6.3, w: 0.45, h: 0.4, alt: 1.7 },
+    { nome: 'Totem 2', x: 0.3, y: 7.1, w: 0.45, h: 0.4, alt: 1.7 },
+    { nome: 'Mesa 1', x: 2.6, y: 7.2, w: 1.2, h: 0.8, alt: 0.75 },
+    { nome: 'Mesa 2', x: 4.6, y: 7.2, w: 1.2, h: 0.8, alt: 0.75 },
+    { nome: 'Mesa 3', x: 6.6, y: 7.2, w: 1.2, h: 0.8, alt: 0.75 },
+    { nome: 'Cabine 1', x: 9.2, y: 5.6, w: 1.5, h: 1.5, alt: 1 },
+    { nome: 'Cabine 2', x: 9.2, y: 7.6, w: 1.5, h: 1.5, alt: 1 },
+    { nome: 'Banco estofado', x: 2, y: 9.4, w: 6.5, h: 0.5, alt: 0.9 },
+    { nome: 'Pilar', x: 8.3, y: 6.3, w: 0.3, h: 0.3, alt: 2.7 },
+  ],
+};
+const rad = (g) => g * Math.PI / 180;
+function tipoDe(nome) {
+  const n = nome.toLowerCase();
+  if (/montagem|despacho|mesa do preparo/.test(n)) return 'inox';
+  if (/chapa/.test(n)) return 'chapa';
+  if (/fritadeira/.test(n)) return 'fritadeira';
+  if (/estufa/.test(n)) return 'estufa';
+  if (/geladeira|freezer/.test(n)) return 'frio';
+  if (/pia/.test(n)) return 'pia';
+  if (/prateleira|estante/.test(n)) return 'prateleira';
+  if (/totem/.test(n)) return 'totem';
+  if (/caixa/.test(n)) return 'caixa';
+  if (/cabine/.test(n)) return 'cabine';
+  if (/banco/.test(n)) return 'banco';
+  if (/^mesa\b/.test(n)) return 'mesa';
+  if (/balc[aã]o/.test(n)) return 'balcao';
+  if (/pilar/.test(n)) return 'estrutura';
+  return 'inox';
+}
+const SETORES = {
+  cozinha: { nome: 'Cozinha', cor: '#E8833A', chao: 0x3b2a1f },
+  salao: { nome: 'Salão', cor: '#F2B300', chao: 0x3a331d },
+  delivery: { nome: 'Delivery', cor: '#3D8BEA', chao: 0x1c3150 },
+  estoque: { nome: 'Estoque e preparo', cor: '#2FB5A3', chao: 0x173a37 },
+  banheiro: { nome: 'Banheiro', cor: '#A98BEA', chao: 0x2f2747 },
+  circulacao: { nome: 'Circulação', cor: '#8D99A8', chao: 0x262d36 },
+};
+function setorDe(nome) {
+  const n = nome.toLowerCase();
+  if (/banheiro/.test(n)) return 'banheiro';
+  if (/^sal[aã]o/.test(n)) return 'salao';
+  if (/delivery/.test(n)) return 'delivery';
+  if (/c[aâ]mara|estoque|preparo/.test(n)) return 'estoque';
+  if (/cozinha/.test(n)) return 'cozinha';
+  return 'circulacao';
+}
+for (const a of D.ambientes) a.setor = setorDe(a.nome);
+for (const m of D.moveis) m.tipo = tipoDe(m.nome);
+const setorEm = (x, y) => { const a = D.ambientes.find((a) => x >= a.x && x <= a.x + a.w && y >= a.y && y <= a.y + a.h); return a ? a.setor : null; };
+const EXT = (() => { const rs = [...D.ambientes, ...D.moveis]; return [Math.min(...rs.map((r) => r.x)) - .3, Math.min(...rs.map((r) => r.y)) - .3, Math.max(...rs.map((r) => r.x + r.w)) + .3, Math.max(...rs.map((r) => r.y + r.h)) + .3]; })();
+
+// ─────────── os postos e as pessoas simuladas ───────────
+const dentroDeMovel = (x, y) => D.moveis.some((m) => x > m.x && x < m.x + m.w && y > m.y && y < m.y + m.h);
+const POSTOS = [];
+for (const m of D.moveis) {
+  if (!['chapa', 'fritadeira', 'inox', 'caixa', 'estufa', 'balcao', 'frio', 'pia', 'mesa', 'totem'].includes(m.tipo)) continue;
+  const lados = [[m.x + m.w / 2, m.y + m.h + .4], [m.x + m.w / 2, m.y - .4], [m.x - .4, m.y + m.h / 2], [m.x + m.w + .4, m.y + m.h / 2]];
+  const livre = lados.find(([x, y]) => setorEm(x, y) && !dentroDeMovel(x, y));
+  if (livre) POSTOS.push({ nome: m.nome, x: livre[0], y: livre[1], setor: setorEm(...livre) });
+}
+const postoDe = (x, y) => { let m = null, d = 0.8; for (const p of POSTOS) { const k = Math.hypot(p.x - x, p.y - y); if (k < d) { d = k; m = p; } } return m ? m.nome : 'Passando'; };
+let semente = 5; const sorte = () => (semente = (semente * 16807) % 2147483647) / 2147483647;
+const doSetor = (s) => POSTOS.filter((p) => p.setor === s);
+const grupos = [['cozinha'], ['cozinha'], ['cozinha'], ['cozinha', 'salao'], ['salao'], ['delivery', 'cozinha'], ['estoque', 'cozinha']];
+const comecos = new Set();
+const pessoas = grupos.map((gs, i) => {
+  const opcoes = gs.flatMap(doSetor);
+  const livres = opcoes.filter((p) => !comecos.has(p.nome));
+  const inicio = livres.length ? livres[Math.floor(sorte() * livres.length)] : opcoes[0];
+  if (inicio) comecos.add(inicio.nome);
+  const roteiro = [inicio, ...Array.from({ length: 3 }, () => opcoes[Math.floor(sorte() * opcoes.length)])].filter(Boolean).map((p) => ({ ...p, para: 3 + sorte() * 9 }));
+  const a = roteiro[0] || { x: 1, y: 1 };
+  return { id: i + 1, roteiro, passo: 0, x: a.x, y: a.y, espera: 1 + i, rastro: [], posto: postoDe(a.x, a.y) };
+}).filter((p) => p.roteiro.length > 1);
+let tempo = 0;
+function andar(dt) {
+  tempo += dt;
+  for (const p of pessoas) {
+    if (p.espera > 0) p.espera -= dt; else {
+      const alvo = p.roteiro[(p.passo + 1) % p.roteiro.length];
+      const dx = alvo.x - p.x, dy = alvo.y - p.y, d = Math.hypot(dx, dy), v = 1.05 * dt;
+      if (d <= v) { p.x = alvo.x; p.y = alvo.y; p.passo = (p.passo + 1) % p.roteiro.length; p.espera = alvo.para; } else { p.x += dx / d * v; p.y += dy / d * v; }
+    }
+    p.posto = postoDe(p.x, p.y);
+    const u = p.rastro[p.rastro.length - 1]; if (!u || Math.hypot(u[0] - p.x, u[1] - p.y) > 0.05) p.rastro.push([p.x, p.y, tempo]);
+    while (p.rastro.length && tempo - p.rastro[0][2] > 6) p.rastro.shift();
+  }
+}
+
+// ─────────── o estado do celular ───────────
+let estado = 'vivo', comCores = true, comNomes = true, modo = '3d';
+const usados = [...new Set(D.ambientes.map((a) => a.setor))];
+const legenda = document.getElementById('legenda');
+legenda.innerHTML = usados.map((s) => `<span><i style="background:${SETORES[s].cor}"></i>${SETORES[s].nome}</span>`).join('');
+
+// ─────────── Planta (de cima): sem câmera nenhuma ───────────
+const NS = 'http://www.w3.org/2000/svg';
+const el = (n, a = {}, pai) => { const e = document.createElementNS(NS, n); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); if (pai) pai.appendChild(e); return e; };
+const COR_2D = { chapa: '#4a3a33', fritadeira: '#6d5a2c', estufa: '#7a6a45', frio: '#d9e2ea', pia: '#a8b4c0', prateleira: '#5f6e80', totem: '#1f2630', caixa: '#2a2d33', cabine: '#8c3a28', banco: '#a8452f', mesa: '#8a5a33', balcao: '#2a2d33', estrutura: '#6d737c', inox: '#b9c3cd' };
+const tam = Math.max(EXT[2] - EXT[0], EXT[3] - EXT[1]);
+const fs = Math.max(.12, tam / 70);
+const svg = el('svg', { viewBox: `${EXT[0]} ${EXT[1] - 0.2} ${EXT[2] - EXT[0]} ${EXT[3] - EXT[1] + 1.6}`, role: 'img', 'aria-label': 'A loja vista de cima, com as pessoas agora' });
+document.getElementById('c-planta').appendChild(svg);
+const pisos = D.ambientes.map((a) => el('rect', { x: a.x, y: a.y, width: a.w, height: a.h, fill: '#13243A', stroke: '#6F8099', 'stroke-width': fs / 3 }, svg));
+const nomes2d = [];
+for (const m of D.moveis) {
+  el('rect', { x: m.x, y: m.y, width: m.w, height: m.h, rx: fs / 4, fill: COR_2D[m.tipo], stroke: '#0a1320', 'stroke-width': fs / 6 }, svg);
+  if (m.tipo === 'chapa') el('rect', { x: m.x + m.w * .08, y: m.y + m.h * .15, width: m.w * .84, height: m.h * .7, fill: '#ff7a2f', opacity: .45 }, svg);
+  if (m.tipo === 'fritadeira') for (const k of [0, 1]) el('rect', { x: m.x + m.w * (.1 + k * .45), y: m.y + m.h * .2, width: m.w * .35, height: m.h * .6, fill: '#d9a21b' }, svg);
+  if (m.tipo === 'totem') el('rect', { x: m.x + m.w * .2, y: m.y + m.h * .2, width: m.w * .6, height: m.h * .6, fill: '#3da5ff' }, svg);
+  if (m.nome.length * fs * .5 < m.w + .4 && m.h > fs * 1.2) { const t = el('text', { x: m.x + m.w / 2, y: m.y + m.h / 2 + fs * .35, 'text-anchor': 'middle', fill: ['frio', 'inox', 'pia'].includes(m.tipo) ? '#1b1a17' : '#E8EEF6', 'font-size': fs * .9, 'font-family': 'Hanken Grotesk, sans-serif', 'font-weight': 600 }, svg); t.textContent = m.nome; nomes2d.push(t); }
+}
+const camadaRastro = el('g', {}, svg), camadaGente = el('g', {}, svg);
+const figuras = new Map();
+for (const p of pessoas) {
+  const g = el('g', {}, camadaGente);
+  el('circle', { r: fs * 2, fill: 'rgba(61,123,234,.25)' }, g); el('circle', { r: fs * 1.15, fill: '#3D7BEA', stroke: '#fff', 'stroke-width': fs / 4 }, g);
+  const fundo = el('rect', { x: fs * 1.4, y: -fs * 3, height: fs * 1.6, rx: fs * .35, fill: '#F5B53A' }, g);
+  const t = el('text', { x: fs * 1.75, y: -fs * 1.85, fill: '#1B1A17', 'font-size': fs, 'font-weight': 700, 'font-family': 'Martian Mono, Consolas, monospace' }, g);
+  const rastro = el('polyline', { fill: 'none', stroke: '#8DB4FF', 'stroke-width': fs * .4, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: .55 }, camadaRastro);
+  figuras.set(p.id, { g, t, fundo, rastro, texto: '' });
+}
+function pintar2d() {
+  D.ambientes.forEach((a, i) => pisos[i].setAttribute('fill', comCores ? SETORES[a.setor].cor + '38' : '#13243A'));
+  for (const t of nomes2d) t.style.display = comNomes ? '' : 'none';
+  const vivo = estado === 'vivo';
+  camadaGente.style.display = vivo ? '' : 'none'; camadaRastro.style.display = vivo ? '' : 'none';
+}
+function desenharPlanta() {
+  for (const p of pessoas) {
+    const f = figuras.get(p.id);
+    f.g.setAttribute('transform', `translate(${p.x.toFixed(3)} ${p.y.toFixed(3)})`);
+    if (f.texto !== p.posto) { f.texto = p.posto; f.t.textContent = p.posto; f.fundo.setAttribute('width', (p.posto.length * fs * .64 + fs * .8).toFixed(2)); }
+    f.rastro.setAttribute('points', p.rastro.map((r) => `${r[0].toFixed(2)},${r[1].toFixed(2)}`).join(' '));
+  }
+}
+
+// ─────────── 3D: cada equipamento com a cara dele ───────────
+let mundo, render3d, olho, controle, chaos = [], nomes3d = [], fogos = [], tem3d = true;
+const avatares = new Map();
+function rotuloSprite(texto, fundo = '#F5B53A', tinta = '#1B1A17', base = 0.2) {
+  const c = document.createElement('canvas'); const ctx = c.getContext('2d'); ctx.font = '700 40px Martian Mono, Consolas, monospace';
+  const w = Math.ceil(ctx.measureText(texto).width) + 28; c.width = w; c.height = 58;
+  ctx.font = '700 40px Martian Mono, Consolas, monospace'; ctx.fillStyle = fundo; ctx.fillRect(0, 0, w, 58); ctx.fillStyle = tinta; ctx.textBaseline = 'middle'; ctx.fillText(texto, 14, 31);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true })); sp.scale.set(base * w / 58, base, 1); sp.renderOrder = 5; return sp;
+}
+let M;
+function bloco(g, w, h, d, mat, x, y, z) { const m = new THREE.Mesh(new THREE.BoxGeometry(Math.max(.01, w), Math.max(.01, h), Math.max(.01, d)), mat); m.position.set(x, y, z); g.add(m); return m; }
+function equipamento(m) {
+  const g = new THREE.Group(); g.position.set(m.x, 0, m.y);
+  const { w, h, alt } = m; const cx = w / 2, cz = h / 2;
+  const pernas = (top) => { for (const [px, pz] of [[.04, .04], [w - .04, .04], [.04, h - .04], [w - .04, h - .04]]) bloco(g, .04, top, .04, M.inoxEscuro, px, top / 2, pz); };
+  switch (m.tipo) {
+    case 'chapa': {
+      bloco(g, w, alt - .05, h, M.inoxEscuro, cx, (alt - .05) / 2, cz); bloco(g, w - .06, .05, h - .12, M.chapaTopo, cx, alt - .025, cz + .03);
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(w - .2, h - .3), M.fogo.clone()); f.rotation.x = -Math.PI / 2; f.position.set(cx, alt + .004, cz + .03); g.add(f); fogos.push(f.material);
+      break;
+    }
+    case 'fritadeira': {
+      bloco(g, w, alt - .04, h, M.inoxEscuro, cx, (alt - .04) / 2, cz); bloco(g, w, .04, h, M.inox, cx, alt - .02, cz);
+      for (const k of [0, 1]) { const px = w * (.27 + k * .46); bloco(g, w * .36, .02, h * .6, M.poco, px, alt + .005, cz); bloco(g, w * .3, .02, h * .48, M.oleo, px, alt + .012, cz); }
+      break;
+    }
+    case 'frio': bloco(g, w, alt, h, M.branco, cx, alt / 2, cz); if (alt >= 1.4) bloco(g, w - .08, alt - .25, .02, M.vidro, cx, alt / 2 + .05, h + .011); break;
+    case 'pia': pernas(alt - .04); bloco(g, w, .04, h, M.inox, cx, alt - .02, cz); bloco(g, Math.min(w * .6, .5), .03, h * .6, M.poco, cx, alt + .005, cz); break;
+    case 'estufa': bloco(g, w, alt * .45, h, M.inoxEscuro, cx, alt * .225, cz); bloco(g, w, alt * .55, h, M.vidro, cx, alt * .725, cz); bloco(g, w - .1, .02, h - .1, M.luz, cx, alt * .6, cz); break;
+    case 'prateleira': for (const [px, pz] of [[.03, .03], [w - .03, .03], [.03, h - .03], [w - .03, h - .03]]) bloco(g, .03, alt, .03, M.inoxEscuro, px, alt / 2, pz); for (let y = .25; y < alt; y += .42) bloco(g, w, .025, h, M.inox, cx, y, cz); break;
+    case 'totem': bloco(g, w, .06, h, M.preto, cx, .03, cz); bloco(g, w * .7, alt, h * .5, M.preto, cx, alt / 2, cz); bloco(g, w * .55, alt * .4, .01, M.tela, cx, alt * .7, cz + h * .26); break;
+    case 'caixa': case 'balcao': {
+      bloco(g, w, alt - .04, h, M.frente, cx, (alt - .04) / 2, cz); bloco(g, w + .04, .04, h + .04, M.granito, cx, alt - .02, cz);
+      if (m.tipo === 'caixa') { bloco(g, .45, .3, .03, M.preto, cx, alt + .2, cz); bloco(g, .4, .25, .01, M.tela, cx, alt + .2, cz + .02); }
+      break;
+    }
+    case 'mesa': { bloco(g, w, .04, h, M.madeira, cx, alt, cz); const p = new THREE.Mesh(new THREE.CylinderGeometry(.04, .06, alt, 10), M.preto); p.position.set(cx, alt / 2, cz); g.add(p); break; }
+    case 'cabine': {
+      bloco(g, w * .42, .04, h * .8, M.madeira, cx, .75, cz);
+      for (const s of [-1, 1]) { const px = cx + s * (w / 2 - w * .125); bloco(g, w * .25, .45, h * .9, M.estofado, px, .225, cz); bloco(g, .12, alt, h * .9, M.estofado, px + s * (w * .125 - .06), alt / 2, cz); }
+      break;
+    }
+    case 'banco': bloco(g, w, .45, h, M.estofado, cx, .225, cz); bloco(g, w, alt, .12, M.estofado, cx, alt / 2, h - .06); break;
+    case 'estrutura': bloco(g, w, alt, h, M.concreto, cx, alt / 2, cz); break;
+    default: pernas(alt - .05); bloco(g, w, .05, h, M.inox, cx, alt - .025, cz); bloco(g, w - .1, .03, h - .1, M.inoxEscuro, cx, .2, cz);
+  }
+  return g;
+}
+function montar3d() {
+  M = {
+    inox: new THREE.MeshStandardMaterial({ color: 0xd3dae2, metalness: .45, roughness: .3 }), inoxEscuro: new THREE.MeshStandardMaterial({ color: 0x9aa5b1, metalness: .4, roughness: .4 }),
+    chapaTopo: new THREE.MeshStandardMaterial({ color: 0x1a1a1c, metalness: .3, roughness: .55 }), fogo: new THREE.MeshBasicMaterial({ color: 0xff7a2f, transparent: true, opacity: .55 }),
+    oleo: new THREE.MeshStandardMaterial({ color: 0xe0a91f, emissive: 0x5a3a00, roughness: .25 }), poco: new THREE.MeshStandardMaterial({ color: 0x23262b, roughness: .6 }),
+    branco: new THREE.MeshStandardMaterial({ color: 0xeef2f5, roughness: .45 }), vidro: new THREE.MeshStandardMaterial({ color: 0x9fd3ff, transparent: true, opacity: .38, roughness: .1 }),
+    madeira: new THREE.MeshStandardMaterial({ color: 0x8a5a33, roughness: .7 }), estofado: new THREE.MeshStandardMaterial({ color: 0xa8452f, roughness: .6 }),
+    granito: new THREE.MeshStandardMaterial({ color: 0x24262b, roughness: .3, metalness: .2 }), frente: new THREE.MeshStandardMaterial({ color: 0x3a3f47, roughness: .6 }),
+    concreto: new THREE.MeshStandardMaterial({ color: 0x737a84, roughness: .9 }), tela: new THREE.MeshBasicMaterial({ color: 0x3da5ff }),
+    preto: new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: .6 }), luz: new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: .35 }),
+  };
+  mundo = new THREE.Scene(); mundo.background = new THREE.Color('#0E1826');
+  mundo.add(new THREE.HemisphereLight(0xdfe8ff, 0x14202e, 0.95));
+  const sol = new THREE.DirectionalLight(0xffffff, 0.75); sol.position.set(EXT[0] + tam * .3, 12, EXT[1] - 2); mundo.add(sol);
+  for (const a of D.ambientes) {
+    const chao = new THREE.Mesh(new THREE.PlaneGeometry(a.w, a.h), new THREE.MeshLambertMaterial({ color: 0x13243a })); chao.rotation.x = -Math.PI / 2; chao.position.set(a.x + a.w / 2, 0, a.y + a.h / 2); mundo.add(chao); chaos.push([chao, a]);
+    const borda = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(a.w, 0.5, a.h)), new THREE.LineBasicMaterial({ color: 0x5b6d86, transparent: true, opacity: .5 })); borda.position.set(a.x + a.w / 2, 0.25, a.y + a.h / 2); mundo.add(borda);
+    const s = rotuloSprite(a.nome, 'rgba(14,24,38,.75)', SETORES[a.setor].cor, .3); s.position.set(a.x + .2 + s.scale.x / 2, .05, a.y + .35); s.material.depthTest = true; mundo.add(s); nomes3d.push(s);
+  }
+  for (const m of D.moveis) {
+    mundo.add(equipamento(m));
+    if (!['estrutura', 'prateleira', 'banco'].includes(m.tipo)) { const s = rotuloSprite(m.nome, 'rgba(232,238,246,.92)', '#1B1A17', .17); s.position.set(m.x + m.w / 2, m.alt + .32, m.y + m.h / 2); mundo.add(s); nomes3d.push(s); }
+  }
+  for (const p of pessoas) {
+    const g = new THREE.Group();
+    const corpo = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.22, 1.3, 20), new THREE.MeshLambertMaterial({ color: 0x3d7bea })); corpo.position.y = 0.65; g.add(corpo);
+    const cabeca = new THREE.Mesh(new THREE.SphereGeometry(0.17, 20, 14), new THREE.MeshLambertMaterial({ color: 0x5c93f5 })); cabeca.position.y = 1.47; g.add(cabeca);
+    const anel = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.34, 32), new THREE.MeshBasicMaterial({ color: 0x8db4ff, transparent: true, opacity: .55, side: THREE.DoubleSide })); anel.rotation.x = -Math.PI / 2; anel.position.y = 0.01; g.add(anel);
+    const rot = rotuloSprite('·', '#F5B53A', '#1B1A17', .24); rot.position.y = 1.95; g.add(rot);
+    mundo.add(g); avatares.set(p.id, { g, rot, texto: '' });
+  }
+  const caixa = document.getElementById('c-3d');
+  render3d = new THREE.WebGLRenderer({ antialias: true }); render3d.setPixelRatio(Math.min(2, devicePixelRatio || 1)); caixa.appendChild(render3d.domElement);
+  olho = new THREE.PerspectiveCamera(42, 1, 0.05, 400); controle = new THREE.OrbitControls(olho, render3d.domElement); controle.enableDamping = true;
+  const cx = (EXT[0] + EXT[2]) / 2, cz = (EXT[1] + EXT[3]) / 2;
+  let mexeu = false; controle.addEventListener('start', () => { mexeu = true; });
+  const cantos = []; for (const x of [EXT[0], EXT[2]]) for (const z of [EXT[1], EXT[3]]) for (const y of [0, 1]) cantos.push(new THREE.Vector3(x, y, z));
+  const enquadrar = () => {
+    const ladoMaior = (EXT[2] - EXT[0]) >= (EXT[3] - EXT[1]); const deitado = olho.aspect >= 0.9;
+    const dir = (deitado === ladoMaior ? new THREE.Vector3(-0.12, 0.8, 0.6) : new THREE.Vector3(-0.3, 0.95, 0.04)).normalize();
+    const ocupa = (dist) => {
+      olho.position.set(cx + dir.x * dist, dir.y * dist, cz + dir.z * dist); olho.lookAt(cx, 0, cz); olho.updateMatrixWorld();
+      let m = 0; for (const c of cantos) { const v = c.clone().project(olho); if (v.z < -1 || v.z > 1) return Infinity; m = Math.max(m, Math.abs(v.x), Math.abs(v.y)); } return m;
+    };
+    let perto = 0.5, longe = 300; for (let i = 0; i < 32; i += 1) { const meio = (perto + longe) / 2; if (ocupa(meio) > 0.92) perto = meio; else longe = meio; }
+    ocupa(longe); controle.target.set(cx, 0, cz); controle.update();
+  };
+  const medir = () => { const w = caixa.clientWidth, h = caixa.clientHeight; if (!w || !h) return; render3d.setSize(w, h, false); olho.aspect = w / h; olho.updateProjectionMatrix(); if (!mexeu) enquadrar(); };
+  new ResizeObserver(medir).observe(caixa); medir();
+}
+function pintar3d() {
+  if (!tem3d) return;
+  for (const [chao, a] of chaos) chao.material.color.setHex(comCores ? SETORES[a.setor].chao : 0x13243a);
+  for (const s of nomes3d) s.visible = comNomes;
+  for (const a of avatares.values()) a.g.visible = estado === 'vivo';
+}
+function atualizarAvatares() {
+  for (const p of pessoas) {
+    const a = avatares.get(p.id); a.g.position.set(p.x, 0, p.y);
+    if (a.texto !== p.posto) { a.g.remove(a.rot); a.rot = rotuloSprite(p.posto, '#F5B53A', '#1B1A17', .24); a.rot.position.y = 1.95; a.g.add(a.rot); a.texto = p.posto; }
+  }
+}
+
+// ─────────── os números ───────────
+function atualizarNumeros() {
+  const vivo = estado === 'vivo';
+  document.getElementById('total').textContent = vivo ? pessoas.length : '–';
+  const porSetor = {}; for (const p of pessoas) { const s = setorEm(p.x, p.y) || 'circulacao'; porSetor[s] = (porSetor[s] || 0) + 1; }
+  document.getElementById('por-setor').innerHTML = usados.map((s) => `<li><i style="background:${SETORES[s].cor}"></i><span>${SETORES[s].nome}</span><b>${vivo ? (porSetor[s] || 0) : '–'}</b></li>`).join('');
+}
+
+// ─────────── os links (o lado do console) ───────────
+const hoje = new Date();
+const dia = (d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const somar = (dias) => new Date(hoje.getTime() + dias * 86400000);
+const fichaNova = () => { const b = new Uint8Array(16); (crypto || window.crypto).getRandomValues(b); return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const links = [
+  { id: 1, nome: 'Celular do dono', vale: somar(30), acesso: 'aberto agora', ativo: true },
+  { id: 2, nome: 'Tablet do escritório', vale: null, acesso: 'aberto há 12 min', ativo: true },
+];
+let noCelular = 1, confirmando = null, proximo = 3;
+const prazoTexto = (l) => (l.vale ? `vale até ${dia(l.vale)}` : 'sem prazo, até desligar');
+function desenharLinks() {
+  const ul = document.getElementById('links');
+  ul.innerHTML = '';
+  for (const l of links) {
+    const li = document.createElement('li'); if (!l.ativo) li.className = 'desligado';
+    const info = document.createElement('div');
+    info.innerHTML = `<b></b><small></small>`;
+    info.querySelector('b').textContent = l.nome;
+    info.querySelector('small').textContent = l.ativo ? `${prazoTexto(l)} · ${l.acesso}` : `desligado agora · ${prazoTexto(l)}`;
+    li.appendChild(info);
+    if (l.ativo) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'botao'; b.textContent = 'Desligar'; b.dataset.desligar = l.id;
+      b.addEventListener('click', () => { confirmando = l.id; desenharLinks(); document.querySelector('[data-confirmar]')?.focus(); });
+      li.appendChild(b);
+    } else { const s = document.createElement('span'); s.className = 'selo'; s.textContent = 'desligado'; li.appendChild(s); }
+    if (confirmando === l.id) {
+      const c = document.createElement('div'); c.className = 'confirmar';
+      c.innerHTML = '<span>Desligar este link? Quem estiver com ele aberto para de ver na hora. Não dá para religar: para voltar, crie outro.</span>';
+      const sim = document.createElement('button'); sim.type = 'button'; sim.className = 'botao perigo'; sim.textContent = 'Desligar o link'; sim.dataset.confirmar = l.id;
+      sim.addEventListener('click', () => { l.ativo = false; confirmando = null; if (noCelular === l.id) mudarEstado('desligado'); desenharLinks(); });
+      const nao = document.createElement('button'); nao.type = 'button'; nao.className = 'botao'; nao.textContent = 'Voltar';
+      nao.addEventListener('click', () => { confirmando = null; desenharLinks(); });
+      c.append(sim, nao); li.appendChild(c);
+    }
+    ul.appendChild(li);
+  }
+  atualizarPe();
+}
+let dias = 30;
+for (const b of document.querySelectorAll('#prazo button')) b.addEventListener('click', () => {
+  dias = Number(b.dataset.dias);
+  for (const x of document.querySelectorAll('#prazo button')) x.setAttribute('aria-pressed', String(x === b));
+});
+const campoNome = document.getElementById('para-quem');
+const botaoCriar = document.getElementById('criar');
+campoNome.addEventListener('input', () => { botaoCriar.disabled = campoNome.value.trim().length === 0; });
+let enderecoAtual = '';
+botaoCriar.addEventListener('click', () => {
+  const nome = campoNome.value.trim(); if (!nome) return;
+  const l = { id: proximo++, nome, vale: dias ? somar(dias) : null, acesso: 'ainda não abriu', ativo: true };
+  links.unshift(l);
+  enderecoAtual = `https://app.monitorfarol.com.br/ver/${fichaNova()}`;
+  document.getElementById('resultado').hidden = false;
+  document.getElementById('criado-titulo').textContent = `Link criado: ${nome}`;
+  document.getElementById('endereco').textContent = enderecoAtual;
+  document.getElementById('copiar').textContent = 'Copiar o link';
+  const qr = document.getElementById('qr'); qr.innerHTML = '';
+  if (window.QRCode) new QRCode(qr, { text: enderecoAtual, width: 168, height: 168, correctLevel: QRCode.CorrectLevel.M });
+  noCelular = l.id; mudarEstado('vivo');
+  desenharLinks();
+  setTimeout(() => { if (l.ativo) { l.acesso = 'aberto agora'; desenharLinks(); } }, 1800);
+});
+document.getElementById('copiar').addEventListener('click', async (e) => {
+  const b = e.currentTarget;
+  try { await navigator.clipboard.writeText(enderecoAtual); b.textContent = 'Copiado'; }
+  catch { const r = document.createRange(); r.selectNodeContents(document.getElementById('endereco')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Selecionado: copie'; }
+});
+
+// ─────────── o celular: os estados, os modos e as chaves ───────────
+function atualizarPe() {
+  const l = links.find((x) => x.id === noCelular);
+  document.getElementById('cel-pe').textContent = l ? `Só o movimento ao vivo: sem nomes e sem imagem das câmeras. Link "${l.nome}", ${prazoTexto(l)}.` : '';
+}
+function mudarEstado(novo) {
+  if (novo === 'vivo') {
+    const atual = links.find((x) => x.id === noCelular);
+    if (!atual || !atual.ativo) { const outro = links.find((x) => x.ativo); if (outro) noCelular = outro.id; else novo = 'desligado'; }
+  }
+  estado = novo;
+  for (const b of document.querySelectorAll('.estados button')) b.setAttribute('aria-pressed', String(b.dataset.estado === estado));
+  document.getElementById('cel-vivo').hidden = estado === 'desligado';
+  document.getElementById('cel-fim').hidden = estado !== 'desligado';
+  document.getElementById('sem-sinal').hidden = estado !== 'sem-sinal';
+  document.getElementById('desde').textContent = new Date(Date.now() - 2 * 60000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const selo = document.getElementById('selo-vivo'); selo.classList.toggle('parado', estado !== 'vivo');
+  document.getElementById('selo-texto').textContent = estado === 'vivo' ? 'Ao vivo' : 'Sem sinal';
+  pintar2d(); pintar3d(); atualizarNumeros(); atualizarPe();
+  window.dispatchEvent(new Event('resize'));
+}
+for (const b of document.querySelectorAll('.estados button')) b.addEventListener('click', () => mudarEstado(b.dataset.estado));
+for (const b of document.querySelectorAll('#modos button')) b.addEventListener('click', () => {
+  modo = b.dataset.modo;
+  for (const x of document.querySelectorAll('#modos button')) x.setAttribute('aria-pressed', String(x === b));
+  document.getElementById('c-planta').classList.toggle('ativa', modo === 'planta');
+  document.getElementById('c-3d').classList.toggle('ativa', modo === '3d');
+  window.dispatchEvent(new Event('resize'));
+});
+document.getElementById('chave-cores').addEventListener('click', (e) => { comCores = !comCores; e.currentTarget.setAttribute('aria-pressed', String(comCores)); legenda.style.display = comCores ? 'flex' : 'none'; pintar2d(); pintar3d(); });
+document.getElementById('chave-nomes').addEventListener('click', (e) => { comNomes = !comNomes; e.currentTarget.setAttribute('aria-pressed', String(comNomes)); pintar2d(); pintar3d(); });
+
+try { montar3d(); } catch (e) { tem3d = false; console.warn(e); }
+if (!tem3d) { modo = 'planta'; document.getElementById('c-planta').classList.add('ativa'); document.getElementById('c-3d').classList.remove('ativa'); }
+desenharLinks(); pintar2d(); pintar3d(); atualizarNumeros();
+let antes = performance.now(), ultima = 0;
+function quadro(agora) {
+  const dt = Math.min(0.1, (agora - antes) / 1000); antes = agora;
+  if (estado === 'vivo') andar(dt);
+  if (estado !== 'desligado') {
+    if (modo === 'planta') desenharPlanta();
+    if (tem3d && modo === '3d') {
+      atualizarAvatares(); for (const f of fogos) f.opacity = .4 + .18 * Math.sin(agora / 380);
+      controle.update(); render3d.render(mundo, olho);
+    }
+  }
+  if (agora - ultima > 500) { ultima = agora; atualizarNumeros(); }
+  requestAnimationFrame(quadro);
+}
+requestAnimationFrame(quadro);
+</script>
+</body>
+</html>

@@ -1344,6 +1344,56 @@ export const plantaVivaApi = {
     pedir<AtendimentoDaPlanta>(`/lojas/${lojaId}/planta-viva/atendimento?de=${encodeURIComponent(de)}&ate=${encodeURIComponent(ate)}`),
 };
 
+// ───────────────────────── o link só do ao vivo (29/10/2026) ─────────────────────────
+// Quem configura a loja cria um link que abre SÓ o movimento ao vivo, sem login (`api/src/rotas/link-ao-vivo.ts`). O
+// código vai no fim do endereço da página (`/ver#<código>`, que o navegador não manda a servidor) e daqui num cabeçalho.
+
+/** A situação é do servidor (o relógio do banco): a tela mostra a que vem. */
+export type SituacaoDoLink = 'valendo' | 'vencido' | 'desligado';
+export type LinkAoVivo = {
+  id: string;
+  /** Para quem é ("Celular do gerente"). */
+  nome: string;
+  situacao: SituacaoDoLink;
+  criadoEm: string;
+  criadoPor: string | null;
+  /** Nulo = vale até alguém desligar. */
+  venceEm: string | null;
+  /** A última leitura pelo link (anotada no máximo uma vez por minuto); nulo = ninguém abriu ainda. */
+  ultimoUsoEm: string | null;
+  desligadoEm: string | null;
+  desligadoPor: string | null;
+};
+/** O que o link mostra da planta: só o desenho — sem câmera, área de medida, setor da loja nem equipamento do inventário. */
+export type PlantaDoLink = {
+  loja: { nome: string; fuso: string };
+  venceEm: string | null;
+  planta: {
+    ambientes: Array<Omit<Planta['ambientes'][number], 'setorId'>>;
+    moveis: Array<Omit<Planta['moveis'][number], 'itemId'>>;
+  };
+};
+/** As pessoas agora pelo link: sem os canais que viram cada uma. */
+export type AgoraDoLink = Omit<AgoraDaPlanta, 'canais' | 'pessoas'> & {
+  pessoas: Array<Omit<AgoraDaPlanta['pessoas'][number], 'canais'>>;
+};
+export const CABECALHO_DO_LINK = 'x-farol-link';
+
+export const linkAoVivoApi = {
+  /** Os links da loja (os que valem primeiro), sem código. Só quem configura. */
+  lista: (lojaId: string) => pedir<{ links: LinkAoVivo[]; maximoValendo: number }>(`/lojas/${lojaId}/links-ao-vivo`),
+  /** Cria: a resposta traz o CÓDIGO, e é a única vez. `dias` nulo = até desligar. */
+  criar: (lojaId: string, nome: string, dias: number | null) =>
+    pedir<{ link: LinkAoVivo; codigo: string }>(`/lojas/${lojaId}/links-ao-vivo`, { method: 'POST', body: JSON.stringify({ nome, dias }) }),
+  /** Para na hora: quem está com o link aberto vê "este link não vale mais". */
+  desligar: (lojaId: string, linkId: string) =>
+    pedir<{ link: LinkAoVivo }>(`/lojas/${lojaId}/links-ao-vivo/${linkId}/desligar`, { method: 'POST' }),
+  /** Pelo link (sem login): o nome da loja e o desenho da planta. 404 = o link não vale. */
+  planta: (codigo: string) => pedir<PlantaDoLink>('/ver', { headers: { [CABECALHO_DO_LINK]: codigo }, cache: 'no-store' }),
+  /** Pelo link (sem login): as pessoas agora. Ler também diz ao computador da loja que alguém olha. */
+  agora: (codigo: string) => pedir<AgoraDoLink>('/ver/agora', { headers: { [CABECALHO_DO_LINK]: codigo }, cache: 'no-store' }),
+};
+
 // ───────────────────────── análises ─────────────────────────
 // O miúdo do que foi julgado: uma célula por dia, hora, critério e área. A
 // tela recorta e soma aqui no navegador — trocar um filtro não volta ao
