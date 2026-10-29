@@ -398,10 +398,12 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
       sugestoesDaLoja(id, loja.base),
     ]);
     const naTela = lanches.rows.map((l) => paraTela(l, loja.base, loja.invisiveis));
-    // a fila: a dúvida primeiro, depois a hora
+    // a fila: a dúvida primeiro, depois a hora. O lanche SEM LEITURA (nenhuma etapa lida — sem palpite, sem o que ensinar
+    // ao juiz) vai para o fim: no topo ele empurrava para baixo os que ensinam (o dono, 28/10/2026: "3 ok")
     const ordem = (m: string) => MOTIVOS.indexOf(m as (typeof MOTIVOS)[number]);
     naTela.sort((a, b) => {
       if (a.situacao !== b.situacao) return a.situacao === 'conferir' ? -1 : b.situacao === 'conferir' ? 1 : 0;
+      if (a.situacao === 'conferir' && a.semLeitura !== b.semLeitura) return a.semLeitura ? 1 : -1;
       if (a.situacao === 'conferir' && a.motivo !== b.motivo) return ordem(a.motivo) - ordem(b.motivo);
       return new Date(b.abertoEm ?? 0).getTime() - new Date(a.abertoEm ?? 0).getTime();
     });
