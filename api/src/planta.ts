@@ -19,8 +19,23 @@
 // exige a mesma resposta.
 // =====================================================================
 
-export type Ambiente = { id: string; nome: string; setorId: string | null; x: number; y: number; w: number; h: number };
-export type Movel = { id: string; nome: string; itemId: string | null; x: number; y: number; w: number; h: number; alt: number };
+/**
+ * Que lugar é o ambiente e que equipamento é o móvel (29/10/2026, pedido do dono: "onde é chapa ou fritadeira, o inox,
+ * o salão… setorizar com cores"). Só o desenho do Ao vivo usa (a cor do chão, a cara do móvel): a conta da câmera e a
+ * frase do lugar não mudam com eles. Opcionais: ausente fica ausente, e o console tira do nome. As mesmas listas de
+ * `web/lib/planta.ts` (o teste da planta confere).
+ */
+export type TipoDeAmbiente = 'cozinha' | 'salao' | 'delivery' | 'estoque' | 'banheiro' | 'circulacao';
+export type TipoDeMovel =
+  | 'chapa' | 'fritadeira' | 'geladeira' | 'bancada' | 'pia' | 'estufa' | 'prateleira'
+  | 'balcao' | 'caixa' | 'totem' | 'mesa' | 'cabine' | 'banco' | 'estrutura';
+export const TIPOS_DE_AMBIENTE: readonly TipoDeAmbiente[] = ['cozinha', 'salao', 'delivery', 'estoque', 'banheiro', 'circulacao'];
+export const TIPOS_DE_MOVEL: readonly TipoDeMovel[] = [
+  'chapa', 'fritadeira', 'geladeira', 'bancada', 'pia', 'estufa', 'prateleira', 'balcao', 'caixa', 'totem', 'mesa', 'cabine', 'banco', 'estrutura',
+];
+
+export type Ambiente = { id: string; nome: string; setorId: string | null; x: number; y: number; w: number; h: number; tipo?: TipoDeAmbiente };
+export type Movel = { id: string; nome: string; itemId: string | null; x: number; y: number; w: number; h: number; alt: number; tipo?: TipoDeMovel };
 /**
  * `dir` em graus: 0 = para a direita da planta, 90 = para baixo. `incl` em graus abaixo do horizonte (0 = reto, 90 =
  * direto no chão): opcional — a planta de antes não tinha, e quem não manda continua sem. Só a vista em 3D e a câmera
@@ -109,6 +124,12 @@ export function lerPlanta(corpo: unknown): { planta?: Planta; problema?: string 
   };
   const objeto = (v: unknown): Record<string, unknown> | null =>
     typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+  /** O tipo é opcional: ausente (ou nulo) fica ausente — a planta de antes do campo não muda só por ser salva de novo. */
+  const tipo = <T extends string>(v: unknown, lista: readonly T[], onde: string): { tipo?: T; problema?: string } => {
+    if (v === undefined || v === null) return {};
+    if (typeof v !== 'string' || !lista.includes(v as T)) return { problema: `${onde}.tipo: ${lista.join(', ')} (ou nada: vale o nome)` };
+    return { tipo: v as T };
+  };
 
   const ambientes: Ambiente[] = [];
   for (const [i, bruto] of (c.ambientes as unknown[]).entries()) {
@@ -123,7 +144,9 @@ export function lerPlanta(corpo: unknown): { planta?: Planta; problema?: string 
     if (setorId !== null && (typeof setorId !== 'string' || !UUID.test(setorId))) return { problema: `${onde}.setorId: o setor, ou nada` };
     const r = retangulo(o, onde, L.ladoDoAmbiente);
     if ('problema' in r) return r;
-    ambientes.push({ id: o.id, nome, setorId: setorId === null ? null : setorId.toLowerCase(), ...r });
+    const t = tipo(o.tipo, TIPOS_DE_AMBIENTE, onde);
+    if (t.problema) return { problema: t.problema };
+    ambientes.push({ id: o.id, nome, setorId: setorId === null ? null : setorId.toLowerCase(), ...r, ...(t.tipo ? { tipo: t.tipo } : {}) });
   }
 
   const moveis: Movel[] = [];
@@ -144,7 +167,9 @@ export function lerPlanta(corpo: unknown): { planta?: Planta; problema?: string 
     if ('problema' in r) return r;
     const alt = medida(o.alt, L.alturaDoMovel);
     if (alt === null) return { problema: `${onde}.alt: altura ${faixa(L.alturaDoMovel)} (metros)` };
-    moveis.push({ id: o.id, nome, itemId: item, ...r, alt });
+    const t = tipo(o.tipo, TIPOS_DE_MOVEL, onde);
+    if (t.problema) return { problema: t.problema };
+    moveis.push({ id: o.id, nome, itemId: item, ...r, alt, ...(t.tipo ? { tipo: t.tipo } : {}) });
   }
 
   const cameras: Camera[] = [];

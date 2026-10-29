@@ -10420,3 +10420,60 @@ entregava UM DNS só — derrubava a internet "por nome" de madrugada desde 20/1
   nada rolando para o lado. `npm run build` do console verde.
 - Mutação 12/12 (as regras da espera e da porta, o "ausente mantém", o tipo da área, o expediente que vira a
   meia-noite, o arquivo sem áreas): todas pegas pelos testes.
+
+## 29/10/2026 · A planta com vida: cada equipamento com a cara dele, o chão de cada setor com a cor dele, e "Ver no celular" (sem migration)
+
+Pedido do dono (29/10): "da para dar uma vida a essa planta. onde é chapa ou fritadeira, o inox, o salão? opção de
+acompanhar do celular por algum link, setorizar com cores os setores". Protótipo aprovado no mesmo dia
+(`mockups/farol-planta-ao-vivo.html`, revisto), com o link do celular COM login (a opção A, a recomendada).
+
+- **Que equipamento é** (`moveis[].tipo`): chapa, fritadeira, geladeira, bancada de inox, pia, estufa, prateleira,
+  balcão, caixa, totem, mesa, cabine, banco e pilar/parede. **Que lugar é** (`ambientes[].tipo`): cozinha, salão,
+  delivery, estoque e preparo, banheiro, circulação. Os dois OPCIONAIS: ausente fica ausente (a planta de antes não muda
+  só por ser salva), e o console tira do NOME (`tipoDeMovelPeloNome`, `tipoDeAmbientePeloNome`: "Montagem", "Despacho"
+  e "Mesa do preparo" são bancada antes de tudo; o "Conservador de frituras" é aquecido — estufa; "Salão perto do
+  delivery" é salão). Só o desenho do Ao vivo usa: a conta da câmera, a frase do lugar e o que desce ao agente não
+  mudam. As mesmas listas na API e no console (o teste da planta confere).
+- **"Que lugar é" não é o "Setor" do ambiente.** O setor de antes é o da loja (agrupa os canais, os critérios, o
+  especialista); na planta da loja nenhum ambiente tinha um. O lugar é só a cor no mapa — a tela diz isso ao lado do
+  campo.
+- **O Ao vivo** (Canais › Planta › Ao vivo): no 3D cada móvel é montado pelo tipo (`equipamentos-3d.ts`: a chapa com
+  a brasa que respira — parada com "menos movimento" —, a fritadeira com as cubas de óleo, a bancada com tampo, pés e
+  prateleira, a geladeira alta com porta de vidro, a cabine com os bancos de couro…), o chão de cada ambiente com a cor
+  do lugar (`--lugar-*`, misturada ao piso da cena) e o nome dele, o nome de cada equipamento por cima; na vista de cima
+  as mesmas cores (`cara-da-planta.ts`). Chaves "Cores dos setores" e "Nomes" (só os dos equipamentos), a legenda dos
+  lugares que a planta tem, e o quadro "Por setor" (a pessoa conta no lugar do ambiente em que está; fora de todo
+  ambiente, à parte). Em Câmeras a imagem simulada vem sem nome nenhum, como a câmera. O 3D enquadra a loja inteira
+  pelo tamanho da tela (de pé, olha mais de cima, com o lado comprido em pé) até a pessoa girar.
+- **"Ver no celular"**: um diálogo com o código QR (`qrcode-generator` 2.0.4, sem dependências, desenhado em SVG preto
+  no branco nos dois temas) do endereço desta mesma tela, o endereço para copiar e três frases. A sessão do console vale
+  12 horas e não se renova sozinha: a tela diz "quando o acesso vencer, o console pede a senha de novo" — o protótipo
+  dizia "o celular fica lembrando", que não é verdade hoje (divergência listada na entrega). Link que abre SEM login
+  (token só de leitura, que se revoga) fica para depois, se o dono quiser.
+- **O Desenho**: "Que equipamento é" no móvel e "Que lugar é" no ambiente, com "pelo nome: …" como primeira opção (a
+  que tira o campo). A importação de arquivo leva o tipo como veio; quem confere é a API, ao salvar.
+- **ERR-159** (de passagem): mover um ambiente no Desenho apagava as áreas de medida da tela — `moverAmbiente`
+  montava a planta nova sem a lista `areas`, que chegou depois dela; salvar em seguida não perdia nada (a API mantém as
+  guardadas), mas desenhar uma área nova depois de mover e salvar apagava as outras. Agora parte de `...planta` e leva
+  junto as áreas de dentro do ambiente.
+
+### Como foi conferido
+
+- `api/testes/planta.test.ts`: o tipo do móvel e do ambiente conferidos (ausente e nulo ficam ausentes, o que não é
+  tipo é recusado com a lista), as listas iguais na API e no console, os nomes que viram cada tipo e o tipo dado
+  vencendo o nome, e o ERR-159 (as áreas de dentro andam junto, as de fora ficam, a planta de antes continua sem a
+  lista, e um campo a mais também vem junto). `api/testes/planta-importar.test.ts`: o tipo do arquivo vai como veio e
+  a API recusa o que não é tipo. O ERR-159 reproduzido contra o `planta.ts` da `origin/main` (as 2 áreas somem).
+- Mutação 12/12 (o tipo perdido na API e na importação, o tipo qualquer aceito, o nulo virando erro, o mover sem as
+  áreas e sem a planta inteira, as regras dos nomes, a lista do console com um tipo a menos).
+- A tela de ponta a ponta nesta máquina (a API e o console contra o banco de teste, uma loja GENÉRICA com 26 móveis e
+  um "agente" mandando 7 pessoas): o chão dos 6 ambientes com a cor do lugar (o tipo dado vencendo o nome), os 26
+  móveis com o tipo certo, a legenda, as duas chaves ligando e desligando, "Por setor" com 2/2/1/1/0 e 1 fora (soma 7),
+  o 3D com cor, as 2 câmeras; "Ver no celular" aberto pelo teclado, o foco no Fechar, o QR LIDO por um leitor de
+  verdade (`jsQR`) dando o endereço da tela, o copiar, o Esc fechando e o foco de volta no botão; no Desenho, "Que
+  lugar é" e "Que equipamento é" com o "pelo nome", gravados pela API e mostrados no Ao vivo; mover a "Frente da loja"
+  pelas setas sem perder a área (e ela andou junto na API); salvar sem mexer não muda a planta (a versão sobe, como já
+  subia antes); execução recebe o aviso; 16 larguras no claro e no escuro, nas três vistas e com o diálogo aberto, sem
+  nada rolando para o lado; contrastes dos nomes ≥ 5,2:1.
+- Suíte da API inteira contra Postgres local (1712/1713: a de fora é a do banco local, "embedding de dimensão errada",
+  a mesma do #230) e `npm run build` da API e do console verdes.

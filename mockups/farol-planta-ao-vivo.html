@@ -3,7 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Movimento ao vivo</title>
+<title>Planta com vida</title>
+<!-- Protótipo do "Ao vivo" da planta viva — o primeiro aprovado em 27/10/2026 (Planta, 3D e Câmeras) e REVISTO e
+     aprovado em 29/10/2026 como a "planta com vida": cada equipamento com a cara do tipo dele, o chão de cada setor
+     com a cor dele (legenda, "Cores dos setores", "Nomes", "Por setor") e "Ver no celular" (QR para a mesma tela, com
+     login). Loja de exemplo e pessoas simuladas (a planta da loja não sai do PC dela). No protótipo o tipo sai só do
+     nome; na tela de verdade é o campo "Que equipamento é" / "Que lugar é" do Desenho, com o nome como padrão.
+     A tela de verdade: web/app/(console)/lojas/[id]/canais/planta/ao-vivo/page.tsx e web/componentes/planta-viva/. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Martian+Mono:wght@400;500;600&display=swap">
@@ -11,9 +17,7 @@
 :root {
   --papel: #F3F1EA; --papel-2: #EAE6DB; --cartao: #FFFFFF; --tinta: #1B1A17; --suave: #625E56; --linha: #D8D2C4;
   --ketchup: #E2412A; --mostarda: #F2B300; --picles: #3B8A37; --sombra: 0 14px 28px -18px rgba(27, 26, 23, .45);
-  /* a cena é sempre escura, como no exemplo: o palco */
-  --cena: #0E1826; --cena-piso: #13243A; --cena-grade: rgba(120, 160, 210, .14); --cena-movel: #3A4A5E; --cena-movel-2: #4E6178;
-  --cena-parede: #6F8099; --cena-tinta: #E8EEF6; --cena-suave: #93A3B8; --pessoa: #3D7BEA; --pessoa-claro: #8DB4FF;
+  --cena: #0E1826; --cena-tinta: #E8EEF6; --cena-suave: #93A3B8; --pessoa: #3D7BEA; --pessoa-claro: #8DB4FF;
   --rotulo: #F5B53A; --sobre-rotulo: #1B1A17;
   --titulo: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif; --texto: "Hanken Grotesk", "Segoe UI", system-ui, sans-serif; --mono: "Martian Mono", ui-monospace, Consolas, monospace;
   --mola: cubic-bezier(.34, 1.56, .64, 1);
@@ -29,202 +33,455 @@
 body { margin: 0; background: var(--papel); color: var(--tinta); font: 400 15px/1.5 var(--texto); -webkit-font-smoothing: antialiased; padding: 0 16px 120px; }
 main { max-width: 1320px; margin: 0 auto; }
 h1, h2 { margin: 0; font-family: var(--titulo); text-transform: uppercase; letter-spacing: .01em; line-height: .95; }
+button { font: inherit; color: inherit; }
 .olho { font: 600 11px/1 var(--mono); letter-spacing: .1em; color: var(--suave); text-transform: uppercase; margin: 22px 0 8px; }
 .cabeca h1 { font-size: clamp(38px, 5.4vw, 72px); font-weight: 900; }
-.cabeca p { margin: 8px 0 0; color: var(--suave); max-width: 70ch; }
+.cabeca p { margin: 8px 0 0; color: var(--suave); max-width: 74ch; }
 .abas { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 18px 0 14px; border-bottom: 1px solid var(--linha); }
 .abas a { padding: 10px 2px; color: var(--suave); text-decoration: none; font-weight: 600; border-bottom: 2px solid transparent; }
 .abas a[aria-current] { color: var(--tinta); border-color: var(--mostarda); }
-.status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-bottom: 12px; }
+.status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 12px; }
 .vivo { display: inline-flex; align-items: center; gap: 8px; font: 800 18px/1 var(--titulo); letter-spacing: .06em; text-transform: uppercase; }
 .vivo i { width: 11px; height: 11px; border-radius: 50%; background: var(--ketchup); box-shadow: 0 0 0 0 rgba(226, 65, 42, .6); animation: pulsa 1.6s infinite; }
 @keyframes pulsa { 70% { box-shadow: 0 0 0 10px rgba(226, 65, 42, 0); } 100% { box-shadow: 0 0 0 0 rgba(226, 65, 42, 0); } }
 @media (prefers-reduced-motion: reduce) { .vivo i { animation: none; } }
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .pilula { font: 600 12px/1 var(--mono); padding: 7px 11px; border-radius: 99px; background: var(--cartao); box-shadow: var(--sombra); white-space: nowrap; }
-.grade { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+.botao-cel { display: inline-flex; align-items: center; gap: 8px; border: 0; cursor: pointer; padding: 9px 14px; border-radius: 99px; background: var(--tinta); color: var(--papel); font-weight: 700; font-size: 14px; }
+.botao-cel svg { width: 17px; height: 17px; }
+.grade { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); align-items: start; }
 @media (min-width: 1080px) { .grade { grid-template-columns: minmax(0, 1fr) 300px; } }
 .palco { position: relative; background: var(--cena); border-radius: 22px; overflow: hidden; min-width: 0; box-shadow: var(--sombra); }
 .vista { display: none; } .vista.ativa { display: block; }
 #v-planta svg { display: block; width: 100%; height: min(72vh, 720px); }
-#v-3d { height: min(66vh, 640px); position: relative; } #v-3d canvas { display: block; }
-.dica { position: absolute; left: 14px; top: 12px; font: 500 11px/1.3 var(--mono); color: var(--cena-suave); pointer-events: none; }
+#v-3d { height: min(70vh, 680px); position: relative; } #v-3d canvas { display: block; width: 100%; height: 100%; }
+.dica { position: absolute; left: 14px; bottom: 12px; font: 500 11px/1.3 var(--mono); color: var(--cena-suave); pointer-events: none; }
+/* a legenda dos setores e as chaves, por cima da cena */
+.camada { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 12px 12px 4px; }
+.chave { border: 1.5px solid rgba(147, 163, 184, .45); background: rgba(14, 24, 38, .82); color: var(--cena-tinta); border-radius: 99px; padding: 6px 11px; font: 600 12px/1 var(--mono); cursor: pointer; backdrop-filter: blur(6px); }
+.chave[aria-pressed="true"] { background: var(--rotulo); color: var(--sobre-rotulo); border-color: var(--rotulo); }
+.legenda { display: flex; flex-wrap: wrap; gap: 5px; }
+.legenda span { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 99px; background: rgba(14, 24, 38, .82); color: var(--cena-tinta); font: 600 11.5px/1 var(--texto); backdrop-filter: blur(6px); }
+.legenda i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.legenda.esconde { display: none; }
 .cams { display: grid; gap: 10px; padding: 10px; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 720px) { .cams { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .cam { position: relative; border-radius: 14px; overflow: hidden; background: #0A121D; border: 1px solid rgba(147, 163, 184, .25); }
 .cam canvas { display: block; width: 100%; aspect-ratio: 16 / 9; height: auto; }
 .cam .topo { position: absolute; inset: 0 0 auto 0; display: flex; justify-content: space-between; padding: 8px 10px; font: 600 11px/1 var(--mono); color: var(--cena-tinta); text-shadow: 0 1px 2px #000; pointer-events: none; }
-.cam .rec { position: absolute; left: 10px; top: 28px; font: 700 10.5px/1 var(--mono); color: #FF6B5B; pointer-events: none; }
-.cam .rec::before { content: "● "; }
 .cam .pe { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; padding: 10px 12px 12px; background: #0E1826; color: var(--cena-tinta); }
 .cam .pe b { display: block; font: 800 20px/1 var(--titulo); text-transform: uppercase; letter-spacing: .02em; }
 .cam .pe small { font: 500 11px/1.4 var(--mono); color: var(--cena-suave); }
 .cam .conta { font: 600 11.5px/1 var(--mono); padding: 6px 10px; border-radius: 99px; border: 1.5px solid #4CA347; color: #8BE07F; white-space: nowrap; }
-.cam.sem .conta { border-color: rgba(147, 163, 184, .5); color: var(--cena-suave); }
 aside { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .bloco { background: var(--cartao); border-radius: 20px; padding: 16px; box-shadow: var(--sombra); min-width: 0; }
 .bloco h2 { font-size: 19px; font-weight: 800; letter-spacing: .04em; margin-bottom: 10px; }
 .numero { font: 900 64px/.85 var(--titulo); }
 .pessoas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.pessoas li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 12px; background: var(--papel); cursor: pointer; border: 1.5px solid transparent; }
+.pessoas li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 12px; background: var(--papel); cursor: pointer; border: 1.5px solid transparent; }
 .pessoas li[aria-selected="true"] { border-color: var(--mostarda); }
-.pessoas li i { width: 22px; height: 22px; border-radius: 50%; background: var(--pessoa); display: grid; place-items: center; color: #fff; font: 700 11px/1 var(--mono); font-style: normal; }
-.pessoas li b { font-weight: 700; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pessoas li i { min-width: 30px; height: 22px; padding: 0 5px; border-radius: 99px; background: var(--pessoa); display: grid; place-items: center; color: #fff; font: 700 11px/1 var(--mono); font-style: normal; }
+.pessoas li b { font-weight: 700; display: block; overflow-wrap: anywhere; line-height: 1.25; }
 .pessoas li small { color: var(--suave); font: 500 11px/1.3 var(--mono); }
 .pessoas li .t { font: 600 12px/1 var(--mono); color: var(--suave); }
 .nota { font-size: 13px; color: var(--suave); margin: 10px 0 0; }
+.setores { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.setores li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 14px; }
+.setores li i { width: 12px; height: 12px; border-radius: 3px; }
+.setores li b { font: 700 13px/1 var(--mono); }
 .dock { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 4px; padding: 6px; border-radius: 99px;
   background: rgba(14, 24, 38, .92); border: 1px solid rgba(147, 163, 184, .3); box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .7); backdrop-filter: blur(10px); z-index: 10; max-width: calc(100vw - 24px); }
 .dock button { border: 0; background: transparent; color: var(--cena-tinta); font: 600 15px/1 var(--texto); padding: 12px 18px; border-radius: 99px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; transition: background .25s, transform .35s var(--mola); white-space: nowrap; }
 .dock button[aria-pressed="true"] { background: var(--rotulo); color: var(--sobre-rotulo); }
-.dock button:focus-visible, .pessoas li:focus-visible, .abas a:focus-visible { outline: 3px solid var(--mostarda); outline-offset: 2px; }
 .dock svg { width: 18px; height: 18px; }
 @media (max-width: 420px) { .dock button { padding: 11px 13px; font-size: 14px; } .dock button span { display: none; } }
-.planta-piso { fill: var(--cena-piso); stroke: var(--cena-parede); stroke-width: .05; }
-.planta-movel { fill: var(--cena-movel); stroke: var(--cena-movel-2); stroke-width: .03; }
-.planta-nome { fill: var(--cena-suave); font-family: var(--mono); }
-.planta-grade { stroke: var(--cena-grade); stroke-width: .012; }
-.cam-ponto { fill: #F5B53A; }
+button:focus-visible, .pessoas li:focus-visible, .abas a:focus-visible { outline: 3px solid var(--mostarda); outline-offset: 2px; }
+/* o celular: o QR para abrir esta mesma tela */
+.fundo-dialogo { position: fixed; inset: 0; background: rgba(10, 12, 16, .55); display: none; place-items: center; padding: 16px; z-index: 20; }
+.fundo-dialogo.aberto { display: grid; }
+.dialogo { background: var(--cartao); border-radius: 22px; padding: 20px; max-width: 420px; width: 100%; box-shadow: var(--sombra); display: flex; flex-direction: column; gap: 12px; }
+.dialogo h2 { font-size: 26px; font-weight: 900; }
+.qr { align-self: center; background: #fff; padding: 12px; border-radius: 14px; line-height: 0; }
+.qr img, .qr canvas { width: 196px !important; height: 196px !important; }
+.endereco { font: 500 12px/1.4 var(--mono); word-break: break-all; background: var(--papel); padding: 8px 10px; border-radius: 10px; }
+.dialogo ol { margin: 0; padding-left: 20px; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+.acoes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.acoes button { border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 700; cursor: pointer; background: var(--papel-2); }
+.acoes button.principal { background: var(--tinta); color: var(--papel); }
 </style>
 </head>
 <body>
 <main>
-  <p class="olho">Loja de exemplo · Canais › Planta</p>
+  <p class="olho" id="olho">Loja de exemplo · Canais › Planta</p>
   <header class="cabeca">
     <h1>Movimento ao vivo</h1>
-    <p>Quem está na cozinha agora, em que posto e por onde passou. Cada ponto é uma pessoa — sem nome e sem rosto: o rótulo é o posto em que ela está. <b>Protótipo com pessoas simuladas</b>, numa cozinha de exemplo. Aprovado pelo dono em 27/10/2026 na planta da loja dele (que fica fora do repositório).</p>
+    <p id="sobre">A planta com vida: cada equipamento com a cara do que ele é (chapa, fritadeira, geladeira, bancada de inox, mesas e cabines do salão), o chão de cada setor com a cor dele, e a mesma tela no celular. <b>Protótipo com pessoas simuladas</b>, numa loja de exemplo.</p>
   </header>
   <nav class="abas" aria-label="Vistas da planta">
-    <a href="#">Desenho</a><a href="#">O que cada câmera cobre</a><a href="#">Calibrar câmera</a><a href="#">Movimento</a><a href="#" aria-current="page">Ao vivo</a>
+    <a href="#">Desenho</a><a href="#">O que cada câmera cobre</a><a href="#">Calibrar câmera</a><a href="#">Movimento</a><a href="#" aria-current="page">Ao vivo</a><a href="#">Atendimento</a>
   </nav>
   <div class="status" aria-live="polite">
     <span class="vivo"><i aria-hidden="true"></i>Ao vivo</span>
-    <span class="pilula mono" id="atraso">atraso 1,2 s</span>
+    <span class="pilula mono">atraso 0,9 s</span>
     <span class="pilula mono" id="relogio">--:--:--</span>
-    <span class="pilula mono" id="canais-ativos">4 câmeras</span>
+    <span class="pilula mono" id="canais-ativos">câmeras</span>
+    <button type="button" class="botao-cel" id="abrir-cel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></svg>Ver no celular</button>
   </div>
   <div class="grade">
-    <section class="palco" aria-label="A cozinha agora">
-      <div class="vista ativa" id="v-planta"></div>
-      <div class="vista" id="v-3d"><span class="dica">arraste para girar · roda ou pinça para aproximar</span></div>
+    <section class="palco" aria-label="A loja agora">
+      <div class="camada">
+        <button type="button" class="chave" id="chave-setores" aria-pressed="true">Cores dos setores</button>
+        <button type="button" class="chave" id="chave-nomes" aria-pressed="true">Nomes</button>
+        <div class="legenda" id="legenda" aria-label="Os setores"></div>
+      </div>
+      <div class="vista" id="v-planta"></div>
+      <div class="vista ativa" id="v-3d"><span class="dica">arraste para girar · roda ou pinça para aproximar</span></div>
       <div class="vista" id="v-cams"><div class="cams" id="cams"></div></div>
     </section>
     <aside>
-      <div class="bloco"><h2>Na cozinha agora</h2><div class="numero mono" id="total">0</div><p class="nota" id="por-posto"></p></div>
-      <div class="bloco"><h2>Quem está onde</h2><ul class="pessoas" id="lista" aria-label="Pessoas na cozinha"></ul>
+      <div class="bloco"><h2>Na loja agora</h2><div class="numero mono" id="total">0</div><p class="nota" id="por-posto"></p></div>
+      <div class="bloco"><h2>Por setor</h2><ul class="setores" id="por-setor" aria-label="Pessoas em cada setor"></ul></div>
+      <div class="bloco"><h2>Quem está onde</h2><ul class="pessoas" id="lista" aria-label="Pessoas na loja"></ul>
         <p class="nota">Toque numa pessoa para seguir o rastro dela. O tempo é há quanto ela está nesse posto.</p></div>
     </aside>
   </div>
 </main>
 <nav class="dock" aria-label="Modo de ver">
-  <button type="button" data-modo="planta" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg><span>Planta</span></button>
-  <button type="button" data-modo="3d" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg><span>3D</span></button>
+  <button type="button" data-modo="planta" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg><span>Planta</span></button>
+  <button type="button" data-modo="3d" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg><span>3D</span></button>
   <button type="button" data-modo="cams" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3"/></svg><span>Câmeras</span></button>
 </nav>
+<div class="fundo-dialogo" id="dialogo-cel" role="dialog" aria-modal="true" aria-labelledby="t-cel">
+  <div class="dialogo">
+    <h2 id="t-cel">Ver no celular</h2>
+    <p style="margin:0;font-size:14px;color:var(--suave)">Aponte a câmera do celular para o código: abre esta mesma tela, ao vivo.</p>
+    <div class="qr" id="qr" aria-hidden="true"></div>
+    <div class="endereco mono" id="endereco"></div>
+    <ol>
+      <li>Entre com o seu usuário: o movimento ao vivo é de quem configura a loja (gerente para cima). Quando o acesso vencer, o console pede a senha de novo.</li>
+      <li>No navegador do celular, "Adicionar à tela de início": vira um ícone, como um app.</li>
+      <li>De pé, o celular mostra a planta grande e a lista embaixo.</li>
+    </ol>
+    <div class="acoes"><button type="button" id="copiar">Copiar o endereço</button><button type="button" class="principal" id="fechar-cel">Fechar</button></div>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
-const D = {"ambientes":[{"id":"cozinha","nome":"Cozinha","x":0,"y":0,"w":10,"h":6}],"moveis":[{"id":"chapa","nome":"Chapa","x":1,"y":0.2,"w":2.2,"h":0.8,"alt":0.9},{"id":"fritadeira","nome":"Fritadeira","x":3.6,"y":0.2,"w":1.2,"h":0.8,"alt":0.9},{"id":"montagem-1","nome":"Montagem","x":2,"y":2.6,"w":4,"h":0.9,"alt":0.9},{"id":"despacho","nome":"Despacho","x":7.2,"y":2.4,"w":0.9,"h":2.2,"alt":0.9},{"id":"geladeira","nome":"Geladeira","x":9.1,"y":0.2,"w":0.8,"h":0.8,"alt":1.9},{"id":"pia","nome":"Pia","x":0.2,"y":5,"w":1.6,"h":0.8,"alt":0.9}],"cameras":[{"canal":1,"nome":"Chapa e fritadeira","x":0.4,"y":3.2,"h":2.2,"dir":330,"incl":35,"hfov":90,"roll":0},{"canal":2,"nome":"Montagem","x":5.5,"y":5.8,"h":2.2,"dir":250,"incl":40,"hfov":90,"roll":0},{"canal":3,"nome":"Despacho","x":9.8,"y":5.8,"h":2.2,"dir":220,"incl":40,"hfov":85,"roll":0},{"canal":4,"nome":"Corredor","x":9.8,"y":0.2,"h":2.2,"dir":135,"incl":38,"hfov":85,"roll":0}]};
+// ─────────── a loja de exemplo (não é a de nenhuma loja) ───────────
+const D = /*PLANTA*/{
+  "loja": "00000000-0000-4000-8000-000000000000",
+  "ambientes": [
+    { "id": "cozinha", "nome": "Cozinha", "x": 0, "y": 0, "w": 8, "h": 5 },
+    { "id": "estoque", "nome": "Estoque e preparo", "x": 8, "y": 0, "w": 4, "h": 3 },
+    { "id": "camara", "nome": "Câmara fria", "x": 8, "y": 3, "w": 2, "h": 2 },
+    { "id": "banheiro", "nome": "Banheiro", "x": 10, "y": 3, "w": 2, "h": 2 },
+    { "id": "delivery", "nome": "Corredor do delivery", "x": 12, "y": 0, "w": 1.4, "h": 10 },
+    { "id": "salao", "nome": "Salão", "x": 0, "y": 5, "w": 12, "h": 5 }
+  ],
+  "moveis": [
+    { "id": "chapa-1", "nome": "Chapa 1", "x": 0.4, "y": 0.2, "w": 1.6, "h": 0.8, "alt": 0.9 },
+    { "id": "chapa-2", "nome": "Chapa 2", "x": 2.2, "y": 0.2, "w": 1.6, "h": 0.8, "alt": 0.9 },
+    { "id": "fritadeira-1", "nome": "Fritadeira do balcão", "x": 4.1, "y": 0.2, "w": 1, "h": 0.8, "alt": 0.9 },
+    { "id": "fritadeira-2", "nome": "Fritadeira do delivery", "x": 5.3, "y": 0.2, "w": 1, "h": 0.8, "alt": 0.9 },
+    { "id": "freezer", "nome": "Freezer de proteínas", "x": 6.5, "y": 0.2, "w": 1.2, "h": 0.8, "alt": 0.85 },
+    { "id": "montagem-1", "nome": "Montagem do balcão", "x": 1, "y": 2.2, "w": 2.8, "h": 0.9, "alt": 0.9 },
+    { "id": "tostadores", "nome": "Tostadores e estante de pão", "x": 3.9, "y": 2.2, "w": 0.7, "h": 0.9, "alt": 1.8 },
+    { "id": "montagem-2", "nome": "Montagem do delivery", "x": 4.7, "y": 2.2, "w": 2.6, "h": 0.9, "alt": 0.9 },
+    { "id": "geladeira", "nome": "Geladeira de bebidas", "x": 7.25, "y": 3.8, "w": 0.7, "h": 0.7, "alt": 1.9 },
+    { "id": "estufa", "nome": "Estufa dos pedidos prontos", "x": 5.6, "y": 4.3, "w": 1.2, "h": 0.6, "alt": 1.2 },
+    { "id": "pia", "nome": "Pia de mãos", "x": 0.2, "y": 3.8, "w": 0.8, "h": 0.6, "alt": 0.9 },
+    { "id": "prateleiras", "nome": "Prateleiras do estoque", "x": 8.2, "y": 0.2, "w": 3, "h": 0.5, "alt": 2 },
+    { "id": "mesa-preparo", "nome": "Mesa do preparo", "x": 8.5, "y": 1.4, "w": 2, "h": 0.7, "alt": 0.9 },
+    { "id": "prateleira-camara", "nome": "Prateleira (câmara)", "x": 8.2, "y": 3.2, "w": 1.6, "h": 0.5, "alt": 1.8 },
+    { "id": "despacho", "nome": "Despacho do delivery", "x": 11.5, "y": 1, "w": 0.5, "h": 2.4, "alt": 0.9 },
+    { "id": "balcao", "nome": "Balcão do salão", "x": 0.8, "y": 5.1, "w": 4.6, "h": 0.7, "alt": 1.1 },
+    { "id": "caixa", "nome": "Caixa", "x": 5.6, "y": 5.1, "w": 1.4, "h": 0.7, "alt": 1.1 },
+    { "id": "totem-1", "nome": "Totem 1", "x": 0.3, "y": 6.3, "w": 0.45, "h": 0.4, "alt": 1.7 },
+    { "id": "totem-2", "nome": "Totem 2", "x": 0.3, "y": 7.1, "w": 0.45, "h": 0.4, "alt": 1.7 },
+    { "id": "mesa-1", "nome": "Mesa 1", "x": 2.6, "y": 7.2, "w": 1.2, "h": 0.8, "alt": 0.75 },
+    { "id": "mesa-2", "nome": "Mesa 2", "x": 4.6, "y": 7.2, "w": 1.2, "h": 0.8, "alt": 0.75 },
+    { "id": "mesa-3", "nome": "Mesa 3", "x": 6.6, "y": 7.2, "w": 1.2, "h": 0.8, "alt": 0.75 },
+    { "id": "cabine-1", "nome": "Cabine 1", "x": 9.2, "y": 5.6, "w": 1.5, "h": 1.5, "alt": 1 },
+    { "id": "cabine-2", "nome": "Cabine 2", "x": 9.2, "y": 7.6, "w": 1.5, "h": 1.5, "alt": 1 },
+    { "id": "banco", "nome": "Banco estofado", "x": 2, "y": 9.4, "w": 6.5, "h": 0.5, "alt": 0.9 },
+    { "id": "pilar", "nome": "Pilar", "x": 8.3, "y": 6.3, "w": 0.3, "h": 0.3, "alt": 2.7 }
+  ],
+  "cameras": [
+    { "canal": 1, "nome": "Chapa e fritadeira", "x": 0.3, "y": 1.9, "h": 2.2, "dir": 340, "incl": 30, "hfov": 90 },
+    { "canal": 2, "nome": "Montagem", "x": 6.5, "y": 4.7, "h": 2.2, "dir": 230, "incl": 35, "hfov": 90 },
+    { "canal": 3, "nome": "Despacho", "x": 12.7, "y": 4.5, "h": 2.2, "dir": 270, "incl": 32, "hfov": 80 },
+    { "canal": 4, "nome": "Balcão e salão", "x": 11.6, "y": 9.6, "h": 2.6, "dir": 205, "incl": 30, "hfov": 100 }
+  ]
+}/*FIM*/;
 const rad = (g) => g * Math.PI / 180;
-const fmt = (n, c = 1) => n.toLocaleString('pt-BR', { minimumFractionDigits: c, maximumFractionDigits: c });
-// a área que importa: a cozinha e o que encosta nela
-const EXT = [-0.3, -0.3, 10.3, 6.3];
 
-// ─────────── os postos (onde se fica para trabalhar) ───────────
-const POSTOS = [
-  { nome: 'Chapa', x: 2, y: 1.5 }, { nome: 'Fritadeira', x: 4.2, y: 1.5 }, { nome: 'Montagem 1', x: 3, y: 2.1 },
-  { nome: 'Montagem 2', x: 5, y: 2.1 }, { nome: 'Montagem 3', x: 4, y: 4.1 }, { nome: 'Despacho', x: 6.6, y: 3.5 },
-  { nome: 'Geladeira', x: 9.5, y: 1.6 }, { nome: 'Pia', x: 1, y: 4.4 },
-];
-const postoDe = (x, y) => { let m = null, d = 0.85; for (const p of POSTOS) { const k = Math.hypot(p.x - x, p.y - y); if (k < d) { d = k; m = p; } } return m ? m.nome : 'Passando'; };
+// ─────────── o que cada equipamento é (pelo nome; na tela de verdade, escolhido no Desenho) ───────────
+function tipoDe(nome) {
+  const n = nome.toLowerCase();
+  if (/montagem|despacho|mesa do preparo|bancada atr|saída do balcão|batedeira/.test(n)) return 'inox';
+  if (/chapa/.test(n)) return 'chapa';
+  if (/fritadeira/.test(n)) return 'fritadeira';
+  if (/estufa|conservador de frit/.test(n)) return 'estufa';
+  if (/geladeira|freezer|conservador|refriger|bebidas|alface/.test(n)) return 'frio';
+  if (/pia|tanque|escorredor/.test(n)) return 'pia';
+  if (/prateleira|arm[aá]rio|estante|tostador|carro de p|vitamina/.test(n)) return 'prateleira';
+  if (/totem/.test(n)) return 'totem';
+  if (/caixa/.test(n)) return 'caixa';
+  if (/cabine/.test(n)) return 'cabine';
+  if (/banco|bancada com bancos/.test(n)) return 'banco';
+  if (/^mesa\b/.test(n)) return 'mesa';
+  if (/balc[aã]o/.test(n)) return 'balcao';
+  if (/pilar|coluna|divis/.test(n)) return 'estrutura';
+  return 'inox';
+}
+// o setor de cada ambiente (pelo nome; na tela de verdade, o setor do ambiente)
+const SETORES = {
+  cozinha: { nome: 'Cozinha', cor: '#E8833A', chao: 0x3b2a1f },
+  salao: { nome: 'Salão', cor: '#F2B300', chao: 0x3a331d },
+  delivery: { nome: 'Delivery', cor: '#3D8BEA', chao: 0x1c3150 },
+  estoque: { nome: 'Estoque e preparo', cor: '#2FB5A3', chao: 0x173a37 },
+  banheiro: { nome: 'Banheiros', cor: '#A98BEA', chao: 0x2f2747 },
+  circulacao: { nome: 'Circulação', cor: '#8D99A8', chao: 0x262d36 },
+};
+function setorDe(nome) {
+  const n = nome.toLowerCase();
+  if (/banheiro/.test(n)) return 'banheiro';
+  if (/^sal[aã]o/.test(n)) return 'salao';
+  if (/delivery|motoboy/.test(n)) return 'delivery';
+  if (/c[aâ]mara|estoque|preparo|fundos/.test(n)) return 'estoque';
+  if (/cozinha/.test(n)) return 'cozinha';
+  if (/sal[aã]o|passagem/.test(n)) return 'salao';
+  return 'circulacao';
+}
+for (const a of D.ambientes) a.setor = setorDe(a.nome);
+for (const m of D.moveis) m.tipo = tipoDe(m.nome);
+const setorEm = (x, y) => { const a = D.ambientes.find((a) => x >= a.x && x <= a.x + a.w && y >= a.y && y <= a.y + a.h); return a ? a.setor : null; };
 
-// ─────────── as pessoas simuladas: andam em linha reta de posto em posto ───────────
-const P = (n) => POSTOS.find((p) => p.nome === n);
-const ROTEIROS = [
-  [['Chapa', 6], ['Montagem 1', 3], ['Chapa', 5], ['Geladeira', 2]],
-  [['Montagem 2', 7], ['Despacho', 3], ['Montagem 2', 4]],
-  [['Fritadeira', 5], ['Montagem 1', 2], ['Fritadeira', 6], ['Pia', 2]],
-  [['Montagem 3', 6], [[8.5, 5.2], 1], ['Despacho', 4], ['Montagem 3', 3]],
-  [['Despacho', 4], [[8.5, 5.2], 2], ['Geladeira', 2], ['Despacho', 3]],
-];
-const pessoas = ROTEIROS.map((r, i) => ({ id: i + 1, roteiro: r.map(([alvo, para]) => ({ ...(typeof alvo === 'string' ? P(alvo) : { x: alvo[0], y: alvo[1] }), para })),
-  passo: 0, x: 0, y: 0, espera: 0, rastro: [], posto: '', desde: 0 }));
-pessoas.forEach((p, i) => { const a = p.roteiro[0]; p.x = a.x; p.y = a.y; p.espera = 2 + i * 1.3; p.posto = postoDe(p.x, p.y); p.desde = -30 - i * 25; });
+// a área que importa
+const EXT = (() => { const rs = [...D.ambientes, ...D.moveis]; return [Math.min(...rs.map((r) => r.x)) - .3, Math.min(...rs.map((r) => r.y)) - .3, Math.max(...rs.map((r) => r.x + r.w)) + .3, Math.max(...rs.map((r) => r.y + r.h)) + .3]; })();
+
+// ─────────── os postos: a frente de cada equipamento de trabalho ───────────
+const dentroDeMovel = (x, y) => D.moveis.some((m) => x > m.x && x < m.x + m.w && y > m.y && y < m.y + m.h);
+const POSTOS = [];
+for (const m of D.moveis) {
+  if (!['chapa', 'fritadeira', 'inox', 'caixa', 'estufa', 'balcao', 'frio', 'pia', 'mesa', 'totem'].includes(m.tipo)) continue;
+  if (/lado 2|saída|bancada atr|batedeira/i.test(m.nome)) continue;
+  const lados = [[m.x + m.w / 2, m.y + m.h + .4], [m.x + m.w / 2, m.y - .4], [m.x - .4, m.y + m.h / 2], [m.x + m.w + .4, m.y + m.h / 2]];
+  const livre = lados.find(([x, y]) => setorEm(x, y) && !dentroDeMovel(x, y));
+  if (livre) POSTOS.push({ nome: m.nome.replace(' (lâmpada, tela)', '').replace('Tostadores e estante de pão', 'Tostadores'), x: livre[0], y: livre[1], setor: setorEm(...livre) });
+}
+const postoDe = (x, y) => { let m = null, d = 0.8; for (const p of POSTOS) { const k = Math.hypot(p.x - x, p.y - y); if (k < d) { d = k; m = p; } } return m ? m.nome : 'Passando'; };
+
+// ─────────── as pessoas simuladas: andam de posto em posto (sementes fixas) ───────────
+let semente = 5; const sorte = () => (semente = (semente * 16807) % 2147483647) / 2147483647;
+const doSetor = (s) => POSTOS.filter((p) => p.setor === s);
+const grupos = [['cozinha'], ['cozinha'], ['cozinha'], ['cozinha', 'salao'], ['salao'], ['delivery', 'cozinha'], ['estoque', 'cozinha']];
+const comecos = new Set();
+const pessoas = grupos.map((gs, i) => {
+  const opcoes = gs.flatMap(doSetor);
+  const livres = opcoes.filter((p) => !comecos.has(p.nome));
+  const inicio = livres.length ? livres[Math.floor(sorte() * livres.length)] : opcoes[0];
+  if (inicio) comecos.add(inicio.nome);
+  const roteiro = [inicio, ...Array.from({ length: 3 }, () => opcoes[Math.floor(sorte() * opcoes.length)])].filter(Boolean).map((p) => ({ ...p, para: 3 + sorte() * 9 }));
+  const a = roteiro[0] || { x: 1, y: 1 };
+  return { id: 500 + i * 3 + 17, roteiro, passo: 0, x: a.x, y: a.y, espera: 1 + i, rastro: [], posto: postoDe(a.x, a.y), desde: -20 - i * 30 };
+}).filter((p) => p.roteiro.length > 1);
 let selecionada = null, tempo = 0;
 function andar(dt) {
   tempo += dt;
   for (const p of pessoas) {
-    if (p.espera > 0) { p.espera -= dt; } else {
+    if (p.espera > 0) p.espera -= dt; else {
       const alvo = p.roteiro[(p.passo + 1) % p.roteiro.length];
       const dx = alvo.x - p.x, dy = alvo.y - p.y, d = Math.hypot(dx, dy), v = 1.05 * dt;
-      if (d <= v) { p.x = alvo.x; p.y = alvo.y; p.passo = (p.passo + 1) % p.roteiro.length; p.espera = alvo.para; }
-      else { p.x += dx / d * v; p.y += dy / d * v; }
+      if (d <= v) { p.x = alvo.x; p.y = alvo.y; p.passo = (p.passo + 1) % p.roteiro.length; p.espera = alvo.para; } else { p.x += dx / d * v; p.y += dy / d * v; }
     }
-    const novo = postoDe(p.x, p.y);
-    if (novo !== p.posto) { p.posto = novo; p.desde = tempo; }
-    const u = p.rastro[p.rastro.length - 1];
-    if (!u || Math.hypot(u[0] - p.x, u[1] - p.y) > 0.05) p.rastro.push([p.x, p.y, tempo]);
+    const novo = postoDe(p.x, p.y); if (novo !== p.posto) { p.posto = novo; p.desde = tempo; }
+    const u = p.rastro[p.rastro.length - 1]; if (!u || Math.hypot(u[0] - p.x, u[1] - p.y) > 0.05) p.rastro.push([p.x, p.y, tempo]);
     while (p.rastro.length && tempo - p.rastro[0][2] > 8) p.rastro.shift();
   }
 }
 
+// ─────────── as chaves: cores dos setores e nomes ───────────
+let comCores = true, comNomes = true;
+const legenda = document.getElementById('legenda');
+const usados = [...new Set(D.ambientes.map((a) => a.setor))];
+legenda.innerHTML = usados.map((s) => `<span><i style="background:${SETORES[s].cor}"></i>${SETORES[s].nome}</span>`).join('');
+
 // ─────────── modo Planta (de cima) ───────────
 const NS = 'http://www.w3.org/2000/svg';
 const el = (n, a = {}, pai) => { const e = document.createElementNS(NS, n); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); if (pai) pai.appendChild(e); return e; };
-const svg = el('svg', { viewBox: `${EXT[0]} ${EXT[1]} ${EXT[2] - EXT[0]} ${EXT[3] - EXT[1]}`, role: 'img', 'aria-label': 'A cozinha vista de cima, com as pessoas agora' });
+const COR_2D = { chapa: '#4a3a33', fritadeira: '#6d5a2c', estufa: '#7a6a45', frio: '#d9e2ea', pia: '#a8b4c0', prateleira: '#5f6e80', totem: '#1f2630', caixa: '#2a2d33', cabine: '#8c3a28', banco: '#a8452f', mesa: '#8a5a33', balcao: '#2a2d33', estrutura: '#6d737c', inox: '#b9c3cd' };
+const tam = Math.max(EXT[2] - EXT[0], EXT[3] - EXT[1]);
+const fs = Math.max(.12, tam / 90);
+const svg = el('svg', { viewBox: `${EXT[0]} ${EXT[1]} ${EXT[2] - EXT[0]} ${EXT[3] - EXT[1]}`, role: 'img', 'aria-label': 'A loja vista de cima, com as pessoas agora' });
 document.getElementById('v-planta').appendChild(svg);
-for (let x = Math.ceil(EXT[0]); x <= EXT[2]; x += 0.5) el('line', { x1: x, y1: EXT[1], x2: x, y2: EXT[3], class: 'planta-grade' }, svg);
-for (let y = Math.ceil(EXT[1]); y <= EXT[3]; y += 0.5) el('line', { x1: EXT[0], y1: y, x2: EXT[2], y2: y, class: 'planta-grade' }, svg);
-for (const a of D.ambientes) el('rect', { x: a.x, y: a.y, width: a.w, height: a.h, class: 'planta-piso' }, svg);
-const curto = (n) => n.replace('Montagem do ', 'Mont. ').replace(' · lado ', ' ').replace(' (lâmpada, tela)', '').replace('Freezer de apoio (proteínas)', 'Freezer').replace('Conservador de frituras', 'Conservador').replace('Tostadores e estante de pão', 'Tostadores');
-for (const m of D.moveis) { el('rect', { x: m.x, y: m.y, width: m.w, height: m.h, rx: .04, class: 'planta-movel' }, svg);
-  if (m.w > .45 && m.h > .3 && !/lado 2$/.test(m.nome)) { const t = el('text', { x: m.x + .05, y: m.y + .14, class: 'planta-nome', 'font-size': .1 }, svg); t.textContent = curto(m.nome).replace(/ 1$/, '').slice(0, 18); } }
-for (const c of D.cameras) { const g = el('g', {}, svg); el('circle', { cx: c.x, cy: c.y, r: .07, class: 'cam-ponto' }, g);
-  const t = el('text', { x: c.x + .1, y: c.y + .04, fill: '#F5B53A', 'font-size': .11, 'font-weight': 700, 'font-family': 'Martian Mono, Consolas, monospace' }, g); t.textContent = c.canal; }
+const pisos = D.ambientes.map((a) => el('rect', { x: a.x, y: a.y, width: a.w, height: a.h, fill: '#13243A', stroke: '#6F8099', 'stroke-width': fs / 3 }, svg));
+const nomesAmb = D.ambientes.map((a) => { const t = el('text', { x: a.x + fs * .6, y: a.y + fs * 1.4, fill: '#93A3B8', 'font-size': fs * 1.05, 'font-family': 'Martian Mono, monospace' }, svg); t.textContent = a.nome.length * fs * .66 < a.w ? a.nome : ''; return t; });
+const nomes2d = [];
+for (const m of D.moveis) {
+  el('rect', { x: m.x, y: m.y, width: m.w, height: m.h, rx: fs / 4, fill: COR_2D[m.tipo], stroke: '#0a1320', 'stroke-width': fs / 6 }, svg);
+  if (m.tipo === 'chapa') el('rect', { x: m.x + m.w * .08, y: m.y + m.h * .15, width: m.w * .84, height: m.h * .7, fill: '#ff7a2f', opacity: .45 }, svg);
+  if (m.tipo === 'fritadeira') for (const k of [0, 1]) el('rect', { x: m.x + m.w * (.1 + k * .45), y: m.y + m.h * .2, width: m.w * .35, height: m.h * .6, fill: '#d9a21b' }, svg);
+  if (m.tipo === 'totem') el('rect', { x: m.x + m.w * .2, y: m.y + m.h * .2, width: m.w * .6, height: m.h * .6, fill: '#3da5ff' }, svg);
+  if (m.nome.length * fs * .5 < m.w + .4 && m.h > fs * 1.2) { const t = el('text', { x: m.x + m.w / 2, y: m.y + m.h / 2 + fs * .35, 'text-anchor': 'middle', fill: ['frio', 'inox', 'pia'].includes(m.tipo) ? '#1b1a17' : '#E8EEF6', 'font-size': fs * .9, 'font-family': 'Hanken Grotesk, sans-serif', 'font-weight': 600 }, svg); t.textContent = m.nome; nomes2d.push(t); }
+}
+for (const c of D.cameras) { const g = el('g', {}, svg); el('circle', { cx: c.x, cy: c.y, r: fs * .7, fill: '#F5B53A' }, g); const t = el('text', { x: c.x, y: c.y + fs * .32, 'text-anchor': 'middle', fill: '#1b1a17', 'font-size': fs * .85, 'font-weight': 700, 'font-family': 'Martian Mono, monospace' }, g); t.textContent = c.canal; }
 const camadaRastro = el('g', {}, svg), camadaGente = el('g', {}, svg);
 const figuras = new Map();
 for (const p of pessoas) {
   const g = el('g', { style: 'cursor:pointer' }, camadaGente);
-  el('circle', { r: .22, fill: 'rgba(61,123,234,.25)' }, g); el('circle', { r: .13, fill: 'var(--pessoa)', stroke: '#fff', 'stroke-width': .025 }, g);
-  const chip = el('g', {}, g); const fundo = el('rect', { x: .16, y: -.34, height: .17, rx: .04, fill: 'var(--rotulo)' }, chip);
-  const t = el('text', { x: .2, y: -.215, fill: 'var(--sobre-rotulo)', 'font-size': .11, 'font-weight': 700, 'font-family': 'Martian Mono, Consolas, monospace' }, chip);
-  const rastro = el('polyline', { fill: 'none', stroke: 'var(--pessoa-claro)', 'stroke-width': .045, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: .55 }, camadaRastro);
+  el('circle', { r: fs * 2, fill: 'rgba(61,123,234,.25)' }, g); el('circle', { r: fs * 1.15, fill: 'var(--pessoa)', stroke: '#fff', 'stroke-width': fs / 4 }, g);
+  const chip = el('g', {}, g); const fundo = el('rect', { x: fs * 1.4, y: -fs * 3, height: fs * 1.6, rx: fs * .35, fill: 'var(--rotulo)' }, chip);
+  const t = el('text', { x: fs * 1.75, y: -fs * 1.85, fill: 'var(--sobre-rotulo)', 'font-size': fs, 'font-weight': 700, 'font-family': 'Martian Mono, Consolas, monospace' }, chip);
+  const rastro = el('polyline', { fill: 'none', stroke: 'var(--pessoa-claro)', 'stroke-width': fs * .4, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: .55 }, camadaRastro);
   g.addEventListener('click', () => escolher(p.id));
   figuras.set(p.id, { g, t, fundo, rastro });
+}
+function pintar2d() {
+  D.ambientes.forEach((a, i) => pisos[i].setAttribute('fill', comCores ? SETORES[a.setor].cor + '38' : '#13243A'));
+  for (const t of nomes2d) t.style.display = comNomes ? '' : 'none';
 }
 function desenharPlanta() {
   for (const p of pessoas) {
     const f = figuras.get(p.id);
     f.g.setAttribute('transform', `translate(${p.x.toFixed(3)} ${p.y.toFixed(3)})`);
-    const rot = `${p.posto}`; if (f.t.textContent !== rot) { f.t.textContent = rot; f.fundo.setAttribute('width', (rot.length * .07 + .09).toFixed(2)); }
+    if (f.t.textContent !== p.posto) { f.t.textContent = p.posto; f.fundo.setAttribute('width', (p.posto.length * fs * .64 + fs * .8).toFixed(2)); }
     f.rastro.setAttribute('points', p.rastro.map((r) => `${r[0].toFixed(2)},${r[1].toFixed(2)}`).join(' '));
-    f.rastro.setAttribute('opacity', selecionada === null || selecionada === p.id ? '.6' : '.12');
     f.g.setAttribute('opacity', selecionada === null || selecionada === p.id ? '1' : '.35');
   }
 }
 
-// ─────────── modo 3D e Câmeras (three.js) ───────────
-let mundo, avatares = new Map(), render3d, olho, controle, tiles = [];
-function rotuloSprite(texto) {
+// ─────────── modo 3D e Câmeras (three.js): cada equipamento com a cara dele ───────────
+let mundo, avatares = new Map(), render3d, olho, controle, tiles = [], chaos = [], nomes3d = [], fogos = [];
+function rotuloSprite(texto, fundo = '#F5B53A', tinta = '#1B1A17', base = 0.2) {
   const c = document.createElement('canvas'); const ctx = c.getContext('2d'); ctx.font = '700 40px Martian Mono, Consolas, monospace';
   const w = Math.ceil(ctx.measureText(texto).width) + 28; c.width = w; c.height = 58;
-  ctx.font = '700 40px Martian Mono, Consolas, monospace'; ctx.fillStyle = '#F5B53A'; ctx.fillRect(0, 0, w, 58); ctx.fillStyle = '#1B1A17'; ctx.textBaseline = 'middle'; ctx.fillText(texto, 14, 31);
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false })); sp.scale.set(0.2 * w / 58, 0.2, 1); sp.userData.w = w / 58; sp.renderOrder = 5; return sp;
+  ctx.font = '700 40px Martian Mono, Consolas, monospace'; ctx.fillStyle = fundo; ctx.fillRect(0, 0, w, 58); ctx.fillStyle = tinta; ctx.textBaseline = 'middle'; ctx.fillText(texto, 14, 31);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true })); sp.scale.set(base * w / 58, base, 1); sp.userData.w = w / 58; sp.renderOrder = 5; return sp;
+}
+const M = {
+  inox: new THREE.MeshStandardMaterial({ color: 0xd3dae2, metalness: .45, roughness: .3 }),
+  inoxEscuro: new THREE.MeshStandardMaterial({ color: 0x9aa5b1, metalness: .4, roughness: .4 }),
+  chapaTopo: new THREE.MeshStandardMaterial({ color: 0x1a1a1c, metalness: .3, roughness: .55 }),
+  fogo: new THREE.MeshBasicMaterial({ color: 0xff7a2f, transparent: true, opacity: .55 }),
+  oleo: new THREE.MeshStandardMaterial({ color: 0xe0a91f, emissive: 0x5a3a00, roughness: .25 }),
+  poco: new THREE.MeshStandardMaterial({ color: 0x23262b, roughness: .6 }),
+  branco: new THREE.MeshStandardMaterial({ color: 0xeef2f5, roughness: .45 }),
+  vidro: new THREE.MeshStandardMaterial({ color: 0x9fd3ff, transparent: true, opacity: .38, roughness: .1 }),
+  madeira: new THREE.MeshStandardMaterial({ color: 0x8a5a33, roughness: .7 }),
+  estofado: new THREE.MeshStandardMaterial({ color: 0xa8452f, roughness: .6 }),
+  granito: new THREE.MeshStandardMaterial({ color: 0x24262b, roughness: .3, metalness: .2 }),
+  frente: new THREE.MeshStandardMaterial({ color: 0x3a3f47, roughness: .6 }),
+  concreto: new THREE.MeshStandardMaterial({ color: 0x737a84, roughness: .9 }),
+  tela: new THREE.MeshBasicMaterial({ color: 0x3da5ff }),
+  preto: new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: .6 }),
+  luz: new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: .35 }),
+};
+function bloco(g, w, h, d, mat, x, y, z) { const m = new THREE.Mesh(new THREE.BoxGeometry(Math.max(.01, w), Math.max(.01, h), Math.max(.01, d)), mat); m.position.set(x, y, z); g.add(m); return m; }
+function equipamento(m) {
+  const g = new THREE.Group(); g.position.set(m.x, 0, m.y);
+  const { w, h, alt } = m; const cx = w / 2, cz = h / 2;
+  const pernas = (top) => { for (const [px, pz] of [[.04, .04], [w - .04, .04], [.04, h - .04], [w - .04, h - .04]]) bloco(g, .04, top, .04, M.inoxEscuro, px, top / 2, pz); };
+  switch (m.tipo) {
+    case 'chapa': {
+      bloco(g, w, alt - .05, h, M.inoxEscuro, cx, (alt - .05) / 2, cz);
+      bloco(g, w - .06, .05, h - .12, M.chapaTopo, cx, alt - .025, cz + .03);
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(w - .2, h - .3), M.fogo.clone()); f.rotation.x = -Math.PI / 2; f.position.set(cx, alt + .004, cz + .03); g.add(f); fogos.push(f.material);
+      for (let k = 0; k < 4; k += 1) bloco(g, .05, .05, .03, M.preto, (k + 1) * w / 5, alt * .75, h + .015);
+      break;
+    }
+    case 'fritadeira': {
+      bloco(g, w, alt - .04, h, M.inoxEscuro, cx, (alt - .04) / 2, cz);
+      bloco(g, w, .04, h, M.inox, cx, alt - .02, cz);
+      for (const k of [0, 1]) { const px = w * (.27 + k * .46); bloco(g, w * .36, .02, h * .6, M.poco, px, alt + .005, cz); bloco(g, w * .3, .02, h * .48, M.oleo, px, alt + .012, cz); }
+      break;
+    }
+    case 'frio': {
+      bloco(g, w, alt, h, M.branco, cx, alt / 2, cz);
+      if (alt >= 1.4) bloco(g, w - .08, alt - .25, .02, M.vidro, cx, alt / 2 + .05, h + .011);
+      else bloco(g, w - .04, .02, h - .04, M.inoxEscuro, cx, alt + .01, cz);
+      break;
+    }
+    case 'pia': {
+      pernas(alt - .04); bloco(g, w, .04, h, M.inox, cx, alt - .02, cz);
+      bloco(g, Math.min(w * .6, .5), .03, h * .6, M.poco, cx, alt + .005, cz);
+      bloco(g, .03, .25, .03, M.inoxEscuro, cx, alt + .12, .08);
+      break;
+    }
+    case 'estufa': {
+      bloco(g, w, alt * .45, h, M.inoxEscuro, cx, alt * .225, cz);
+      bloco(g, w, alt * .55, h, M.vidro, cx, alt * .725, cz);
+      bloco(g, w - .1, .02, h - .1, M.luz, cx, alt * .6, cz);
+      break;
+    }
+    case 'prateleira': {
+      for (const [px, pz] of [[.03, .03], [w - .03, .03], [.03, h - .03], [w - .03, h - .03]]) bloco(g, .03, alt, .03, M.inoxEscuro, px, alt / 2, pz);
+      for (let y = .25; y < alt; y += .42) bloco(g, w, .025, h, M.inox, cx, y, cz);
+      break;
+    }
+    case 'totem': {
+      bloco(g, w, .06, h, M.preto, cx, .03, cz);
+      bloco(g, w * .7, alt, h * .5, M.preto, cx, alt / 2, cz);
+      bloco(g, w * .55, alt * .4, .01, M.tela, cx, alt * .7, cz + h * .26);
+      break;
+    }
+    case 'caixa':
+    case 'balcao': {
+      bloco(g, w, alt - .04, h, M.frente, cx, (alt - .04) / 2, cz);
+      bloco(g, w + .04, .04, h + .04, M.granito, cx, alt - .02, cz);
+      if (m.tipo === 'caixa') { bloco(g, .45, .3, .03, M.preto, cx, alt + .2, cz); bloco(g, .4, .25, .01, M.tela, cx, alt + .2, cz + .02); }
+      break;
+    }
+    case 'mesa': {
+      bloco(g, w, .04, h, M.madeira, cx, alt, cz);
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(.04, .06, alt, 10), M.preto); p.position.set(cx, alt / 2, cz); g.add(p);
+      break;
+    }
+    case 'cabine': {
+      const deitada = w >= h; const L = deitada ? w : h; const banco = L * .25;
+      const mesa = deitada ? [cx, cz, w * .42, h * .8] : [cx, cz, w * .8, h * .42];
+      bloco(g, mesa[2], .04, mesa[3], M.madeira, mesa[0], .75, mesa[1]);
+      for (const s of [-1, 1]) {
+        const pos = deitada ? [cx + s * (L / 2 - banco / 2), cz] : [cx, cz + s * (L / 2 - banco / 2)];
+        const [bw, bd] = deitada ? [banco, h * .9] : [w * .9, banco];
+        bloco(g, bw, .45, bd, M.estofado, pos[0], .225, pos[1]);
+        const enc = deitada ? [pos[0] + s * (banco / 2 - .06), pos[1]] : [pos[0], pos[1] + s * (banco / 2 - .06)];
+        bloco(g, deitada ? .12 : bw, alt, deitada ? bd : .12, M.estofado, enc[0], alt / 2, enc[1]);
+      }
+      break;
+    }
+    case 'banco': {
+      bloco(g, w, .45, h, M.estofado, cx, .225, cz);
+      bloco(g, w, alt, .12, M.estofado, cx, alt / 2, w > h ? h - .06 : cz);
+      break;
+    }
+    case 'estrutura': bloco(g, w, alt, h, M.concreto, cx, alt / 2, cz); break;
+    default: { // inox: tampo, pernas e a prateleira de baixo
+      pernas(alt - .05); bloco(g, w, .05, h, M.inox, cx, alt - .025, cz); bloco(g, w - .1, .03, h - .1, M.inoxEscuro, cx, .2, cz);
+    }
+  }
+  return g;
 }
 function montarMundo() {
-  mundo = new THREE.Scene(); mundo.background = new THREE.Color('#0E1826'); mundo.fog = new THREE.Fog('#0E1826', 14, 30);
-  mundo.add(new THREE.HemisphereLight(0xcfe0ff, 0x101820, 0.85)); const sol = new THREE.DirectionalLight(0xffffff, 0.55); sol.position.set(4, 9, 3); mundo.add(sol);
+  mundo = new THREE.Scene(); mundo.background = new THREE.Color('#0E1826'); mundo.fog = new THREE.Fog('#0E1826', tam * 1.4, tam * 3);
+  mundo.add(new THREE.HemisphereLight(0xdfe8ff, 0x14202e, 0.95));
+  const sol = new THREE.DirectionalLight(0xffffff, 0.75); sol.position.set(EXT[0] + tam * .3, 12, EXT[1] - 2); mundo.add(sol);
+  const contra = new THREE.DirectionalLight(0x8fb4ff, 0.3); contra.position.set(EXT[2], 6, EXT[3] + 4); mundo.add(contra);
   for (const a of D.ambientes) {
-    const chao = new THREE.Mesh(new THREE.PlaneGeometry(a.w, a.h), new THREE.MeshLambertMaterial({ color: 0x13243a })); chao.rotation.x = -Math.PI / 2; chao.position.set(a.x + a.w / 2, 0, a.y + a.h / 2); mundo.add(chao);
-    const grade = new THREE.GridHelper(Math.max(a.w, a.h), Math.round(Math.max(a.w, a.h) / 0.72), 0x2b4466, 0x1b304b); grade.position.set(a.x + a.w / 2, 0.002, a.y + a.h / 2);
-    grade.material.transparent = true; grade.material.opacity = .55; mundo.add(grade);
-    const borda = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(a.w, 0.9, a.h)), new THREE.LineBasicMaterial({ color: 0x5b6d86, transparent: true, opacity: .55 })); borda.position.set(a.x + a.w / 2, 0.45, a.y + a.h / 2); mundo.add(borda);
+    const chao = new THREE.Mesh(new THREE.PlaneGeometry(a.w, a.h), new THREE.MeshLambertMaterial({ color: 0x13243a })); chao.rotation.x = -Math.PI / 2; chao.position.set(a.x + a.w / 2, 0, a.y + a.h / 2); mundo.add(chao); chaos.push([chao, a]);
+    const grade = new THREE.GridHelper(Math.max(a.w, a.h), Math.max(1, Math.round(Math.max(a.w, a.h) / 0.6)), 0x2b4466, 0x1b304b); grade.position.set(a.x + a.w / 2, 0.002, a.y + a.h / 2);
+    grade.material.transparent = true; grade.material.opacity = .28; mundo.add(grade);
+    const borda = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(a.w, 0.5, a.h)), new THREE.LineBasicMaterial({ color: 0x5b6d86, transparent: true, opacity: .5 })); borda.position.set(a.x + a.w / 2, 0.25, a.y + a.h / 2); mundo.add(borda);
+    const s = rotuloSprite(a.nome, 'rgba(14,24,38,.75)', SETORES[a.setor].cor, .26); s.position.set(a.x + .2 + s.scale.x / 2, .05, a.y + .35); s.material.depthTest = true; mundo.add(s); nomes3d.push(s);
   }
   for (const m of D.moveis) {
-    const cor = m.id.startsWith('montagem') ? 0x9fb1c9 : m.id.startsWith('chapa') ? 0xb07a5c : m.id.startsWith('fritadeira') ? 0xc08a4a : m.id === 'coluna' ? 0x5c6a7d : 0x6f8199;
-    const caixa = new THREE.Mesh(new THREE.BoxGeometry(m.w, m.alt, m.h), new THREE.MeshLambertMaterial({ color: cor })); caixa.position.set(m.x + m.w / 2, m.alt / 2, m.y + m.h / 2); mundo.add(caixa);
-    const b = new THREE.LineSegments(new THREE.EdgesGeometry(caixa.geometry), new THREE.LineBasicMaterial({ color: 0x0a1320 })); b.position.copy(caixa.position); mundo.add(b);
+    mundo.add(equipamento(m));
+    if (!['estrutura', 'prateleira', 'banco'].includes(m.tipo) && !/lado 2/i.test(m.nome)) {
+      const s = rotuloSprite(m.nome.replace(' (lâmpada, tela)', ''), 'rgba(232,238,246,.92)', '#1B1A17', .15); s.position.set(m.x + m.w / 2, m.alt + .32, m.y + m.h / 2); mundo.add(s); nomes3d.push(s);
+    }
   }
   for (const p of pessoas) {
     const g = new THREE.Group();
@@ -235,34 +492,54 @@ function montarMundo() {
     mundo.add(g); avatares.set(p.id, { g, rot, texto: '' });
   }
 }
+function pintar3d() {
+  for (const [chao, a] of chaos) chao.material.color.setHex(comCores ? SETORES[a.setor].chao : 0x13243a);
+  for (const s of nomes3d) s.visible = comNomes;
+}
 function atualizarAvatares() {
   for (const p of pessoas) {
     const a = avatares.get(p.id); a.g.position.set(p.x, 0, p.y);
     if (a.texto !== p.posto) { a.g.remove(a.rot); a.rot = rotuloSprite(p.posto); a.rot.position.y = 1.95; a.g.add(a.rot); a.texto = p.posto; }
-    a.g.children.forEach((c) => { if (c.material && 'opacity' in c.material && c !== a.rot) { c.material.transparent = true; c.material.opacity = selecionada === null || selecionada === p.id ? 1 : .3; } });
+    a.g.children.forEach((c) => { if (c.material && c !== a.rot) { c.material.transparent = true; c.material.opacity = selecionada === null || selecionada === p.id ? 1 : .3; } });
   }
 }
 function iniciar3d() {
   const caixa = document.getElementById('v-3d');
   render3d = new THREE.WebGLRenderer({ antialias: true }); render3d.setPixelRatio(Math.min(2, devicePixelRatio || 1)); caixa.appendChild(render3d.domElement);
-  olho = new THREE.PerspectiveCamera(45, 1, 0.05, 200); controle = new THREE.OrbitControls(olho, render3d.domElement); controle.enableDamping = true;
-  const cx = (EXT[0] + EXT[2]) / 2 + .6, cz = (EXT[1] + EXT[3]) / 2; olho.position.set(cx - 1.5, 7.5, cz + 7.5); controle.target.set(cx, 0, cz); controle.update();
-  const medir = () => { const w = caixa.clientWidth, h = caixa.clientHeight; render3d.setSize(w, h); olho.aspect = w / h; olho.updateProjectionMatrix(); };
+  olho = new THREE.PerspectiveCamera(42, 1, 0.05, 400); controle = new THREE.OrbitControls(olho, render3d.domElement); controle.enableDamping = true;
+  const cx = (EXT[0] + EXT[2]) / 2, cz = (EXT[1] + EXT[3]) / 2;
+  // enquadra a loja inteira; de pé (celular), olha pelo lado comprido; depois que a pessoa gira, não mexe mais
+  let mexeu = false; controle.addEventListener('start', () => { mexeu = true; });
+  const cantos = [];
+  for (const x of [EXT[0], EXT[2]]) for (const z of [EXT[1], EXT[3]]) for (const y of [0, 1]) cantos.push(new THREE.Vector3(x, y, z));
+  const enquadrar = () => {
+    const ladoMaior = (EXT[2] - EXT[0]) >= (EXT[3] - EXT[1]);
+    const deitado = olho.aspect >= 0.9;
+    const dir = (deitado === ladoMaior ? new THREE.Vector3(-0.12, 0.8, 0.6) : new THREE.Vector3(-0.3, 0.95, 0.04)).normalize();
+    // a distância em que o canto mais longe da loja fica a 92% da borda da imagem
+    const ocupa = (dist) => {
+      olho.position.set(cx + dir.x * dist, dir.y * dist, cz + dir.z * dist); olho.lookAt(cx, 0, cz); olho.updateMatrixWorld();
+      let m = 0; for (const c of cantos) { const v = c.clone().project(olho); if (v.z < -1 || v.z > 1) return Infinity; m = Math.max(m, Math.abs(v.x), Math.abs(v.y)); } return m;
+    };
+    let perto = 0.5, longe = 300;
+    for (let i = 0; i < 32; i += 1) { const meio = (perto + longe) / 2; if (ocupa(meio) > 0.92) perto = meio; else longe = meio; }
+    ocupa(longe); controle.target.set(cx, 0, cz); controle.update();
+  };
+  const medir = () => { const w = caixa.clientWidth, h = caixa.clientHeight; if (!w || !h) return; render3d.setSize(w, h, false); olho.aspect = w / h; olho.updateProjectionMatrix(); if (!mexeu) enquadrar(); };
   new ResizeObserver(medir).observe(caixa); medir();
 }
 function camDaPose(c, aspecto) {
   const vfov = 2 * Math.atan(Math.tan(rad(c.hfov / 2)) / aspecto) * 180 / Math.PI;
   const cam = new THREE.PerspectiveCamera(vfov, aspecto, 0.05, 60); cam.position.set(c.x, c.h, c.y);
   const f = new THREE.Vector3(Math.cos(rad(c.incl)) * Math.cos(rad(c.dir)), -Math.sin(rad(c.incl)), Math.cos(rad(c.incl)) * Math.sin(rad(c.dir)));
-  cam.up.set(0, 1, 0); cam.lookAt(cam.position.clone().add(f)); cam.rotateZ(rad(c.roll || 0)); return cam;
+  cam.up.set(0, 1, 0); cam.lookAt(cam.position.clone().add(f)); return cam;
 }
 function iniciarCams() {
   const pai = document.getElementById('cams');
-  const ordem = [1, 2, 3, 4]; const cams = ordem.map((n) => D.cameras.find((c) => c.canal === n)).filter(Boolean);
-  for (const c of cams) {
+  for (const c of D.cameras.slice(0, 6)) {
     const d = document.createElement('div'); d.className = 'cam';
-    d.innerHTML = `<canvas></canvas><div class="topo"><span>CH ${String(c.canal).padStart(2, '0')} · ${c.nome.toUpperCase()}</span><span class="hora"></span></div><span class="rec">REC</span>
-      <div class="pe"><div><b>${c.nome}</b><small>canal ${c.canal} · 1080p · simulado</small></div><span class="conta">0 na imagem</span></div>`;
+    d.innerHTML = `<canvas></canvas><div class="topo"><span>CH ${String(c.canal).padStart(2, '0')}</span><span class="hora"></span></div>
+      <div class="pe"><div><b>Canal ${c.canal}</b><small>${(c.nome || '').slice(0, 60)} · simulado</small></div><span class="conta">0 na imagem</span></div>`;
     pai.appendChild(d);
     const r = new THREE.WebGLRenderer({ canvas: d.querySelector('canvas'), antialias: true }); r.setPixelRatio(Math.min(2, devicePixelRatio || 1));
     tiles.push({ c, d, r, cam: camDaPose(c, 16 / 9) });
@@ -270,23 +547,15 @@ function iniciarCams() {
   const medir = () => { for (const t of tiles) { const w = t.d.clientWidth; if (w) t.r.setSize(w, Math.round(w * 9 / 16), false); } };
   new ResizeObserver(medir).observe(pai); medir();
 }
-/** A pessoa aparece na imagem desta câmera? (o meio do corpo cai dentro do quadro, na frente da câmera) */
-function naImagem(t, p) {
-  t.cam.updateMatrixWorld();
-  const v = new THREE.Vector3(p.x, 0.9, p.y).project(t.cam);
-  return v.z > -1 && v.z < 1 && Math.abs(v.x) <= 1 && Math.abs(v.y) <= 1;
-}
-const quantosNaImagem = (t) => pessoas.filter((p) => naImagem(t, p)).length;
-/** O rótulo encolhe perto da câmera (senão a pessoa a 1 m vira uma faixa na imagem). */
-function rotulosPara(cam, base) {
-  for (const p of pessoas) { const a = avatares.get(p.id); const k = Math.min(1, cam.position.distanceTo(a.g.position) / 4); a.rot.scale.set(a.rot.userData.w * k * base, base * k, 1); }
-}
+function naImagem(t, p) { t.cam.updateMatrixWorld(); const v = new THREE.Vector3(p.x, 0.9, p.y).project(t.cam); return v.z > -1 && v.z < 1 && Math.abs(v.x) <= 1 && Math.abs(v.y) <= 1; }
 
 // ─────────── a lista e os números ───────────
 function atualizarLista() {
   document.getElementById('total').textContent = pessoas.length;
   const cont = {}; for (const p of pessoas) cont[p.posto] = (cont[p.posto] || 0) + 1;
   document.getElementById('por-posto').textContent = Object.entries(cont).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k}: ${n}`).join(' · ');
+  const porSetor = {}; for (const p of pessoas) { const s = setorEm(p.x, p.y) || 'circulacao'; porSetor[s] = (porSetor[s] || 0) + 1; }
+  document.getElementById('por-setor').innerHTML = usados.map((s) => `<li><i style="background:${SETORES[s].cor}"></i><span>${SETORES[s].nome}</span><b>${porSetor[s] || 0}</b></li>`).join('');
   const ul = document.getElementById('lista');
   if (ul.children.length !== pessoas.length) {
     ul.innerHTML = ''; for (const p of pessoas) { const li = document.createElement('li'); li.tabIndex = 0; li.setAttribute('role', 'option'); li.dataset.id = p.id;
@@ -295,14 +564,14 @@ function atualizarLista() {
   }
   for (const p of pessoas) { const li = ul.querySelector(`[data-id="${p.id}"]`); li.querySelector('b').textContent = p.posto;
     const vistos = tiles.filter((t) => naImagem(t, p)).map((t) => t.c.canal);
-    li.querySelector('small').textContent = vistos.length ? `canal ${vistos.join(', ')}` : 'fora das câmeras';
-    const s = Math.max(0, Math.round(tempo - p.desde)); li.querySelector('.t').textContent = s >= 60 ? `${Math.floor(s / 60)} min` : `${s} s`;
+    const s = setorEm(p.x, p.y); li.querySelector('small').textContent = `${s ? SETORES[s].nome : 'fora'} · ${vistos.length ? `canal ${vistos.join(', ')}` : 'fora das câmeras'}`;
+    const seg = Math.max(0, Math.round(tempo - p.desde)); li.querySelector('.t').textContent = seg >= 60 ? `${Math.floor(seg / 60)} min` : `${seg} s`;
     li.setAttribute('aria-selected', String(selecionada === p.id)); }
 }
 function escolher(id) { selecionada = selecionada === id ? null : id; atualizarLista(); }
 
-// ─────────── os modos ───────────
-let modo = 'planta';
+// ─────────── os modos e as chaves ───────────
+let modo = '3d';
 for (const b of document.querySelectorAll('.dock button')) b.addEventListener('click', () => {
   modo = b.dataset.modo;
   for (const x of document.querySelectorAll('.dock button')) x.setAttribute('aria-pressed', String(x === b));
@@ -311,17 +580,42 @@ for (const b of document.querySelectorAll('.dock button')) b.addEventListener('c
   document.getElementById('v-cams').classList.toggle('ativa', modo === 'cams');
   window.dispatchEvent(new Event('resize'));
 });
+document.getElementById('chave-setores').addEventListener('click', (e) => { comCores = !comCores; e.currentTarget.setAttribute('aria-pressed', String(comCores)); legenda.classList.toggle('esconde', !comCores); pintar2d(); if (tem3d) pintar3d(); });
+document.getElementById('chave-nomes').addEventListener('click', (e) => { comNomes = !comNomes; e.currentTarget.setAttribute('aria-pressed', String(comNomes)); pintar2d(); if (tem3d) pintar3d(); });
+document.getElementById('canais-ativos').textContent = `${D.cameras.length} câmera(s)`;
+
+// ─────────── o celular ───────────
+const endereco = `https://app.monitorfarol.com.br/lojas/${D.loja}/canais/planta/ao-vivo`;
+const dialogo = document.getElementById('dialogo-cel');
+let qrFeito = false;
+document.getElementById('abrir-cel').addEventListener('click', () => {
+  dialogo.classList.add('aberto');
+  document.getElementById('endereco').textContent = endereco;
+  if (!qrFeito && window.QRCode) { new QRCode(document.getElementById('qr'), { text: endereco, width: 196, height: 196, correctLevel: QRCode.CorrectLevel.M }); qrFeito = true; }
+  document.getElementById('fechar-cel').focus();
+});
+const fechar = () => { dialogo.classList.remove('aberto'); document.getElementById('abrir-cel').focus(); };
+document.getElementById('fechar-cel').addEventListener('click', fechar);
+dialogo.addEventListener('click', (e) => { if (e.target === dialogo) fechar(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && dialogo.classList.contains('aberto')) fechar(); });
+document.getElementById('copiar').addEventListener('click', async (e) => {
+  try { await navigator.clipboard.writeText(endereco); e.currentTarget.textContent = 'Copiado'; }
+  catch { const r = document.createRange(); r.selectNodeContents(document.getElementById('endereco')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); e.currentTarget.textContent = 'Selecionado: copie'; }
+});
 
 let tem3d = true;
-try { montarMundo(); iniciar3d(); iniciarCams(); } catch (e) { tem3d = false; console.warn(e); }
+try { montarMundo(); iniciar3d(); iniciarCams(); pintar3d(); } catch (e) { tem3d = false; console.warn(e); }
+pintar2d();
 let antes = performance.now(), ultimaLista = 0;
 function quadro(agora) {
   const dt = Math.min(0.1, (agora - antes) / 1000); antes = agora; andar(dt);
   if (modo === 'planta') desenharPlanta();
   if (tem3d) {
     atualizarAvatares();
-    if (modo === '3d') { controle.update(); for (const p of pessoas) { const a = avatares.get(p.id); a.rot.scale.set(a.rot.userData.w * 0.2, 0.2, 1); } render3d.render(mundo, olho); }
-    if (modo === 'cams') for (const t of tiles) { rotulosPara(t.cam, 0.16); t.r.render(mundo, t.cam); const n = quantosNaImagem(t); t.d.querySelector('.conta').textContent = `${n} na imagem`; t.d.classList.toggle('sem', n === 0); t.d.querySelector('.hora').textContent = new Date().toLocaleString('pt-BR').replace(',', ''); }
+    for (const f of fogos) f.opacity = .4 + .18 * Math.sin(agora / 380);
+    if (modo === '3d') { controle.update(); for (const s of nomes3d) s.visible = comNomes; for (const p of pessoas) { const a = avatares.get(p.id); a.rot.scale.set(a.rot.userData.w * 0.2, 0.2, 1); } render3d.render(mundo, olho); }
+    if (modo === 'cams') for (const s of nomes3d) s.visible = false; // a imagem da câmera não tem nome de equipamento
+    if (modo === 'cams') for (const t of tiles) { t.r.render(mundo, t.cam); const n = pessoas.filter((p) => naImagem(t, p)).length; t.d.querySelector('.conta').textContent = `${n} na imagem`; t.d.querySelector('.hora').textContent = new Date().toLocaleTimeString('pt-BR'); }
   }
   if (agora - ultimaLista > 500) { ultimaLista = agora; atualizarLista(); document.getElementById('relogio').textContent = new Date().toLocaleTimeString('pt-BR'); }
   requestAnimationFrame(quadro);

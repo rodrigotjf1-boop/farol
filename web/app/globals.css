@@ -68,6 +68,14 @@
   --pessoa-claro: 141 180 255;
   --rotulo: 245 181 58;
   --sobre-rotulo: 27 26 23;
+  /* Que lugar é cada ambiente, no Ao vivo (29/10/2026, protótipo aprovado — "setorizar com cores"): a cor da legenda e
+     a do chão (misturada com o piso da cena). A cena é sempre escura: não muda com o tema. */
+  --lugar-cozinha: 232 131 58;
+  --lugar-salao: 242 179 0;
+  --lugar-delivery: 61 139 234;
+  --lugar-estoque: 47 181 163;
+  --lugar-banheiro: 169 139 234;
+  --lugar-circulacao: 141 153 168;
   --metal: 185 179 167;
   --metal-escuro: 125 119 108;
   --sombra-1: 0 1px 2px rgb(27 26 23 / 0.07), 0 6px 16px -10px rgb(27 26 23 / 0.25);

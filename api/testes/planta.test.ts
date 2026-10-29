@@ -27,7 +27,7 @@ import * as web from '../../web/lib/planta.ts';
 import { criarApp } from '../src/app.js';
 import {
   alturasDasCameras, ambienteEm, coneDaCamera, descricaoDoLugar, lerPlanta, LIMITES_DA_PLANTA, lugaresDaPlanta, MAX_NOMES_NO_LUGAR,
-  moveisVistos, plantaParaOAgente, type Camera, type Movel, type Planta,
+  moveisVistos, plantaParaOAgente, TIPOS_DE_AMBIENTE, TIPOS_DE_MOVEL, type Camera, type Movel, type Planta,
 } from '../src/planta.js';
 
 type Contrato = {
@@ -71,6 +71,46 @@ describe('o que entra na planta (sem banco)', () => {
     assert.match(problema(com({ areas: [{ ...area, nome: '' }] })), /areas\[0\]\.nome/);
     assert.match(problema(com({ areas: Array.from({ length: 21 }, (_, i) => ({ ...area, id: `a${i}` })) })), /areas: no máximo 20/);
     assert.match(problema({ ...com({}), areas: 'fila' }), /areas: lista/);
+  });
+
+  it('que lugar é e que equipamento é (29/10/2026): opcionais — ausente ou nulo fica ausente; dado, um dos tipos', () => {
+    assert.deepEqual([...TIPOS_DE_AMBIENTE], [...web.TIPOS_DE_AMBIENTE], 'as mesmas listas no console');
+    assert.deepEqual([...TIPOS_DE_MOVEL], [...web.TIPOS_DE_MOVEL]);
+    for (const t of web.TIPOS_DE_AMBIENTE) assert.ok(web.NOME_DO_TIPO_DE_AMBIENTE[t], `nome de ${t}`);
+    for (const t of web.TIPOS_DE_MOVEL) assert.ok(web.NOME_DO_TIPO_DE_MOVEL[t], `nome de ${t}`);
+    const lida = lerPlanta(com({ ambientes: [{ ...AMBIENTE, tipo: 'salao' }], moveis: [{ ...MOVEL, tipo: 'fritadeira' }] })).planta!;
+    assert.equal(lida.ambientes[0]!.tipo, 'salao');
+    assert.equal(lida.moveis[0]!.tipo, 'fritadeira');
+    const sem = lerPlanta(com({ ambientes: [{ ...AMBIENTE, tipo: null }] })).planta!;
+    assert.equal('tipo' in sem.ambientes[0]!, false, 'nulo fica ausente');
+    assert.equal('tipo' in sem.moveis[0]!, false, 'ausente fica ausente: a planta de antes não muda só por ser salva');
+    assert.match(problema(com({ ambientes: [{ ...AMBIENTE, tipo: 'quarto' }] })), /ambientes\[0\]\.tipo: cozinha, salao, delivery/);
+    assert.match(problema(com({ moveis: [{ ...MOVEL, tipo: 'forno' }] })), /moveis\[0\]\.tipo: chapa, fritadeira/);
+    assert.match(problema(com({ moveis: [{ ...MOVEL, tipo: 3 }] })), /moveis\[0\]\.tipo/);
+  });
+
+  it('sem o tipo, o console tira do nome — e o tipo dado vence o nome', () => {
+    const lugares: Array<[string, string]> = [
+      ['Cozinha', 'cozinha'], ['Cozinha da frente', 'cozinha'], ['Câmara fria', 'estoque'],
+      ['Preparo e lavagem', 'estoque'], ['Fundos', 'estoque'], ['Recebimento', 'estoque'], ['Área do delivery', 'delivery'],
+      ['Corredor dos motoboys', 'delivery'], ['Escada do delivery', 'delivery'], ['Salão', 'salao'],
+      ['Salão perto do delivery', 'salao'], ['Salão 2', 'salao'], ['Passagem para o atendimento', 'salao'],
+      ['Atendimento', 'salao'], ['Banheiros do salão', 'banheiro'], ['Escada', 'circulacao'],
+    ];
+    for (const [nome, t] of lugares) assert.equal(web.tipoDeAmbientePeloNome(nome), t, nome);
+    const equipamentos: Array<[string, string]> = [
+      ['Chapa 1', 'chapa'], ['Fritadeira do delivery', 'fritadeira'], ['Montagem do balcão', 'bancada'],
+      ['Despacho do delivery', 'bancada'], ['Mesa do preparo', 'bancada'], ['Conservador de frituras', 'estufa'],
+      ['Estufa dos pedidos prontos', 'estufa'], ['Conservador de sorvete', 'geladeira'], ['Geladeira de bebidas do caixa', 'geladeira'],
+      ['Refrigerador de saladas', 'geladeira'], ['Pia dos utensílios', 'pia'], ['Tanque de lavagem', 'pia'],
+      ['Estante de pães', 'prateleira'], ['Armário do estoque', 'prateleira'], ['Totem 2', 'totem'], ['Caixa', 'caixa'],
+      ['Cabine 4', 'cabine'], ['Banco estofado', 'banco'], ['Bancada com bancos altos', 'banco'], ['Mesa 7', 'mesa'],
+      ['Balcão do salão', 'balcao'], ['Pilar', 'estrutura'], ['Divisória de madeira', 'estrutura'], ['Estação de molhos', 'bancada'],
+    ];
+    for (const [nome, t] of equipamentos) assert.equal(web.tipoDeMovelPeloNome(nome), t, nome);
+    assert.equal(web.tipoDoMovel({ nome: 'Mesa 1', tipo: 'balcao' }), 'balcao');
+    assert.equal(web.tipoDoMovel({ nome: 'Mesa 1' }), 'mesa');
+    assert.equal(web.tipoDoAmbiente({ nome: 'Escada', tipo: 'salao' }), 'salao');
   });
 
   it('o que não é da planta fica de fora, e as medidas saem com duas casas', () => {
@@ -458,6 +498,18 @@ describe('a conta do console: do chão para a tela, e mexer na planta (sem banco
     assert.equal(EXEMPLO.ambientes[0]!.x, 0, 'a planta de antes não é mexida: é ela que o "descartar" devolve');
     assert.equal(web.moverAmbiente(EXEMPLO, 'coz', 0, 0), EXEMPLO, 'sem andar, é a mesma planta');
     assert.equal(web.moverAmbiente(EXEMPLO, 'nao-existe', 3, 3), EXEMPLO);
+  });
+
+  it('mover um ambiente não apaga as áreas de medida: as de dentro andam junto, as de fora ficam (ERR-159)', () => {
+    const dentro = { id: 'fila', nome: 'Fila', tipo: 'espera' as const, x: 1, y: 2, w: 1, h: 1 };
+    const fora = { id: 'porta', nome: 'Porta', tipo: 'porta' as const, x: 10, y: 1, w: 1, h: 1 };
+    const movida = web.moverAmbiente({ ...EXEMPLO, areas: [dentro, fora] }, 'coz', 1, 0.5);
+    assert.deepEqual(movida.areas, [{ ...dentro, x: 2, y: 2.5 }, fora]);
+    const semAreas = { ambientes: EXEMPLO.ambientes, moveis: EXEMPLO.moveis, cameras: EXEMPLO.cameras };
+    assert.equal('areas' in web.moverAmbiente(semAreas, 'coz', 1, 0.5), false, 'a planta de antes das áreas continua sem a lista');
+    // e o campo que vier DEPOIS também vem junto: a função parte da planta inteira (V150)
+    const comMais = { ...EXEMPLO, futuro: { versao: 1 } } as web.Planta & { futuro: unknown };
+    assert.deepEqual((web.moverAmbiente(comMais, 'coz', 1, 0.5) as typeof comMais).futuro, { versao: 1 });
   });
 
   it('o toque escolhe o menor retângulo: móvel antes de ambiente', () => {

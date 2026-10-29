@@ -3,12 +3,14 @@
 // =====================================================================
 // Ao vivo › 3D e Câmeras (A26, P7): a mesma cena, de dois jeitos
 // =====================================================================
-// Do protótipo aprovado pelo dono em 27/10/2026. A planta com volume — o
-// chão de cada ambiente com a grade, cada móvel na altura dele — e cada
-// pessoa como um boneco simples (corpo, cabeça, anel no chão) com o POSTO
-// por cima (sem nome, sem rosto). No 3D, gira e aproxima; em Câmeras, a
-// cena é vista do lugar de cada câmera da planta (simulada: a imagem de
-// verdade não sai da loja), com quantas pessoas caem na imagem dela.
+// Do protótipo aprovado pelo dono em 27/10/2026, com a "planta com vida"
+// aprovada em 29/10/2026: o chão de cada ambiente com a cor do LUGAR
+// (cozinha, salão, delivery…), cada móvel com a cara do equipamento
+// (`equipamentos-3d.ts`) e o nome por cima, e cada pessoa como um boneco
+// simples (corpo, cabeça, anel no chão) com o POSTO por cima (sem nome, sem
+// rosto). No 3D, gira e aproxima; em Câmeras, a cena é vista do lugar de
+// cada câmera da planta (simulada: a imagem de verdade não sai da loja),
+// com quantas pessoas caem na imagem dela — sem os nomes, como a câmera.
 //
 // As posições vêm de `posicoes` (um ref que a página atualiza a cada
 // quadro): o laço de desenho lê dali, sem passar pelo React a cada quadro.
@@ -19,7 +21,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
-import { inclinacaoDe, molduraDoQueExiste, rad, type Camera, type Planta } from '@/lib/planta';
+import { inclinacaoDe, molduraDoQueExiste, rad, tipoDoAmbiente, tipoDoMovel, type Camera, type Planta, type TipoDeAmbiente } from '@/lib/planta';
+
+import { FORCA_DO_CHAO } from './cara-da-planta';
+import { equipamento, materiaisDaCena, type Materiais } from './equipamentos-3d';
 
 export type PosicaoNaCena = { x: number; y: number; rotulo: string };
 
@@ -29,18 +34,25 @@ type Props = {
   posicoes: { readonly current: ReadonlyMap<number, PosicaoNaCena> };
   escolhida: number | null;
   nomeDaCamera: (pontoId: string) => string;
+  /** O chão com a cor de cada lugar (senão, o piso de sempre). */
+  comCores: boolean;
+  /** O nome de cada equipamento por cima dele. */
+  comNomes: boolean;
 };
 
 const ASPECTO = 16 / 9;
+/** O móvel que não leva nome por cima: a estrutura, a prateleira e o banco fazem parte da sala. */
+const SEM_NOME = new Set(['estrutura', 'prateleira', 'banco']);
 
 /** As cores da cena (sempre escura) vêm dos tokens do console, em `globals.css`. */
 function token(nome: string): THREE.Color {
   const v = getComputedStyle(document.documentElement).getPropertyValue(nome).trim().split(/\s+/).join(',');
   return new THREE.Color(`rgb(${v || '128,128,128'})`);
 }
+const hex = (c: THREE.Color): string => `#${c.getHexString()}`;
 
-/** O posto escrito numa etiqueta que sempre olha para quem vê. */
-function etiqueta(texto: string): THREE.Sprite {
+/** Um texto numa etiqueta que sempre olha para quem vê. */
+function etiqueta(texto: string, fundo = hex(token('--rotulo')), tinta = hex(token('--sobre-rotulo')), alfa = 1): THREE.Sprite {
   const alt = 58;
   const tela = document.createElement('canvas');
   const g = tela.getContext('2d')!;
@@ -50,11 +62,13 @@ function etiqueta(texto: string): THREE.Sprite {
   tela.width = larg;
   tela.height = alt;
   g.font = fonte;
-  g.fillStyle = `#${token('--rotulo').getHexString()}`;
+  g.globalAlpha = alfa;
+  g.fillStyle = fundo;
   g.beginPath();
   g.roundRect(0, 0, larg, alt, alt * 0.22);
   g.fill();
-  g.fillStyle = `#${token('--sobre-rotulo').getHexString()}`;
+  g.globalAlpha = 1;
+  g.fillStyle = tinta;
   g.textBaseline = 'middle';
   g.fillText(texto, alt * 0.25, alt / 2 + 2);
   const textura = new THREE.CanvasTexture(tela);
@@ -66,12 +80,19 @@ function etiqueta(texto: string): THREE.Sprite {
 }
 
 type Boneco = { grupo: THREE.Group; rotulo: THREE.Sprite; texto: string; materiais: THREE.Material[] };
+type Chao = { malha: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshLambertMaterial>; tipo: TipoDeAmbiente };
+type NomeDoAmbiente = { sprite: THREE.Sprite; nome: string; tipo: TipoDeAmbiente; x: number; y: number };
 
 type Cena = {
   cena: THREE.Scene;
   bonecos: Map<number, Boneco>;
-  centro: THREE.Vector3;
-  tamanho: number;
+  chaos: Chao[];
+  /** O nome de cada ambiente, no canto do chão: muda de cor com o chão. */
+  ambientes: NomeDoAmbiente[];
+  /** O nome de cada equipamento, por cima dele. */
+  nomes: THREE.Sprite[];
+  materiais: Materiais;
+  moldura: [number, number, number, number];
   liberar: () => void;
 };
 
@@ -88,30 +109,50 @@ function liberarObjeto(o: THREE.Object3D): void {
   });
 }
 
-function montarCena(planta: Planta): Cena {
+/** A cor do chão do lugar: o piso da cena com a cor do lugar por cima. */
+const corDoChao = (tipo: TipoDeAmbiente, comCores: boolean): THREE.Color =>
+  comCores ? token('--cena-piso').lerp(token(`--lugar-${tipo}`), FORCA_DO_CHAO) : token('--cena-piso');
+
+function nomeDoAmbiente(n: Omit<NomeDoAmbiente, 'sprite'>, comCores: boolean): THREE.Sprite {
+  const s = etiqueta(n.nome, hex(token('--cena')), hex(comCores ? token(`--lugar-${n.tipo}`) : token('--cena-suave')), 0.75);
+  const base = 0.26;
+  s.scale.set(s.userData.largura * base, base, 1);
+  s.position.set(n.x + 0.2 + (s.userData.largura * base) / 2, 0.05, n.y + 0.35);
+  s.material.depthTest = true;
+  return s;
+}
+
+function montarCena(planta: Planta, comCores: boolean): Cena {
   const cena = new THREE.Scene();
   const fundo = token('--cena');
   cena.background = fundo;
-  const [x0, y0, x1, y1] = molduraDoQueExiste(planta);
+  const moldura = molduraDoQueExiste(planta);
+  const [x0, y0, x1, y1] = moldura;
   const tamanho = Math.max(x1 - x0, y1 - y0, 4);
   cena.fog = new THREE.Fog(fundo, tamanho * 1.6, tamanho * 3.4);
   cena.add(new THREE.HemisphereLight(0xcfe0ff, 0x101820, 2.2));
   const sol = new THREE.DirectionalLight(0xffffff, 1.2);
   sol.position.set(x0 - 2, 12, y0 - 2);
   cena.add(sol);
-  const piso = token('--cena-piso');
+  const contra = new THREE.DirectionalLight(0x8fb4ff, 0.45);
+  contra.position.set(x1 + 2, 6, y1 + 4);
+  cena.add(contra);
   const parede = token('--cena-parede');
+  const chaos: Chao[] = [];
+  const ambientes: NomeDoAmbiente[] = [];
   for (const a of planta.ambientes) {
-    const chao = new THREE.Mesh(new THREE.PlaneGeometry(a.w, a.h), new THREE.MeshLambertMaterial({ color: piso }));
-    chao.rotation.x = -Math.PI / 2;
-    chao.position.set(a.x + a.w / 2, 0, a.y + a.h / 2);
-    cena.add(chao);
+    const tipo = tipoDoAmbiente(a);
+    const malha = new THREE.Mesh(new THREE.PlaneGeometry(a.w, a.h), new THREE.MeshLambertMaterial({ color: corDoChao(tipo, comCores) }));
+    malha.rotation.x = -Math.PI / 2;
+    malha.position.set(a.x + a.w / 2, 0, a.y + a.h / 2);
+    cena.add(malha);
+    chaos.push({ malha, tipo });
     const lado = Math.max(a.w, a.h);
     const grade = new THREE.GridHelper(lado, Math.max(1, Math.round(lado / 0.5)), 0x2b4466, 0x1b304b);
     grade.position.set(a.x + a.w / 2, 0.003, a.y + a.h / 2);
     grade.scale.set(a.w / lado, 1, a.h / lado);
     (grade.material as THREE.Material).transparent = true;
-    (grade.material as THREE.Material).opacity = 0.5;
+    (grade.material as THREE.Material).opacity = 0.35;
     cena.add(grade);
     const borda = new THREE.LineSegments(
       new THREE.EdgesGeometry(new THREE.BoxGeometry(a.w, 0.9, a.h)),
@@ -119,25 +160,48 @@ function montarCena(planta: Planta): Cena {
     );
     borda.position.set(a.x + a.w / 2, 0.45, a.y + a.h / 2);
     cena.add(borda);
+    const n = { nome: a.nome, tipo, x: a.x, y: a.y };
+    const sprite = nomeDoAmbiente(n, comCores);
+    cena.add(sprite);
+    ambientes.push({ ...n, sprite });
   }
-  const movel = token('--cena-movel');
-  const movel2 = token('--cena-movel-2');
+  const materiais = materiaisDaCena();
+  const nomes: THREE.Sprite[] = [];
+  const tintaDoNome = hex(token('--sobre-rotulo'));
+  const fundoDoNome = hex(token('--cena-tinta'));
   for (const m of planta.moveis) {
-    const caixa = new THREE.Mesh(new THREE.BoxGeometry(m.w, m.alt, m.h), new THREE.MeshLambertMaterial({ color: movel2 }));
-    caixa.position.set(m.x + m.w / 2, m.alt / 2, m.y + m.h / 2);
-    cena.add(caixa);
-    const b = new THREE.LineSegments(new THREE.EdgesGeometry(caixa.geometry), new THREE.LineBasicMaterial({ color: movel }));
-    b.position.copy(caixa.position);
-    cena.add(b);
+    cena.add(equipamento(m, materiais));
+    if (SEM_NOME.has(tipoDoMovel(m))) continue;
+    const s = etiqueta(m.nome, fundoDoNome, tintaDoNome, 0.92);
+    const base = 0.15;
+    s.scale.set(s.userData.largura * base, base, 1);
+    s.position.set(m.x + m.w / 2, m.alt + 0.3, m.y + m.h / 2);
+    s.renderOrder = 4;
+    cena.add(s);
+    nomes.push(s);
   }
-  const bonecos = new Map<number, Boneco>();
   return {
     cena,
-    bonecos,
-    centro: new THREE.Vector3((x0 + x1) / 2, 0, (y0 + y1) / 2),
-    tamanho,
+    bonecos: new Map(),
+    chaos,
+    ambientes,
+    nomes,
+    materiais,
+    moldura,
     liberar: () => liberarObjeto(cena),
   };
+}
+
+/** Troca a cor do chão e do nome de cada ambiente; liga ou desliga o nome dos equipamentos. */
+function pintar(c: Cena, comCores: boolean, comNomes: boolean): void {
+  for (const ch of c.chaos) ch.malha.material.color.copy(corDoChao(ch.tipo, comCores));
+  for (const n of c.ambientes) {
+    c.cena.remove(n.sprite);
+    liberarObjeto(n.sprite);
+    n.sprite = nomeDoAmbiente(n, comCores);
+    c.cena.add(n.sprite);
+  }
+  for (const s of c.nomes) s.visible = comNomes;
 }
 
 function novoBoneco(c: Cena): Boneco {
@@ -197,6 +261,48 @@ function rotulosPara(c: Cena, olho: THREE.Camera, base: number): void {
   }
 }
 
+/** A brasa da chapa respira devagar — parada para quem pediu menos movimento. */
+function respirar(M: Materiais, agora: number, calmo: boolean): void {
+  M.brasa.opacity = calmo ? 0.5 : 0.42 + 0.16 * Math.sin(agora / 380);
+}
+
+/**
+ * Enquadra a loja inteira (do protótipo aprovado): deitada (computador), olha pela frente; de pé (celular), olha mais
+ * de cima e pelo lado, para o lado comprido da loja ficar de pé na tela. A distância é a em que o canto mais longe
+ * fica a 92% da borda da imagem.
+ */
+function enquadrar(olho: THREE.PerspectiveCamera, controle: OrbitControls, [x0, y0, x1, y1]: [number, number, number, number]): void {
+  const cx = (x0 + x1) / 2;
+  const cz = (y0 + y1) / 2;
+  const cantos: THREE.Vector3[] = [];
+  for (const x of [x0, x1]) for (const z of [y0, y1]) for (const y of [0, 1]) cantos.push(new THREE.Vector3(x, y, z));
+  const ladoMaiorEmX = x1 - x0 >= y1 - y0;
+  const deitado = olho.aspect >= 0.9;
+  const dir = (deitado === ladoMaiorEmX ? new THREE.Vector3(-0.12, 0.8, 0.6) : new THREE.Vector3(-0.3, 0.95, 0.04)).normalize();
+  const ocupa = (dist: number): number => {
+    olho.position.set(cx + dir.x * dist, dir.y * dist, cz + dir.z * dist);
+    olho.lookAt(cx, 0, cz);
+    olho.updateMatrixWorld();
+    let m = 0;
+    for (const c of cantos) {
+      const v = c.clone().project(olho);
+      if (v.z < -1 || v.z > 1) return Infinity;
+      m = Math.max(m, Math.abs(v.x), Math.abs(v.y));
+    }
+    return m;
+  };
+  let perto = 0.5;
+  let longe = 400;
+  for (let i = 0; i < 32; i += 1) {
+    const meio = (perto + longe) / 2;
+    if (ocupa(meio) > 0.92) perto = meio;
+    else longe = meio;
+  }
+  ocupa(longe);
+  controle.target.set(cx, 0, cz);
+  controle.update();
+}
+
 /** A câmera virtual no lugar da de verdade: a abertura da lente é o campo horizontal. */
 function cameraVirtual(cam: Camera): THREE.PerspectiveCamera {
   const vfov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(rad(cam.abertura) / 2) / ASPECTO));
@@ -221,15 +327,22 @@ function naImagem(olho: THREE.PerspectiveCamera, posicoes: ReadonlyMap<number, P
   return n;
 }
 
-export function AoVivo3D({ planta, modo, posicoes, escolhida, nomeDaCamera }: Props) {
+const pedeCalma = (): boolean => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+export function AoVivo3D({ planta, modo, posicoes, escolhida, nomeDaCamera, comCores, comNomes }: Props) {
   const caixa = useRef<HTMLDivElement>(null);
   const telas = useRef(new Map<string, HTMLCanvasElement>());
   const escolhidaRef = useRef(escolhida);
   escolhidaRef.current = escolhida;
   const [semWebgl, setSemWebgl] = useState(false);
   const [contagens, setContagens] = useState<Record<string, number>>({});
-  const cena = useMemo(() => (typeof window === 'undefined' ? null : montarCena(planta)), [planta]);
+  // A cena nasce com as cores de agora; trocar as chaves só repinta (não monta de novo).
+  const coresAoMontar = useRef(comCores);
+  const cena = useMemo(() => (typeof window === 'undefined' ? null : montarCena(planta, coresAoMontar.current)), [planta]);
   useEffect(() => () => cena?.liberar(), [cena]);
+  useEffect(() => {
+    if (cena) pintar(cena, comCores, comNomes);
+  }, [cena, comCores, comNomes]);
 
   // ───────────── 3D: de cima, girando ─────────────
   useEffect(() => {
@@ -245,27 +358,33 @@ export function AoVivo3D({ planta, modo, posicoes, escolhida, nomeDaCamera }: Pr
     render.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     render.domElement.className = 'block h-full w-full';
     div.appendChild(render.domElement);
-    const olho = new THREE.PerspectiveCamera(45, 1, 0.05, 400);
+    const olho = new THREE.PerspectiveCamera(42, 1, 0.05, 600);
     const controle = new OrbitControls(olho, render.domElement);
     controle.enableDamping = true;
     controle.maxPolarAngle = Math.PI * 0.49;
-    const { centro, tamanho } = cena;
-    olho.position.set(centro.x - tamanho * 0.15, tamanho * 0.95, centro.z + tamanho * 0.95);
-    controle.target.copy(centro);
-    controle.update();
+    // Enquadra de novo a cada mudança de tamanho, até a pessoa girar ou aproximar: aí a vista é dela.
+    let mexeu = false;
+    const mexer = () => {
+      mexeu = true;
+    };
+    controle.addEventListener('start', mexer);
     const medir = () => {
       const r = div.getBoundingClientRect();
+      if (!r.width || !r.height) return;
       render.setSize(r.width, r.height, false);
-      olho.aspect = r.width / Math.max(1, r.height);
+      olho.aspect = r.width / r.height;
       olho.updateProjectionMatrix();
+      if (!mexeu) enquadrar(olho, controle, cena.moldura);
     };
     const observador = new ResizeObserver(medir);
     observador.observe(div);
     medir();
+    const calmo = pedeCalma();
     let quadro = 0;
-    const desenhar = () => {
+    const desenhar = (agora: number) => {
       atualizar(cena, posicoes.current, escolhidaRef.current);
       for (const b of cena.bonecos.values()) b.rotulo.scale.set(b.rotulo.userData.largura * 0.24, 0.24, 1);
+      respirar(cena.materiais, agora, calmo);
       controle.update();
       render.render(cena.cena, olho);
       quadro = requestAnimationFrame(desenhar);
@@ -274,6 +393,7 @@ export function AoVivo3D({ planta, modo, posicoes, escolhida, nomeDaCamera }: Pr
     return () => {
       cancelAnimationFrame(quadro);
       observador.disconnect();
+      controle.removeEventListener('start', mexer);
       controle.dispose();
       render.dispose();
       render.domElement.remove();
@@ -306,14 +426,24 @@ export function AoVivo3D({ planta, modo, posicoes, escolhida, nomeDaCamera }: Pr
     const observador = new ResizeObserver(medir);
     for (const q of quadros) if (q.tela.parentElement) observador.observe(q.tela.parentElement);
     medir();
+    const calmo = pedeCalma();
     let quadro = 0;
     let contadoEm = 0;
     const desenhar = (agora: number) => {
       atualizar(cena, posicoes.current, escolhidaRef.current);
+      respirar(cena.materiais, agora, calmo);
+      // a imagem da câmera não tem nome de equipamento nem de ambiente
+      const visiveis = cena.nomes.map((s) => s.visible);
+      for (const s of cena.nomes) s.visible = false;
+      for (const n of cena.ambientes) n.sprite.visible = false;
       for (const q of quadros) {
         rotulosPara(cena, q.olho, 0.18);
         q.render.render(cena.cena, q.olho);
       }
+      cena.nomes.forEach((s, i) => {
+        s.visible = visiveis[i]!;
+      });
+      for (const n of cena.ambientes) n.sprite.visible = true;
       if (agora - contadoEm > 500) {
         contadoEm = agora;
         setContagens(Object.fromEntries(quadros.map((q) => [q.pontoId, naImagem(q.olho, posicoes.current)])));
@@ -338,7 +468,7 @@ export function AoVivo3D({ planta, modo, posicoes, escolhida, nomeDaCamera }: Pr
   if (modo === '3d') {
     return (
       <div ref={caixa} className="relative h-[min(66vh,640px)] w-full" data-vista-3d>
-        <span className="pointer-events-none absolute left-3.5 top-3 font-mono text-[11px] text-farol-cena-suave">
+        <span className="pointer-events-none absolute bottom-3 left-3.5 font-mono text-[11px] text-farol-cena-suave">
           arraste para girar · roda ou pinça para aproximar
         </span>
       </div>

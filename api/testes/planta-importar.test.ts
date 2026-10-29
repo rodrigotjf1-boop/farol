@@ -77,6 +77,19 @@ describe('importar a planta de um arquivo', () => {
     assert.equal(planta.ambientes[0]!.w, 6);
   });
 
+  it('que lugar é e que equipamento é vão como vieram; quem confere é a API, ao salvar (29/10/2026)', () => {
+    const arquivo = {
+      ...ARQUIVO,
+      ambientes: [{ ...ARQUIVO.ambientes[0]!, tipo: 'cozinha' }, ARQUIVO.ambientes[1]!],
+      moveis: [{ ...ARQUIVO.moveis[0]!, tipo: 'bancada' }, { ...ARQUIVO.moveis[1]!, tipo: 'forno' }],
+    };
+    const { planta } = ler(arquivo).importacao!;
+    assert.deepEqual(planta.ambientes.map((a) => a.tipo), ['cozinha', undefined]);
+    assert.equal('tipo' in planta.ambientes[1]!, false, 'sem tipo no arquivo, sem tipo na planta');
+    assert.deepEqual(planta.moveis.map((m) => m.tipo), ['bancada', 'forno']);
+    assert.match(lerPlanta(planta).problema ?? '', /moveis\[1\]\.tipo: chapa, fritadeira/, 'o tipo que não existe a API recusa com a frase dela');
+  });
+
   it('o que a importação devolve a API aceita ao salvar', () => {
     const { planta } = ler(ARQUIVO).importacao!;
     const r = lerPlanta(planta);
