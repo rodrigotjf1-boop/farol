@@ -9,6 +9,7 @@ protege:
 - menos de 2 nomes: não há o que treinar;
 - na consulta: o NOME do ingrediente vem do classificador (o pão nunca), o "é comida?" e as notas vêm do protótipo;
   1 ou 8 chamadas ao modelo por recorte;
+- o PÃO NO PASSO (05/11): só com a chave, e só quando o pão passa o MELHOR ingrediente pela `FOLGA_DO_PAO`;
 - o juiz da loja: com a chave, o treinado; sem ela, o de protótipo de sempre; sem o que treinar, o de protótipo;
 - as chaves no ambiente.
 """
@@ -155,6 +156,45 @@ def test_o_pao_nunca_e_o_ingrediente():
     prot = {"Pão de dois cortes": amarelo, "Alface": verde}
     n = jt.JuizTreinado(vetor_de_mentira, prot, clf)(chapa(AMARELO))
     assert n.nome == "Pão de dois cortes" and n.ingrediente == "Alface"
+    # sem a chave do pão no passo, a nota nunca diz o pão
+    assert n.pao is None
+
+
+class _ClassificadorFixo:
+    """Devolve sempre as mesmas probabilidades (a conta da folga sem depender do treino)."""
+
+    def __init__(self, probs: dict[str, float]) -> None:
+        self.classes = sorted(probs)
+        self._p = np.array([probs[c] for c in self.classes], np.float32)
+
+    def probabilidades(self, X: np.ndarray) -> np.ndarray:
+        return np.tile(self._p, (len(np.atleast_2d(X)), 1))
+
+
+@pytest.mark.parametrize("probs,pao", [
+    # o pão bem acima do melhor ingrediente: é pão
+    ({"Pão Brioche": 0.70, "Carne 120gr": 0.30}, "Pão Brioche"),
+    # na folga exata (0,25), é pão
+    ({"Pão Brioche": 0.625, "Carne 120gr": 0.375}, "Pão Brioche"),
+    # o pão na frente, mas por menos que a folga: fica o ingrediente
+    ({"Pão Brioche": 0.55, "Carne 120gr": 0.45}, None),
+    # a folga conta contra o MELHOR ingrediente, não contra a soma deles
+    ({"Pão Brioche": 0.50, "Carne 120gr": 0.20, "Alface": 0.15, "Bacon": 0.15}, "Pão Brioche"),
+    ({"Pão Brioche": 0.45, "Carne 120gr": 0.25, "Alface": 0.30}, None),
+    # contra o melhor, não contra o pior (0,45 − 0,05 passaria a folga; 0,45 − 0,30 não)
+    ({"Pão Brioche": 0.45, "Alface": 0.30, "Carne 120gr": 0.20, "Bacon": 0.05}, None),
+    # dois pães: vale o mais provável deles
+    ({"Pão Brioche": 0.20, "Pão de dois cortes": 0.60, "Carne 56gr": 0.20}, "Pão de dois cortes"),
+    # o ingrediente na frente: nunca é pão
+    ({"Pão Brioche": 0.10, "Carne 56gr": 0.90}, None),
+])
+def test_o_pao_no_passo_so_com_folga_sobre_o_melhor_ingrediente(probs, pao):
+    prot = {n: vetor_de_mentira(chapa(c)) for n, c in zip(sorted(probs), (AMARELO, VERMELHO, VERDE, AZUL))}
+    n = jt.JuizTreinado(vetor_de_mentira, prot, _ClassificadorFixo(probs), pao_no_passo=True)(chapa(AMARELO))
+    assert n.pao == pao
+    # o nome do ingrediente não muda: o passo que é pão continua dizendo o melhor ingrediente (quem decide é o passo)
+    assert n.ingrediente == max((c for c in probs if not c.startswith("Pão")), key=lambda c: probs[c])
+    assert jt.FOLGA_DO_PAO == 0.25
 
 
 @pytest.mark.parametrize("vistas,chamadas", [(1, 1), (8, 8), (3, 1)])
@@ -209,8 +249,22 @@ def test_o_juiz_da_loja_com_a_chave_e_o_treinado_e_sem_ela_o_de_sempre(tmp_path:
     assert (base.raiz / "vetores-vistas.npz").is_file()
     assert any("juiz TREINADO" in r.message for r in caplog.records)
     assert juiz(chapa(VERDE)).ingrediente == "Alface"
+    assert juiz.pao_no_passo is False and not any("PÃO" in r.message for r in caplog.records)
     de_sempre = ji.JuizDaLoja(modelos, base, motor_de=MotorDeMentira)()
     assert type(de_sempre) is ji.JuizDeIngrediente
+
+
+def test_o_juiz_da_loja_com_o_pao_no_passo_so_vale_com_o_treinado(tmp_path: Path, caplog):
+    modelos = _modelos(tmp_path)
+    base = _base_em_disco(tmp_path / "base", "um", [("Alface", VERDE, 1), ("Pão Brioche", AMARELO, 2)])
+    with caplog.at_level(logging.INFO):
+        juiz = ji.JuizDaLoja(modelos, base, motor_de=MotorDeMentira, treinado=True, pao_no_passo=True)()
+    assert isinstance(juiz, jt.JuizTreinado) and juiz.pao_no_passo is True
+    assert any("PÃO no passo" in r.message for r in caplog.records)
+    # sem o treinado, a chave não liga nada (o juiz de protótipo não sabe dizer o pão)
+    so_ela = ji.JuizDaLoja(modelos, base, motor_de=MotorDeMentira, pao_no_passo=True)
+    assert so_ela.pao_no_passo is False and type(so_ela()) is ji.JuizDeIngrediente
+    assert so_ela()(chapa(AMARELO)).pao is None
 
 
 def test_o_juiz_da_loja_sem_o_que_treinar_fica_no_de_prototipo(tmp_path: Path):
@@ -226,3 +280,6 @@ def test_as_chaves_no_ambiente():
     assert jt.vistas_da_consulta("8") == 8
     assert jt.vistas_da_consulta(None) == 1 and jt.vistas_da_consulta("4") == 1 and jt.vistas_da_consulta(" 8 ") == 8
     assert bav.JUIZ_TREINADO == "FAROL_BANCADA_JUIZ_TREINADO"
+    assert bav.pao_no_passo_ligado("1") and bav.pao_no_passo_ligado(" ligado ")
+    assert not bav.pao_no_passo_ligado(None) and not bav.pao_no_passo_ligado("0") and not bav.pao_no_passo_ligado("")
+    assert bav.PAO_NO_PASSO == "FAROL_BANCADA_PAO_NO_PASSO"

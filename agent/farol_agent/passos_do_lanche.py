@@ -34,7 +34,10 @@ e o L9 (Numero 13: cream cheese 21:12:32, alface 21:12:36, frango 21:12:46, fech
    - o passo que não parece ingrediente não conta (`vazio`); se ele tomou `saiu_parte` da janela ou mais, com a nota
      bem abaixo da de comida (`saiu_nota`), a peça SAIU dela, e nada depois conta (`saiu`: o fim da metade — é também o
      fechamento no alumínio e na caixa, que a cor do papel não pega).
-   Cada passo leva o nome do ingrediente mais parecido que não é pão (o pão sai das peças) e a nota do juiz.
+   Cada passo leva o nome do ingrediente mais parecido que não é pão (o pão sai das peças) e a nota do juiz. Com o PÃO
+   NO PASSO (o juiz treinado com `FAROL_BANCADA_PAO_NO_PASSO`, 05/11/2026): o passo em que o juiz vê pão bem acima do
+   melhor ingrediente (a tampa que chega por cima, a metade puxada — 71 de 336 passos respondidos em 02 e 03/11) não
+   conta: sai como `vazio`, com o nome do pão.
 
 O que este módulo entrega: a hora, a metade, a parte do disco, quanto do que chegou é papel, o quadro e a máscara — e,
 com o juiz, o nome e a nota.
@@ -377,6 +380,11 @@ class _Olhar:
                 continue
             s.nome, s.nota = j.ingrediente, j.nota
             if j.comida():
+                # o PÃO no passo (com a chave, `juizes.treinado.FOLGA_DO_PAO`): a tampa que chegou, a metade puxada — não
+                # é ingrediente; sai como vazio, com o nome do pão (a conferência mostra o que o juiz leu)
+                pao = getattr(j, "pao", None)
+                if pao:
+                    s.tipo, s.nome = "vazio", pao
                 continue
             if s.parte >= self.p.saiu_parte and j.nota < self.p.saiu_nota:
                 s.tipo, saiu = "saiu", s.hora

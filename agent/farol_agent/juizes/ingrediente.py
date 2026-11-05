@@ -144,6 +144,9 @@ class Nota:
     nota_ingrediente: float
     # a menor nota que é comida, a do juiz que deu a nota
     minimo: float = COMIDA_MIN
+    # o PÃO do recorte, quando o juiz treinado (com o pão no passo) o vê acima do melhor ingrediente: o passo que é pão
+    # não é ingrediente (`passos_do_lanche`); nulo no juiz de protótipo e sem a chave
+    pao: str | None = None
 
     def comida(self) -> bool:
         return self.nota >= self.minimo
@@ -234,17 +237,20 @@ class JuizDaLoja:
     motivo. Com `treinado` (a chave `FAROL_BANCADA_JUIZ_TREINADO`, desligada por padrão), o nome do ingrediente vem do
     classificador treinado nos exemplos da base (`juizes.treinado`); sem o que treinar, fica o de protótipo. Com
     `olho_duplo` (a chave `FAROL_BANCADA_OLHO_DUPLO`, só com o treinado), o classificador vê também o SigLIP2
-    (`juizes.olho_extra`); sem o arquivo desse modelo, fica o olho de sempre e o registro diz por quê, uma vez."""
+    (`juizes.olho_extra`); sem o arquivo desse modelo, fica o olho de sempre e o registro diz por quê, uma vez. Com
+    `pao_no_passo` (a chave `FAROL_BANCADA_PAO_NO_PASSO`, só com o treinado), a nota diz também quando o recorte é pão
+    (`juizes.treinado.FOLGA_DO_PAO`)."""
 
     def __init__(self, pasta_modelos: str | Path, base: "BaseDaLoja", *,
                  motor_de: Callable[[Path], Any] = MotorDino, treinado: bool = False,
                  vistas_na_consulta: int = 1, olho_duplo: bool = False,
-                 motor_extra_de: Callable[[Path], Any] | None = None) -> None:
+                 motor_extra_de: Callable[[Path], Any] | None = None, pao_no_passo: bool = False) -> None:
         self.pasta_modelos = Path(pasta_modelos)
         self.base = base
         self.treinado = treinado
         self.vistas_na_consulta = vistas_na_consulta
         self.olho_duplo = olho_duplo and treinado
+        self.pao_no_passo = pao_no_passo and treinado
         self._motor_extra_de = motor_extra_de
         self._motor_extra: Any = None
         self._extra_dito: str | None = None
@@ -292,11 +298,12 @@ class JuizDaLoja:
                         juiz, como = jt.montar(self._motor.vetor, prot, exemplos, self.base.abrir,
                                                guardados=guarda_duplo,
                                                vistas_na_consulta=self.vistas_na_consulta, vetor_extra=extra.vetor,
-                                               identidade_extra=identidade_extra)
+                                               identidade_extra=identidade_extra, pao_no_passo=self.pao_no_passo)
                     else:
                         juiz, como = jt.montar(self._motor.vetor, prot, exemplos, self.base.abrir,
                                                guardados=self.base.vetores.with_name("vetores-vistas.npz"),
-                                               vistas_na_consulta=self.vistas_na_consulta)
+                                               vistas_na_consulta=self.vistas_na_consulta,
+                                               pao_no_passo=self.pao_no_passo)
                 else:
                     juiz, como = JuizDeIngrediente(self._motor.vetor, prot), "juiz de protótipo"
             except ErroDoJuiz as e:
