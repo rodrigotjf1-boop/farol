@@ -19,7 +19,7 @@ import pg from 'pg';
 import { criarApp } from '../src/app.js';
 import { contarBase, impressaoDaBase, type Base } from '../src/fichas.js';
 import { chaveDoIngrediente } from '../src/ingredientes.js';
-import { apagarQuadrosVencidos } from '../src/rotas/treino.js';
+import { apagarQuadrosVencidos, LIMITE_DOS_CONFERIDOS } from '../src/rotas/treino.js';
 import {
   aprendizado,
   ensinoDasEtapas,
@@ -45,6 +45,13 @@ const CONTRATO = JSON.parse(readFileSync(new URL('../../contratos/lanche-de-trei
   corpo: { gravacao: Record<string, unknown>; lanche: { chave: string; etapas: EtapaLida[] } & Record<string, unknown>; quadros: { imagemBase64: string }[] };
 };
 const BASE = (JSON.parse(readFileSync(new URL('../../contratos/fichas-da-loja.json', import.meta.url), 'utf8')) as { resposta: { base: Base } }).resposta.base;
+/** As conferências que descem para a loja (`GET /v1/agentes/treino/conferidos`, 05/11/2026). */
+const CONFERIDOS = JSON.parse(readFileSync(new URL('../../contratos/conferidos-da-loja.json', import.meta.url), 'utf8')) as {
+  limite: number;
+  chaves: string[];
+  chavesDoLanche: string[];
+  chavesDoQuadro: string[];
+};
 const copia = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 const CORPO = () => copia(CONTRATO.corpo);
 /** O lanche lido POR PASSOS (A23.3, migration 054): a noite ao vivo, os passos com a metade, a nota e o contorno. */
@@ -446,6 +453,8 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
   let token = '';
   let tokenVizinho = '';
   let pontoVizinho = '';
+  let lojaVizinha = '';
+  let tenantVizinho = '';
   let cookie = '';
   let cookieSupervisao = '';
   let cookieExecucao = '';
@@ -502,6 +511,8 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     const vizinha = (await app.inject({ method: 'POST', url: '/v1/distribuicao/lojas', headers: { 'x-farol-admin': ADMIN }, payload: { tenant: { nome: `${marca}-vizinha` }, loja: { nome: 'Vizinha' }, setores: [{ nome: 'Cozinha' }] } })).json();
     cookieVizinho = await entrar(vizinha.tenantId, `ger-${marca}-viz@e.com`, 'gerente');
     tokenVizinho = await novoAgente(vizinha.loja.id, `${marca}-viz`);
+    lojaVizinha = vizinha.loja.id;
+    tenantVizinho = vizinha.tenantId;
     const ponto = await app.inject({ method: 'POST', url: `/v1/setores/${vizinha.setores[0].id}/pontos`, headers: { cookie: cookieVizinho }, payload: { nome: 'Bancada', origem: 'dvr', canal: 4, host: '192.168.1.108' } });
     assert.equal(ponto.statusCode, 201, ponto.body);
     pontoVizinho = ponto.json().id;
@@ -832,5 +843,83 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     // o "nada" não é um ingrediente da loja
     const ing = (await app.inject({ method: 'GET', url: `/v1/lojas/${lojaId}/ingredientes`, headers: { cookie } })).json();
     assert.ok(!ing.ingredientes.some((i: { nome: string }) => i.nome === 'Não é ingrediente'));
+  });
+
+  it('as conferências descem para a loja: só as dela, as conferidas mais novas primeiro, sem imagem e sem quem conferiu', async () => {
+    const conferidos = (comToken: string | null) =>
+      app.inject({ method: 'GET', url: '/v1/agentes/treino/conferidos', headers: comToken ? { authorization: `Bearer ${comToken}` } : {} });
+    assert.equal((await conferidos(null)).statusCode, 401);
+    assert.equal((await conferidos('farol_nao_existe')).statusCode, 401);
+
+    // a vizinha (outra conta): fichas, "não se vê de cima" o sal, três lanches conferidos numa ordem que DISCORDA da do
+    // envio e de qualquer ordem física das linhas, e um que ninguém conferiu (o d)
+    const { produtos, comFicha } = contarBase(BASE);
+    await pool.query(
+      `insert into fichas_da_loja (loja_id, tenant_id, fonte, conteudo, impressao, produtos, com_ficha) values ($1, $2, 'planilha', $3, $4, $5, $6)`,
+      [lojaVizinha, tenantVizinho, JSON.stringify(BASE), impressaoDaBase(BASE), produtos, comFicha],
+    );
+    const ids = new Map<string, string>();
+    for (const chave of ['vizinho-a', 'vizinho-b', 'vizinho-c', 'vizinho-d', 'vizinho-e', 'vizinho-f', 'vizinho-g', 'vizinho-h']) {
+      const c = CORPO();
+      c.gravacao.chave = 'carga-da-vizinha';
+      c.lanche.chave = chave;
+      const r = await mandar(c, tokenVizinho);
+      assert.equal(r.statusCode, 201, r.body);
+      ids.set(chave, r.json().lancheId as string);
+    }
+    for (const chave of ['vizinho-b', 'vizinho-h', 'vizinho-c', 'vizinho-f', 'vizinho-a', 'vizinho-g', 'vizinho-e']) {
+      const r = await conferir(ids.get(chave)!, CONFERENCIA, cookieVizinho);
+      assert.equal(r.statusCode, 200, r.body);
+    }
+    // a hora de cada conferência, gravada de uma vez (as linhas mudam juntas): o que vem primeiro sai da HORA — nem da
+    // ordem do envio (a…h), nem da conferência (b h c f a g e), nem da ordem em que a linha mudou
+    const HORAS: Array<[string, string]> = [
+      ['vizinho-a', '2026-11-01T10:00:00-03:00'],
+      ['vizinho-b', '2026-11-04T10:00:00-03:00'],
+      ['vizinho-c', '2026-11-06T10:00:00-03:00'],
+      ['vizinho-e', '2026-11-02T10:00:00-03:00'],
+      ['vizinho-f', '2026-11-07T10:00:00-03:00'],
+      ['vizinho-g', '2026-11-03T10:00:00-03:00'],
+      ['vizinho-h', '2026-11-05T10:00:00-03:00'],
+    ];
+    await pool.query(
+      `update treino_lanche l set conferido_em = h.hora::timestamptz
+         from unnest($1::uuid[], $2::text[]) as h(id, hora) where l.id = h.id`,
+      [HORAS.map(([c]) => ids.get(c)), HORAS.map(([, h]) => h)],
+    );
+    const ordemPelaHora = [...HORAS].sort((x, y) => y[1].localeCompare(x[1])).map(([c]) => c);
+    const sal = await app.inject({ method: 'PUT', url: `/v1/lojas/${lojaVizinha}/ingredientes/visivel`, headers: { cookie: cookieVizinho }, payload: { nome: 'Sal', visivel: false } });
+    assert.equal(sal.statusCode, 200, sal.body);
+    // só o INGREDIENTE das fichas "não se vê" (como na tela): o nome escrito à mão escondido não entra
+    await pool.query(`insert into base_conhecimento (loja_id, tipo, nome, visivel) values ($1, 'fora', 'Papel do delivery', false)`, [lojaVizinha]);
+
+    const r = await conferidos(tokenVizinho);
+    assert.equal(r.statusCode, 200, r.body);
+    const v = r.json();
+    assert.deepEqual(Object.keys(v), CONFERIDOS.chaves);
+    assert.equal(v.limite, CONFERIDOS.limite);
+    assert.equal(LIMITE_DOS_CONFERIDOS, CONFERIDOS.limite);
+    assert.deepEqual(v.naoSeVe, ['sal']);
+    assert.deepEqual(ordemPelaHora, ['vizinho-f', 'vizinho-c', 'vizinho-h', 'vizinho-b', 'vizinho-g', 'vizinho-e', 'vizinho-a']);
+    assert.deepEqual(v.lanches.map((l: { chave: string }) => l.chave), ordemPelaHora, 'o conferido mais novo primeiro; o não conferido fica');
+    const um = v.lanches[0];
+    assert.deepEqual(Object.keys(um), CONFERIDOS.chavesDoLanche);
+    assert.deepEqual([um.id, um.gravacao, um.produto, um.palpite, um.acertou], [ids.get('vizinho-f'), 'carga-da-vizinha', 'X-Burger', 'X-Burger', true]);
+    assert.equal(new Date(um.conferidoEm).toISOString(), '2026-11-07T13:00:00.000Z');
+    assert.deepEqual(um.etapas.map((e: EtapaLida) => e.leu), CORPO().lanche.etapas.map((e) => e.leu), 'as etapas como a loja mandou');
+    assert.deepEqual(um.resposta.faltas, CONFERENCIA.faltas);
+    assert.equal(um.quadros.length, CONTRATO.corpo.quadros.length);
+    assert.deepEqual(Object.keys(um.quadros[0]), CONFERIDOS.chavesDoQuadro);
+    const bytes0 = Buffer.from(CONTRATO.corpo.quadros[0]!.imagemBase64, 'base64');
+    assert.deepEqual(um.quadros[0], { n: 0, sha256: createHash('sha256').update(bytes0).digest('hex') }, 'o quadro pelo sha256, o mesmo do exemplo da base');
+    assert.ok(!r.body.includes('Pessoa gerente') && !r.body.includes('imagem'), 'nem quem conferiu, nem imagem');
+
+    // a loja do teste recebe só as dela: as da vizinha não aparecem, e a conta bate com o banco
+    const meus = (await conferidos(token)).json();
+    assert.ok(!meus.lanches.some((l: { chave: string }) => l.chave.startsWith('vizinho-')));
+    const n = (await pool.query(`select count(*)::int as n from treino_lanche where loja_id = $1 and situacao = 'conferido' and resposta is not null`, [lojaId])).rows[0].n as number;
+    assert.ok(n >= 1, 'a loja do teste tem conferidos');
+    assert.equal(meus.lanches.length, n);
+    assert.deepEqual(meus.naoSeVe, [], 'o sal "não se vê" só na vizinha');
   });
 });

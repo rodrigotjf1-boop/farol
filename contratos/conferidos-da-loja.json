@@ -1,0 +1,35 @@
+{
+  "_": "As conferências da loja descendo para o computador dela (05/11/2026): os lanches que alguém conferiu — o que a leitura disse (as etapas, como a loja mandou), o produto que a pessoa disse, o palpite e o acerto da hora da conferência, a resposta (por etapa ou por foto) e os quadros de cada lanche (o número e o sha256 da imagem, que é o mesmo do exemplo na base da loja). Sem imagem e sem QUEM conferiu. Só os da loja do token, os conferidos mais novos primeiro, até o limite. Para que serve: a loja mede, com os modelos dela e com o que já foi conferido, se uma regra nova acerta mais o lanche, antes de ela entrar. Os quadros saem 30 dias depois da conferência (DIAS_DOS_QUADROS): o lanche mais velho pode vir com a lista vazia — o exemplo na base fica.",
+  "rota": "GET /v1/agentes/treino/conferidos",
+  "limite": 1000,
+  "chaves": ["limite", "naoSeVe", "lanches"],
+  "chavesDoLanche": ["id", "gravacao", "chave", "abertoEm", "fechouEm", "pecas", "etapas", "quadros", "produto", "palpite", "acertou", "conferidoEm", "resposta"],
+  "chavesDoQuadro": ["n", "sha256"],
+  "resposta": {
+    "limite": 1000,
+    "naoSeVe": ["sal"],
+    "lanches": [
+      {
+        "id": "3f1c2a9e-5b7d-4e21-9c0a-1d2e3f4a5b6c",
+        "gravacao": "ao-vivo-canal-04-2026-11-04",
+        "chave": "lanche-0412",
+        "abertoEm": "2026-11-04T21:12:05.000Z",
+        "fechouEm": "2026-11-04T21:13:40.000Z",
+        "pecas": 2,
+        "etapas": [
+          { "hora": "2026-11-04T18:12:05-03:00", "lado": "tampo", "inicio": true, "leu": null, "candidatos": [], "vezes": 1, "quadro": 0, "tipo": "comeco", "metade": 1 },
+          { "hora": "2026-11-04T18:12:31-03:00", "lado": "tampo", "inicio": false, "leu": "Blend da casa", "candidatos": ["Blend da casa"], "vezes": 1, "quadro": 1, "tipo": "passo", "metade": 1, "parte": 1, "nota": 0.81 }
+        ],
+        "quadros": [
+          { "n": 0, "sha256": "9b1e0c4d2a7f6e5b8c3d1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d" },
+          { "n": 1, "sha256": "4c7a1b2c3d4e5f60718293a4b5c6d7e8f9011223344556677889900aabbccddee" }
+        ],
+        "produto": "X-Burger",
+        "palpite": "X-Burger",
+        "acertou": true,
+        "conferidoEm": "2026-11-05T13:02:11.000Z",
+        "resposta": { "versao": 2, "produto": "X-Burger", "fotos": [{ "etapas": [0], "marcados": ["Pão brioche"], "ruim": false, "obs": null }, { "etapas": [1], "marcados": ["Blend da casa"], "ruim": false, "obs": null }], "obs": null }
+      }
+    ]
+  }
+}
