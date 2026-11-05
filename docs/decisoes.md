@@ -10544,3 +10544,44 @@ criar, e só quem configura a loja cria e desliga.
   ≥ 4,2:1 nos dois temas.
 - Suíte da API inteira contra Postgres local (1723/1724: a de fora é a do banco local, "embedding de dimensão errada",
   a mesma do #230 e do #231) e `npm run build` da API e do console verdes.
+
+## 05/11/2026 · O pão no passo: o passo que é pão não vira carne (agente, chave desligada; sem migration)
+
+O dono, 05/11, conferindo os lanches: "pão nunca é cogitado como ingrediente nos chutes, sempre detecta o pão como
+alguma carne por exemplo". O juiz treinado dá a cada passo o ingrediente mais provável QUE NÃO É PÃO (o pão do lanche
+sai das peças, 21/10) — e a tampa que chega por cima da base, a metade puxada e o pão posto depois são passos. O #209
+(23/10) já deixava a CONFERÊNCIA responder "pão" num passo; faltava o agente.
+
+**Medido** no PC da loja, nas noites de 02 e 03/11 (os 5.702 passos guardados ligados às respostas do dono pela mesma
+redução que sobe à nuvem — `treino_corpo.reduzir` → sha256; o juiz de 1793 exemplos, olho duplo, conta honesta em 5
+partes com as fotos quase iguais do mesmo lado, a média das 8 vistas): dos passos contados como ingrediente e
+respondidos, **15% eram pão** (71 de 461; o juiz os chamou de Carne 120gr 22, Carne 56gr 18, Disco mussarela 9…), 27%
+"não era ingrediente" e 58% ingrediente (o juiz ao vivo acertou 86% destes). O pão quando ele passa o melhor ingrediente
+por uma folga na probabilidade:
+
+| folga | passos de pão que deixam de ser ingrediente | ingredientes que viram pão (de 265) |
+|---|---|---|
+| (hoje) | 0 de 71 | 0 |
+| 0,10 | 48 (68%) | 13 |
+| **0,25** | **43 (61%)** | **10** |
+| 0,50 | 26 (37%) | 5 |
+
+- **`juizes/treinado.py`**: `FOLGA_DO_PAO = 0,25`; com `pao_no_passo`, a `Nota` ganha `pao` (o pão mais provável,
+  quando ele passa o MELHOR ingrediente pela folga). O nome do ingrediente e as notas não mudam.
+- **`passos_do_lanche.py`**: o passo de comida cuja nota diz o pão sai como **`vazio`, com o nome do pão** — não conta
+  na ficha (a nuvem já não conta o vazio: `contaComoEvidencia`), sobe para a conferência com o "leu" (o vazio é dúvida:
+  é onde a conferência mais ensina) e NÃO fecha o lanche (o pão errado em 4% dos ingredientes cortaria o resto da
+  metade). O começo da metade continua o pão dela.
+- **A chave `FAROL_BANCADA_PAO_NO_PASSO`** (desligada por padrão; só vale com o juiz treinado; o registro da partida e o
+  "juiz pronto" dizem quando está ligada). Na loja, entra com a troca de pacote e a chave, com o "pode" do dono.
+- A loja consulta o juiz com UMA vista (sem `FAROL_BANCADA_JUIZ_TREINADO_VISTAS`), e a medida acima é a média das 8: a
+  medida com uma vista está na conta do "não é ingrediente" da mesma madrugada (a conferir antes de ligar).
+
+### Como foi conferido
+
+- `testes/test_juiz_treinado.py`: sem a chave a nota nunca diz o pão; a folga contra o MELHOR ingrediente (na folga
+  exata é pão; abaixo, não; não contra o pior nem contra a soma); dois pães → o mais provável; o juiz da loja só liga
+  com o treinado e diz no registro; a chave no ambiente. `testes/test_passos_do_lanche.py`: o pão do lanche seguinte no
+  lugar da tampa vira vazio com o nome do pão (era passo), o queijo continua passo, o começo continua o pão.
+- Mutação 11/11 (na primeira rodada sobrou "a folga contra o pior ingrediente" — ganhou o caso que separa as duas).
+- Suíte do agente inteira: 2307 passaram, 1 pulado, nenhuma falha.

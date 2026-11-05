@@ -93,6 +93,10 @@ JUIZ_TREINADO_VISTAS = "FAROL_BANCADA_JUIZ_TREINADO_VISTAS"
 # O OLHO DUPLO do juiz treinado (o SigLIP2 ao lado do DINOv2, só para o nome — `juizes.olho_extra`). Desligado por
 # padrão; só vale com o juiz treinado; pede o modelo instalado (`farol-agent ingredientes instalar-olho-duplo`).
 OLHO_DUPLO = "FAROL_BANCADA_OLHO_DUPLO"
+# O PÃO NO PASSO (05/11/2026; `juizes.treinado.FOLGA_DO_PAO`): o passo em que o juiz treinado vê pão bem acima do melhor
+# ingrediente (a tampa que chega, a metade puxada) não conta como ingrediente — sai como vazio, com o nome do pão.
+# Desligada por padrão (o dono liga); só vale com o juiz treinado.
+PAO_NO_PASSO = "FAROL_BANCADA_PAO_NO_PASSO"
 PASTA = "bancada"
 QUADROS = "quadros"
 DENSA = "densa"
@@ -150,6 +154,11 @@ def juiz_treinado_ligado(valor: str | None) -> bool:
 
 def olho_duplo_ligado(valor: str | None) -> bool:
     """`FAROL_BANCADA_OLHO_DUPLO`: os mesmos valores das outras chaves (sem ela, o olho de sempre)."""
+    return guardar_quadros_ligado(valor)
+
+
+def pao_no_passo_ligado(valor: str | None) -> bool:
+    """`FAROL_BANCADA_PAO_NO_PASSO`: os mesmos valores das outras chaves (sem ela, o passo nunca é pão)."""
     return guardar_quadros_ligado(valor)
 
 

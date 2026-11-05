@@ -327,6 +327,38 @@ def test_com_o_juiz_o_grande_sem_ingrediente_mas_perto_da_nota_de_comida_e_vazio
     assert contados(leitura) == [(1, "passo", 6), (1, "vazio", 9), (2, "vazio", 9), (1, "passo", 13)]
 
 
+@dataclass(frozen=True)
+class _VistoComPao(_Visto):
+    pao: str | None = None
+
+
+class JuizQueVePao(JuizDeMentira):
+    """O juiz treinado com o PÃO NO PASSO (`juizes.treinado.FOLGA_DO_PAO`): quando o miolo é pão, a nota diz o pão."""
+
+    def __call__(self, corte: np.ndarray) -> _Visto:
+        v = super().__call__(corte)
+        return _VistoComPao(v.nome, v.nota, v.ingrediente, pao="Pão de dois cortes" if v.nome == "Pão" else None)
+
+
+def test_com_o_pao_no_passo_o_passo_que_e_pao_nao_conta_e_leva_o_nome_do_pao():
+    # o dono, 05/11/2026: "pão nunca é cogitado como ingrediente nos chutes, sempre detecta o pão como alguma carne" —
+    # o pão que chega no lugar da tampa (o 13) era um passo; com o pão no passo, é vazio com o nome do pão
+    leitura = ler(_levado(), juiz=JuizQueVePao(nada=0.46))
+    assert contados(leitura) == [(1, "passo", 6), (1, "vazio", 9), (2, "vazio", 9), (1, "vazio", 13)]
+    pao = next(s for s in leitura.passos if s.tipo == "vazio" and seg(s) == 13)
+    assert (pao.nome, pao.nota) == ("Pão de dois cortes", 0.70)
+    # o queijo (não é pão) continua passo, com o nome dele; o vazio de sempre (o inox) continua sem nome
+    assert next(s for s in leitura.passos if s.tipo == "passo").nome == "Queijo"
+    assert all(s.nome is None for s in leitura.passos if s.tipo == "vazio" and seg(s) == 9)
+
+
+def test_com_o_pao_no_passo_o_comeco_continua_o_pao_da_metade():
+    # o começo de cada metade É o pão: continua começo (a peça do lanche), não vira vazio
+    leitura = ler(_levado(), juiz=JuizQueVePao())
+    assert {(s.metade, s.tipo) for s in leitura.passos if s.nome == "Pão"} == {(1, "comeco"), (2, "comeco")}
+    assert contados(leitura) == [(1, "passo", 6), (1, "saiu", 9), (2, "saiu", 9)]
+
+
 def test_com_o_juiz_o_que_nao_e_ingrediente_e_nao_toma_a_janela_e_vazio():
     # um pegador largado em cima da tampa e esquecido ali: muda o miolo, mas é menos da metade da janela
     pegador = (250, 200, 350, 300)

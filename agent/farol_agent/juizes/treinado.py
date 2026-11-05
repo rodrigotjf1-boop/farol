@@ -10,7 +10,9 @@ protótipo) e não aprende nada além dela. Aqui, sobre os MESMOS vetores do DIN
 - uma regressão logística (softmax com L2, classes equilibradas) aprende a separar os nomes — só numpy, sem pacote
   novo; refeita quando a base muda (a conferência acrescenta exemplos: o juiz aprende com o que o dono confere);
 - na consulta, o nome do ingrediente é o mais provável que não é pão; o "é comida?" e as notas continuam pelo protótipo
-  (a mesma escala que os passos e a conferência usam — `COMIDA_MIN`, o "já estava no começo").
+  (a mesma escala que os passos e a conferência usam — `COMIDA_MIN`, o "já estava no começo");
+- com o PÃO NO PASSO (05/11/2026, `FOLGA_DO_PAO`), a nota diz também quando o recorte é pão — a tampa que chega, a
+  metade puxada: o passo deixa de sair com o nome da carne.
 
 **Medido no banco de provas** (111 recortes marcados pelo dono na noite de 21/10, o ingrediente de cima, pela família,
 cada lanche testado SEM as marcações dele; o modelo int8 do agente): protótipo de hoje 50%; o exemplo mais parecido 67%;
@@ -53,6 +55,16 @@ VOLTAS = 200
 PASSO = 0.05
 # Menos que isto de nomes, não há o que separar: fica o juiz de protótipo.
 NOMES_MINIMO = 2
+# O PÃO NO PASSO (05/11/2026; a chave `FAROL_BANCADA_PAO_NO_PASSO`, desligada por padrão). O nome do passo é o mais
+# provável que não é pão — mas a tampa que chega por cima da base, a metade puxada e o pão posto depois SÃO passos, e
+# saíam com o nome do ingrediente mais parecido (a carne, quase sempre). O dono, 05/11: "pão nunca é cogitado como
+# ingrediente nos chutes, sempre detecta o pão como alguma carne". Medido nas noites de 02 e 03/11 da loja piloto, nos
+# passos que o dono respondeu (o juiz de 1793 exemplos, conta honesta em 5 partes, a média das 8 vistas): dos 336 passos
+# com um nome, 71 eram pão (o juiz de hoje os chamou de Carne 120gr 22, Carne 56gr 18, Disco mussarela 9…). Com o pão
+# quando ele passa o melhor ingrediente por esta folga na probabilidade: 43 dos 71 deixam de ser ingrediente, e 10 dos
+# 265 ingredientes viram pão (folga 0,10: 48 e 13; 0,50: 26 e 5). O passo que é pão não é ingrediente: sai como vazio,
+# com o nome do pão, e não conta na ficha (a nuvem já não conta o vazio).
+FOLGA_DO_PAO = 0.25
 
 
 def vistas(img: np.ndarray) -> list[np.ndarray]:
@@ -176,16 +188,19 @@ def treinar(vetores: list[tuple[str, np.ndarray]], *, c: float = C_PADRAO) -> Cl
 
 class JuizTreinado(JuizDeIngrediente):
     """O juiz de protótipo com o NOME do ingrediente vindo do classificador treinado. O mais parecido de todos (o "é
-    comida?") e as notas seguem pelo protótipo; `vistas_na_consulta` = 1 (o custo de hoje) ou 8 (8 chamadas por recorte)."""
+    comida?") e as notas seguem pelo protótipo; `vistas_na_consulta` = 1 (o custo de hoje) ou 8 (8 chamadas por recorte).
+    Com `pao_no_passo`, a nota diz também o PÃO (`Nota.pao`) quando o classificador vê pão com `FOLGA_DO_PAO` acima do
+    melhor ingrediente."""
 
     def __init__(self, vetor: Callable[[np.ndarray], np.ndarray], prototipos: dict[str, np.ndarray],
                  classificador: Classificador, *, vistas_na_consulta: int = 1, comida_min: float = COMIDA_MIN,
-                 vetor_extra: Callable[[np.ndarray], np.ndarray] | None = None) -> None:
+                 vetor_extra: Callable[[np.ndarray], np.ndarray] | None = None, pao_no_passo: bool = False) -> None:
         super().__init__(vetor, prototipos, comida_min=comida_min)
         self.classificador = classificador
         self.vistas_na_consulta = 8 if vistas_na_consulta == 8 else 1
         # o olho duplo (`juizes.olho_extra`): o classificador vê o par; o protótipo, só o olho de sempre
         self._vetor_extra = vetor_extra
+        self.pao_no_passo = pao_no_passo
 
     def _do_nome(self, principal: np.ndarray, img: np.ndarray) -> np.ndarray:
         """O vetor que o classificador vê: o do olho de sempre, ou — com o olho duplo — o par."""
@@ -204,22 +219,32 @@ class JuizTreinado(JuizDeIngrediente):
             [self._do_nome(self._vetor(x), x) for x in vistas(img)[1:]] if self.vistas_na_consulta == 8 else []
         )
         p = self.classificador.probabilidades(np.stack(vs)).mean(axis=0)
-        nome_ing = next((self.classificador.classes[int(i)] for i in np.argsort(-p)
-                         if not e_pao(self.classificador.classes[int(i)])), None)
+        classes = self.classificador.classes
+        nome_ing = next((classes[int(i)] for i in np.argsort(-p) if not e_pao(classes[int(i)])), None)
         if nome_ing is None:
             sem_pao = next((int(i) for i in ordem if not e_pao(self.nomes[int(i)])), None)
             nome_ing = self.nomes[sem_pao] if sem_pao is not None else None
         nota_ing = float(notas[self.nomes.index(nome_ing)]) if nome_ing in self.nomes else 0.0
-        return Nota(self.nomes[melhor], round(float(notas[melhor]), 3), nome_ing, round(nota_ing, 3), self.comida_min)
+        pao = None
+        if self.pao_no_passo:
+            paes = [k for k, c in enumerate(classes) if e_pao(c)]
+            if paes:
+                k = max(paes, key=lambda i: p[i])
+                p_ing = float(p[classes.index(nome_ing)]) if nome_ing in classes else 0.0
+                if float(p[k]) - p_ing >= FOLGA_DO_PAO:
+                    pao = classes[k]
+        return Nota(self.nomes[melhor], round(float(notas[melhor]), 3), nome_ing, round(nota_ing, 3), self.comida_min,
+                    pao=pao)
 
 
 def montar(vetor: Callable[[np.ndarray], np.ndarray], prototipos: dict[str, np.ndarray],
            exemplos: list[tuple[str, str]], abrir: Callable[[str], np.ndarray | None], *,
            guardados: Path | None = None, vistas_na_consulta: int = 1,
            vetor_extra: Callable[[np.ndarray], np.ndarray] | None = None,
-           identidade_extra: str | None = None) -> tuple[JuizDeIngrediente, str]:
+           identidade_extra: str | None = None, pao_no_passo: bool = False) -> tuple[JuizDeIngrediente, str]:
     """O juiz treinado da base, ou o de protótipo (com o motivo) quando não há o que treinar. Com `vetor_extra` (o olho
-    duplo), o classificador aprende sobre o par de vetores — guardado à parte, com a identidade dos dois modelos."""
+    duplo), o classificador aprende sobre o par de vetores — guardado à parte, com a identidade dos dois modelos. Com
+    `pao_no_passo`, a nota diz o pão (`FOLGA_DO_PAO`)."""
     if vetor_extra is not None:
         from farol_agent.juizes.olho_extra import juntar
 
@@ -233,9 +258,11 @@ def montar(vetor: Callable[[np.ndarray], np.ndarray], prototipos: dict[str, np.n
     clf = treinar(vetores)
     if clf is None:
         return JuizDeIngrediente(vetor, prototipos), "menos de 2 ingredientes com exemplo: fica o juiz de protótipo"
-    juiz = JuizTreinado(vetor, prototipos, clf, vistas_na_consulta=vistas_na_consulta, vetor_extra=vetor_extra)
+    juiz = JuizTreinado(vetor, prototipos, clf, vistas_na_consulta=vistas_na_consulta, vetor_extra=vetor_extra,
+                        pao_no_passo=pao_no_passo)
     return juiz, (f"juiz TREINADO: {len(clf.classes)} ingredientes, {len(vetores)} exemplos x {VISTAS} vistas"
-                  + (" (OLHO DUPLO)" if vetor_extra is not None else ""))
+                  + (" (OLHO DUPLO)" if vetor_extra is not None else "")
+                  + (f"; o PÃO no passo com folga {FOLGA_DO_PAO}" if pao_no_passo else ""))
 
 
 def vistas_da_consulta(valor: str | None) -> int:
