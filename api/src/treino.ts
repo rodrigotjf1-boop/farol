@@ -297,7 +297,9 @@ export function palpitesDoLanche(
   // o nome de cada família (o primeiro produto): "também vai no Shoyo"
   const nomeDaFamilia = (g: (typeof estudo.familias)[number]) => g.produtos[0]?.nome ?? '';
   for (const f of estudo.familias) {
-    const nota = notaDaFamilia(estudo, f, etapas, visto);
+    // arredondada: duas famílias com o mesmo visto somam os mesmos pesos em ordens diferentes, e a sobra do ponto
+    // flutuante (1e-16) não pode decidir no lugar do desempate
+    const nota = Math.round(notaDaFamilia(estudo, f, etapas, visto) * 1e6) / 1e6;
     const batem = [...f.ingredientes.keys()].filter((k) => visto.has(k)).length;
     // a etapa lida que não cabe na ficha: fora (a que é adicional do produto também). A que a leitura viu sem achar
     // nome nas fichas ("molho verde" numa loja sem molho verde) também é fora.
@@ -337,7 +339,9 @@ export function palpitesDoLanche(
       });
     }
   }
-  palpites.sort((a, b) => b.nota - a.nota || a.fora - b.fora || a.produto.localeCompare(b.produto, 'pt-BR'));
+  // o empate (com os pesos medidos de 05/11/2026, o que falta não pesa: 24 de 63 lanches empatavam no topo) vai para a
+  // ficha MENOR — a que explica a leitura com menos ingredientes —, e só depois para o nome
+  palpites.sort((a, b) => b.nota - a.nota || a.fora - b.fora || a.total - b.total || a.produto.localeCompare(b.produto, 'pt-BR'));
   // as plausíveis: as famílias perto do melhor (contadas por família: o trio não ocupa a vaga de outro lanche)
   const familias = umPorFamilia(palpites);
   const melhor = familias[0]?.nota ?? 0;

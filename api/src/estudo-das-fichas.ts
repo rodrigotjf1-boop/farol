@@ -154,20 +154,40 @@ export function oQueFoiVisto(etapas: Array<{ candidatos: string[]; vezes: number
   return visto;
 }
 
-/** O que não foi visto tira esta parte do peso: o cliente pode ter mandado tirar, ou ficou por baixo. */
-export const FALTOU = 1 / 3;
-/** A quantidade de contar (2 carnes, 2 fatias) que bate soma esta parte do peso; a que não bate tira. */
-export const QUANTIDADE = 1 / 4;
+// OS PESOS MEDIDOS (05/11/2026). Até aqui eram os do protótipo de 15/10 (o que faltou tirava 1/3 do peso, o que sobrava
+// tirava o peso inteiro, a quantidade de contar somava ou tirava 1/4), escolhidos antes de haver conferência. Medidos nos
+// 63 lanches conferidos COM produto (as conferências que desceram para a loja, `GET /v1/agentes/treino/conferidos`), com
+// o palpite refeito por esta conta, numa grade de pesos escolhida sem a noite que se confere (honesta):
+//   • como a noite leu: 33/63 com os pesos do protótipo → 38/63 (honesta) → 39/63 com o desempate pela ficha menor;
+//   • relidos pelo juiz de hoje (o pão e o "não é" no passo, o juiz treinado sem a noite que se confere): 40/63 →
+//     46/63 (honesta) → 47/63 com o desempate;
+//   • com a leitura perfeita (o que a pessoa marcou): 55/63 → 54/63 — o custo de não castigar o que faltou.
+// Um castigo pequeno para o que faltou (0,05) no lugar do zero deu 43/63 relido. A quantidade de contar: quando a leitura
+// relida vê um ingrediente de contar da ficha certa, a conta bate com a ficha em 30 de 96 (mais do que a ficha em 41,
+// menos em 25) — somar ou tirar por ela só desorganiza (a grade com 1/4 ficou abaixo). `pesosDaNota` deixa a conta com
+// outros pesos para quem mede (e para o teste de cada regra).
+
+/** O que não foi visto tira esta parte do peso. Zero desde 05/11/2026 (medido, acima). */
+export const FALTOU = 0;
+/** O que a leitura viu e a ficha não tem tira esta parte do peso do que foi visto (05/11/2026, medido; era 1). */
+export const SOBRA = 0.5;
+/** A quantidade de contar (2 carnes, 2 fatias) que bate soma esta parte do peso; a que não bate tira. Zero desde
+ * 05/11/2026 (medido; era 1/4): a leitura ainda não conta as fatias. */
+export const QUANTIDADE = 0;
 /** O que a leitura viu sem achar nome nas fichas tira isto de todas as famílias (não muda a ordem). */
 export const ESTRANHO = 0.5;
+
+export type PesosDaNota = { faltou: number; sobra: number; quantidade: number; estranho: number };
+/** Os pesos de hoje, juntos. */
+export const PESOS_DA_NOTA: PesosDaNota = { faltou: FALTOU, sobra: SOBRA, quantidade: QUANTIDADE, estranho: ESTRANHO };
 
 /**
  * A nota da família para a leitura, somando as evidências:
  *   + o ingrediente da ficha que a leitura viu soma o peso dele (dividido, se veio num grupo);
- *   − o que a leitura viu e a ficha não tem tira o peso do que foi visto (a média, se veio num grupo) — o adicional do
- *     produto não tira nada (o cliente pode ter pedido);
- *   − o da ficha que não foi visto tira um terço do peso;
- *   ± a quantidade de contar que bate soma um quarto do peso; a que não bate tira um quarto;
+ *   − o que a leitura viu e a ficha não tem tira `SOBRA` do peso do que foi visto (a média, se veio num grupo) — o
+ *     adicional do produto não tira nada (o cliente pode ter pedido);
+ *   − o da ficha que não foi visto tira `FALTOU` do peso (zero, hoje);
+ *   ± a quantidade de contar que bate soma `QUANTIDADE` do peso; a que não bate tira (zero, hoje);
  *   − cada leitura sem nome nas fichas tira um pouco.
  */
 export function notaDaFamilia(
@@ -175,27 +195,28 @@ export function notaDaFamilia(
   f: Familia,
   etapas: Array<{ candidatos: string[]; vezes: number; leu: string | null }>,
   visto: Visto = oQueFoiVisto(etapas),
+  pesos: PesosDaNota = PESOS_DA_NOTA,
 ): number {
   let nota = 0;
   for (const [k, ing] of f.ingredientes) {
     const w = pesoDoIngrediente(e, k);
     const v = visto.get(k);
     if (!v) {
-      nota -= FALTOU * w;
+      nota -= pesos.faltou * w;
       continue;
     }
     nota += v.parte * w;
-    if (ing.contavel && v.vezes > 0) nota += (v.vezes === ing.vezes ? QUANTIDADE : -QUANTIDADE) * w;
+    if (ing.contavel && v.vezes > 0) nota += (v.vezes === ing.vezes ? pesos.quantidade : -pesos.quantidade) * w;
   }
   for (const etapa of etapas) {
     if (etapa.candidatos.length === 0) {
-      if (etapa.leu !== null) nota -= ESTRANHO;
+      if (etapa.leu !== null) nota -= pesos.estranho;
       continue;
     }
     const ks = [...new Set(etapa.candidatos.map(chaveDoIngrediente))];
     if (ks.some((k) => f.ingredientes.has(k))) continue;
     if (ks.some((k) => f.adicionais.has(k))) continue;
-    nota -= ks.reduce((s, k) => s + pesoDoIngrediente(e, k), 0) / ks.length;
+    nota -= (pesos.sobra * ks.reduce((s, k) => s + pesoDoIngrediente(e, k), 0)) / ks.length;
   }
   return nota;
 }
