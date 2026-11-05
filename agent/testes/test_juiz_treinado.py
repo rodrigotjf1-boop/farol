@@ -197,6 +197,49 @@ def test_o_pao_no_passo_so_com_folga_sobre_o_melhor_ingrediente(probs, pao):
     assert jt.FOLGA_DO_PAO == 0.25
 
 
+N = jt.NADA
+
+
+@pytest.mark.parametrize("probs,nada,ingrediente", [
+    # o "não é ingrediente" bem acima do melhor ingrediente: não é ingrediente
+    ({N: 0.50, "Carne 120gr": 0.40, "Pão Brioche": 0.10}, True, "Carne 120gr"),
+    # na frente, mas por menos que a folga (0,05): fica o ingrediente
+    ({N: 0.42, "Carne 120gr": 0.40, "Pão Brioche": 0.18}, False, "Carne 120gr"),
+    # a folga conta contra o MELHOR ingrediente (0,30 − 0,05 passaria; 0,30 − 0,28 não)
+    ({N: 0.30, "Alface": 0.28, "Bacon": 0.22, "Carne 56gr": 0.15, "Pão Brioche": 0.05}, False, "Alface"),
+    # o ingrediente na frente: é o ingrediente
+    ({N: 0.10, "Bacon": 0.85, "Pão Brioche": 0.05}, False, "Bacon"),
+    # o "não é ingrediente" nunca é o NOME do passo, nem quando é o mais provável
+    ({N: 0.90, "Bacon": 0.06, "Alface": 0.04}, True, "Bacon"),
+])
+def test_o_nao_e_ingrediente_com_folga_sobre_o_melhor_ingrediente(probs, nada, ingrediente):
+    prot = {n: vetor_de_mentira(chapa(c)) for n, c in zip(sorted(c for c in probs if c != N), (AMARELO, VERMELHO, VERDE, AZUL))}
+    n = jt.JuizTreinado(vetor_de_mentira, prot, _ClassificadorFixo(probs))(chapa(AMARELO))
+    assert (n.nada, n.ingrediente) == (nada, ingrediente)
+    assert jt.FOLGA_DO_NADA == 0.05
+
+
+def test_sem_a_classe_do_nao_e_ingrediente_a_nota_nunca_diz_que_nao_e():
+    n = jt.JuizTreinado(vetor_de_mentira, {"Bacon": vetor_de_mentira(chapa(VERMELHO))},
+                        _ClassificadorFixo({"Bacon": 0.05, "Alface": 0.95}))(chapa(VERMELHO))
+    assert n.nada is False and n.ingrediente == "Alface"
+
+
+def test_montar_com_o_nao_e_ingrediente_aprende_a_classe_a_mais(tmp_path: Path, caplog):
+    cinza = chapa((128, 128, 128))
+    imgs = {"v": chapa(VERDE), "r": chapa(VERMELHO), "c": cinza}
+    prot = {"Alface": vetor_de_mentira(chapa(VERDE)), "Bacon": vetor_de_mentira(chapa(VERMELHO))}
+    juiz, como = jt.montar(vetor_de_mentira, prot, [("Alface", "v"), ("Bacon", "r")], imgs.get, nada=["c"])
+    assert isinstance(juiz, jt.JuizTreinado) and jt.NADA in juiz.classificador.classes
+    assert "2 ingredientes" in como and "NÃO É INGREDIENTE com 1 exemplos" in como
+    assert juiz(cinza).nada is True and juiz(chapa(VERDE)).nada is False
+    # o "não é ingrediente" sozinho não é o que separar: com um ingrediente só, fica o juiz de protótipo
+    so_um, porque = jt.montar(vetor_de_mentira, {"Alface": prot["Alface"]}, [("Alface", "v")], imgs.get, nada=["c"])
+    assert type(so_um) is ji.JuizDeIngrediente and "menos de 2 ingredientes" in porque
+    sem, _ = jt.montar(vetor_de_mentira, prot, [("Alface", "v"), ("Bacon", "r")], imgs.get)
+    assert jt.NADA not in sem.classificador.classes
+
+
 @pytest.mark.parametrize("vistas,chamadas", [(1, 1), (8, 8), (3, 1)])
 def test_uma_ou_oito_chamadas_ao_modelo_por_recorte(vistas, chamadas):
     contagem = []
@@ -267,6 +310,53 @@ def test_o_juiz_da_loja_com_o_pao_no_passo_so_vale_com_o_treinado(tmp_path: Path
     assert so_ela()(chapa(AMARELO)).pao is None
 
 
+def _nada_em_disco(base: BaseDaLoja, cores) -> list[str]:
+    """Os exemplos "não era ingrediente" na lista da base e no disco (um quadro por cor)."""
+    lista = json.loads((base.raiz / "base.json").read_text(encoding="utf-8"))
+    shas = []
+    for n, cor in enumerate(cores):
+        ok, buf = cv2.imencode(".jpg", chapa(cor))
+        dados = buf.tobytes()
+        s = hashlib.sha256(dados).hexdigest()
+        (base.raiz / "quadros" / f"{s}.jpg").write_bytes(dados)
+        shas.append(s)
+    lista["nada"] = {"quadros": [{"id": f"n{n}", "sha256": s} for n, s in enumerate(shas)]}
+    (base.raiz / "base.json").write_text(json.dumps(lista), encoding="utf-8")
+    return shas
+
+
+def test_o_juiz_da_loja_com_o_nao_e_ingrediente_aprende_o_que_desceu(tmp_path: Path, caplog):
+    modelos = _modelos(tmp_path)
+    base = _base_em_disco(tmp_path / "base", "um", [("Alface", VERDE, 1), ("Bacon", VERMELHO, 2)])
+    shas = _nada_em_disco(base, [(128, 128, 128)])
+    with caplog.at_level(logging.INFO):
+        loja = ji.JuizDaLoja(modelos, base, motor_de=MotorDeMentira, treinado=True, nada_no_juiz=True)
+        juiz = loja()
+    assert jt.NADA in juiz.classificador.classes and juiz(chapa((128, 128, 128))).nada is True
+    assert any("NÃO É INGREDIENTE com 1 exemplos" in r.message for r in caplog.records)
+    # chega mais um "não era ingrediente" no disco, com a MESMA impressão da base: o juiz se refaz
+    mais = _nada_em_disco(base, [(128, 128, 128), (60, 60, 60)])
+    assert mais[0] == shas[0]
+    outro = loja()
+    assert outro is not juiz and loja() is outro
+    # o que está na lista e não está no disco (ainda não desceu) não entra: o juiz se refaz sem ele
+    (base.raiz / "quadros" / f"{mais[1]}.jpg").unlink()
+    assert ji.exemplos_do_nada(base.lista()) == sorted(mais)
+    terceiro = loja()
+    assert terceiro is not outro and any("NÃO É INGREDIENTE com 1 exemplos" in r.message for r in caplog.records)
+    # sem a chave, ou sem o treinado, não há a classe a mais
+    assert jt.NADA not in ji.JuizDaLoja(modelos, base, motor_de=MotorDeMentira, treinado=True)().classificador.classes
+    so_ela = ji.JuizDaLoja(modelos, base, motor_de=MotorDeMentira, nada_no_juiz=True)
+    assert so_ela.nada_no_juiz is False and type(so_ela()) is ji.JuizDeIngrediente
+
+
+def test_os_exemplos_do_nao_e_ingrediente_da_lista():
+    lista = {"itens": [{"nome": "Alface", "quadros": [{"sha256": "a"}, {"sha256": "b"}]}],
+             "nada": {"quadros": [{"sha256": "b"}, {"sha256": "c"}, {"sha256": "c"}, {}, "torto"]}}
+    assert ji.exemplos_do_nada(lista) == ["c"]
+    assert ji.exemplos_do_nada({"itens": []}) == [] and ji.exemplos_do_nada({"itens": [], "nada": []}) == []
+
+
 def test_o_juiz_da_loja_sem_o_que_treinar_fica_no_de_prototipo(tmp_path: Path):
     modelos = _modelos(tmp_path)
     base = _base_em_disco(tmp_path / "base", "um", [("Alface", VERDE, 1)])
@@ -283,3 +373,6 @@ def test_as_chaves_no_ambiente():
     assert bav.pao_no_passo_ligado("1") and bav.pao_no_passo_ligado(" ligado ")
     assert not bav.pao_no_passo_ligado(None) and not bav.pao_no_passo_ligado("0") and not bav.pao_no_passo_ligado("")
     assert bav.PAO_NO_PASSO == "FAROL_BANCADA_PAO_NO_PASSO"
+    assert bav.nada_no_juiz_ligado("1") and bav.nada_no_juiz_ligado(" sim ")
+    assert not bav.nada_no_juiz_ligado(None) and not bav.nada_no_juiz_ligado("0") and not bav.nada_no_juiz_ligado("")
+    assert bav.NADA_NO_JUIZ == "FAROL_BANCADA_NADA_NO_JUIZ"

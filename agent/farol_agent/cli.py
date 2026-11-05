@@ -981,8 +981,13 @@ def cmd_ingredientes(args: argparse.Namespace) -> int:
                 print("\n  ERRO: a base desce com o endereço da API (--nuvem) e o token do agente (FAROL_AGENTE_TOKEN)\n",
                       file=sys.stderr)
                 return 2
+            from farol_agent.bancada_ao_vivo import JUIZ_TREINADO, NADA_NO_JUIZ, juiz_treinado_ligado, nada_no_juiz_ligado
+
+            # a mesma chave do serviço: sem ela, a descida à mão tiraria do disco o "não era ingrediente" que já desceu
+            com_nada = juiz_treinado_ligado(os.environ.get(JUIZ_TREINADO)) and nada_no_juiz_ligado(
+                os.environ.get(NADA_NO_JUIZ))
             try:
-                d = base.descer(ClienteNuvem(args.nuvem, token, timeout=60))
+                d = base.descer(ClienteNuvem(args.nuvem, token, timeout=60), com_nada=com_nada)
             except ErroDaNuvem as e:
                 print(f"\n  a base não desceu: {e}\n", file=sys.stderr)
                 return 1
@@ -1153,9 +1158,10 @@ def cmd_servir(args: argparse.Namespace) -> int:
         print("gravação de treino ligada: lê o que o console pedir, com a loja fechada")
 
     from farol_agent.bancada_ao_vivo import (
-        GUARDAR, INGREDIENTES, JANELA_SEGUE, JUIZ_TREINADO, JUIZ_TREINADO_VISTAS, OLHO_DUPLO, PAO_NO_PASSO, PASSOS,
-        VARIAVEL, BancadaAoVivo, canais_ligados, guardar_quadros_ligado, ingredientes_ligados, janela_segue_ligada,
-        juiz_treinado_ligado, olho_duplo_ligado, pao_no_passo_ligado, passos_ligados,
+        GUARDAR, INGREDIENTES, JANELA_SEGUE, JUIZ_TREINADO, JUIZ_TREINADO_VISTAS, NADA_NO_JUIZ, OLHO_DUPLO, PAO_NO_PASSO,
+        PASSOS, VARIAVEL, BancadaAoVivo, canais_ligados, guardar_quadros_ligado, ingredientes_ligados,
+        janela_segue_ligada, juiz_treinado_ligado, nada_no_juiz_ligado, olho_duplo_ligado, pao_no_passo_ligado,
+        passos_ligados,
     )
 
     bancada_ao_vivo = None
@@ -1170,23 +1176,26 @@ def cmd_servir(args: argparse.Namespace) -> int:
         treinado = False
         olho_duplo = False
         pao_no_passo = False
+        nada_no_juiz = False
         if passos and guardar and ingredientes_ligados(os.environ.get(INGREDIENTES)):
             from farol_agent.base_da_loja import BaseEmFundo
             from farol_agent.juizes.ingrediente import JuizDaLoja
             from farol_agent.juizes.treinado import vistas_da_consulta
 
-            # A base da loja desce numa linha própria, com a loja fechada; o juiz se monta dela quando os passos pedem —
-            # e, quando a base muda (a marcação e a conferência do dono), logo depois que ela desce (A24 F3).
-            base_em_fundo = BaseEmFundo(cliente, args.config)
             treinado = juiz_treinado_ligado(os.environ.get(JUIZ_TREINADO))
             # o olho duplo (o SigLIP2 ao lado, só para o nome): só com o juiz treinado
             olho_duplo = treinado and olho_duplo_ligado(os.environ.get(OLHO_DUPLO))
             # o pão no passo (o passo que é pão não conta como ingrediente): só com o juiz treinado
             pao_no_passo = treinado and pao_no_passo_ligado(os.environ.get(PAO_NO_PASSO))
+            # o "não é ingrediente" no juiz (os exemplos descem com a base e viram uma classe): só com o juiz treinado
+            nada_no_juiz = treinado and nada_no_juiz_ligado(os.environ.get(NADA_NO_JUIZ))
+            # A base da loja desce numa linha própria, com a loja fechada; o juiz se monta dela quando os passos pedem —
+            # e, quando a base muda (a marcação e a conferência do dono), logo depois que ela desce (A24 F3).
+            base_em_fundo = BaseEmFundo(cliente, args.config, com_nada=nada_no_juiz)
             juiz_de = JuizDaLoja(Path(os.environ.get("FAROL_MODELOS") or "modelos"), base_em_fundo.base,
                                  treinado=treinado,
                                  vistas_na_consulta=vistas_da_consulta(os.environ.get(JUIZ_TREINADO_VISTAS)),
-                                 olho_duplo=olho_duplo, pao_no_passo=pao_no_passo)
+                                 olho_duplo=olho_duplo, pao_no_passo=pao_no_passo, nada_no_juiz=nada_no_juiz)
             # com a loja fechada, o juiz pode demorar: o olho duplo calcula ali os vetores dos exemplos novos
             base_em_fundo.depois_de_mudar = lambda: juiz_de(pode_demorar=True)
             base_em_fundo.iniciar()
@@ -1221,6 +1230,7 @@ def cmd_servir(args: argparse.Namespace) -> int:
             + (f"; o nome do ingrediente pelo JUIZ TREINADO ({JUIZ_TREINADO})" if treinado else "")
             + (f", com o OLHO DUPLO ({OLHO_DUPLO})" if olho_duplo else "")
             + (f", e o PÃO NO PASSO ({PAO_NO_PASSO}): o passo que é pão não conta" if pao_no_passo else "")
+            + (f", e o NÃO É INGREDIENTE no juiz ({NADA_NO_JUIZ}): o que o dono marcou não conta" if nada_no_juiz else "")
             + (f"; a JANELA QUE SEGUE ({JANELA_SEGUE}): a janela de cada metade anda com a peça" if janela_segue else "")
             + (f"; até {conferencia_em_fundo.por_noite} lanches de cada noite sobem para a conferência, com a loja "
                "fechada" if conferencia_em_fundo is not None else "")

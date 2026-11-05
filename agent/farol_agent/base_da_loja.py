@@ -75,6 +75,8 @@ class Descida:
     sumiram: int
     apagados: int
     mudou: bool
+    # dos `quadros`, quantos são do "não era ingrediente" (só descem com a chave do "nada" no juiz)
+    nada: int = 0
 
 
 class BaseDaLoja:
@@ -112,20 +114,31 @@ class BaseDaLoja:
             return None
         return imagens.ler(self.caminho(sha256))
 
-    def descer(self, cliente: ClienteDaBase) -> Descida:
-        """A lista e os quadros que faltam. Erro de rede sobe (`ErroDaNuvem`): a cópia que havia fica como estava."""
+    def descer(self, cliente: ClienteDaBase, *, com_nada: bool = False) -> Descida:
+        """A lista e os quadros que faltam. Erro de rede sobe (`ErroDaNuvem`): a cópia que havia fica como estava. Com
+        `com_nada` (a chave do "nada" no juiz), os quadros do "não era ingrediente" (`nada.quadros`) descem também —
+        sem ela, não descem, e os que já estavam saem do disco como qualquer quadro fora da lista."""
         with self._trava:
             lista = cliente.base_da_loja()
             itens = lista.get("itens") if isinstance(lista, dict) else None
             if not isinstance(itens, list):
                 raise ErroDaNuvem("a lista da base veio sem os itens")
             quer: dict[str, str] = {}
-            for item in itens:
-                quadros = item.get("quadros") if isinstance(item, dict) else None
+
+            def querer(quadros: Any) -> int:
+                n = 0
                 for q in quadros if isinstance(quadros, list) else []:
                     sha, qid = (q.get("sha256"), q.get("id")) if isinstance(q, dict) else (None, None)
                     if isinstance(sha, str) and _SHA.match(sha) and isinstance(qid, str):
+                        if sha not in quer:
+                            n += 1
                         quer.setdefault(sha, qid)
+                return n
+
+            for item in itens:
+                querer(item.get("quadros") if isinstance(item, dict) else None)
+            nada = lista.get("nada")
+            n_nada = querer(nada.get("quadros") if isinstance(nada, dict) else None) if com_nada else 0
             pasta = self.raiz / QUADROS
             pasta.mkdir(parents=True, exist_ok=True)
             baixados = recusados = sumiram = 0
@@ -158,7 +171,8 @@ class BaseDaLoja:
             temporario = self.raiz / (LISTA + ".novo")
             temporario.write_text(json.dumps(lista, ensure_ascii=False), encoding="utf-8")
             os.replace(temporario, self.raiz / LISTA)
-            return Descida(len(itens), len(quer), baixados, recusados, sumiram, apagados, antes != lista.get("impressao"))
+            return Descida(len(itens), len(quer), baixados, recusados, sumiram, apagados, antes != lista.get("impressao"),
+                           n_nada)
 
 
 class BaseEmFundo:
@@ -167,11 +181,13 @@ class BaseEmFundo:
     def __init__(
         self, cliente: ClienteDaBase, caminho_config: str | Path, *, relogio: Callable[[], datetime] = datetime.now,
         agora: Callable[[], float] = time.monotonic, pausa_s: float = PAUSA_S, a_cada_s: float = A_CADA_S,
-        depois_de_mudar: Callable[[], Any] | None = None,
+        depois_de_mudar: Callable[[], Any] | None = None, com_nada: bool = False,
     ) -> None:
         self.cliente = cliente
         self.caminho_config = Path(caminho_config)
         self.base = BaseDaLoja.ao_lado(caminho_config)
+        # com a chave do "nada" no juiz, os quadros do "não era ingrediente" descem também
+        self.com_nada = com_nada
         # A24 F3: quando a base muda (a marcação e a conferência do dono) — e na primeira descida depois que o agente
         # sobe —, o juiz se monta AQUI, com a loja fechada, e não no primeiro lanche da noite (o juiz treinado calcula
         # as 8 vistas de cada exemplo novo)
@@ -201,7 +217,7 @@ class BaseEmFundo:
         if not fechada:
             return None
         try:
-            d = self.base.descer(self.cliente)
+            d = self.base.descer(self.cliente, com_nada=self.com_nada)
         except ErroDaNuvem as e:
             # A mesma frase não volta ao registro a cada volta (ERR-014); o que não melhora repetindo espera a vez seguinte.
             if str(e) != self._ultimo_erro:
@@ -214,7 +230,8 @@ class BaseEmFundo:
         self._proxima = self._agora() + self.a_cada_s
         if d.mudou or d.baixados or d.apagados or d.recusados or d.sumiram:
             _log.info(
-                "base da loja: %d ingrediente(s), %d quadro(s); desceram %d, saíram %d%s%s", d.itens, d.quadros,
+                "base da loja: %d ingrediente(s), %d quadro(s)%s; desceram %d, saíram %d%s%s", d.itens, d.quadros,
+                f" ({d.nada} do 'não era ingrediente')" if d.nada else "",
                 d.baixados, d.apagados, f", {d.recusados} com o resumo errado (não ficaram)" if d.recusados else "",
                 f", {d.sumiram} já não estavam na nuvem" if d.sumiram else "",
             )

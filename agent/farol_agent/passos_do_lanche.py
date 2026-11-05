@@ -45,7 +45,9 @@ e o L9 (Numero 13: cream cheese 21:12:32, alface 21:12:36, frango 21:12:46, fech
    Cada passo leva o nome do ingrediente mais parecido que não é pão (o pão sai das peças) e a nota do juiz. Com o PÃO
    NO PASSO (o juiz treinado com `FAROL_BANCADA_PAO_NO_PASSO`, 05/11/2026): o passo em que o juiz vê pão bem acima do
    melhor ingrediente (a tampa que chega por cima, a metade puxada — 71 de 336 passos respondidos em 02 e 03/11) não
-   conta: sai como `vazio`, com o nome do pão.
+   conta: sai como `vazio`, com o nome do pão. Com o NÃO É INGREDIENTE no juiz (`FAROL_BANCADA_NADA_NO_JUIZ`, 05/11):
+   o passo que o juiz põe na classe dos exemplos "não era ingrediente" do dono (o alumínio, o inox, a mão — 125 de 461
+   passos contados e respondidos em 02 e 03/11) também sai como `vazio`.
 
 O que este módulo entrega: a hora, a metade, a parte do disco, quanto do que chegou é papel, o quadro e a máscara — e,
 com o juiz, o nome e a nota.
@@ -478,6 +480,11 @@ class _Olhar:
                 continue
             s.nome, s.nota = j.ingrediente, j.nota
             if j.comida():
+                # o NÃO É INGREDIENTE (com a chave, `juizes.treinado.FOLGA_DO_NADA`): o alumínio, o inox, a mão que o
+                # dono ensinou — não conta; sai como vazio, com o ingrediente mais parecido (o que o juiz leu)
+                if getattr(j, "nada", False):
+                    s.tipo = "vazio"
+                    continue
                 # o PÃO no passo (com a chave, `juizes.treinado.FOLGA_DO_PAO`): a tampa que chegou, a metade puxada — não
                 # é ingrediente; sai como vazio, com o nome do pão (a conferência mostra o que o juiz leu)
                 pao = getattr(j, "pao", None)

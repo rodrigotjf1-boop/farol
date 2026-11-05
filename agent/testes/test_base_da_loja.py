@@ -137,6 +137,78 @@ def test_a_lista_do_contrato_e_lida_como_a_nuvem_manda(tmp_path: Path):
     assert nuvem.pedidos == ["2b3c4d5e-6f70-4812-9a3b-4c5d6e7f8091", "3c4d5e6f-7081-4923-ab4c-5d6e7f809102"]
 
 
+class NuvemComNada(NuvemDeMentira):
+    """A lista com o "não era ingrediente" (`nada.quadros`, migration 054), como a nuvem manda."""
+
+    def __init__(self, ids: list[str], nada_ids: list[str], impressao: str = "imp-1") -> None:
+        super().__init__(ids, impressao)
+        self.nada_ids = nada_ids
+
+    def base_da_loja(self):
+        lista = super().base_da_loja()
+        lista["nada"] = {"quadros": [{"id": i, "origem": "bancada", "sha256": resumo(IMAGENS[i]), "largura": 10,
+                                      "altura": 10} for i in self.nada_ids]}
+        return lista
+
+
+def test_o_nao_era_ingrediente_so_desce_com_a_chave_e_sem_ela_sai_do_disco(tmp_path: Path):
+    base = BaseDaLoja(tmp_path / "base-da-loja")
+    nuvem = NuvemComNada(["q1", "q2"], ["q4", "q5"])
+    sem = base.descer(nuvem)
+    assert (sem.quadros, sem.nada, sem.baixados) == (2, 0, 2)
+    assert not base.caminho(resumo(IMAGENS["q4"])).is_file() and "q4" not in nuvem.pedidos
+    com = base.descer(nuvem, com_nada=True)
+    assert (com.quadros, com.nada, com.baixados) == (4, 2, 2)
+    assert base.caminho(resumo(IMAGENS["q4"])).is_file() and base.caminho(resumo(IMAGENS["q5"])).is_file()
+    # a lista em disco guarda o "nada" como veio (o juiz lê dela)
+    assert [q["id"] for q in base.lista()["nada"]["quadros"]] == ["q4", "q5"]
+    # a mesma imagem como ingrediente e como "nada" desce uma vez e conta como ingrediente
+    junto = base.descer(NuvemComNada(["q1", "q2"], ["q2", "q4", "q5"]), com_nada=True)
+    assert (junto.quadros, junto.nada, junto.baixados) == (4, 2, 0)
+    # a chave desligada de novo: o "nada" sai do disco, como qualquer quadro fora da lista
+    fora = base.descer(nuvem)
+    assert fora.apagados == 2 and not base.caminho(resumo(IMAGENS["q4"])).is_file()
+
+
+def test_a_linha_de_execucao_desce_o_nao_era_ingrediente_com_a_chave(tmp_path: Path, caplog):
+    nuvem = NuvemComNada(["q1"], ["q4"])
+    caminho = tmp_path / "configuracao.json"
+    caminho.write_text(json.dumps(CONFIG_COM_HORARIO), encoding="utf-8")
+    r = Relogios(datetime(2026, 10, 22, 9, 0))  # fechada
+    fundo = BaseEmFundo(nuvem, caminho, relogio=r.hora, agora=r.agora, com_nada=True)
+    with caplog.at_level(logging.INFO):
+        d = fundo.volta()
+    assert d is not None and (d.nada, d.baixados) == (1, 2)
+    assert "(1 do 'não era ingrediente')" in caplog.text
+    assert BaseEmFundo(nuvem, caminho).com_nada is False
+
+
+@pytest.mark.parametrize("treinado, nada, desce", [("1", "1", True), ("1", None, False), (None, "1", False)])
+def test_a_descida_a_mao_segue_a_mesma_chave_do_servico(tmp_path: Path, monkeypatch, treinado, nada, desce):
+    # sem a chave, a descida à mão tiraria do disco o "não era ingrediente" que o serviço baixou
+    from farol_agent import bancada_ao_vivo as bav
+    from farol_agent import cli, nuvem as modulo_nuvem
+
+    nuvem = NuvemComNada(["q1"], ["q4"])
+
+    class ClienteDeMentira:
+        def __init__(self, url, token, timeout=None):
+            self.base_da_loja, self.quadro_da_base = nuvem.base_da_loja, nuvem.quadro_da_base
+
+    monkeypatch.setattr(modulo_nuvem, "ClienteNuvem", ClienteDeMentira)
+    monkeypatch.setenv("FAROL_AGENTE_TOKEN", "token-de-teste")
+    for nome, v in ((bav.JUIZ_TREINADO, treinado), (bav.NADA_NO_JUIZ, nada)):
+        if v is None:
+            monkeypatch.delenv(nome, raising=False)
+        else:
+            monkeypatch.setenv(nome, v)
+    config = tmp_path / "configuracao.json"
+    assert cli.main(["ingredientes", "base", "--nuvem", "https://api.exemplo", "--config", str(config)]) == 0
+    base = BaseDaLoja.ao_lado(config)
+    assert base.caminho(resumo(IMAGENS["q1"])).is_file()
+    assert base.caminho(resumo(IMAGENS["q4"])).is_file() is desce
+
+
 def test_a_lista_torta_nao_vale(tmp_path: Path):
     base = BaseDaLoja(tmp_path / "b")
     assert base.lista() is None and base.impressao() is None

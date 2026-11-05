@@ -502,6 +502,33 @@ def test_com_o_pao_no_passo_o_comeco_continua_o_pao_da_metade():
     assert contados(leitura) == [(1, "passo", 6), (1, "saiu", 9), (2, "saiu", 9)]
 
 
+@dataclass(frozen=True)
+class _VistoComNada(_VistoComPao):
+    nada: bool = False
+
+
+class JuizQueVeONada(JuizDeMentira):
+    """O juiz treinado com o NÃO É INGREDIENTE (`juizes.treinado.FOLGA_DO_NADA`): aqui, o "queijo" é o que o dono
+    ensinou que não é ingrediente (no desenho, o papel-alumínio que brilha amarelo); o pão também é visto."""
+
+    def __call__(self, corte: np.ndarray) -> _Visto:
+        v = super().__call__(corte)
+        return _VistoComNada(v.nome, v.nota, v.ingrediente, pao="Pão de dois cortes" if v.nome == "Pão" else None,
+                             nada=v.nome in ("Queijo", "Pão"))
+
+
+def test_com_o_nao_e_ingrediente_o_passo_que_nao_e_ingrediente_nao_conta():
+    # o queijo (que aqui é o "não é ingrediente") deixa de ser passo: sai como vazio, com o que o juiz leu; o pão que
+    # chega no lugar da tampa também é "não é", e o "não é" vem antes do pão (vazio, sem o nome do pão)
+    leitura = ler(_levado(), juiz=JuizQueVeONada(nada=0.46))
+    assert contados(leitura) == [(1, "vazio", 6), (1, "vazio", 9), (2, "vazio", 9), (1, "vazio", 13)]
+    seis = next(s for s in leitura.passos if seg(s) == 6)
+    assert (seis.nome, seis.nota) == ("Queijo", 0.70)
+    assert next(s for s in leitura.passos if seg(s) == 13).nome is None
+    # o começo continua o pão da metade (o "não é" só vale para os passos)
+    assert {s.tipo for s in leitura.passos if s.nome == "Pão"} == {"comeco"}
+
+
 def test_com_o_juiz_o_que_nao_e_ingrediente_e_nao_toma_a_janela_e_vazio():
     # um pegador largado em cima da tampa e esquecido ali: muda o miolo, mas é menos da metade da janela
     pegador = (250, 200, 350, 300)

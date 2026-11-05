@@ -98,6 +98,10 @@ OLHO_DUPLO = "FAROL_BANCADA_OLHO_DUPLO"
 # ingrediente (a tampa que chega, a metade puxada) não conta como ingrediente — sai como vazio, com o nome do pão.
 # Desligada por padrão (o dono liga); só vale com o juiz treinado.
 PAO_NO_PASSO = "FAROL_BANCADA_PAO_NO_PASSO"
+# O NÃO É INGREDIENTE NO JUIZ (05/11/2026; `juizes.treinado.FOLGA_DO_NADA`): os exemplos que o dono marcou "não era
+# ingrediente" descem com a base e viram uma classe a mais do juiz treinado; o passo que cai nela não conta (vazio).
+# Desligada por padrão (o dono liga); só vale com o juiz treinado.
+NADA_NO_JUIZ = "FAROL_BANCADA_NADA_NO_JUIZ"
 # A JANELA QUE SEGUE (05/11/2026; `passos_do_lanche`, o 2b): a janela de cada metade nasce onde o pão estava no começo e
 # anda com a peça quando o lanche é empurrado — o recorte de cada passo sai de onde a janela estava. Desligada por padrão.
 JANELA_SEGUE = "FAROL_BANCADA_JANELA_SEGUE"
@@ -163,6 +167,11 @@ def olho_duplo_ligado(valor: str | None) -> bool:
 
 def pao_no_passo_ligado(valor: str | None) -> bool:
     """`FAROL_BANCADA_PAO_NO_PASSO`: os mesmos valores das outras chaves (sem ela, o passo nunca é pão)."""
+    return guardar_quadros_ligado(valor)
+
+
+def nada_no_juiz_ligado(valor: str | None) -> bool:
+    """`FAROL_BANCADA_NADA_NO_JUIZ`: os mesmos valores das outras chaves (sem ela, o juiz não aprende o "não é")."""
     return guardar_quadros_ligado(valor)
 
 
