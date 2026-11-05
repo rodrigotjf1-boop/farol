@@ -12,7 +12,9 @@ protótipo) e não aprende nada além dela. Aqui, sobre os MESMOS vetores do DIN
 - na consulta, o nome do ingrediente é o mais provável que não é pão; o "é comida?" e as notas continuam pelo protótipo
   (a mesma escala que os passos e a conferência usam — `COMIDA_MIN`, o "já estava no começo");
 - com o PÃO NO PASSO (05/11/2026, `FOLGA_DO_PAO`), a nota diz também quando o recorte é pão — a tampa que chega, a
-  metade puxada: o passo deixa de sair com o nome da carne.
+  metade puxada: o passo deixa de sair com o nome da carne;
+- com o NÃO É INGREDIENTE no juiz (05/11/2026, `FOLGA_DO_NADA`), os exemplos que o dono marcou "não era ingrediente"
+  (o alumínio, o inox, a mão) viram uma classe a mais (`NADA`), e a nota diz quando o recorte não é ingrediente.
 
 **Medido no banco de provas** (111 recortes marcados pelo dono na noite de 21/10, o ingrediente de cima, pela família,
 cada lanche testado SEM as marcações dele; o modelo int8 do agente): protótipo de hoje 50%; o exemplo mais parecido 67%;
@@ -67,6 +69,18 @@ NOMES_MINIMO = 2
 # outra parte — ERR-163 do registro local.) O passo que é pão não é ingrediente: sai como vazio, com o nome do pão, e
 # não conta na ficha (a nuvem já não conta o vazio).
 FOLGA_DO_PAO = 0.25
+# O "NÃO É INGREDIENTE" COMO UM NOME DO JUIZ (05/11/2026; a chave `FAROL_BANCADA_NADA_NO_JUIZ`, desligada por padrão). O
+# dono marca "não era ingrediente" no recorte de alumínio, inox, papel, mão — os exemplos descem na base (`nada`) e o
+# classificador aprende esta classe a mais. Medido nas noites de 02 e 03/11, nos passos respondidos (309 recortes "não
+# era ingrediente" com vetor; conta honesta em 5 partes, os recortes do mesmo lanche do mesmo lado): dos 125 passos
+# "não era ingrediente" que a leitura CONTOU como passo (o juiz de hoje os chamava de cheddar, carne, bacon), quando o
+# "não é ingrediente" passa o melhor ingrediente por esta folga, consultando só a imagem: 77 saem (62%) e 1 dos 265
+# ingredientes se perde (folga 0: 81 e 3; 0,10: 68 e 1; 0,20: 59 e 0); com a média das 8 vistas, 82 e 0. O passo que não
+# é ingrediente sai como vazio (não conta na ficha). Dos 184 que o juiz de hoje já tirava (vazio), 174 o classificador
+# também diz "não é ingrediente".
+FOLGA_DO_NADA = 0.05
+# O nome da classe "não é ingrediente" no classificador (os parênteses: nunca é o nome de um ingrediente das fichas)
+NADA = "(não é ingrediente)"
 
 
 def vistas(img: np.ndarray) -> list[np.ndarray]:
@@ -222,31 +236,38 @@ class JuizTreinado(JuizDeIngrediente):
         )
         p = self.classificador.probabilidades(np.stack(vs)).mean(axis=0)
         classes = self.classificador.classes
-        nome_ing = next((classes[int(i)] for i in np.argsort(-p) if not e_pao(classes[int(i)])), None)
+        # o nome do ingrediente: o mais provável que não é pão nem o "não é ingrediente"
+        nome_ing = next((classes[int(i)] for i in np.argsort(-p)
+                         if not e_pao(classes[int(i)]) and classes[int(i)] != NADA), None)
         if nome_ing is None:
             sem_pao = next((int(i) for i in ordem if not e_pao(self.nomes[int(i)])), None)
             nome_ing = self.nomes[sem_pao] if sem_pao is not None else None
         nota_ing = float(notas[self.nomes.index(nome_ing)]) if nome_ing in self.nomes else 0.0
+        p_ing = float(p[classes.index(nome_ing)]) if nome_ing in classes else 0.0
         pao = None
         if self.pao_no_passo:
             paes = [k for k, c in enumerate(classes) if e_pao(c)]
             if paes:
                 k = max(paes, key=lambda i: p[i])
-                p_ing = float(p[classes.index(nome_ing)]) if nome_ing in classes else 0.0
                 if float(p[k]) - p_ing >= FOLGA_DO_PAO:
                     pao = classes[k]
+        # o "não é ingrediente": só quando o classificador aprendeu a classe (a chave do "nada" no juiz)
+        nada = NADA in classes and float(p[classes.index(NADA)]) - p_ing >= FOLGA_DO_NADA
         return Nota(self.nomes[melhor], round(float(notas[melhor]), 3), nome_ing, round(nota_ing, 3), self.comida_min,
-                    pao=pao)
+                    pao=pao, nada=nada)
 
 
 def montar(vetor: Callable[[np.ndarray], np.ndarray], prototipos: dict[str, np.ndarray],
            exemplos: list[tuple[str, str]], abrir: Callable[[str], np.ndarray | None], *,
            guardados: Path | None = None, vistas_na_consulta: int = 1,
            vetor_extra: Callable[[np.ndarray], np.ndarray] | None = None,
-           identidade_extra: str | None = None, pao_no_passo: bool = False) -> tuple[JuizDeIngrediente, str]:
+           identidade_extra: str | None = None, pao_no_passo: bool = False,
+           nada: list[str] | None = None) -> tuple[JuizDeIngrediente, str]:
     """O juiz treinado da base, ou o de protótipo (com o motivo) quando não há o que treinar. Com `vetor_extra` (o olho
     duplo), o classificador aprende sobre o par de vetores — guardado à parte, com a identidade dos dois modelos. Com
-    `pao_no_passo`, a nota diz o pão (`FOLGA_DO_PAO`)."""
+    `pao_no_passo`, a nota diz o pão (`FOLGA_DO_PAO`). Com `nada` (os sha256 dos exemplos "não era ingrediente"), o
+    classificador aprende a classe `NADA` e a nota diz quando o recorte não é ingrediente (`FOLGA_DO_NADA`)."""
+    com_nada = list(exemplos) + [(NADA, s) for s in (nada or [])]
     if vetor_extra is not None:
         from farol_agent.juizes.olho_extra import juntar
 
@@ -254,17 +275,21 @@ def montar(vetor: Callable[[np.ndarray], np.ndarray], prototipos: dict[str, np.n
             return juntar(vetor(x), vetor_extra(x))
 
         identidade = f"{MODELO_SHA256}+{identidade_extra or 'extra'}"
-        vetores = vetores_das_vistas(do_nome, exemplos, abrir, guardados=guardados, identidade=identidade)
+        vetores = vetores_das_vistas(do_nome, com_nada, abrir, guardados=guardados, identidade=identidade)
     else:
-        vetores = vetores_das_vistas(vetor, exemplos, abrir, guardados=guardados)
-    clf = treinar(vetores)
-    if clf is None:
+        vetores = vetores_das_vistas(vetor, com_nada, abrir, guardados=guardados)
+    # o "não é ingrediente" sozinho não é o que separar: conta só com 2 ingredientes ou mais
+    if len({n for n, _ in vetores if n != NADA}) < NOMES_MINIMO:
         return JuizDeIngrediente(vetor, prototipos), "menos de 2 ingredientes com exemplo: fica o juiz de protótipo"
+    clf = treinar(vetores)
     juiz = JuizTreinado(vetor, prototipos, clf, vistas_na_consulta=vistas_na_consulta, vetor_extra=vetor_extra,
                         pao_no_passo=pao_no_passo)
-    return juiz, (f"juiz TREINADO: {len(clf.classes)} ingredientes, {len(vetores)} exemplos x {VISTAS} vistas"
+    n_nada = sum(1 for n, _ in vetores if n == NADA)
+    return juiz, (f"juiz TREINADO: {len([c for c in clf.classes if c != NADA])} ingredientes, "
+                  f"{len(vetores) - n_nada} exemplos x {VISTAS} vistas"
                   + (" (OLHO DUPLO)" if vetor_extra is not None else "")
-                  + (f"; o PÃO no passo com folga {FOLGA_DO_PAO}" if pao_no_passo else ""))
+                  + (f"; o PÃO no passo com folga {FOLGA_DO_PAO}" if pao_no_passo else "")
+                  + (f"; o NÃO É INGREDIENTE com {n_nada} exemplos, folga {FOLGA_DO_NADA}" if n_nada else ""))
 
 
 def vistas_da_consulta(valor: str | None) -> int:

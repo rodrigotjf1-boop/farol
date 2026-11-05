@@ -147,6 +147,9 @@ class Nota:
     # o PÃO do recorte, quando o juiz treinado (com o pão no passo) o vê acima do melhor ingrediente: o passo que é pão
     # não é ingrediente (`passos_do_lanche`); nulo no juiz de protótipo e sem a chave
     pao: str | None = None
+    # o recorte NÃO É INGREDIENTE: o juiz treinado (com o "nada" no juiz) o vê na classe dos exemplos que o dono marcou
+    # "não era ingrediente", acima do melhor ingrediente; o passo não conta (`passos_do_lanche`); falso sem a chave
+    nada: bool = False
 
     def comida(self) -> bool:
         return self.nota >= self.minimo
@@ -191,6 +194,17 @@ def exemplos_de_um_nome(base: dict) -> list[tuple[str, str]]:
             if sha:
                 nomes_de.setdefault(sha, set()).add(item["nome"])
     return sorted((next(iter(n)), sha) for sha, n in nomes_de.items() if len(n) == 1)
+
+
+def exemplos_do_nada(base: dict) -> list[str]:
+    """Os sha256 dos exemplos "não era ingrediente" da base (`nada.quadros`), fora os que também são exemplo de algum
+    ingrediente (a mesma imagem com as duas respostas não ensina nenhuma das duas)."""
+    de_ingrediente = {(q or {}).get("sha256") for item in base.get("itens") or [] if isinstance(item, dict)
+                      for q in item.get("quadros") or []}
+    nada = base.get("nada")
+    quadros = nada.get("quadros") if isinstance(nada, dict) else None
+    shas = {(q or {}).get("sha256") for q in quadros or [] if isinstance(q, dict)}
+    return sorted(s for s in shas if isinstance(s, str) and s and s not in de_ingrediente)
 
 
 def prototipos(
@@ -239,25 +253,30 @@ class JuizDaLoja:
     `olho_duplo` (a chave `FAROL_BANCADA_OLHO_DUPLO`, só com o treinado), o classificador vê também o SigLIP2
     (`juizes.olho_extra`); sem o arquivo desse modelo, fica o olho de sempre e o registro diz por quê, uma vez. Com
     `pao_no_passo` (a chave `FAROL_BANCADA_PAO_NO_PASSO`, só com o treinado), a nota diz também quando o recorte é pão
-    (`juizes.treinado.FOLGA_DO_PAO`)."""
+    (`juizes.treinado.FOLGA_DO_PAO`). Com `nada_no_juiz` (a chave `FAROL_BANCADA_NADA_NO_JUIZ`, só com o treinado), os
+    exemplos "não era ingrediente" que já desceram viram a classe a mais do classificador
+    (`juizes.treinado.FOLGA_DO_NADA`)."""
 
     def __init__(self, pasta_modelos: str | Path, base: "BaseDaLoja", *,
                  motor_de: Callable[[Path], Any] = MotorDino, treinado: bool = False,
                  vistas_na_consulta: int = 1, olho_duplo: bool = False,
-                 motor_extra_de: Callable[[Path], Any] | None = None, pao_no_passo: bool = False) -> None:
+                 motor_extra_de: Callable[[Path], Any] | None = None, pao_no_passo: bool = False,
+                 nada_no_juiz: bool = False) -> None:
         self.pasta_modelos = Path(pasta_modelos)
         self.base = base
         self.treinado = treinado
         self.vistas_na_consulta = vistas_na_consulta
         self.olho_duplo = olho_duplo and treinado
         self.pao_no_passo = pao_no_passo and treinado
+        self.nada_no_juiz = nada_no_juiz and treinado
         self._motor_extra_de = motor_extra_de
         self._motor_extra: Any = None
         self._extra_dito: str | None = None
         self._motor_de = motor_de
         self._motor: Any = None
         self._juiz: JuizDeIngrediente | None = None
-        self._impressao: str | None = None
+        # a impressão da base e quantos exemplos "não era ingrediente" havia no disco quando o juiz se montou
+        self._impressao: tuple[str | None, int] | None = None
         self._motivo_dito: str | None = None
         # o olho duplo esperando a loja fechar para calcular os vetores dos exemplos novos (o juiz montado é o de sempre)
         self._duplo_pendente = False
@@ -271,7 +290,13 @@ class JuizDaLoja:
             lista = self.base.lista()
             if lista is None:
                 return self._sem("a base da loja ainda não desceu (ela desce com a loja fechada)")
-            impressao = lista.get("impressao")
+            # o "não era ingrediente" que já desceu: ligar a chave não muda a impressão da base (ela já conta o "nada"), e
+            # os quadros dele descem aos poucos — o juiz se refaz quando chega mais algum
+            nada = []
+            if self.nada_no_juiz:
+                nada = [s for s in exemplos_do_nada(lista) if not hasattr(self.base, "caminho")
+                        or self.base.caminho(s).is_file()]
+            impressao = (lista.get("impressao"), len(nada))
             if self._juiz is not None and impressao == self._impressao and not (self._duplo_pendente and pode_demorar):
                 return self._juiz
             try:
@@ -287,10 +312,13 @@ class JuizDaLoja:
                     identidade_extra = getattr(extra, "identidade", "extra")
                     self._duplo_pendente = False
                     # os exemplos com o quadro no disco (o que não abre fica fora do treino de qualquer jeito)
-                    no_disco = [s for _, s in exemplos if self.base.caminho(s).is_file()] \
-                        if hasattr(self.base, "caminho") else [s for _, s in exemplos]
+                    def no_disco_de(shas: list[str]) -> list[str]:
+                        return [s for s in shas if self.base.caminho(s).is_file()] \
+                            if hasattr(self.base, "caminho") else list(shas)
+
+                    no_disco = no_disco_de([s for _, s in exemplos])
                     if extra is not None and not pode_demorar and not jt.guarda_cobre(
-                            guarda_duplo, f"{MODELO_SHA256}+{identidade_extra}", no_disco):
+                            guarda_duplo, f"{MODELO_SHA256}+{identidade_extra}", no_disco + nada):
                         _log.info("olho duplo: os vetores dos exemplos novos se calculam com a loja fechada; até lá, o "
                                   "nome sai pelo olho de sempre")
                         self._duplo_pendente, extra = True, None
@@ -298,12 +326,13 @@ class JuizDaLoja:
                         juiz, como = jt.montar(self._motor.vetor, prot, exemplos, self.base.abrir,
                                                guardados=guarda_duplo,
                                                vistas_na_consulta=self.vistas_na_consulta, vetor_extra=extra.vetor,
-                                               identidade_extra=identidade_extra, pao_no_passo=self.pao_no_passo)
+                                               identidade_extra=identidade_extra, pao_no_passo=self.pao_no_passo,
+                                               nada=nada)
                     else:
                         juiz, como = jt.montar(self._motor.vetor, prot, exemplos, self.base.abrir,
                                                guardados=self.base.vetores.with_name("vetores-vistas.npz"),
                                                vistas_na_consulta=self.vistas_na_consulta,
-                                               pao_no_passo=self.pao_no_passo)
+                                               pao_no_passo=self.pao_no_passo, nada=nada)
                 else:
                     juiz, como = JuizDeIngrediente(self._motor.vetor, prot), "juiz de protótipo"
             except ErroDoJuiz as e:

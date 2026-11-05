@@ -10642,3 +10642,55 @@ torta antes e depois, com 2 passos falsos no empurrão. Com 120 px, os dois luga
   - 5 ganharam teste: o pedaço parecido, a cena parada, a mudança mínima, o juiz na janela que andou, a chave nos
     passos.
 - Suíte do agente inteira: 2323 passaram, 1 pulado, nenhuma falha.
+
+## 05/11/2026 · O "não é ingrediente" no juiz: o que o dono marcou "não era ingrediente" vira uma classe do juiz (agente, chave desligada; sem migration)
+
+O dono, 05/11, conferindo os lanches: "muitos cortes somente de papel alumínio e inox". Nas noites de 02 e 03/11,
+dos passos que a leitura CONTOU como ingrediente e que o dono respondeu, 27% (125 de 461) ele marcou "não era
+ingrediente" — e o juiz de hoje os chamava de cheddar, carne, bacon. Os exemplos "não era ingrediente" (migration 054)
+já descem na lista da base (`nada.quadros`, o contrato `base-de-conhecimento.json`), mas o agente não baixava as
+imagens (a descida apagava do disco todo quadro fora dos itens) e o juiz não aprendia nada com eles (o 21/10 mediu e
+deixou de fora: com 0 exemplos do dono, o vizinho "nada" cortava comida).
+
+**Medido** no PC da loja (os 309 recortes "não era ingrediente" das noites de 02 e 03/11, com os vetores do olho duplo
+calculados pelos modelos do agente; conta honesta em 5 partes, os recortes do mesmo lanche do mesmo lado, as
+probabilidades pelo nome — ERR-163; consultando só a imagem, como a loja):
+
+| folga (P(não é) − P(melhor ingrediente)) | dos 125 contados, saem | ingredientes perdidos, de 265 |
+|---|---|---|
+| 0 | 81 (65%) | 3 |
+| **0,05** | **77 (62%)** | **1** |
+| 0,10 | 68 (54%) | 1 |
+| 0,20 | 59 (47%) | 0 |
+
+Com a média das 8 vistas, 0,05 tira 82 e não perde nenhum. Junto com o pão no passo (0,25): saem 77 "não é" e 58 dos
+71 pães, e o juiz acerta 229 de 265 ingredientes (sem nenhum dos dois, 234). Dos 184 que o juiz de hoje já tirava
+(vazio), o classificador põe 174 no "não é" também.
+
+- **`base_da_loja.py`**: com `com_nada`, a descida baixa também os quadros de `nada.quadros` (a mesma rota, pelo id); a
+  `Descida` conta quantos são (`nada`) e o registro diz. Sem a chave, nada muda — e o que tinha descido sai do disco,
+  como qualquer quadro fora da lista. A descida à mão (`farol-agent ingredientes base`) segue a mesma chave.
+- **`juizes/ingrediente.py`**: `exemplos_do_nada(lista)` (os sha256 do "nada", fora os que também são exemplo de um
+  ingrediente); o `JuizDaLoja` com `nada_no_juiz` passa ao treino os que JÁ estão no disco, e se refaz quando chega
+  mais algum (a impressão da base não muda ao ligar a chave: ela já conta o "nada"). O protótipo (o "é comida?") não
+  muda: só os ingredientes. A `Nota` ganha `nada`.
+- **`juizes/treinado.py`**: a classe `NADA` ("(não é ingrediente)" — nunca o nome de um ingrediente das fichas) no
+  classificador; `FOLGA_DO_NADA = 0,05`; ela nunca é o NOME do passo, e sozinha não conta para o mínimo de 2 nomes.
+- **`passos_do_lanche.py`**: o passo de comida que o juiz põe no "não é" sai como `vazio` (com o ingrediente que leu),
+  antes do pão; o começo continua o pão.
+- **A chave `FAROL_BANCADA_NADA_NO_JUIZ`** (desligada; só com o juiz treinado). Na loja, com a troca de pacote e a
+  chave, com a loja FECHADA: os ~1.200 exemplos descem aos poucos (a nuvem segura com 429) e o olho duplo calcula os
+  vetores deles com a loja fechada (~0,5 s por vista no processador: perto de 1 h na primeira vez).
+
+### Como foi conferido
+
+- `testes/test_juiz_treinado.py`: a folga contra o MELHOR ingrediente (não o pior), o "não é" nunca como nome, sem a
+  classe nunca diz "não é", o `montar` com o "nada" (a classe a mais, o registro, o mínimo de 2 ingredientes sem
+  contar o "nada"), o juiz da loja (só com o treinado, só o que desceu, refaz quando chega mais um com a mesma
+  impressão), `exemplos_do_nada` (fora os de ingrediente, repetidos, tortos), a chave.
+- `testes/test_base_da_loja.py`: o "nada" só desce com a chave, a mesma imagem nos dois desce uma vez, sem a chave sai
+  do disco; a linha de execução com a chave e o registro.
+- `testes/test_passos_do_lanche.py`: o passo "não é" vira vazio com o que o juiz leu, antes do pão; o começo continua.
+- `testes/test_bancada_ao_vivo.py`: o serviço liga a descida e o juiz só com a chave E o juiz treinado.
+- Mutação 20/20 (na primeira rodada sobrou "a descida à mão sem o nada" — ganhou o teste do comando).
+- Suíte do agente inteira: 2341 passaram, 1 pulado, nenhuma falha.

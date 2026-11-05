@@ -753,9 +753,9 @@ class _BancadaDeMentira:
 
 
 class _BaseEmFundoDeMentira:
-    def __init__(self, cliente, caminho_config):
+    def __init__(self, cliente, caminho_config, *, com_nada=False):
         self.base = object()
-        _BancadaDeMentira.vistos.append(f"base:{Path(caminho_config).name}")
+        _BancadaDeMentira.vistos.append(f"base:{Path(caminho_config).name}" + (":nada" if com_nada else ""))
 
     def iniciar(self):
         _BancadaDeMentira.vistos.append("base iniciada")
@@ -787,6 +787,7 @@ def test_o_agente_so_liga_a_bancada_ao_vivo_com_a_variavel(
     _BancadaDeMentira.vistos.clear()
     monkeypatch.setenv("FAROL_AGENTE_TOKEN", "token-de-teste")
     monkeypatch.delenv(bav.JANELA_SEGUE, raising=False)
+    monkeypatch.delenv(bav.NADA_NO_JUIZ, raising=False)
     for nome, v in ((bav.VARIAVEL, valor), (bav.GUARDAR, guardar), (bav.PASSOS, passos), (bav.INGREDIENTES, ingredientes)):
         if v is None:
             monkeypatch.delenv(nome, raising=False)
@@ -916,6 +917,40 @@ def test_o_agente_liga_a_janela_que_segue_so_com_os_passos(tmp_path, monkeypatch
     assert cli.main(argv) == 0
     assert (":segue" in _BancadaDeMentira.vistos[0]) is segue
     assert ("a JANELA QUE SEGUE (FAROL_BANCADA_JANELA_SEGUE)" in capsys.readouterr().out) is segue
+
+
+@pytest.mark.parametrize("treinado, nada, liga", [("1", "1", True), (None, "1", False), ("1", None, False)])
+def test_o_agente_liga_o_nao_e_ingrediente_so_com_o_juiz_treinado(tmp_path, monkeypatch, capsys, treinado, nada, liga):
+    from farol_agent import base_da_loja, nuvem
+    from farol_agent.juizes import ingrediente as ji
+
+    _BancadaDeMentira.vistos.clear()
+    juizes = []
+
+    class JuizDaLojaAnotado(ji.JuizDaLoja):
+        def __init__(self, *a, **k):
+            super().__init__(*a, **k)
+            juizes.append(self)
+
+    monkeypatch.setenv("FAROL_AGENTE_TOKEN", "token-de-teste")
+    for nome, v in ((bav.VARIAVEL, "4"), (bav.GUARDAR, "1"), (bav.PASSOS, "1"), (bav.INGREDIENTES, "1"),
+                    (bav.JUIZ_TREINADO, treinado), (bav.NADA_NO_JUIZ, nada)):
+        if v is None:
+            monkeypatch.delenv(nome, raising=False)
+        else:
+            monkeypatch.setenv(nome, v)
+    monkeypatch.setattr(nuvem, "ClienteNuvem", _ClienteDeMentira)
+    monkeypatch.setattr(bav, "BancadaAoVivo", _BancadaDeMentira)
+    monkeypatch.setattr(base_da_loja, "BaseEmFundo", _BaseEmFundoDeMentira)
+    monkeypatch.setattr(ji, "JuizDaLoja", JuizDaLojaAnotado)
+    monkeypatch.setattr(treino_servico, "TreinoEmFundo", lambda *a, **k: None)
+    argv = ["servir", "--nuvem", "https://api.exemplo", "--config", str(tmp_path / "configuracao.json"),
+            "--fila", str(tmp_path / "fila.db"), "--sem-auditoria", "--sem-treino", "--voltas", "0"]
+    assert cli.main(argv) == 0
+    # a descida baixa o "nada" e o juiz o aprende — as duas só com a chave E o juiz treinado
+    assert ("base:configuracao.json:nada" in _BancadaDeMentira.vistos) is liga
+    assert len(juizes) == 1 and juizes[0].nada_no_juiz is liga
+    assert ("o NÃO É INGREDIENTE no juiz (FAROL_BANCADA_NADA_NO_JUIZ)" in capsys.readouterr().out) is liga
 
 
 def test_com_a_janela_que_segue_o_recorte_sai_de_onde_a_janela_estava(tmp_path, monkeypatch):
