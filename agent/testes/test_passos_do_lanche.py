@@ -152,6 +152,149 @@ def test_o_papel_empurrado_dentro_da_folga_nao_e_passo_e_a_janela_nao_anda():
     leitura = ler(cena)
     assert contados(leitura) == [(1, "passo", 11)]
     assert [(round(m.cx), round(m.cy)) for m in leitura.metades] == [(300, 250), (300, 420)]
+    # com a janela que segue, igual: dentro da folga o encaixe absorve, e a janela não anda (ERR-137)
+    seguindo = ler(cena, p=pdl.Parametros(segue=True))
+    assert contados(seguindo) == [(1, "passo", 11)]
+    assert {(round(s.cx), round(s.cy)) for s in seguindo.passos} <= {(300, 250), (300, 420)}
+
+
+# ───────────────────────── a janela que segue (05/11/2026) ─────────────────────────
+
+SEGUE = pdl.Parametros(segue=True)
+
+
+def _empurrado(dx: int):
+    """O queijo na tampa (5→6); a mão empurra o lanche inteiro, papel junto, `dx` px para a direita (8); a carne chega
+    na base já no lugar novo (13→15). O detector vê os pães onde estão: antes do empurrão no lugar de antes."""
+    e = (dx, 0)
+    cena = [mesa()] * 4 + [mesa(maos=[(250, 180, 420, 240)])] + [mesa(queijos=[(300, 250, 96)])] * 3
+    cena += [mesa(queijos=[(300, 250, 96)], maos=[(150, 300, 300, 360)])]
+    cena += [mesa(queijos=[(300, 250, 96)], empurrao=e)] * 4
+    cena += [mesa(queijos=[(300, 250, 96)], maos=[(250, 360, 420, 430)], empurrao=e)]
+    cena += [mesa(queijos=[(300, 250, 96)], carnes=[(300, 420, 64)], empurrao=e)] * 4
+    depois = [(TAMPA[0] + dx, TAMPA[1]), (BASE[0] + dx, BASE[1])]
+    return cena, (lambda i: [TAMPA, BASE] if i < 9 else depois)
+
+
+def test_o_lanche_empurrado_com_a_janela_fixa_fica_torto_e_da_passos_falsos():
+    # o que o dono viu ("só a ponta do hambúrguer aparece"): empurrado 60 px, os pontos de antes e de depois caem no mesmo
+    # grupo, e a janela fixa nasce no MEIO do caminho; o empurrão vira passo nas duas metades
+    cena, pontos = _empurrado(60)
+    leitura = ler(cena, pontos_de=pontos)
+    assert [(round(m.cx), round(m.cy)) for m in leitura.metades] == [(330, 250), (330, 420)]
+    assert contados(leitura) == [(1, "passo", 6), (2, "passo", 9), (1, "passo", 10), (2, "passo", 15)]
+
+
+def test_a_janela_que_segue_nasce_onde_o_pao_estava_e_anda_com_o_lanche_empurrado():
+    cena, pontos = _empurrado(60)
+    leitura = ler(cena, p=SEGUE, pontos_de=pontos)
+    # nasce no lugar do pão nos primeiros quadros; o empurrão não é passo; a carne é, já no lugar novo
+    assert [(round(m.cx), round(m.cy)) for m in leitura.metades] == [(300, 250), (300, 420)]
+    assert contados(leitura) == [(1, "passo", 6), (2, "passo", 15)]
+    queijo, carne = (s for s in leitura.passos if s.tipo == "passo")
+    assert (round(queijo.cx), round(queijo.cy)) == (300, 250)
+    assert abs(carne.cx - 360) <= 4 and abs(carne.cy - 420) <= 4
+    # o recorte de cada passo sai da janela daquele passo
+    j = pdl.janela_do_passo(carne, 2, 300.0, 420.0, float(D), None)
+    assert (j.cx, j.cy) == (carne.cx, carne.cy)
+    assert pdl.janela_do_passo(pdl.Passo(T0, 1, "passo", 0.5, 0.0, "q"), 1, 300.0, 250.0, float(D), None).cx == 300.0
+
+
+def test_a_janela_que_segue_a_mesma_peca_vista_no_lugar_novo_nao_e_outra_metade():
+    # empurrado 120 px: os pontos de depois formam OUTRO grupo — com a janela fixa, 4 metades (dois "lanches"), e a de
+    # antes vê o vazio como passo
+    cena, pontos = _empurrado(120)
+    fixa = ler(cena, pontos_de=pontos)
+    assert len(fixa.metades) == 4
+    assert (1, "passo", 10) in contados(fixa)
+    seguindo = ler(cena, p=SEGUE, pontos_de=pontos)
+    assert [(m.k, round(m.cx), round(m.cy)) for m in seguindo.metades] == [(1, 300, 250), (3, 300, 420)]
+    assert contados(seguindo) == [(1, "passo", 6), (3, "passo", 15)]
+    carne = next(s for s in seguindo.passos if seg(s) == 15)
+    assert abs(carne.cx - 420) <= 4
+
+
+def test_a_janela_que_segue_nao_anda_com_o_que_chega():
+    cena = [mesa()] * 4 + [mesa(maos=[(250, 180, 420, 240)]), mesa(maos=[(280, 200, 430, 270)])]
+    cena += [mesa(queijos=[(300, 250, 96)])] * 4 + [mesa(queijos=[(300, 250, 96)], carnes=[(300, 420, 66)])] * 4
+    fixa, seguindo = ler(cena), ler(cena, p=SEGUE)
+    assert contados(seguindo) == contados(fixa) == [(1, "passo", 7), (2, "passo", 11)]
+    assert all((round(s.cx), round(s.cy)) in {(300, 250), (300, 420)} for s in seguindo.passos)
+
+
+def test_a_janela_que_segue_nao_vai_para_onde_ja_se_via_pao():
+    # o lugar novo já tinha pão ANTES de a peça sumir (o vizinho parecido estava ali): a janela não pula para ele
+    cena, pontos = _empurrado(120)
+    vizinho = [(TAMPA[0] + 120, TAMPA[1]), (BASE[0] + 120, BASE[1])]
+    leitura = ler(cena, p=SEGUE, pontos_de=lambda i: pontos(i) + (vizinho if i < 4 else []))
+    assert all((round(s.cx), round(s.cy)) in {(300, 250), (300, 420), (420, 250), (420, 420)} for s in leitura.passos)
+    assert not any(s.metade in (1, 3) and s.cx is not None and round(s.cx) != 300 for s in leitura.passos)
+
+
+def test_a_janela_que_segue_nao_pula_para_um_pedaco_parecido_quando_a_peca_esta_no_lugar():
+    # um pedaço igual ao pão de antes do queijo aparece em volta (o mesmo desenho, colado), e uma fatia pequena chega no
+    # pão: a peça continua no lugar (a correlação de perto é boa) — a janela não procura, não pula
+    copia = mesa()[250 - 86:250 + 86, 300 - 86:300 + 86].copy()
+
+    def com_copia(img):
+        img = img.copy()
+        img[250 - 86:250 + 86, 480 - 86:480 + 86] = copia
+        return img
+
+    cena = [mesa()] * 4 + [mesa(maos=[(250, 180, 420, 240)])] + [com_copia(mesa(queijos=[(300, 250, 70)]))] * 4
+    longe = pdl.Parametros(segue=True, busca=1.5)  # a busca alcança a cópia (180 px)
+    leitura = ler(cena, p=longe)
+    assert contados(leitura) == [(1, "passo", 6)]
+    assert all((round(s.cx), round(s.cy)) in {(300, 250), (300, 420)} for s in leitura.passos)
+
+
+def _contar_procuras(monkeypatch) -> list[int]:
+    vezes: list[int] = []
+    original = pdl._Metade._onde_andou
+
+    def contando(self, img, cinza_l):
+        vezes.append(self.k)
+        return original(self, img, cinza_l)
+
+    monkeypatch.setattr(pdl._Metade, "_onde_andou", contando)
+    return vezes
+
+
+def test_a_janela_que_segue_so_procura_com_a_cena_parada(monkeypatch):
+    # o custo: a busca em volta é a conta mais cara do quadro — a mão passando (a cena mexendo) não faz procurar
+    vezes = _contar_procuras(monkeypatch)
+    cena = [mesa()] * 4 + [mesa(maos=[(250, 180, 420, 240)]), mesa(maos=[(240, 380, 420, 450)]), mesa(maos=[(290, 220, 440, 300)])]
+    cena += [mesa()] * 4
+    assert contados(ler(cena, p=SEGUE)) == [] and vezes == []
+
+
+def test_a_janela_que_segue_nao_procura_sem_mudanca(monkeypatch):
+    # nem com a luz da bancada mudando (corrigida pelo papel em volta): sem o que mudou, nada a procurar
+    vezes = _contar_procuras(monkeypatch)
+    cena = [mesa()] * 4 + [mesa(luz=-35)] * 3 + [mesa(luz=-10)] * 3
+    assert contados(ler(cena, p=SEGUE)) == [] and vezes == []
+
+
+def test_com_o_juiz_a_janela_que_segue_julga_onde_a_janela_estava():
+    # empurrado 120 px: a carne chega na base no lugar novo — o juiz olha a janela que andou (no lugar de onde a metade
+    # nasceu, agora, só o papel)
+    cena, pontos = _empurrado(120)
+    leitura = ler(cena, p=SEGUE, pontos_de=pontos, juiz=JuizDeMentira(nada=0.46))
+    assert [(s.metade, s.tipo, seg(s), s.nome) for s in leitura.passos if s.tipo != "comeco"] == [
+        (1, "passo", 6, "Queijo"), (3, "passo", 15, "Carne")]
+
+
+def test_a_janela_que_segue_nao_sai_da_faixa_do_lugar():
+    cena, pontos = _empurrado(60)
+    passos = pdl.PassosDoLanche(SEGUE)
+    quadros = {}
+    for i, img in enumerate(cena):
+        quadros[f"q{i:03d}"] = img
+        vistos = [v for v in pontos(i) if v[0] <= 340]
+        passos.ver(f"q{i:03d}", T0 + timedelta(seconds=i), img, caixas_de(vistos), 0, 340,
+                   achados=[(float(cx), float(cy), float(D)) for cx, cy in vistos])
+    leitura = passos.ler(lambda nome: quadros.get(nome))
+    assert all(s.cx is None or s.cx <= 340 for s in leitura.passos)
 
 
 def test_fechou_quando_a_tampa_sai_e_a_carne_parada_um_quadro_so_e_provisoria():

@@ -64,7 +64,8 @@ from farol_agent.configuracao import de_json, ler_do_disco
 from farol_agent.gravacao_lida import guardar_recorte, quadro_do_canal
 from farol_agent.lugar_do_lanche import LeitorDeLugares, Lugar
 from farol_agent.modelos import Janela, Zona
-from farol_agent.passos_do_lanche import Juiz, PassosDoLanche, recorte as recorte_da_metade
+from farol_agent.passos_do_lanche import Juiz, Parametros, PassosDoLanche, janela_do_passo
+from farol_agent.passos_do_lanche import recorte as recorte_da_metade
 from farol_agent.treino_servico import _detector_da_auditoria, janelas_da_loja, perfil_da_bancada
 
 _log = logging.getLogger(__name__)
@@ -97,6 +98,9 @@ OLHO_DUPLO = "FAROL_BANCADA_OLHO_DUPLO"
 # ingrediente (a tampa que chega, a metade puxada) não conta como ingrediente — sai como vazio, com o nome do pão.
 # Desligada por padrão (o dono liga); só vale com o juiz treinado.
 PAO_NO_PASSO = "FAROL_BANCADA_PAO_NO_PASSO"
+# A JANELA QUE SEGUE (05/11/2026; `passos_do_lanche`, o 2b): a janela de cada metade nasce onde o pão estava no começo e
+# anda com a peça quando o lanche é empurrado — o recorte de cada passo sai de onde a janela estava. Desligada por padrão.
+JANELA_SEGUE = "FAROL_BANCADA_JANELA_SEGUE"
 PASTA = "bancada"
 QUADROS = "quadros"
 DENSA = "densa"
@@ -159,6 +163,11 @@ def olho_duplo_ligado(valor: str | None) -> bool:
 
 def pao_no_passo_ligado(valor: str | None) -> bool:
     """`FAROL_BANCADA_PAO_NO_PASSO`: os mesmos valores das outras chaves (sem ela, o passo nunca é pão)."""
+    return guardar_quadros_ligado(valor)
+
+
+def janela_segue_ligada(valor: str | None) -> bool:
+    """`FAROL_BANCADA_JANELA_SEGUE`: os mesmos valores das outras chaves (sem ela, a janela de cada metade fica fixa)."""
     return guardar_quadros_ligado(valor)
 
 
@@ -326,8 +335,11 @@ class LeituraDoCanal:
         self, canal: int, zona: Zona, fluxo: Fluxo, detector: treino_lanches.Detector,
         perfil: treino_lanches.PerfilDaBancada, pasta: Path, *, relogio: Callable[[], datetime] = datetime.now,
         guardar_quadros: bool = False, passos: bool = False, juiz_de: Callable[[], Juiz | None] | None = None,
+        janela_segue: bool = False,
     ) -> None:
         self.canal, self.zona, self.fluxo, self.detector, self.perfil = canal, zona, fluxo, detector, perfil
+        # a janela que segue (`FAROL_BANCADA_JANELA_SEGUE`): os passos de cada lanche com a janela andando com a peça
+        self._parametros_dos_passos = Parametros(segue=janela_segue)
         self.pasta = Path(pasta)
         self._relogio = relogio
         self.guardar = guardar_quadros
@@ -500,7 +512,7 @@ class LeituraDoCanal:
         """Cada lugar vivo anota os pães que se viram na faixa dele neste quadro."""
         try:
             for l in self.lugares.ativos:
-                self.passos.setdefault(l.n, PassosDoLanche()).ver(
+                self.passos.setdefault(l.n, PassosDoLanche(self._parametros_dos_passos)).ver(
                     nome, quando, img, caixas, l.cx - self.lugares.raio, l.cx + self.lugares.raio,
                 )
         except Exception as e:  # noqa: BLE001
@@ -541,8 +553,13 @@ class LeituraDoCanal:
         for s in leitura.passos:
             arquivo, linhas = None, []
             img = treino_lanches.ler_imagem(self.quadros / s.quadro) if s.quadro else None
-            if img is not None and s.metade in metades:
-                corte = recorte_da_metade(img, metades[s.metade])
+            janela = None
+            if s.metade in metades:
+                m = metades[s.metade]
+                janela = janela_do_passo(s, m.k, m.cx, m.cy, m.d, m.desde)
+            if img is not None and janela is not None:
+                # a janela DO PASSO: com a janela que segue, onde ela estava naquela hora
+                corte = recorte_da_metade(img, janela)
                 arquivo = f"{s.hora:%Hh%Mm%S}-m{s.metade}-{s.tipo}.jpg"
                 if not imagens.escrever(pasta / arquivo, corte, [cv2.IMWRITE_JPEG_QUALITY, 90]):
                     arquivo = None
@@ -550,6 +567,9 @@ class LeituraDoCanal:
                     linhas = contorno(s.mascara, corte.shape[:2])
             registro = {"hora": _iso(s.hora), "metade": s.metade, "tipo": s.tipo, "parte": s.parte,
                         "papel": s.papel, "recorte": arquivo, "contorno": linhas}
+            if janela is not None and (round(janela.cx) != round(metades[s.metade].cx)
+                                       or round(janela.cy) != round(metades[s.metade].cy)):
+                registro.update(x=round(janela.cx), y=round(janela.cy))  # a janela andou com a peça
             if s.nota is not None:
                 registro.update(nome=s.nome, nota=s.nota)
             registros.append(registro)
@@ -661,12 +681,14 @@ class BancadaAoVivo:
         passos: bool = False,
         juiz_de: Callable[[], Juiz | None] | None = None,
         livre: Callable[[Path], int] = livre_no_disco,
+        janela_segue: bool = False,
     ) -> None:
         self.caminho_config = Path(caminho_config)
         self.canais = list(canais)
         self.guardar_quadros = guardar_quadros
         self.passos = passos
         self.juiz_de = juiz_de
+        self.janela_segue = janela_segue
         self.raiz = self.caminho_config.parent / PASTA
         self._livre = livre
         self._detector_de, self._abrir_fluxo, self._relogio = detector_de, abrir_fluxo, relogio
@@ -728,7 +750,7 @@ class BancadaAoVivo:
                     c.leitura = LeituraDoCanal(
                         c.canal, pecas["zona"], fluxo, pecas["detector"], pecas["perfil"], self.pasta_do_canal(c.canal),
                         relogio=self._relogio, guardar_quadros=self.guardar_quadros, passos=self.passos,
-                        juiz_de=self.juiz_de,
+                        juiz_de=self.juiz_de, janela_segue=self.janela_segue,
                     )
                     c.chave, c.motivo_dito = nova, None
                     c.leitura.anotar(self._relogio(), "ligada")

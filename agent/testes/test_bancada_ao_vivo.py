@@ -613,6 +613,14 @@ def test_o_laco_abre_o_fluxo_le_a_bancada_e_ao_fechar_encerra(tmp_path):
     assert fluxo.parado and sv.c.leitura is None
 
 
+@pytest.mark.parametrize("segue", [True, False])
+def test_o_servico_passa_a_janela_que_segue_a_leitura_do_canal(tmp_path, segue):
+    sv = Servico(em_disco(tmp_path), FluxoDeMentira(cena()[:10]), guardar_quadros=True, passos=True, janela_segue=segue)
+    sv.passos(3)
+    assert sv.c.leitura is not None and sv.c.leitura._parametros_dos_passos.segue is segue
+    sv.s.fechar(sv.c, "o agente parou")
+
+
 def test_o_servico_com_a_chave_guarda_a_sessao_inteira(tmp_path):
     sv = Servico(em_disco(tmp_path), FluxoDeMentira(cena()[:30]), guardar_quadros=True)
 
@@ -731,10 +739,10 @@ def test_a_linha_de_execucao_le_e_para(tmp_path):
 class _BancadaDeMentira:
     vistos: list[str] = []
 
-    def __init__(self, caminho_config, canais, *, guardar_quadros=False, passos=False, juiz_de=None):
+    def __init__(self, caminho_config, canais, *, guardar_quadros=False, passos=False, juiz_de=None, janela_segue=False):
         _BancadaDeMentira.vistos.append(
             f"criada:{Path(caminho_config).name}:{canais}:guardar={guardar_quadros}" + (":passos" if passos else "")
-            + (":juiz" if juiz_de is not None else ""),
+            + (":juiz" if juiz_de is not None else "") + (":segue" if janela_segue else ""),
         )
 
     def iniciar(self):
@@ -778,6 +786,7 @@ def test_o_agente_so_liga_a_bancada_ao_vivo_com_a_variavel(
 
     _BancadaDeMentira.vistos.clear()
     monkeypatch.setenv("FAROL_AGENTE_TOKEN", "token-de-teste")
+    monkeypatch.delenv(bav.JANELA_SEGUE, raising=False)
     for nome, v in ((bav.VARIAVEL, valor), (bav.GUARDAR, guardar), (bav.PASSOS, passos), (bav.INGREDIENTES, ingredientes)):
         if v is None:
             monkeypatch.delenv(nome, raising=False)
@@ -881,6 +890,74 @@ def test_um_defeito_nos_passos_nao_para_a_leitura(tmp_path, monkeypatch, caplog)
 def test_a_chave_dos_passos(valor, liga):
     assert bav.passos_ligados(valor) is liga
     assert bav.ingredientes_ligados(valor) is liga
+    assert bav.janela_segue_ligada(valor) is liga
+    assert bav.JANELA_SEGUE == "FAROL_BANCADA_JANELA_SEGUE"
+
+
+@pytest.mark.parametrize("guardar, passos, segue", [("1", "1", True), ("1", None, False), (None, "1", False)])
+def test_o_agente_liga_a_janela_que_segue_so_com_os_passos(tmp_path, monkeypatch, capsys, guardar, passos, segue):
+    from farol_agent import nuvem
+
+    _BancadaDeMentira.vistos.clear()
+    monkeypatch.setenv("FAROL_AGENTE_TOKEN", "token-de-teste")
+    monkeypatch.setenv(bav.VARIAVEL, "4")
+    monkeypatch.setenv(bav.JANELA_SEGUE, "1")
+    monkeypatch.delenv(bav.INGREDIENTES, raising=False)
+    for nome, v in ((bav.GUARDAR, guardar), (bav.PASSOS, passos)):
+        if v is None:
+            monkeypatch.delenv(nome, raising=False)
+        else:
+            monkeypatch.setenv(nome, v)
+    monkeypatch.setattr(nuvem, "ClienteNuvem", _ClienteDeMentira)
+    monkeypatch.setattr(bav, "BancadaAoVivo", _BancadaDeMentira)
+    monkeypatch.setattr(treino_servico, "TreinoEmFundo", lambda *a, **k: None)
+    argv = ["servir", "--nuvem", "https://api.exemplo", "--config", str(tmp_path / "configuracao.json"),
+            "--fila", str(tmp_path / "fila.db"), "--sem-auditoria", "--sem-treino", "--voltas", "0"]
+    assert cli.main(argv) == 0
+    assert (":segue" in _BancadaDeMentira.vistos[0]) is segue
+    assert ("a JANELA QUE SEGUE (FAROL_BANCADA_JANELA_SEGUE)" in capsys.readouterr().out) is segue
+
+
+def test_com_a_janela_que_segue_o_recorte_sai_de_onde_a_janela_estava(tmp_path, monkeypatch):
+    from farol_agent import passos_do_lanche as pdl
+
+    parametros = []
+
+    def ler_com_a_janela_que_andou(self, abrir, juiz=None):
+        parametros.append(self.p.segue)
+        quadro, hora = self.quadros[len(self.quadros) // 2]
+        m = pdl.MetadeVista(1, 300.0, 200.0, 100.0, hora)
+        return pdl.Leitura([m], [pdl.Passo(hora, 1, "comeco", 1.0, None, quadro, cx=300.0, cy=200.0),
+                                 pdl.Passo(hora, 1, "passo", 0.4, 0.0, quadro, cx=340.0, cy=212.0)], None)
+
+    janelas = []
+    original = bav.recorte_da_metade
+
+    def recorte_anotado(img, m, p=None):
+        janelas.append((round(m.cx), round(m.cy)))
+        return original(img, m, p)
+
+    monkeypatch.setattr(bav.PassosDoLanche, "ler", ler_com_a_janela_que_andou)
+    monkeypatch.setattr(bav, "recorte_da_metade", recorte_anotado)
+    le = bav.LeituraDoCanal(4, ZONA, FluxoDeMentira(cena_do_embrulho()), DetectorDaCor(), AO_LONGO, tmp_path / "canal-04",
+                            relogio=lambda: T0, guardar_quadros=True, passos=True, janela_segue=True)
+    assert le._parametros_dos_passos.segue is True
+    ler_tudo(le, 95)
+    le.encerrar("o agente parou")
+    p = next(e for e in linha_do_tempo(le.pasta) if e["evento"] == "passos")
+    lido = json.loads((le.pasta / p["pasta"] / "passos.json").read_text(encoding="utf-8"))
+    comeco, passo = lido["passos"]
+    # os passos do lanche foram lidos com a janela que segue
+    assert parametros == [True]
+    # o recorte de cada passo saiu da janela DAQUELE passo: o começo onde a metade nasceu, o passo onde a janela andou
+    assert janelas == [(300, 200), (340, 212)]
+    assert comeco["recorte"] and passo["recorte"]
+    # a janela que andou vai no registro; a que está onde a metade nasceu, não
+    assert "x" not in comeco and (passo["x"], passo["y"]) == (340, 212)
+    # sem a chave, os passos são os de sempre (a janela fixa)
+    fixa = bav.LeituraDoCanal(4, ZONA, FluxoDeMentira(cena_do_embrulho()), DetectorDaCor(), AO_LONGO,
+                              tmp_path / "canal-04b", relogio=lambda: T0, guardar_quadros=True, passos=True)
+    assert fixa._parametros_dos_passos.segue is False
 
 
 # ───────────────────────── o juiz de ingrediente nos passos ─────────────────────────

@@ -16,6 +16,14 @@ e o L9 (Numero 13: cream cheese 21:12:32, alface 21:12:36, frango 21:12:46, fech
 2. **A janela FIXA de cada metade**, a partir do primeiro quadro em que ela já está no lugar dela (um ponto a até `perto`
    do diâmetro em 2 de 3 quadros seguidos). A janela não anda: o encaixe de cada quadro, dentro de uma folga, absorve o
    tremido e o pão empurrado. A janela que andava com o encaixe saiu 130 px da peça no P7 (ERR-137).
+   2b. **A JANELA QUE SEGUE** (05/11/2026, a chave `FAROL_BANCADA_JANELA_SEGUE`). O dono: "a janela não pode ficar fixa
+   no lugar, tem que acompanhar como um detector humano: forma um retângulo e acompanha seus movimentos". Medido nas
+   noites de 02 a 04/11: a janela fixa nasce centrada (o pão a 0,06 diâmetro do centro, na mediana), mas em 10% das
+   metades o pão escorrega 0,30 diâmetro ou mais durante o lanche ("só a ponta do hambúrguer aparece"); e o lanche
+   empurrado além da folga puxa a mediana para o MEIO do caminho (a janela fica torta antes e depois). Então: a janela
+   nasce onde o pão estava nos primeiros quadros da metade, e anda só quando a peça inteira, parada, está a mais que a
+   folga do lugar — achada pela correlação do último estado assentado (o que já chegou junto), nunca o encaixe de cada
+   quadro (o ERR-137). A peça que andou para onde outra metade nasceu é a mesma: a de depois sai.
 3. **PARADA**: |Δcinza| médio no disco abaixo de `quieto`, contra o quadro anterior, com a luz corrigida pelo papel em
    volta do pão (a sombra de quem chega, a luz do salão). Medido no L9: parado 1,9 a 8,9; com a mão, 9,2 a 40.
 4. **Um PASSO**: o que difere do último estado assentado (ΔE > `delta`) em DOIS quadros parados seguidos e não mudou
@@ -99,6 +107,21 @@ class Parametros:
     comeco_min: float = 0.35
     saiu_parte: float = 0.50
     saiu_nota: float = 0.45
+    # A JANELA QUE SEGUE (o 2b do cabeçalho; a chave `FAROL_BANCADA_JANELA_SEGUE`, desligada por padrão): a janela nasce
+    # na mediana dos pontos dos primeiros `nasce_quadros` quadros da metade (não na do lanche inteiro) e anda com a peça
+    # quando ela, PARADA, aparece inteira a mais que a folga do lugar: a busca vai até `busca` diâmetros e a correlação
+    # da peça inteira (o último estado assentado) tem de dar `segue_ncc` ou mais. A mesma peça vista de novo no lugar novo
+    # (a menos de `mesma_peca` diâmetro da janela que andou) não é outra metade.
+    segue: bool = False
+    nasce_quadros: int = 5
+    busca: float = 1.0
+    segue_ncc: float = 0.70
+    mesma_peca: float = 0.5
+    # quando procurar: a mudança contra o estado assentado em `segue_parte` da janela ou mais (a correlação da peça no
+    # lugar abaixo de `segue_ncc` decide em `_onde_andou`). Para onde a janela pode ir: dentro da faixa do lugar, num
+    # ponto onde não se via pão ANTES de a peça sumir, e não para cima de uma metade que já existia antes (o vizinho
+    # parecido: a janela não pula para ele)
+    segue_parte: float = 0.15
 
 
 class Julgado(Protocol):
@@ -144,6 +167,9 @@ class Passo:
     mascara: np.ndarray | None = None
     nome: str | None = None
     nota: float | None = None
+    # onde a janela estava neste passo (a janela que segue anda com a peça); nulo = onde a metade nasceu
+    cx: float | None = None
+    cy: float | None = None
 
 
 @dataclass(frozen=True)
@@ -223,13 +249,29 @@ def recorte(img: np.ndarray, m: MetadeVista, p: Parametros | None = None) -> np.
     return img[max(0, cy - r):min(h, cy + r), max(0, cx - r):min(w, cx + r)]
 
 
+def janela_do_passo(s: "Passo", k: int, cx: float, cy: float, d: float, desde: datetime | None) -> MetadeVista:
+    """A janela da metade NO PASSO: onde ela estava naquela hora (a janela que segue anda com a peça), ou onde a metade
+    nasceu — o recorte de cada passo sai dela."""
+    return MetadeVista(k, s.cx if s.cx is not None else cx, s.cy if s.cy is not None else cy, d, desde)
+
+
 class _Metade:
     """A conta de uma metade, quadro a quadro (ver o cabeçalho do módulo)."""
 
     def __init__(self, k: int, g: Grupo, p: Parametros):
         self.k, self.cx, self.cy, self.d, self.p = k, g.cx, g.cy, g.d, p
+        # onde a janela nasceu (a janela que segue anda; a metade continua dita pelo lugar onde nasceu)
+        self.cx0, self.cy0 = g.cx, g.cy
         self.n = int(round(2 * p.raio * g.d * p.escala))  # o lado da janela, na escala da conta
         self.desde: datetime | None = None
+        # a janela que segue: quantas vezes andou, a última vez que a peça foi vista no lugar, e se esta metade é a mesma
+        # peça de outra que andou até aqui (sai da leitura)
+        self.andou = 0
+        self.vista_em: datetime | None = None
+        self.mesma_de: int | None = None
+        # quem pergunta se o lugar novo é de outra metade, e se a janela pode ir até ele (postos pelo `PassosDoLanche.ler`)
+        self.outra_em: Callable[[_Metade, float, float], _Metade | None] | None = None
+        self.pode_ir: Callable[[_Metade, float, float], bool] | None = None
         self.estado: tuple[np.ndarray, np.ndarray] | None = None  # (Lab, cinza) do último estado assentado
         self.anterior: np.ndarray | None = None  # o cinza do quadro anterior, no encaixe
         self.pendente: tuple[str, datetime, np.ndarray, np.ndarray] | None = None  # (quadro, hora, Lab, difere)
@@ -277,11 +319,36 @@ class _Metade:
         carne que entrou já no fim."""
         if self.pendente is None:
             return
-        quadro, hora, lab, difere = self.pendente
+        quadro, hora, lab, difere, cx, cy = self.pendente
         parte = float(difere.sum()) / self.area
         self.descartados.append(Passo(hora, self.k, "provisorio", round(parte, 3), round(self._papel_em(lab, difere), 2),
-                                      quadro, difere))
+                                      quadro, difere, cx=cx, cy=cy))
         self.pendente = None
+
+    def _onde_andou(self, img: np.ndarray, cinza_l: np.ndarray) -> tuple[float, float] | None:
+        """A janela que segue (o 2b do cabeçalho): a peça inteira — o último estado assentado — achada em volta, a mais
+        que a folga e até `busca` diâmetros para cada lado, com a correlação de `segue_ncc` ou mais. Nulo quando ela ainda
+        está no lugar (a correlação dentro da folga já é boa: a fatia que chegou não a tira dali, nem um pedaço parecido
+        em volta) ou quando não se acha com certeza. (Achada a mais que a folga é certo: dentro dela, na mesma escala, a
+        busca de perto já teria achado a mesma correlação.)"""
+        p, n = self.p, self.n
+        aqui = float(cv2.minMaxLoc(cv2.matchTemplate(cinza_l, self.estado[1], cv2.TM_CCOEFF_NORMED))[1])
+        if aqui >= p.segue_ncc:
+            return None
+        h, w = img.shape[:2]
+        r = p.raio * self.d + p.busca * self.d
+        # V131: prender em 0 e na borda ANTES de fatiar
+        x0, y0 = max(0, int(self.cx - r)), max(0, int(self.cy - r))
+        x1, y1 = min(w, int(self.cx + r)), min(h, int(self.cy + r))
+        if (x1 - x0) * p.escala < n + 2 or (y1 - y0) * p.escala < n + 2:
+            return None
+        regiao = cv2.resize(img[y0:y1, x0:x1], (int((x1 - x0) * p.escala), int((y1 - y0) * p.escala)),
+                            interpolation=cv2.INTER_AREA)
+        cinza_r = cv2.cvtColor(regiao, cv2.COLOR_BGR2GRAY).astype(np.float32)
+        _, ncc, _, (bx, by) = cv2.minMaxLoc(cv2.matchTemplate(cinza_r, self.estado[1], cv2.TM_CCOEFF_NORMED))
+        if ncc < p.segue_ncc:
+            return None
+        return x0 + (bx + n / 2) / p.escala, y0 + (by + n / 2) / p.escala
 
     def olhar(self, quadro: str, hora: datetime, img: np.ndarray) -> None:
         p, f, n = self.p, self.p.folga_px, self.n
@@ -301,26 +368,57 @@ class _Metade:
             if parada:
                 self.estado = (lab_l[f:f + n, f:f + n].copy(), cinza_l[f:f + n, f:f + n].copy())
                 self.papel_lab = np.median(self.estado[0][self.papel], axis=0)
-                self.passos.append(Passo(hora, self.k, "comeco", 1.0, None, quadro))
+                self.passos.append(Passo(hora, self.k, "comeco", 1.0, None, quadro, cx=self.cx, cy=self.cy))
+                self.vista_em = hora
             return
-        # o encaixe no estado assentado: onde o pão está agora (empurrado ou não); a janela não anda (ERR-137)
+        # o encaixe no estado assentado: onde o pão está agora (empurrado ou não); a janela não anda com o encaixe (ERR-137)
         x, y = self._encaixe(cinza_l, self.estado[1])
         lab = lab_l[y:y + n, x:x + n].copy()
         cinza = cinza_l[y:y + n, x:x + n]
         lab[..., 0] -= self._luz(lab[..., 0], self.estado[0][..., 0])
-        self.anterior = cinza
         difere = (np.sqrt(((lab - self.estado[0]) ** 2).sum(axis=2)) > p.delta) & self.disco
         difere = cv2.morphologyEx(difere.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)).astype(bool)
+        # a janela que segue: parada e a peça não está mais inteira no lugar — procura a peça inteira em volta; achada
+        # num lugar onde ela pode ir (`pode_ir`: na faixa, e vazio antes de ela sumir — ou com a mesma peça vista de
+        # novo depois), a janela anda até ela
+        if p.segue and parada and float(difere.sum()) / self.area >= p.segue_parte:
+            novo = self._onde_andou(img, cinza_l)
+            if novo is not None and self.pode_ir is not None and not self.pode_ir(self, *novo):
+                novo = None
+            outra = self.outra_em(self, *novo) if novo is not None and self.outra_em is not None else None
+            if novo is not None and (outra is None or (outra.desde is not None and self.vista_em is not None
+                                                       and outra.desde > self.vista_em)):
+                if outra is not None:
+                    outra.mesma_de = self.k  # a mesma peça, vista de novo no lugar novo: aquela metade sai
+                self.cx, self.cy = novo
+                self.andou += 1
+                # o que estava pendente e a passagem eram do lugar de antes
+                self.pendente, self.antes = None, None
+                largo = self._janela(img)
+                if largo is None:
+                    return
+                cinza_l = cv2.cvtColor(largo, cv2.COLOR_BGR2GRAY).astype(np.float32)
+                lab_l = cv2.cvtColor(cv2.GaussianBlur(largo, (3, 3), 0), cv2.COLOR_BGR2LAB).astype(np.float32)
+                x, y = self._encaixe(cinza_l, self.estado[1])
+                lab = lab_l[y:y + n, x:x + n].copy()
+                cinza = cinza_l[y:y + n, x:x + n]
+                lab[..., 0] -= self._luz(lab[..., 0], self.estado[0][..., 0])
+                difere = (np.sqrt(((lab - self.estado[0]) ** 2).sum(axis=2)) > p.delta) & self.disco
+                difere = cv2.morphologyEx(difere.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)).astype(bool)
+        self.anterior = cinza
         if not parada:
             return
+        if float(difere.sum()) / self.area < p.minimo:
+            self.vista_em = hora
         if self.pendente is not None:
-            quadro_p, hora_p, lab_p, difere_p = self.pendente
+            quadro_p, hora_p, lab_p, difere_p, cx_p, cy_p = self.pendente
             chegou = difere_p & difere & (np.sqrt(((lab - lab_p) ** 2).sum(axis=2)) < p.estavel)
             parte = float(chegou.sum()) / self.area
             if parte < p.minimo:
                 self.descartar()
             else:
-                passo = Passo(hora_p, self.k, "passo", round(parte, 3), round(self._papel_em(lab, chegou), 2), quadro, chegou)
+                passo = Passo(hora_p, self.k, "passo", round(parte, 3), round(self._papel_em(lab, chegou), 2), quadro, chegou,
+                              cx=cx_p, cy=cy_p)
                 if self.antes is not None:
                     lab_antes, masc_antes, anterior = self.antes
                     junto = chegou & masc_antes
@@ -334,7 +432,7 @@ class _Metade:
                                np.where(chegou, cinza, self.estado[1]).astype(np.float32))
                 difere = difere & ~chegou
                 self.pendente = None
-        self.pendente = (quadro, hora, lab, difere) if float(difere.sum()) / self.area >= p.minimo else None
+        self.pendente = (quadro, hora, lab, difere, self.cx, self.cy) if float(difere.sum()) / self.area >= p.minimo else None
 
 
 class _Olhar:
@@ -351,7 +449,7 @@ class _Olhar:
             self._quadro, self._img = s.quadro, self.abrir(s.quadro)
         if self._img is None:
             return None
-        corte = recorte(self._img, MetadeVista(m.k, m.cx, m.cy, m.d, m.desde), self.p)
+        corte = recorte(self._img, janela_do_passo(s, m.k, m.cx0, m.cy0, m.d, m.desde), self.p)
         if corte.shape[0] < 8 or corte.shape[1] < 8:
             return None
         return self.juiz(corte)
@@ -403,12 +501,15 @@ class PassosDoLanche:
     p: Parametros = field(default_factory=Parametros)
     quadros: list[tuple[str, datetime]] = field(default_factory=list)
     pontos: list[Ponto] = field(default_factory=list)
+    # a faixa do lugar (a maior vista): a janela que segue não sai dela
+    faixa: tuple[float, float] | None = None
 
     def ver(self, quadro: str, hora: datetime, img: np.ndarray, caixas: list[tuple], x0: float, x1: float,
             achados: list[tuple[float, float, float]] | None = None) -> None:
         """Um quadro do lugar: as caixas do detector (x0, y0, x1, y1, ...) com o centro na faixa [x0, x1] e os discos
         de pão da faixa (`achados`, quando quem chama já os tem)."""
         self.quadros.append((quadro, hora))
+        self.faixa = (x0, x1) if self.faixa is None else (min(self.faixa[0], x0), max(self.faixa[1], x1))
         for c in caixas:
             cx = (c[0] + c[2]) / 2
             if x0 <= cx <= x1:
@@ -426,16 +527,57 @@ class PassosDoLanche:
             perto = {pt.quadro for pt in self.pontos if abs(pt.cx - m.cx) < p.perto * m.d and abs(pt.cy - m.cy) < p.perto * m.d}
             i = next((i for i, q in enumerate(nomes) if q in perto and any(o in perto for o in nomes[i + 1:i + 3])), None)
             m.desde = self.quadros[i][1] if i is not None else None
+            if p.segue and i is not None:
+                # a janela que segue nasce onde o pão estava nos primeiros quadros da metade — a mediana do lanche inteiro
+                # cai no meio do caminho quando ele é empurrado
+                primeiros = set(nomes[i:i + p.nasce_quadros])
+                pts = [pt for pt in self.pontos if pt.quadro in primeiros
+                       and abs(pt.cx - m.cx) < p.junta * m.d and abs(pt.cy - m.cy) < p.junta * m.d]
+                if pts:
+                    m.cx = m.cx0 = float(np.median([pt.cx for pt in pts]))
+                    m.cy = m.cy0 = float(np.median([pt.cy for pt in pts]))
+        if p.segue:
+            def outra_em(quem: _Metade, cx: float, cy: float) -> _Metade | None:
+                """A metade (outra) onde a janela que andou foi parar: a mesma peça vista de novo, ou um vizinho."""
+                return next((o for o in metades if o is not quem and o.mesma_de is None and o.desde is not None
+                             and float(np.hypot(o.cx - cx, o.cy - cy)) < p.mesma_peca * max(o.d, quem.d)), None)
+
+            hora_de = dict(self.quadros)
+
+            def pode_ir(quem: _Metade, cx: float, cy: float) -> bool:
+                """Na faixa do lugar, e sem pão visto ali ANTES de a peça sumir (fora os pontos dela mesma, no lugar de
+                antes): o vizinho parecido estava lá. Não basta perguntar à metade de lá (`outra_em`): ela pode ter andado
+                antes, atrás do papel empurrado, e deixado o lugar — o que conta é o que se viu ali."""
+                if self.faixa is not None and not self.faixa[0] <= cx <= self.faixa[1]:
+                    return False
+                ate, ocupa, dela = quem.vista_em, p.perto * quem.d, p.junta * quem.d
+                if ate is None:
+                    return False
+                for pt in self.pontos:
+                    h = hora_de.get(pt.quadro)
+                    if h is None or h > ate:
+                        continue
+                    if abs(pt.cx - quem.cx) < dela and abs(pt.cy - quem.cy) < dela:
+                        continue
+                    if abs(pt.cx - cx) < ocupa and abs(pt.cy - cy) < ocupa:
+                        return False
+                return True
+
+            for m in metades:
+                m.outra_em, m.pode_ir = outra_em, pode_ir
         if metades:
             for quadro, hora in self.quadros:
-                vivas = [m for m in metades if m.desde is not None and hora >= m.desde]
+                vivas = [m for m in metades if m.desde is not None and hora >= m.desde and m.mesma_de is None]
                 if not vivas:
                     continue
                 img = abrir(quadro)
                 if img is None:
                     continue
                 for m in vivas:
-                    m.olhar(quadro, hora, img)
+                    if m.mesma_de is None:
+                        m.olhar(quadro, hora, img)
+        # a metade que era a mesma peça de outra que andou até ela sai da leitura (com os passos dela)
+        metades = [m for m in metades if m.mesma_de is None]
         for m in metades:
             m.descartar()  # o pendente do fim, que ficou sem o quadro seguinte
         olhar = _Olhar(abrir, juiz, p) if juiz is not None else None
@@ -446,7 +588,7 @@ class PassosDoLanche:
             for m in metades:
                 olhar.passos(m)
         passos = sorted((ps for m in metades for ps in m.passos), key=lambda s: (s.hora, s.metade))
-        return Leitura([MetadeVista(m.k, m.cx, m.cy, m.d, m.desde) for m in metades], passos, fechou)
+        return Leitura([MetadeVista(m.k, m.cx0, m.cy0, m.d, m.desde) for m in metades], passos, fechou)
 
     def _fechar(self, metades: list[_Metade]) -> datetime | None:
         """O primeiro passo cujo conteúdo novo é papel fecha o lanche; antes dele, o provisório de cada outra metade;

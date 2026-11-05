@@ -1153,9 +1153,9 @@ def cmd_servir(args: argparse.Namespace) -> int:
         print("gravação de treino ligada: lê o que o console pedir, com a loja fechada")
 
     from farol_agent.bancada_ao_vivo import (
-        GUARDAR, INGREDIENTES, JUIZ_TREINADO, JUIZ_TREINADO_VISTAS, OLHO_DUPLO, PAO_NO_PASSO, PASSOS, VARIAVEL,
-        BancadaAoVivo, canais_ligados, guardar_quadros_ligado, ingredientes_ligados, juiz_treinado_ligado,
-        olho_duplo_ligado, pao_no_passo_ligado, passos_ligados,
+        GUARDAR, INGREDIENTES, JANELA_SEGUE, JUIZ_TREINADO, JUIZ_TREINADO_VISTAS, OLHO_DUPLO, PAO_NO_PASSO, PASSOS,
+        VARIAVEL, BancadaAoVivo, canais_ligados, guardar_quadros_ligado, ingredientes_ligados, janela_segue_ligada,
+        juiz_treinado_ligado, olho_duplo_ligado, pao_no_passo_ligado, passos_ligados,
     )
 
     bancada_ao_vivo = None
@@ -1203,8 +1203,11 @@ def cmd_servir(args: argparse.Namespace) -> int:
                     marcar_por_noite=marcar_por_noite(os.environ.get(MARCAR_POR_NOITE)),
                 )
                 conferencia_em_fundo.iniciar()
+        # a janela que segue (a janela de cada metade anda com a peça empurrada): só com os passos
+        janela_segue = passos and guardar and janela_segue_ligada(os.environ.get(JANELA_SEGUE))
         bancada_ao_vivo = BancadaAoVivo(
             args.config, canais_ao_vivo, guardar_quadros=guardar, passos=passos, juiz_de=juiz_de,
+            janela_segue=janela_segue,
         )
         bancada_ao_vivo.iniciar()
         print(
@@ -1218,6 +1221,7 @@ def cmd_servir(args: argparse.Namespace) -> int:
             + (f"; o nome do ingrediente pelo JUIZ TREINADO ({JUIZ_TREINADO})" if treinado else "")
             + (f", com o OLHO DUPLO ({OLHO_DUPLO})" if olho_duplo else "")
             + (f", e o PÃO NO PASSO ({PAO_NO_PASSO}): o passo que é pão não conta" if pao_no_passo else "")
+            + (f"; a JANELA QUE SEGUE ({JANELA_SEGUE}): a janela de cada metade anda com a peça" if janela_segue else "")
             + (f"; até {conferencia_em_fundo.por_noite} lanches de cada noite sobem para a conferência, com a loja "
                "fechada" if conferencia_em_fundo is not None else "")
             + (f"; e até {conferencia_em_fundo.marcar_por_noite} recortes de cada noite sobem para MARCAR"

@@ -10585,3 +10585,58 @@ por uma folga na probabilidade:
   lugar da tampa vira vazio com o nome do pão (era passo), o queijo continua passo, o começo continua o pão.
 - Mutação 11/11 (na primeira rodada sobrou "a folga contra o pior ingrediente" — ganhou o caso que separa as duas).
 - Suíte do agente inteira: 2307 passaram, 1 pulado, nenhuma falha.
+
+## 05/11/2026 · A janela que segue: a janela de cada metade anda com o lanche empurrado (agente, chave desligada; sem migration)
+
+O dono, 05/11, conferindo os lanches: "tem momentos que não está enquadrado, aparece a ponta do hambúrguer"; "momentos
+que aparecem dois hambúrgueres sendo montados"; e "a janela não pode ficar fixa no lugar, tem que acompanhar como um
+detector humano: forma um quadrado ou retângulo e acompanha seus movimentos".
+
+**Medido nas noites de 02 a 04/11** (as pastas dos passos no PC da loja, 791 lanches):
+- a janela fixa NASCE centrada (o disco do pão a 0,06 diâmetro do centro do primeiro recorte, na mediana);
+- mas em 10% das metades (164 de 1.659) o pão escorrega 0,30 diâmetro ou mais durante o lanche — o "só a ponta";
+- as metades por lanche: 1 = 13%, 2 = 55%, 3 = 20% (o pão de dois cortes), **4 ou mais = 11%** — dois lanches no mesmo
+  lugar, ou a mesma peça vista em dois lugares;
+- os passos "saiu" (548), olhados de olho numa folha: quase todos são a metade VIRADA sobre a outra (o fechamento) ou o
+  embrulho — só uns 3 eram o lanche andando.
+
+Na bancada desenhada dos testes, o empurrão mostra o mecanismo: os pontos de antes e de depois de um empurrão de 60 px
+caem num grupo só, e a janela fixa nasce na MEDIANA — no meio do caminho (x = 330, o pão estava em 300 e foi para 360):
+torta antes e depois, com 2 passos falsos no empurrão. Com 120 px, os dois lugares viram 4 metades.
+
+**O que muda** (`passos_do_lanche.py`, o 2b do cabeçalho; tudo só com `Parametros(segue=True)`):
+- **onde nasce**: na mediana dos pontos dos `nasce_quadros` (5) primeiros quadros da metade, não na do lanche inteiro;
+- **quando anda**: num quadro PARADO, com `segue_parte` (15%) ou mais da janela mudado, a peça inteira (o último estado
+  assentado: o pão com o que já chegou) não está mais no lugar — a correlação de perto (dentro da folga) abaixo de
+  `segue_ncc` (0,70) — e é achada em volta, até `busca` (1 diâmetro) para cada lado, com 0,70 ou mais. Nunca pelo
+  encaixe de cada quadro (a janela que andava com o encaixe saiu 130 px da peça no P7 — ERR-137): a fatia que chega, a
+  mão que passa e o tremido não a movem;
+- **para onde não vai**: fora da faixa do lugar; um ponto onde se via pão ANTES de a peça sumir (o vizinho parecido —
+  não basta perguntar à metade de lá: no teste, as metades de papel andaram atrás do papel empurrado e liberaram o
+  lugar); para cima de uma metade nascida antes;
+- **a mesma peça**: a metade que nasceu DEPOIS onde a janela que andou foi parar é a mesma peça vista de novo — sai da
+  leitura, com os passos dela;
+- **cada passo leva a janela dele** (`Passo.cx/cy`, `janela_do_passo`): o juiz julga e o recorte sai de onde a janela
+  estava naquela hora; o `passos.json` ganha `x`/`y` no passo cuja janela andou. A metade continua dita pelo lugar onde
+  nasceu.
+- **A chave `FAROL_BANCADA_JANELA_SEGUE`** (desligada por padrão; só com os passos). Na loja, com a troca de pacote e a
+  chave, depois da releitura das noites gravadas e com o "pode" do dono.
+
+### Como foi conferido
+
+- `testes/test_passos_do_lanche.py` (a bancada desenhada):
+  - a janela fixa no empurrão de 60 px (nasce em 330, 2 passos falsos) e a que segue (nasce em 300, anda com o lanche,
+    só o queijo e a carne, a carne no lugar novo);
+  - 120 px: 2 metades, não 4;
+  - não anda com o que chega, nem dentro da folga (ERR-137), nem para um pedaço igual colado em volta com a peça no
+    lugar, nem para onde já se via pão, nem para fora da faixa;
+  - só procura com a cena parada e com mudança (a busca é a conta mais cara do quadro);
+  - com o juiz, ele julga a janela que andou.
+- `testes/test_bancada_ao_vivo.py`: o recorte de cada passo sai da janela daquele passo, o registro leva `x`/`y` só
+  quando ela andou, o serviço e o comando passam a chave (só com os passos).
+- Mutação 19/19. Na primeira rodada sobraram 7:
+  - 2 eram checagens redundantes, que saíram do código: "anda dentro da folga" (a busca de perto, na mesma escala, já
+    teria achado) e "anda qualquer distância" (a região de busca já limita);
+  - 5 ganharam teste: o pedaço parecido, a cena parada, a mudança mínima, o juiz na janela que andou, a chave nos
+    passos.
+- Suíte do agente inteira: 2323 passaram, 1 pulado, nenhuma falha.
