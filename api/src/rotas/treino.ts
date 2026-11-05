@@ -77,6 +77,8 @@ const MAX_DO_CORPO = 18 * 1024 * 1024;
 const CONFERIDOS_NA_LISTA = 200;
 /** De quantos conferidos (os mais novos) saem as sugestões para as fichas. */
 const CONFERIDOS_DAS_SUGESTOES = 500;
+/** Quantos conferidos (os mais novos) descem para o computador da loja (`contratos/conferidos-da-loja.json`). */
+export const LIMITE_DOS_CONFERIDOS = 1000;
 
 /** Apaga os quadros dos lanches conferidos há mais de 30 dias (decisão do dono). Devolve quantos saíram. */
 export async function apagarQuadrosVencidos(pool: pg.Pool, agora: Date = new Date()): Promise<number> {
@@ -853,6 +855,68 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
       })),
       apagar: apagar.rows.map((g) => g.chave as string),
     };
+  });
+
+  // as conferências da loja descendo para o computador dela (05/11/2026; `contratos/conferidos-da-loja.json`): o que
+  // a leitura disse, o produto que a pessoa disse e a resposta, para a loja medir uma regra nova com os modelos dela
+  // antes de ela entrar. Sem imagem (os quadros vão pelo sha256, o mesmo do exemplo na base) e sem quem conferiu. A
+  // loja sai do token, nunca do pedido.
+  app.get('/v1/agentes/treino/conferidos', async (req, resposta) => {
+    const agente = await doAgente(req, resposta);
+    if (!agente) return;
+    const [lanches, naoSeVe] = await Promise.all([
+      pool.query<{
+        id: string;
+        gravacao: string;
+        chave: string;
+        aberto_em: Date | null;
+        fechou_em: Date | null;
+        leitura: { etapas?: EtapaLida[]; pecas?: number } | null;
+        produto: string | null;
+        palpite: string | null;
+        acertou: boolean | null;
+        conferido_em: Date | null;
+        resposta: Conferencia;
+        quadros: Array<{ n: number; sha256: string | null }> | null;
+      }>(
+        `select l.id, g.chave as gravacao, l.chave, l.aberto_em, l.fechou_em, l.leitura, l.produto, l.palpite, l.acertou,
+                l.conferido_em, l.resposta,
+                (select jsonb_agg(jsonb_build_object('n', q.n, 'sha256', q.sha256) order by q.n)
+                   from treino_quadro q where q.lanche_id = l.id) as quadros
+           from treino_lanche l
+           join treino_gravacao g on g.id = l.gravacao_id
+          where l.loja_id = $1 and l.situacao = 'conferido'
+          order by l.conferido_em desc nulls last, l.id
+          limit $2`,
+        [agente.lojaId, LIMITE_DOS_CONFERIDOS],
+      ),
+      // o que "não se vê de cima" (a conta da ficha deixa de fora): o mesmo da tela, pela chave do nome
+      pool.query<{ nomes: string[] }>(
+        `select coalesce(array_agg(lower(btrim(b.nome)) order by lower(btrim(b.nome))), '{}') as nomes
+           from base_conhecimento b
+          where b.loja_id = $1 and b.tipo = 'item' and not b.visivel`,
+        [agente.lojaId],
+      ),
+    ]);
+    return resposta.header('cache-control', 'no-store').send({
+      limite: LIMITE_DOS_CONFERIDOS,
+      naoSeVe: naoSeVe.rows[0]?.nomes ?? [],
+      lanches: lanches.rows.map((l) => ({
+        id: l.id,
+        gravacao: l.gravacao,
+        chave: l.chave,
+        abertoEm: l.aberto_em,
+        fechouEm: l.fechou_em,
+        pecas: l.leitura?.pecas ?? null,
+        etapas: l.leitura?.etapas ?? [],
+        quadros: l.quadros ?? [],
+        produto: l.produto,
+        palpite: l.palpite,
+        acertou: l.acertou,
+        conferidoEm: l.conferido_em,
+        resposta: l.resposta,
+      })),
+    });
   });
 
   app.post('/v1/agentes/treino/gravacoes/:id/andamento', async (req, resposta) => {

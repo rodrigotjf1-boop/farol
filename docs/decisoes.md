@@ -10694,3 +10694,30 @@ Com a média das 8 vistas, 0,05 tira 82 e não perde nenhum. Junto com o pão no
 - `testes/test_bancada_ao_vivo.py`: o serviço liga a descida e o juiz só com a chave E o juiz treinado.
 - Mutação 20/20 (na primeira rodada sobrou "a descida à mão sem o nada" — ganhou o teste do comando).
 - Suíte do agente inteira: 2341 passaram, 1 pulado, nenhuma falha.
+
+## 05/11/2026 · As conferências descem para a loja: o lanche certo vira material de medida (API, rota nova; sem migration)
+
+O dono, 05/11, depois do relatório do motor: "aplique o pacote refaça testes use materiais que temos ate aumentar a
+taxa de sucesso e reveja o que pode aprimorar e melhorar o juiz". A taxa de sucesso é o LANCHE certo (placar de 30/211
+em 05/11). O juiz se mede na loja (a base desce para lá), mas o lanche certo de cada conferência só existia na nuvem
+(`treino_lanche.produto`): sem ele, nenhuma regra nova do palpite se mede antes de entrar.
+
+- **`GET /v1/agentes/treino/conferidos`** (token do agente; a loja sai do token): os lanches conferidos DESTA loja —
+  as etapas como a loja mandou, o produto que a pessoa disse, o palpite e o acerto da hora, a resposta e os quadros
+  pelo número e sha256 (o mesmo do exemplo na base da loja) —, os conferidos mais novos primeiro, até 1000
+  (`LIMITE_DOS_CONFERIDOS`), e o que "não se vê de cima". Sem imagem e sem QUEM conferiu.
+- Contrato `contratos/conferidos-da-loja.json`; o agente ainda não o lê (a medida roda por roteiro, fora do pacote).
+
+### Como foi conferido
+
+- `api/testes/treino.test.ts`: 401 sem token e com token que não existe; duas lojas — a vizinha com sete conferidos
+  cujas horas não seguem nem o envio, nem a conferência, nem a ordem em que as linhas mudaram, e um não conferido: vêm
+  só os sete, o conferido mais novo primeiro; as chaves da resposta, do lanche e do quadro são as do contrato; o quadro
+  pelo sha256 dos bytes; nem quem conferiu, nem imagem; a loja do teste não recebe os da vizinha e a conta bate com o
+  banco; o "não se vê de cima" de cada loja (só o ingrediente: o nome escrito à mão escondido não entra).
+- Mutação 11/11 (sem o filtro da loja, do conferido, a ordem ao contrário, sem ordem — viva até as horas embaralhadas
+  de uma vez —, o "não se vê" sem a loja, sem o visível, sem o tipo, limite de 1, etapas, quadros e produto vazios).
+  O filtro `resposta is not null` saiu: com o do conferido, era a mesma regra (a mutação dele não morria).
+- Suíte da API num Postgres local novo com as 61 migrations (a 001 numa cópia sem pgvector): 1684 passaram, 26
+  falharam e 15 cancelados — as MESMAS 26 e 15 da `origin/main` sem esta mudança (1683 passaram): o tipo `vector` e o
+  tempo, deste banco; o CI tem o pgvector.
