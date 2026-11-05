@@ -59,11 +59,13 @@ NOMES_MINIMO = 2
 # provável que não é pão — mas a tampa que chega por cima da base, a metade puxada e o pão posto depois SÃO passos, e
 # saíam com o nome do ingrediente mais parecido (a carne, quase sempre). O dono, 05/11: "pão nunca é cogitado como
 # ingrediente nos chutes, sempre detecta o pão como alguma carne". Medido nas noites de 02 e 03/11 da loja piloto, nos
-# passos que o dono respondeu (o juiz de 1793 exemplos, conta honesta em 5 partes, a média das 8 vistas): dos 336 passos
-# com um nome, 71 eram pão (o juiz de hoje os chamou de Carne 120gr 22, Carne 56gr 18, Disco mussarela 9…). Com o pão
-# quando ele passa o melhor ingrediente por esta folga na probabilidade: 43 dos 71 deixam de ser ingrediente, e 10 dos
-# 265 ingredientes viram pão (folga 0,10: 48 e 13; 0,50: 26 e 5). O passo que é pão não é ingrediente: sai como vazio,
-# com o nome do pão, e não conta na ficha (a nuvem já não conta o vazio).
+# passos que o dono respondeu (a base de 05/11, 2026 exemplos de um nome; conta honesta em 5 partes): dos 336 passos com
+# um nome, 71 eram pão (a leitura ao vivo os chamou de Carne 120gr 22, Carne 56gr 18, Disco mussarela 9…). Com o pão
+# quando ele passa o melhor ingrediente por esta folga na probabilidade, consultando só a imagem (como a loja): 62 dos
+# 71 deixam de ser ingrediente (87%), e 7 dos 265 ingredientes viram pão (folga 0,10: 65 e 11; 0,50: 38 e 2); com a
+# média das 8 vistas, 60 e 7. (A 1ª conta, que deu 43 e 10, lia as probabilidades das partes com a lista de nomes de
+# outra parte — ERR-163 do registro local.) O passo que é pão não é ingrediente: sai como vazio, com o nome do pão, e
+# não conta na ficha (a nuvem já não conta o vazio).
 FOLGA_DO_PAO = 0.25
 
 
