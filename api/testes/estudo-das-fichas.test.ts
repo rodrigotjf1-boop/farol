@@ -4,8 +4,10 @@
 //     contar separa (1 ou 2 carnes); o que "não se vê de cima" não separa; o que não passa pela cozinha fica de fora;
 //   - o PESO: quanto mais raro, mais diz; as faixas raro, intermediário e comum;
 //   - o PALPITE: o raro visto decide mesmo quando os comuns batem mais com outra ficha (a conta de antes errava aí);
-//     o que o cliente mandou tirar não derruba; o adicional fora da ficha não muda o lanche; a quantidade desempata;
-//     o grupo "pode ser A ou B" divide o peso; a leitura sem nome nas fichas tira de todas igual;
+//     o que o cliente mandou tirar não derruba; o adicional fora da ficha não muda o lanche; a quantidade desempata
+//     quando ligada (desligada desde 05/11/2026, medido); o que não foi visto não pesa e o empate vai para a ficha
+//     menor (os pesos medidos de 05/11); o grupo "pode ser A ou B" divide o peso; a leitura sem nome nas fichas tira
+//     de todas igual;
 //   - as opções de "Qual lanche era?" são de famílias diferentes, e o acerto conta a família;
 //   - a CURVA DO PALPITE (A24, F2): em que passo o palpite acerta, só nos conferidos — certo, certo entre os
 //     plausíveis e certo de vez; quem acaba antes fica com o palpite do fim.
@@ -15,7 +17,18 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { estudarFichas, ESTRANHO, faixaDoIngrediente, mesmaFamilia, pesoDoIngrediente } from '../src/estudo-das-fichas.js';
+import {
+  ESTRANHO,
+  estudarFichas,
+  faixaDoIngrediente,
+  FALTOU,
+  mesmaFamilia,
+  notaDaFamilia,
+  pesoDoIngrediente,
+  PESOS_DA_NOTA,
+  QUANTIDADE,
+  SOBRA,
+} from '../src/estudo-das-fichas.js';
 import type { Base, Produto } from '../src/fichas.js';
 import { chaveDoIngrediente } from '../src/ingredientes.js';
 import {
@@ -189,11 +202,43 @@ describe('o estudo das fichas', () => {
     assert.equal(comOvoAdicional.fora, 1, 'mas vem fora da ficha');
   });
 
-  it('a quantidade de contar desempata: 2 carnes e 2 fatias de queijo é o Bacon 6', () => {
-    const p = melhor([etapa(['Pão de hambúrguer']), etapa(['Carne'], 2), etapa(['Queijo'], 2), etapa(['Bacon'], 2)]);
-    assert.equal(p.produto, 'Bacon 6');
-    const um = melhor([etapa(['Pão de hambúrguer']), etapa(['Carne'], 1), etapa(['Queijo'], 1), etapa(['Bacon'], 2)]);
-    assert.equal(um.produto, 'Bacon 5');
+  it('o que a leitura viu e a ficha não tem tira METADE do peso dele (05/11/2026, medido nos conferidos)', () => {
+    assert.equal(SOBRA, 0.5);
+    const e = estudarFichas(cardapio());
+    const sem = leitura('Pão de hambúrguer', 'Carne', 'Cheddar cremoso', 'Cebola caramelizada');
+    const semOvo = palpitesDoLanche(sem, cardapio()).find((x) => x.produto === 'Clássico 7')!;
+    const comOvo = palpitesDoLanche([...sem, etapa(['Ovo'])], cardapio()).find((x) => x.produto === 'Clássico 7')!;
+    assert.ok(Math.abs(semOvo.nota - comOvo.nota - pesoDoIngrediente(e, 'ovo') / 2) < 2e-6, `${semOvo.nota} − ${comOvo.nota}`);
+  });
+
+  it('a quantidade de contar, LIGADA, desempata: 2 carnes e 2 fatias de queijo é o Bacon 6 (a regra fica para quando a leitura contar)', () => {
+    const e = estudarFichas(cardapio());
+    const nota = (produto: string, etapas: EtapaLida[]) =>
+      notaDaFamilia(e, e.familiaDoProduto.get(chaveDoIngrediente(produto))!, etapas, undefined, { ...PESOS_DA_NOTA, quantidade: 1 / 4 });
+    const duas = [etapa(['Pão de hambúrguer']), etapa(['Carne'], 2), etapa(['Queijo'], 2), etapa(['Bacon'], 2)];
+    const uma = [etapa(['Pão de hambúrguer']), etapa(['Carne'], 1), etapa(['Queijo'], 1), etapa(['Bacon'], 2)];
+    assert.ok(nota('Bacon 6', duas) > nota('Bacon 5', duas), '2 carnes: o Bacon 6');
+    assert.ok(nota('Bacon 5', uma) > nota('Bacon 6', uma), '1 carne: o Bacon 5');
+  });
+
+  it('hoje (05/11/2026, medido) a quantidade não conta: a leitura que diz 2 carnes ou 1 dá o mesmo palpite', () => {
+    assert.equal(QUANTIDADE, 0);
+    const duas = melhor([etapa(['Pão de hambúrguer']), etapa(['Carne'], 2), etapa(['Queijo'], 2), etapa(['Bacon'], 2)]);
+    const uma = melhor([etapa(['Pão de hambúrguer']), etapa(['Carne'], 1), etapa(['Queijo'], 1), etapa(['Bacon'], 2)]);
+    assert.deepEqual([duas.produto, duas.nota], [uma.produto, uma.nota]);
+    // o Bacon 5 e o Bacon 6 batem igual (o pão, a carne, o queijo e o bacon): vale a ficha menor, a do Bacon 6 (sem alface)
+    assert.equal(duas.produto, 'Bacon 6');
+  });
+
+  it('o que a ficha tem e a leitura não viu não pesa; no empate, vale a ficha MENOR, e só depois o nome', () => {
+    assert.equal(FALTOU, 0);
+    // o Smash 1 (pão, carne, queijo, alface) e o Salada 4 (o mesmo + tomate) batem igual com a leitura do Smash 1: vale
+    // a ficha que explica a leitura com menos ingredientes
+    const todos = palpitesDoLanche(leitura('Pão de hambúrguer', 'Carne', 'Queijo', 'Alface'), cardapio());
+    const salada = todos.find((x) => x.produto === 'Salada 4')!;
+    assert.equal(todos[0]!.produto, 'Smash 1');
+    assert.deepEqual([salada.nota, salada.fora], [todos[0]!.nota, todos[0]!.fora], 'empatados na nota e no que vem fora');
+    assert.ok(todos.indexOf(salada) > 0);
   });
 
   it('o que vai por peso não se conta: a cebola vista duas vezes vale o mesmo que uma', () => {
@@ -209,8 +254,9 @@ describe('o estudo das fichas', () => {
       (x) => x.produto === 'Onion 3',
     )!;
     const anel = pesoDoIngrediente(e, 'anel de cebola');
-    // sozinho, o anel visto 1 vez contra 3 da ficha também tira um quarto; no grupo a quantidade não se conta
-    assert.ok(Math.abs(grupo.nota - (so.nota + anel / 4 - anel / 2)) < 1e-9, `${grupo.nota} × ${so.nota}`);
+    // sozinho, o anel visto 1 vez contra 3 da ficha também tira `QUANTIDADE` (zero desde 05/11); no grupo a quantidade
+    // não se conta. A nota do palpite sai arredondada em 1e-6.
+    assert.ok(Math.abs(grupo.nota - (so.nota + QUANTIDADE * anel - anel / 2)) < 2e-6, `${grupo.nota} × ${so.nota}`);
   });
 
   it('a leitura sem nome nas fichas tira de todas igual: a ordem não muda', () => {
@@ -305,11 +351,13 @@ describe('a curva do palpite (A24, F2)', () => {
   it('em que passo o palpite acerta: certo, certo entre os plausíveis e certo de vez; quem acaba antes fica com o fim', () => {
     const c = curvaDoPalpite(
       [
-        // os comuns e a alface apontam o Smash 1; o bacon decide no 5º passo — antes, o Bacon 5 já está entre os plausíveis
+        // com os pesos medidos de 05/11 (o que falta não pesa; o empate vai para a ficha menor, depois o nome): só o pão
+        // e a carne empatam as fichas de 4 ingredientes, e vale o nome (Bacon 6) — ninguém acerta ainda; o queijo põe o
+        // Bacon 5 entre os plausíveis no 3º passo, a alface dá o Smash 1 no 4º e o bacon decide no 5º
         conferido('Bacon 5', leitura('Pão de hambúrguer', 'Carne', 'Queijo', 'Alface', 'Bacon')),
         // o anel decide no 3º passo (o palpite é o combo: a mesma família); acaba no 4º e fica certo no 5º
         conferido('Onion 3', leitura('Pão de hambúrguer', 'Carne', 'Anel de cebola', 'Ovo')),
-        // certo desde o pão
+        // certo desde a alface (4º passo)
         conferido('Smash 1', leitura('Pão de hambúrguer', 'Carne', 'Queijo', 'Alface')),
       ],
       cardapio(),
@@ -317,9 +365,9 @@ describe('a curva do palpite (A24, F2)', () => {
     assert.deepEqual(c, {
       lanches: 3,
       pontos: [
-        { passos: 1, certos: 1, entre: 2, deVez: 1 },
-        { passos: 2, certos: 1, entre: 2, deVez: 1 },
-        { passos: 3, certos: 2, entre: 3, deVez: 2 },
+        { passos: 1, certos: 0, entre: 2, deVez: 0 },
+        { passos: 2, certos: 0, entre: 2, deVez: 0 },
+        { passos: 3, certos: 1, entre: 3, deVez: 1 },
         { passos: 4, certos: 2, entre: 3, deVez: 2 },
         { passos: 5, certos: 3, entre: 3, deVez: 3 },
       ],
@@ -328,16 +376,17 @@ describe('a curva do palpite (A24, F2)', () => {
   });
 
   it('o certo que vira errado no fim não é de vez; sem produto, sem passo lido ou sem fichas, fora da conta', () => {
-    // o Smash 1 com bacon (pedido do cliente ou leitura errada): certo até o 4º passo, e o 5º troca o palpite
+    // o Smash 1 com bacon (pedido do cliente ou leitura errada): certo no 4º passo (a alface), e o 5º troca o palpite —
+    // o Smash 1 continua entre os plausíveis
     const virou = curvaDoPalpite([conferido('Smash 1', leitura('Pão de hambúrguer', 'Carne', 'Queijo', 'Alface', 'Bacon'))], cardapio());
     assert.deepEqual(
       virou.pontos.map((p) => [p.certos, p.entre, p.deVez]),
       [
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
         [1, 1, 0],
-        [1, 1, 0],
-        [1, 1, 0],
-        [1, 1, 0],
-        [0, 0, 0],
+        [0, 1, 0],
       ],
     );
     assert.equal(virou.noFim, 0);
@@ -374,11 +423,15 @@ describe('a curva do palpite (A24, F2)', () => {
     ];
     assert.deepEqual(passosDoPalpite(etapas).map((e) => e.leu), ['Pão de hambúrguer', 'Carne', 'Molho', 'Queijo']);
 
-    // o bacon só no 13º passo: até o 12º o palpite é o Smash 1, e o fim (com todos) é o Bacon 5
+    // o bacon só no 13º passo: até o 12º o palpite não é o Bacon 5 (ele entra nos plausíveis com o queijo, no 3º), e o
+    // fim (com todos) é o Bacon 5
     const longo = [...leitura('Pão de hambúrguer', 'Carne', 'Queijo', 'Alface'), ...Array.from({ length: 8 }, () => etapa([], 1, 'Molho')), ...leitura('Bacon')];
     const c = curvaDoPalpite([conferido('Bacon 5', longo)], cardapio());
     assert.equal(c.pontos.length, PASSOS_DA_CURVA);
-    assert.ok(c.pontos.every((p) => p.certos === 0 && p.entre === 1 && p.deVez === 0));
+    assert.deepEqual(
+      c.pontos.map((p) => [p.certos, p.entre, p.deVez]),
+      [[0, 0, 0], [0, 0, 0], ...Array.from({ length: PASSOS_DA_CURVA - 2 }, () => [0, 1, 0])],
+    );
     assert.equal(c.noFim, 1);
   });
 });

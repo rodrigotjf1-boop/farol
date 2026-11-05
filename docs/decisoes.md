@@ -10721,3 +10721,48 @@ em 05/11). O juiz se mede na loja (a base desce para lá), mas o lanche certo de
 - Suíte da API num Postgres local novo com as 61 migrations (a 001 numa cópia sem pgvector): 1684 passaram, 26
   falharam e 15 cancelados — as MESMAS 26 e 15 da `origin/main` sem esta mudança (1683 passaram): o tipo `vector` e o
   tempo, deste banco; o CI tem o pgvector.
+
+## 05/11/2026 · Os pesos da conta da ficha, medidos: o que falta não pesa, o que sobra pesa metade, a quantidade sai, e o empate vai para a ficha menor (API; sem migration)
+
+Com as conferências na loja (#237), o palpite do lanche se mediu pela primeira vez contra o lanche certo. **O que se
+mediu** (237 conferidos; o palpite refeito com o código da nuvem e as fichas de hoje; roteiros no rascunho da sessão):
+
+- **O placar de 30/211 (14%) mistura duas coisas.** Dos 237 conferidos, só **63 têm o produto**; 174 são "não era um
+  lanche / não dá para saber" e contam como erro. Desses 174, 75 têm 3+ ingredientes marcados e 83 têm 1 ou 2 (pedaço
+  de lanche); entre os de metades conhecidas, 98 de 148 têm 3+ metades (lanches juntos). **O lanche certo, entre os que
+  eram lanche: 33/63 (52%) na hora da conferência** — o replay com o código da nuvem deu os mesmos 33 (controle).
+- **Leitura perfeita** (o que a pessoa marcou, com a conta de antes): 55/63 — o teto da conta era 87%.
+- **O juiz de hoje relendo as etapas** (o classificador do agente, o olho duplo, o "não é" e o pão no passo, treinado SEM
+  a noite que se confere e sem as fotos quase iguais a ela — cosseno ≥ 0,93; 573 das 923 etapas tinham imagem na loja,
+  as outras ficaram como a noite leu): **40/63**, com a conta de antes.
+- **Os pesos** (grade de 192, escolhidos sem a noite que se confere): castigar o ingrediente da ficha que a leitura não
+  viu empurrava para a ficha errada; o que a leitura viu e a ficha não tem pesava demais; a quantidade de contar só
+  atrapalha (relido, a conta bate com a ficha em 30 de 96 ingredientes de contar). Com o que falta em 0, a sobra em
+  0,5 e a quantidade em 0: **como a noite leu, 33 → 38 (honesta) → 39/63; relido pelo juiz de hoje, 40 → 46 (honesta)
+  → 47/63 (75%)**; nas noites do juiz treinado (29/10–03/11), 35/43 (81%). Com a leitura perfeita: 55 → 54/63.
+- **O empate:** com o que falta em 0, 24 de 63 lanches empatam no topo; 19 deles entre fichas do mesmo tamanho. Pela ficha
+  menor e depois o nome: 39 e 47; pela ficha menor e o nome AO CONTRÁRIO: 39 e 47 (o ganho não vem da ordem do
+  alfabeto); pelo nome só: 39 e 46; pelo que falta mais leve: 37 e 43; um castigo pequeno (0,05) no lugar do zero: 37 e
+  43.
+
+**O que muda:** `estudo-das-fichas.ts` — `FALTOU` 0 (era 1/3), `SOBRA` 0,5 (nova; era 1), `QUANTIDADE` 0 (era 1/4),
+`PESOS_DA_NOTA` e o parâmetro `pesos` de `notaDaFamilia` (a conta com outros pesos, para quem mede e para o teste da
+regra de quantidade, que fica para quando a leitura contar). `treino.ts` — a nota do palpite arredondada em 1e-6 (o
+empate não pode depender da sobra do ponto flutuante) e o desempate: nota, o que vem fora, **a ficha menor**, o nome.
+O palpite da tela, a curva, as sugestões e o acerto da conferência seguem a conta nova; o acerto JÁ GUARDADO não muda.
+
+**O que NÃO muda e foi medido:** o pão do começo pelo juiz (o melhor pão no recorte do começo) não soma depois dos pesos
+(46 contra 47); o "A ou B" quando o 2º ingrediente chega perto, também não (46). O agente fica como está.
+
+### Como foi conferido
+
+- `api/testes/estudo-das-fichas.test.ts`: a quantidade, LIGADA (pesos do protótipo), ainda separa o Bacon 5 do 6; hoje
+  não conta (2 carnes ou 1, o mesmo palpite); o que não foi visto não pesa e o empate vai para a ficha menor (o Smash 1
+  antes do Salada 4); o que sobra tira metade do peso; o grupo "A ou B" pela constante; a curva do palpite refeita (cada
+  número conferido contra a regra: só o pão e a carne empatam as fichas de 4 ingredientes e vale o nome).
+- Mutação 8/9: o que falta, a sobra e a quantidade de volta ao protótipo, a sobra sem o peso, o que falta e a quantidade
+  pela constante em vez do peso pedido, sem o desempate pela ficha menor e com ele ao contrário. Viva: **sem o
+  arredondamento** — nenhuma ordem de ingredientes do cardápio de teste muda a soma (procurado em todas), e nos dados de
+  verdade o resultado foi o mesmo com e sem (46 nos dois): o arredondamento fica como proteção.
+- Suíte da API sem banco 891/891; com banco (Postgres local novo, 61 migrations): as falhas são as mesmas da
+  `origin/main` (o `vector` e o tempo deste banco), nenhuma nova.
