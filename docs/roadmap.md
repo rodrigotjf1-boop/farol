@@ -5231,7 +5231,9 @@ fotos. Para o exemplo de critério da onda 2, as três de 10/10 continuam como e
 1. **A imagem.** A gravação inteira fica só no computador da loja. Os quadros das etapas sobem reduzidos — para
    conferir de qualquer lugar, com a loja ligada ou não — e saem 30 dias depois da conferência. O recorte do
    ingrediente conferido vira exemplo da base e fica enquanto a base o usar.
-2. **A meta.** O lanche certo em 9 de cada 10, com pelo menos 30 conferidos, antes de passar às outras estações.
+2. **A meta.** O lanche certo em 9 de cada 10, com pelo menos 30 conferidos, antes de passar às outras estações. Desde
+   05/11/2026 (o placar aprovado pelo dono), contados só os conferidos que eram um lanche: o "não era um lanche / não dá
+   para saber" tem número próprio e fica fora da conta (`docs/decisoes.md`, 05/11).
 3. **Quem confere.** Diretoria, gerência e supervisão. Criar e cancelar gravação, responder às sugestões, tirar foto e
    marcar "não se vê de cima": quem configura a loja (diretoria e gerência).
 4. **As fotos.** Até 6 por ingrediente.

@@ -14,7 +14,9 @@
 //     mais dúvida — é onde a conferência ensina mais;
 //   • os números contam SÓ o que alguém conferiu: antes da conferência, o
 //     Farol não sabe se acertou. A meta: o lanche certo em 9 de cada 10,
-//     com pelo menos 30 conferidos (decisão 2);
+//     com pelo menos 30 conferidos (decisão 2) — desde 05/11/2026, contados
+//     só os que ERAM um lanche: o "não era um lanche / não dá para saber"
+//     tem número próprio e fica fora da conta (protótipo do placar, aprovado);
 //   • conferem a diretoria, a gerência e a supervisão (decisão 3) — a API
 //     decide; esta tela só não mostra o que o perfil não usa;
 //   • a gravação inteira fica no computador da loja; os quadros saem 30
@@ -649,61 +651,150 @@ function Numero({ valor, children }: { valor: string; children: ReactNode }) {
   );
 }
 
+/** A parte que se arredonda para a tela ("52%"). */
+const porCento = (a: number, b: number) => `${Math.round((100 * a) / b)}%`;
+
+/**
+ * A barra do lanche certo, com um traço na meta. `parte` nula = não há o que contar (nenhum conferido era um lanche):
+ * a trilha listrada, sem a parte certa.
+ */
+function BarraDoAcerto({ parte, meta, rotulo, alta = false }: { parte: number | null; meta: number; rotulo: string; alta?: boolean }) {
+  const altura = alta ? 'h-3' : 'h-2.5';
+  if (parte === null) {
+    return (
+      <span
+        className={`block ${altura} rounded-full [background-image:repeating-linear-gradient(135deg,rgb(var(--realce))_0_6px,rgb(var(--painel-2))_6px_12px)]`}
+        role="img"
+        aria-label={rotulo}
+      />
+    );
+  }
+  return (
+    <span className={`relative block ${altura} overflow-hidden rounded-full bg-farol-realce`} role="img" aria-label={rotulo}>
+      <i className={`block h-full rounded-full ${parte >= meta ? 'bg-farol-ok' : 'bg-farol-marca'}`} style={{ width: `${Math.max(1.5, parte * 100)}%` }} />
+      {/* a meta: um traço nos 90% */}
+      <i className="absolute inset-y-0 w-0.5 bg-farol-facho" style={{ left: `${meta * 100}%` }} aria-hidden />
+    </span>
+  );
+}
+
+/**
+ * O placar (o dono, 05/11/2026, "aprovado" no protótipo do placar): o lanche certo se conta ENTRE OS QUE ERAM LANCHE —
+ * o conferido respondido como "não era um lanche" ou "não dá para saber" ganha número próprio e fica fora da conta e da
+ * meta. O total de antes (certos entre todos os conferidos) segue visível, menor. Os números são os guardados na hora
+ * de cada conferência (decisão do dono: os antigos ficam como foram conferidos).
+ */
 function Numeros({ d, daBancada, fuso }: { d: TreinoDaLoja; daBancada: IngredienteDaLoja[]; fuso: string }) {
-  const { conferidos, acertou } = d.contas;
+  const { conferidos, eramLanche, acertou } = d.contas;
+  const fora = conferidos - eramLanche;
   const visiveis = daBancada.filter((i) => i.visivel);
   const comExemplo = visiveis.filter((i) => i.exemplos > 0).length;
   const porGravacao = d.gravacoes.filter((g) => g.conferidos > 0);
   const meta = d.meta;
-  const naMeta = conferidos >= meta.minimo && acertou / conferidos >= meta.acerto;
+  const naMeta = eramLanche >= meta.minimo && acertou / eramLanche >= meta.acerto;
   const sobreAMeta =
-    conferidos < meta.minimo
-      ? `Faltam ${plural(meta.minimo - conferidos, 'lanche conferido', 'lanches conferidos')} para a meta valer.`
+    eramLanche < meta.minimo
+      ? `Faltam ${plural(meta.minimo - eramLanche, 'lanche conferido que era lanche', 'lanches conferidos que eram lanche')} para a meta valer.`
       : naMeta
         ? 'A bancada está na meta.'
         : 'A bancada ainda está abaixo da meta.';
   return (
     <>
-      <div className="grid grid-cols-3 gap-2 sm:gap-3" role="group" aria-label="O que o Farol já sabe nesta bancada" data-numeros>
-        <Numero valor={numero(conferidos)}>{conferidos === 1 ? 'lanche conferido' : 'lanches conferidos'}</Numero>
-        <Numero valor={conferidos ? `${numero(acertou)} de ${numero(conferidos)}` : '—'}>o lanche certo, antes da conferência</Numero>
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4 lg:gap-3" role="group" aria-label="O que o Farol já sabe nesta bancada" data-numeros>
+        <div className={`${CARTAO} col-span-2 flex min-w-0 flex-col gap-2 px-4 pb-3.5 pt-4 sm:px-[18px]`} data-numero-principal>
+          <div className="flex flex-wrap items-baseline gap-x-3.5 gap-y-0.5">
+            <b className="break-words font-display text-[34px] font-extrabold leading-tight tracking-tight tabular-nums sm:text-[40px] md:text-[46px]">
+              {eramLanche ? `${numero(acertou)} de ${numero(eramLanche)}` : '—'}
+            </b>{' '}
+            {/* o espaço: o leitor de tela (e o texto da página) não junta "7 de 11" com "64%" — a linha flexível o ignora */}
+            {eramLanche > 0 && <span className="font-mono text-[15px] font-semibold tabular-nums">{porCento(acertou, eramLanche)}</span>}
+          </div>{' '}
+          <span className="text-sm font-semibold leading-snug">o lanche certo entre os que eram lanche, antes da conferência</span>
+          <BarraDoAcerto
+            alta
+            parte={eramLanche ? acertou / eramLanche : null}
+            meta={meta.acerto}
+            rotulo={eramLanche ? `${porCento(acertou, eramLanche)} certos; a meta é ${Math.round(meta.acerto * 100)}%` : 'sem lanche conferido que era lanche'}
+          />
+          <p className="mt-0.5 border-t border-dashed border-farol-borda pt-2 text-[12.5px] leading-snug text-farol-suave">
+            {eramLanche ? (
+              <span>
+                Contando também os que não eram um lanche:{' '}
+                <strong className="font-semibold text-farol-tinta tabular-nums">
+                  {numero(acertou)} de {numero(conferidos)}
+                </strong>{' '}
+                ({porCento(acertou, conferidos)}).
+              </span>
+            ) : conferidos ? (
+              `Nenhum dos ${plural(conferidos, 'lanche conferido', 'lanches conferidos')} era um lanche. O número aparece quando um lanche de verdade for conferido.`
+            ) : (
+              'O número aparece quando o primeiro lanche for conferido.'
+            )}
+          </p>
+        </div>
+        <div className={`${CARTAO} flex min-w-0 flex-col gap-0.5 px-3 py-2.5 sm:px-4 sm:py-3.5`} data-numero-fora>
+          <b className="break-words font-display text-lg font-semibold leading-tight tracking-tight tabular-nums sm:text-[22px] md:text-[26px]">
+            {conferidos ? `${numero(fora)} de ${numero(conferidos)}` : '—'}
+          </b>{' '}
+          <span className="text-[11.5px] leading-snug text-farol-suave sm:text-[12.5px]">não era um lanche ou não dá para saber</span>{' '}
+          {conferidos > 0 && (
+            <span className="mt-1 text-xs leading-snug text-farol-suave">{porCento(fora, conferidos)} dos conferidos. Fica fora da conta do lanche certo.</span>
+          )}
+        </div>
         <Numero valor={`${numero(comExemplo)} de ${numero(visiveis.length)}`}>ingredientes da bancada com exemplo</Numero>
       </div>
       {porGravacao.length > 0 && (
         <section className={`${CARTAO} flex flex-col gap-3 px-4 py-3.5`} aria-labelledby="t-acerto">
           <header className="flex flex-wrap items-center gap-2">
-            <h2 id="t-acerto" className="text-base font-semibold">
+            <h2 id="t-acerto" className="min-w-0 text-base font-semibold">
               O lanche certo, gravação por gravação
             </h2>
             <span className="ml-auto">
               <Chip tom={naMeta ? 'ok' : 'neutro'}>meta: 9 em 10</Chip>
             </span>
           </header>
-          <div className="flex flex-col gap-2.5" data-acerto-por-gravacao>
+          {/* os títulos das colunas: só no largo (no estreito, cada linha diz o que é) */}
+          <div
+            className="hidden text-[11.5px] tracking-[0.02em] text-farol-suave sm:grid sm:grid-cols-[minmax(0,200px)_minmax(0,1fr)_76px_120px] sm:gap-x-3.5"
+            aria-hidden
+          >
+            <span className="col-start-1 row-start-1">gravação</span>
+            <span className="col-start-2 row-start-1">entre os que eram lanche</span>
+            <span className="col-start-3 row-start-1 text-right">certos</span>
+            <span className="col-start-4 row-start-1 text-right">não era um lanche</span>
+          </div>
+          <ul className="m-0 flex list-none flex-col gap-3 p-0" data-acerto-por-gravacao>
             {porGravacao.map((g) => {
-              const parte = g.acertou / g.conferidos;
+              const parte = g.eramLanche ? g.acertou / g.eramLanche : null;
               return (
-                <div key={g.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-[13px] sm:grid-cols-[minmax(0,190px)_minmax(0,1fr)_auto]">
-                  <span className="col-start-1 row-start-1 min-w-0 break-words text-farol-suave">{quandoDaGravacao(g.inicio, g.fim, fuso)}</span>
-                  <span
-                    className="relative col-span-2 col-start-1 row-start-2 h-2.5 overflow-hidden rounded-full bg-farol-realce sm:col-span-1 sm:col-start-2 sm:row-start-1"
-                    role="img"
-                    aria-label={`${Math.round(parte * 100)}% certos`}
-                  >
-                    <i className={`block h-full rounded-full ${parte >= meta.acerto ? 'bg-farol-ok' : 'bg-farol-marca'}`} style={{ width: `${Math.max(1.5, parte * 100)}%` }} />
-                    {/* a meta: um traço nos 90% */}
-                    <i className="absolute inset-y-0 w-px bg-farol-tinta/50" style={{ left: `${meta.acerto * 100}%` }} aria-hidden />
+                <li
+                  key={g.id}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-[13px] sm:grid-cols-[minmax(0,200px)_minmax(0,1fr)_76px_120px] sm:gap-x-3.5"
+                  data-gravacao-do-acerto={g.id}
+                >
+                  <span className="col-start-1 row-start-1 min-w-0 break-words text-farol-suave">{quandoDaGravacao(g.inicio, g.fim, fuso)}</span>{' '}
+                  <span className="col-span-2 col-start-1 row-start-2 sm:col-span-1 sm:col-start-2 sm:row-start-1">
+                    <BarraDoAcerto
+                      parte={parte}
+                      meta={meta.acerto}
+                      rotulo={g.eramLanche ? `${porCento(g.acertou, g.eramLanche)} certos entre os que eram lanche` : 'nenhum conferido era um lanche'}
+                    />
                   </span>
-                  <span className="col-start-2 row-start-1 text-right font-mono text-[13px] font-semibold sm:col-start-3">
-                    {numero(g.acertou)} de {numero(g.conferidos)}
+                  <span className="col-start-2 row-start-1 whitespace-nowrap text-right font-mono text-[13px] font-semibold tabular-nums sm:col-start-3">
+                    {g.eramLanche ? `${numero(g.acertou)} de ${numero(g.eramLanche)}` : '—'}
+                  </span>{' '}
+                  <span className="col-span-2 col-start-1 row-start-3 text-xs text-farol-suave sm:col-span-1 sm:col-start-4 sm:row-start-1 sm:text-right sm:text-[13px]">
+                    <span className="sm:hidden">não era um lanche: </span>
+                    <b className="font-mono font-semibold text-farol-tinta tabular-nums">{numero(g.conferidos - g.eramLanche)}</b>
                   </span>
-                </div>
+                </li>
               );
             })}
-          </div>
+          </ul>
           <p className={AJUDA}>
-            Contado só nos lanches que alguém conferiu: antes da conferência, o Farol não sabe se acertou. A meta: o lanche certo em 9 de cada 10, com
-            pelo menos {meta.minimo} conferidos. {sobreAMeta}
+            Contado só nos lanches conferidos que eram um lanche: antes da conferência, o Farol não sabe se acertou. Os que foram respondidos como
+            &ldquo;não era um lanche&rdquo; ou &ldquo;não dá para saber&rdquo; aparecem à parte. A meta: o lanche certo em 9 de cada 10, com pelo menos{' '}
+            {meta.minimo} conferidos que eram lanche. {sobreAMeta}
           </p>
         </section>
       )}

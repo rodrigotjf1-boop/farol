@@ -10766,3 +10766,48 @@ O palpite da tela, a curva, as sugestões e o acerto da conferência seguem a co
   verdade o resultado foi o mesmo com e sem (46 nos dois): o arredondamento fica como proteção.
 - Suíte da API sem banco 891/891; com banco (Postgres local novo, 61 migrations): as falhas são as mesmas da
   `origin/main` (o `vector` e o tempo deste banco), nenhuma nova.
+
+## 05/11/2026 · O placar do lanche certo, entre os que eram lanche (API + console; sem migration)
+
+**O pedido do dono** (05/11, sobre o placar de 14%): mostrar o acerto entre os que eram lanche separado do "não era um
+lanche". Protótipo "Placar do lanche" publicado na mesma noite; o dono: **"aprovado"** — as quatro decisões escritas
+nele, como estavam: (1) o número grande passa a ser **o lanche certo entre os que eram lanche**; (2) "não era um lanche
+ou não dá para saber" **não conta como erro** do palpite — ganha número próprio; (3) a **meta** (9 em 10, com pelo menos
+30) conta só os conferidos que eram lanche; (4) os números são os **guardados na hora de cada conferência** (os antigos
+ficam como foram conferidos: 33, e não os 39 da conta de hoje refeita).
+
+**Por quê:** dos 237 conferidos até 05/11, 174 foram respondidos "não era um lanche / não dá para saber" e contavam
+como erro: o placar dizia 33/237 (14%), e o lanche certo entre os que eram lanche era 33/63 (52%). Os 174 são
+sobretudo recorte e separação (pedaços de lanche, a peça do vizinho no lugar), não o palpite da ficha — medido em 05/11:
+83 deles têm só 1 ou 2 ingredientes marcados; nos 51 de 3 metades, só 1 tem o pão de dois cortes marcado; a regra "pão
+novo depois de ingrediente = outro lanche" não os explica (nos 63 com produto, 47 → 46). Ver também as duas entradas de
+05/11 acima (as conferências que descem e os pesos medidos).
+
+**O que muda:** `GET /v1/lojas/:id/treino` ganha `contas.eramLanche` e `gravacoes[].eramLanche` (os conferidos COM
+produto); `conferidos` e `acertou` seguem como eram. No console (Treinamento, o topo): o cartão grande "X de N" com a
+parte e a barra com o traço da meta, e embaixo "contando também os que não eram um lanche: X de M"; o cartão "não era um
+lanche ou não dá para saber"; "ingredientes da bancada com exemplo" igual; em "gravação por gravação", a barra e o "X de
+N" só dos que eram lanche, a coluna "não era um lanche", e a gravação sem nenhum lanche com "—" e a trilha listrada; a
+meta e a frase dela pelos que eram lanche. `META` em `treino.ts` não muda de valor (o comentário diz a base nova). O
+protótipo do repositório (`mockups/farol-conexoes-e-fichas.html`, tela Treinamento) segue a tela.
+
+**Diferenças do protótipo publicado:** o "o número de hoje" ao fim da linha "contando também…" ficou fora (na tela não
+há o "hoje" para comparar: é o total, e a frase diz isso); a nota "Igual a hoje." no cartão dos ingredientes também. A
+lista de lanches conferidos não mudou (o protótipo dizia "as abas e a lista seguem como hoje"): o conferido "não era
+lanche" ainda aparece com o selo vermelho "o Farol achou X" — fica para o dono dizer se vira neutro.
+
+### Como foi conferido
+
+- `api/testes/treino.test.ts`: as contas e a gravação com `eramLanche` (0 antes de conferir; 1 depois do X-Burger; com o
+  "não era um lanche" na mesma gravação: conferidos 2, eram lanche 1, certos 1, no total e na gravação).
+- Mutação 4/6 (controle antes, V120): sem o "produto não nulo" no total e na gravação, e a resposta trocada por
+  `conferidos` no total e na gravação — mortas. Vivas: sem o "situação = conferido" no total e na gravação —
+  equivalentes: só a conferência grava `produto`, e ela grava `situacao = 'conferido'` na mesma instrução (o pular só sai
+  de `conferir`); a condição fica como segunda trava, igual às contas vizinhas.
+- A tela no console local (API e console em portas próprias, banco de teste, 4 lojas semeadas: várias gravações com
+  lanche e "não era", só "não era", nenhum conferido, na meta): os números de cada estado contra o esperado das mesmas
+  listas, e 144 medidas (16 larguras × claro e escuro, e a escolha `data-tema` contra o aparelho nos dois sentidos) —
+  sem rolagem para o lado, nenhum texto passando da caixa no placar, nenhum id repetido, nenhum erro de script; pior
+  contraste de texto no placar 4,53:1. Achado no caminho e corrigido: o número grande e a parte ("7 de 11" e "64%") saíam
+  colados no texto da página ("7 de 1164%") — espaço entre eles (a linha flexível o ignora; o leitor de tela, não).
+- O protótipo do repositório no navegador (6 larguras × 2 temas): sem rolagem para o lado e sem erro de script.
