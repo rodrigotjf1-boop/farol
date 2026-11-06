@@ -10844,3 +10844,57 @@ conferências, só 44 ainda tinham posição.
   lanche da noite ao vivo) e com a lista vazia (o lanche de antes); a régua do contrato = a constante da API.
 - Mutação 22/22 mortas (controle antes de cada lado): 12 na API e 10 no agente. Viva no começo: "k booleano passa" —
   no Python, `True` vale 1, e o caso vinha depois de um `k` 1 (saía como repetido); o teste ganhou o booleano sozinho.
+
+## 06/11/2026 · A sugestão pelo ingrediente que só um lanche tem, e o adicional pelo nome (API + console; sem migration)
+
+**O pedido do dono:** a regra dele de 05/11 ("a identificação de um ou até dois ingredientes já dá 99% de sucesso na
+identificação, pelas fichas"; "o anel de cebola só está no Número 08 e no Trio 08") virou o protótipo "Sugestão pelo
+ingrediente", e o dono: **"protótipo aprovado"**. No mesmo dia, o detalhe: "o anel de cebola só vai no Número 08, porém é
+um item que está como adicional em alguns produtos — casos raros podem ser adicionados em outras fichas; quando tiver KDS
+vai ter o aviso, porém é uma exceção à regra". Então: **o ingrediente que também é adicional SUGERE, com o aviso** (o
+protótipo dizia que ele não sugeria). E o dono sobre o "não era um lanche": muitas vezes o lanche estava lá e o juiz
+acertou ingredientes, mas não dava para definir a ficha pelo que aparecia — o selo da lista fica como está.
+
+**O que foi medido** (os 63 conferidos com produto, o que a pessoa marcou; `scratchpad\medida-lanche\regra_adicional.ts`,
+`adicional_pelo_nome.ts`): nas fichas da loja, 158 de 179 opções de adicional vêm SEM ligação ao insumo (o "Ovo" é opção
+em 13 produtos assim; o anel de cebola não aparece como opção em nenhum) — o estudo só contava o adicional ligado. Com a
+opção sem ligação valendo pelo NOME (quando ele é o de um ingrediente das fichas):
+- a sugestão (o único sugere; o adicional vira aviso; dois únicos de lanches diferentes: vale o que não é adicional em
+  lugar nenhum) sugere em **38 e acerta os 38** (17 com o aviso de adicional); sem o adicional pelo nome, o desempate
+  errava 1 (o barbecue é adicional do Trio 06, o ovo não aparecia);
+- o palpite do lanche (a conta da nuvem) NÃO muda: 39, 47 e 54 de 63, os mesmos, nenhuma diferença lanche a lanche.
+
+**O que muda:**
+- `ingredientes.ts` (`ingredientesDaBase`, `valePeloNome`) e `estudo-das-fichas.ts` (`estudarFichas`): a opção de
+  adicionar com efeito `nada` cujo nome (pela chave) é o de um ingrediente conhecido conta como adicional do produto; a
+  que não bate não cria ingrediente; a ligada, a de outro produto (a bebida), a observação e a que tira ficam como eram.
+- `GET /v1/treino/lanches/:id` ganha `familias` (os produtos de mesma ficha), para o Número e o Trio contarem como um.
+- Console: a regra em `web/componentes/treino/sugestao-pelo-ingrediente.ts` (testada pela API); o aviso em
+  `aviso-do-ingrediente.tsx` no topo de "Qual lanche era?" (lanche, escolhido, dispensado, dois lanches) e o lembrete
+  embaixo das opções no "Não era um lanche"; a dica e a borda no passo (`conferencia-por-passo.tsx`). A sugestão olha o
+  que quem confere CONFIRMOU (o "certo", o "era outro", a marca da foto), nunca a leitura sozinha. "É o Numero 08" escolhe
+  a opção do palpite da família, ou "Outro produto" com o nome quando ela não está entre as quatro.
+- `mockups/farol-sugestao-pelo-ingrediente.html`: o protótipo aprovado, com a regra do adicional do dono.
+
+**Fica para o dono:** a fila "para rever" dos 25 conferidos antigos "não era um lanche" com um ingrediente único marcado.
+**Visto no caminho (não mexido):** o palpite do Farol ("o Farol acha") ainda conta o ingrediente único que é adicional como
+se decidisse (o ovo puxa o Nº 08); a sugestão, sobre o confirmado, já explica.
+
+### Como foi conferido
+
+- `api/testes/sugestao-pelo-ingrediente.test.ts` (sem banco): o adicional pelo nome nos ingredientes e no estudo (a
+  bebida e a observação não; a opção que não é ingrediente não cria nada; a ficha não ganha como adicional o que já tem);
+  a regra: o único com o Número e o Trio juntos, o produto sem cozinha fora, o aviso só quando nenhum único do lanche é
+  exclusivo, o desempate, os dois exclusivos sem escolher, o repetido uma vez, o nome da família. `treino.test.ts`: a
+  rota devolve as famílias do estudo.
+- Mutação 17/17 mortas (controle sem banco e com banco antes). A viva da 1ª rodada — tirar do aviso o adicional da
+  própria família — era um filtro que não fazia nada (os produtos da família têm a mesma ficha, e o que está na ficha não
+  é adicional do produto): saiu.
+- A tela no console local (API e console em portas próprias, uma loja com o cardápio do teste e três lanches por passos),
+  pelo clique: confirmar a carne não acende nada; confirmar o anel acende o aviso com o Trio, o aviso de adicional (o
+  X-Bacon) e a dica do passo; "É o Numero 08" marca a opção; "Desfazer"; "Não é" e "Mostrar de novo"; "Não era um lanche"
+  tira o aviso e mostra o lembrete, que escolhe; dois únicos exclusivos mostram os dois sem escolher; o cheddar cremoso com
+  o ovo sugere o Nº 16 e explica o ovo. 42 medidas (16 larguras × claro e escuro com o aviso, e 375/1280 nos outros
+  estados): sem rolagem para o lado, nenhum texto passando da caixa, nenhum id repetido, nenhum erro de script; pior
+  contraste 4,53:1. Achado no caminho e corrigido: a etiqueta "Pelo ingrediente" colada na frase no texto da página
+  (ERR-164 de novo) e o "; O" maiúsculo no meio da frase.

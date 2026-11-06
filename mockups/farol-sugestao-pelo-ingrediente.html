@@ -1,0 +1,456 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>Sugestão pelo ingrediente</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+/* Protótipo da gaveta do lanche (Treinamento › Lanches › abrir um lanche), com os tokens do console (caminho "Comanda",
+   web/app/globals.css): o claro é papel de comanda, o escuro é chapa. Uma coluna: a moldura do protótipo em cima, a
+   gaveta embaixo (encostada à direita no largo, como no console). Os recortes são desenhos: imagem da loja não sai. */
+:root {
+  --fundo: 243 241 234;
+  --painel: 255 255 255;
+  --painel-2: 234 230 219;
+  --realce: 227 222 209;
+  --borda: 216 210 196;
+  --borda-forte: 189 182 166;
+  --tinta: 27 26 23;
+  --suave: 98 94 86;
+  --marca: 36 34 31;
+  --sobre-marca: 243 241 234;
+  --facho: 242 179 0;
+  --facho-tinta: 122 86 0;
+  --facho-leve: 252 239 196;
+  --ok: 47 122 44;
+  --ok-leve: 226 241 222;
+  --sombra-1: 0 1px 2px rgb(27 26 23 / 0.07), 0 6px 16px -10px rgb(27 26 23 / 0.25);
+  --sombra-2: -12px 0 32px -18px rgb(27 26 23 / 0.35);
+  /* os desenhos dos recortes (comida: o mesmo tom nos dois temas, sobre o fundo do recorte) */
+  --d-fundo: 214 206 188;
+  --d-pao: 214 160 86;
+  --d-carne: 112 66 40;
+  --d-queijo: 240 190 40;
+  --d-alface: 92 160 60;
+  --d-anel: 230 200 140;
+  --d-ovo: 250 248 240;
+  --d-gema: 244 170 30;
+  --d-creme: 245 242 232;
+  --d-traco: 60 52 40;
+  --f-display: "Big Shoulders Display", "Arial Narrow", Impact, system-ui, sans-serif;
+  --f-corpo: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fundo: 21 20 18; --painel: 35 33 29; --painel-2: 29 27 24; --realce: 46 43 38; --borda: 53 50 44; --borda-forte: 74 70 62;
+    --tinta: 243 239 230; --suave: 181 174 159; --marca: 243 239 230; --sobre-marca: 21 20 18;
+    --facho: 245 188 26; --facho-tinta: 245 188 26; --facho-leve: 51 42 14; --ok: 110 196 102; --ok-leve: 24 42 22;
+    --sombra-1: 0 1px 2px rgb(0 0 0 / 0.45), 0 6px 16px -10px rgb(0 0 0 / 0.6);
+    --sombra-2: -12px 0 32px -18px rgb(0 0 0 / 0.7);
+    --d-fundo: 62 57 49;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --fundo: 21 20 18; --painel: 35 33 29; --painel-2: 29 27 24; --realce: 46 43 38; --borda: 53 50 44; --borda-forte: 74 70 62;
+  --tinta: 243 239 230; --suave: 181 174 159; --marca: 243 239 230; --sobre-marca: 21 20 18;
+  --facho: 245 188 26; --facho-tinta: 245 188 26; --facho-leve: 51 42 14; --ok: 110 196 102; --ok-leve: 24 42 22;
+  --sombra-1: 0 1px 2px rgb(0 0 0 / 0.45), 0 6px 16px -10px rgb(0 0 0 / 0.6);
+  --sombra-2: -12px 0 32px -18px rgb(0 0 0 / 0.7);
+  --d-fundo: 62 57 49;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: rgb(var(--fundo));
+  color: rgb(var(--tinta));
+  font-family: var(--f-corpo);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+:focus-visible { outline: 2px solid rgb(var(--facho)); outline-offset: 2px; border-radius: 6px; }
+.sug-pagina {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ── a moldura do protótipo (não é a tela) ── */
+.sug-moldura { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1.5px dashed rgb(var(--borda-forte)); border-radius: 14px; background: rgb(var(--painel-2)); }
+.sug-moldura-topo { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.sug-selo { font-family: var(--f-mono); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: rgb(var(--facho-tinta)); background: rgb(var(--facho-leve)); border-radius: 999px; padding: 1px 8px; }
+.sug-moldura-topo p { margin: 0; color: rgb(var(--suave)); font-size: 13px; min-width: 0; max-width: 92ch; }
+.sug-grupo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.sug-grupo > span { font-size: 12px; color: rgb(var(--suave)); margin-right: 2px; }
+.sug-estado { font: inherit; font-size: 13px; font-weight: 600; min-height: 36px; padding: 6px 12px; border-radius: 999px; border: 1px solid rgb(var(--borda-forte)); background: rgb(var(--painel)); color: rgb(var(--tinta)); cursor: pointer; text-align: left; }
+.sug-estado:hover { border-color: rgb(var(--suave)); }
+.sug-estado[aria-pressed="true"] { background: rgb(var(--marca)); color: rgb(var(--sobre-marca)); border-color: rgb(var(--marca)); }
+.sug-explica { margin: 0; font-size: 13px; color: rgb(var(--tinta)); max-width: 92ch; }
+
+/* ── o palco: a tela de Treinamento atrás e a gaveta ── */
+.sug-palco { display: flex; justify-content: flex-end; border-radius: 16px; background: rgb(var(--realce)); padding: 0; min-width: 0; }
+.sug-atras { display: none; }
+@media (min-width: 900px) {
+  .sug-palco { padding: 14px 0 14px 14px; gap: 14px; }
+  .sug-atras { display: flex; flex: 1 1 0; min-width: 0; flex-direction: column; gap: 6px; padding: 12px 4px; color: rgb(var(--suave)); font-size: 13px; }
+  .sug-atras b { font-family: var(--f-display); font-size: 30px; font-weight: 900; letter-spacing: .01em; text-transform: uppercase; color: rgb(var(--tinta)); line-height: 1; }
+}
+.sug-gaveta { width: 100%; max-width: 620px; min-width: 0; display: flex; flex-direction: column; background: rgb(var(--painel)); border-radius: 16px; box-shadow: var(--sombra-2); border: 1px solid rgb(var(--borda) / .7); }
+@media (min-width: 900px) { .sug-gaveta { border-radius: 16px 0 0 16px; } }
+.sug-cab { display: flex; align-items: flex-start; gap: 10px; padding: 16px 18px 12px; border-bottom: 1px solid rgb(var(--borda)); }
+.sug-cab div { min-width: 0; flex: 1 1 auto; }
+.sug-cab h2 { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.25; text-wrap: balance; }
+.sug-cab p { margin: 2px 0 0; font-size: 12.5px; color: rgb(var(--suave)); }
+.sug-fechar { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgb(var(--borda-forte)); background: rgb(var(--painel)); color: rgb(var(--tinta)); font: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
+.sug-miolo { display: flex; flex-direction: column; gap: 20px; padding: 16px 18px 20px; }
+.sug-rotulo { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgb(var(--suave)); }
+.sug-secao { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sug-ajuda { margin: 0; font-size: 12.5px; line-height: 1.45; color: rgb(var(--suave)); }
+.sug-ajuda b { color: rgb(var(--tinta)); font-weight: 600; }
+
+/* a sugestão pelo ingrediente (o NOVO) */
+.sug-aviso { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 12px; border: 1.5px solid rgb(var(--facho)); background: rgb(var(--facho-leve)); }
+.sug-aviso.neutro { border-color: rgb(var(--borda-forte)); background: rgb(var(--painel-2)); }
+.sug-aviso.feito { border-color: rgb(var(--ok)); background: rgb(var(--ok-leve)); }
+.sug-aviso-topo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.sug-etiqueta { font-family: var(--f-mono); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgb(var(--facho-tinta)); }
+.sug-aviso.neutro .sug-etiqueta { color: rgb(var(--suave)); }
+.sug-aviso.feito .sug-etiqueta { color: rgb(var(--ok)); }
+.sug-aviso p { margin: 0; font-size: 14px; line-height: 1.45; }
+.sug-aviso p.sug-ajuda { font-size: 12.5px; }
+.sug-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.sug-botao { font: inherit; font-size: 13.5px; font-weight: 600; min-height: 36px; padding: 7px 14px; border-radius: 10px; border: 1px solid rgb(var(--borda-forte)); background: rgb(var(--painel)); color: rgb(var(--tinta)); cursor: pointer; text-align: left; max-width: 100%; }
+.sug-botao:hover { border-color: rgb(var(--suave)); }
+.sug-botao.principal { background: rgb(var(--marca)); color: rgb(var(--sobre-marca)); border-color: rgb(var(--marca)); }
+.sug-link { font: inherit; font-size: 12.5px; font-weight: 600; color: rgb(var(--tinta)); background: none; border: 0; padding: 2px 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+/* o palpite (como hoje) */
+.sug-palpite { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-left: 3px solid rgb(var(--marca)); border-radius: 0 10px 10px 0; background: rgb(var(--painel-2)); }
+.sug-palpite p { margin: 0; }
+.sug-linha { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.sug-chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 1px 9px; font-size: 12px; font-weight: 500; line-height: 1.5; background: rgb(var(--realce)); color: rgb(var(--suave)); white-space: nowrap; }
+.sug-chip.ok { background: rgb(var(--ok-leve)); color: rgb(var(--ok)); }
+.sug-chip.atencao { background: rgb(var(--facho-leve)); color: rgb(var(--facho-tinta)); }
+.sug-opcoes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+@media (min-width: 560px) { .sug-opcoes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.sug-opcao { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid rgb(var(--borda-forte)); background: rgb(var(--painel-2)); color: rgb(var(--tinta)); font: inherit; text-align: left; cursor: pointer; }
+.sug-opcao:hover { border-color: rgb(var(--suave)); }
+.sug-opcao[aria-checked="true"] { border-color: rgb(var(--facho)); background: rgb(var(--facho-leve)); }
+.sug-opcao b { font-weight: 600; overflow-wrap: anywhere; }
+.sug-opcao small { font-size: 12px; color: rgb(var(--suave)); }
+.sug-lembrete { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 0; padding: 8px 10px; border-radius: 10px; border: 1px dashed rgb(var(--borda-forte)); font-size: 13px; }
+.sug-lembrete span { min-width: 0; }
+
+/* o pão e os passos (como hoje, com desenhos no lugar dos recortes) */
+.sug-pao { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.sug-pecas { display: flex; gap: 4px; }
+.sug-passos { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.sug-passo { display: flex; gap: 12px; padding: 10px; border-radius: 10px; border: 1px solid rgb(var(--borda)); }
+.sug-passo.respondido { background: rgb(var(--painel-2)); }
+.sug-passo.unico { border-color: rgb(var(--facho)); }
+.sug-recorte { flex: 0 0 auto; width: 64px; height: 64px; border-radius: 8px; background: rgb(var(--d-fundo)); }
+.sug-passo-corpo { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1 1 auto; }
+.sug-passo-topo { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: rgb(var(--suave)); }
+.sug-hora { font-family: var(--f-mono); color: rgb(var(--tinta)); }
+.sug-leitura { margin: 0; font-size: 13.5px; overflow-wrap: anywhere; }
+.sug-leitura s { color: rgb(var(--suave)); }
+.sug-resp { display: flex; flex-wrap: wrap; gap: 6px; }
+.sug-pilula { font: inherit; font-size: 12px; font-weight: 500; min-height: 32px; padding: 4px 12px; border-radius: 999px; border: 1px solid rgb(var(--borda-forte)); background: transparent; color: rgb(var(--suave)); cursor: pointer; }
+.sug-pilula[aria-pressed="true"] { border-color: rgb(var(--facho)); background: rgb(var(--facho-leve)); color: rgb(var(--facho-tinta)); }
+.sug-dica { margin: 0; font-size: 12.5px; color: rgb(var(--tinta)); }
+.sug-dica a { color: rgb(var(--tinta)); font-weight: 600; text-underline-offset: 3px; }
+
+.sug-rodape { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 12px 18px 16px; border-top: 1px solid rgb(var(--borda)); }
+.sug-rodape p { flex: 1 1 200px; min-width: 0; margin: 0; font-size: 12.5px; color: rgb(var(--suave)); }
+
+/* o que o dono decide (fora da tela) */
+.sug-cartao { min-width: 0; border-radius: 16px; border: 1px solid rgb(var(--borda) / .6); background: rgb(var(--painel)); box-shadow: var(--sombra-1); }
+.sug-decidir { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.sug-decidir h2 { margin: 0; font-family: var(--f-display); font-weight: 800; font-size: 19px; letter-spacing: .04em; text-transform: uppercase; }
+.sug-decidir ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 84ch; }
+.sug-decidir p { margin: 0; font-size: 12.5px; color: rgb(var(--suave)); max-width: 92ch; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+</style>
+
+<div class="sug-pagina">
+  <section class="sug-moldura" aria-label="Controles do protótipo">
+    <div class="sug-moldura-topo">
+      <span class="sug-selo">Protótipo</span>
+      <p>A gaveta do lanche (Treinamento › Lanches › abrir um lanche). O novo é o aviso em "Qual lanche era?": quando você confirma um ingrediente que só um lanche tem, a gaveta sugere o lanche. Os nomes e os desenhos são exemplo.</p>
+    </div>
+    <div class="sug-grupo" role="group" aria-label="Qual situação">
+      <span>Situação</span>
+      <button type="button" class="sug-estado" data-estado="sem-unico" aria-pressed="false">Sem ingrediente único</button>
+      <button type="button" class="sug-estado" data-estado="um-unico" aria-pressed="true">Um único: anel de cebola</button>
+      <button type="button" class="sug-estado" data-estado="adicional" aria-pressed="false">Único que é adicional: ovo</button>
+      <button type="button" class="sug-estado" data-estado="dois" aria-pressed="false">Dois únicos de lanches diferentes</button>
+      <button type="button" class="sug-estado" data-estado="nao-era" aria-pressed="false">"Não era um lanche" com único marcado</button>
+    </div>
+    <p class="sug-explica" id="sug-explica" aria-live="polite"></p>
+  </section>
+
+  <div class="sug-palco">
+    <div class="sug-atras" aria-hidden="true">
+      <b>Treinamento</b>
+      <span>A tela de Treinamento fica atrás da gaveta, como no console.</span>
+    </div>
+    <section class="sug-gaveta" aria-labelledby="sug-titulo">
+      <header class="sug-cab">
+        <div>
+          <h2 id="sug-titulo">Lanche das <span id="sug-hora-lanche">21:09</span></h2>
+          <p>leitura ao vivo de 03/11 · canal 4</p>
+        </div>
+        <button type="button" class="sug-fechar" aria-label="Fechar">×</button>
+      </header>
+      <div class="sug-miolo" id="sug-miolo"></div>
+      <footer class="sug-rodape">
+        <p id="sug-pe">Escolha o lanche e responda os passos que souber.</p>
+        <button type="button" class="sug-botao">Pular</button>
+        <button type="button" class="sug-botao principal" id="sug-salvar">Salvar e ir para o próximo</button>
+      </footer>
+    </section>
+  </div>
+
+  <section class="sug-cartao sug-decidir" aria-labelledby="sug-t-decidir">
+    <h2 id="sug-t-decidir">O que o dono decidiu (06/11/2026: "protótipo aprovado")</h2>
+    <ol>
+      <li><strong>Quando sugere.</strong> Só quando o ingrediente confirmado está na ficha de UM lanche (o Número e o Trio da mesma ficha contam como um). Os dois raros que juntos só cabem numa ficha ficaram de fora.</li>
+      <li><strong>O adicional.</strong> O detalhe do dono no mesmo dia: "o anel de cebola só vai no Número 08, porém é um item que está como adicional em alguns produtos — quando tiver KDS vai ter o aviso, porém é uma exceção à regra". O ingrediente que também é adicional SUGERE, com o aviso de que o cliente pode ter pedido. Com dois únicos de lanches diferentes, vale o que não é adicional em lugar nenhum (medido com o adicional também pelo NOME da opção: 38 de 38).</li>
+      <li><strong>"É este" só escolhe.</strong> Nada se salva sozinho: você ainda confere os passos e salva.</li>
+      <li><strong>"Não era um lanche" com ingrediente único.</strong> Só o lembrete embaixo, sem travar. A fila "para rever" dos 25 conferidos antigos ficou para o dono decidir.</li>
+    </ol>
+    <p>De onde vem: a gaveta já recebe, de cada ingrediente, em quais lanches ele está na ficha e em quais é adicional (o mesmo que hoje ajuda a escolher o nome escrito à mão). Falta a nuvem dizer quais lanches têm a mesma ficha (o Número e o Trio), para a gaveta contar "um lanche só". Vale igual na conferência por foto das gravações de treino.</p>
+  </section>
+</div>
+
+<script>
+(() => {
+  // Os desenhos dos recortes: o pão (a metade) e o que chegou nele. Só formas; imagem da loja não entra.
+  const DESENHO = {
+    carne: '<circle cx="32" cy="32" r="22" fill="rgb(var(--d-pao))"/><circle cx="32" cy="32" r="17" fill="rgb(var(--d-carne))"/>',
+    queijo: '<circle cx="32" cy="32" r="22" fill="rgb(var(--d-pao))"/><rect x="15" y="15" width="34" height="34" rx="3" fill="rgb(var(--d-queijo))" transform="rotate(12 32 32)"/>',
+    alface: '<circle cx="32" cy="32" r="22" fill="rgb(var(--d-pao))"/><path d="M12 30c6-9 12 3 18-5s12 4 22-1c-2 10-8 17-20 18S11 40 12 30z" fill="rgb(var(--d-alface))"/>',
+    anel: '<circle cx="32" cy="32" r="22" fill="rgb(var(--d-pao))"/><circle cx="32" cy="32" r="13" fill="none" stroke="rgb(var(--d-anel))" stroke-width="7"/><circle cx="32" cy="32" r="13" fill="none" stroke="rgb(var(--d-traco))" stroke-width="1" opacity=".5"/>',
+    ovo: '<circle cx="32" cy="32" r="22" fill="rgb(var(--d-pao))"/><path d="M14 33c0-11 8-17 18-17s19 5 18 16-9 17-19 17-17-6-17-16z" fill="rgb(var(--d-ovo))"/><circle cx="33" cy="32" r="7" fill="rgb(var(--d-gema))"/>',
+    creme: '<circle cx="32" cy="32" r="22" fill="rgb(var(--d-pao))"/><path d="M18 30c3-8 11-10 16-7s12 1 13 8-6 13-15 13-17-6-14-14z" fill="rgb(var(--d-creme))"/>',
+  };
+  const recorte = (d) => `<svg class="sug-recorte" viewBox="0 0 64 64" role="img" aria-label="desenho do recorte">${DESENHO[d]}</svg>`;
+  const meia = '<svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="14" fill="rgb(var(--d-pao))"/></svg>';
+
+  // Os lanches de exemplo, um por situação. `v`: a resposta do passo (certo, outro, nada); `nome`: o "era outro".
+  const LANCHES = {
+    'sem-unico': {
+      hora: '21:42',
+      explica: 'Os ingredientes confirmados estão em vários lanches: a gaveta fica como hoje, sem aviso.',
+      palpite: { produto: 'X-Salada', familia: 'TRIO X-SALADA', porque: 'Porque viu <b>alface</b>, que vai neste e em mais 2 lanches.' },
+      opcoes: [{ produto: 'X-Salada', sobre: 'ou TRIO X-SALADA · confere 3 de 4' }, { produto: 'Numero 01', sobre: 'ou TRIO 01 · confere 2 de 3' }],
+      passos: [
+        { h: '21:42:10', peca: 1, leu: 'Carne 56gr', cert: 'certeza alta', d: 'carne', v: 'certo' },
+        { h: '21:42:31', peca: 1, leu: 'Fatia de queijo cheddar', cert: 'certeza alta', d: 'queijo', v: 'certo' },
+        { h: '21:42:48', peca: 2, leu: 'Alface', cert: 'certeza média', d: 'alface', v: 'certo' },
+      ],
+      escolha: null,
+    },
+    'um-unico': {
+      hora: '21:09',
+      explica: 'A leitura achou "cebola crispy" (e o palpite foi o Mussarela Burg); você corrigiu o passo para anel de cebola. O anel só vai no Numero 08: a gaveta sugere.',
+      palpite: { produto: 'Mussarela Burg', familia: 'TRIO MUSSARELA BURG', porque: 'Porque viu <b>cebola crispy</b>, que só vai neste lanche.' },
+      opcoes: [{ produto: 'Mussarela Burg', sobre: 'ou TRIO MUSSARELA BURG · confere 3 de 5' }, { produto: 'Numero 16', sobre: 'ou TRIO 16 · confere 2 de 4' }],
+      passos: [
+        { h: '21:09:26', peca: 1, leu: 'Carne 120gr', cert: 'certeza alta', d: 'carne', v: 'certo' },
+        { h: '21:10:01', peca: 1, leu: 'Fatia de queijo cheddar', cert: 'certeza alta', d: 'queijo', v: 'certo' },
+        { h: '21:10:23', peca: 2, leu: 'Cebola crispy', cert: 'certeza baixa', d: 'anel', v: 'outro', nome: 'Anel de cebola', unico: 'Numero 08' },
+      ],
+      unicos: [{ ing: 'anel de cebola', produto: 'Numero 08', familia: 'TRIO 08', sobre: 'confere 3 de 4 com o que você marcou' }],
+      escolha: null,
+    },
+    adicional: {
+      hora: '22:31',
+      explica: 'O ovo está na ficha só do Numero 08 e é adicional em 9 lanches. O dono, 06/11: o adicional é a exceção — a gaveta sugere o Numero 08 e avisa que o cliente pode ter pedido; quando o pedido vier do KDS, ele vai dizer.',
+      palpite: { produto: 'Numero 01', familia: 'TRIO 01', porque: 'Porque viu <b>carne 56gr</b> e <b>queijo cheddar</b>, que vão neste e em mais 6 lanches.' },
+      opcoes: [{ produto: 'Numero 01', sobre: 'ou TRIO 01 · confere 2 de 3' }, { produto: 'Numero 11', sobre: 'ou TRIO 11 · confere 2 de 3' }],
+      passos: [
+        { h: '22:31:05', peca: 1, leu: 'Carne 56gr', cert: 'certeza alta', d: 'carne', v: 'certo' },
+        { h: '22:31:19', peca: 1, leu: 'Fatia de queijo cheddar', cert: 'certeza alta', d: 'queijo', v: 'certo' },
+        { h: '22:31:40', peca: 2, leu: 'Ovo', cert: 'certeza alta', d: 'ovo', v: 'certo', unico: 'Numero 08' },
+      ],
+      unicos: [{ ing: 'ovo', produto: 'Numero 08', familia: 'TRIO 08', sobre: 'confere 1 de 4 com o que você marcou', adicionalEm: 9 }],
+      escolha: null,
+    },
+    dois: {
+      hora: '23:04',
+      explica: 'Dois ingredientes que só vão em um lanche cada, mas em lanches diferentes. Pode ser a peça de um vizinho no lugar. A gaveta mostra os dois e não escolhe.',
+      palpite: { produto: 'Numero 13', familia: 'TRIO 13', porque: 'Porque viu <b>cream cheese</b>, que só vai neste lanche.' },
+      opcoes: [{ produto: 'Numero 13', sobre: 'ou TRIO 13 · confere 2 de 4' }, { produto: 'Numero 08', sobre: 'ou TRIO 08 · confere 1 de 4' }],
+      passos: [
+        { h: '23:04:12', peca: 1, leu: 'Cream cheese', cert: 'certeza média', d: 'creme', v: 'certo', unico: 'Numero 13' },
+        { h: '23:04:30', peca: 2, leu: 'Cebola crispy', cert: 'certeza baixa', d: 'anel', v: 'outro', nome: 'Anel de cebola', unico: 'Numero 08' },
+        { h: '23:04:51', peca: 2, leu: 'Alface', cert: 'certeza alta', d: 'alface', v: 'certo' },
+      ],
+      unicos: [
+        { ing: 'cream cheese', produto: 'Numero 13', familia: 'TRIO 13' },
+        { ing: 'anel de cebola', produto: 'Numero 08', familia: 'TRIO 08' },
+      ],
+      escolha: null,
+    },
+  };
+  LANCHES['nao-era'] = {
+    ...LANCHES['um-unico'],
+    explica: 'Você escolheu "Não era um lanche" com o anel de cebola marcado: em vez do aviso, um lembrete embaixo das opções, sem travar a escolha.',
+    escolha: '__nao',
+  };
+
+  let estado = 'um-unico';
+  let escolha = null;
+  let dispensada = false;
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+  function aviso(l) {
+    if (escolha === '__nao') return '';
+    if (l.adicional) {
+      const a = l.adicional;
+      return `<div class="sug-aviso neutro" role="status" id="sug-aviso">
+        <div class="sug-aviso-topo"><span class="sug-etiqueta">Pode ser adicional</span></div>
+        <p>O ${esc(a.ing)} está na ficha só do <b>${esc(a.ficha)}</b>, mas é adicional em ${a.lanches} lanches: o cliente pode ter pedido. Sozinho, ele não diz qual lanche era.</p>
+      </div>`;
+    }
+    const u = l.unicos || [];
+    if (!u.length) return '';
+    if (u.length > 1) {
+      return `<div class="sug-aviso" role="status" id="sug-aviso">
+        <div class="sug-aviso-topo"><span class="sug-etiqueta">Dois lanches diferentes</span></div>
+        <p>${u.map((x) => `O <b>${esc(x.ing)}</b> só vai no <b>${esc(x.produto)}</b>`).join('; ')}. Os dois não cabem num lanche só: pode ser a peça de um vizinho no lugar, ou um adicional. Escolha você.</p>
+        <div class="sug-botoes">${u.map((x, i) => `<button type="button" class="sug-botao" data-sugerir="${esc(x.produto)}" id="sug-esc-${i}">É o ${esc(x.produto)}</button>`).join('')}</div>
+      </div>`;
+    }
+    const x = u[0];
+    if (escolha === x.produto) {
+      return `<div class="sug-aviso feito" role="status" id="sug-aviso">
+        <div class="sug-aviso-topo"><span class="sug-etiqueta">Escolhido pelo ingrediente</span></div>
+        <p><b>${esc(x.produto)}</b> marcado nas opções abaixo. Confira os passos e salve.</p>
+        <div class="sug-botoes"><button type="button" class="sug-link" data-desfazer>Desfazer</button></div>
+      </div>`;
+    }
+    if (dispensada) {
+      return `<p class="sug-ajuda" id="sug-aviso">Sugestão do ${esc(x.produto)} dispensada. <button type="button" class="sug-link" data-mostrar>Mostrar de novo</button></p>`;
+    }
+    return `<div class="sug-aviso" role="status" id="sug-aviso">
+      <div class="sug-aviso-topo"><span class="sug-etiqueta">Pelo ingrediente</span></div>
+      <p>O <b>${esc(x.ing)}</b> só vai no <b>${esc(x.produto)}</b> (e no ${esc(x.familia)}, que tem a mesma ficha). Era ele?</p>
+      ${x.adicionalEm ? `<p class="sug-ajuda">Ele também é adicional em ${x.adicionalEm} lanches: o cliente pode ter pedido. É a exceção — quando o pedido vier do KDS, ele vai dizer.</p>` : ''}
+      <p class="sug-ajuda">${esc(x.sobre)}. A bancada não separa o ${esc(x.produto)} do ${esc(x.familia)}: para o placar, é o mesmo lanche.</p>
+      <div class="sug-botoes">
+        <button type="button" class="sug-botao principal" data-sugerir="${esc(x.produto)}" id="sug-e-este">É o ${esc(x.produto)}</button>
+        <button type="button" class="sug-botao" data-dispensar id="sug-nao-e">Não é</button>
+      </div>
+    </div>`;
+  }
+
+  function opcoes(l) {
+    let lista = l.opcoes.slice();
+    for (const x of l.unicos || []) if (escolha === x.produto && !lista.some((o) => o.produto === x.produto)) lista = [...lista, { produto: x.produto, sobre: `ou ${x.familia} · pelo ingrediente` }];
+    const todas = [...lista, { produto: '__outro', titulo: 'Outro produto', sobre: 'escolha na lista' }, { produto: '__nao', titulo: 'Não era um lanche', sobre: 'ou não dá para saber' }];
+    return `<div class="sug-opcoes" role="radiogroup" aria-labelledby="sug-qual">${todas
+      .map((o, i) => `<button type="button" role="radio" class="sug-opcao" id="sug-op-${i}" aria-checked="${escolha === o.produto}" data-escolher="${esc(o.produto)}"><b>${esc(o.titulo || o.produto)}</b><small>${esc(o.sobre)}</small></button>`)
+      .join('')}</div>`;
+  }
+
+  function lembrete(l) {
+    const u = (l.unicos || [])[0];
+    if (escolha !== '__nao' || !u || (l.unicos || []).length > 1) return '';
+    return `<p class="sug-lembrete" role="status"><span>Você marcou <b>${esc(u.ing)}</b>, que só vai no ${esc(u.produto)}. Era um ${esc(u.produto)} incompleto?</span> <button type="button" class="sug-link" data-sugerir="${esc(u.produto)}">Escolher o ${esc(u.produto)}</button></p>`;
+  }
+
+  function passos(l) {
+    return `<ol class="sug-passos">${l.passos
+      .map((p, i) => {
+        const leitura = p.v === 'outro' ? `<s>${esc(p.leu)}</s> <b>${esc(p.nome)}</b>` : `<b>${esc(p.leu)}</b>`;
+        const unico = p.unico && escolha !== p.unico;
+        const dica = p.unico
+          ? `<p class="sug-dica">${escolha === p.unico ? `Só vai no ${esc(p.unico)}: escolhido.` : escolha === '__nao' || dispensada ? `Só vai no ${esc(p.unico)}.` : `Só vai no ${esc(p.unico)}. <a href="#sug-qual">Ver a sugestão</a>`}</p>`
+          : p.adicional
+            ? '<p class="sug-dica">Na ficha só do Numero 08, mas adicional em 9 lanches.</p>'
+            : '';
+        const pil = (v, t) => `<button type="button" class="sug-pilula" id="sug-p${i}-${v}" aria-pressed="${p.v === v}">${t}</button>`;
+        return `<li class="sug-passo respondido${unico ? ' unico' : ''}">
+          ${recorte(p.d)}
+          <div class="sug-passo-corpo">
+            <div class="sug-passo-topo"><span class="sug-hora">${esc(p.h)}</span><span>peça ${p.peca}</span></div>
+            <p class="sug-leitura">${leitura} <span class="sug-chip${p.cert === 'certeza baixa' ? ' atencao' : ''}">${esc(p.cert)}</span></p>
+            <div class="sug-resp" role="group" aria-label="O passo das ${esc(p.h)}">${pil('certo', 'Certo')} ${pil('outro', 'Era outro')} ${pil('nada', 'Não era ingrediente')}</div>
+            ${dica}
+          </div>
+        </li>`;
+      })
+      .join('')}</ol>`;
+  }
+
+  function desenhar() {
+    const l = LANCHES[estado];
+    document.getElementById('sug-hora-lanche').textContent = l.hora;
+    document.getElementById('sug-explica').textContent = l.explica;
+    const pp = l.palpite;
+    document.getElementById('sug-miolo').innerHTML = `
+      <section class="sug-secao" aria-labelledby="sug-qual">
+        <h3 class="sug-rotulo" id="sug-qual" tabindex="-1">Qual lanche era?</h3>
+        ${aviso(l)}
+        <div class="sug-palpite">
+          <p class="sug-linha"><span class="sug-chip">o Farol acha</span> <b>${esc(pp.produto)}</b> <small class="sug-ajuda">(ou ${esc(pp.familia)})</small></p>
+          <p class="sug-ajuda">${pp.porque} É o que a leitura da noite viu, antes da sua conferência.</p>
+        </div>
+        ${opcoes(l)}
+        ${lembrete(l)}
+      </section>
+      <section class="sug-secao" aria-labelledby="sug-t-pao">
+        <h3 class="sug-rotulo" id="sug-t-pao">O pão</h3>
+        <div class="sug-pao"><span class="sug-pecas" aria-hidden="true">${meia}${meia}</span><p class="sug-ajuda"><b>2 peças.</b> Com 2 peças pode ser o de 1 corte ou um brioche: o pão sai da ficha do lanche escolhido.</p></div>
+      </section>
+      <section class="sug-secao" aria-labelledby="sug-t-passos">
+        <h3 class="sug-rotulo" id="sug-t-passos">Os passos, na ordem</h3>
+        <p class="sug-ajuda">Cada recorte é só a peça em que o ingrediente chegou. Cada nome confirmado vira um exemplo.</p>
+        ${passos(l)}
+      </section>`;
+    const nome = escolha === '__nao' ? 'Não era um lanche' : escolha;
+    document.getElementById('sug-pe').textContent = escolha ? `Escolhido: ${nome}.` : 'Escolha o lanche e responda os passos que souber.';
+    for (const b of document.querySelectorAll('[data-estado]')) b.setAttribute('aria-pressed', String(b.dataset.estado === estado));
+  }
+
+  function irPara(novo) {
+    estado = novo;
+    escolha = LANCHES[novo].escolha;
+    dispensada = false;
+    desenhar();
+  }
+
+  // a gaveta se redesenha a cada clique: o foco vai para a opção escolhida (ou para o botão de mesmo id, se ele ainda existe)
+  const focar = (id) => (document.getElementById(id) || document.querySelector('.sug-opcao[aria-checked="true"]') || document.getElementById('sug-qual'))?.focus?.();
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b || !b.closest('.sug-pagina')) return;
+    if (b.dataset.estado) return irPara(b.dataset.estado);
+    if (b.dataset.sugerir) { escolha = b.dataset.sugerir; dispensada = false; desenhar(); focar(''); return; }
+    if ('dispensar' in b.dataset) { dispensada = true; desenhar(); document.querySelector('[data-mostrar]')?.focus(); return; }
+    if ('mostrar' in b.dataset) { dispensada = false; desenhar(); focar('sug-e-este'); return; }
+    if ('desfazer' in b.dataset) { escolha = null; desenhar(); focar('sug-e-este'); return; }
+    if (b.dataset.escolher) { const id = b.id; escolha = b.dataset.escolher; desenhar(); focar(id); return; }
+  });
+  // para o roteiro de medida: muda a situação (e, na do anel, aceita ou dispensa a sugestão) sem clique
+  window.sugEstado = (s, acao) => {
+    irPara(s);
+    if (acao === 'aceitar') { escolha = (LANCHES[s].unicos || [])[0]?.produto ?? null; desenhar(); }
+    if (acao === 'dispensar') { dispensada = true; desenhar(); }
+  };
+  irPara('um-unico');
+})();
+</script>
+</body></html>

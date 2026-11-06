@@ -98,7 +98,7 @@ const paoDaResposta = (r: RespostasPorPasso, paoLido: string | null): string | n
   r.pao.v === 'certo' ? paoLido : r.pao.v === 'outro' ? r.pao.nome.trim() || null : null;
 
 /** O nome que o passo ensina: o lido ("certo"), ou o que a pessoa disse ("outro"). */
-const nomeDoPasso = (e: EtapaDoLanche, x: RespostaDoPasso | undefined): string | null =>
+export const nomeDoPasso = (e: EtapaDoLanche, x: RespostaDoPasso | undefined): string | null =>
   x?.v === 'certo' ? e.leu : x?.v === 'outro' ? x.nome.trim() || null : null;
 
 /**
@@ -178,10 +178,13 @@ export function PassosDoLanche({
   aoMudar,
   horaDe,
   aoAbrirRecorte,
+  dicaDoPasso,
 }: {
   id: string;
   etapas: EtapaDoLanche[];
   pecas: number | null;
+  /** A dica do passo cujo ingrediente só um lanche tem ("Só vai no Numero 08", 06/11/2026); `destaque` = a borda acesa. */
+  dicaDoPasso?: (i: number) => { texto: ReactNode; destaque: boolean } | null;
   /** Os pães das fichas, para "Era outro". */
   paes: string[];
   /** O pão pelas peças (nulo = o Farol pergunta). */
@@ -298,6 +301,7 @@ export function PassosDoLanche({
                 aoAlternar={(v) => alternar(i, v)}
                 aoEscolher={(nome) => mudarPasso(i, () => ({ v: 'outro', nome }))}
                 aoAbrir={() => aoAbrirRecorte(i)}
+                dica={dicaDoPasso?.(i) ?? null}
               />
             ))}
           </ol>
@@ -356,6 +360,7 @@ function CartaoDoPasso({
   aoAlternar,
   aoEscolher,
   aoAbrir,
+  dica = null,
 }: {
   id: string;
   e: EtapaDoLanche;
@@ -365,10 +370,12 @@ function CartaoDoPasso({
   aoAlternar: (v: NonNullable<RespostaDoPasso['v']>) => void;
   aoEscolher: (nome: string) => void;
   aoAbrir: () => void;
+  dica?: { texto: ReactNode; destaque: boolean } | null;
 }) {
   const vazio = e.tipo === 'vazio';
   const c = certezaDa(e);
-  const atencao = !x?.v && (vazio || c === 'baixa' || c === 'sem');
+  // a borda acesa: o passo de dúvida ainda sem resposta, ou o ingrediente que só um lanche tem (a sugestão de cima)
+  const atencao = (!x?.v && (vazio || c === 'baixa' || c === 'sem')) || !!dica?.destaque;
   const [tom, texto] = vazio ? (['atencao', 'não era ingrediente?'] as [Tom, string]) : CERTEZA[c];
   let leitura: ReactNode;
   if (vazio) {
@@ -447,6 +454,11 @@ function CartaoDoPasso({
           )}
         </div>
         {x?.v === 'outro' && <Lista id={`${id}-qual`} rotulo="O que era" opcoes={ingredientes} valor={x.nome} aoMudar={aoEscolher} />}
+        {dica && (
+          <p className="text-[12.5px] leading-snug text-farol-suave" data-dica-do-passo>
+            {dica.texto}
+          </p>
+        )}
       </div>
     </li>
   );

@@ -54,11 +54,13 @@ import {
   sugeridosNaFoto,
   vistosNaConferencia,
 } from './conferencia-por-foto';
+import { AvisoDoIngrediente, LembreteDoIngrediente } from './aviso-do-ingrediente';
 import {
   conferiveis,
   corpoPorPasso,
   ehPao,
   faltamPorPasso,
+  nomeDoPasso,
   paoPelasPecas,
   PassosDoLanche,
   respostasGuardadas,
@@ -68,6 +70,7 @@ import {
 } from './conferencia-por-passo';
 import { nasFichas, ondeEntra, type VocabularioDoNome } from './nome-nas-fichas';
 import { QuadroDaFoto, type FotoNoQuadro } from './quadro-da-foto';
+import { sugestaoPeloIngrediente } from './sugestao-pelo-ingrediente';
 
 const mensagemDe = (e: unknown, padrao: string) => frase(e instanceof ErroDaApi ? e.message : padrao);
 /** No seletor de "Outro ingrediente": o nome que não está nas fichas (escrito à mão). */
@@ -144,6 +147,8 @@ export function GavetaDoLanche({
   // o lanche lido POR PASSOS (A23.3): o pão e uma resposta por passo
   const [porPasso, setPorPasso] = useState<RespostasPorPasso>(semRespostas);
   const [ficha, setFicha] = useState<ProdutoDaFicha | null>(null);
+  // as sugestões pelo ingrediente que quem confere dispensou ("Não é"), pela família
+  const [dispensadas, setDispensadas] = useState<Set<string>>(() => new Set());
   // a foto aberta no quadro maior; e, ao fechar, a foto cuja miniatura recebe o foco
   const [quadro, setQuadro] = useState<number | null>(null);
   const voltarPara = useRef<number | null>(null);
@@ -157,6 +162,7 @@ export function GavetaDoLanche({
     setErro(null);
     setOcupado(null);
     setQuadro(null);
+    setDispensadas(new Set());
     treinoApi
       .lanche(lancheId)
       .then((r) => {
@@ -375,6 +381,67 @@ export function GavetaDoLanche({
     setEscolhaDoFarol(false);
   };
 
+  // ── a sugestão pelo ingrediente que só um lanche tem (o protótipo aprovado em 06/11/2026; a regra em
+  // `sugestao-pelo-ingrediente.ts`) — sobre o que quem confere CONFIRMOU: no lanche por passos, o "certo" e o "era outro";
+  // na conferência por foto, as marcas (não a leitura do Farol, que a conta da ficha usa quando nada foi marcado) ──
+  const confirmados = useMemo(() => {
+    if (!d) return [];
+    if (d.porPassos) return [...vistos.values()].map((v) => v.nome);
+    return fotos.filter((r) => !r.ruim).flatMap((r) => r.marcados);
+  }, [d, vistos, fotos]);
+  const sugestao = useMemo(() => sugestaoPeloIngrediente(confirmados, d?.lanchesDoIngrediente ?? {}, d?.familias ?? []), [confirmados, d]);
+  const chaveDaFamilia = (familia: string[]) => familia.map(chave).join('|');
+  const naFamilia = (familia: string[], produto: string | null) => !!produto && familia.some((n) => chave(n) === chave(produto));
+  const familiaSugerida = sugestao.tipo === 'lanche' ? sugestao.familia : null;
+  const sugeridaEscolhida = !!familiaSugerida && naFamilia(familiaSugerida, escolha === '__outro' ? outroProduto : escolha);
+  const sugeridaDispensada = !!familiaSugerida && dispensadas.has(chaveDaFamilia(familiaSugerida));
+  /** "É o Numero 08": a opção da família em "Qual lanche era?" (a do palpite, quando está lá; senão, "Outro produto"). */
+  function escolherFamilia(familia: string[]) {
+    const doPalpite = palpites.find((x) => naFamilia(familia, x.produto) || x.familia.some((n) => naFamilia(familia, n)));
+    if (doPalpite) {
+      setEscolha(doPalpite.produto);
+      setOutroProduto('');
+    } else {
+      setEscolha('__outro');
+      setOutroProduto(d?.produtos.find((x) => naFamilia(familia, x.nome))?.nome ?? familia[0]!);
+    }
+    setEscolhaDoFarol(false);
+  }
+  const irParaASugestao = () => {
+    const alvo = document.getElementById(`${p}-sugestao`);
+    alvo?.scrollIntoView({ block: 'nearest' });
+    alvo?.querySelector<HTMLElement>('[data-e-este]')?.focus({ preventScroll: true });
+  };
+  /** A dica do passo cujo nome confirmado é um ingrediente único (ou o deixado de fora por ser adicional). */
+  function dicaDoPasso(i: number): { texto: ReactNode; destaque: boolean } | null {
+    if (!d || sugestao.tipo === 'nenhuma') return null;
+    const nome = nomeDoPasso(d.etapas[i]!, porPasso.passos[i]);
+    if (!nome) return null;
+    const k = chave(nome);
+    const naoEra = escolha === '__nao';
+    if (sugestao.tipo === 'varios') {
+      const u = sugestao.opcoes.find((x) => chave(x.ingrediente) === k);
+      return u ? { texto: `Só vai no ${u.familia[0]}.`, destaque: !naoEra } : null;
+    }
+    const deixado = sugestao.deixados.find((u) => chave(u.ingrediente) === k);
+    if (deixado) return { texto: `Na ficha só do ${deixado.familia[0]}, mas adicional em ${plural(deixado.adicionalEm.length, 'lanche', 'lanches')}.`, destaque: false };
+    if (!sugestao.pelos.some((u) => chave(u.ingrediente) === k)) return null;
+    const principal = sugestao.familia[0]!;
+    if (sugeridaEscolhida) return { texto: `Só vai no ${principal}: escolhido.`, destaque: false };
+    if (sugeridaDispensada || naoEra) return { texto: `Só vai no ${principal}.`, destaque: false };
+    return {
+      texto: (
+        <span>
+          Só vai no {principal}.{' '}
+          <button type="button" onClick={irParaASugestao} className="font-semibold text-farol-tinta underline underline-offset-[3px]">
+            Ver a sugestão
+          </button>
+        </span>
+      ),
+      destaque: true,
+    };
+  }
+
   // o atalho: só nas fotos em que toda leitura dá um nome (as outras são onde a resposta de quem confere ensina)
   const seguras = d ? d.fotos.map((f, j) => j).filter((j) => !respondida(fotos[j]) && fotoSemDuvida(d.fotos[j]!, d.etapas, daFicha) && lidosParaMarcar(d.fotos[j]!, d.etapas, daFicha).length > 0) : [];
   const comDuvida = d ? d.fotos.map((f, j) => j).filter((j) => !respondida(fotos[j]) && !fotoSemDuvida(d.fotos[j]!, d.etapas, daFicha)) : [];
@@ -533,6 +600,27 @@ export function GavetaDoLanche({
             <h3 id={`${p}-qual`} className={ROTULO}>
               Qual lanche era?
             </h3>
+            <AvisoDoIngrediente
+              id={`${p}-sugestao`}
+              sugestao={sugestao}
+              escolhida={sugeridaEscolhida}
+              dispensada={sugeridaDispensada}
+              naoEraUmLanche={escolha === '__nao'}
+              aoEscolher={escolherFamilia}
+              aoDispensar={() => familiaSugerida && setDispensadas((s) => new Set(s).add(chaveDaFamilia(familiaSugerida)))}
+              aoMostrar={() =>
+                familiaSugerida &&
+                setDispensadas((s) => {
+                  const n = new Set(s);
+                  n.delete(chaveDaFamilia(familiaSugerida));
+                  return n;
+                })
+              }
+              aoDesfazer={() => {
+                setEscolha(null);
+                setOutroProduto('');
+              }}
+            />
             <Palpite palpite={semPalpite ? null : (palpites[0] ?? null)} />
             {pq.perguntas.length > 0 && (
               <Perguntas
@@ -567,6 +655,7 @@ export function GavetaDoLanche({
                 </select>
               </>
             )}
+            {escolha === '__nao' && <LembreteDoIngrediente sugestao={sugestao} aoEscolher={escolherFamilia} />}
           </section>
 
           {/* ───────────── passo por passo (o lanche lido por passos, A23.3) ───────────── */}
@@ -583,6 +672,7 @@ export function GavetaDoLanche({
                 aoMudar={setPorPasso}
                 horaDe={(iso) => horaComSegundos(iso, fuso)}
                 aoAbrirRecorte={(i) => setQuadro(passosDoQuadro.indexOf(i))}
+                dicaDoPasso={dicaDoPasso}
               />
               {quadro !== null && passosNoQuadro[quadro] && (
                 <QuadroDaFoto fotos={passosNoQuadro} indice={quadro} aoIr={setQuadro} aoFechar={() => setQuadro(null)} />
