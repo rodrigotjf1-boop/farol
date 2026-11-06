@@ -2005,6 +2005,9 @@ export type LancheParaConferir = Omit<LancheNaFila, 'etapas'> & {
   ingredientes: string[];
   /** Onde cada ingrediente das fichas entra: os lanches cuja ficha o leva e os de que é adicional. */
   lanchesDoIngrediente: Record<string, { fichas: string[]; adicional: string[] }>;
+  /** Os produtos que a bancada não separa (a mesma ficha vista de cima: o Número e o Trio), um grupo por família. Vazio na
+   * API de antes de 06/11/2026. */
+  familias?: string[][];
   /** Os outros nomes: a chave do nome juntado a um ingrediente das fichas → o ingrediente ("hamburguer" → "Blend da casa"). */
   outrosNomes: Record<string, string>;
   /** As chaves (nome sem maiúscula) do que "não se vê de cima". */

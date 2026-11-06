@@ -24,7 +24,7 @@
 // =====================================================================
 
 import type { Base } from './fichas.js';
-import { chaveDoIngrediente } from './ingredientes.js';
+import { chaveDoIngrediente, valePeloNome } from './ingredientes.js';
 
 /** A unidade que se conta de cima: a fatia, a unidade. O resto (kg, ml) é só presença. */
 const CONTAVEL = /^(fatias?|unidades?|un|und)$/;
@@ -105,6 +105,22 @@ export function estudarFichas(base: Base | null, invisiveis: Set<string> = new S
   const familias = [...porChave.values()];
   const usos = new Map<string, number>();
   for (const f of familias) for (const k of f.ingredientes.keys()) usos.set(k, (usos.get(k) ?? 0) + 1);
+  // o ADICIONAL PELO NOME (06/11/2026; o mesmo de `ingredientesDaBase`): a opção de adicionar SEM ligação ao insumo cujo
+  // nome é o de um ingrediente das fichas também é adicional do produto — nas fichas da loja-piloto, 158 de 179 opções
+  // vêm sem ligação (o "Ovo" em 13 produtos). Medido nos 63 conferidos com produto: o palpite NÃO muda (39, 47 e 54 de 63,
+  // os mesmos, nenhuma diferença lanche a lanche); a sugestão pelo ingrediente único passa a avisar o adicional.
+  for (const p of base?.produtos ?? []) {
+    const f = familiaDoProduto.get(chaveDoIngrediente(p.nome));
+    if (!f) continue;
+    for (const g of p.adicionais ?? []) {
+      if (g.tipo !== 'adicionar') continue;
+      for (const o of g.opcoes ?? []) {
+        if (!valePeloNome(o.efeito)) continue;
+        const k = chaveDoIngrediente(o.nome ?? '');
+        if (k && usos.has(k) && !f.adicionais.has(k)) f.adicionais.set(k, o.nome);
+      }
+    }
+  }
   return { familias, usos, familiaDoProduto };
 }
 

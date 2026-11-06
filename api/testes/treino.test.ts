@@ -17,6 +17,7 @@ import type { FastifyInstance } from 'fastify';
 import pg from 'pg';
 
 import { criarApp } from '../src/app.js';
+import { estudarFichas } from '../src/estudo-das-fichas.js';
 import { contarBase, impressaoDaBase, type Base } from '../src/fichas.js';
 import { chaveDoIngrediente } from '../src/ingredientes.js';
 import { apagarQuadrosVencidos, LIMITE_DOS_CONFERIDOS } from '../src/rotas/treino.js';
@@ -643,6 +644,10 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     assert.deepEqual(Object.keys(d.lanchesDoIngrediente), NOMES, 'um por ingrediente das fichas');
     assert.deepEqual(d.lanchesDoIngrediente['Pão brioche'], { fichas: ['X-Burger'], adicional: [] });
     assert.deepEqual(d.lanchesDoIngrediente['Bacon fatiado'], { fichas: [], adicional: ['X-Burger'] }, 'o que só entra pelo adicional');
+    // os produtos de mesma ficha (06/11/2026, a sugestão pelo ingrediente): as famílias do estudo das fichas, todas
+    const familias = estudarFichas(BASE).familias.map((f) => f.produtos.map((x) => x.nome));
+    assert.ok(familias.length > 0);
+    assert.deepEqual(d.familias, familias);
     assert.equal((await umLanche(lancheId, cookieVizinho)).statusCode, 404);
 
     const img = await app.inject({ method: 'GET', url: `/v1/treino/quadros/${d.etapas[0].quadroId}/imagem`, headers: { cookie } });

@@ -482,7 +482,8 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
     const loja = (await daLoja(pool, s.tenantId, l.loja_id))!;
     const quadroDe = new Map((l.quadros ?? []).map((q) => [q.n, q.id]));
     const etapas = l.leitura?.etapas ?? [];
-    const palpites = palpitesDoLanche(etapas, loja.base, loja.invisiveis);
+    const estudo = estudarFichas(loja.base, loja.invisiveis);
+    const palpites = palpitesDoLanche(etapas, loja.base, loja.invisiveis, estudo);
     const daBase = ingredientesDaBase(loja.base);
     return {
       ...paraTela(l, loja.base, loja.invisiveis),
@@ -516,6 +517,12 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
           },
         ]),
       ),
+      /**
+       * Os produtos que a bancada não separa (a mesma ficha vista de cima: o "Número 08" e o "Trio 08"), um grupo por
+       * família. Para a sugestão pelo ingrediente que só um lanche tem (o protótipo aprovado em 06/11/2026): o Número e o
+       * Trio contam como um lanche só.
+       */
+      familias: estudo.familias.map((f) => f.produtos.map((x) => x.nome)),
       /**
        * Os outros nomes (migration 053): a chave do nome que quem configura juntou a um ingrediente das fichas → o
        * ingrediente. Quem escrever o outro nome de novo na conferência ouve "é o 'Blend da casa' das fichas".

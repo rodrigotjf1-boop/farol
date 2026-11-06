@@ -14,7 +14,9 @@
 // SOMADOS por quem os lê, nunca um esconde o outro.
 //
 // Entram os ingredientes das fichas e o que um adicional ACRESCENTA (um
-// insumo, ou um preparo da casa): é o que a bancada pode mostrar. Não
+// insumo, ou um preparo da casa): é o que a bancada pode mostrar. A opção
+// de adicional SEM ligação ao insumo vale pelo nome, quando ele é o de um
+// ingrediente já conhecido (06/11/2026: o "Ovo" das fichas da loja). Não
 // entram o produto que um adicional põe junto (a bebida), a observação
 // para a cozinha, nem o que um adicional tira — esse já é ingrediente da
 // ficha.
@@ -82,5 +84,25 @@ export function ingredientesDaBase(base: Base | null): IngredienteDaLoja[] {
       }
     }
   }
+  // O ADICIONAL PELO NOME (06/11/2026): nas fichas da loja-piloto, 158 de 179 opções de adicional vêm SEM ligação ao
+  // insumo — o "Ovo" é opção em 13 produtos assim. A opção sem ligação cujo nome é o de um ingrediente já conhecido (pela
+  // chave) conta como adicional do produto; a que não bate com nenhum ingrediente fica de fora (não cria ingrediente).
+  for (const p of base.produtos) {
+    for (const grupo of p.adicionais ?? []) {
+      if (grupo.tipo !== 'adicionar') continue;
+      for (const opcao of grupo.opcoes ?? []) {
+        if (!valePeloNome(opcao.efeito)) continue;
+        const conhecido = porChave.get(chaveDoIngrediente(opcao.nome ?? ''));
+        if (conhecido) anotar(conhecido.nome, p.id, p.nome, true);
+      }
+    }
+  }
   return [...porChave.values()];
 }
+
+/**
+ * A opção de adicional que vale pelo NOME: a de que a fonte não sabe dizer o que muda (`nada`, sem ligação ao insumo).
+ * A ligada a um insumo ou preparo diz o ingrediente pela ligação; a que põe outro produto (a bebida), a observação e a que
+ * tira, não acrescentam ingrediente.
+ */
+export const valePeloNome = (efeito: { tipo?: string } | null | undefined): boolean => !efeito || efeito.tipo === 'nada';
