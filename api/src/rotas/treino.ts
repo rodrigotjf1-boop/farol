@@ -65,6 +65,7 @@ import {
   umPorFamilia,
   type Conferencia,
   type EtapaLida,
+  type MetadeLida,
 } from '../treino.js';
 import { aindaEDaLoja, GRAVACAO, lerAndamento, lerNovaGravacao, SQL_DO_QUE_A_LOJA_APAGA } from '../treino-gravacao.js';
 import { chaveDeHoje, DECISOES, sugestoesDoTreino, type DecisaoDaSugestao, type Sugestao } from '../treino-sugestoes.js';
@@ -300,7 +301,12 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
         await cliente.query('commit');
         return { lancheId: antes.rows[0].id as string, gravacaoId, novo: false, conferido: true, quadros: 0 };
       }
-      const leitura = { etapas: lido.lanche.etapas, ...(lido.lanche.pecas !== null ? { pecas: lido.lanche.pecas } : {}) };
+      // a posição das metades (05/11/2026) vai junto da leitura: a loja guarda o arquivo dos passos só por alguns dias
+      const leitura = {
+        etapas: lido.lanche.etapas,
+        ...(lido.lanche.pecas !== null ? { pecas: lido.lanche.pecas } : {}),
+        ...(lido.lanche.metades !== null ? { metades: lido.lanche.metades } : {}),
+      };
       let lancheId: string;
       if (antes.rows[0]) {
         lancheId = antes.rows[0].id as string;
@@ -880,7 +886,7 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
         chave: string;
         aberto_em: Date | null;
         fechou_em: Date | null;
-        leitura: { etapas?: EtapaLida[]; pecas?: number } | null;
+        leitura: { etapas?: EtapaLida[]; pecas?: number; metades?: MetadeLida[] } | null;
         produto: string | null;
         palpite: string | null;
         acertou: boolean | null;
@@ -918,6 +924,8 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
         fechouEm: l.fechou_em,
         pecas: l.leitura?.pecas ?? null,
         etapas: l.leitura?.etapas ?? [],
+        // a posição das metades (05/11/2026): vazia nos lanches que subiram antes dela
+        metades: l.leitura?.metades ?? [],
         quadros: l.quadros ?? [],
         produto: l.produto,
         palpite: l.palpite,

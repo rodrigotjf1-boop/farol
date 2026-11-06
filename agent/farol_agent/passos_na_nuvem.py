@@ -89,6 +89,8 @@ COM_QUADRO = ("comeco", "passo", "provisorio", "vazio")
 MAX_PECAS = 8
 MAX_PEDACOS = 8
 MAX_PONTOS = 64
+# A posição das metades (`limites.metades`): o centro e o diâmetro do pão em pixels do quadro da bancada.
+MAX_COORDENADA = 4096
 MAX_LEU = 80
 MAX_CANDIDATO = 120
 MAX_HORA = 40
@@ -269,6 +271,38 @@ def _contorno(bruto: Any, k: float, largura: int, altura: int) -> list[list[list
     return saida
 
 
+def _pixel(v: Any, minimo: int) -> int | None:
+    """Um número de pixel inteiro dentro da régua da nuvem (de `minimo` a `MAX_COORDENADA`); nulo se torto."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+        return None
+    return min(MAX_COORDENADA, max(minimo, round(v)))
+
+
+def metades_do_lanche(bruto: Any) -> list[dict] | None:
+    """A posição de cada metade do pão (05/11/2026; o dono: "a organização dos pães na bancada já dá a dimensão de quantos
+    serão produzidos"): `k` (a metade das etapas), o centro `x`/`y` e o diâmetro `d` em pixels do quadro da bancada, e
+    `desde` (quando a peça apareceu). Para medir a separação dos lanches pela posição (o par base + tampo) com as noites
+    conferidas — a loja guarda o `passos.json` só por alguns dias. Na régua da nuvem: a metade torta (sem `k` de 1 a
+    `MAX_PECAS`, centro ou diâmetro que não são número) sai; `k` repetido fica o primeiro; o pixel fora da régua é preso
+    nela. Nula quando não sobra nenhuma."""
+    saida: list[dict] = []
+    vistos: set[int] = set()
+    for m in bruto if isinstance(bruto, list) else []:
+        if not isinstance(m, dict):
+            continue
+        k = m.get("k")
+        if isinstance(k, bool) or not isinstance(k, int) or not 1 <= k <= MAX_PECAS or k in vistos:
+            continue
+        x, y, d = _pixel(m.get("x"), 0), _pixel(m.get("y"), 0), _pixel(m.get("d"), 1)
+        if x is None or y is None or d is None:
+            continue
+        desde = _local(m.get("desde"))
+        vistos.add(k)
+        # k sem repetir, de 1 a MAX_PECAS: no máximo MAX_PECAS metades
+        saida.append({"k": k, "x": x, "y": y, "d": d, "desde": _com_fuso(desde) if desde else None})
+    return saida or None
+
+
 def corpo_do_lanche(noite: Noite, ponto_id: str | None, pasta: Path, leitura: dict, paes: list[str]) -> dict | None:
     """O corpo de `POST /v1/agentes/treino/lanches` de um lanche lido por passos (`leitura` é o `passos.json` dele).
     Nulo quando não sobra etapa nenhuma (nada a conferir)."""
@@ -331,6 +365,7 @@ def corpo_do_lanche(noite: Noite, ponto_id: str | None, pasta: Path, leitura: di
         "lanche": {
             "chave": pasta.name, "abertoEm": _com_fuso(aberto) if aberto else None,
             "fechouEm": _com_fuso(fechou) if fechou else None, "pecas": pecas, "etapas": etapas,
+            "metades": metades_do_lanche(metades),
         },
         "quadros": quadros,
     }

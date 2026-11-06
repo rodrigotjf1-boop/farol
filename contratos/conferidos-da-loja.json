@@ -3,7 +3,8 @@
   "rota": "GET /v1/agentes/treino/conferidos",
   "limite": 1000,
   "chaves": ["limite", "naoSeVe", "lanches"],
-  "chavesDoLanche": ["id", "gravacao", "chave", "abertoEm", "fechouEm", "pecas", "etapas", "quadros", "produto", "palpite", "acertou", "conferidoEm", "resposta"],
+  "chavesDoLanche": ["id", "gravacao", "chave", "abertoEm", "fechouEm", "pecas", "etapas", "metades", "quadros", "produto", "palpite", "acertou", "conferidoEm", "resposta"],
+  "metades": "A posição de cada metade do pão na imagem da bancada, como a loja mandou (contratos/lanche-de-treino.json, lanche.metades): k, x, y, d (pixels) e desde. Lista vazia no lanche que subiu antes de 05/11/2026 (a posição não vinha).",
   "chavesDoQuadro": ["n", "sha256"],
   "resposta": {
     "limite": 1000,
@@ -19,6 +20,10 @@
         "etapas": [
           { "hora": "2026-11-04T18:12:05-03:00", "lado": "tampo", "inicio": true, "leu": null, "candidatos": [], "vezes": 1, "quadro": 0, "tipo": "comeco", "metade": 1 },
           { "hora": "2026-11-04T18:12:31-03:00", "lado": "tampo", "inicio": false, "leu": "Blend da casa", "candidatos": ["Blend da casa"], "vezes": 1, "quadro": 1, "tipo": "passo", "metade": 1, "parte": 1, "nota": 0.81 }
+        ],
+        "metades": [
+          { "k": 1, "x": 412, "y": 288, "d": 178, "desde": "2026-11-04T18:12:05-03:00" },
+          { "k": 2, "x": 604, "y": 292, "d": 181, "desde": "2026-11-04T18:12:06-03:00" }
         ],
         "quadros": [
           { "n": 0, "sha256": "9b1e0c4d2a7f6e5b8c3d1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d" },

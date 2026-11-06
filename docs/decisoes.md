@@ -10811,3 +10811,36 @@ lanche" ainda aparece com o selo vermelho "o Farol achou X" — fica para o dono
   contraste de texto no placar 4,53:1. Achado no caminho e corrigido: o número grande e a parte ("7 de 11" e "64%") saíam
   colados no texto da página ("7 de 1164%") — espaço entre eles (a linha flexível o ignora; o leitor de tela, não).
 - O protótipo do repositório no navegador (6 larguras × 2 temas): sem rolagem para o lado e sem erro de script.
+
+## 06/11/2026 · A posição das metades do pão sobe com o lanche (agente + API; sem migration)
+
+**O pedido do dono** (06/11, "2 pode"): guardar na nuvem a posição dos pães de cada lanche. A regra dele de 05/11: "o
+pão significa o início da produção e da montagem; a organização dos pães na bancada em formas padrão já dá a dimensão de
+quantos serão produzidos".
+
+**Por quê:** dos 237 conferidos até 05/11, 174 foram respondidos "não era um lanche / não dá para saber". A medida da
+posição das metades (os `passos.json` que a loja ainda guardava, 974 lanches de 02 a 05/11) mostrou que, nos 217 lugares
+de 3 metades, as três ficam encostadas (menos de 1,6 diâmetro de pão) e nascem juntas (menos de 2 s): a terceira é a
+metade do VIZINHO posta na mesma leva, não um lanche que veio depois. A separação pela posição (o par base + tampo) é o
+próximo passo — mas a loja guarda o arquivo dos passos só por alguns dias, e a nuvem não tinha a posição: das 237
+conferências, só 44 ainda tinham posição.
+
+**O que muda:**
+- Agente (`passos_na_nuvem.py`): o corpo do lanche leva `lanche.metades` — `k` (a metade das etapas), `x`/`y` do centro e
+  `d` (o diâmetro do pão) em pixels inteiros do quadro da bancada, e `desde` (com fuso) —, presos na régua da nuvem
+  (`MAX_COORDENADA` 4096; a metade torta sai; `k` repetido fica o primeiro). Nulo quando não sobra nenhuma.
+- API (`lerMetades` em `treino.ts`): confere cada metade na mesma régua e recusa o corpo torto dizendo qual (V149: o
+  agente prende antes, o 422 não se repete); guarda em `treino_lanche.leitura.metades` (sem migration) e devolve nos
+  conferidos que descem para a loja (`metades`, vazia no lanche que subiu antes).
+- Contratos: `lanche-de-treino.json` (o exemplo e `limites.metades`) e `conferidos-da-loja.json` (a chave nova). A API de
+  antes ignora o campo novo: a ordem do deploy (nuvem × pacote da loja) não importa.
+
+### Como foi conferido
+
+- Agente (`test_passos_na_nuvem.py`): o corpo leva as metades do `passos.json` na régua do contrato e com fuso; a beira
+  (negativo, acima de 4096, diâmetro 0, NaN, `k` 0/9/booleano/repetido, hora torta) nunca chega à nuvem.
+- API (`treino.test.ts`): a leitura com as metades do contrato; a beira que entra (0, 4096, diâmetro 1, hora nula, nula
+  = não veio); 12 recusas, cada uma por UM motivo; a leitura guardada no banco; os conferidos descem com as metades (o
+  lanche da noite ao vivo) e com a lista vazia (o lanche de antes); a régua do contrato = a constante da API.
+- Mutação 22/22 mortas (controle antes de cada lado): 12 na API e 10 no agente. Viva no começo: "k booleano passa" —
+  no Python, `True` vale 1, e o caso vinha depois de um `k` 1 (saía como repetido); o teste ganhou o booleano sozinho.
