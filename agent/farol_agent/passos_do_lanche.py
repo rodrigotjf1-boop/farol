@@ -24,6 +24,16 @@ e o L9 (Numero 13: cream cheese 21:12:32, alface 21:12:36, frango 21:12:46, fech
    nasce onde o pão estava nos primeiros quadros da metade, e anda só quando a peça inteira, parada, está a mais que a
    folga do lugar — achada pela correlação do último estado assentado (o que já chegou junto), nunca o encaixe de cada
    quadro (o ERR-137). A peça que andou para onde outra metade nasceu é a mesma: a de depois sai.
+   2c. **AS METADES FANTASMAS** (06/11/2026, a chave `FAROL_BANCADA_SEM_FANTASMA`). O dono: "a organização dos pães na
+   bancada já dá a dimensão de quantos serão produzidos". Mas, numa folha de 51 lugares das noites de 04 e 05/11, a
+   metade a mais quase nunca era o pão do vizinho: era o MESMO pão contado duas vezes (o `agrupar` parte os discos dele
+   em dois grupos, a meio diâmetro um do outro) ou um círculo no alumínio vazio ao lado. Cada ponto guarda a cor do
+   miolo (o croma, `miolo` do diâmetro em volta do centro) e cada metade, o quanto MOSTROU pão: o maior croma mediano em
+   `janela_pao` pontos seguidos — o pão de verdade mostra a cor dele em algum momento (antes do ingrediente, ou quando a
+   mão ou a grelha sai de cima); o círculo no alumínio, nunca. Com a chave: duas metades a menos de `mesmo_pao` diâmetro
+   são uma só (fica a que mais mostrou pão), e a que nunca mostrou pão (abaixo de `cor_do_pao`) sai — nunca todas. O
+   quanto mostrou pão vai sempre para o `passos.json` (com a chave desligada também), para medir a régua nas noites
+   conferidas antes de ligá-la.
 3. **PARADA**: |Δcinza| médio no disco abaixo de `quieto`, contra o quadro anterior, com a luz corrigida pelo papel em
    volta do pão (a sombra de quem chega, a luz do salão). Medido no L9: parado 1,9 a 8,9; com a mão, 9,2 a 40.
 4. **Um PASSO**: o que difere do último estado assentado (ΔE > `delta`) em DOIS quadros parados seguidos e não mudou
@@ -55,7 +65,7 @@ com o juiz, o nome e a nota.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Callable, Protocol
 
@@ -124,6 +134,16 @@ class Parametros:
     # ponto onde não se via pão ANTES de a peça sumir, e não para cima de uma metade que já existia antes (o vizinho
     # parecido: a janela não pula para ele)
     segue_parte: float = 0.15
+    # AS METADES FANTASMAS (o 2c do cabeçalho; a chave `FAROL_BANCADA_SEM_FANTASMA`, desligada por padrão). A cor do miolo
+    # de cada ponto: o croma médio (Lab do OpenCV) no disco de `miolo` do diâmetro; o quanto a metade mostrou pão: o maior
+    # croma mediano em `janela_pao` pontos seguidos. Medido na folha de 04 e 05/11 (121 metades marcadas a olho, uma vez;
+    # `docs/decisoes.md`, 06/11): o pão, 43 na mediana; a fantasma, 26. Com a chave: a menos de `mesmo_pao` diâmetro é o
+    # mesmo pão (fica um), e abaixo de `cor_do_pao` não é pão (sai).
+    sem_fantasma: bool = False
+    miolo: float = 0.3
+    janela_pao: int = 8
+    mesmo_pao: float = 0.7
+    cor_do_pao: float = 24.0
 
 
 class Julgado(Protocol):
@@ -141,13 +161,15 @@ Juiz = Callable[[np.ndarray], Julgado]
 
 @dataclass(frozen=True)
 class Ponto:
-    """Um pão visto num quadro: o centro e o diâmetro, e se foi o detector (caixa) ou o Hough (disco)."""
+    """Um pão visto num quadro: o centro e o diâmetro, se foi o detector (caixa) ou o Hough (disco) e a cor do miolo
+    naquele quadro (`croma_do_miolo`; nula quando não se mediu)."""
 
     quadro: str
     cx: float
     cy: float
     d: float
     caixa: bool
+    croma: float | None = None
 
 
 @dataclass
@@ -181,6 +203,8 @@ class MetadeVista:
     cy: float
     d: float
     desde: datetime | None
+    # o quanto a metade mostrou pão (`mostrou_pao`); nulo sem cor medida
+    pao: float | None = None
 
 
 @dataclass
@@ -189,6 +213,8 @@ class Leitura:
     # Na ordem da hora (e da metade); os de depois do fechamento já saíram.
     passos: list[Passo]
     fechou: datetime | None
+    # com `sem_fantasma`: as metades que saíram por serem fantasmas (sem passos; `k` 0)
+    fantasmas: list[MetadeVista] = field(default_factory=list)
 
 
 def discos(img: np.ndarray, x0: float, x1: float, p: Parametros | None = None) -> list[tuple[float, float, float]]:
@@ -206,6 +232,35 @@ def discos(img: np.ndarray, x0: float, x1: float, p: Parametros | None = None) -
     return [(float(x) + a, float(y), 2.0 * float(r)) for x, y, r in c[0] if y > TOPO_DA_BANCADA * h + 0.5 * r]
 
 
+def croma_do_miolo(img: np.ndarray, cx: float, cy: float, d: float, p: Parametros | None = None) -> float | None:
+    """A cor do miolo do pão visto (o 2c do cabeçalho): o croma médio — a distância do cinza no Lab do OpenCV — no disco
+    de `miolo` do diâmetro em volta do centro. O pão é amarelado; o alumínio e o inox, cinzas. Nulo fora do quadro."""
+    p = p or Parametros()
+    h, w = img.shape[:2]
+    r = max(4, int(p.miolo * d))
+    # presos em 0 ANTES de fatiar: o numpy conta o começo negativo do fim (V131)
+    x0, y0, x1, y1 = max(0, int(cx - r)), max(0, int(cy - r)), min(w, int(cx + r)), min(h, int(cy + r))
+    if x1 <= x0 or y1 <= y0:
+        return None
+    yy, xx = np.mgrid[y0:y1, x0:x1]
+    dentro = (xx - cx) ** 2 + (yy - cy) ** 2 <= r * r
+    if not dentro.any():
+        return None
+    lab = cv2.cvtColor(img[y0:y1, x0:x1], cv2.COLOR_BGR2LAB).astype(np.float32)
+    return float(np.hypot(lab[..., 1][dentro] - 128.0, lab[..., 2][dentro] - 128.0).mean())
+
+
+def mostrou_pao(cromas: list[float], janela: int) -> float | None:
+    """O quanto a metade MOSTROU pão: o maior croma mediano em `janela` pontos seguidos, na ordem do tempo (com menos
+    pontos, a mediana deles). O pão de verdade mostra a cor dele em algum momento; o círculo no alumínio, nunca. Nulo sem
+    nenhum ponto com cor."""
+    if not cromas:
+        return None
+    if len(cromas) <= janela:
+        return float(np.median(cromas))
+    return max(float(np.median(cromas[i:i + janela])) for i in range(len(cromas) - janela + 1))
+
+
 @dataclass(frozen=True)
 class Grupo:
     cx: float
@@ -213,6 +268,8 @@ class Grupo:
     d: float
     pontos: int
     caixas: int
+    # o quanto mostrou pão (`mostrou_pao`); nulo sem cor medida
+    pao: float | None = None
 
 
 def agrupar(pontos: list[Ponto], p: Parametros | None = None) -> list[Grupo]:
@@ -227,19 +284,40 @@ def agrupar(pontos: list[Ponto], p: Parametros | None = None) -> list[Grupo]:
                 break
         else:
             grupos.append([pt])
-    return [Grupo(*(float(np.median([getattr(v, a) for v in g])) for a in ("cx", "cy", "d")), len(g), sum(v.caixa for v in g))
+    return [Grupo(*(float(np.median([getattr(v, a) for v in g])) for a in ("cx", "cy", "d")), len(g), sum(v.caixa for v in g),
+                  mostrou_pao([v.croma for v in g if v.croma is not None], p.janela_pao))
             for g in grupos]
 
 
+def sem_fantasmas(grupos: list[Grupo], p: Parametros | None = None) -> list[Grupo]:
+    """As metades sem as FANTASMAS (o 2c do cabeçalho): duas a menos de `mesmo_pao` do diâmetro (o mediano do lugar) são
+    o mesmo pão — fica a que mais mostrou pão (empate: a de mais pontos); depois, a que nunca mostrou pão (abaixo de
+    `cor_do_pao`) sai — mas nunca todas: sem nenhuma com pão, fica a que mais mostrou. A metade sem cor medida não é
+    julgada pela cor."""
+    p = p or Parametros()
+    if not grupos:
+        return []
+    d = sorted(g.d for g in grupos)[len(grupos) // 2]
+    ficam: list[Grupo] = []
+    for g in sorted(grupos, key=lambda g: (-(g.pao if g.pao is not None else -1.0), -g.pontos)):
+        if all(float(np.hypot(g.cx - f.cx, g.cy - f.cy)) >= p.mesmo_pao * d for f in ficam):
+            ficam.append(g)
+    com_pao = [g for g in ficam if g.pao is None or g.pao >= p.cor_do_pao]
+    return com_pao or ficam[:1]
+
+
 def metades_fortes(grupos: list[Grupo], p: Parametros | None = None) -> list[Grupo]:
-    """As metades: vistas em `vistos_min` quadros ou mais, confirmadas pelo detector e com `forte` do maior grupo; de
-    cima para baixo (e da esquerda para a direita)."""
+    """As metades: vistas em `vistos_min` quadros ou mais, confirmadas pelo detector e com `forte` do maior grupo — e,
+    com `sem_fantasma`, sem as fantasmas; de cima para baixo (e da esquerda para a direita)."""
     p = p or Parametros()
     validos = [g for g in grupos if g.pontos >= p.vistos_min and g.caixas >= 1]
     if not validos:
         return []
     maior = max(g.pontos for g in validos)
-    return sorted((g for g in validos if g.pontos >= p.forte * maior), key=lambda g: (g.cy, g.cx))
+    fortes = [g for g in validos if g.pontos >= p.forte * maior]
+    if p.sem_fantasma:
+        fortes = sem_fantasmas(fortes, p)
+    return sorted(fortes, key=lambda g: (g.cy, g.cx))
 
 
 def recorte(img: np.ndarray, m: MetadeVista, p: Parametros | None = None) -> np.ndarray:
@@ -262,6 +340,7 @@ class _Metade:
 
     def __init__(self, k: int, g: Grupo, p: Parametros):
         self.k, self.cx, self.cy, self.d, self.p = k, g.cx, g.cy, g.d, p
+        self.pao = g.pao  # o quanto mostrou pão (vai para o `passos.json`)
         # onde a janela nasceu (a janela que segue anda; a metade continua dita pelo lugar onde nasceu)
         self.cx0, self.cy0 = g.cx, g.cy
         self.n = int(round(2 * p.raio * g.d * p.escala))  # o lado da janela, na escala da conta
@@ -514,21 +593,27 @@ class PassosDoLanche:
     def ver(self, quadro: str, hora: datetime, img: np.ndarray, caixas: list[tuple], x0: float, x1: float,
             achados: list[tuple[float, float, float]] | None = None) -> None:
         """Um quadro do lugar: as caixas do detector (x0, y0, x1, y1, ...) com o centro na faixa [x0, x1] e os discos
-        de pão da faixa (`achados`, quando quem chama já os tem)."""
+        de pão da faixa (`achados`, quando quem chama já os tem); cada um com a cor do miolo neste quadro."""
         self.quadros.append((quadro, hora))
         self.faixa = (x0, x1) if self.faixa is None else (min(self.faixa[0], x0), max(self.faixa[1], x1))
         for c in caixas:
             cx = (c[0] + c[2]) / 2
             if x0 <= cx <= x1:
-                self.pontos.append(Ponto(quadro, cx, (c[1] + c[3]) / 2, ((c[2] - c[0]) + (c[3] - c[1])) / 2, True))
+                cy, d = (c[1] + c[3]) / 2, ((c[2] - c[0]) + (c[3] - c[1])) / 2
+                self.pontos.append(Ponto(quadro, cx, cy, d, True, croma_do_miolo(img, cx, cy, d, self.p)))
         for cx, cy, d in (discos(img, x0, x1, self.p) if achados is None else achados):
-            self.pontos.append(Ponto(quadro, cx, cy, d, False))
+            self.pontos.append(Ponto(quadro, cx, cy, d, False, croma_do_miolo(img, cx, cy, d, self.p)))
 
     def ler(self, abrir: Callable[[str], np.ndarray | None], juiz: Juiz | None = None) -> Leitura:
         """As metades e os passos. Com o `juiz` de ingrediente, o 7 do cabeçalho: a peça que não é comida sai antes do
         fechamento (o passo dela não fecha o lanche), e os passos sem ingrediente saem depois dele."""
         p = self.p
-        metades = [_Metade(k + 1, g, p) for k, g in enumerate(metades_fortes(agrupar(self.pontos, p), p))]
+        grupos = agrupar(self.pontos, p)
+        fortes = metades_fortes(grupos, p)
+        # com `sem_fantasma`, as que saíram ficam ditas na leitura (para conferir a régua na loja)
+        fantasmas = [MetadeVista(0, g.cx, g.cy, g.d, None, g.pao)
+                     for g in metades_fortes(grupos, replace(p, sem_fantasma=False)) if g not in fortes] if p.sem_fantasma else []
+        metades = [_Metade(k + 1, g, p) for k, g in enumerate(fortes)]
         nomes = [q for q, _ in self.quadros]
         for m in metades:
             perto = {pt.quadro for pt in self.pontos if abs(pt.cx - m.cx) < p.perto * m.d and abs(pt.cy - m.cy) < p.perto * m.d}
@@ -595,7 +680,7 @@ class PassosDoLanche:
             for m in metades:
                 olhar.passos(m)
         passos = sorted((ps for m in metades for ps in m.passos), key=lambda s: (s.hora, s.metade))
-        return Leitura([MetadeVista(m.k, m.cx0, m.cy0, m.d, m.desde) for m in metades], passos, fechou)
+        return Leitura([MetadeVista(m.k, m.cx0, m.cy0, m.d, m.desde, m.pao) for m in metades], passos, fechou, fantasmas)
 
     def _fechar(self, metades: list[_Metade]) -> datetime | None:
         """O primeiro passo cujo conteúdo novo é papel fecha o lanche; antes dele, o provisório de cada outra metade;

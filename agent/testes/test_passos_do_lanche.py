@@ -354,6 +354,166 @@ def test_as_metades_saem_dos_grupos_fortes_com_caixa_do_detector():
     assert [(round(g.cx), round(g.cy), g.pontos) for g in fortes] == [(300, 250, 20), (302, 421, 18)]
 
 
+# ───────────────────────── as metades fantasmas (o 2c) ─────────────────────────
+
+
+def test_a_regua_das_fantasmas_nasce_desligada_com_os_numeros_medidos():
+    p = pdl.Parametros()
+    assert (p.sem_fantasma, p.miolo, p.janela_pao, p.mesmo_pao, p.cor_do_pao) == (False, 0.3, 8, 0.7, 24.0)
+
+
+def test_a_cor_do_miolo_separa_o_pao_do_inox_e_do_papel():
+    img = mesa()
+    pao, inox, papel = (pdl.croma_do_miolo(img, x, y, D) for x, y in (TAMPA, (700, 300), (200, 480)))
+    assert pao is not None and inox is not None and papel is not None
+    assert pao > 24 > 12 > papel > inox
+    # o pão contado de novo a meio diâmetro: metade do miolo no pão, metade no papel
+    meio = pdl.croma_do_miolo(img, TAMPA[0] + D // 2, TAMPA[1], D)
+    assert meio is not None and papel < meio < pao
+    # o canto do quadro (preso em 0 antes de fatiar) e fora dele
+    assert pdl.croma_do_miolo(img, 5, ALTURA - 5, D) is not None
+    assert pdl.croma_do_miolo(img, -200, -200, D) is None
+
+
+def test_a_cor_do_miolo_e_so_do_disco_e_nao_dos_cantos_do_quadrado():
+    img = np.full((200, 200, 3), 128, np.uint8)  # cinza: croma zero
+    r = int(0.3 * 100)
+    for x, y in ((70, 70), (130 - 6, 70), (70, 130 - 6), (130 - 6, 130 - 6)):  # os cantos do quadrado de lado 2r em volta
+        img[y:y + 6, x:x + 6] = (0, 200, 255)
+    assert 100 - r == 70
+    assert pdl.croma_do_miolo(img, 100, 100, 100) == 0.0
+
+
+def test_o_croma_conta_o_vermelho_e_o_verde_tambem_e_nao_so_o_amarelo():
+    # uma cor só no eixo a do Lab (b no meio: nem amarelo nem azul) — o vermelho do ketchup, o verde da alface — não é cinza
+    for a in (128 + 50, 128 - 50):
+        cor = cv2.cvtColor(np.uint8([[[150, a, 128]]]), cv2.COLOR_LAB2BGR)[0, 0]
+        img = np.full((60, 60, 3), cor, np.uint8)
+        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB).astype(np.float32)
+        assert abs(float(lab[..., 2].mean()) - 128) < 8, "a cor de teste quase não tem b"
+        croma = pdl.croma_do_miolo(img, 30, 30, 40)
+        assert croma is not None and croma > 30
+
+
+def test_o_miolo_e_tres_decimos_do_diametro():
+    # um anel colorido de 20 a 30 px em volta do centro, no cinza: no miolo de 30 px (0,3 de 100), ele é 5/9 da área
+    img = np.full((200, 200, 3), 128, np.uint8)
+    cv2.circle(img, (100, 100), 30, (0, 200, 255), -1)
+    cv2.circle(img, (100, 100), 20, (128, 128, 128), -1)
+    cheio = np.full((10, 10, 3), (0, 200, 255), np.uint8)
+    cor = pdl.croma_do_miolo(cheio, 5, 5, 20)
+    assert cor is not None and cor > 50
+    anel = pdl.croma_do_miolo(img, 100, 100, 100)
+    assert anel is not None and abs(anel / cor - 5 / 9) < 0.1
+
+
+def test_cada_ponto_leva_a_cor_do_miolo_da_caixa_e_do_disco():
+    img = mesa()
+    passos = pdl.PassosDoLanche()
+    passos.ver("q0", T0, img, caixas_de([TAMPA]), 0, LARGURA, achados=[])
+    passos.ver("q1", T0 + timedelta(seconds=1), img, [], 0, LARGURA, achados=[(700.0, 300.0, float(D))])
+    caixa, disco = passos.pontos
+    assert caixa.caixa and caixa.croma is not None and caixa.croma > 24
+    assert not disco.caixa and disco.croma == 0.0
+
+
+def test_o_grupo_mostra_pao_pelo_trecho_seguido_na_ordem_do_tempo():
+    # 10 quadros de alumínio, 3 de pão, 10 de alumínio: um relance (o melhor trecho de 8 é alumínio); e o ponto sem cor
+    # não entra
+    serie = [10.0] * 10 + [40.0] * 3 + [10.0] * 10
+    pontos = [pdl.Ponto(f"q{i}", 300, 250, D, True, c) for i, c in enumerate(serie)] + [pdl.Ponto("q99", 300, 250, D, True)]
+    (g,) = pdl.agrupar(pontos)
+    assert g.pontos == 24 and g.pao == 10.0
+    (g,) = pdl.agrupar([pdl.Ponto(f"q{i}", 300, 250, D, True, c) for i, c in enumerate([10.0] * 10 + [40.0] * 5)])
+    assert g.pao == 40.0
+    assert pdl.agrupar([pdl.Ponto("q0", 300, 250, D, True)])[0].pao is None
+
+
+def test_o_quanto_mostrou_pao_e_o_melhor_trecho_e_nao_um_relance():
+    aluminio, pao = 10.0, 40.0
+    # o pão que aparece 5 quadros seguidos (antes do ingrediente cobrir) conta; um relance de 3, não
+    assert pdl.mostrou_pao([aluminio] * 20 + [pao] * 5 + [aluminio] * 20, 8) == pao
+    assert pdl.mostrou_pao([aluminio] * 20 + [pao] * 3 + [aluminio] * 20, 8) == aluminio
+    # com menos pontos que a janela, a mediana deles; sem nenhum, nulo
+    assert pdl.mostrou_pao([30.0, 50.0, 10.0], 8) == 30.0
+    assert pdl.mostrou_pao([], 8) is None
+
+
+def _g(cx, cy, pontos=20, pao=None, d=D):
+    return pdl.Grupo(float(cx), float(cy), float(d), pontos, 5, pao)
+
+
+def test_o_mesmo_pao_contado_duas_vezes_fica_um_o_que_mais_mostrou_pao():
+    p = pdl.Parametros(sem_fantasma=True, cor_do_pao=0.0)  # só a distância
+    tampa, de_novo, base = _g(300, 250, pontos=20, pao=30.0), _g(370, 250, pontos=25, pao=20.0), _g(300, 420, pao=35.0)
+    # o de mais pontos mostrou menos pão: fica a tampa
+    assert pdl.sem_fantasmas([de_novo, tampa, base], p) == [base, tampa]
+    # empate na cor: fica o de mais pontos
+    igual = _g(370, 250, pontos=25, pao=30.0)
+    assert set(pdl.sem_fantasmas([tampa, igual], p)) == {igual}
+
+
+def test_o_mesmo_pao_e_menos_de_sete_decimos_do_diametro_mediano():
+    p = pdl.Parametros(sem_fantasma=True, cor_do_pao=0.0)
+    a = _g(300, 250, pao=30.0)
+    assert pdl.sem_fantasmas([a, _g(300 + 0.69 * D, 250, pao=20.0)], p) == [a]
+    assert len(pdl.sem_fantasmas([a, _g(300 + 0.71 * D, 250, pao=20.0)], p)) == 2
+    # a base e o tampo encostados (1 diâmetro) são duas metades
+    assert len(pdl.sem_fantasmas([a, _g(300, 250 + D, pao=20.0)], p)) == 2
+    # o diâmetro é o MEDIANO do lugar: com dois pães de 100 e um de 140, 84 px já é longe (0,84 do mediano; seria perto
+    # pelo maior)
+    p100 = [_g(300, 250, pao=30.0, d=100), _g(384, 250, pao=20.0, d=100), _g(700, 250, pao=30.0, d=140)]
+    assert len(pdl.sem_fantasmas(p100, p)) == 3
+    assert pdl.sem_fantasmas([], p) == []
+
+
+def test_o_circulo_que_nunca_mostrou_pao_sai_mas_nunca_todos():
+    p = pdl.Parametros(sem_fantasma=True)
+    tampa, base, aluminio = _g(300, 250, pao=30.0), _g(300, 420, pao=26.0), _g(700, 300, pao=5.0)
+    assert pdl.sem_fantasmas([tampa, aluminio, base], p) == [tampa, base]
+    # o corte é de 24: no corte, fica
+    assert pdl.sem_fantasmas([tampa, _g(700, 300, pao=24.0)], p) == [tampa, _g(700, 300, pao=24.0)]
+    # sem cor medida, não se julga pela cor
+    sem_cor = _g(700, 300, pao=None)
+    assert pdl.sem_fantasmas([tampa, sem_cor], p) == [tampa, sem_cor]
+    # nenhuma com pão: fica a que mais mostrou; e uma só fica sempre
+    assert pdl.sem_fantasmas([_g(300, 250, pao=10.0), _g(700, 300, pao=20.0)], p) == [_g(700, 300, pao=20.0)]
+    assert pdl.sem_fantasmas([aluminio], p) == [aluminio]
+
+
+def test_as_metades_fortes_so_tiram_as_fantasmas_com_a_chave():
+    grupos = [_g(700, 300, pao=5.0), _g(300, 420, pao=30.0), _g(300, 250, pao=30.0)]
+    com = pdl.metades_fortes(grupos, pdl.Parametros(sem_fantasma=True))
+    assert [(g.cx, g.cy) for g in com] == [(300.0, 250.0), (300.0, 420.0)], "de cima para baixo"
+    assert len(pdl.metades_fortes(grupos, pdl.Parametros())) == 3
+
+
+def _com_fantasmas(p):
+    # o pão contado de novo a meio diâmetro da tampa (visto PRIMEIRO) e um círculo no inox, com caixa do detector
+    de_novo, inox = (TAMPA[0] + D // 2, TAMPA[1]), (700, 300)
+    return ler([mesa()] * 12, p=p, pontos_de=lambda i: [de_novo, TAMPA, BASE, inox])
+
+
+def test_sem_a_chave_toda_metade_forte_fica_e_leva_o_quanto_mostrou_pao():
+    leitura = _com_fantasmas(pdl.Parametros())
+    assert len(leitura.metades) == 4 and leitura.fantasmas == []
+    pao = {(round(m.cx), round(m.cy)): m.pao for m in leitura.metades}
+    assert pao[TAMPA] is not None and pao[TAMPA] > 24 and pao[(700, 300)] == 0.0
+    assert pao[TAMPA] > pao[(TAMPA[0] + D // 2, TAMPA[1])] > pao[(700, 300)]
+
+
+def test_com_a_chave_ficam_a_tampa_e_a_base_e_as_fantasmas_sao_ditas():
+    leitura = _com_fantasmas(pdl.Parametros(sem_fantasma=True))
+    assert [(m.k, round(m.cx), round(m.cy)) for m in leitura.metades] == [(1, *TAMPA), (2, *BASE)]
+    assert sorted((m.k, round(m.cx), round(m.cy), m.desde) for m in leitura.fantasmas) == [
+        (0, TAMPA[0] + D // 2, TAMPA[1], None), (0, 700, 300, None)]
+    assert all(m.pao is not None and m.pao < 24 for m in leitura.fantasmas)
+    # só a distância (sem o corte da cor): sai o pão contado de novo, o círculo no inox fica
+    so_distancia = _com_fantasmas(pdl.Parametros(sem_fantasma=True, cor_do_pao=0.0))
+    assert sorted((round(m.cx), round(m.cy)) for m in so_distancia.metades) == [(300, 250), (300, 420), (700, 300)]
+    assert [(round(m.cx), round(m.cy)) for m in so_distancia.fantasmas] == [(TAMPA[0] + D // 2, TAMPA[1])]
+
+
 def test_a_metade_so_e_olhada_depois_de_estar_no_lugar_dela():
     # a base chega no segundo 5 (antes, só a tampa); o que mudou antes disso no lugar dela não é passo dela
     cena = [mesa(paes=[TAMPA])] * 5 + [mesa()] * 5

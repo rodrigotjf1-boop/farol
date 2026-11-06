@@ -621,6 +621,15 @@ def test_o_servico_passa_a_janela_que_segue_a_leitura_do_canal(tmp_path, segue):
     sv.s.fechar(sv.c, "o agente parou")
 
 
+@pytest.mark.parametrize("sem", [True, False])
+def test_o_servico_passa_a_regua_das_fantasmas_a_leitura_do_canal(tmp_path, sem):
+    sv = Servico(em_disco(tmp_path), FluxoDeMentira(cena()[:10]), guardar_quadros=True, passos=True, sem_fantasma=sem)
+    sv.passos(3)
+    assert sv.c.leitura is not None and sv.c.leitura._parametros_dos_passos.sem_fantasma is sem
+    assert sv.c.leitura._parametros_dos_passos.segue is False, "uma chave não liga a outra"
+    sv.s.fechar(sv.c, "o agente parou")
+
+
 def test_o_servico_com_a_chave_guarda_a_sessao_inteira(tmp_path):
     sv = Servico(em_disco(tmp_path), FluxoDeMentira(cena()[:30]), guardar_quadros=True)
 
@@ -739,10 +748,12 @@ def test_a_linha_de_execucao_le_e_para(tmp_path):
 class _BancadaDeMentira:
     vistos: list[str] = []
 
-    def __init__(self, caminho_config, canais, *, guardar_quadros=False, passos=False, juiz_de=None, janela_segue=False):
+    def __init__(self, caminho_config, canais, *, guardar_quadros=False, passos=False, juiz_de=None, janela_segue=False,
+                 sem_fantasma=False):
         _BancadaDeMentira.vistos.append(
             f"criada:{Path(caminho_config).name}:{canais}:guardar={guardar_quadros}" + (":passos" if passos else "")
-            + (":juiz" if juiz_de is not None else "") + (":segue" if janela_segue else ""),
+            + (":juiz" if juiz_de is not None else "") + (":segue" if janela_segue else "")
+            + (":sem_fantasma" if sem_fantasma else ""),
         )
 
     def iniciar(self):
@@ -787,6 +798,7 @@ def test_o_agente_so_liga_a_bancada_ao_vivo_com_a_variavel(
     _BancadaDeMentira.vistos.clear()
     monkeypatch.setenv("FAROL_AGENTE_TOKEN", "token-de-teste")
     monkeypatch.delenv(bav.JANELA_SEGUE, raising=False)
+    monkeypatch.delenv(bav.SEM_FANTASMA, raising=False)
     monkeypatch.delenv(bav.NADA_NO_JUIZ, raising=False)
     for nome, v in ((bav.VARIAVEL, valor), (bav.GUARDAR, guardar), (bav.PASSOS, passos), (bav.INGREDIENTES, ingredientes)):
         if v is None:
@@ -835,6 +847,10 @@ def test_com_os_passos_ligados_o_lanche_ganha_a_pasta_dos_passos(tmp_path):
     assert sem_fuso(p["t"]) == T0 + timedelta(seconds=70), "anotado na hora do embrulho, como o lanche"
     lido = json.loads((le.pasta / p["pasta"] / "passos.json").read_text(encoding="utf-8"))
     assert [(m["k"], abs(m["x"] - 300) <= 3) for m in lido["metades"]] == [(1, True), (2, True)]
+    # o quanto cada metade mostrou pão vai sempre (a cor do miolo medida em cada quadro), com uma casa; e, sem a régua
+    # das fantasmas, nenhuma lista de fantasmas
+    assert all(isinstance(m["pao"], float) and m["pao"] > 0 and m["pao"] == round(m["pao"], 1) for m in lido["metades"])
+    assert "fantasmas" not in lido
     chegou = [s for s in lido["passos"] if s["tipo"] == "passo"]
     assert {s["metade"] for s in chegou if 40 <= (sem_fuso(s["hora"]) - T0).total_seconds() <= 43} == {1, 2}, (
         "o que cobriu as duas metades aos 40 s é um passo em cada uma"
@@ -893,6 +909,34 @@ def test_a_chave_dos_passos(valor, liga):
     assert bav.ingredientes_ligados(valor) is liga
     assert bav.janela_segue_ligada(valor) is liga
     assert bav.JANELA_SEGUE == "FAROL_BANCADA_JANELA_SEGUE"
+    assert bav.sem_fantasma_ligada(valor) is liga
+    assert bav.SEM_FANTASMA == "FAROL_BANCADA_SEM_FANTASMA"
+
+
+@pytest.mark.parametrize("guardar, passos, sem", [("1", "1", True), ("1", None, False), (None, "1", False)])
+def test_o_agente_liga_a_regua_das_fantasmas_so_com_os_passos(tmp_path, monkeypatch, capsys, guardar, passos, sem):
+    from farol_agent import nuvem
+
+    _BancadaDeMentira.vistos.clear()
+    monkeypatch.setenv("FAROL_AGENTE_TOKEN", "token-de-teste")
+    monkeypatch.setenv(bav.VARIAVEL, "4")
+    monkeypatch.setenv(bav.SEM_FANTASMA, "1")
+    monkeypatch.delenv(bav.JANELA_SEGUE, raising=False)
+    monkeypatch.delenv(bav.INGREDIENTES, raising=False)
+    for nome, v in ((bav.GUARDAR, guardar), (bav.PASSOS, passos)):
+        if v is None:
+            monkeypatch.delenv(nome, raising=False)
+        else:
+            monkeypatch.setenv(nome, v)
+    monkeypatch.setattr(nuvem, "ClienteNuvem", _ClienteDeMentira)
+    monkeypatch.setattr(bav, "BancadaAoVivo", _BancadaDeMentira)
+    monkeypatch.setattr(treino_servico, "TreinoEmFundo", lambda *a, **k: None)
+    argv = ["servir", "--nuvem", "https://api.exemplo", "--config", str(tmp_path / "configuracao.json"),
+            "--fila", str(tmp_path / "fila.db"), "--sem-auditoria", "--sem-treino", "--voltas", "0"]
+    assert cli.main(argv) == 0
+    assert (":sem_fantasma" in _BancadaDeMentira.vistos[0]) is sem
+    assert ":segue" not in _BancadaDeMentira.vistos[0], "uma chave não liga a outra"
+    assert ("SEM AS METADES FANTASMAS (FAROL_BANCADA_SEM_FANTASMA)" in capsys.readouterr().out) is sem
 
 
 @pytest.mark.parametrize("guardar, passos, segue", [("1", "1", True), ("1", None, False), (None, "1", False)])
@@ -993,6 +1037,32 @@ def test_com_a_janela_que_segue_o_recorte_sai_de_onde_a_janela_estava(tmp_path, 
     fixa = bav.LeituraDoCanal(4, ZONA, FluxoDeMentira(cena_do_embrulho()), DetectorDaCor(), AO_LONGO,
                               tmp_path / "canal-04b", relogio=lambda: T0, guardar_quadros=True, passos=True)
     assert fixa._parametros_dos_passos.segue is False
+
+
+def test_com_a_regua_das_fantasmas_as_que_sairam_ficam_no_passos_json(tmp_path, monkeypatch):
+    from farol_agent import passos_do_lanche as pdl
+
+    parametros = []
+
+    def ler_com_uma_fantasma(self, abrir, juiz=None):
+        parametros.append(self.p.sem_fantasma)
+        quadro, hora = self.quadros[len(self.quadros) // 2]
+        m = pdl.MetadeVista(1, 300.0, 200.0, 100.0, hora, 41.26)
+        fora = [pdl.MetadeVista(0, 371.4, 203.6, 98.0, None, 12.04), pdl.MetadeVista(0, 640.0, 200.0, 100.0, None, None)]
+        return pdl.Leitura([m], [pdl.Passo(hora, 1, "comeco", 1.0, None, quadro)], None, fora)
+
+    monkeypatch.setattr(bav.PassosDoLanche, "ler", ler_com_uma_fantasma)
+    le = bav.LeituraDoCanal(4, ZONA, FluxoDeMentira(cena_do_embrulho()), DetectorDaCor(), AO_LONGO, tmp_path / "canal-04",
+                            relogio=lambda: T0, guardar_quadros=True, passos=True, sem_fantasma=True)
+    ler_tudo(le, 95)
+    le.encerrar("o agente parou")
+    p = next(e for e in linha_do_tempo(le.pasta) if e["evento"] == "passos")
+    lido = json.loads((le.pasta / p["pasta"] / "passos.json").read_text(encoding="utf-8"))
+    assert parametros == [True], "os passos foram lidos com a régua"
+    assert [(m["k"], m["x"], m["pao"]) for m in lido["metades"]] == [(1, 300, 41.3)]
+    # as que saíram: a posição, o diâmetro e o quanto mostraram pão (nulo sem cor) — sem `k` e sem passos
+    assert lido["fantasmas"] == [{"x": 371, "y": 204, "d": 98, "pao": 12.0}, {"x": 640, "y": 200, "d": 100, "pao": None}]
+    assert p["metades"] == 1, "a linha do tempo conta só as metades que ficaram"
 
 
 # ───────────────────────── o juiz de ingrediente nos passos ─────────────────────────

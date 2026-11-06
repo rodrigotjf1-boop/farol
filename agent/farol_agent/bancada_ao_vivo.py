@@ -105,6 +105,10 @@ NADA_NO_JUIZ = "FAROL_BANCADA_NADA_NO_JUIZ"
 # A JANELA QUE SEGUE (05/11/2026; `passos_do_lanche`, o 2b): a janela de cada metade nasce onde o pão estava no começo e
 # anda com a peça quando o lanche é empurrado — o recorte de cada passo sai de onde a janela estava. Desligada por padrão.
 JANELA_SEGUE = "FAROL_BANCADA_JANELA_SEGUE"
+# SEM AS METADES FANTASMAS (06/11/2026; `passos_do_lanche`, o 2c): o mesmo pão contado duas vezes vira um só, e o círculo
+# que nunca mostrou cor de pão (o alumínio ao lado) sai. Desligada por padrão; o quanto cada metade mostrou pão vai para o
+# `passos.json` com ela desligada também.
+SEM_FANTASMA = "FAROL_BANCADA_SEM_FANTASMA"
 PASTA = "bancada"
 QUADROS = "quadros"
 DENSA = "densa"
@@ -180,6 +184,11 @@ def janela_segue_ligada(valor: str | None) -> bool:
     return guardar_quadros_ligado(valor)
 
 
+def sem_fantasma_ligada(valor: str | None) -> bool:
+    """`FAROL_BANCADA_SEM_FANTASMA`: os mesmos valores das outras chaves (sem ela, toda metade forte fica)."""
+    return guardar_quadros_ligado(valor)
+
+
 def contorno(mascara: np.ndarray, tamanho: tuple[int, int]) -> list[list[list[int]]]:
     """O contorno do que chegou, em pixels do recorte (`tamanho` = altura, largura): os pedaços com 2% do recorte ou
     mais, simplificados — o que a conferência desenha por cima do recorte."""
@@ -222,6 +231,11 @@ def aberta(janelas: list[Janela], agora: datetime) -> bool:
 def _iso(t: datetime) -> str:
     """A hora com o fuso (o computador da loja está no fuso dela): quem lê não supõe nada (ERR-022)."""
     return t.astimezone().isoformat(timespec="seconds")
+
+
+def _arredondado(v: float | None) -> float | None:
+    """O número com uma casa (o quanto a metade mostrou pão); nulo fica nulo."""
+    return round(v, 1) if v is not None else None
 
 
 def livre_no_disco(pasta: Path) -> int:
@@ -344,11 +358,12 @@ class LeituraDoCanal:
         self, canal: int, zona: Zona, fluxo: Fluxo, detector: treino_lanches.Detector,
         perfil: treino_lanches.PerfilDaBancada, pasta: Path, *, relogio: Callable[[], datetime] = datetime.now,
         guardar_quadros: bool = False, passos: bool = False, juiz_de: Callable[[], Juiz | None] | None = None,
-        janela_segue: bool = False,
+        janela_segue: bool = False, sem_fantasma: bool = False,
     ) -> None:
         self.canal, self.zona, self.fluxo, self.detector, self.perfil = canal, zona, fluxo, detector, perfil
-        # a janela que segue (`FAROL_BANCADA_JANELA_SEGUE`): os passos de cada lanche com a janela andando com a peça
-        self._parametros_dos_passos = Parametros(segue=janela_segue)
+        # a janela que segue (`FAROL_BANCADA_JANELA_SEGUE`): os passos de cada lanche com a janela andando com a peça; sem
+        # as metades fantasmas (`FAROL_BANCADA_SEM_FANTASMA`)
+        self._parametros_dos_passos = Parametros(segue=janela_segue, sem_fantasma=sem_fantasma)
         self.pasta = Path(pasta)
         self._relogio = relogio
         self.guardar = guardar_quadros
@@ -585,10 +600,15 @@ class LeituraDoCanal:
         fechou = _iso(leitura.fechou) if leitura.fechou else None
         resumo = {
             "lugar": l.n, "inicio": _iso(l.inicio), "fim": _iso(l.fim or l.inicio), "fechou": fechou,
+            # `pao`: o quanto a metade mostrou pão (`passos_do_lanche`, o 2c) — sempre, para medir a régua das fantasmas
             "metades": [{"k": m.k, "x": round(m.cx), "y": round(m.cy), "d": round(m.d),
-                         "desde": _iso(m.desde) if m.desde else None} for m in leitura.metades],
+                         "desde": _iso(m.desde) if m.desde else None, "pao": _arredondado(m.pao)} for m in leitura.metades],
             "passos": registros,
         }
+        if leitura.fantasmas:
+            # com a régua ligada: as metades que saíram por serem fantasmas (sem passos)
+            resumo["fantasmas"] = [{"x": round(m.cx), "y": round(m.cy), "d": round(m.d), "pao": _arredondado(m.pao)}
+                                   for m in leitura.fantasmas]
         extras: dict[str, Any] = {}
         if juiz is not None:
             resumo["juiz"] = True
@@ -691,12 +711,14 @@ class BancadaAoVivo:
         juiz_de: Callable[[], Juiz | None] | None = None,
         livre: Callable[[Path], int] = livre_no_disco,
         janela_segue: bool = False,
+        sem_fantasma: bool = False,
     ) -> None:
         self.caminho_config = Path(caminho_config)
         self.canais = list(canais)
         self.guardar_quadros = guardar_quadros
         self.passos = passos
         self.juiz_de = juiz_de
+        self.sem_fantasma = sem_fantasma
         self.janela_segue = janela_segue
         self.raiz = self.caminho_config.parent / PASTA
         self._livre = livre
@@ -759,7 +781,7 @@ class BancadaAoVivo:
                     c.leitura = LeituraDoCanal(
                         c.canal, pecas["zona"], fluxo, pecas["detector"], pecas["perfil"], self.pasta_do_canal(c.canal),
                         relogio=self._relogio, guardar_quadros=self.guardar_quadros, passos=self.passos,
-                        juiz_de=self.juiz_de, janela_segue=self.janela_segue,
+                        juiz_de=self.juiz_de, janela_segue=self.janela_segue, sem_fantasma=self.sem_fantasma,
                     )
                     c.chave, c.motivo_dito = nova, None
                     c.leitura.anotar(self._relogio(), "ligada")

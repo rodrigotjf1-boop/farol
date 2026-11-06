@@ -1159,9 +1159,9 @@ def cmd_servir(args: argparse.Namespace) -> int:
 
     from farol_agent.bancada_ao_vivo import (
         GUARDAR, INGREDIENTES, JANELA_SEGUE, JUIZ_TREINADO, JUIZ_TREINADO_VISTAS, NADA_NO_JUIZ, OLHO_DUPLO, PAO_NO_PASSO,
-        PASSOS, VARIAVEL, BancadaAoVivo, canais_ligados, guardar_quadros_ligado, ingredientes_ligados,
+        PASSOS, SEM_FANTASMA, VARIAVEL, BancadaAoVivo, canais_ligados, guardar_quadros_ligado, ingredientes_ligados,
         janela_segue_ligada, juiz_treinado_ligado, nada_no_juiz_ligado, olho_duplo_ligado, pao_no_passo_ligado,
-        passos_ligados,
+        passos_ligados, sem_fantasma_ligada,
     )
 
     bancada_ao_vivo = None
@@ -1214,9 +1214,11 @@ def cmd_servir(args: argparse.Namespace) -> int:
                 conferencia_em_fundo.iniciar()
         # a janela que segue (a janela de cada metade anda com a peça empurrada): só com os passos
         janela_segue = passos and guardar and janela_segue_ligada(os.environ.get(JANELA_SEGUE))
+        # sem as metades fantasmas (o mesmo pão contado duas vezes, o círculo no alumínio): só com os passos
+        sem_fantasma = passos and guardar and sem_fantasma_ligada(os.environ.get(SEM_FANTASMA))
         bancada_ao_vivo = BancadaAoVivo(
             args.config, canais_ao_vivo, guardar_quadros=guardar, passos=passos, juiz_de=juiz_de,
-            janela_segue=janela_segue,
+            janela_segue=janela_segue, sem_fantasma=sem_fantasma,
         )
         bancada_ao_vivo.iniciar()
         print(
@@ -1232,6 +1234,8 @@ def cmd_servir(args: argparse.Namespace) -> int:
             + (f", e o PÃO NO PASSO ({PAO_NO_PASSO}): o passo que é pão não conta" if pao_no_passo else "")
             + (f", e o NÃO É INGREDIENTE no juiz ({NADA_NO_JUIZ}): o que o dono marcou não conta" if nada_no_juiz else "")
             + (f"; a JANELA QUE SEGUE ({JANELA_SEGUE}): a janela de cada metade anda com a peça" if janela_segue else "")
+            + (f"; SEM AS METADES FANTASMAS ({SEM_FANTASMA}): o mesmo pão conta uma vez, e o círculo sem cor de pão sai"
+               if sem_fantasma else "")
             + (f"; até {conferencia_em_fundo.por_noite} lanches de cada noite sobem para a conferência, com a loja "
                "fechada" if conferencia_em_fundo is not None else "")
             + (f"; e até {conferencia_em_fundo.marcar_por_noite} recortes de cada noite sobem para MARCAR"
