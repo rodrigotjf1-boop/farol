@@ -31,8 +31,8 @@ from farol_agent import imagens
 from farol_agent.modelos import Janela
 from farol_agent.nuvem import ErroDaNuvem
 from farol_agent.passos_na_nuvem import (
-    ENCERRADAS, ENVIADO, ConferenciaEmFundo, LancheLido, Noite, amostra, corpo_do_lanche, duvidas, noite_do_lanche,
-    pao_pelas_pecas, por_noite,
+    ENCERRADAS, ENVIADO, ConferenciaEmFundo, LancheLido, Noite, amostra, corpo_do_lanche, duvidas, metades_do_lanche,
+    noite_do_lanche, pao_pelas_pecas, por_noite,
 )
 
 CONTRATO = json.loads((Path(__file__).resolve().parents[2] / "contratos" / "lanche-de-treino.json").read_text(encoding="utf-8"))
@@ -225,6 +225,14 @@ def test_o_corpo_do_lanche_cabe_no_contrato(tmp_path: Path):
     assert set(l) == set(CONTRATO["porPassos"]["corpo"]["lanche"])
     assert len(etapas) <= limites["etapas"] and len(corpo["quadros"]) <= limites["quadros"]
     assert limites["pecas"][0] <= l["pecas"] <= limites["pecas"][1]
+    # a posição das metades (05/11/2026): as do passos.json, na régua do contrato, com a hora com fuso
+    assert [(m["k"], m["x"], m["y"], m["d"]) for m in l["metades"]] == [(1, 100, 50, 180), (2, 200, 50, 180), (3, 300, 50, 180)]
+    assert all(datetime.fromisoformat(m["desde"]).tzinfo is not None for m in l["metades"])
+    assert all(set(m) == set(CONTRATO["porPassos"]["corpo"]["lanche"]["metades"][0]) for m in l["metades"])
+    regua = limites["metades"]
+    assert len(l["metades"]) <= regua["maximo"]
+    assert all(0 <= m["x"] <= regua["coordenadaMaxima"] and 0 <= m["y"] <= regua["coordenadaMaxima"] for m in l["metades"])
+    assert all(regua["diametro"][0] <= m["d"] <= regua["diametro"][1] for m in l["metades"])
     for q in corpo["quadros"]:
         assert len(base64.b64decode(q["imagemBase64"])) <= limites["bytesDoQuadro"]
     for e in etapas:
@@ -252,6 +260,30 @@ def test_o_contorno_grande_cabe_no_contrato(tmp_path: Path):
     e = corpo_do_lanche(NOITE, None, pasta, leitura, [])["lanche"]["etapas"][0]
     assert len(e["contorno"]) == 8 and len(e["contorno"][0]) == 64
     assert all(0 <= x < 360 and 0 <= y < 240 for pedaco in e["contorno"] for x, y in pedaco)
+
+
+def test_a_posicao_das_metades_fica_na_regua_da_nuvem():
+    """V149: o produtor prende na régua da API (`limites.metades`) — a beira (negativo, NaN, um a mais que o máximo, o
+    repetido, o booleano) nunca chega à nuvem, que recusaria o lanche inteiro (422 não se repete)."""
+    regua = CONTRATO["limites"]["metades"]
+    bruto = [
+        {"k": 1, "x": -5, "y": 4097, "d": 0, "desde": "2026-10-21T20:12:42-03:00"},  # presos na régua
+        {"k": 1, "x": 10, "y": 10, "d": 100, "desde": None},  # k repetido: fica o primeiro
+        {"k": 0, "x": 10, "y": 10, "d": 100},  # k fora
+        {"k": regua["maximo"] + 1, "x": 10, "y": 10, "d": 100},  # um a mais que o máximo
+        {"k": True, "x": 10, "y": 10, "d": 100},  # booleano não é número
+        {"k": 2, "x": float("nan"), "y": 10, "d": 100},  # centro torto: sai
+        {"k": 3, "x": 10.6, "y": 20.4, "d": 99.5, "desde": "torto"},  # arredonda; hora torta vira nula
+        "não é metade",
+    ]
+    m = metades_do_lanche(bruto)
+    assert [(x["k"], x["x"], x["y"], x["d"]) for x in m] == [(1, 0, regua["coordenadaMaxima"], regua["diametro"][0]), (3, 11, 20, 100)]
+    assert m[0]["desde"] is not None and m[1]["desde"] is None
+    assert metades_do_lanche(None) is None and metades_do_lanche([]) is None and metades_do_lanche([{"k": 9}]) is None
+    # o booleano SOZINHO (no Python, True vale 1: depois de um k 1 ele sairia como repetido, não como booleano)
+    assert metades_do_lanche([{"k": True, "x": 10, "y": 10, "d": 100}]) is None
+    muitas = [{"k": k, "x": k, "y": k, "d": 10} for k in range(1, regua["maximo"] + 1)]
+    assert len(metades_do_lanche(muitas)) == regua["maximo"]
 
 
 def test_sem_etapa_valida_nao_ha_corpo(tmp_path: Path):

@@ -29,6 +29,7 @@ import {
   lerConferencia,
   lerLancheDeTreino,
   MAX_BYTES_DO_QUADRO,
+  MAX_COORDENADA,
   motivoDoLanche,
   palpiteQueVale,
   palpitesDoLanche,
@@ -367,14 +368,39 @@ describe('o lanche lido por passos (sem banco)', () => {
     assert.deepEqual(passo!.contorno, [[[12, 10], [140, 18], [96, 150]]]);
     assert.deepEqual([vazio!.tipo, saiu!.tipo, fechou!.tipo], ['vazio', 'saiu', 'fechou']);
     assert.deepEqual(POR_PASSOS.tipos, [...TIPOS_DO_PASSO], 'o contrato e a API dizem os mesmos tipos');
+    // a posição das metades (05/11/2026), como a loja mandou
+    assert.deepEqual(l.lanche.metades, POR_PASSOS.corpo.lanche.metades);
     const antiga = lerLancheDeTreino(CORPO());
     assert.ok(!('problema' in antiga));
     assert.equal(antiga.lanche.pecas, null);
+    assert.equal(antiga.lanche.metades, null, 'sem a posição, nula');
     assert.ok(antiga.lanche.etapas.every((e) => !('tipo' in e) && !('metade' in e) && !('nota' in e)), 'nada novo na leitura de sempre');
+  });
+
+  it('a posição das metades na beira da régua entra: 0, 4096, o diâmetro 1 e a hora nula', () => {
+    // a régua é a do contrato, a mesma que o agente prende (agent/testes/test_passos_na_nuvem.py)
+    const regua = (CONTRATO as unknown as { limites: { metades: { maximo: number; coordenadaMaxima: number; diametro: number[] } } }).limites.metades;
+    assert.deepEqual([regua.maximo, regua.coordenadaMaxima, regua.diametro], [8, MAX_COORDENADA, [1, MAX_COORDENADA]]);
+    const c = CORPO_POR_PASSOS();
+    (c.lanche as Record<string, unknown>).metades = [
+      { k: 1, x: 0, y: MAX_COORDENADA, d: 1, desde: null },
+      { k: 8, x: MAX_COORDENADA, y: 0, d: MAX_COORDENADA },
+    ];
+    const l = lerLancheDeTreino(c);
+    assert.ok(!('problema' in l), JSON.stringify(l));
+    assert.deepEqual(l.lanche.metades, [
+      { k: 1, x: 0, y: 4096, d: 1, desde: null },
+      { k: 8, x: 4096, y: 0, d: 4096, desde: null },
+    ]);
+    const nula = CORPO_POR_PASSOS();
+    (nula.lanche as Record<string, unknown>).metades = null;
+    const n = lerLancheDeTreino(nula);
+    assert.ok(!('problema' in n) && n.lanche.metades === null, 'nula = não veio');
   });
 
   it('recusa o passo torto, dizendo onde; a noite ao vivo vai até 14 horas, a de treino até 2', () => {
     const passo = (c: ReturnType<typeof CORPO_POR_PASSOS>) => c.lanche.etapas[1] as unknown as Record<string, unknown>;
+    const metade = (c: ReturnType<typeof CORPO_POR_PASSOS>, i: number) => (c.lanche.metades as Array<Record<string, unknown>>)[i]!;
     const casos: Array<[(c: ReturnType<typeof CORPO_POR_PASSOS>) => void, RegExp]> = [
       [(c) => (passo(c).tipo = 'pulou'), /etapas\[1\]\.tipo/],
       [(c) => (passo(c).metade = 0), /etapas\[1\]\.metade/],
@@ -385,6 +411,19 @@ describe('o lanche lido por passos (sem banco)', () => {
       [(c) => (passo(c).contorno = [[[1, 2], [3, 4], [5000, 6]]]), /etapas\[1\]\.contorno/],
       [(c) => (passo(c).contorno = [[[1.5, 2], [3, 4], [5, 6]]]), /etapas\[1\]\.contorno/],
       [(c) => ((c.lanche as Record<string, unknown>).pecas = 9), /lanche\.pecas/],
+      // a posição das metades: cada caso torto por UM motivo (V54)
+      [(c) => ((c.lanche as Record<string, unknown>).metades = []), /lanche\.metades: de 1 a 8/],
+      [(c) => ((c.lanche as Record<string, unknown>).metades = 'perto'), /lanche\.metades: de 1 a 8/],
+      [(c) => ((c.lanche as Record<string, unknown>).metades = Array.from({ length: 9 }, (_, i) => ({ k: (i % 8) + 1, x: 1, y: 1, d: 1 }))), /lanche\.metades: de 1 a 8/],
+      [(c) => (metade(c, 0).k = 0), /lanche\.metades\[0\]\.k: de 1 a 8/],
+      [(c) => (metade(c, 0).k = 9), /lanche\.metades\[0\]\.k: de 1 a 8/],
+      [(c) => (metade(c, 1).k = 1), /lanche\.metades\[1\]\.k: repetido/],
+      [(c) => (metade(c, 0).x = 4097), /lanche\.metades\[0\]: x e y/],
+      [(c) => (metade(c, 0).y = -1), /lanche\.metades\[0\]: x e y/],
+      [(c) => (metade(c, 0).x = 1.5), /lanche\.metades\[0\]: x e y/],
+      [(c) => (metade(c, 0).d = 0), /lanche\.metades\[0\]\.d/],
+      [(c) => (metade(c, 0).d = 4097), /lanche\.metades\[0\]\.d/],
+      [(c) => (metade(c, 0).desde = 'ontem'), /lanche\.metades\[0\]\.desde/],
       [(c) => (c.gravacao.fim = '2026-10-22T09:30:00-03:00'), /no máximo 14 horas/],
       [(c) => (c.gravacao.origem = 'carga'), /no máximo 2 horas/],
     ];
@@ -821,6 +860,9 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     const aLer = (await app.inject({ method: 'GET', url: '/v1/agentes/treino/gravacoes', headers: { authorization: `Bearer ${token}` } })).json();
     assert.ok(!aLer.gravacoes.some((x: { id: string }) => x.id === r.json().gravacaoId));
 
+    // a posição das metades fica na leitura, como a loja mandou (05/11/2026)
+    const leitura = (await pool.query('select leitura from treino_lanche where id = $1', [id])).rows[0].leitura;
+    assert.deepEqual(leitura.metades, POR_PASSOS.corpo.lanche.metades);
     const d = (await umLanche(id)).json();
     assert.deepEqual([d.porPassos, d.pecas, d.motivo], [true, 2, 'duvida'], 'o vazio põe o lanche na dúvida');
     assert.deepEqual(d.etapas.map((e: EtapaLida) => e.tipo), ['comeco', 'passo', 'vazio', 'saiu', 'fechou']);
@@ -911,6 +953,7 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     assert.deepEqual([um.id, um.gravacao, um.produto, um.palpite, um.acertou], [ids.get('vizinho-f'), 'carga-da-vizinha', 'X-Burger', 'X-Burger', true]);
     assert.equal(new Date(um.conferidoEm).toISOString(), '2026-11-07T13:00:00.000Z');
     assert.deepEqual(um.etapas.map((e: EtapaLida) => e.leu), CORPO().lanche.etapas.map((e) => e.leu), 'as etapas como a loja mandou');
+    assert.deepEqual(um.metades, [], 'o lanche que subiu sem a posição das metades: lista vazia');
     assert.deepEqual(um.resposta.faltas, CONFERENCIA.faltas);
     assert.equal(um.quadros.length, CONTRATO.corpo.quadros.length);
     assert.deepEqual(Object.keys(um.quadros[0]), CONFERIDOS.chavesDoQuadro);
@@ -925,5 +968,9 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     assert.ok(n >= 1, 'a loja do teste tem conferidos');
     assert.equal(meus.lanches.length, n);
     assert.deepEqual(meus.naoSeVe, [], 'o sal "não se vê" só na vizinha');
+    // o lanche da noite ao vivo (conferido acima) desce COM a posição das metades
+    const daNoite = meus.lanches.find((l: { chave: string }) => l.chave === POR_PASSOS.corpo.lanche.chave);
+    assert.ok(daNoite, 'o lanche por passos conferido desce');
+    assert.deepEqual(daNoite.metades, POR_PASSOS.corpo.lanche.metades);
   });
 });

@@ -90,13 +90,43 @@ export type EtapaLida = {
   contorno?: number[][][];
 };
 
+/** O pixel mais longe que o quadro da bancada tem (o centro da metade, o contorno). */
+export const MAX_COORDENADA = 4096;
+
+/**
+ * Uma metade do pão na imagem da bancada (05/11/2026; o dono: "a organização dos pães na bancada já dá a dimensão de
+ * quantos serão produzidos"): `k` (a metade das etapas), o centro `x`/`y` e o diâmetro `d` em pixels do quadro da
+ * bancada, e `desde` (quando a peça apareceu). Para medir a separação dos lanches pela posição (o par base + tampo)
+ * com as noites conferidas: a loja guarda o arquivo dos passos só por alguns dias.
+ */
+export type MetadeLida = { k: number; x: number; y: number; d: number; desde: string | null };
+
+/** As metades do corpo, na régua do contrato (`limites.metades`): a lista, ou o problema. Nulo/ausente = não veio. */
+export function lerMetades(v: unknown): MetadeLida[] | null | { problema: string } {
+  if (v === undefined || v === null) return null;
+  if (!Array.isArray(v) || v.length === 0 || v.length > MAX_PECAS) return { problema: `lanche.metades: de 1 a ${MAX_PECAS}, ou nulo` };
+  const saida: MetadeLida[] = [];
+  const pixel = (x: unknown, minimo: number) => Number.isInteger(x) && (x as number) >= minimo && (x as number) <= MAX_COORDENADA;
+  for (const [i, bruto] of v.entries()) {
+    const m = (bruto ?? {}) as Record<string, unknown>;
+    if (!(Number.isInteger(m.k) && (m.k as number) >= 1 && (m.k as number) <= MAX_PECAS)) return { problema: `lanche.metades[${i}].k: de 1 a ${MAX_PECAS}` };
+    if (saida.some((s) => s.k === m.k)) return { problema: `lanche.metades[${i}].k: repetido` };
+    if (!pixel(m.x, 0) || !pixel(m.y, 0)) return { problema: `lanche.metades[${i}]: x e y inteiros de 0 a ${MAX_COORDENADA}` };
+    if (!pixel(m.d, 1)) return { problema: `lanche.metades[${i}].d: inteiro de 1 a ${MAX_COORDENADA}` };
+    if (m.desde !== undefined && m.desde !== null && !ehData(m.desde)) return { problema: `lanche.metades[${i}].desde: data e hora, ou nulo` };
+    saida.push({ k: m.k as number, x: m.x as number, y: m.y as number, d: m.d as number, desde: (m.desde as string | null | undefined) ?? null });
+  }
+  return saida;
+}
+
 /** A gravação de treino como a loja a manda: a dos lanches e a dos recortes para marcar (migration 055). */
 export type GravacaoLida = { chave: string; pontoId: string | null; inicio: string; fim: string; origem: (typeof ORIGENS)[number] };
 
 export type LancheLido = {
   gravacao: GravacaoLida;
-  /** `pecas` (A23.3): quantas metades do pão a leitura achou — o pão pelas peças (3 = o pão de dois cortes). */
-  lanche: { chave: string; abertoEm: string | null; fechouEm: string | null; etapas: EtapaLida[]; pecas: number | null };
+  /** `pecas` (A23.3): quantas metades do pão a leitura achou — o pão pelas peças (3 = o pão de dois cortes).
+   * `metades` (05/11/2026): a posição de cada uma na imagem da bancada; nulo = não veio. */
+  lanche: { chave: string; abertoEm: string | null; fechouEm: string | null; etapas: EtapaLida[]; pecas: number | null; metades: MetadeLida[] | null };
   quadros: Array<{ bytes: Buffer; largura: number; altura: number }>;
 };
 
@@ -157,6 +187,8 @@ export function lerLancheDeTreino(corpo: unknown): LancheLido | { problema: stri
   if (l.pecas !== undefined && l.pecas !== null && !(Number.isInteger(l.pecas) && (l.pecas as number) >= 1 && (l.pecas as number) <= MAX_PECAS)) {
     return { problema: `lanche.pecas: de 1 a ${MAX_PECAS}, ou nulo` };
   }
+  const metades = lerMetades(l.metades);
+  if (metades !== null && 'problema' in metades) return metades;
   if (!Array.isArray(l.etapas) || l.etapas.length === 0 || l.etapas.length > MAX_ETAPAS) {
     return { problema: `lanche.etapas: de 1 a ${MAX_ETAPAS}` };
   }
@@ -230,6 +262,7 @@ export function lerLancheDeTreino(corpo: unknown): LancheLido | { problema: stri
       fechouEm: (l.fechouEm as string | null | undefined) ?? null,
       etapas,
       pecas: (l.pecas as number | null | undefined) ?? null,
+      metades,
     },
     quadros,
   };
