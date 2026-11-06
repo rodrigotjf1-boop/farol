@@ -1893,6 +1893,14 @@ export type LancheNaFila = {
   pecas: number | null;
 };
 
+/**
+ * Por que um conferido "não era um lanche" está para rever (o protótipo aprovado em 06/11/2026): o ingrediente que quem
+ * conferiu confirmou e que só vai num lanche, esse lanche (a família: o Número e o Trio da mesma ficha) e os produtos de
+ * que ele também é adicional (só quando todos os que decidem são adicional em outro lugar).
+ */
+export type MotivoDoRever = { ingrediente: string; familia: string[]; adicionalEm: string[] };
+export type LancheParaRever = LancheNaFila & { rever: MotivoDoRever };
+
 export type GravacaoDeTreino = {
   id: string;
   chave: string;
@@ -1959,6 +1967,8 @@ export type TreinoDaLoja = {
   fichasDe: 'regem' | 'planilha' | 'sistema' | null;
   gravacoes: GravacaoDeTreino[];
   lanches: LancheNaFila[];
+  /** Os conferidos para rever, os mais antigos primeiro, entre TODOS os conferidos. Ausente na API de antes de 06/11/2026. */
+  rever?: LancheParaRever[];
   /** Sobre TODOS os conferidos (a lista traz os mais novos). `eramLanche`: os conferidos com produto — o lanche certo
    * se conta entre eles; os outros ("não era um lanche", "não dá para saber") ficam à parte. */
   contas: { conferidos: number; eramLanche: number; acertou: number };
@@ -2012,6 +2022,8 @@ export type LancheParaConferir = Omit<LancheNaFila, 'etapas'> & {
   outrosNomes: Record<string, string>;
   /** As chaves (nome sem maiúscula) do que "não se vê de cima". */
   naoSeVe: string[];
+  /** Está na fila para rever: o ingrediente que decide e o lanche. Nulo = não; ausente na API de antes de 06/11/2026. */
+  rever?: MotivoDoRever | null;
 };
 
 export const treinoApi = {
@@ -2024,7 +2036,9 @@ export const treinoApi = {
 
   /** A conferência por foto, ou — no lanche lido por passos — a por etapa. `nada`: os exemplos de "não era ingrediente". */
   conferir: (id: string, conferencia: ConferenciaDoLanche) =>
-    pedir<{ conferido: true; produto: string | null; palpite: string | null; acertou: boolean; exemplos: number; nada?: number }>(`/treino/lanches/${id}/conferencia`, {
+    // `sugestaoVista`: com "Não era um lanche", o lanche que a sugestão pelo ingrediente dizia — a API guardou a decisão e
+    // o lanche não volta para a fila "para rever". Nulo sem sugestão; ausente na API de antes de 06/11/2026.
+    pedir<{ conferido: true; produto: string | null; palpite: string | null; acertou: boolean; exemplos: number; nada?: number; sugestaoVista?: string | null }>(`/treino/lanches/${id}/conferencia`, {
       method: 'POST',
       body: JSON.stringify(conferencia),
     }),

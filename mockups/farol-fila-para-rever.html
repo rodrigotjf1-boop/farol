@@ -1,0 +1,391 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>Fila para rever</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+/* Protótipo da fila "Para rever" (Treinamento › Lanches), com os tokens do console (caminho "Comanda",
+   web/app/globals.css): o claro é papel de comanda, o escuro é chapa. Uma coluna: a moldura do protótipo em cima, a
+   tela embaixo; a gaveta encostada à direita no largo, como no console. Os recortes são desenhos: imagem da loja não sai. */
+:root {
+  --fundo: 243 241 234;
+  --painel: 255 255 255;
+  --painel-2: 234 230 219;
+  --realce: 227 222 209;
+  --borda: 216 210 196;
+  --borda-forte: 189 182 166;
+  --tinta: 27 26 23;
+  --suave: 98 94 86;
+  --marca: 36 34 31;
+  --sobre-marca: 243 241 234;
+  --facho: 242 179 0;
+  --facho-tinta: 122 86 0;
+  --facho-leve: 252 239 196;
+  --ok: 47 122 44;
+  --ok-leve: 226 241 222;
+  --sombra-1: 0 1px 2px rgb(27 26 23 / 0.07), 0 6px 16px -10px rgb(27 26 23 / 0.25);
+  --sombra-2: -12px 0 32px -18px rgb(27 26 23 / 0.35);
+  --d-fundo: 214 206 188;
+  --d-pao: 214 160 86;
+  --d-carne: 112 66 40;
+  --d-queijo: 240 190 40;
+  --d-alface: 92 160 60;
+  --d-anel: 230 200 140;
+  --d-ovo: 250 248 240;
+  --d-gema: 244 170 30;
+  --d-creme: 245 242 232;
+  --d-traco: 60 52 40;
+  --f-display: "Big Shoulders Display", "Arial Narrow", Impact, system-ui, sans-serif;
+  --f-corpo: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fundo: 21 20 18; --painel: 35 33 29; --painel-2: 29 27 24; --realce: 46 43 38; --borda: 53 50 44; --borda-forte: 74 70 62;
+    --tinta: 243 239 230; --suave: 181 174 159; --marca: 243 239 230; --sobre-marca: 21 20 18;
+    --facho: 245 188 26; --facho-tinta: 245 188 26; --facho-leve: 51 42 14; --ok: 110 196 102; --ok-leve: 24 42 22;
+    --sombra-1: 0 1px 2px rgb(0 0 0 / 0.45), 0 6px 16px -10px rgb(0 0 0 / 0.6);
+    --sombra-2: -12px 0 32px -18px rgb(0 0 0 / 0.7);
+    --d-fundo: 62 57 49;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --fundo: 21 20 18; --painel: 35 33 29; --painel-2: 29 27 24; --realce: 46 43 38; --borda: 53 50 44; --borda-forte: 74 70 62;
+  --tinta: 243 239 230; --suave: 181 174 159; --marca: 243 239 230; --sobre-marca: 21 20 18;
+  --facho: 245 188 26; --facho-tinta: 245 188 26; --facho-leve: 51 42 14; --ok: 110 196 102; --ok-leve: 24 42 22;
+  --sombra-1: 0 1px 2px rgb(0 0 0 / 0.45), 0 6px 16px -10px rgb(0 0 0 / 0.6);
+  --sombra-2: -12px 0 32px -18px rgb(0 0 0 / 0.7);
+  --d-fundo: 62 57 49;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: rgb(var(--fundo)); color: rgb(var(--tinta)); font-family: var(--f-corpo); font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 2px solid rgb(var(--facho)); outline-offset: 2px; border-radius: 6px; }
+.rev-pagina {
+  max-width: 1180px; margin: 0 auto; padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 18px;
+}
+
+/* ── a moldura do protótipo (não é a tela) ── */
+.rev-moldura { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1.5px dashed rgb(var(--borda-forte)); border-radius: 14px; background: rgb(var(--painel-2)); }
+.rev-moldura-topo { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.rev-selo { font-family: var(--f-mono); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: rgb(var(--facho-tinta)); background: rgb(var(--facho-leve)); border-radius: 999px; padding: 1px 8px; }
+.rev-moldura-topo p { margin: 0; color: rgb(var(--suave)); font-size: 13px; min-width: 0; max-width: 92ch; }
+.rev-grupo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.rev-grupo > span { font-size: 12px; color: rgb(var(--suave)); margin-right: 2px; }
+.rev-estado { font: inherit; font-size: 13px; font-weight: 600; min-height: 36px; padding: 6px 12px; border-radius: 999px; border: 1px solid rgb(var(--borda-forte)); background: rgb(var(--painel)); color: rgb(var(--tinta)); cursor: pointer; text-align: left; }
+.rev-estado:hover { border-color: rgb(var(--suave)); }
+.rev-estado[aria-pressed="true"] { background: rgb(var(--marca)); color: rgb(var(--sobre-marca)); border-color: rgb(var(--marca)); }
+.rev-explica { margin: 0; font-size: 13px; color: rgb(var(--tinta)); max-width: 92ch; }
+
+/* ── a tela: Treinamento › Lanches ── */
+.rev-tela { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 16px; border-radius: 16px; background: rgb(var(--realce)); }
+.rev-titulo { margin: 0; font-family: var(--f-display); font-weight: 900; font-size: 30px; letter-spacing: .01em; text-transform: uppercase; line-height: 1; }
+.rev-abas { display: flex; flex-wrap: wrap; gap: 4px 18px; border-bottom: 1px solid rgb(var(--borda)); font-size: 14px; font-weight: 600; }
+.rev-abas span { padding: 6px 0 8px; color: rgb(var(--suave)); }
+.rev-abas span.ativa { color: rgb(var(--tinta)); box-shadow: inset 0 -2px 0 rgb(var(--facho)); }
+.rev-abas small { font-family: var(--f-mono); font-size: 12px; font-weight: 500; color: rgb(var(--suave)); margin-left: 4px; }
+.rev-segmentado { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 12px; background: rgb(var(--painel-2)); border: 1px solid rgb(var(--borda)); align-self: flex-start; max-width: 100%; }
+.rev-seg { font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 5px 12px; border-radius: 9px; border: 0; background: transparent; color: rgb(var(--suave)); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.rev-seg b { font-family: var(--f-mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+.rev-seg[aria-pressed="true"] { background: rgb(var(--painel)); color: rgb(var(--tinta)); box-shadow: var(--sombra-1); }
+.rev-seg .rev-ponto { width: 7px; height: 7px; border-radius: 50%; background: rgb(var(--facho)); }
+.rev-ajuda { margin: 0; font-size: 12.5px; line-height: 1.45; color: rgb(var(--suave)); max-width: 92ch; }
+.rev-ajuda b { color: rgb(var(--tinta)); font-weight: 600; }
+
+/* a lista */
+.rev-lista { list-style: none; margin: 0; padding: 0; border-radius: 14px; border: 1px solid rgb(var(--borda)); background: rgb(var(--painel)); box-shadow: var(--sombra-1); }
+.rev-linha + .rev-linha { border-top: 1px solid rgb(var(--borda)); }
+.rev-abrir { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; align-items: center; padding: 12px 14px; font: inherit; color: inherit; text-align: left; background: none; border: 0; cursor: pointer; }
+.rev-abrir:hover { background: rgb(var(--painel-2) / .6); }
+@media (min-width: 720px) { .rev-abrir { grid-template-columns: auto minmax(0, 1fr) auto; } }
+.rev-minis { display: flex; gap: 4px; grid-row: span 2; }
+@media (min-width: 720px) { .rev-minis { grid-row: auto; } }
+.rev-mini { width: 44px; height: 44px; border-radius: 8px; background: rgb(var(--d-fundo)); }
+.rev-quem { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rev-quem b { font-weight: 600; }
+.rev-quem small { font-size: 12px; color: rgb(var(--suave)); }
+.rev-pelo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; font-size: 13px; }
+.rev-chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 1px 9px; font-size: 12px; font-weight: 500; line-height: 1.5; background: rgb(var(--realce)); color: rgb(var(--suave)); white-space: nowrap; }
+.rev-chip.facho { background: rgb(var(--facho-leve)); color: rgb(var(--facho-tinta)); font-weight: 600; }
+.rev-chip.neutro { background: rgb(var(--painel-2)); color: rgb(var(--suave)); border: 1px solid rgb(var(--borda)); }
+.rev-mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+/* o aviso de depois (a mensagem que some) e o vazio */
+.rev-toast { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 10px 14px; border-radius: 12px; border: 1.5px solid rgb(var(--ok)); background: rgb(var(--ok-leve)); font-size: 13.5px; }
+.rev-toast span { min-width: 0; }
+.rev-vazio { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 22px 18px; border-radius: 14px; border: 1px dashed rgb(var(--borda-forte)); background: rgb(var(--painel)); }
+.rev-vazio b { font-size: 15px; }
+
+/* ── a gaveta (a mesma do console, com a faixa de rever em cima) ── */
+.rev-palco { display: flex; justify-content: flex-end; border-radius: 16px; background: rgb(var(--realce)); padding: 0; min-width: 0; }
+.rev-atras { display: none; }
+@media (min-width: 900px) {
+  .rev-palco { padding: 14px 0 14px 14px; gap: 14px; }
+  .rev-atras { display: flex; flex: 1 1 0; min-width: 0; flex-direction: column; gap: 6px; padding: 12px 4px; color: rgb(var(--suave)); font-size: 13px; }
+  .rev-atras b { font-family: var(--f-display); font-size: 30px; font-weight: 900; text-transform: uppercase; color: rgb(var(--tinta)); line-height: 1; }
+}
+.rev-gaveta { width: 100%; max-width: 620px; min-width: 0; display: flex; flex-direction: column; background: rgb(var(--painel)); border-radius: 16px; box-shadow: var(--sombra-2); border: 1px solid rgb(var(--borda) / .7); }
+@media (min-width: 900px) { .rev-gaveta { border-radius: 16px 0 0 16px; } }
+.rev-cab { display: flex; align-items: flex-start; gap: 10px; padding: 16px 18px 12px; border-bottom: 1px solid rgb(var(--borda)); }
+.rev-cab div { min-width: 0; flex: 1 1 auto; }
+.rev-cab h2 { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.25; text-wrap: balance; }
+.rev-cab p { margin: 2px 0 0; font-size: 12.5px; color: rgb(var(--suave)); }
+.rev-fechar { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgb(var(--borda-forte)); background: rgb(var(--painel)); color: rgb(var(--tinta)); font: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
+.rev-miolo { display: flex; flex-direction: column; gap: 18px; padding: 16px 18px 20px; }
+.rev-faixa { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 12px; border: 1px dashed rgb(var(--borda-forte)); background: rgb(var(--painel-2)); }
+.rev-faixa p { margin: 0; font-size: 13px; }
+.rev-etiqueta { font-family: var(--f-mono); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgb(var(--suave)); }
+.rev-rotulo { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgb(var(--suave)); }
+.rev-secao { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.rev-aviso { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 12px; border: 1.5px solid rgb(var(--facho)); background: rgb(var(--facho-leve)); }
+.rev-aviso.feito { border-color: rgb(var(--ok)); background: rgb(var(--ok-leve)); }
+.rev-aviso .rev-etiqueta { color: rgb(var(--facho-tinta)); }
+.rev-aviso.feito .rev-etiqueta { color: rgb(var(--ok)); }
+.rev-aviso p { margin: 0; font-size: 14px; }
+.rev-aviso p.rev-ajuda { font-size: 12.5px; }
+.rev-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.rev-botao { font: inherit; font-size: 13.5px; font-weight: 600; min-height: 36px; padding: 7px 14px; border-radius: 10px; border: 1px solid rgb(var(--borda-forte)); background: rgb(var(--painel)); color: rgb(var(--tinta)); cursor: pointer; text-align: left; max-width: 100%; }
+.rev-botao:hover { border-color: rgb(var(--suave)); }
+.rev-botao.principal { background: rgb(var(--marca)); color: rgb(var(--sobre-marca)); border-color: rgb(var(--marca)); }
+.rev-link { font: inherit; font-size: 12.5px; font-weight: 600; color: rgb(var(--tinta)); background: none; border: 0; padding: 2px 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.rev-opcoes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+@media (min-width: 560px) { .rev-opcoes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.rev-opcao { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid rgb(var(--borda-forte)); background: rgb(var(--painel-2)); color: rgb(var(--tinta)); font: inherit; text-align: left; cursor: pointer; }
+.rev-opcao:hover { border-color: rgb(var(--suave)); }
+.rev-opcao[aria-checked="true"] { border-color: rgb(var(--facho)); background: rgb(var(--facho-leve)); }
+.rev-opcao b { font-weight: 600; overflow-wrap: anywhere; }
+.rev-opcao small { font-size: 12px; color: rgb(var(--suave)); }
+.rev-passos { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.rev-passo { display: flex; gap: 12px; padding: 10px; border-radius: 10px; border: 1px solid rgb(var(--borda)); background: rgb(var(--painel-2)); }
+.rev-passo.unico { border-color: rgb(var(--facho)); }
+.rev-recorte { flex: 0 0 auto; width: 56px; height: 56px; border-radius: 8px; background: rgb(var(--d-fundo)); }
+.rev-passo-corpo { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 auto; }
+.rev-passo-topo { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: rgb(var(--suave)); }
+.rev-leitura { margin: 0; font-size: 13.5px; overflow-wrap: anywhere; }
+.rev-leitura s { color: rgb(var(--suave)); }
+.rev-rodape { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 12px 18px 16px; border-top: 1px solid rgb(var(--borda)); }
+.rev-rodape p { flex: 1 1 200px; min-width: 0; margin: 0; font-size: 12.5px; color: rgb(var(--suave)); }
+
+/* o que o dono decide (fora da tela) */
+.rev-cartao { min-width: 0; border-radius: 16px; border: 1px solid rgb(var(--borda) / .6); background: rgb(var(--painel)); box-shadow: var(--sombra-1); }
+.rev-decidir { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.rev-decidir h2 { margin: 0; font-family: var(--f-display); font-weight: 800; font-size: 19px; letter-spacing: .04em; text-transform: uppercase; }
+.rev-decidir ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 84ch; }
+.rev-decidir p { margin: 0; font-size: 12.5px; color: rgb(var(--suave)); max-width: 92ch; }
+
+.rev-entra { animation: rev-sobe .22s ease-out; }
+@keyframes rev-sobe { from { transform: translateY(6px); opacity: .4; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+</style>
+
+<div class="rev-pagina">
+  <section class="rev-moldura" aria-label="Controles do protótipo">
+    <div class="rev-moldura-topo">
+      <span class="rev-selo">Protótipo</span>
+      <p>Treinamento › Lanches. O novo é a fila "Para rever": os lanches que você conferiu como "não era um lanche", mas em que um ingrediente que você confirmou só vai num lanche. Os nomes, as horas e os desenhos são exemplo.</p>
+    </div>
+    <div class="rev-grupo" role="group" aria-label="Qual momento">
+      <span>Momento</span>
+      <button type="button" class="rev-estado" data-estado="lista" aria-pressed="true">A fila</button>
+      <button type="button" class="rev-estado" data-estado="gaveta" aria-pressed="false">Revendo um lanche</button>
+      <button type="button" class="rev-estado" data-estado="depois" aria-pressed="false">Depois de rever</button>
+      <button type="button" class="rev-estado" data-estado="vazio" aria-pressed="false">Nada para rever</button>
+    </div>
+    <p class="rev-explica" id="rev-explica" aria-live="polite"></p>
+  </section>
+
+  <div id="rev-cena"></div>
+
+  <section class="rev-cartao rev-decidir" aria-labelledby="rev-t-decidir">
+    <h2 id="rev-t-decidir">O que o dono decide</h2>
+    <ol>
+      <li><strong>Quem entra.</strong> Os lanches conferidos como "Não era um lanche" ou "não dá para saber" em que um ingrediente que você CONFIRMOU só vai num lanche (a mesma regra da sugestão: o Número e o Trio da mesma ficha contam como um). Em 05/11 eram 25. Quem salvar "Não era um lanche" já vendo a sugestão não entra: já decidiu.</li>
+      <li><strong>Como sai.</strong> Salvando de novo. Com o lanche escolhido, a conferência passa a valer pela resposta nova: entra no placar entre os que eram lanche, com o palpite do Farol refeito com as fichas de agora, e os exemplos daquele lanche são refeitos (é o que "conferir de novo" já faz hoje). Com "Continua não sendo um lanche", ele sai da fila e não volta.</li>
+      <li><strong>Nada muda sozinho.</strong> A fila só mostra; a resposta é sempre de quem confere.</li>
+      <li><strong>Onde fica.</strong> Em Treinamento › Lanches, ao lado de "Para conferir", só quando há algum para rever.</li>
+    </ol>
+    <p>De onde vem: a nuvem já guarda o que você confirmou em cada conferência e sabe, pelas fichas, em quais lanches cada ingrediente vai. Ela passa a dizer, na lista, quais conferidos estão para rever e por qual ingrediente. Sem migration.</p>
+  </section>
+</div>
+
+<script>
+(() => {
+  // Os desenhos dos recortes: o pão (a metade) e o que chegou nele. Só formas; imagem da loja não entra.
+  const DESENHO = {
+    pao: '<circle cx="32" cy="32" r="22" fill="rgb(var(--d-pao))"/>',
+    carne: '<circle cx="32" cy="32" r="22" fill="rgb(var(--d-pao))"/><circle cx="32" cy="32" r="17" fill="rgb(var(--d-carne))"/>',
+    queijo: '<circle cx="32" cy="32" r="22" fill="rgb(var(--d-pao))"/><rect x="15" y="15" width="34" height="34" rx="3" fill="rgb(var(--d-queijo))" transform="rotate(12 32 32)"/>',
+    alface: '<circle cx="32" cy="32" r="22" fill="rgb(var(--d-pao))"/><path d="M12 30c6-9 12 3 18-5s12 4 22-1c-2 10-8 17-20 18S11 40 12 30z" fill="rgb(var(--d-alface))"/>',
+    anel: '<circle cx="32" cy="32" r="22" fill="rgb(var(--d-pao))"/><circle cx="32" cy="32" r="13" fill="none" stroke="rgb(var(--d-anel))" stroke-width="7"/><circle cx="32" cy="32" r="13" fill="none" stroke="rgb(var(--d-traco))" stroke-width="1" opacity=".5"/>',
+    ovo: '<circle cx="32" cy="32" r="22" fill="rgb(var(--d-pao))"/><path d="M14 33c0-11 8-17 18-17s19 5 18 16-9 17-19 17-17-6-17-16z" fill="rgb(var(--d-ovo))"/><circle cx="33" cy="32" r="7" fill="rgb(var(--d-gema))"/>',
+    creme: '<circle cx="32" cy="32" r="22" fill="rgb(var(--d-pao))"/><path d="M18 30c3-8 11-10 16-7s12 1 13 8-6 13-15 13-17-6-14-14z" fill="rgb(var(--d-creme))"/>',
+  };
+  const svg = (d, cls) => `<svg class="${cls}" viewBox="0 0 64 64" role="img" aria-label="desenho do recorte">${DESENHO[d]}</svg>`;
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+  // Os lanches de exemplo da fila. `pelo`: o ingrediente confirmado que só vai num lanche; `adicionalEm`: em quantos ele é adicional.
+  const FILA = [
+    { id: 'l1', hora: '21:09', noite: '04/11', conferido: '05/11 às 02:10', resposta: 'Não era um lanche', minis: ['anel', 'carne'], pelo: 'anel de cebola', produto: 'Numero 08', familia: 'TRIO 08' },
+    { id: 'l2', hora: '22:47', noite: '04/11', conferido: '05/11 às 02:16', resposta: 'Não dá para saber', minis: ['creme', 'pao'], pelo: 'mussarela empanada', produto: 'Mussarela Burg', familia: 'TRIO MUSSARELA BURG' },
+    { id: 'l3', hora: '20:31', noite: '03/11', conferido: '04/11 às 01:52', resposta: 'Não era um lanche', minis: ['ovo', 'queijo'], pelo: 'ovo', produto: 'Numero 08', familia: 'TRIO 08', adicionalEm: 9 },
+    { id: 'l4', hora: '23:12', noite: '03/11', conferido: '04/11 às 02:05', resposta: 'Não era um lanche', minis: ['anel', 'pao'], pelo: 'anel de cebola', produto: 'Numero 08', familia: 'TRIO 08' },
+  ];
+  const TOTAL = 25;
+  const EXPLICA = {
+    lista: 'A fila mostra cada lanche com a resposta que você deu e o ingrediente que agora decide. Abrir um leva à gaveta de sempre.',
+    gaveta: 'A gaveta de sempre, com a faixa de rever em cima. A sugestão aprovada (06/11) já vem aberta; a resposta antiga ("Não era um lanche") continua marcada até você trocar.',
+    depois: 'Revisto com o lanche: ele sai da fila, conta no placar entre os que eram lanche e a conta da fila desce. A mensagem também diz o que aconteceu.',
+    vazio: 'Sem nenhum para rever, a opção "Para rever" some da barra e a lista diz por quê. Aqui ela aparece com zero só para mostrar o vazio.',
+  };
+
+  let estado = 'lista';
+  let escolha = '__nao';
+  let fila = FILA.slice();
+  let restam = TOTAL;
+  let mensagem = null;
+
+  function barra(contaRever) {
+    const segs = [
+      { v: 'conferir', t: 'Para conferir', n: 12 },
+      { v: 'rever', t: 'Para rever', n: contaRever, ponto: contaRever > 0 },
+      { v: 'conferidos', t: 'Conferidos', n: 237 },
+      { v: 'pulados', t: 'Pulados', n: 3 },
+    ];
+    return `<div class="rev-segmentado" role="group" aria-label="Quais lanches">${segs
+      .map((s) => `<button type="button" class="rev-seg" aria-pressed="${s.v === 'rever'}" id="rev-seg-${s.v}">${s.ponto ? '<span class="rev-ponto" aria-hidden="true"></span>' : ''}${s.t} <b>${s.n}</b></button>`)
+      .join('')}</div>`;
+  }
+
+  function linha(l) {
+    const ad = l.adicionalEm ? ` <span class="rev-chip neutro">também é adicional em ${l.adicionalEm}</span>` : '';
+    return `<li class="rev-linha"><button type="button" class="rev-abrir" data-abrir="${l.id}" id="rev-abrir-${l.id}">
+      <span class="rev-minis">${l.minis.map((d) => svg(d, 'rev-mini')).join('')}</span>
+      <span class="rev-quem"><b>Lanche das <span class="rev-mono">${esc(l.hora)}</span> · noite de ${esc(l.noite)}</b><small>Conferido em ${esc(l.conferido)} como "${esc(l.resposta)}"</small></span>
+      <span class="rev-pelo"><span class="rev-chip facho">pelo ${esc(l.pelo)}</span> <span>${esc(l.produto)} <small class="rev-ajuda">(ou ${esc(l.familia)})</small></span>${ad}</span>
+    </button></li>`;
+  }
+
+  function tela(conteudo, contaRever) {
+    return `<section class="rev-tela rev-entra" aria-labelledby="rev-t-tela">
+      <h2 class="rev-titulo" id="rev-t-tela">Treinamento</h2>
+      <div class="rev-abas" aria-hidden="true"><span class="ativa">Lanches<small>12</small></span><span>Marcar<small>100</small></span><span>Ingredientes<small>31</small></span><span>Sugestões<small>2</small></span><span>Gravações<small>9</small></span></div>
+      ${barra(contaRever)}
+      ${conteudo}
+    </section>`;
+  }
+
+  function cenaLista() {
+    const topo = mensagem ? `<p class="rev-toast" role="status"><span>${mensagem}</span></p>` : '';
+    return tela(`${topo}<p class="rev-ajuda">Conferidos como "não era um lanche" em que um ingrediente que você confirmou <b>só vai num lanche</b>. Pela regra da ficha, dá para dizer qual era. Reveja um por um: nada muda sozinho.</p>
+      <ul class="rev-lista" aria-label="Lanches para rever">${fila.map(linha).join('')}</ul>
+      <p class="rev-ajuda">Mostrando ${fila.length} de ${restam}, os mais antigos primeiro.</p>`, restam);
+  }
+
+  function cenaVazio() {
+    return tela(`<div class="rev-vazio" role="status"><b>Nada para rever.</b><p class="rev-ajuda">Os lanches conferidos como "não era um lanche" que tinham um ingrediente de um lanche só já foram revistos. Quando houver outro, ele aparece aqui.</p></div>`, 0);
+  }
+
+  function cenaGaveta() {
+    const l = FILA[0];
+    const escolheu = escolha === l.produto;
+    const aviso = escolheu
+      ? `<div class="rev-aviso feito" role="status"><span class="rev-etiqueta">Escolhido pelo ingrediente</span><p><b>${esc(l.produto)}</b> marcado nas opções abaixo. Confira os passos e salve a revisão.</p><div class="rev-botoes"><button type="button" class="rev-link" data-desfazer>Desfazer</button></div></div>`
+      : `<div class="rev-aviso" role="status"><span class="rev-etiqueta">Pelo ingrediente</span><p>O <b>${esc(l.pelo)}</b> só vai no <b>${esc(l.produto)}</b> (e no ${esc(l.familia)}, que tem a mesma ficha). Era ele?</p><p class="rev-ajuda">A bancada não separa o ${esc(l.produto)} do ${esc(l.familia)}: para o placar, é o mesmo lanche.</p><div class="rev-botoes"><button type="button" class="rev-botao principal" data-sugerir="${esc(l.produto)}" id="rev-e-este">É o ${esc(l.produto)}</button></div></div>`;
+    const ops = [
+      { p: 'Mussarela Burg', s: 'ou TRIO MUSSARELA BURG · confere 3 de 5' },
+      { p: 'Numero 16', s: 'ou TRIO 16 · confere 2 de 4' },
+      ...(escolheu ? [{ p: l.produto, s: `ou ${l.familia} · pelo ingrediente` }] : []),
+      { p: '__outro', t: 'Outro produto', s: 'escolha na lista' },
+      { p: '__nao', t: 'Não era um lanche', s: 'ou não dá para saber' },
+    ];
+    const passos = [
+      { h: '21:09:26', peca: 1, leu: 'Carne 120gr', cert: 'certeza alta', d: 'carne' },
+      { h: '21:10:01', peca: 1, leu: 'Fatia de queijo cheddar', cert: 'certeza alta', d: 'queijo' },
+      { h: '21:10:23', peca: 2, leu: 'Cebola crispy', era: 'Anel de cebola', cert: 'certeza baixa', d: 'anel', unico: true },
+    ];
+    const rodape = escolheu
+      ? `<p>Escolhido: ${esc(l.produto)}. Ao salvar, ele sai da fila e entra no placar.</p><button type="button" class="rev-botao principal" data-salvar="lanche" id="rev-salvar">Salvar a revisão</button>`
+      : `<p>Hoje a resposta é "Não era um lanche". Escolha o lanche, ou mantenha a resposta.</p><button type="button" class="rev-botao" data-salvar="manter" id="rev-manter">Continua não sendo um lanche</button>`;
+    return `<div class="rev-palco rev-entra">
+      <div class="rev-atras" aria-hidden="true"><b>Treinamento</b><span>A lista "Para rever" fica atrás da gaveta, como no console.</span></div>
+      <section class="rev-gaveta" aria-labelledby="rev-titulo-g">
+        <header class="rev-cab"><div><h2 id="rev-titulo-g">Lanche das ${esc(l.hora)}</h2><p>leitura ao vivo de ${esc(l.noite)} · canal 4 · 1 de ${restam} para rever</p></div><button type="button" class="rev-fechar" aria-label="Fechar" data-fechar>×</button></header>
+        <div class="rev-miolo">
+          <div class="rev-faixa"><span class="rev-etiqueta">Para rever</span><p>Você conferiu como <b>"${esc(l.resposta)}"</b> em ${esc(l.conferido)}. O <b>${esc(l.pelo)}</b> que você confirmou só vai num lanche.</p></div>
+          <section class="rev-secao" aria-labelledby="rev-qual">
+            <h3 class="rev-rotulo" id="rev-qual" tabindex="-1">Qual lanche era?</h3>
+            ${aviso}
+            <div class="rev-opcoes" role="radiogroup" aria-labelledby="rev-qual">${ops
+              .map((o, i) => `<button type="button" role="radio" class="rev-opcao" id="rev-op-${i}" aria-checked="${escolha === o.p}" data-escolher="${esc(o.p)}"><b>${esc(o.t || o.p)}</b><small>${esc(o.s)}</small></button>`)
+              .join('')}</div>
+          </section>
+          <section class="rev-secao" aria-labelledby="rev-t-passos">
+            <h3 class="rev-rotulo" id="rev-t-passos">Os passos, como você respondeu</h3>
+            <ol class="rev-passos">${passos
+              .map((p) => `<li class="rev-passo${p.unico ? ' unico' : ''}">${svg(p.d, 'rev-recorte')}<div class="rev-passo-corpo"><div class="rev-passo-topo"><span class="rev-mono">${esc(p.h)}</span><span>peça ${p.peca}</span><span>${p.era ? 'era outro' : 'certo'}</span></div><p class="rev-leitura">${p.era ? `<s>${esc(p.leu)}</s> <b>${esc(p.era)}</b>` : `<b>${esc(p.leu)}</b>`} <span class="rev-chip">${esc(p.cert)}</span></p></div></li>`)
+              .join('')}</ol>
+          </section>
+        </div>
+        <footer class="rev-rodape">${rodape}</footer>
+      </section>
+    </div>`;
+  }
+
+  function desenhar() {
+    document.getElementById('rev-explica').textContent = EXPLICA[estado];
+    const cena = document.getElementById('rev-cena');
+    cena.innerHTML = estado === 'gaveta' ? cenaGaveta() : estado === 'vazio' ? cenaVazio() : cenaLista();
+    for (const b of document.querySelectorAll('[data-estado]')) b.setAttribute('aria-pressed', String(b.dataset.estado === estado));
+  }
+
+  function irPara(novo) {
+    estado = novo;
+    escolha = '__nao';
+    fila = FILA.slice();
+    restam = TOTAL;
+    mensagem = null;
+    if (novo === 'depois') {
+      fila = FILA.slice(1);
+      restam = TOTAL - 1;
+      mensagem = `<b>Revisto: Numero 08.</b> Saiu da fila e conta no placar entre os que eram lanche. Faltam ${restam} para rever.`;
+      estado = 'depois';
+    }
+    desenhar();
+  }
+
+  const focar = (id) => (document.getElementById(id) || document.querySelector('.rev-opcao[aria-checked="true"]') || document.getElementById('rev-qual'))?.focus?.();
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b || !b.closest('.rev-pagina')) return;
+    if (b.dataset.estado) return irPara(b.dataset.estado);
+    if (b.dataset.abrir) { estado = 'gaveta'; escolha = '__nao'; desenhar(); focar('rev-qual'); return; }
+    if ('fechar' in b.dataset) { estado = 'lista'; desenhar(); focar(`rev-abrir-${FILA[0].id}`); return; }
+    if (b.dataset.sugerir) { escolha = b.dataset.sugerir; desenhar(); focar('rev-salvar'); return; }
+    if ('desfazer' in b.dataset) { escolha = '__nao'; desenhar(); focar('rev-e-este'); return; }
+    if (b.dataset.escolher) { const id = b.id; escolha = b.dataset.escolher; desenhar(); focar(id); return; }
+    if (b.dataset.salvar) {
+      fila = FILA.slice(1);
+      restam = TOTAL - 1;
+      mensagem = b.dataset.salvar === 'lanche'
+        ? `<b>Revisto: ${esc(FILA[0].produto)}.</b> Saiu da fila e conta no placar entre os que eram lanche. Faltam ${restam} para rever.`
+        : `<b>Fica como "não era um lanche".</b> Saiu da fila e não volta. Faltam ${restam} para rever.`;
+      estado = 'depois';
+      desenhar();
+      for (const x of document.querySelectorAll('[data-estado]')) x.setAttribute('aria-pressed', String(x.dataset.estado === 'depois'));
+      document.querySelector('.rev-toast')?.setAttribute('tabindex', '-1');
+      document.querySelector('.rev-toast')?.focus();
+    }
+  });
+  // para o roteiro de medida: muda o momento sem clique
+  window.revEstado = (s, acao) => {
+    irPara(s);
+    if (acao === 'aceitar') { escolha = FILA[0].produto; desenhar(); }
+  };
+  irPara('lista');
+})();
+</script>

@@ -27,7 +27,7 @@ import { Check, ImageOff, Info, Lock, Minus, Plus, TriangleAlert, ZoomIn } from 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { chaveDoIngrediente } from '@/componentes/fichas/chave-do-ingrediente';
-import { diaFaladoNaLoja, frase, horaNaLoja, plural, quantidadeDaFicha } from '@/componentes/formatos';
+import { dataNaLoja, diaFaladoNaLoja, frase, horaNaLoja, plural, quantidadeDaFicha } from '@/componentes/formatos';
 import { Botao } from '@/componentes/ui/botao';
 import { AJUDA, ROTULO } from '@/componentes/ui/campo';
 import { Alerta, Chip, Ossos } from '@/componentes/ui/pecas';
@@ -126,8 +126,11 @@ export function GavetaDoLanche({
    * resposta ou com "vou cadastrar"): quem escreve "Pickles" acha o "Picles" que alguém já escreveu.
    */
   foraDasFichas: string[];
-  /** Depois de salvar: a tela recarrega e abre o próximo. */
-  aoSalvar: (texto: string) => void;
+  /**
+   * Depois de salvar: a tela recarrega e abre o próximo. `salvo`: o produto respondido e, com "Não era um lanche", o
+   * lanche que a sugestão pelo ingrediente dizia (a API guardou a decisão: o lanche não volta para "Para rever").
+   */
+  aoSalvar: (texto: string, salvo: { produto: string | null; sugestaoVista: string | null }) => void;
   aoPular: (texto: string) => void;
   aoFechar: () => void;
 }) {
@@ -483,13 +486,14 @@ export function GavetaDoLanche({
         } satisfies ConferenciaPorFoto);
     try {
       const r = await treinoApi.conferir(lancheId, conferencia);
+      const salvo = { produto: r.produto, sugestaoVista: r.sugestaoVista ?? null };
       if (d.porPassos) {
         const nada = r.nada ?? 0;
         const partes = [
           r.exemplos > 0 ? plural(r.exemplos, 'exemplo novo de ingrediente', 'exemplos novos de ingrediente') : null,
           nada > 0 ? plural(nada, 'exemplo de “não era ingrediente”', 'exemplos de “não era ingrediente”') : null,
         ].filter(Boolean);
-        aoSalvar(partes.length ? `Guardado: ${partes.join(' e ')} para a base da bancada.` : 'Guardado. Sem passo respondido, o lanche conta só para o acerto.');
+        aoSalvar(partes.length ? `Guardado: ${partes.join(' e ')} para a base da bancada.` : 'Guardado. Sem passo respondido, o lanche conta só para o acerto.', salvo);
         return;
       }
       const deFora = ruins ? ` ${ruins === 1 ? 'A foto que não dava para analisar ficou de fora.' : `As ${ruins} fotos que não davam para analisar ficaram de fora.`}` : '';
@@ -497,6 +501,7 @@ export function GavetaDoLanche({
         r.exemplos > 0
           ? `Guardado: ${plural(r.exemplos, 'exemplo novo', 'exemplos novos')} para a base da bancada.${deFora}`
           : `Guardado. Sem ingrediente marcado com nome das fichas, o lanche conta só para o acerto.${deFora}`,
+        salvo,
       );
     } catch (e) {
       setErro(mensagemDe(e, 'não consegui guardar a conferência'));
@@ -530,7 +535,16 @@ export function GavetaDoLanche({
         .join(' · ')
     : undefined;
   const faltamPassos = d?.porPassos ? faltamPorPasso(d.etapas, porPasso) : 0;
-  const pe = !produtoEscolhido
+  // a fila para rever (o protótipo aprovado em 06/11/2026): a API diz se o lanche está nela, e por qual ingrediente
+  const rever = d?.situacao === 'conferido' && d.produto === null ? (d.rever ?? null) : null;
+  const manter = !!rever && escolha === '__nao';
+  const pe = rever
+    ? manter
+      ? 'Hoje a resposta é “Não era um lanche”. Escolha o lanche, ou mantenha a resposta.'
+      : produtoEscolhido
+        ? `Escolhido: ${produtoNome}. Ao salvar, ele sai da fila e entra no placar.`
+        : 'Escolha qual lanche era para salvar a revisão.'
+    : !produtoEscolhido
     ? 'Escolha qual lanche era para salvar.'
     : d?.porPassos
       ? faltamPassos
@@ -556,8 +570,14 @@ export function GavetaDoLanche({
               Pular
             </Botao>
           )}
-          <Botao id={`${p}-salvar`} variante="primario" onClick={() => void salvar()} ocupado={ocupado === 'salvar'} disabled={ocupado !== null || !d || !produtoEscolhido}>
-            {d?.situacao === 'conferido' ? 'Salvar de novo' : 'Salvar e ir para o próximo'}
+          <Botao
+            id={`${p}-salvar`}
+            variante={manter ? 'secundario' : 'primario'}
+            onClick={() => void salvar()}
+            ocupado={ocupado === 'salvar'}
+            disabled={ocupado !== null || !d || !produtoEscolhido}
+          >
+            {rever ? (manter ? 'Continua não sendo um lanche' : 'Salvar a revisão') : d?.situacao === 'conferido' ? 'Salvar de novo' : 'Salvar e ir para o próximo'}
           </Botao>
         </>
       }
@@ -595,6 +615,20 @@ export function GavetaDoLanche({
               </Alerta>
             ) : null)}
 
+          {/* a faixa "Para rever" (o protótipo aprovado em 06/11/2026): como foi conferido, e o ingrediente que decide */}
+          {rever && (
+            <div className="flex flex-col gap-1 rounded-xl border border-dashed border-farol-borda-forte bg-farol-painel-2 px-3 py-2.5" data-faixa-para-rever>
+              <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-farol-suave">Para rever</span>{' '}
+              <p className="m-0 text-[13px] leading-snug">
+                <span>
+                  Conferido como <b className="font-semibold">“Não era um lanche”</b>
+                  {d.conferidoEm ? ` em ${dataNaLoja(d.conferidoEm, fuso)} às ${horaNaLoja(d.conferidoEm, fuso)}` : ''}. O{' '}
+                  <b className="font-semibold">{rever.ingrediente.toLowerCase()}</b> confirmado na conferência só vai num lanche.
+                </span>
+              </p>
+            </div>
+          )}
+
           {/* ───────────── qual lanche era ───────────── */}
           <section className="flex flex-col gap-2.5" aria-labelledby={`${p}-qual`}>
             <h3 id={`${p}-qual`} className={ROTULO}>
@@ -605,7 +639,8 @@ export function GavetaDoLanche({
               sugestao={sugestao}
               escolhida={sugeridaEscolhida}
               dispensada={sugeridaDispensada}
-              naoEraUmLanche={escolha === '__nao'}
+              // na revisão, a sugestão fica aberta com a resposta antiga marcada (o protótipo): ela é o porquê da fila
+              naoEraUmLanche={escolha === '__nao' && !rever}
               aoEscolher={escolherFamilia}
               aoDispensar={() => familiaSugerida && setDispensadas((s) => new Set(s).add(chaveDaFamilia(familiaSugerida)))}
               aoMostrar={() =>
@@ -617,7 +652,8 @@ export function GavetaDoLanche({
                 })
               }
               aoDesfazer={() => {
-                setEscolha(null);
+                // na revisão, desfazer volta à resposta guardada ("Não era um lanche")
+                setEscolha(rever ? '__nao' : null);
                 setOutroProduto('');
               }}
             />
@@ -655,7 +691,7 @@ export function GavetaDoLanche({
                 </select>
               </>
             )}
-            {escolha === '__nao' && <LembreteDoIngrediente sugestao={sugestao} aoEscolher={escolherFamilia} />}
+            {escolha === '__nao' && !rever && <LembreteDoIngrediente sugestao={sugestao} aoEscolher={escolherFamilia} />}
           </section>
 
           {/* ───────────── passo por passo (o lanche lido por passos, A23.3) ───────────── */}

@@ -39,10 +39,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 import { useConsole } from '@/componentes/console';
 import { chaveDoIngrediente, GavetaDoIngrediente, type AlvoDaGaveta } from '@/componentes/fichas/gaveta-do-ingrediente';
-import { frase, numero, plural } from '@/componentes/formatos';
+import { dataNaLoja, frase, horaNaLoja, numero, plural } from '@/componentes/formatos';
 import { GavetaDaGravacao } from '@/componentes/treino/gaveta-da-gravacao';
 import { GavetaDoLanche, quandoDaGravacao } from '@/componentes/treino/gaveta-do-lanche';
 import { PainelDasSugestoes } from '@/componentes/treino/painel-das-sugestoes';
+import { mensagemDaRevisao, seloDoAdicional } from '@/componentes/treino/para-rever';
 import { useAvisar } from '@/componentes/ui/avisos';
 import { Botao, classesDoBotao } from '@/componentes/ui/botao';
 import { AJUDA } from '@/componentes/ui/campo';
@@ -58,13 +59,16 @@ import {
   type IngredienteDaLoja,
   type IngredientesDaLoja,
   type LancheNaFila,
+  type LancheParaRever,
   type MotivoNaFila,
   type RecortesDaLoja,
   type TreinoDaLoja,
 } from '@/lib/api';
 
 type Aba = 'lanches' | 'marcar' | 'ingredientes' | 'sugestoes' | 'gravacoes';
-type FiltroDosLanches = 'conferir' | 'conferidos' | 'pulados';
+// "rever" (o protótipo aprovado em 06/11/2026): os conferidos "não era um lanche" com um ingrediente que só vai num
+// lanche — a lista vem da API (`rever`), inteira, os mais antigos primeiro
+type FiltroDosLanches = 'conferir' | 'rever' | 'conferidos' | 'pulados';
 type FiltroDosIngredientes = 'todos' | 'semex' | 'semfoto';
 
 // "Marcar ingredientes" (A24 F3, protótipo aprovado em 24/10/2026): a pilha de cada recorte da noite; leva o NOVO
@@ -208,6 +212,7 @@ export default function Treinamento() {
     const lanches = d?.lanches ?? [];
     return {
       conferir: lanches.filter((l) => l.situacao === 'conferir'),
+      rever: d?.rever ?? [],
       conferidos: lanches
         .filter((l) => l.situacao === 'conferido')
         .sort((a, b) => Date.parse(b.conferidoEm ?? '') - Date.parse(a.conferidoEm ?? '')),
@@ -238,7 +243,13 @@ export default function Treinamento() {
 
   // ───────────────────────── a gaveta do lanche ─────────────────────────
 
-  async function depoisDaGaveta(texto: string, de: FiltroDosLanches, saiu: string, fechar: boolean) {
+  async function depoisDaGaveta(texto: string, de: FiltroDosLanches, saiu: string, fechar: boolean, salvo?: { produto: string | null; sugestaoVista: string | null }) {
+    if (de === 'rever') {
+      // a mensagem da revisão diz o que aconteceu pela lista RECARREGADA: se saiu da fila, e quantos faltam
+      const r = await carregar();
+      setAberto(null);
+      return avisar(r && salvo ? mensagemDaRevisao(salvo, saiu, r.rever ?? []) : texto);
+    }
     avisar(texto);
     const r = await carregar();
     if (fechar || !r) return setAberto(null);
@@ -252,7 +263,7 @@ export default function Treinamento() {
     }
   }
   const lista = aberto ? listas[aberto.de] : [];
-  const posicao = aberto && aberto.de === 'conferir' ? lista.findIndex((l) => l.id === aberto.id) : -1;
+  const posicao = aberto && (aberto.de === 'conferir' || aberto.de === 'rever') ? lista.findIndex((l) => l.id === aberto.id) : -1;
 
   // ───────────────────────── a gravação de treino (fatia T3) ─────────────────────────
 
@@ -474,6 +485,10 @@ export default function Treinamento() {
                   aoMudar={setFiltro}
                   opcoes={[
                     { valor: 'conferir', rotulo: `Para conferir ${numero(listas.conferir.length)}` },
+                    // só quando há algum para rever (o protótipo) — ou quando a lista dela está aberta (zerou agora)
+                    ...(listas.rever.length > 0 || filtro === 'rever'
+                      ? [{ valor: 'rever' as const, rotulo: `Para rever ${numero(listas.rever.length)}`, ponto: listas.rever.length > 0 }]
+                      : []),
                     { valor: 'conferidos', rotulo: `Conferidos ${numero(d.contas.conferidos)}` },
                     { valor: 'pulados', rotulo: `Pulados ${numero(listas.pulados.length)}` },
                   ]}
@@ -587,9 +602,9 @@ export default function Treinamento() {
           lojaId={id}
           lancheId={aberto.id}
           fuso={fuso}
-          posicao={posicao >= 0 ? `${posicao + 1} de ${lista.length} para conferir` : null}
+          posicao={posicao >= 0 ? `${posicao + 1} de ${lista.length} para ${aberto.de === 'rever' ? 'rever' : 'conferir'}` : null}
           foraDasFichas={foraDasFichas}
-          aoSalvar={(texto) => void depoisDaGaveta(texto, aberto.de, aberto.id, aberto.de === 'conferidos')}
+          aoSalvar={(texto, salvo) => void depoisDaGaveta(texto, aberto.de, aberto.id, aberto.de === 'conferidos', salvo)}
           aoPular={(texto) => void depoisDaGaveta(texto, aberto.de, aberto.id, false)}
           aoFechar={() => setAberto(null)}
         />
@@ -827,13 +842,14 @@ function PainelDosLanches({
   aoAbrir,
 }: {
   filtro: FiltroDosLanches;
-  listas: Record<FiltroDosLanches, LancheNaFila[]>;
+  listas: Record<Exclude<FiltroDosLanches, 'rever'>, LancheNaFila[]> & { rever: LancheParaRever[] };
   conferidosAoTodo: number;
   gravacaoDe: Map<string, GravacaoDeTreino>;
   gravacoes: GravacaoDeTreino[];
   fuso: string;
   aoAbrir: (l: LancheNaFila) => void;
 }) {
+  if (filtro === 'rever') return <ListaParaRever lista={listas.rever} gravacaoDe={gravacaoDe} fuso={fuso} aoAbrir={aoAbrir} />;
   const lista = listas[filtro];
   const deQual = (l: LancheNaFila) => {
     const g = gravacaoDe.get(l.gravacaoId);
@@ -929,6 +945,97 @@ function PainelDosLanches({
           );
         })}
       </ul>
+    </>
+  );
+}
+
+/**
+ * A fila "para rever" (o protótipo aprovado pelo dono em 06/11/2026): os conferidos "não era um lanche" em que um
+ * ingrediente confirmado só vai num lanche. Cada linha diz como foi conferido e o ingrediente que agora decide; abrir
+ * leva à gaveta de sempre. Nada muda sozinho.
+ */
+function ListaParaRever({
+  lista,
+  gravacaoDe,
+  fuso,
+  aoAbrir,
+}: {
+  lista: LancheParaRever[];
+  gravacaoDe: Map<string, GravacaoDeTreino>;
+  fuso: string;
+  aoAbrir: (l: LancheNaFila) => void;
+}) {
+  if (lista.length === 0) {
+    return (
+      <Vazio icone={GraduationCap} titulo="Nada para rever">
+        Os lanches conferidos como “não era um lanche” que tinham um ingrediente de um lanche só já foram revistos. Quando houver outro, ele aparece
+        aqui.
+      </Vazio>
+    );
+  }
+  // a noite do lanche é a da gravação (o lanche da 01:30 é da noite anterior); sem ela, o dia do próprio lanche
+  const noite = (l: LancheNaFila) => {
+    const g = gravacaoDe.get(l.gravacaoId);
+    const iso = g?.inicio ?? l.abertoEm ?? l.fechouEm;
+    return iso ? dataNaLoja(iso, fuso) : null;
+  };
+  return (
+    <>
+      <p className={AJUDA}>
+        Conferidos como “não era um lanche” em que um ingrediente confirmado <b className="font-semibold text-farol-tinta">só vai num lanche</b>. Pela regra
+        da ficha, dá para dizer qual era. Reveja um por um: nada muda sozinho.
+      </p>
+      <ul className={`${CARTAO} divide-y divide-farol-borda overflow-hidden`} aria-label="Lanches para rever" data-lanches="rever">
+        {lista.map((l) => {
+          const n = noite(l);
+          const selo = seloDoAdicional(l.rever.adicionalEm);
+          const [principal, ...outros] = l.rever.familia;
+          return (
+            <li key={l.id}>
+              <button
+                type="button"
+                onClick={() => aoAbrir(l)}
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-farol-painel-2 focus-visible:bg-farol-painel-2 max-sm:px-3"
+                data-linha-do-lanche={l.id}
+              >
+                <span className="flex shrink-0 gap-1.5" aria-hidden>
+                  <Miniatura quadroId={l.miniaturas.tampo} rotulo="tampo" />
+                  <Miniatura quadroId={l.miniaturas.base} rotulo="base" />
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col gap-1.5 md:flex-row md:items-center md:gap-4">
+                  <span className="flex min-w-0 flex-col md:flex-[1.1_1_0%]">
+                    <b className="break-words font-semibold">
+                      Lanche das {horaNaLoja(l.abertoEm ?? l.fechouEm, fuso)}
+                      {n ? ` · noite de ${n}` : ''}
+                    </b>
+                    <small className="break-words text-xs text-farol-suave">
+                      {l.conferidoEm ? `Conferido em ${dataNaLoja(l.conferidoEm, fuso)} às ${horaNaLoja(l.conferidoEm, fuso)} como “Não era um lanche”` : 'Conferido como “Não era um lanche”'}
+                    </small>
+                  </span>
+                  <span className="flex min-w-0 flex-wrap items-center gap-1.5 md:flex-[1.5_1_0%]">
+                    <Chip tom="atencao" quebra>
+                      pelo {l.rever.ingrediente.toLowerCase()}
+                    </Chip>
+                    <span className="min-w-0 break-words text-sm">
+                      {principal}
+                      {outros.length > 0 && <small className="text-xs text-farol-suave"> (ou {outros.join(', ')})</small>}
+                    </span>
+                    {selo && (
+                      <Chip tom="vazado" quebra>
+                        {selo}
+                      </Chip>
+                    )}
+                  </span>
+                </span>
+                <ChevronRight className="h-[18px] w-[18px] shrink-0 text-farol-suave" aria-hidden />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <p className={AJUDA}>
+        {lista.length === 1 ? 'Um lanche para rever.' : `${numero(lista.length)} lanches para rever, os mais antigos primeiro.`}
+      </p>
     </>
   );
 }

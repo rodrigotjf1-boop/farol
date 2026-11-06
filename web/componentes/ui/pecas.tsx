@@ -106,8 +106,8 @@ export function Segmentado<T extends string>({
   aoMudar,
 }: {
   rotulo: string;
-  /** `desativada` leva o motivo: aparece ao passar o mouse na opção apagada. */
-  opcoes: ReadonlyArray<{ valor: T; rotulo: string; icone?: LucideIcon; desativada?: string | null }>;
+  /** `desativada` leva o motivo: aparece ao passar o mouse na opção apagada. `ponto`: o pontinho de "tem algo aqui". */
+  opcoes: ReadonlyArray<{ valor: T; rotulo: string; icone?: LucideIcon; desativada?: string | null; ponto?: boolean }>;
   valor: T;
   aoMudar: (novo: T) => void;
 }) {
@@ -130,6 +130,7 @@ export function Segmentado<T extends string>({
           }`}
         >
           {Icone && <Icone className="h-[15px] w-[15px] shrink-0" aria-hidden />}
+          {o.ponto && <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-farol-facho" aria-hidden data-ponto />}
           {/* `truncate` corta o que sai da caixa da linha: com `leading-none`, o acento das MAIÚSCULAS ("ÚLTIMAS",
               "MEMÓRIA") sumia. A linha de 1,25 dá lugar ao acento; a pílula tem altura mínima e não cresce. */}
           <span className="truncate py-px leading-[1.25]">{o.rotulo}</span>

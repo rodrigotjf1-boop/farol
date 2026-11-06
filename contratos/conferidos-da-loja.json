@@ -6,6 +6,7 @@
   "chavesDoLanche": ["id", "gravacao", "chave", "abertoEm", "fechouEm", "pecas", "etapas", "metades", "quadros", "produto", "palpite", "acertou", "conferidoEm", "resposta"],
   "metades": "A posição de cada metade do pão na imagem da bancada, como a loja mandou (contratos/lanche-de-treino.json, lanche.metades): k, x, y, d (pixels) e desde. Lista vazia no lanche que subiu antes de 05/11/2026 (a posição não vinha).",
   "chavesDoQuadro": ["n", "sha256"],
+  "sugestaoVista": "Na resposta, desde 06/11/2026 (a fila \"para rever\"): com o produto nulo (\"não era um lanche\"), a sugestão pelo ingrediente que a tela mostrava quando a pessoa salvou — { lanche, pelos } (o lanche e os ingredientes que decidiram). Quem a guarda é a nuvem; ausente nas conferências de antes e quando não havia sugestão. Não muda o que a pessoa respondeu.",
   "resposta": {
     "limite": 1000,
     "naoSeVe": ["sal"],
