@@ -41,6 +41,7 @@ import { autenticarAgente, ErroDeAuth } from '../auth.js';
 import { lerBase, type Base } from '../fichas.js';
 import { chaveDoIngrediente, ingredientesDaBase } from '../ingredientes.js';
 import { conferenciaQueConta, outrosNomesDaLoja } from '../outros-nomes.js';
+import { familiasDoEstudo, marcaDaSugestao, motivoParaRever, ondeCadaIngredienteEntra } from '../para-rever.js';
 import { podeAcompanhar, podeConfigurar } from '../rbac.js';
 import { estudarFichas } from '../estudo-das-fichas.js';
 import {
@@ -389,8 +390,8 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
            from treino_lanche where loja_id = $1`,
         [id],
       ),
-      pool.query<{ leitura: { etapas: EtapaLida[] }; resposta: Conferencia; produto: string | null }>(
-        `select leitura, resposta, produto from treino_lanche where loja_id = $1 and situacao = 'conferido' and resposta is not null`,
+      pool.query<{ id: string; situacao: string; leitura: { etapas: EtapaLida[] }; resposta: Conferencia; produto: string | null }>(
+        `select id, situacao, leitura, resposta, produto from treino_lanche where loja_id = $1 and situacao = 'conferido' and resposta is not null`,
         [id],
       ),
       // as bancadas que se gravam: os canais do gravador desta loja (A21, fatia T3)
@@ -419,6 +420,27 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
       if (a.situacao === 'conferir' && a.motivo !== b.motivo) return ordem(a.motivo) - ordem(b.motivo);
       return new Date(b.abertoEm ?? 0).getTime() - new Date(a.abertoEm ?? 0).getTime();
     });
+    // A FILA PARA REVER (o protótipo aprovado em 06/11/2026; `para-rever.ts`): entre TODOS os conferidos (não só os mais
+    // novos da lista), os "não era um lanche" com um ingrediente confirmado que só vai num lanche. A lista vem inteira,
+    // os mais antigos primeiro; o motivo de cada um vai junto (o ingrediente, o lanche e onde ele também é adicional).
+    const onde = ondeCadaIngredienteEntra(loja.base);
+    const familias = familiasDoEstudo(estudarFichas(loja.base, loja.invisiveis), loja.base);
+    const motivos = new Map(conferidos.rows.flatMap((c) => {
+      const m = motivoParaRever(c, onde, familias);
+      return m ? [[c.id, m] as const] : [];
+    }));
+    const paraRever = motivos.size
+      ? (
+          await pool.query<LinhaDoLanche>(
+            `select ${CAMPOS_DO_LANCHE}
+               from treino_lanche l
+               left join usuario u on u.id = l.conferido_por
+              where l.loja_id = $1 and l.id = any($2::uuid[])
+              order by l.aberto_em asc nulls last, l.id`,
+            [id, [...motivos.keys()]],
+          )
+        ).rows.map((l) => ({ ...paraTela(l, loja.base, loja.invisiveis), rever: motivos.get(l.id)! }))
+      : [];
     return {
       podeConfigurar: podeConfigurar(s),
       meta: META,
@@ -449,6 +471,8 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
         acertou: g.acertou,
       })),
       lanches: naTela,
+      /** Os conferidos para rever, os mais antigos primeiro, com o motivo (`rever`). Vazia = nada para rever. */
+      rever: paraRever,
       contas: {
         conferidos: contas.rows[0].conferidos as number,
         eramLanche: contas.rows[0].eram_lanche as number,
@@ -485,6 +509,8 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
     const estudo = estudarFichas(loja.base, loja.invisiveis);
     const palpites = palpitesDoLanche(etapas, loja.base, loja.invisiveis, estudo);
     const daBase = ingredientesDaBase(loja.base);
+    const onde = ondeCadaIngredienteEntra(loja.base);
+    const familias = familiasDoEstudo(estudo, loja.base);
     return {
       ...paraTela(l, loja.base, loja.invisiveis),
       gravacao: { id: l.gravacao_id, inicio: l.gravacao_inicio, fim: l.gravacao_fim, origem: l.gravacao_origem },
@@ -508,21 +534,15 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
        * Para o nome escrito à mão (o protótipo aprovado em 19/10/2026): onde cada ingrediente entra — os lanches cuja
        * ficha o leva e os de que ele é adicional —, para quem confere escolher entre os parecidos.
        */
-      lanchesDoIngrediente: Object.fromEntries(
-        daBase.map((i) => [
-          i.nome,
-          {
-            fichas: [...new Set(i.produtos.filter((p) => !p.adicional).map((p) => p.produto))],
-            adicional: [...new Set(i.produtos.filter((p) => p.adicional).map((p) => p.produto))],
-          },
-        ]),
-      ),
+      lanchesDoIngrediente: onde,
       /**
        * Os produtos que a bancada não separa (a mesma ficha vista de cima: o "Número 08" e o "Trio 08"), um grupo por
        * família. Para a sugestão pelo ingrediente que só um lanche tem (o protótipo aprovado em 06/11/2026): o Número e o
        * Trio contam como um lanche só.
        */
-      familias: estudo.familias.map((f) => f.produtos.map((x) => x.nome)),
+      familias,
+      /** Está na fila para rever (`para-rever.ts`): o ingrediente que decide, o lanche e onde ele também é adicional. Nulo = não. */
+      rever: motivoParaRever(l, onde, familias),
       /**
        * Os outros nomes (migration 053): a chave do nome que quem configura juntou a um ingrediente das fichas → o
        * ingrediente. Quem escrever o outro nome de novo na conferência ouve "é o 'Blend da casa' das fichas".
@@ -595,11 +615,14 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
       const palpite = palpiteQueVale(palpitesDoLanche(etapas, loja.base, loja.invisiveis, estudo))?.produto ?? null;
       // o produto escolhido, ou outro da mesma família: a bancada não separa o "Trio 16" do "Número 16"
       const acertou = acertouOPalpite(estudo, conferencia.produto, palpite);
+      // a fila para rever (`para-rever.ts`): "Não era um lanche" com a sugestão de um lanche na tela é decisão tomada —
+      // a resposta guarda qual sugestão era, e o lanche não entra (nem volta) para a fila
+      const sugestaoVista = marcaDaSugestao(etapas, conferencia, ondeCadaIngredienteEntra(loja.base), familiasDoEstudo(estudo, loja.base));
       await cliente.query(
         `update treino_lanche
             set situacao = 'conferido', resposta = $2, produto = $3, palpite = $4, acertou = $5, conferido_por = $6, conferido_em = now()
           where id = $1`,
-        [id, JSON.stringify(conferencia), conferencia.produto, palpite, acertou, s.usuarioId],
+        [id, JSON.stringify(sugestaoVista ? { ...conferencia, sugestaoVista } : conferencia), conferencia.produto, palpite, acertou, s.usuarioId],
       );
       // os exemplos: conferir de novo troca os deste lanche. O outro nome ensina o ingrediente das fichas a que foi
       // juntado (migration 053); a conferência guardada fica como a pessoa escreveu
@@ -655,8 +678,9 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
         }
       }
       await cliente.query('commit');
-      req.log.info({ lanche: id, produto: conferencia.produto, acertou, exemplos, nada, por: s.usuarioId }, 'lanche de treino CONFERIDO');
-      return { conferido: true, produto: conferencia.produto, palpite, acertou, exemplos, nada };
+      req.log.info({ lanche: id, produto: conferencia.produto, acertou, exemplos, nada, sugestaoVista: sugestaoVista?.lanche ?? null, por: s.usuarioId }, 'lanche de treino CONFERIDO');
+      // `sugestaoVista`: o lanche que a sugestão dizia quando a resposta foi "Não era um lanche" (a tela diz "não volta")
+      return { conferido: true, produto: conferencia.produto, palpite, acertou, exemplos, nada, sugestaoVista: sugestaoVista?.lanche ?? null };
     } catch (e) {
       await cliente.query('rollback').catch(() => {});
       throw e;

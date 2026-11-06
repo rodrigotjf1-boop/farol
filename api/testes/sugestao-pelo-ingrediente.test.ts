@@ -1,14 +1,18 @@
 // A sugestão pelo ingrediente que só um lanche tem (o protótipo aprovado pelo dono em 06/11/2026) e o adicional pelo
 // NOME (a opção de adicional sem ligação ao insumo cujo nome é o de um ingrediente das fichas). A regra da sugestão mora
-// no console (web/componentes/treino/sugestao-pelo-ingrediente.ts) e é testada aqui, como a da planta; os dados dela vêm
-// da API (`lanchesDoIngrediente` de `ingredientesDaBase` e `familias` do estudo das fichas). Sem banco.
+// no console (web/componentes/treino/sugestao-pelo-ingrediente.ts) e, desde a fila "para rever" (06/11/2026), também na
+// API (api/src/sugestao-pelo-ingrediente.ts); as duas cópias são testadas aqui, pelos mesmos casos, como a da planta. Os
+// dados dela vêm da API (`lanchesDoIngrediente` de `ingredientesDaBase` e `familias` do estudo das fichas). Sem banco.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { estudarFichas } from '../src/estudo-das-fichas.js';
 import { FORMATO_DA_BASE, type Base, type Efeito, type Produto } from '../src/fichas.js';
 import { ingredientesDaBase, valePeloNome } from '../src/ingredientes.js';
-import { ingredienteUnico, nomeDaFamilia, sugestaoPeloIngrediente } from '../../web/componentes/treino/sugestao-pelo-ingrediente.ts';
+import { ondeCadaIngredienteEntra } from '../src/para-rever.js';
+import * as daApi from '../src/sugestao-pelo-ingrediente.js';
+import * as doConsole from '../../web/componentes/treino/sugestao-pelo-ingrediente.ts';
+import { nomeDaFamilia } from '../../web/componentes/treino/sugestao-pelo-ingrediente.ts';
 
 const ing = (nome: string) => ({ nome, quantidade: 1, unidade: 'un', preparo: false, insumoId: null, fichaId: null });
 function produto(id: string, nome: string, ingredientes: string[], adicionais: Array<[string, Efeito]> = [], cozinha = true): Produto {
@@ -61,11 +65,17 @@ describe('o adicional pelo nome (a opção sem ligação ao insumo)', () => {
   });
 });
 
-describe('a sugestão pelo ingrediente (a regra do console)', () => {
+// A regra mora em DUAS cópias — a do console (a gaveta mostra a sugestão) e a da API (a fila "para rever", 06/11/2026) —
+// e as duas passam pelos MESMOS casos: mudou uma, o teste da outra cobra.
+for (const [lado, { ingredienteUnico, sugestaoPeloIngrediente }] of [['console', doConsole], ['API', daApi]] as const) describe(`a sugestão pelo ingrediente (a cópia do ${lado})`, () => {
   const onde = Object.fromEntries(
     ingredientesDaBase(BASE).map((i) => [i.nome, { fichas: i.produtos.filter((p) => !p.adicional).map((p) => p.produto), adicional: i.produtos.filter((p) => p.adicional).map((p) => p.produto) }]),
   );
   const familias = estudarFichas(BASE).familias.map((f) => f.produtos.map((p) => p.nome));
+
+  it('os dados da regra: o "onde cada ingrediente entra" da API é o mesmo que a gaveta recebe', () => {
+    assert.deepEqual(ondeCadaIngredienteEntra(BASE), onde);
+  });
 
   it('o ingrediente de uma família só: o Número e o Trio contam como um; o produto sem cozinha não conta', () => {
     const anel = ingredienteUnico('anel de cebola', onde, familias)!;

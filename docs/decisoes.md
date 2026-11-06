@@ -10954,3 +10954,69 @@ do dono, a chave.
 - Mutação 28/28 (controle antes: 143 passaram). A viva — o croma só pelo amarelo (o eixo b) — ganhou o teste do vermelho e
   do verde. A primeira rodada não valeu: o roteiro passava `-q` sobre o `addopts` do agente e a linha de resumo sumia
   (ERR-165); refeita inteira.
+
+## 06/11/2026 · A fila "para rever": os "não era um lanche" com um ingrediente de um lanche só (API + console; sem migration)
+
+**O pedido do dono:** sobre os conferidos antigos "não era um lanche" em que um ingrediente confirmado só vai num lanche,
+"para rever, tenho que fazer um levantamento" — lido como SIM à fila, e o levantamento de onde o anel de cebola é
+adicional fica com ele. O protótipo "Fila para rever" (`mockups/farol-fila-para-rever.html`) e o dono: **"aprovado"**.
+As quatro decisões escritas nele:
+1. **Quem entra:** o conferido "Não era um lanche" (é a mesma opção de "não dá para saber") em que um ingrediente que quem
+   conferiu CONFIRMOU só vai num lanche — a regra da sugestão pelo ingrediente, com o Número e o Trio como um. Quem salvar
+   "Não era um lanche" já vendo a sugestão não entra: já decidiu.
+2. **Como sai:** salvando de novo. Com o lanche, a conferência vale pela resposta nova (placar entre os que eram lanche,
+   palpite refeito com as fichas de agora, exemplos refeitos — o "conferir de novo" de sempre). Com "Continua não sendo um
+   lanche", sai e não volta.
+3. **Nada muda sozinho:** a fila só mostra.
+4. **Onde fica:** em Treinamento › Lanches, ao lado de "Para conferir", só quando há algum.
+
+**O que foi medido** (os 237 conferidos guardados de 05/11 e as fichas da nuvem, pelo código deste PR;
+`scratchpad\medida-lanche\fila_rever.ts`): dos 174 "não era um lanche", **26 entram** (o protótipo dizia 25, pela conta
+antiga, sem o desempate do adicional); 147 ficam fora por não ter um ingrediente de um lanche só e 1 por ter dois de
+lanches diferentes (a sugestão não escolhe). Os que decidem: o ovo em 10 (todos do Nº 08), a geleia de pimenta em 4, o
+cream cheese em 3, e outros 6 ingredientes em 1 ou 2 cada; 11 dos 26 com o selo "também é adicional". **O anel de cebola
+não decide nenhum** — os 10 do Nº 08 entram pelo ovo, que é adicional em outros lanches (o levantamento do dono vale para
+os dois).
+
+**O que muda:**
+- `api/src/sugestao-pelo-ingrediente.ts`: a cópia da regra do console, para a API decidir a fila; as duas cópias passam
+  pelos mesmos casos em `api/testes/sugestao-pelo-ingrediente.test.ts`.
+- `api/src/para-rever.ts`: o que quem conferiu confirmou (as mesmas marcas que a gaveta usa: a foto ruim fica de fora, o
+  pão do começo das peças conta uma vez), quem entra (`motivoParaRever`), a marca `sugestaoVista` (o lanche que a sugestão
+  dizia e por quais ingredientes) e as famílias como a tela as diz.
+- `GET /v1/lojas/:id/treino` ganha `rever` (entre TODOS os conferidos — a lista traz só os 200 mais novos —, os mais
+  antigos primeiro, com o motivo); `GET /v1/treino/lanches/:id` ganha `rever`; `POST …/conferencia` guarda a marca quando
+  a resposta é "Não era um lanche" com a sugestão de um lanche, e devolve `sugestaoVista`. A marca é da API: a que vem no
+  corpo não entra. Sem migration: ela mora na resposta (jsonb), que já desce assim para a loja.
+- **ERR-166:** `familias` (a sugestão no ar desde o PR #241) saía na ordem da base, com nome repetido — com as fichas
+  reais, "só vai no TRIO 08 (e no TRIO 08, no Numero 08…)". Agora sem repetir e com o produto do nome da ficha na frente
+  ("Numero 08"); medido nas fichas da nuvem: 3 de 24 famílias tinham nome repetido, e em 19 o Trio vinha antes.
+- Console: a opção "Para rever N" com o pontinho (`Segmentado` ganha `ponto`), a lista (`ListaParaRever` em
+  `treinamento/page.tsx`), a faixa e o rodapé da gaveta (`gaveta-do-lanche.tsx`: a sugestão fica aberta com "Não era um
+  lanche" marcado, "Desfazer" volta à resposta guardada), e as frases depois de salvar (`componentes/treino/para-rever.ts`),
+  que dizem o que a API fez pela lista recarregada.
+
+**Visto no caminho (não mexido):** o `familia` dos palpites ("ou TRIO 08, TRIO 08") tem o mesmo nome repetido — é o motor
+do palpite, fica para um PR dele.
+
+### Como foi conferido
+
+- `api/testes/para-rever.test.ts` (sem banco): as famílias com as fichas na forma real; o que foi confirmado (foto ruim
+  fora; "certo", "era outro" aparado, "nada" e sem resposta; no lanche por passos, o pão do começo uma vez); quem entra
+  (com produto, à espera, sem resposta, sem leitura, com a marca, sem único, os dois lanches — não; o selo só quando todos
+  os que decidem são adicional); a marca; as frases da tela. Com o Postgres: "não era" com a sugestão guarda a marca e não
+  entra; a marca do corpo não entra; a fila acha o antigo FORA dos 200 mais novos da lista, os mais antigos primeiro; a
+  gaveta recebe o mesmo motivo; com o Trio, sai e conta entre os que eram lanche; "continua", sai com a marca.
+- Mutação 30/30 mortas: 27 numa rodada (quem entra, o motivo, a marca, o que foi confirmado, as famílias, a rota e as
+  frases) e, depois de pôr o Trio na frente no cardápio do teste, as 3 da rota que esquece as fichas na ordem das
+  famílias; o controle antes de cada rodada, com a linha de resumo (V120). Suíte inteira da API no banco local: as mesmas
+  falhas antigas do ambiente, mais 2 de `fichas-no-agente` que passaram 3 de 3 sozinhas (dublê do Regem lento sob carga).
+- A tela no console local (API e console em portas próprias, uma loja com três lanches "não era" de antes da fila), pelo
+  clique: a barra "Para rever 3" com o pontinho; as três linhas (o anel e o ovo com o selo, o cheddar sem); a gaveta com a
+  faixa, a sugestão aberta e "Não era um lanche" marcado, "1 de 3 para rever"; "É o Numero 08" troca o botão para "Salvar
+  a revisão" e "Desfazer" volta; "Continua não sendo um lanche" ("Saiu da fila e não volta. Faltam 2"); revisto com o lanche
+  ("Faltam 1"); o último ("Não há mais lanche para rever"), o vazio com "Para rever 0", e a opção some ao trocar de lista.
+  70 medidas (16 larguras × claro e escuro na lista e na gaveta, e 375/1280 nos outros estados): sem rolagem para o lado,
+  nenhum texto passando da caixa, nenhum id repetido, nenhum erro de script; pior contraste 4,53:1. Achado no caminho: o
+  roteiro lia o aviso do salvamento anterior (ERR-167); a gaveta medida no meio da animação passava 1–2 px — medida parada,
+  nada.
