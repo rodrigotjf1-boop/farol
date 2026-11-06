@@ -10898,3 +10898,59 @@ se decidisse (o ovo puxa o Nº 08); a sugestão, sobre o confirmado, já explica
   estados): sem rolagem para o lado, nenhum texto passando da caixa, nenhum id repetido, nenhum erro de script; pior
   contraste 4,53:1. Achado no caminho e corrigido: a etiqueta "Pelo ingrediente" colada na frase no texto da página
   (ERR-164 de novo) e o "; O" maiúsculo no meio da frase.
+
+## 06/11/2026 · As metades fantasmas: o mesmo pão conta uma vez, e o círculo sem cor de pão sai (agente, chave desligada; sem migration)
+
+O dono, 05/11: "a organização dos pães na bancada de formas padrões já nos dá a dimensão de quantos serão produzidos".
+Mas os lugares de 3 metades (217 de 966 nas noites de 02 a 05/11) não fecham a conta de pares. Numa **folha de 51
+lugares** das noites de 04 e 05/11 (a imagem de cada lugar com os círculos das metades, local, nada saiu da loja), a
+metade a mais quase nunca era o pão do vizinho: era o **mesmo pão contado duas vezes** (dois círculos a meio diâmetro um do
+outro — o `agrupar` parte os discos de um pão em dois grupos), o vão entre a base e o tampo, ou um **círculo no alumínio
+vazio** ao lado. Fora da conta: o saco de pães de reserva (2 lugares), um lanche já embrulhado (1) e 6 que não deu
+para marcar.
+
+**O que foi medido.** Marquei a olho 121 metades de 42 lugares (79 pão de verdade, 42 fantasmas; uma marcação, minha —
+serve para escolher a régua, não para dizer o acerto; 35 lugares sem dúvida). Na loja, com ela fechada (06/11, 04:07 a
+04:28; os roteiros foram apagados), a cor do miolo de cada metade pelos quadros guardados da noite (os discos do Hough a
+menos de `junta` diâmetro dela; sem as caixas do detector, que não ficam guardadas):
+- **a cor de um quadro só engana**: no nascer da metade, o pão às vezes está sob a grelha ou ainda não chegou (o círculo
+  nasce antes) — "croma < 24 no nascer" derruba 7 de 79 pães; a cor do lanche inteiro, pior (o ingrediente cobre o pão);
+- **o quanto a metade MOSTROU pão** — o maior croma mediano em 8 pontos seguidos — separa: o pão, 43 na mediana; a
+  fantasma, 26. Sozinho, sai quase só o alumínio (19 de 42 fantasmas), perdendo 4 pães;
+- **junto com a distância** (a menos de 0,7 diâmetro é o mesmo pão; fica o que mais mostrou pão) e o corte em 24: os
+  lugares com a conta certa de metades vão de **7 para 22 de 35**; saem 28 de 42 fantasmas e **5 de 79 pães** — o pão
+  que chega coberto de carne escura (14-3m), e dois pares em que o círculo torto mostrou mais pão que o centrado (40-4m).
+  Desempatar pelo mais centrado (mais discos a 0,25 diâmetro do centro) foi pior (20 de 35, 8 pães perdidos). Somar a
+  JUNÇÃO (o círculo a menos de 1 diâmetro de dois outros que não se encostam sai) chega a 24 de 35, mas perde 6 pães — fica
+  para a medida nas noites de verdade. As outras combinações (0,6 a 0,9 diâmetro; corte de 24 a 32; o brilho do alumínio)
+  não passaram de 22.
+
+**O que muda** (`passos_do_lanche.py`, o 2c do cabeçalho):
+- **sempre**: cada ponto (caixa do detector ou disco) guarda o croma do miolo naquele quadro (`croma_do_miolo`, o disco de
+  `miolo` = 0,3 do diâmetro); cada metade, o quanto mostrou pão (`mostrou_pao`, `janela_pao` = 8); o `passos.json` leva
+  `pao` em cada metade. A nuvem não recebe (o `metades_do_lanche` só manda k, x, y, d e desde) — fica na loja, para medir;
+- **com a chave `FAROL_BANCADA_SEM_FANTASMA`** (desligada por padrão; só com os passos): `sem_fantasmas` depois das
+  metades fortes — a menos de `mesmo_pao` (0,7) do diâmetro mediano do lugar é o mesmo pão (fica o que mais mostrou pão;
+  empate, o de mais pontos); abaixo de `cor_do_pao` (24) não é pão e sai; nunca todas (fica a que mais mostrou); a metade
+  sem cor medida não é julgada pela cor. As que saíram vão para `fantasmas` no `passos.json` (posição, diâmetro e `pao`).
+
+**Próximo passo.** Ligar só depois de medir nas noites de verdade, com os números que o agente agora grava (as caixas do
+detector entram na cor, e a medida da folha não as tinha): com o `pao` de cada metade e os lanches que o dono conferir,
+refazer a régua (o efeito nos ingredientes e no palpite dos conferidos, não só na conta de metades) e então, com o "pode"
+do dono, a chave.
+
+### Como foi conferido
+
+- `testes/test_passos_do_lanche.py` (a bancada desenhada): os números de fábrica; a cor do miolo separa pão, papel e inox,
+  é só do disco (os cantos do quadrado não entram) e do raio de 0,3, e conta o vermelho e o verde (não só o amarelo); a
+  caixa e o disco levam a cor; o grupo mostra pão pelo
+  trecho seguido na ordem do tempo (um relance de 3 quadros não conta); o mesmo pão fica um (o que mais mostrou pão, não o
+  de mais pontos; empate, o de mais pontos), a 0,69 e a 0,71 do diâmetro MEDIANO; o alumínio sai, o corte de 24 fica, sem
+  cor não se julga, nunca todas; as metades fortes só tiram com a chave; na leitura, o pão contado de novo e o círculo no
+  inox saem com a chave e ficam ditos, e sem ela as 4 ficam com o `pao` de cada uma.
+- `testes/test_bancada_ao_vivo.py`: o `pao` com uma casa em cada metade do `passos.json` de verdade, as `fantasmas` só com
+  a régua, a linha do tempo conta as que ficaram; o serviço e o comando passam a chave (só com os passos), e uma chave não
+  liga a outra.
+- Mutação 28/28 (controle antes: 143 passaram). A viva — o croma só pelo amarelo (o eixo b) — ganhou o teste do vermelho e
+  do verde. A primeira rodada não valeu: o roteiro passava `-q` sobre o `addopts` do agente e a linha de resumo sumia
+  (ERR-165); refeita inteira.
