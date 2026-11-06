@@ -237,6 +237,14 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
 .funil-linha.fim .trilha i { background: var(--fora); }
 .funil-linha.espera .trilha i { background: var(--fio-2); }
 .funil-linha .v { text-align: right; font-family: var(--f-dado); font-variant-numeric: tabular-nums; }
+/* o placar entre os que eram lanche (aprovado em 05/11/2026): a 4ª coluna, "não era um lanche", e a trilha listrada da
+   gravação em que nenhum conferido era um lanche */
+.funil-linha.tr-fora { grid-template-columns: minmax(0, 11em) minmax(0, 1fr) 5.5em 8.5em; }
+.tr-fora .tr-n { text-align: right; font-size: 13px; color: var(--suave); }
+.tr-fora .tr-n b { font-family: var(--f-dado); font-weight: 600; color: var(--tinta); font-variant-numeric: tabular-nums; }
+.funil-linha .trilha.tr-vazia { background: repeating-linear-gradient(135deg, var(--bg-2) 0 6px, transparent 6px 12px); }
+.tr-pct { font: 600 15px/1 var(--f-dado); margin-left: 10px; }
+.tr-total { display: block; margin-top: 6px; font-size: 13px; color: var(--suave); }
 .dados { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-block: 1px solid var(--fio); }
 .dado { padding: 14px 14px 14px 0; min-width: 0; }
 .dado + .dado { padding-left: 14px; border-left: 1px solid var(--fio); }
@@ -320,6 +328,8 @@ textarea.entrada { resize: vertical; min-height: 5.4em; line-height: 1.5; }
   .ficha-linha { grid-template-columns: minmax(0, 1fr); }
   .funil-linha { grid-template-columns: minmax(0, 1fr) 5.5em; }
   .funil-linha .trilha { grid-column: 1 / -1; order: 3; }
+  .funil-linha.tr-fora { grid-template-columns: minmax(0, 1fr) 5.5em; }
+  .tr-fora .tr-n { grid-column: 1 / -1; order: 4; text-align: left; }
   .dados { grid-template-columns: minmax(0, 1fr); }
   .dado + .dado { padding-left: 0; border-left: 0; border-top: 1px solid var(--fio); }
   .cab .acoes { margin-left: 0; }
@@ -1116,7 +1126,10 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
     { hora: '20:13', grav: 'g1', achou: 'X-Burger', era: 'X-Burger', por: 'Gil Prado' },
     { hora: '20:09', grav: 'g1', achou: 'X-Salada', era: 'X-Burger', por: 'Gil Prado' },
     { hora: '20:05', grav: 'g1', achou: 'X-Burger', era: 'X-Burger', por: 'Gil Prado' },
-    { hora: '20:02', grav: 'g1', achou: 'X-Burger', era: 'X-Salada', por: 'Gil Prado' }
+    { hora: '20:02', grav: 'g1', achou: 'X-Burger', era: 'X-Salada', por: 'Gil Prado' },
+    // "não era um lanche" (sem produto): fica fora da conta do lanche certo (05/11/2026)
+    { hora: '19:44', grav: 'g2', achou: 'X-Burger', era: null, por: 'Gil Prado' },
+    { hora: '20:15', grav: 'g1', achou: 'X-Salada', era: null, por: 'Gil Prado' }
   ];
   // o que o Farol já aprendeu de cada ingrediente NESTA bancada, contado só nos lanches conferidos: em quantos o
   // ingrediente estava, em quantos a leitura da loja o reconheceu antes da conferência, e quantos exemplos guardou
@@ -1857,23 +1870,44 @@ svg .nova { filter: drop-shadow(0 0 1px var(--facho)) drop-shadow(0 0 1px var(--
     s += configura() ? '<button class="btn cheio" type="button" data-nova-gravacao id="nova-gravacao-vazio">' + ic('mais', 'p') + 'Nova gravação de treino</button>' : '<p class="nota">Quem configura a loja cria a gravação de treino.</p>';
     return s + '</div>';
   }
+  // O placar (aprovado pelo dono em 05/11/2026, protótipo "Placar do lanche"): o lanche certo ENTRE OS QUE ERAM LANCHE;
+  // o conferido "não era um lanche / não dá para saber" (sem produto) tem número próprio e fica fora da conta e da meta;
+  // o total de antes (certos entre todos) segue, menor. No console: `contas.eramLanche` e `gravacoes[].eramLanche`.
   function numerosDoTreino() {
     var c = contas();
+    var eram = conferidos().filter(function (x) { return !!x.era; });
+    var certos = eram.filter(acertou).length;
+    var fora = c.conf - eram.length;
+    var pc = function (a, b) { return Math.round(100 * a / b) + '%'; };
+    var principal = eram.length
+      ? '<b>' + certos + ' de ' + eram.length + ' <span class="tr-pct">' + pc(certos, eram.length) + '</span></b><span>o lanche certo entre os que eram lanche, antes da conferência</span>' +
+        '<span class="tr-total">Contando também os que não eram um lanche: ' + certos + ' de ' + c.conf + ' (' + pc(certos, c.conf) + ').</span>'
+      : '<b>—</b><span>o lanche certo entre os que eram lanche, antes da conferência</span><span class="tr-total">' +
+        (c.conf ? 'Nenhum dos ' + c.conf + (c.conf === 1 ? ' lanche conferido' : ' lanches conferidos') + ' era um lanche. O número aparece quando um lanche de verdade for conferido.' : 'O número aparece quando o primeiro lanche for conferido.') + '</span>';
     var s = '<div class="dados" role="group" aria-label="O que o Farol já sabe nesta bancada">' +
-      '<div class="dado"><b>' + c.conf + '</b><span>' + (c.conf === 1 ? 'lanche conferido' : 'lanches conferidos') + '</span></div>' +
-      '<div class="dado"><b>' + (c.conf ? c.acertou + ' de ' + c.conf : '—') + '</b><span>o lanche certo, antes da conferência</span></div>' +
+      '<div class="dado">' + principal + '</div>' +
+      '<div class="dado"><b>' + (c.conf ? fora + ' de ' + c.conf : '—') + '</b><span>não era um lanche ou não dá para saber</span>' +
+        (c.conf ? '<span class="tr-total">' + pc(fora, c.conf) + ' dos conferidos. Fica fora da conta do lanche certo.</span>' : '') + '</div>' +
       '<div class="dado"><b>' + c.comExemplo + ' de ' + c.ings + '</b><span>ingredientes da bancada com exemplo</span></div></div>';
     var linhas = gravacoes().slice().reverse().map(function (g) {
       var cs = conferidos().filter(function (x) { return x.grav === g.id; });
-      return { g: g, total: cs.length, certo: cs.filter(acertou).length };
+      var lanche = cs.filter(function (x) { return !!x.era; });
+      return { g: g, total: cs.length, lanche: lanche.length, certo: lanche.filter(acertou).length };
     }).filter(function (x) { return x.total > 0; });
     if (!linhas.length) return s + curvaDoTreino();
-    s += '<section class="cartao" aria-labelledby="t-acerto"><header><h2 id="t-acerto">O lanche certo, gravação por gravação</h2><span class="chip empurra">meta proposta: 9 em 10</span></header><div class="miolo"><div class="funil">';
+    var naMeta = eram.length >= 30 && certos / eram.length >= 0.9;
+    s += '<section class="cartao" aria-labelledby="t-acerto"><header><h2 id="t-acerto">O lanche certo, gravação por gravação</h2><span class="chip empurra">meta: 9 em 10</span></header><div class="miolo"><div class="funil">';
     linhas.forEach(function (x) {
-      var pct = Math.round(100 * x.certo / x.total);
-      s += '<div class="funil-linha"><span>' + esc(x.g.quando) + '</span><span class="trilha" role="img" aria-label="' + pct + '%"><i style="width:' + pct + '%"></i></span><span class="v">' + x.certo + ' de ' + x.total + '</span></div>';
+      var trilha = x.lanche
+        ? '<span class="trilha" role="img" aria-label="' + pc(x.certo, x.lanche) + ' certos entre os que eram lanche"><i style="width:' + Math.round(100 * x.certo / x.lanche) + '%"></i></span>'
+        : '<span class="trilha tr-vazia" role="img" aria-label="nenhum conferido era um lanche"></span>';
+      s += '<div class="funil-linha tr-fora"><span>' + esc(x.g.quando) + '</span>' + trilha + '<span class="v">' + (x.lanche ? x.certo + ' de ' + x.lanche : '—') + '</span>' +
+        '<span class="tr-n">não era um lanche: <b>' + (x.total - x.lanche) + '</b></span></div>';
     });
-    return s + '</div><p class="nota">Contado só nos lanches que alguém conferiu: antes da conferência, o Farol não sabe se acertou. A meta ainda é proposta: o lanche certo em 9 de cada 10, com pelo menos 30 conferidos.</p></div></section>' + curvaDoTreino();
+    var sobre = eram.length < 30
+      ? 'Faltam ' + (30 - eram.length) + (30 - eram.length === 1 ? ' lanche conferido que era lanche' : ' lanches conferidos que eram lanche') + ' para a meta valer.'
+      : naMeta ? 'A bancada está na meta.' : 'A bancada ainda está abaixo da meta.';
+    return s + '</div><p class="nota">Contado só nos lanches conferidos que eram um lanche: antes da conferência, o Farol não sabe se acertou. Os que foram respondidos como “não era um lanche” ou “não dá para saber” aparecem à parte. A meta: o lanche certo em 9 de cada 10, com pelo menos 30 conferidos que eram lanche. ' + sobre + '</p></div></section>' + curvaDoTreino();
   }
   // Em que passo o Farol acerta (A24, F2; proposta de 22/10/2026). No console, os números vêm de `curva` em
   // GET /v1/lojas/:id/treino: os lanches conferidos com o produto (`treino_lanche`: `produto` e `leitura.etapas`), com o

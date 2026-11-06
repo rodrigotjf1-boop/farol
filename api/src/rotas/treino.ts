@@ -352,6 +352,7 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
                 count(l.*)::int as lanches,
                 (count(l.*) filter (where l.situacao = 'conferido'))::int as conferidos,
                 (count(l.*) filter (where l.situacao = 'pulado'))::int as pulados,
+                (count(l.*) filter (where l.situacao = 'conferido' and l.produto is not null))::int as eram_lanche,
                 (count(l.*) filter (where l.situacao = 'conferido' and l.acertou))::int as acertou
            from treino_gravacao g
            left join ponto p on p.id = g.ponto_id
@@ -372,9 +373,12 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
           order by l.aberto_em desc nulls last`,
         [id, CONFERIDOS_NA_LISTA],
       ),
-      // as contas, sobre TODOS os conferidos (a lista traz só os mais novos)
+      // as contas, sobre TODOS os conferidos (a lista traz só os mais novos). O dono, 05/11/2026 ("aprovado" no protótipo
+      // do placar): o lanche certo se conta ENTRE OS QUE ERAM LANCHE — o conferido sem produto ("não era um lanche" ou
+      // "não dá para saber") fica à parte, fora da conta e da meta; `conferidos` segue com todos (o número de antes)
       pool.query(
         `select (count(*) filter (where situacao = 'conferido'))::int as conferidos,
+                (count(*) filter (where situacao = 'conferido' and produto is not null))::int as eram_lanche,
                 (count(*) filter (where situacao = 'conferido' and acertou))::int as acertou
            from treino_lanche where loja_id = $1`,
         [id],
@@ -434,11 +438,16 @@ export function rotasDoTreino(app: FastifyInstance, pool: pg.Pool): void {
         canal: g.canal_nome ? { nome: g.canal_nome, numero: g.canal_numero } : null,
         lanches: g.lanches,
         conferidos: g.conferidos,
+        eramLanche: g.eram_lanche,
         pulados: g.pulados,
         acertou: g.acertou,
       })),
       lanches: naTela,
-      contas: { conferidos: contas.rows[0].conferidos as number, acertou: contas.rows[0].acertou as number },
+      contas: {
+        conferidos: contas.rows[0].conferidos as number,
+        eramLanche: contas.rows[0].eram_lanche as number,
+        acertou: contas.rows[0].acertou as number,
+      },
       // o outro nome conta como o ingrediente das fichas a que foi juntado (migration 053)
       aprendizado: aprendizado(conferidos.rows.map((c) => ({ etapas: c.leitura?.etapas ?? [], conferencia: conferenciaQueConta(c.resposta, sugestoes.outros) }))),
       // em que passo o palpite acerta (A24, fase F2): o palpite refeito passo a passo, com as fichas de hoje

@@ -579,7 +579,8 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     const quadros = (await pool.query('select id, n from treino_quadro where lanche_id = $1', [lancheId])).rows;
     const idDo = (n: number) => quadros.find((q) => q.n === n)!.id;
     assert.deepEqual(x.miniaturas, { tampo: idDo(1), base: idDo(4) }, 'o último quadro de cada metade');
-    assert.deepEqual(l.contas, { conferidos: 0, acertou: 0 });
+    assert.deepEqual(l.contas, { conferidos: 0, eramLanche: 0, acertou: 0 });
+    assert.equal(l.gravacoes[0].eramLanche, 0);
     assert.deepEqual(l.curva, { lanches: 0, pontos: [], noFim: 0 }, 'a curva do palpite só conta o conferido');
 
     const sup = await lista(cookieSupervisao);
@@ -637,7 +638,7 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     assert.equal(ing.ingredientes.find((i: { nome: string }) => i.nome === 'Queijo prato').exemplos, 1);
 
     const depois = (await lista()).json();
-    assert.deepEqual(depois.contas, { conferidos: 1, acertou: 1 });
+    assert.deepEqual(depois.contas, { conferidos: 1, eramLanche: 1, acertou: 1 });
     assert.deepEqual(depois.aprendizado['Bacon fatiado'], { presente: 1, reconheceu: 0 });
     assert.deepEqual(depois.aprendizado['Pão brioche'], { presente: 1, reconheceu: 1 });
     // em que passo o palpite acerta (A24, F2): os 5 passos lidos (o 6º ficou sem leitura), o X-Burger desde o pão
@@ -671,12 +672,15 @@ describe('o treinamento da bancada (Postgres real)', { skip: !URL_DO_BANCO && 's
     assert.equal(p.statusCode, 200, p.body);
     assert.equal((await pular(novo)).json().pulado, true, 'pular de novo não é erro');
     assert.equal((await lista()).json().lanches.find((l: { id: string }) => l.id === novo).situacao, 'pulado');
-    // "não era um lanche": o palpite errou, e a conta diz
+    // "não era um lanche": conta como conferido, mas fica FORA da base do lanche certo (o dono, 05/11/2026: o placar é
+    // "entre os que eram lanche") — no total e na gravação
     const naoEra = await conferir(novo, { ...CONFERENCIA, produto: null });
     assert.equal(naoEra.statusCode, 200, 'o pulado se confere depois');
     assert.deepEqual([naoEra.json().produto, naoEra.json().acertou], [null, false]);
     const comONaoEra = (await lista()).json();
-    assert.deepEqual(comONaoEra.contas, { conferidos: 2, acertou: 1 });
+    assert.deepEqual(comONaoEra.contas, { conferidos: 2, eramLanche: 1, acertou: 1 });
+    const g = comONaoEra.gravacoes.find((x: { conferidos: number }) => x.conferidos === 2);
+    assert.deepEqual([g.conferidos, g.eramLanche, g.acertou], [2, 1, 1], 'a gravação conta igual ao total');
     assert.equal(comONaoEra.curva.lanches, 1, '"não era um lanche" fica fora da curva do palpite');
     const j = await pular(novo);
     assert.equal(j.statusCode, 409);

@@ -60,7 +60,8 @@ export const MAX_PECAS = 8;
 export const NOME_DO_NADA = 'Não é ingrediente';
 /** Decisão do dono (15/10/2026): o quadro da etapa sai 30 dias depois da conferência. */
 export const DIAS_DOS_QUADROS = 30;
-/** A meta proposta e aprovada (15/10/2026): o lanche certo em 9 de cada 10, com pelo menos 30 conferidos. */
+/** A meta proposta e aprovada (15/10/2026): o lanche certo em 9 de cada 10, com pelo menos 30 conferidos — desde
+ * 05/11/2026 (o dono, "aprovado" no protótipo do placar), contados só os conferidos que ERAM um lanche (com produto). */
 export const META = { acerto: 0.9, minimo: 30 } as const;
 
 export type EtapaLida = {

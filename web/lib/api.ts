@@ -1908,6 +1908,8 @@ export type GravacaoDeTreino = {
   canal: { nome: string; numero: number | null } | null;
   lanches: number;
   conferidos: number;
+  /** Os conferidos que ERAM um lanche (com produto): a base do lanche certo (o dono, 05/11/2026). */
+  eramLanche: number;
   pulados: number;
   acertou: number;
 };
@@ -1943,7 +1945,7 @@ export type SugestaoParaAFicha = {
 
 export type TreinoDaLoja = {
   podeConfigurar: boolean;
-  /** A meta aprovada: o lanche certo em `acerto` (0,9) dos conferidos, com pelo menos `minimo` (30). */
+  /** A meta aprovada: o lanche certo em `acerto` (0,9) dos conferidos que eram lanche, com pelo menos `minimo` (30) deles. */
   meta: { acerto: number; minimo: number };
   diasDosQuadros: number;
   regras: RegrasDaGravacao;
@@ -1957,8 +1959,9 @@ export type TreinoDaLoja = {
   fichasDe: 'regem' | 'planilha' | 'sistema' | null;
   gravacoes: GravacaoDeTreino[];
   lanches: LancheNaFila[];
-  /** Sobre TODOS os conferidos (a lista traz os mais novos). */
-  contas: { conferidos: number; acertou: number };
+  /** Sobre TODOS os conferidos (a lista traz os mais novos). `eramLanche`: os conferidos com produto — o lanche certo
+   * se conta entre eles; os outros ("não era um lanche", "não dá para saber") ficam à parte. */
+  contas: { conferidos: number; eramLanche: number; acertou: number };
   /** Por ingrediente, nos conferidos: em quantos estava, e em quantos a leitura o reconheceu antes da conferência. */
   aprendizado: Record<string, { presente: number; reconheceu: number }>;
 };
