@@ -11080,3 +11080,23 @@ ou o protótipo.
   `rotas-alertas.test.ts` são as de sempre deste banco (a gravação de evento pela rota precisa do pgvector) e estão na
   lista de falhas conhecidas da `main`; o teste novo do evento por isso grava o evento direto e chama o despacho de
   verdade, e roda aqui e no CI.
+
+## 12/11/2026 · A ajuda da "Tela da cozinha" em Alertas › Novo destino (console; sem migration)
+
+**O pedido do dono:** a ajuda ainda dizia "o identificador desta loja no Regem", mas desde o #244 a API ignora o endereço
+do KDS (guarda `regem` e usa a loja ligada em Conexões). Trocar para algo como "Vai para a cozinha da loja do Regem ligada
+em Conexões — não precisa preencher".
+
+**O que muda** (`web/app/(console)/lojas/[id]/alertas/page.tsx`): na "Tela da cozinha", a ajuda passa a ser a frase do
+dono; o exemplo dentro do campo, "deixe em branco" (era "identificador da loja no Regem"); e o campo deixa de ser
+obrigatório — com o `required` de antes, o navegador barrava o cadastro com o campo vazio, e a frase "não precisa
+preencher" seria falsa (V81). Os outros canais seguem como estão (o campo obrigatório, a mesma ajuda).
+
+**Como foi conferido:** no console local (API e console em portas próprias, uma loja ligada a uma loja do Regem), pelo
+clique: a gaveta abre no WhatsApp (obrigatório, a ajuda de sempre); "Tela da cozinha" troca a ajuda, o exemplo e tira a
+obrigação; voltar ao WhatsApp a devolve; cadastrar com o campo vazio fecha a gaveta, a linha aparece e a API guardou
+`regem`. 34 medidas (16 larguras × claro e escuro com a gaveta aberta, e a lista em 320 e 1280): sem rolagem para o lado,
+nenhum texto passando da caixa, nenhum id repetido, nenhum erro de script; pior contraste 4,80:1. Build do console verde.
+
+**Visto e não mexido:** na lista, a tela da cozinha mostra `regem` no lugar do endereço (é o que a API guarda); dizer ali
+"a loja ligada em Conexões" é outra mudança de tela, para o dono decidir.

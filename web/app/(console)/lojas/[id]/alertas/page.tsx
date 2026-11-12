@@ -65,7 +65,8 @@ const CANAIS: ReadonlyArray<{
 }> = [
   { valor: 'whatsapp', titulo: 'WhatsApp', ajuda: 'número com + e país', icone: MessageCircle, exemplo: '+5521988887777', dica: 'O número com + e o código do país, sem espaços.' },
   { valor: 'email', titulo: 'E-mail', ajuda: 'endereço de e-mail', icone: Mail, exemplo: 'voce@empresa.com.br', dica: 'O endereço de e-mail de quem recebe.' },
-  { valor: 'kds', titulo: 'Tela da cozinha', ajuda: 'KDS do Regem', icone: Monitor, exemplo: 'identificador da loja no Regem', dica: 'O identificador desta loja no Regem.' },
+  // Desde o #244 a API não usa o que se digita aqui: o alerta vai para a loja do Regem ligada em Conexões.
+  { valor: 'kds', titulo: 'Tela da cozinha', ajuda: 'KDS do Regem', icone: Monitor, exemplo: 'deixe em branco', dica: 'Vai para a cozinha da loja do Regem ligada em Conexões — não precisa preencher.' },
   { valor: 'webhook', titulo: 'Outro sistema', ajuda: 'endereço https', icone: Webhook, exemplo: 'https://…', dica: 'Um endereço https, sem chave escrita nele.' },
 ];
 
@@ -149,7 +150,7 @@ function GavetaDoDestino({ lojaId, aoSalvar, aoFechar }: { lojaId: string; aoSal
         <Campo rotulo="Endereço" htmlFor={`${p}-endereco`} ajuda={canal.dica}>
           <input
             id={`${p}-endereco`}
-            required
+            required={tipo !== 'kds'}
             className="entrada font-mono"
             placeholder={canal.exemplo}
             value={endereco}
