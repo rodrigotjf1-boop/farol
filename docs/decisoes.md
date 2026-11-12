@@ -11100,3 +11100,17 @@ nenhum texto passando da caixa, nenhum id repetido, nenhum erro de script; pior 
 
 **Visto e não mexido:** na lista, a tela da cozinha mostra `regem` no lugar do endereço (é o que a API guarda); dizer ali
 "a loja ligada em Conexões" é outra mudança de tela, para o dono decidir.
+
+## 12/11/2026 · Na lista "Quem recebe", a tela da cozinha diz "a loja ligada em Conexões" (console; sem migration)
+
+**O pedido do dono:** "ok pode trocar" — a sugestão do PR #245: na lista de Alertas › Quem recebe, a tela da cozinha
+mostrava `regem` (o marcador que a API guarda desde o #244) onde os outros destinos mostram o endereço.
+
+**O que muda** (`web/app/(console)/lojas/[id]/alertas/page.tsx`): no cartão do destino de tipo `kds`, a linha de baixo
+diz "a loja ligada em Conexões", em letra normal (é frase, não endereço). Vale para qualquer destino do KDS, inclusive
+um antigo com um id digitado, que a API também ignora. Os outros destinos seguem com o endereço em letra de código.
+
+**Como foi conferido:** no console local (portas próprias, uma loja ligada ao Regem com um WhatsApp e a tela da cozinha
+cadastrada pela API): a tela da cozinha diz a frase e nenhuma linha diz `regem`; o WhatsApp segue com o número em letra
+de código. 32 medidas (16 larguras × claro e escuro): sem rolagem para o lado, nenhum texto passando da caixa, nenhum id
+repetido, nenhum erro de script; pior contraste 4,80:1. Build do console verde.

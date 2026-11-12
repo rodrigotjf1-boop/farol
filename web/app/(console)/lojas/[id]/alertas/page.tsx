@@ -477,7 +477,13 @@ export default function Alertas() {
                             </span>
                             <div className="min-w-0 flex-1">
                               <h3 className="break-words text-[15px] font-semibold leading-snug">{d.nome}</h3>
-                              <p className="break-all font-mono text-xs text-farol-suave">{d.endereco}</p>
+                              {d.tipo === 'kds' ? (
+                                // Desde o #244 o endereço do KDS é o marcador `regem`: o alerta vai para a loja do
+                                // Regem ligada em Conexões, e é isso que se diz aqui.
+                                <p className="text-xs text-farol-suave" data-endereco-do-kds>a loja ligada em Conexões</p>
+                              ) : (
+                                <p className="break-all font-mono text-xs text-farol-suave">{d.endereco}</p>
+                              )}
                             </div>
                             {configura ? (
                               <Liga ligado={d.ativo} aoMudar={() => void alternarDestino(d)} descricao={`Destino ${d.nome}`} />
