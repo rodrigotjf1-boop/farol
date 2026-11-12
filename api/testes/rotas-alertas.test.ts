@@ -13,7 +13,15 @@ import type { FastifyInstance } from 'fastify';
 import pg from 'pg';
 
 import { criarApp } from '../src/app.js';
-import { validarEndereco } from '../src/rotas/alertas.js';
+import { enderecoDoDestino, validarEndereco } from '../src/rotas/alertas.js';
+import { ERRO_DO_KDS_SEM_REGEM, ERRO_DO_PRAZO, PRAZO_DO_RESULTADO_S } from '../src/alerta-do-envio.js';
+import { despacharEventos } from '../src/despacho.js';
+import { readFileSync } from 'node:fs';
+
+// `globalThis.URL`: este arquivo chama o endereço do banco de `URL`, mais abaixo.
+const CONTRATO = JSON.parse(readFileSync(new globalThis.URL('../../contratos/transporte-dos-alertas.json', import.meta.url), 'utf8')) as {
+  casos: { envio: Record<string, unknown> & { alerta: Record<string, unknown> } }[];
+};
 
 // ───────── validação do endereço: não precisa de banco ─────────
 
@@ -38,9 +46,13 @@ describe('endereço do destino', () => {
     );
   });
 
-  it('kds é o id da loja no Regem, não uma URL digitada', () => {
-    assert.equal(validarEndereco('kds', randomUUID()), null);
-    assert.match(String(validarEndereco('kds', 'http://kds.local')), /id da loja/);
+  it('o KDS não se digita: o endereço é sempre a loja do Regem ligada ("regem"), o que vier no corpo não conta', () => {
+    // Digitado, o id de uma loja do Regem de OUTRA empresa poria o alerta na tela da cozinha dela (11/11/2026).
+    for (const digitado of [randomUUID(), 'http://kds.local', '']) {
+      assert.deepEqual(enderecoDoDestino('kds', digitado), { endereco: 'regem' });
+    }
+    assert.deepEqual(enderecoDoDestino('whatsapp', ' +5521988887777 '), { endereco: '+5521988887777' });
+    assert.match(JSON.stringify(enderecoDoDestino('whatsapp', '21988887777')), /E\.164/);
   });
 });
 
@@ -144,7 +156,22 @@ describe('alertas (Postgres real)', { skip: !URL && 'sem DATABASE_URL' }, () => 
     };
     ({ token: transporte, id: transporteId } = await emitir('todos', ['whatsapp', 'email', 'kds', 'webhook']));
     ({ token: soKds, id: soKdsId } = await emitir('kds', ['kds']));
+
+    // A loja ligada a uma loja do Regem (o que a tela Conexões faz): a tela da cozinha só existe assim (11/11/2026).
+    await ligarAoRegem();
   });
+
+  const regemLojaId = randomUUID();
+  async function ligarAoRegem() {
+    await pool.query(
+      `insert into regem_loja (tenant_id, loja_id, regem_loja_id, regem_loja_nome, regem_empresa_nome, acesso_cifrado, ligado_em)
+       select l.tenant_id, l.id, $2, 'Loja do Regem', 'Empresa do Regem', 'nao-e-um-acesso', now()
+         from loja l where l.id = $1
+       on conflict do nothing`,
+      [lojaId, regemLojaId],
+    );
+  }
+  const desligarDoRegem = () => pool.query('delete from regem_loja where loja_id = $1', [lojaId]);
 
   after(async () => {
     if (adminAntes === undefined) delete process.env.FAROL_ADMIN_TOKEN;
@@ -548,6 +575,188 @@ describe('alertas (Postgres real)', { skip: !URL && 'sem DATABASE_URL' }, () => 
       method: 'POST', url: '/v1/envios/nao-e-uuid/resultado', headers: { authorization: `Bearer ${soKds}` }, payload: { entregue: true },
     });
     assert.equal(torto.statusCode, 404, 'id torto é envio que não existe, não erro do banco');
+  });
+
+  // ───────── os alertas no KDS do Regem (pedido da sessão do Regem, 11/11/2026) ─────────
+  // Só este arquivo cria envio de KDS, e só o transporte `soKds` o reivindica aqui (V93).
+
+  const puxarKds = (limite = 100) =>
+    app.inject({ method: 'POST', url: '/v1/envios/reivindicar', headers: { authorization: `Bearer ${soKds}` }, payload: { limite } });
+
+  it('a tela da cozinha não se digita: guarda "regem", a loja sem ligação é recusada, e é uma por escopo', async () => {
+    const kds = await destinoDoTipo('kds'); // criada com um id digitado, que não conta
+    const lista = (await app.inject({ method: 'GET', url: `/v1/lojas/${lojaId}/destinos`, headers: { cookie } })).json();
+    assert.equal(lista.destinos.find((d: { id: string }) => d.id === kds)?.endereco, 'regem');
+
+    const outra = await criarDestino({ tipo: 'kds', nome: 'Outra tela', endereco: randomUUID() });
+    assert.equal(outra.statusCode, 409, outra.body);
+    assert.match(outra.json().mensagem, /tela da cozinha já está cadastrada/);
+
+    await desligarDoRegem();
+    try {
+      const semRegem = await criarDestino({ tipo: 'kds', nome: 'Tela' });
+      assert.equal(semRegem.statusCode, 422, semRegem.body);
+      assert.equal(semRegem.json().erro, 'loja_sem_regem');
+      assert.match(semRegem.json().mensagem, /ligue em Conexões/);
+      // A da rede vale para as lojas ligadas: não depende desta.
+      const daRede = await criarDestino({ tipo: 'kds', nome: 'Telas da rede', daRede: true });
+      assert.equal(daRede.statusCode, 201, daRede.body);
+      assert.equal(daRede.json().destino.endereco, 'regem');
+      assert.equal(daRede.json().destino.da_rede, true);
+      await pool.query('delete from destino where id = $1', [daRede.json().destino.id]);
+    } finally {
+      await ligarAoRegem();
+    }
+    for (const loja of [randomUUID(), 'nao-e-uuid']) {
+      const r = await app.inject({ method: 'POST', url: `/v1/lojas/${loja}/destinos`, headers: { cookie }, payload: { tipo: 'kds', nome: 'X' } });
+      assert.equal(r.statusCode, 404, `${loja}: ${r.body}`);
+    }
+  });
+
+  it('o envio do KDS leva o alerta: título, detalhe, gravidade, onde, quando e a loja do Regem', async () => {
+    const kds = await destinoDoTipo('kds');
+    const pol = await app.inject({
+      method: 'POST', url: `/v1/lojas/${lojaId}/politicas`, headers: { cookie }, payload: { prioridade: 'urgente', destinoId: kds },
+    });
+    assert.equal(pol.statusCode, 201, pol.body);
+    const regra = await app.inject({
+      method: 'POST', url: `/v1/zonas/${zonaId}/regras`, headers: { cookie },
+      payload: { nome: 'Gás fechado ao sair', tipo: 'estado', criterio: 'O registro do gás está fechado.', severidade: 'emergencia', prioridade: 'urgente' },
+    });
+    assert.equal(regra.statusCode, 201, regra.body);
+    const ocorridoEm = new Date(Date.now() - 60_000).toISOString();
+    // O evento gravado direto e o despacho de verdade: a gravação pela rota (`POST /v1/eventos`) não roda no banco
+    // local sem pgvector, e o que se prova aqui é do despacho em diante.
+    const ev = await pool.query<{ tenant_id: string }>(
+      `insert into evento (tenant_id, loja_id, regra_id, zona_id, ocorrido_em, veredito, motivo, idempotencia_key)
+       select l.tenant_id, l.id, $2, $3, $4, 'nao_conforme', $5, $6 from loja l where l.id = $1
+       returning tenant_id`,
+      [lojaId, regra.json().id, zonaId, ocorridoEm, '  o registro do gás ficou aberto  ', `${marca}-gas`],
+    );
+    const despacho = await despacharEventos(pool, ev.rows[0]!.tenant_id, lojaId, [`${marca}-gas`]);
+    assert.ok(despacho.criados >= 1, JSON.stringify(despacho));
+    const { rows } = await pool.query(
+      `select e.id from envio e join evento v on v.id = e.evento_id where v.idempotencia_key = $1 and e.destino_id = $2`,
+      [`${marca}-gas`, kds],
+    );
+    assert.equal(rows.length, 1, 'o evento virou um envio para a tela da cozinha');
+
+    const r = await puxarKds();
+    assert.equal(r.statusCode, 200, r.body);
+    const envio = r.json().envios.find((x: { id: string }) => x.id === rows[0].id);
+    assert.ok(envio, r.body);
+    const doContrato = CONTRATO.casos[0]!.envio;
+    assert.deepEqual(Object.keys(envio).sort(), Object.keys(doContrato).sort(), 'as chaves do contrato com o Regem');
+    assert.deepEqual(Object.keys(envio.alerta).sort(), Object.keys(doContrato.alerta).sort());
+    assert.equal(envio.destino_endereco, 'regem');
+    assert.deepEqual(envio.alerta, {
+      titulo: 'Gás fechado ao sair',
+      detalhe: 'O registro do gás ficou aberto.',
+      severidade: 'emergencia',
+      prioridade: 'urgente',
+      onde: 'Montagem',
+      ocorrido_em: ocorridoEm,
+      loja: { id: lojaId, nome: 'Matriz', regem_loja_id: regemLojaId },
+      texto: 'Farol · Matriz: Gás fechado ao sair (Montagem). O registro do gás ficou aberto.',
+    });
+  });
+
+  it('a fila sai pela gravidade, não pela chegada — e a resposta vem na mesma ordem', async () => {
+    const kds = await destinoDoTipo('kds');
+    const regraDe = async (severidade: string, prioridade: string) => {
+      const r = await app.inject({
+        method: 'POST', url: `/v1/zonas/${zonaId}/regras`, headers: { cookie },
+        payload: { nome: `Ordem ${severidade} ${prioridade}`, tipo: 'estado', criterio: 'Está como combinado.', severidade, prioridade },
+      });
+      assert.equal(r.statusCode, 201, r.body);
+      return r.json().id as string;
+    };
+    // O evento gravado direto (sem passar pelo despacho, que criaria outros envios).
+    const eventoDe = async (regraId: string | null, prioridade: string | null) => (await pool.query(
+      `insert into evento (tenant_id, loja_id, regra_id, ocorrido_em, veredito, prioridade, idempotencia_key)
+       select l.tenant_id, l.id, $2, now(), 'nao_conforme', $3, $4 from loja l where l.id = $1
+       returning id`,
+      [lojaId, regraId, prioridade, `${marca}-ordem-${randomUUID()}`],
+    )).rows[0].id as string;
+    const envio = async (motivo: string, minutosAtras: number, extra: { eventoId?: string; payload?: unknown }) => (await pool.query(
+      `insert into envio (tenant_id, loja_id, destino_id, motivo, chave, evento_id, payload, criado_em)
+       select l.tenant_id, l.id, $2, $3, $4, $5, $6::jsonb, now() - make_interval(mins => $7)
+         from loja l where l.id = $1
+       returning id`,
+      [lojaId, kds, motivo, `${marca}-ordem-${randomUUID()}`, extra.eventoId ?? null,
+       extra.payload === undefined ? null : JSON.stringify(extra.payload), minutosAtras],
+    )).rows[0].id as string;
+
+    // Criados do mais leve para o mais grave: a ordem de chegada DISCORDA da pedida (V80).
+    const leve = await envio('busca_concluida', 50, {}); // atenção · intermediária
+    const semRegra = await envio('evento', 45, { eventoId: await eventoDe(null, null) }); // critério apagado: atenção · intermediária
+    const sobrecarga = await envio('computador', 40, { payload: { tipo: 'sobrecarregado' } }); // atenção · urgente
+    // crítico · leve: a prioridade do evento vence a da regra
+    const criticoLeve = await envio('evento', 35, { eventoId: await eventoDe(await regraDe('critico', 'urgente'), 'leve') });
+    const calor = await envio('computador', 30, { payload: { tipo: 'esquentando' } }); // crítico · urgente
+    // emergência · urgente, mais velha que o agente caído: só a regra do agente caído o põe na frente dela
+    const emergencia = await envio('evento', 20, { eventoId: await eventoDe(await regraDe('emergencia', 'urgente'), null) });
+    const caiu = await envio('agente_caiu', 0, { payload: { agente: 'Agente de teste', desde: new Date().toISOString() } });
+    const esperado = [caiu, emergencia, calor, criticoLeve, sobrecarga, leve, semRegra];
+
+    const primeiros = (await puxarKds(2)).json().envios.map((e: { id: string }) => e.id);
+    assert.deepEqual(primeiros, esperado.slice(0, 2), 'com limite 2: o agente caído e a emergência');
+    const resto = (await puxarKds(100)).json().envios.map((e: { id: string }) => e.id).filter((id: string) => esperado.includes(id));
+    assert.deepEqual(resto, esperado.slice(2), 'e o resto pela gravidade, na ordem da resposta');
+  });
+
+  it('o envio levado e sem resultado em 2 minutos volta à fila como "falhou", com o motivo', async () => {
+    const kds = await destinoDoTipo('kds');
+    const preso = await envioNovo(kds, 'preso');
+    const ultimaVez = await envioNovo(kds, 'ultima-vez');
+    const recente = await envioNovo(kds, 'recente');
+    const levou = (await puxarKds()).json().envios.map((e: { id: string }) => e.id);
+    assert.ok([preso, ultimaVez, recente].every((id) => levou.includes(id)), 'os três foram levados');
+
+    // O transporte caiu no meio: os três ficaram "mandados". Dois passaram do prazo, um deles na última tentativa.
+    await pool.query(
+      `update envio set despachado_em = now() - make_interval(secs => $2) where id = any($1::uuid[])`,
+      [[preso, ultimaVez], PRAZO_DO_RESULTADO_S + 30],
+    );
+    await pool.query('update envio set tentativas = 5 where id = $1', [ultimaVez]);
+    await pool.query(`update envio set despachado_em = now() - interval '30 seconds' where id = $1`, [recente]);
+
+    const deNovo = (await puxarKds()).json().envios as { id: string; tentativas: number }[];
+    const outraVez = deNovo.find((e) => e.id === preso);
+    assert.ok(outraVez, 'o preso voltou à fila e foi levado de novo, com o MESMO id');
+    assert.equal(outraVez!.tentativas, 2);
+    assert.ok(!deNovo.some((e) => e.id === ultimaVez || e.id === recente), JSON.stringify(deNovo.map((e) => e.id)));
+
+    const { rows } = await pool.query('select id, estado, erro from envio where id = any($1::uuid[])', [[preso, ultimaVez, recente]]);
+    const de = (id: string) => rows.find((x) => x.id === id);
+    assert.deepEqual({ estado: de(ultimaVez).estado, erro: de(ultimaVez).erro }, { estado: 'falhou', erro: ERRO_DO_PRAZO },
+      'sem tentativa, fica "falhou" — e o console mostra o motivo');
+    assert.equal(de(recente).estado, 'enviado', 'dentro do prazo, segue esperando o resultado');
+    assert.equal(de(preso).estado, 'enviado');
+
+    const ok = await app.inject({
+      method: 'POST', url: `/v1/envios/${preso}/resultado`, headers: { authorization: `Bearer ${soKds}` }, payload: { entregue: true },
+    });
+    assert.deepEqual({ estado: ok.json().envio.estado }, { estado: 'entregue' });
+    assert.equal((await pool.query('select erro from envio where id = $1', [preso])).rows[0].erro, null, 'o motivo sai com a entrega');
+  });
+
+  it('a tela da cozinha de uma loja sem ligação com o Regem: o envio sai "descartado", com o motivo, e não é levado', async () => {
+    const kds = await destinoDoTipo('kds');
+    const semPara = await envioNovo(kds, 'sem-regem');
+    await desligarDoRegem();
+    try {
+      // Quem não leva KDS não mexe nele.
+      await app.inject({ method: 'POST', url: '/v1/envios/reivindicar', headers: comTransporte(), payload: { limite: 100, tipos: ['whatsapp'] } });
+      assert.equal((await pool.query('select estado from envio where id = $1', [semPara])).rows[0].estado, 'pendente');
+
+      const r = await puxarKds();
+      assert.ok(!r.json().envios.some((e: { id: string }) => e.id === semPara), r.body);
+      const { rows } = await pool.query('select estado, erro from envio where id = $1', [semPara]);
+      assert.deepEqual(rows[0], { estado: 'descartado', erro: ERRO_DO_KDS_SEM_REGEM });
+    } finally {
+      await ligarAoRegem();
+    }
   });
 
   it('revogar um transporte não derruba o outro', async () => {

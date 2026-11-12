@@ -53,6 +53,17 @@ import { exigirConfigurar } from '../rbac.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 import { acharCampoProibido } from './lojas.js';
 import { autenticarTransporte, ErroDeAuth, type TransporteAutenticado } from '../auth.js';
+import {
+  ENDERECO_DO_KDS,
+  ERRO_DO_KDS_SEM_REGEM,
+  ERRO_DO_PRAZO,
+  envioReivindicado,
+  ORDEM_DA_FILA_SQL,
+  PRAZO_DO_RESULTADO_S,
+  PRIORIDADE_DO_ENVIO_SQL,
+  SEVERIDADE_DO_ENVIO_SQL,
+  type LinhaDoEnvio,
+} from '../alerta-do-envio.js';
 
 const TIPOS = ['whatsapp', 'email', 'kds', 'webhook'];
 const SEVERIDADES = ['info', 'atencao', 'critico', 'emergencia'];
@@ -61,7 +72,19 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const MAX_REIVINDICAR = 100;
 
-/** Validação do endereço por tipo — e cada uma existe por um erro real. */
+/**
+ * O endereço que o destino guarda: o do KDS não se digita; o dos outros, conferido. Desde 11/11/2026 (pedido da
+ * sessão do Regem), o destino do KDS é a loja do Regem ligada à loja do alerta (`regem_loja`), resolvida na
+ * reivindicação. Digitado, um id de loja do Regem de OUTRA empresa poria o alerta na tela da cozinha dela; e em qual
+ * tela aparece o Regem decide (cada KDS tem o aviso "Farol" liga/desliga). O que vier no corpo é ignorado.
+ */
+export function enderecoDoDestino(tipo: string, endereco: string): { endereco: string } | { problema: string } {
+  if (tipo === 'kds') return { endereco: ENDERECO_DO_KDS };
+  const problema = validarEndereco(tipo, endereco);
+  return problema ? { problema } : { endereco: endereco.trim() };
+}
+
+/** Validação do endereço por tipo — e cada uma existe por um erro real. O KDS não passa aqui (`enderecoDoDestino`). */
 export function validarEndereco(tipo: string, endereco: string): string | null {
   const e = endereco.trim();
   if (!e) return 'endereco é obrigatório';
@@ -90,12 +113,6 @@ export function validarEndereco(tipo: string, endereco: string): string | null {
     if (u.protocol !== 'https:') return 'webhook: só https';
     // Um token na querystring vai para todo log de proxy no caminho.
     if (u.search) return 'webhook: sem querystring; segredo vai por segredoRef';
-    return null;
-  }
-  if (tipo === 'kds') {
-    // O KDS é integração direta Farol↔Regem: o endereço é a loja do Regem,
-    // não uma URL que o usuário digita.
-    if (!UUID.test(e)) return 'kds: o id da loja no Regem';
     return null;
   }
   return `tipo: um de ${TIPOS.join(', ')}`;
@@ -167,14 +184,38 @@ export function rotasDeAlertas(app: FastifyInstance, pool: pg.Pool): void {
     if (!nome) {
       return resposta.status(422).send({ erro: 'validacao', mensagem: 'nome é obrigatório' });
     }
-    const problema = validarEndereco(tipo, String(c.endereco ?? ''));
-    if (problema) {
-      return resposta.status(422).send({ erro: 'validacao', mensagem: problema });
+    const destino = enderecoDoDestino(tipo, String(c.endereco ?? ''));
+    if ('problema' in destino) {
+      return resposta.status(422).send({ erro: 'validacao', mensagem: destino.problema });
+    }
+    if (!UUID.test(id)) {
+      return resposta.status(404).send({ erro: 'loja_nao_encontrada', mensagem: 'loja não encontrada nesta conta' });
     }
 
     // Loja da rede (`daRede: true`) exige nível de configurar no tenant, e
     // é o que `exigirConfigurar` já garantiu.
     const daRede = c.daRede === true;
+
+    // A tela da cozinha de UMA loja só existe com a loja ligada ao Regem: sem a ligação, o alerta não teria para onde
+    // ir (V128). A da rede vale para as lojas ligadas; o envio de uma loja sem ligação sai `descartado`, com o motivo.
+    if (tipo === 'kds' && !daRede) {
+      const { rows } = await pool.query<{ ligada: boolean }>(
+        `select exists (select 1 from regem_loja rl where rl.loja_id = l.id) as ligada
+           from loja l
+          where l.id = $1 and l.tenant_id = $2`,
+        [id, s.tenantId],
+      );
+      if (rows.length === 0) {
+        return resposta.status(404).send({ erro: 'loja_nao_encontrada', mensagem: 'loja não encontrada nesta conta' });
+      }
+      if (!rows[0]!.ligada) {
+        return resposta.status(422).send({
+          erro: 'loja_sem_regem',
+          mensagem:
+            'esta loja ainda não está ligada a uma loja do Regem: ligue em Conexões e cadastre a tela da cozinha depois',
+        });
+      }
+    }
 
     try {
       const { rows } = await pool.query(
@@ -186,7 +227,7 @@ export function rotasDeAlertas(app: FastifyInstance, pool: pg.Pool): void {
           where l.id = $8 and l.tenant_id = $1
         returning id, tipo, nome, endereco, papel, ativo, loja_id is null as da_rede`,
         [
-          s.tenantId, tipo, nome, String(c.endereco).trim(),
+          s.tenantId, tipo, nome, destino.endereco,
           c.papel ? String(c.papel) : null,
           c.segredoRef ? String(c.segredoRef) : null,
           daRede, id,
@@ -203,8 +244,8 @@ export function rotasDeAlertas(app: FastifyInstance, pool: pg.Pool): void {
         return resposta.status(409).send({
           erro: 'destino_repetido',
           mensagem:
-            'este endereço já está cadastrado neste escopo. Dois cadastros ' +
-            'iguais mandariam o mesmo aviso duas vezes.',
+            (tipo === 'kds' ? 'a tela da cozinha já está cadastrada neste escopo. ' : 'este endereço já está cadastrado neste escopo. ') +
+            'Dois cadastros iguais mandariam o mesmo aviso duas vezes.',
         });
       }
       throw e;
@@ -408,22 +449,66 @@ export function rotasDeAlertas(app: FastifyInstance, pool: pg.Pool): void {
       : null;
     const tipos = pedidos ? t.tipos.filter((x) => pedidos.includes(x)) : t.tipos;
 
-    // `skip locked` é o que permite dois trabalhadores do n8n rodarem
+    // 1. O envio levado e sem resultado no prazo volta à fila: o transporte caiu no meio (pedido da sessão do Regem,
+    // 11/11/2026). Vira `falhou` com o motivo — o console mostra —, e a reivindicação abaixo o leva de novo, se ainda
+    // tem tentativa. Vale para os envios de qualquer transporte: o "mandado" sem resposta não fica para sempre na tela
+    // "Chegou?". O índice `envio_enviado_idx` (migration 062) segura a procura.
+    const soltos = await pool.query(
+      `with vencidos as (
+         select id from envio
+          where estado = 'enviado' and despachado_em < now() - make_interval(secs => $1)
+          order by despachado_em
+          limit 500
+          for update skip locked
+       )
+       update envio e set estado = 'falhou', erro = $2
+         from vencidos
+        where e.id = vencidos.id`,
+      [PRAZO_DO_RESULTADO_S, ERRO_DO_PRAZO],
+    );
+
+    // 2. A tela da cozinha de uma loja que não está (ou deixou de estar) ligada ao Regem não tem para onde ir:
+    // `descartado`, com o motivo, em vez de ficar na fila para sempre ou de aparecer de uma vez quando a loja se ligar.
+    let descartados = 0;
+    if (tipos.includes('kds')) {
+      const r = await pool.query(
+        `with sem_regem as (
+           select e.id
+             from envio e
+             join destino d on d.id = e.destino_id
+            where d.tipo = 'kds'
+              and e.estado in ('pendente','falhou')
+              and e.tentativas < 5
+              and not exists (select 1 from regem_loja rl where rl.loja_id = e.loja_id)
+            for update of e skip locked
+         )
+         update envio e set estado = 'descartado', erro = $1
+           from sem_regem
+          where e.id = sem_regem.id`,
+        [ERRO_DO_KDS_SEM_REGEM],
+      );
+      descartados = r.rowCount ?? 0;
+    }
+
+    // 3. `skip locked` é o que permite dois trabalhadores do n8n rodarem
     // juntos sem mandar a mesma mensagem duas vezes — e sem um esperar o
     // outro, que é como uma fila de alertas vira atraso de alertas.
     //
-    // A ordem é por severidade do aviso antes da data: numa volta de
-    // internet com mil envios acumulados, o agente caído e a emergência
-    // têm que sair antes do aviso leve de ontem.
-    const { rows } = await pool.query(
+    // A ordem é o agente caído, depois a gravidade, a prioridade e a data
+    // (`ORDEM_DA_FILA_SQL`): numa volta de internet com mil envios
+    // acumulados, a emergência tem que sair antes do aviso leve de ontem.
+    const levados = await pool.query<{ id: string }>(
       `with alvo as (
          select e.id
            from envio e
            join destino d on d.id = e.destino_id
+           left join evento ev on ev.id = e.evento_id
+           left join regra r on r.id = ev.regra_id
           where e.estado in ('pendente','falhou')
             and e.tentativas < 5
             and d.tipo = any($1::text[])
-          order by (e.motivo = 'agente_caiu') desc, e.criado_em
+            and (d.tipo <> 'kds' or exists (select 1 from regem_loja rl where rl.loja_id = e.loja_id))
+          order by ${ORDEM_DA_FILA_SQL}
           limit $2
           for update of e skip locked
        )
@@ -434,15 +519,42 @@ export function rotasDeAlertas(app: FastifyInstance, pool: pg.Pool): void {
               transporte_id = $3
          from alvo
         where e.id = alvo.id
-      returning e.id, e.motivo, e.payload, e.tentativas, e.loja_id, e.evento_id,
-                (select d.tipo from destino d where d.id = e.destino_id) as destino_tipo,
-                (select d.endereco from destino d where d.id = e.destino_id) as destino_endereco,
-                (select d.segredo_ref from destino d where d.id = e.destino_id) as segredo_ref`,
+      returning e.id`,
       [tipos, limite, t.transporteId],
     );
-    if (rows.length > 0) req.log.info({ transporte: t.nome, levados: rows.length }, 'transporte reivindicou');
 
-    return { envios: rows };
+    // 4. O que vai a quem entrega, na MESMA ordem (o `returning` do update não guarda a do `alvo`): os campos de
+    // sempre e o `alerta` — o título, o detalhe, a gravidade, onde, quando e a loja, com o id dela no Regem.
+    let envios: ReturnType<typeof envioReivindicado>[] = [];
+    if (levados.rows.length > 0) {
+      const { rows } = await pool.query<LinhaDoEnvio>(
+        `select e.id, e.motivo, e.payload, e.tentativas, e.loja_id, e.evento_id, e.criado_em,
+                d.tipo as destino_tipo, d.endereco as destino_endereco, d.segredo_ref,
+                ${SEVERIDADE_DO_ENVIO_SQL} as severidade,
+                ${PRIORIDADE_DO_ENVIO_SQL} as prioridade,
+                l.nome as loja_nome, rl.regem_loja_id,
+                r.nome as regra_nome, ev.motivo as evento_motivo, ev.ocorrido_em,
+                p.nome as ponto_nome, z.nome as zona_nome, z.principal as zona_principal
+           from envio e
+           join destino d on d.id = e.destino_id
+           left join loja l on l.id = e.loja_id
+           left join regem_loja rl on rl.loja_id = e.loja_id
+           left join evento ev on ev.id = e.evento_id
+           left join regra r on r.id = ev.regra_id
+           left join zona z on z.id = coalesce(ev.zona_id, r.zona_id)
+           left join ponto p on p.id = z.ponto_id
+          where e.id = any($1::uuid[])
+          order by ${ORDEM_DA_FILA_SQL}`,
+        [levados.rows.map((x) => x.id)],
+      );
+      envios = rows.map(envioReivindicado);
+    }
+    const soltosN = soltos.rowCount ?? 0;
+    if (envios.length > 0 || soltosN > 0 || descartados > 0) {
+      req.log.info({ transporte: t.nome, levados: envios.length, soltos: soltosN, descartados }, 'transporte reivindicou');
+    }
+
+    return { envios };
   });
 
   app.post('/v1/envios/:id/resultado', async (req, resposta) => {

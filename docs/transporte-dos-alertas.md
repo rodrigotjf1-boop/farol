@@ -36,13 +36,58 @@ Authorization: Bearer fart_…
 
 - `limite`: de 1 a 100 (padrão 20).
 - `tipos`: vale DENTRO dos tipos do transporte; sem ele, todos os do transporte. Pedir só tipo alheio é não levar nada.
-- Leva envios `pendente` ou `falhou` (menos de 5 tentativas), o "agente caiu" antes de tudo, depois pela ordem de
-  chegada. Dois trabalhadores juntos nunca levam o mesmo envio (`for update skip locked`).
+- Leva envios `pendente` ou `falhou` (menos de 5 tentativas). **A ordem** (desde 11/11/2026): o "agente caiu" antes
+  de tudo, depois a **severidade** (`emergencia`, `critico`, `atencao`, `info`), a **prioridade** (`urgente`,
+  `intermediaria`, `leve`), a chegada e o id. A resposta vem **na mesma ordem**. Dois trabalhadores juntos nunca levam
+  o mesmo envio (`for update skip locked`).
 - O envio levado passa a `enviado`, conta uma tentativa e anota **quem o levou** (`envio.transporte_id`).
+- **O prazo do resultado** (desde 11/11/2026): o envio levado e sem resultado em **2 minutos** (o transporte caiu no
+  meio) volta à fila como `falhou`, com o erro "o transporte levou e não devolveu o resultado em 2 minutos", e sai de
+  novo — com o **mesmo `id`**. Quem entrega **deduplica pelo `id` do envio**: o mesmo aviso pode chegar duas vezes se
+  o resultado se perder. Na última tentativa, fica `falhou`.
 
 Resposta: `{ "envios": [ { id, motivo, payload, tentativas, loja_id, evento_id, destino_tipo, destino_endereco,
-segredo_ref } ] }`. O `segredo_ref` é o **nome** da variável, no ambiente do transporte, que guarda o segredo do
+segredo_ref, alerta } ] }`. O `segredo_ref` é o **nome** da variável, no ambiente do transporte, que guarda o segredo do
 destino (o token do webhook, por exemplo) — nunca o valor.
+
+### O `alerta` (desde 11/11/2026, pedido da sessão do Regem)
+
+O que a tela mostra, montado pelo Farol para cada envio (`api/src/alerta-do-envio.ts`; o exemplo completo, com um
+envio de cada motivo, é `contratos/transporte-dos-alertas.json`):
+
+```
+"alerta": {
+  "titulo": "Touca na cozinha",
+  "detalhe": "Quem está na chapa está sem touca.",
+  "severidade": "critico",              ← emergencia | critico | atencao | info
+  "prioridade": "urgente",              ← urgente | intermediaria | leve
+  "onde": "Chapa › Bancada",            ← o canal e, se o critério é de um quadro, o quadro; nulo fora de câmera
+  "ocorrido_em": "2026-11-11T23:14:02.000Z",
+  "loja": { "id": "<loja no Farol>", "nome": "Matriz", "regem_loja_id": "<loja no Regem, ou nulo>" },
+  "texto": "Farol · Matriz: Touca na cozinha (Chapa › Bancada). Quem está na chapa está sem touca."
+}
+```
+
+| `motivo` | `titulo` | `detalhe` | `ocorrido_em` | severidade · prioridade |
+|---|---|---|---|---|
+| `evento` | o nome do critério | o que o juiz viu (`evento.motivo`) | a hora do evento | a da regra · a do evento (ou da regra) |
+| `agente_caiu` | "O Farol parou de auditar esta loja" | o agente e a consequência | o último sinal do agente | emergencia · urgente |
+| `computador` | o tipo do aviso | o porquê e a consequência | o começo do aviso | a do tipo (`GRAVIDADE`) |
+
+`texto` é a mensagem pronta em uma linha, para o transporte que só repassa texto (no `computador`, a do aviso da
+máquina). Motivo que o Farol não conhece mais sai como "Aviso do Farol", com o nome do motivo no detalhe.
+
+### O destino do KDS (desde 11/11/2026)
+
+O KDS é integração direta Farol↔Regem: o destino **não tem endereço digitado** (`destino_endereco` = `"regem"`). A
+loja é a do Regem **ligada à loja do alerta** (Conexões), e vai em `alerta.loja.regem_loja_id`; em quais telas
+aparece o Regem decide (cada KDS tem o aviso "Farol" liga/desliga). Um id digitado poria o alerta na cozinha de outra
+empresa.
+
+- O cadastro da tela da cozinha de uma loja **sem ligação** com o Regem é recusado (422 `loja_sem_regem`, "ligue em
+  Conexões"); o da rede vale para as lojas ligadas. Uma por escopo (409).
+- O envio de KDS de uma loja sem ligação (ou que se desligou) **não sai**: fica `descartado`, com o erro "esta loja não
+  está ligada a uma loja do Regem: a tela da cozinha não tem para onde ir".
 
 ### Os motivos e o `payload` de cada um
 
@@ -78,4 +123,5 @@ Authorization: Bearer fart_…
 
 ## O que aparece no console
 
-**Loja → Alertas → "Chegou?"**: "na fila" (pendente), "mandado" (reivindicado), "chegou" (entregue), "falhou".
+**Loja → Alertas → "Chegou?"**: "na fila" (pendente), "mandado" (reivindicado), "chegou" (entregue), "falhou",
+"descartado" — com o motivo, quando há.
