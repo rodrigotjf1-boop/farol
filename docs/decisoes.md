@@ -11020,3 +11020,63 @@ do palpite, fica para um PR dele.
   nenhum texto passando da caixa, nenhum id repetido, nenhum erro de script; pior contraste 4,53:1. Achado no caminho: o
   roteiro lia o aviso do salvamento anterior (ERR-167); a gaveta medida no meio da animação passava 1–2 px — medida parada,
   nada.
+
+## 11/11/2026 · Os alertas na tela da cozinha do Regem: o texto, a ordem, o prazo e o destino do KDS (API + migration 062)
+
+**O pedido:** da sessão do Regem, para a onda 3 da auditoria do KDS de lá (o Regem busca os alertas com um transporte
+`fart_` do tipo `kds` e devolve o resultado). Ela leu o código do Farol e pediu para conferir quatro pontos:
+1. o envio reivindicado vinha sem o texto do alerta (título, detalhe, prioridade, a loja e quando aconteceu);
+2. o envio reivindicado e sem resultado ficava preso: se o Regem caísse no meio, o envio não voltava à fila;
+3. a emergência não saía primeiro;
+4. o destino do KDS era um texto digitado — sugestão: o destino aponta a loja do Regem e o Regem decide em quais telas.
+
+Os quatro eram verdade. No 3, o comentário da rota dizia "a ordem é por severidade", mas a consulta só punha o agente
+caído na frente; e a resposta nem saía na ordem do `alvo` (o `returning` do update não a guarda). No 4 havia também uma
+brecha: com o endereço digitado, o id de uma loja do Regem de OUTRA empresa punha o alerta na cozinha dela.
+
+**O que muda:**
+- `api/src/alerta-do-envio.ts` (novo): o `alerta` de cada envio — título, detalhe, severidade, prioridade, onde (o canal e,
+  se o critério é de um quadro marcado, o quadro), quando, a loja (com `regem_loja_id`) e a mensagem pronta (`texto`). A
+  gravidade de cada motivo sai da MESMA expressão em SQL que ordena a fila: o evento pela regra (a prioridade do evento
+  vence a da regra, como no despacho), o agente caído como emergência/urgente, o aviso da máquina pelo `GRAVIDADE` dele.
+- `POST /v1/envios/reivindicar`, em quatro passos: (1) o `enviado` sem resultado há mais de 2 minutos vira `falhou`, com o
+  motivo, e entra de novo (o mesmo id: quem entrega deduplica pelo id); (2) o envio de KDS de loja sem ligação com o Regem
+  fica `descartado`, com o motivo — só quando quem pede leva KDS; (3) a fila: agente caído, severidade, prioridade, chegada
+  e id; (4) a leitura dos levados com o `alerta`, na mesma ordem.
+- **O destino do KDS não se digita:** o endereço é o marcador `regem` (a loja do Regem ligada à loja do alerta,
+  `regem_loja`, resolvida na reivindicação). A tela da cozinha de uma loja sem ligação é recusada (422 `loja_sem_regem`,
+  "ligue em Conexões"); a da rede vale para as lojas ligadas; uma por escopo (409). O que vier no corpo é ignorado.
+- **Migration 062:** o índice parcial `envio_enviado_idx` (a procura dos vencidos a cada reivindicação; `envio` cresce com
+  o uso — V87) e os destinos do KDS que já existiam passam ao marcador (menos o que daria dois no mesmo escopo).
+- `contratos/transporte-dos-alertas.json` (novo): um envio de cada motivo, a linha lida do banco e o envio EXATO que sai —
+  o Regem monta o lado dele por ele. `docs/transporte-dos-alertas.md` diz o `alerta`, a ordem, o prazo e o destino do KDS.
+
+**Fica para o dono (tela):** a tela Alertas ainda pede "o identificador da loja no Regem" para a tela da cozinha; a API
+ignora o que vier e guarda o marcador. Tirar o campo e mostrar a loja do Regem ligada é mudança de tela: espera o "pode"
+ou o protótipo.
+
+### Como foi conferido
+
+- `api/testes/alerta-do-envio.test.ts` (sem banco, 15): o contrato caso a caso (os três motivos dão EXATAMENTE o envio do
+  arquivo; as regras escritas nele são as do código; a ordem da resposta no arquivo); a hora como `Date` e como texto; o
+  critério apagado, o motivo vazio e o que já termina em pontuação; onde com a imagem completa, com o quadro e sem área; a
+  loja sem ligação; o agente sem nome; o aviso de tipo novo; o motivo antigo; a gravidade do computador igual ao
+  `GRAVIDADE`; a ordem em SQL.
+- `api/testes/rotas-alertas.test.ts` (Postgres), cinco novos: a tela da cozinha guarda "regem" (criada com um id digitado),
+  a segunda dá 409, sem ligação dá 422 e a da rede passa, loja de outra conta e id torto dão 404; o envio de um evento que
+  passou pelo despacho de verdade sai com o `alerta` inteiro e as chaves do contrato; a ordem com sete envios criados do
+  mais leve para o mais grave (V80) — com limite 2 vêm o agente caído e a emergência, e o resto na ordem da gravidade,
+  inclusive o crítico de prioridade leve (o evento vence a regra) e o critério apagado (atenção); o prazo (o vencido volta
+  com o mesmo id e 2 tentativas; o da última tentativa fica `falhou` com o motivo; o de 30 s segue `enviado`; o resultado
+  que chega depois vale e limpa o motivo); e o descarte (quem não leva KDS não mexe; o transporte do KDS descarta com o
+  motivo e não leva).
+- **Mutação: 24 trocas, 24 mortas** (o prazo, o descarte, a leitura, a resposta, o destino, a ordem, a gravidade e o
+  alerta), com o controle antes e a linha de resumo (V120). Duas foram refeitas para morrer pelo teste certo: "sem o
+  motivo" quebrava a consulta (o parâmetro ficava sem uso), e "o agente caído não vem antes" só morria pelo texto do SQL —
+  a emergência do teste de ordem passou a urgente e mais velha que o agente caído. Uma troca não tem teste que a pegue:
+  tirar do passo 3 a condição "KDS só com ligação" — o descarte do passo 2 já tirou esses envios; ela segura só a corrida
+  entre os dois passos (a loja que se desliga no meio).
+- O banco local: o montado do zero com as 62 migrations (`farol_ci_local`). As 4 falhas que sobram em
+  `rotas-alertas.test.ts` são as de sempre deste banco (a gravação de evento pela rota precisa do pgvector) e estão na
+  lista de falhas conhecidas da `main`; o teste novo do evento por isso grava o evento direto e chama o despacho de
+  verdade, e roda aqui e no CI.
