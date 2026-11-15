@@ -24,6 +24,16 @@
 //     `id.timestamp.corpo`, com a chave que vem depois de `whsec_`;
 //   • acesso devolvido ou trocado leva o registro junto.
 //
+// O CLIQUE do Padrão DMS (F6 do Hub DMS, 15/11/2026; `autorizacao-clique`
+// de lá), com um DMS ID de mentira no mesmo servidor (`/dmsid/oidc/token`):
+//
+//   • o pedido empurrado e a troca conferem PRIMEIRO o token do DMS ID do
+//     aplicativo (401 token-invalido); o pedido confere os campos (400) e
+//     devolve o número (201); a troca devolve a LIGAÇÃO de cada loja;
+//   • pela ligação, o token do DMS ID vem antes: recusado, 401
+//     token-invalido; a ligação que não vale (tirada, trocada), 401
+//     ligacao-invalida.
+//
 // Arquivo de apoio: não termina em `.test.ts`, então o corredor de testes
 // não o trata como teste.
 // =====================================================================
@@ -42,6 +52,8 @@ type Autorizacao = {
   redirectUri: string;
   usado: boolean;
   vencido: boolean;
+  /** Por onde o código nasceu: a página de 01/10 ou o clique. Cada troca só aceita o seu. */
+  via: 'chave' | 'clique';
 };
 
 export type Chamada = {
@@ -118,6 +130,14 @@ export type RegemFalso = {
      */
     montar(lojaId: string, opcoes?: { tipo?: string; agora?: Date; segredo?: string }): { url: string; cabecalhos: Record<string, string>; corpo: string } | null;
   };
+  /** O DMS ID de mentira (o aplicativo do Farol). `recusarTokens`: o Regem recusa todo token dele, mesmo o pedido de novo. */
+  dmsId: { emissor: string; aplicativo: string; segredo: string; recusarTokens: boolean };
+  /** Os pedidos empurrados pelo clique, com o número que o Regem deu. */
+  pedidosDoClique: Array<{ numero: string; corpo: Record<string, unknown> }>;
+  /** O que a página de lá faz no clique: o presidente autoriza o pedido `numero`. Devolve o código de uso único. */
+  autorizarPeloClique(p: { numero: string; lojas: LojaDeLa[]; empresa?: string }): string;
+  /** Os caminhos chamados pela ligação (o token do DMS ID e a ligação valendo), na ordem. */
+  pelaLigacao: string[];
   fechar(): Promise<void>;
 };
 
@@ -142,6 +162,10 @@ const BASE = 'https://api.dmsregem.com/problemas/';
 export async function subirRegemFalso(): Promise<RegemFalso> {
   const segredo = randomBytes(32).toString('base64url');
   const codigos = new Map<string, Autorizacao>();
+  /** Os tokens que o DMS ID de mentira deu ao aplicativo do Farol. */
+  const tokensDoDmsId = new Set<string>();
+  /** número do pedido empurrado → o que ele pediu */
+  const pedidosEmpurrados = new Map<string, { desafio: string; redirectUri: string }>();
   /** acesso → loja de lá */
   const acessos = new Map<string, string>();
   const chamadas: Chamada[] = [];
@@ -213,6 +237,25 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
         redirectUri: p.redirectUri,
         usado: false,
         vencido: p.vencido === true,
+        via: 'chave',
+      });
+      return codigo;
+    },
+    dmsId: { emissor: '', aplicativo: 'aplicativo-farol-de-teste', segredo: 'valor-do-aplicativo-farol-1234567890', recusarTokens: false },
+    pedidosDoClique: [],
+    pelaLigacao: [],
+    autorizarPeloClique(p) {
+      const pedido = pedidosEmpurrados.get(p.numero);
+      if (!pedido) throw new Error('regem-falso: este pedido não foi empurrado');
+      const codigo = `rgm_ac_${randomBytes(32).toString('base64url')}`;
+      codigos.set(codigo, {
+        lojas: p.lojas,
+        empresa: p.empresa ?? 'Casa do Lanche Alimentação Ltda',
+        desafio: pedido.desafio,
+        redirectUri: pedido.redirectUri,
+        usado: false,
+        vencido: false,
+        via: 'clique',
       });
       return codigo;
     },
@@ -284,8 +327,32 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
       } catch {
         corpo = null;
       }
+      // ── o DMS ID de mentira: o token do aplicativo do Farol (client credentials) ──
+      if ((req.url ?? '').startsWith('/dmsid/oidc/token')) {
+        const d = falso.dmsId;
+        const esperado = `Basic ${Buffer.from(`${encodeURIComponent(d.aplicativo)}:${encodeURIComponent(d.segredo)}`).toString('base64')}`;
+        const form = new URLSearchParams(texto);
+        if (req.method !== 'POST' || req.headers.authorization !== esperado || form.get('grant_type') !== 'client_credentials') {
+          return json(res, 401, { error: 'invalid_client' });
+        }
+        const token = `tok-${randomUUID()}`;
+        tokensDoDmsId.add(token);
+        return json(res, 200, { access_token: token, token_type: 'Bearer', expires_in: 3600 });
+      }
+
       const caminho = (req.url ?? '').replace(/^\/api\/v1/, '');
       const autorizacao = String(req.headers.authorization ?? '');
+      const bearer = /^Bearer (.+)$/.exec(autorizacao)?.[1] ?? '';
+      // A via do clique: o token do DMS ID vem antes (recusado = 401 token-invalido), a ligação depois.
+      const ligacaoDoPedido = String(req.headers['dms-ligacao'] ?? '');
+      const tokenDoDmsIdVale = tokensDoDmsId.has(bearer) && !falso.dmsId.recusarTokens;
+      /** O acesso que o pedido apresenta: o `rgm_it_` no Bearer, ou a ligação (com o token do DMS ID na frente). */
+      const acessoDoPedido = ligacaoDoPedido ? (tokenDoDmsIdVale ? ligacaoDoPedido : '') : bearer;
+      /** A recusa do acesso que não vale, como lá: pela ligação com o token certo, é a ligação que não vale. */
+      const recusaDoAcesso = (): [string, string, string] =>
+        ligacaoDoPedido && tokenDoDmsIdVale
+          ? ['ligacao-invalida', 'Ligação inválida', 'A ligação não vale: revogada, trocada ou de outro aplicativo.']
+          : ['token-invalido', 'Token inválido', 'Token ausente, inválido ou revogado.'];
       // O pedido de aviso é anotado à parte (`avisos.pedidos`), com o que foi respondido.
       const ehAviso = caminho === '/integracao/webhook';
       const doAviso = { metodo: req.method ?? '', comAcesso: autorizacao.length > 0, corpo, status: 0 };
@@ -318,12 +385,13 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
       }
       // ── o aviso: registrar (PUT) e parar de avisar (DELETE) ──
       if (ehAviso) {
-        const acesso = /^Bearer (.+)$/.exec(autorizacao)?.[1] ?? '';
+        const acesso = acessoDoPedido;
         const recusar = (status: number, tipo: string, titulo: string, detalhe: string) => {
           doAviso.status = status;
           return problema(res, status, tipo, titulo, detalhe);
         };
-        if (!acessos.has(acesso)) return recusar(401, 'token-invalido', 'Token inválido', 'Token ausente, inválido ou revogado.');
+        if (!acessos.has(acesso)) return recusar(401, ...recusaDoAcesso());
+        if (ligacaoDoPedido) falso.pelaLigacao.push(caminho);
         if (req.method === 'DELETE') {
           registros.delete(acesso);
           doAviso.status = 204;
@@ -351,11 +419,12 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
       const leitura = /^\/integracao\/(catalogo|fichas|producao)(?:\?versao=([0-9a-f]*))?$/.exec(caminho);
       if (req.method === 'GET' && leitura) {
         const qual = leitura[1] as 'catalogo' | 'fichas' | 'producao';
-        const acesso = /^Bearer (.+)$/.exec(autorizacao)?.[1] ?? '';
+        const acesso = acessoDoPedido;
         const responder = () => {
           // O acesso é conferido NA HORA de responder: tirado enquanto a leitura esperava, é 401.
           const lojaId = acessos.get(acesso);
-          if (!lojaId) return problema(res, 401, 'token-invalido', 'Token inválido', 'Token ausente, inválido ou revogado.');
+          if (!lojaId) return problema(res, 401, ...recusaDoAcesso());
+          if (ligacaoDoPedido) falso.pelaLigacao.push(caminho.replace(/\?.*$/, ''));
           // Depois do acesso, o escopo da rota — como lá.
           if (qual === 'producao' && falso.filaSemEscopo) {
             return problema(res, 403, 'escopo-insuficiente', 'Escopo insuficiente', 'Este token não tem o escopo producao.ler.');
@@ -381,7 +450,70 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
 
       if (req.method !== 'POST') return problema(res, 404, 'nao-encontrado', 'Não encontrado', 'Rota inexistente.');
 
+      // ── o pedido empurrado do clique (RFC 9126) ──
+      if (caminho === '/integracao/autorizacao/pedido') {
+        if (!tokenDoDmsIdVale) return problema(res, 401, 'token-invalido', 'Token inválido', 'Token ausente, inválido ou revogado.');
+        const c = corpo ?? {};
+        const campo = (k: string) => (typeof c[k] === 'string' ? (c[k] as string) : '');
+        const escopos = campo('scope').split(' ').filter(Boolean);
+        const permitidas = ['catalogo.ler', 'fichas.ler', 'producao.ler'];
+        const torto =
+          campo('response_type') !== 'code' ||
+          !campo('redirect_uri') ||
+          !escopos.length ||
+          escopos.some((e) => !permitidas.includes(e)) ||
+          campo('state').length < 16 ||
+          !/^[A-Za-z0-9_-]{43}$/.test(campo('code_challenge')) ||
+          campo('code_challenge_method') !== 'S256' ||
+          !campo('conta_nome') ||
+          campo('conta_nome').length > 120 ||
+          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(campo('conta_email'));
+        if (torto) return problema(res, 400, 'parametro-invalido', 'Parâmetro inválido', 'O pedido não está no formato.');
+        const numero = `urn:ietf:params:oauth:request_uri:rgm_${randomBytes(32).toString('base64url')}`;
+        pedidosEmpurrados.set(numero, { desafio: campo('code_challenge'), redirectUri: campo('redirect_uri') });
+        falso.pedidosDoClique.push({ numero, corpo: c });
+        return json(res, 201, { request_uri: numero, expires_in: 600 });
+      }
+
       // ── a troca do código ──
+      // Pelo clique (o token do DMS ID, sem segredo no corpo): a ligação de cada loja.
+      if (caminho === '/integracao/autorizacao/token' && bearer && corpo?.client_secret === undefined) {
+        if (!tokenDoDmsIdVale) return problema(res, 401, 'token-invalido', 'Token inválido', 'Token ausente, inválido ou revogado.');
+        const recusar = () => problema(res, 400, 'autorizacao-invalida', 'Autorização inválida', 'Código de autorização inválido, vencido ou já usado.');
+        const codigo = corpo?.code;
+        if (corpo?.grant_type !== 'authorization_code' || typeof codigo !== 'string' || !FORMATO_CODIGO.test(codigo)) return recusar();
+        const a = codigos.get(codigo);
+        if (!a || a.usado || a.vencido || a.via !== 'clique') return recusar();
+        a.usado = true;
+        if (corpo?.redirect_uri !== a.redirectUri) return recusar();
+        const v = corpo?.code_verifier;
+        if (typeof v !== 'string' || !FORMATO_VERIFICADOR.test(v)) return recusar();
+        if (createHash('sha256').update(v, 'ascii').digest('base64url') !== a.desafio) return recusar();
+        const lojas = a.lojas.map((l) => {
+          // A loja que já tinha acesso deste cliente (chave ou ligação) troca: o antigo para de valer.
+          for (const [antigo, loja] of acessos) {
+            if (loja !== l.id) continue;
+            acessos.delete(antigo);
+            registros.delete(antigo);
+          }
+          const ligacao = `dms_lg_regem_${randomBytes(32).toString('base64url')}_${randomBytes(6).toString('base64url').slice(0, 6)}`;
+          acessos.set(ligacao, l.id);
+          emitidos.push(ligacao);
+          return {
+            loja_id: l.id,
+            loja_nome: l.nome,
+            empresa_nome: a.empresa,
+            fuso: 'America/Sao_Paulo',
+            moeda: 'BRL',
+            cardapio_url: null,
+            ligacao,
+            prefixo: ligacao.slice(0, 18),
+            permissoes: ['catalogo.ler', 'fichas.ler', 'producao.ler'],
+            segredo_em: new Date().toISOString(),
+          };
+        });
+        return json(res, 200, typeof modo === 'function' ? modo(lojas) : { lojas });
+      }
       if (caminho === '/integracao/autorizacao/token') {
         if (corpo?.client_id !== 'farol' || corpo?.client_secret !== segredo) {
           return problema(res, 401, 'cliente-invalido', 'Cliente inválido', 'Cliente ou segredo de cliente inválido.');
@@ -391,7 +523,7 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
         const codigo = corpo?.code;
         if (typeof codigo !== 'string' || !FORMATO_CODIGO.test(codigo)) return recusar();
         const a = codigos.get(codigo);
-        if (!a || a.usado || a.vencido) return recusar();
+        if (!a || a.usado || a.vencido || a.via !== 'chave') return recusar();
         a.usado = true; // gasto ANTES das conferências seguintes, como lá
         if (corpo?.redirect_uri !== a.redirectUri) return recusar();
         const v = corpo?.code_verifier;
@@ -424,8 +556,9 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
 
       // ── a integração devolve o próprio acesso ──
       if (caminho === '/integracao/autorizacao/revogar') {
-        const acesso = /^Bearer (.+)$/.exec(autorizacao)?.[1] ?? '';
-        if (!acessos.has(acesso)) return problema(res, 401, 'token-invalido', 'Token inválido', 'Token ausente, inválido ou revogado.');
+        const acesso = acessoDoPedido;
+        if (!acessos.has(acesso)) return problema(res, 401, ...recusaDoAcesso());
+        if (ligacaoDoPedido) falso.pelaLigacao.push(caminho);
         acessos.delete(acesso);
         registros.delete(acesso);
         return json(res, 200, { revogado: true, revogado_em: new Date().toISOString() });
@@ -437,5 +570,6 @@ export async function subirRegemFalso(): Promise<RegemFalso> {
 
   await new Promise<void>((ok) => servidor.listen(0, '127.0.0.1', ok));
   falso.url = `http://127.0.0.1:${(servidor.address() as AddressInfo).port}/api/v1`;
+  falso.dmsId.emissor = `http://127.0.0.1:${(servidor.address() as AddressInfo).port}/dmsid/oidc`;
   return falso;
 }

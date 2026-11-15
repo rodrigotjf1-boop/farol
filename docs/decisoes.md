@@ -11114,3 +11114,37 @@ um antigo com um id digitado, que a API também ignora. Os outros destinos segue
 cadastrada pela API): a tela da cozinha diz a frase e nenhuma linha diz `regem`; o WhatsApp segue com o número em letra
 de código. 32 medidas (16 larguras × claro e escuro): sem rolagem para o lado, nenhum texto passando da caixa, nenhum id
 repetido, nenhum erro de script; pior contraste 4,80:1. Build do console verde.
+
+## 15/11/2026 · Conectar o Regem pelo clique do Padrão DMS (API; migration 063; nasce desligado)
+
+**O pedido:** F6 do Hub DMS, plano "Clique Farol → Regem" (o dono mandou seguir o roadmap com as recomendadas). O Farol
+conectava o Regem pela página de 01/10 ("Autorizar o Farol"), com o segredo do aplicativo e o `rgm_it_` de cada loja.
+O lado do Regem já está no ar (Regem #998, parado até o Farol entrar na lista de aplicativos de lá).
+
+**O que muda** (`api/src/regem.ts`, `api/src/rotas/regem.ts`):
+- com a chave `FAROL_REGEM_CLIQUE` ligada (e o aplicativo do Farol no DMS ID: `DMS_ID_EMISSOR`, `DMS_ID_APLICATIVO`,
+  `DMS_ID_SEGREDO`), "Conectar ao Regem" empurra o pedido ao Regem com o token do DMS ID (RFC 9126: as três leituras,
+  o `state`, o desafio do PKCE, o nome da conta e o e-mail de quem pede) e manda o navegador à página nova de lá só
+  com o número do pedido;
+- a volta é o MESMO endereço de hoje (o console repassa); a do clique só vale com o `iss` do Regem (RFC 9207), também
+  na recusa, e troca o código pela LIGAÇÃO de cada loja, com o token do DMS ID. O pedido guarda por qual via saiu
+  (`regem_pedido.via`, migration 063);
+- a ligação fica no mesmo lugar do acesso (`regem_loja.acesso_cifrado`, cifrada): é pelo começo `dms_lg_regem_` que o
+  acesso diz a via. Por isso a leitura, o aviso e a devolução não mudaram: pela ligação, cada chamada leva o token do
+  DMS ID e o `DMS-Ligacao`;
+- **de quem é a recusa:** pela ligação, só `ligacao-invalida` é da loja ("acesso tirado", as fichas saem). O token do
+  DMS ID recusado (pedido de novo uma vez) é do aplicativo: falha passageira, a loja fica com as fichas. É a regra
+  que o Liame aprendeu do jeito difícil (ERR-149 de lá);
+- a loja que já era pela chave e conecta pelo clique mantém a loja do Farol (o par) e troca de via; a chave antiga
+  para de valer lá; o aviso se registra de novo pela ligação (já era assim);
+- a chave ligada sem as três variáveis do DMS ID não liga nada e diz o motivo no registro, uma vez.
+
+**O que fica igual:** sem a chave, tudo como antes (a página de 01/10 segue valendo até o fim da F6). O console não
+muda: o botão é o mesmo.
+
+**Como foi conferido:** `testes/regem-clique.test.ts`, contra o Regem de mentira com o DMS ID de mentira e a via do
+clique (`regem-falso.ts`): a configuração (desligado, ligado, torto); a ida (o pedido empurrado com o token, só o
+número no endereço, e sem a chave a página de 01/10); o Regem que não reconhece o aplicativo (502); a volta sem `iss`,
+com outro ou com barra no fim (inválida e gasta); de ponta a ponta (a ligação cifrada, a troca sem segredo, a leitura
+pela ligação); a loja que era pela chave; de quem é a recusa. Os testes com banco rodam no CI (aqui não há pgvector);
+a suíte sem banco, 928 verdes; build da API verde.

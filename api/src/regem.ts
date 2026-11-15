@@ -21,11 +21,39 @@
 // O contrato é o do Regem (`docs/integracao-farol.md`, lá): a página de
 // autorização com `state` e PKCE, a troca do código pelos acessos das
 // lojas e a devolução de um acesso.
+//
+// DOIS JEITOS DE CONECTAR (F6 do Hub DMS, 15/11/2026):
+//
+//   • a página de 01/10 ("Autorizar o Farol"): o segredo do aplicativo
+//     (`REGEM_CLIENT_SECRET`) e o `rgm_it_` de cada loja;
+//   • o CLIQUE do Padrão DMS, com a chave `FAROL_REGEM_CLIQUE`: o pedido
+//     empurrado (RFC 9126) e a troca vão com o token do DMS ID do aplicativo
+//     do Farol, a volta traz o `iss` do Regem (RFC 9207) e cada loja ganha a
+//     LIGAÇÃO `dms_lg_regem_…`, que vale junto com aquele token (cabeçalho
+//     `DMS-Ligacao`). Vazar um só não abre nada.
+//
+// O acesso guardado diz sozinho por qual via vai: o que começa com
+// `dms_lg_regem_` é ligação. Por isso quem lê, avisa e devolve não muda.
 // =====================================================================
 
 import { createHash, randomBytes } from 'node:crypto';
 
 import { lerChave } from './cifra.js';
+import { ClienteDmsId, ErroDmsId } from './dms/integracao-dms.js';
+
+/** As três leituras que o Farol pede ao Regem (as mesmas da página de 01/10), na ordem do catálogo de lá. */
+export const LEITURAS_DO_REGEM = ['catalogo.ler', 'fichas.ler', 'producao.ler'] as const;
+
+/** O aplicativo do Farol no DMS ID, pronto para pedir o token que vai ao Regem. */
+export type ViaDoDmsId = {
+  cliente: ClienteDmsId;
+  /** O `client_id` do Farol no DMS ID: vai na página do Regem, para ela saber quem pede. */
+  aplicativo: string;
+  /** O destino do token: a porta de integração do Regem (`<apiUrl>/integracao`). */
+  recurso: string;
+  /** O `iss` que a volta do Regem traz: a origem da API dele. */
+  emissorDoRegem: string;
+};
 
 export type ConfigDoRegem = {
   /** A API do Regem, com o prefixo: `https://api.dmsregem.com/api/v1`. */
@@ -54,6 +82,14 @@ export type ConfigDoRegem = {
   buscar: typeof fetch;
   prazoMs: number;
   agente: string;
+  /**
+   * O aplicativo do Farol no DMS ID (`DMS_ID_EMISSOR`, `DMS_ID_APLICATIVO`,
+   * `DMS_ID_SEGREDO`). Com ele, a loja ligada pelo clique é lida, avisada e
+   * devolvida. Ausente = sem as variáveis.
+   */
+  dmsId?: ViaDoDmsId | null;
+  /** O botão pede pelo clique (`FAROL_REGEM_CLIQUE` e o DMS ID no lugar). Desligado: a página de 01/10. */
+  clique?: boolean;
 };
 
 /** O segredo mais curto que isto é tratado como não configurado — a mesma régua do Regem. */
@@ -72,8 +108,10 @@ export function configDoRegem(env: NodeJS.ProcessEnv = process.env, versao = '0.
   const semBarra = (u: string) => u.replace(/\/+$/, '');
   const segredo = (env.REGEM_CLIENT_SECRET ?? '').trim();
   const consoleUrl = semBarra(env.FAROL_CONSOLE_URL || 'https://app.monitorfarol.com.br');
+  const apiUrl = semBarra(env.REGEM_API_URL || 'https://api.dmsregem.com/api/v1');
+  const dmsId = viaDoDmsId(env, apiUrl);
   return {
-    apiUrl: semBarra(env.REGEM_API_URL || 'https://api.dmsregem.com/api/v1'),
+    apiUrl,
     appUrl: semBarra(env.REGEM_APP_URL || 'https://app.dmsregem.com'),
     retornoUrl: env.REGEM_RETORNO_URL || `${consoleUrl}/api/regem/retorno`,
     consoleUrl,
@@ -83,12 +121,53 @@ export function configDoRegem(env: NodeJS.ProcessEnv = process.env, versao = '0.
     buscar: fetch,
     prazoMs: 10_000,
     agente: `farol-api/${versao} (+https://monitorfarol.com.br)`,
+    dmsId,
+    clique: cliqueLigado(env) && dmsId !== null,
   };
 }
 
-/** Só dá para conectar com as duas peças do ambiente no lugar. */
-export function conexaoDisponivel(cfg: ConfigDoRegem): cfg is ConfigDoRegem & { segredo: string; chave: Buffer } {
-  return cfg.segredo !== null && cfg.chave !== null;
+/** A chave do clique (`FAROL_REGEM_CLIQUE`): `true`, `1` ou `sim`. Nasce desligada. */
+export function cliqueLigado(env: NodeJS.ProcessEnv): boolean {
+  return ['true', '1', 'sim'].includes((env.FAROL_REGEM_CLIQUE ?? '').trim().toLowerCase());
+}
+
+/**
+ * O aplicativo do Farol no DMS ID, das três variáveis. Falta uma: nulo (e
+ * o clique não liga). A origem da API do Regem é o `iss` da volta.
+ */
+export function viaDoDmsId(env: NodeJS.ProcessEnv, apiUrl: string, buscar?: typeof fetch): ViaDoDmsId | null {
+  const emissor = (env.DMS_ID_EMISSOR ?? '').trim().replace(/\/+$/, '');
+  const aplicativo = (env.DMS_ID_APLICATIVO ?? '').trim();
+  const segredo = (env.DMS_ID_SEGREDO ?? '').trim();
+  if (!emissor || !aplicativo || !segredo) return null;
+  let emissorDoRegem: string;
+  try {
+    emissorDoRegem = new URL(apiUrl).origin;
+  } catch {
+    return null;
+  }
+  return {
+    cliente: new ClienteDmsId({ emissor, aplicativo, segredo, ...(buscar ? { buscar } : {}) }),
+    aplicativo,
+    recurso: `${apiUrl}/integracao`,
+    emissorDoRegem,
+  };
+}
+
+/** Por que o clique ficou desligado com a chave ligada (vai ao registro, para quem cuida da instalação). Nulo = nada errado. */
+export function motivoDoCliqueDesligado(env: NodeJS.ProcessEnv, cfg: ConfigDoRegem): string | null {
+  if (!cliqueLigado(env) || cfg.clique) return null;
+  return 'FAROL_REGEM_CLIQUE está ligada, mas falta DMS_ID_EMISSOR, DMS_ID_APLICATIVO ou DMS_ID_SEGREDO (o aplicativo do Farol no DMS ID): o botão segue na página de 01/10';
+}
+
+/** A via do clique, quando o botão pede por ela. */
+export function viaDoClique(cfg: ConfigDoRegem): ViaDoDmsId | null {
+  return cfg.clique && cfg.dmsId ? cfg.dmsId : null;
+}
+
+/** Dá para conectar: a chave que cifra os acessos e um dos dois jeitos (o segredo da página de 01/10 ou o clique). */
+export function conexaoDisponivel(cfg: ConfigDoRegem): cfg is ConfigDoRegem & { chave: Buffer } {
+  return cfg.chave !== null && (cfg.segredo !== null || viaDoClique(cfg) !== null);
 }
 
 /**
@@ -140,45 +219,113 @@ export function urlDeAutorizacao(cfg: ConfigDoRegem, p: Pick<Pedido, 'state' | '
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const texto = (v: unknown, max: number): string | null => (typeof v === 'string' && v.trim() && v.length <= max ? v.trim() : null);
 
+/** A ligação de uma loja pelo clique: é por este começo que o acesso guardado diz a via. */
+const PREFIXO_DA_LIGACAO = 'dms_lg_regem_';
+export const ehLigacao = (acesso: string): boolean => acesso.startsWith(PREFIXO_DA_LIGACAO);
+
+/** O nome do problema (o último trecho do `type` do problem+json do Regem), ou vazio. */
+const problemaDe = (json: unknown): string => {
+  const tipo = (json as { type?: unknown } | null)?.type;
+  return typeof tipo === 'string' ? (tipo.split('/').pop() ?? '') : '';
+};
+
+/** O token do DMS ID do Farol para o Regem. O DMS ID que não responde é passageiro; o que recusa, defeito da instalação. */
+async function tokenDoDmsId(via: ViaDoDmsId): Promise<string> {
+  try {
+    return await via.cliente.token(via.recurso, LEITURAS_DO_REGEM);
+  } catch (e) {
+    if (e instanceof ErroDmsId) throw new ErroDoRegem(e.status === 0 || e.status >= 500 ? 'sem_resposta' : 'cliente_invalido', e.status || null);
+    throw e;
+  }
+}
+
 async function chamar(
   cfg: ConfigDoRegem,
   caminho: string,
-  opcoes: { corpo?: unknown; acesso?: string; metodo?: 'GET' | 'POST' | 'PUT' },
+  opcoes: { corpo?: unknown; acesso?: string; metodo?: 'GET' | 'POST' | 'PUT'; peloAplicativo?: boolean },
 ): Promise<{ status: number; json: unknown }> {
-  let r: Response;
-  try {
-    r = await cfg.buscar(`${cfg.apiUrl}${caminho}`, {
-      method: opcoes.metodo ?? 'POST',
-      headers: {
-        accept: 'application/json',
-        'user-agent': cfg.agente,
-        ...(opcoes.corpo !== undefined ? { 'content-type': 'application/json' } : {}),
-        ...(opcoes.acesso ? { authorization: `Bearer ${opcoes.acesso}` } : {}),
-      },
-      body: opcoes.corpo !== undefined ? JSON.stringify(opcoes.corpo) : undefined,
-      redirect: 'error',
-      signal: AbortSignal.timeout(cfg.prazoMs),
-    });
-  } catch {
-    // Rede, prazo, redirecionamento: o motivo técnico não muda o que a
-    // rota faz, e o texto do erro pode trazer o endereço com o código.
-    throw new ErroDoRegem('sem_resposta');
+  // Pela ligação (o acesso da loja) ou só pelo aplicativo (o pedido e a troca do clique): o token do DMS ID vai junto.
+  const pelaLigacao = !!opcoes.acesso && ehLigacao(opcoes.acesso);
+  const via = pelaLigacao || opcoes.peloAplicativo ? (cfg.dmsId ?? null) : null;
+  // Loja ligada pelo clique numa instalação sem o DMS ID: defeito da instalação, nunca "o acesso não vale".
+  if ((pelaLigacao || opcoes.peloAplicativo) && !via) throw new ErroDoRegem('cliente_invalido');
+
+  for (let vez = 0; ; vez++) {
+    const credencial = via ? await tokenDoDmsId(via) : opcoes.acesso;
+    let r: Response;
+    try {
+      r = await cfg.buscar(`${cfg.apiUrl}${caminho}`, {
+        method: opcoes.metodo ?? 'POST',
+        headers: {
+          accept: 'application/json',
+          'user-agent': cfg.agente,
+          ...(opcoes.corpo !== undefined ? { 'content-type': 'application/json' } : {}),
+          ...(credencial ? { authorization: `Bearer ${credencial}` } : {}),
+          ...(pelaLigacao ? { 'dms-ligacao': opcoes.acesso! } : {}),
+        },
+        body: opcoes.corpo !== undefined ? JSON.stringify(opcoes.corpo) : undefined,
+        redirect: 'error',
+        signal: AbortSignal.timeout(cfg.prazoMs),
+      });
+    } catch {
+      // Rede, prazo, redirecionamento: o motivo técnico não muda o que a
+      // rota faz, e o texto do erro pode trazer o endereço com o código.
+      throw new ErroDoRegem('sem_resposta');
+    }
+    if (r.status >= 500 || r.status === 429) throw new ErroDoRegem('sem_resposta', r.status);
+    let json: unknown = null;
+    try {
+      json = await r.json();
+    } catch {
+      if (r.ok) throw new ErroDoRegem('resposta_torta', r.status);
+    }
+    if (via && r.status === 401 && problemaDe(json) !== 'ligacao-invalida') {
+      // O token do DMS ID recusado (vencido, trocado lá): pede outro e tenta uma vez mais.
+      if (vez === 0) {
+        via.cliente.esquecer(via.recurso, LEITURAS_DO_REGEM);
+        continue;
+      }
+      // Recusado de novo: é do APLICATIVO, não da loja. Nunca vira "acesso tirado" (que apagaria as fichas dela):
+      // pela ligação, só `ligacao-invalida` é da loja (a regra do Liame, ERR-149 de lá).
+      if (pelaLigacao) throw new ErroDoRegem('sem_resposta', 401);
+    }
+    return { status: r.status, json };
   }
-  if (r.status >= 500 || r.status === 429) throw new ErroDoRegem('sem_resposta', r.status);
-  let json: unknown = null;
-  try {
-    json = await r.json();
-  } catch {
-    if (r.ok) throw new ErroDoRegem('resposta_torta', r.status);
-  }
-  return { status: r.status, json };
 }
 
 export type LojaAutorizada = { regemLojaId: string; nome: string; empresa: string; acesso: string };
 
+const FORMATO_DA_LIGACAO = /^dms_lg_regem_[A-Za-z0-9_-]{43}_[A-Za-z0-9_-]{6}$/;
+const FORMATO_DO_NUMERO = /^urn:ietf:params:oauth:request_uri:rgm_[A-Za-z0-9_-]{43}$/;
+
 /**
- * Troca o código da autorização pelos acessos das lojas. O código vale
- * uma tentativa: recusado aqui, a pessoa começa de novo.
+ * As lojas da resposta da troca, conferidas. Pela página de 01/10 o acesso
+ * vem em `token`; pelo clique, em `ligacao` (com a cara da ligação do Regem e
+ * as fichas entre as permissões). Resposta torta: nada é guardado.
+ */
+function lojasDaTroca(json: unknown, status: number, via: 'chave' | 'clique'): LojaAutorizada[] {
+  const lista = (json as { lojas?: unknown } | null)?.lojas;
+  if (!Array.isArray(lista) || lista.length === 0 || lista.length > 200) throw new ErroDoRegem('resposta_torta', status);
+  const lojas: LojaAutorizada[] = [];
+  for (const l of lista as Record<string, unknown>[]) {
+    const id = texto(l?.loja_id, 64);
+    const nome = texto(l?.loja_nome, 200);
+    const empresa = texto(l?.empresa_nome, 200);
+    const acesso = texto(via === 'clique' ? l?.ligacao : l?.token, 400);
+    if (!id || !UUID.test(id) || !nome || !empresa || !acesso) throw new ErroDoRegem('resposta_torta', status);
+    if (via === 'clique') {
+      const permissoes = Array.isArray(l?.permissoes) ? (l.permissoes as unknown[]) : [];
+      if (!FORMATO_DA_LIGACAO.test(acesso) || !permissoes.includes('fichas.ler')) throw new ErroDoRegem('resposta_torta', status);
+    }
+    lojas.push({ regemLojaId: id.toLowerCase(), nome, empresa, acesso });
+  }
+  if (new Set(lojas.map((l) => l.regemLojaId)).size !== lojas.length) throw new ErroDoRegem('resposta_torta', status);
+  return lojas;
+}
+
+/**
+ * Troca o código da autorização pelos acessos das lojas (página de 01/10).
+ * O código vale uma tentativa: recusado aqui, a pessoa começa de novo.
  */
 export async function trocarCodigo(
   cfg: ConfigDoRegem & { segredo: string },
@@ -195,19 +342,53 @@ export async function trocarCodigo(
   });
   if (status === 401) throw new ErroDoRegem('cliente_invalido', status);
   if (status !== 200) throw new ErroDoRegem('recusado', status);
-  const lista = (json as { lojas?: unknown } | null)?.lojas;
-  if (!Array.isArray(lista) || lista.length === 0 || lista.length > 200) throw new ErroDoRegem('resposta_torta', status);
-  const lojas: LojaAutorizada[] = [];
-  for (const l of lista as Record<string, unknown>[]) {
-    const id = texto(l?.loja_id, 64);
-    const nome = texto(l?.loja_nome, 200);
-    const empresa = texto(l?.empresa_nome, 200);
-    const acesso = texto(l?.token, 400);
-    if (!id || !UUID.test(id) || !nome || !empresa || !acesso) throw new ErroDoRegem('resposta_torta', status);
-    lojas.push({ regemLojaId: id.toLowerCase(), nome, empresa, acesso });
-  }
-  if (new Set(lojas.map((l) => l.regemLojaId)).size !== lojas.length) throw new ErroDoRegem('resposta_torta', status);
-  return lojas;
+  return lojasDaTroca(json, status, 'chave');
+}
+
+// ───────────────────────────── o clique (Padrão DMS §3) ─────────────────────────────
+
+/**
+ * Empurra o pedido ao Regem (RFC 9126), com o token do DMS ID, e devolve a
+ * página de lá para onde o navegador vai. A conta do Farol não tem CNPJ:
+ * não vai (o presidente confirma "outra empresa").
+ */
+export async function pedirPeloClique(
+  cfg: ConfigDoRegem,
+  via: ViaDoDmsId,
+  p: Pick<Pedido, 'state' | 'desafio'> & { contaNome: string; contaEmail: string },
+): Promise<string> {
+  const { status, json } = await chamar(cfg, '/integracao/autorizacao/pedido', {
+    peloAplicativo: true,
+    corpo: {
+      response_type: 'code',
+      redirect_uri: cfg.retornoUrl,
+      scope: LEITURAS_DO_REGEM.join(' '),
+      state: p.state,
+      code_challenge: p.desafio,
+      code_challenge_method: 'S256',
+      conta_nome: p.contaNome.slice(0, 120) || 'Conta do Farol',
+      conta_email: p.contaEmail,
+    },
+  });
+  if (status === 401) throw new ErroDoRegem('cliente_invalido', status);
+  if (status !== 201) throw new ErroDoRegem('recusado', status);
+  const numero = (json as { request_uri?: unknown } | null)?.request_uri;
+  if (typeof numero !== 'string' || !FORMATO_DO_NUMERO.test(numero)) throw new ErroDoRegem('resposta_torta', status);
+  const url = new URL(`${cfg.appUrl}/integracoes/autorizar`);
+  url.searchParams.set('client_id', via.aplicativo);
+  url.searchParams.set('request_uri', numero);
+  return url.toString();
+}
+
+/** Troca o código do clique pela ligação de cada loja, com o token do DMS ID. Vale uma tentativa, como a de 01/10. */
+export async function trocarCodigoPeloClique(cfg: ConfigDoRegem, p: { codigo: string; verificador: string }): Promise<LojaAutorizada[]> {
+  const { status, json } = await chamar(cfg, '/integracao/autorizacao/token', {
+    peloAplicativo: true,
+    corpo: { grant_type: 'authorization_code', code: p.codigo, code_verifier: p.verificador, redirect_uri: cfg.retornoUrl },
+  });
+  if (status === 401) throw new ErroDoRegem('cliente_invalido', status);
+  if (status !== 200) throw new ErroDoRegem('recusado', status);
+  return lojasDaTroca(json, status, 'clique');
 }
 
 /**
