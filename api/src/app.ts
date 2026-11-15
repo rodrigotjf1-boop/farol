@@ -11,7 +11,7 @@ import { rotaDoManifesto } from './manifesto.js';
 import { dolarDoAmbiente, transporteHttp, type Transporte } from './balcao/plataforma.js';
 import type { Subida } from './guarda.js';
 import { acharMigrations, conferirEsquema } from './preflight.js';
-import { configDoRegem, type ConfigDoRegem } from './regem.js';
+import { configDoRegem, motivoDoCliqueDesligado, type ConfigDoRegem } from './regem.js';
 import { rotasDeAcessos } from './rotas/acessos.js';
 import { rotasDeAgentes } from './rotas/agentes.js';
 import { rotasDeAlertas } from './rotas/alertas.js';
@@ -204,6 +204,9 @@ export function criarApp(
   rotasDeConfiguracao(app, pool);
   rotasDePreview(app, pool);
   const regem = opcoes.regem ?? configDoRegem(process.env, VERSAO);
+  // A chave do clique ligada sem o aplicativo do Farol no DMS ID não liga nada: o motivo vai ao registro, uma vez.
+  const cliqueTorto = opcoes.regem ? null : motivoDoCliqueDesligado(process.env, regem);
+  if (cliqueTorto) app.log.error(`regem: ${cliqueTorto}`);
   rotasDoRegem(app, pool, regem);
   rotasDeFichas(app, pool, regem);
   rotasDaFilaDaCozinha(app, pool, regem);

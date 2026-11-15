@@ -49,9 +49,13 @@ import {
   ErroDoRegem,
   impressao,
   novoPedido,
+  pedirPeloClique,
   trocarCodigo,
+  trocarCodigoPeloClique,
   urlDeAutorizacao,
+  viaDoClique,
   type ConfigDoRegem,
+  type LojaAutorizada,
 } from '../regem.js';
 import { sessaoDe, type Sessao } from './sessao.js';
 
@@ -266,18 +270,31 @@ export function rotasDoRegem(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoR
 
     const p = novoPedido();
     const estadoHash = impressao(p.state);
+    // Com a chave do clique ligada, o pedido vai pelo Padrão DMS; senão, pela página de 01/10.
+    const via = viaDoClique(cfg);
 
     // Um pedido em curso por pessoa: o que ela largou no meio deixa de
     // valer. De passagem, saem os vencidos de qualquer conta — é aqui que
     // a tabela se limpa, sem rotina à parte.
     await pool.query('delete from regem_pedido where usuario_id = $1 or expira_em < now()', [s.usuarioId]);
     await pool.query(
-      `insert into regem_pedido (tenant_id, usuario_id, estado_hash, verificador_cifrado, expira_em)
-       values ($1, $2, $3, $4, now() + make_interval(mins => $5))`,
-      [s.tenantId, s.usuarioId, estadoHash, cifrar(p.verificador, cfg.chave, contextoDoPedido(estadoHash)), VALIDADE_DO_PEDIDO_MIN],
+      `insert into regem_pedido (tenant_id, usuario_id, estado_hash, verificador_cifrado, expira_em, via)
+       values ($1, $2, $3, $4, now() + make_interval(mins => $5), $6)`,
+      [s.tenantId, s.usuarioId, estadoHash, cifrar(p.verificador, cfg.chave, contextoDoPedido(estadoHash)), VALIDADE_DO_PEDIDO_MIN, via ? 'clique' : 'chave'],
     );
 
-    return { url: urlDeAutorizacao(cfg, p) };
+    if (!via) return { url: urlDeAutorizacao(cfg, p) };
+    // O pedido empurrado leva como a conta aparece na página do Regem: o nome dela e o e-mail de quem pede.
+    const conta = await pool.query<{ nome: string }>('select nome from tenant where id = $1', [s.tenantId]);
+    try {
+      return { url: await pedirPeloClique(cfg, via, { state: p.state, desafio: p.desafio, contaNome: conta.rows[0]?.nome ?? '', contaEmail: s.email }) };
+    } catch (e) {
+      if (!(e instanceof ErroDoRegem)) throw e;
+      const registro = { motivo: e.motivo, status: e.status };
+      if (e.motivo === 'cliente_invalido') req.log.error(registro, 'regem: o Regem não reconhece o aplicativo do Farol no clique (o DMS ID ou a lista de aplicativos de lá)');
+      else req.log.warn(registro, 'regem: o pedido do clique não foi aceito');
+      return resposta.status(502).send({ erro: 'regem_indisponivel', mensagem: 'o Regem não aceitou o pedido agora. Tente de novo em instantes' });
+    }
   });
 
   // ───────────────────────────── a volta ─────────────────────────────
@@ -326,10 +343,11 @@ export function rotasDoRegem(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoR
       usuario_id: string;
       verificador_cifrado: string;
       de_pe: boolean;
+      via: 'chave' | 'clique';
     }>(
       `update regem_pedido set usado_em = now()
         where estado_hash = $1 and usado_em is null
-        returning tenant_id, usuario_id, verificador_cifrado, expira_em > now() as de_pe`,
+        returning tenant_id, usuario_id, verificador_cifrado, expira_em > now() as de_pe, via`,
       [estadoHash],
     );
     const pedido = gasto.rows[0];
@@ -338,30 +356,43 @@ export function rotasDoRegem(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoR
     if (!pedido.de_pe) return 'vencido';
     // Quem começou pode ter deixado de ser da diretoria no caminho.
     if (!ehDiretoria(s)) return 'sem_permissao';
+    // Pelo clique, a volta tem de dizer que veio do Regem (RFC 9207), também na recusa: sem o `iss` dele, ou com
+    // outro, nada vale, mesmo com o `state` certo. (Desligar a chave no meio não estraga o pedido que já saiu.)
+    if (pedido.via === 'clique' && (!cfg.dmsId || q.iss !== cfg.dmsId.emissorDoRegem)) return 'invalido';
 
     // A pessoa desistiu lá (ou o Regem recusou o pedido): não há código.
     if (q.error !== undefined) return 'cancelado';
     const codigo = typeof q.code === 'string' && CODIGO.test(q.code) ? q.code : null;
     if (!codigo) return 'invalido';
 
-    if (!conexaoDisponivel(cfg)) return 'falhou';
-    const verificador = decifrar(pedido.verificador_cifrado, cfg.chave, contextoDoPedido(estadoHash));
+    const chave = cfg.chave;
+    if (!chave || (pedido.via === 'chave' && !cfg.segredo)) return 'falhou';
+    const verificador = decifrar(pedido.verificador_cifrado, chave, contextoDoPedido(estadoHash));
     if (!verificador) {
       req.log.error('regem: o verificador do pedido não pôde ser lido (a chave do ambiente mudou no meio do caminho?)');
       return 'falhou';
     }
 
-    let lojas;
+    let lojas: LojaAutorizada[];
     try {
-      lojas = await trocarCodigo(cfg, { codigo, verificador });
+      lojas =
+        pedido.via === 'clique'
+          ? await trocarCodigoPeloClique(cfg, { codigo, verificador })
+          : await trocarCodigo({ ...cfg, segredo: cfg.segredo! }, { codigo, verificador });
     } catch (e) {
       if (!(e instanceof ErroDoRegem)) throw e;
       // O MOTIVO, sem o conteúdo. `cliente_invalido` é defeito da
       // instalação (o segredo daqui não é o de lá), e ninguém na tela
       // resolve: por isso o nível de erro.
       const registro = { motivo: e.motivo, status: e.status };
-      if (e.motivo === 'cliente_invalido') req.log.error(registro, 'regem: o segredo do aplicativo não confere com o do Regem');
-      else req.log.warn(registro, 'regem: a troca do código falhou');
+      if (e.motivo === 'cliente_invalido') {
+        req.log.error(
+          { ...registro, via: pedido.via },
+          pedido.via === 'clique'
+            ? 'regem: o Regem não reconhece o aplicativo do Farol no clique (o DMS ID ou a lista de aplicativos de lá)'
+            : 'regem: o segredo do aplicativo não confere com o do Regem',
+        );
+      } else req.log.warn(registro, 'regem: a troca do código falhou');
       return 'falhou';
     }
 
@@ -392,7 +423,7 @@ export function rotasDoRegem(app: FastifyInstance, pool: pg.Pool, cfg: ConfigDoR
         lojas.map((l) => l.regemLojaId),
         lojas.map((l) => l.nome),
         lojas.map((l) => l.empresa),
-        lojas.map((l) => cifrar(l.acesso, cfg.chave, contextoDoAcesso(s.tenantId, l.regemLojaId))),
+        lojas.map((l) => cifrar(l.acesso, chave, contextoDoAcesso(s.tenantId, l.regemLojaId))),
       ],
     );
     // A loja que já tinha par volta a ser lida agora, sem esperar a rotina.
